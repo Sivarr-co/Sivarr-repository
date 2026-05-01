@@ -288,9 +288,10 @@ body.dashboard-active { overflow: hidden; }
 .body {
   display: grid;
   grid-template-columns: 200px 1fr;
-  height: calc(100vh - 56px);
-  overflow: hidden;
+  grid-template-rows: 1fr;
+  flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 /* ── Sidebar ─────────────────────────────────────────── */
@@ -466,7 +467,11 @@ body.dashboard-active { overflow: hidden; }
   width: 100%;
 }
 
-.panel.active { display: flex; }
+.panel.active {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
 
 /* Chat */
 .chat-msgs {
@@ -1511,7 +1516,11 @@ body.dashboard-active { overflow: hidden; }
     min-height: 0;
   }
 
-  .panel.active { display: flex; }
+  .panel.active {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
 
   /* ── Chat ── */
   .chat-msgs {
@@ -2571,7 +2580,11 @@ body.light .quick-action:hover { background: #4f6ef710; border-color: var(--acce
     min-height: 0;
     flex: 1;
   }
-  .panel.active { display: flex; }
+  .panel.active {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
 
   /* 6. Topbar compact */
   .topbar { height: 52px !important; padding: 0 10px !important; }
@@ -2922,4 +2935,5 @@ body.light .quick-action:hover { background: #4f6ef710; border-color: var(--acce
   transition: border-color .2s; margin-bottom: .5rem;
 }
 .tpl-textarea:focus { border-color: var(--accent); }
+
 
