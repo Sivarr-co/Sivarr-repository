@@ -180,6 +180,7 @@ async function doLogin(prefillName, prefillMatric) {
     $('login-screen').style.display = 'none';
     const dash= $('dashboard');
     $('dashboard').style.display    = 'flex';
+    nav('home', null);
     document.body.classList.add('dashboard-active');
 
     const greet = $('welcome-greeting');
@@ -3051,7 +3052,8 @@ function updateDiff(level) {
 // ═══════════════════════════ SNAV (New Sidebar) ═════════════════
 
 const SNAV_SECTION_HEIGHTS = {
-  ai: 4, academics: 3, planner: 4, assessments: 3, insights: 3
+  ai: 4, academics: 3, planner: 6, assessments: 3, insights: 3,
+  templates: 3, spaces: 2
 };
 
 // ═══════════════════════════ MOBILE SIDEBAR ══════════════════
@@ -3145,21 +3147,7 @@ function navMobExamEntry() {
 }
 
 // Swipe left to close sidebar
-(function() {
-  let startX = 0, startY = 0;
-  document.addEventListener('touchstart', e => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-  }, { passive: true });
-  document.addEventListener('touchend', e => {
-    const dx = startX - e.changedTouches[0].clientX;
-    const dy = Math.abs(startY - e.changedTouches[0].clientY);
-    const panel = $('mob-sidebar-panel');
-    if (panel && panel.classList.contains('open') && dx > 55 && dy < 40) {
-      closeMobileSidebar();
-    }
-  }, { passive: true });
-})();
+
 
 // Auto-open AI section on first load
 document.addEventListener('DOMContentLoaded', () => {
