@@ -5797,6 +5797,53 @@ async function shareResult(score, topic) {
   }
       }
 
+//      MOBILE BUTTON 
+(function () {
+  const fab = document.getElementById('mob-fab');
+  let dragging = false, startX, startY, initLeft, initBottom;
+
+  function getPos() {
+    const r = fab.getBoundingClientRect();
+    return {
+      left: r.left,
+      bottom: window.innerHeight - r.bottom
+    };
+  }
+
+  fab.addEventListener('pointerdown', e => {
+    dragging = false;
+    const pos = getPos();
+    startX  = e.clientX;
+    startY  = e.clientY;
+    initLeft   = pos.left;
+    initBottom = pos.bottom;
+    fab.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  fab.addEventListener('pointermove', e => {
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (!dragging && Math.hypot(dx, dy) > 6) dragging = true;
+    if (!dragging) return;
+
+    // Clamp within viewport
+    const size = 46;
+    const margin = 10;
+    let newLeft   = Math.min(Math.max(initLeft   + dx, margin), window.innerWidth  - size - margin);
+    let newBottom = Math.min(Math.max(initBottom - dy, margin), window.innerHeight - size - margin);
+
+    fab.style.left   = newLeft   + 'px';
+    fab.style.bottom = newBottom + 'px';
+    fab.style.right  = 'auto';
+    fab.style.top    = 'auto';
+  });
+
+  fab.addEventListener('pointerup', () => {
+    if (!dragging) toggleMobileSidebar(); // treat as tap if no drag
+    dragging = false;
+  });
+})();
 
 
 
