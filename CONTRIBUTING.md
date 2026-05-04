@@ -1,6 +1,6 @@
-# Contributing to Sivarr
 
-Welcome to the Sivarr team. This doc covers everything you need to get started, what you're responsible for, and how we work together without stepping on each other.
+Welcome, This doc covers everything we need to get started
+what we're responsible for, and how we work together without stepping on each other.
 
 ---
 
@@ -16,7 +16,7 @@ Welcome to the Sivarr team. This doc covers everything you need to get started, 
 
 ---
 
-## Getting Started
+## What to do
 
 ### 1. Clone the repo
 
@@ -33,7 +33,7 @@ Copy the example env file — never commit real keys:
 cp .env.example .env
 ```
 
-Fill in your local values. Ask Hunter for any keys you need.
+Fill in local values
 
 ### 3. Install & run
 
@@ -60,19 +60,11 @@ git checkout -b feat/spaces-api-endpoint
 git checkout -b fix/panel-layout-mobile
 ```
 
-**Workflow:**
-
-1. Branch off `dev`
-2. Build your feature
-3. Open a PR into `dev`
-4. Hunter reviews and merges
-5. Hunter promotes `dev` → `main` when stable
-
 ---
 
 ## Daily Async Check-in
 
-Post a short update in the team channel each morning:
+Post a short update in the WhatsApp each morning:
 
 ```
 ✅ Yesterday: what you shipped
@@ -80,13 +72,13 @@ Post a short update in the team channel each morning:
 🚧 Blockers: anything you need help with
 ```
 
-This keeps everyone unblocked without meetings.
+We'd get better communication that way.
 
 ---
 
-## Task Ownership
+## Task delegation
 
-### Engineer 1 — Panels & Core UI
+### Fawaz — Panels & Core UI
 
 You own the dashboard panel system. Each panel is a self-contained component.
 
@@ -98,7 +90,7 @@ You own the dashboard panel system. Each panel is a self-contained component.
 
 **How to work:**
 - Each panel lives in its own section of `js/app.js` and `css/styles.css`
-- Don't touch layout/dashboard wrapper code without checking with Hunter first
+- Don't touch layout/dashboard wrapper code without checking in first
 - Mobile wiring: every new panel must be connected to the mobile tab bar
 
 **Definition of done for a panel:**
@@ -109,20 +101,18 @@ You own the dashboard panel system. Each panel is a self-contained component.
 
 ---
 
-### Engineer 2 — Spaces System & Backend
+### Joel — Spaces System & Backend
 
 You own the Spaces system and backend API endpoints.
 
 **Current backlog:**
 - Spaces: dynamic creation, rename, delete, reorder
-- Backend: REST endpoints for spaces CRUD
 - Learning Hub: content fetching and display
-- Content Hub: feed structure and API integration
 
 **How to work:**
 - Backend changes go in clearly named route files
 - Any new API endpoint needs a matching entry in the README API section
-- For Spaces frontend logic, coordinate with Eng 1 if it touches the sidebar or modal
+- For Spaces frontend logic, coordinate with Fawaz if it touches the sidebar or modal
 
 **Definition of done for a feature:**
 - [ ] Backend endpoint tested with Postman or curl
@@ -161,7 +151,7 @@ You own the Spaces system and backend API endpoints.
 
 ---
 
-## What Hunter Owns
+## NB
 
 Don't modify these without a conversation first:
 
@@ -169,10 +159,6 @@ Don't modify these without a conversation first:
 - Gemini AI integration code
 - `main.py` core app setup
 - Authentication / security middleware
-- `main` branch — Hunter handles all production merges
+- `main` I'd handl all production merges
 
----
 
-## Questions?
-
-Ping Hunter directly. When in doubt, ask before you build — it's faster than rebuilding.
