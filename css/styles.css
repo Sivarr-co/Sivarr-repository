@@ -1424,136 +1424,6 @@ body.dashboard-active { overflow: hidden; }
 }
 
 /* Mobile */
-@media (max-width: 720px) {
-
-  /* ── Hide desktop sidebars completely ── */
-  .sidebar { display: none !important; }
-  .right   { display: none !important; }
-  .mobile-nav { display: none !important; }
-
-  /* ── Topbar compact ── */
-  .user-name, .user-matric { display: none; }
-  .topbar { padding: 0 .875rem; gap: .5rem; }
-
-  /* ── Dashboard fills full screen ── */
-  #dashboard {
-    flex-direction: column;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
-  }
-
-  /* ── Scroll tab bar sits below topbar ── */
-  .tab-bar {
-    display: flex !important;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    gap: 8px;
-    padding: 8px 12px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    scroll-snap-type: x mandatory;
-  }
-
-  .tab-bar::-webkit-scrollbar { display: none; }
-
-  .tab-pill {
-    display: flex !important;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 7px 14px;
-    font-family: var(--font);
-    font-size: .78rem;
-    font-weight: 600;
-    color: var(--muted);
-    cursor: pointer;
-    transition: all .2s;
-    scroll-snap-align: start;
-    flex-shrink: 0;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .tab-pill.active {
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    border-color: transparent;
-    color: #fff;
-    transform: scale(1.04);
-    box-shadow: 0 4px 14px #4f6ef740;
-  }
-
-  .tab-pill .tp-icon { font-size: 1rem; }
-
-  /* ── Body below tab bar ── */
-  .body {
-    display: block;
-    height: calc(100dvh - 56px - 46px);
-    overflow: hidden;
-  }
-
-  /* ── Main fills full body ── */
-  .main {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  /* ── Panels ── */
-  .panel {
-    width: 100%;
-    height: 100%;
-    display: none;
-    flex-direction: column;
-    overflow: hidden;
-    min-height: 0;
-  }
-
-  .panel.active {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-}
-
-  /* ── Chat ── */
-  .chat-msgs {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: .875rem;
-  }
-
-  .chat-bar {
-  max-width: 820px;
-  width: 100%;
-  margin: 0 auto;
-    flex-shrink: 0;
-    padding: .75rem .875rem;
-    border-top: 1px solid var(--border);
-    background: var(--surface);
-    display: flex;
-    gap: 8px;
-    align-items: flex-end;
-  }
-
-  .chat-input { font-size: .92rem; padding: 10px 12px; min-height: 42px; }
-  .send-btn   { width: 44px; height: 44px; font-size: 1rem; }
-
-  /* ── Other panels ── */
-  .quiz-wrap  { flex: 1; overflow-y: auto; padding: 1rem; }
-  .stats-wrap { flex: 1; overflow-y: auto; padding: 1rem; }
-  #panel-more { flex: 1; overflow-y: auto; }
-
-  /* ── Login ── */
-  .login-box { padding: 2rem 1.5rem; border-radius: 16px; }
-}
 
 .mobile-nav { display: none; }
 .tab-bar    { display: none; }
@@ -2544,33 +2414,42 @@ body.light .quick-action:hover { background: #4f6ef710; border-color: var(--acce
 
 @media (max-width: 720px) {
 
-  /* 1. Hide desktop sidebar */
-  .sidebar { display: none !important; }
+  /* 1. Hide desktop-only elements */
+  .sidebar    { display: none !important; }
+  .right      { display: none !important; }
+  .mobile-nav { display: none !important; }
 
-  /* 2. Hide scrolling tab bar — replaced by hamburger */
+  /* 2. Hide scrolling tab bar — replaced by hamburger FAB */
   .tab-bar  { display: none !important; }
   .tab-pill { display: none !important; }
 
-  /* 3. Body: single column, full height */
+  /* 3. Hide text-only elements on compact topbar */
+  .user-name, .user-matric, .topbar-name { display: none; }
+
+  /* 4. Topbar compact */
+  .topbar { height: 52px !important; padding: 0 10px !important; }
+
+  /* 5. Body: single-column grid, full height below topbar */
   .body {
+    display: grid !important;
     grid-template-columns: 1fr !important;
     height: calc(100dvh - 52px) !important;
     max-height: calc(100dvh - 52px) !important;
     overflow: hidden;
   }
 
-  /* 4. Main fills full width */
+  /* 6. Main fills full column */
   .main {
     width: 100% !important;
     min-width: 0 !important;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
+    overflow: hidden;
   }
 
-  /* 5. Panels fill content area */
+  /* 7. Panels — authoritative mobile contract */
   .panel {
     width: 100%;
     height: 100%;
@@ -2578,45 +2457,53 @@ body.light .quick-action:hover { background: #4f6ef710; border-color: var(--acce
     flex-direction: column;
     overflow: hidden;
     min-height: 0;
-    flex: 1;
   }
   .panel.active {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-}
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
 
-  /* 6. Topbar compact */
-  .topbar { height: 52px !important; padding: 0 10px !important; }
-  .topbar-name { display: none; }
-
-  /* 7. Fonts reduced */
-  #welcome-greeting,
-  .welcome-greeting { font-size: 1.4rem !important; }
-  .chat-msgs { padding: .75rem !important; }
-  .chat-input { font-size: 16px !important; padding: 9px 11px !important; }
-  .wa-input   { font-size: 16px !important; }
-
-  /* 8. Chat bar full width, no centering gap */
+  /* 8. Chat */
+  .chat-msgs {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: .75rem !important;
+  }
+  .chat-input {
+    font-size: 16px !important;
+    padding: 9px 11px !important;
+    min-height: 42px;
+  }
+  .wa-input { font-size: 16px !important; }
   .chat-bar {
     max-width: 100% !important;
     margin: 0 !important;
     padding: 8px 10px !important;
   }
+  .send-btn { width: 44px; height: 44px; font-size: 1rem; }
 
-  /* 9. Quick action pills smaller */
+  /* 9. Other panels */
+  .quiz-wrap  { flex: 1; overflow-y: auto; padding: 1rem; }
+  .stats-wrap { flex: 1; overflow-y: auto; padding: 1rem; }
+  #panel-more { flex: 1; overflow-y: auto; }
+
+  /* 10. Typography */
+  #welcome-greeting,
+  .welcome-greeting { font-size: 1.4rem !important; }
   .quick-action { font-size: .78rem !important; padding: 7px 13px !important; }
 
-  /* 10. Login box fits phone */
+  /* 11. Login */
   #login-screen { align-items: flex-start !important; padding: 1rem !important; }
   .login-box    { padding: 1.5rem 1.25rem !important; margin: 1rem 0 !important; }
 
-  /* 11. Exam mobile */
-  .exam-option    { padding: 12px 12px !important; font-size: .88rem !important; }
-  .exam-body      { padding: .875rem !important; }
-  .exam-topbar    { padding: .625rem .875rem !important; }
+  /* 12. Exam */
+  .exam-option  { padding: 12px 12px !important; font-size: .88rem !important; }
+  .exam-body    { padding: .875rem !important; }
+  .exam-topbar  { padding: .625rem .875rem !important; }
 
-  /* 12. Floating hamburger FAB */
+  /* 13. Floating hamburger FAB */
   .mob-fab {
     display: flex;
     align-items: center;
