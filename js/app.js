@@ -154,44 +154,8 @@ async function doLogin(prefillName, prefillEmail) {
 
   try {
     const r = await API('/api/login', { name, email, password: pw, phone, action: AUTH_TAB });
-
-    S.sid   = r.sid;  S.name  = r.name;  S.email = r.email;
-    S.diff  = r.difficulty; S.topics = r.topics; S.weak = r.weak;
-    S.stats = { questions: r.questions, quizzes: r.quizzes, sessions: r.sessions, wrong: r.wrong_count };
-    S.uploadedFiles = r.uploaded_files || [];
-    S.plan  = r.plan || 'free';
-
-    saveSession(name, email);
-
-    const tbAv = $('tb-av'); if (tbAv) tbAv.textContent = r.name[0].toUpperCase();
-    const tbNm = $('tb-name'); if (tbNm) tbNm.textContent = r.name;
-    const snavAv   = $('snav-av');     if (snavAv)   snavAv.textContent   = r.name[0].toUpperCase();
-    const snavName = $('snav-name');   if (snavName) snavName.textContent = r.name;
-    const pdName   = $('pd-name');     if (pdName)   pdName.textContent   = r.name;
-    const pdMatric = $('pd-matric');   if (pdMatric) pdMatric.textContent = r.email;
-    const tbAvBig  = $('tb-av-big');   if (tbAvBig)  tbAvBig.textContent  = r.name[0].toUpperCase();
-    const mobAv    = $('mob-snav-av'); if (mobAv)    mobAv.textContent    = r.name[0].toUpperCase();
-    const mobName  = $('mob-snav-name'); if (mobName) mobName.textContent = r.name;
-    loadProfilePic();
-    snavToggle('ai', $('snav-sec-ai'));
-    updateDiff(r.difficulty);
-    updateSBStats();
-    renderTopics(r.topics, r.weak);
-    renderFileList();
-    loadWrong();
-
-    $('login-screen').style.display = 'none';
-    $('dashboard').style.display    = 'block';
-    nav('home', null);
-    document.body.classList.add('dashboard-active');
-
-    const greet = $('welcome-greeting');
-    if (greet) {
-      const hr  = new Date().getHours();
-      const tod = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
-      greet.textContent = `${tod}, ${r.name.split(' ')[0]}`;
-    }
-    loadAnnouncements();
+    saveSession(r.name, r.email, r.token);
+    _applyLoginData(r);
 
     try {
       const ann = await fetch('/api/lecturer/announcements');
@@ -336,10 +300,11 @@ function showAllAnnouncements() {
 // ═══════════════════════════ SESSION PERSISTENCE ══════════════
 // Save login to localStorage so user stays logged in on return
 
-function saveSession(name, email) {
+function saveSession(name, email, token) {
   localStorage.setItem('sivarr_name',  name);
   localStorage.setItem('sivarr_email', email);
   localStorage.setItem('sivarr_ts',    Date.now());
+  if (token) localStorage.setItem('sivarr_token', token);
 }
 
 function clearSession() {
@@ -347,39 +312,102 @@ function clearSession() {
   localStorage.removeItem('sivarr_email');
   localStorage.removeItem('sivarr_matric'); // clear legacy key
   localStorage.removeItem('sivarr_ts');
+  const token = localStorage.getItem('sivarr_token');
+  localStorage.removeItem('sivarr_token');
+  // Tell backend to invalidate the token
+  if (token) {
+    fetch('/api/logout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token }) }).catch(() => {});
+  }
 }
 
 function getSavedSession() {
   const name  = localStorage.getItem('sivarr_name');
   const email = localStorage.getItem('sivarr_email');
   const ts    = localStorage.getItem('sivarr_ts');
+  const token = localStorage.getItem('sivarr_token');
   if (!name || !email || !ts) return null;
   if (Date.now() - parseInt(ts) > 30 * 24 * 60 * 60 * 1000) {
     clearSession(); return null;
   }
-  return { name, email };
+  return { name, email, token };
 }
 
 // ═══════════════════════════ LOGIN ════════════════════════════
-// Add logout button handler
 function logout() {
   clearSession();
   document.body.classList.remove('dashboard-active');
   location.reload();
 }
 
-// Auto-login on page load if session exists
-window.addEventListener('DOMContentLoaded', () => {
-  // Clear any stale lecturer tokens — lecturer login is on /lecturer page
+function _applyLoginData(r) {
+  S.sid   = r.sid;  S.name  = r.name;  S.email = r.email;
+  S.diff  = r.difficulty; S.topics = r.topics; S.weak = r.weak;
+  S.stats = { questions: r.questions, quizzes: r.quizzes, sessions: r.sessions, wrong: r.wrong_count };
+  S.uploadedFiles = r.uploaded_files || [];
+  S.plan  = r.plan || 'free';
+
+  const tbAv = $('tb-av'); if (tbAv) tbAv.textContent = r.name[0].toUpperCase();
+  const tbNm = $('tb-name'); if (tbNm) tbNm.textContent = r.name;
+  const snavAv   = $('snav-av');     if (snavAv)   snavAv.textContent   = r.name[0].toUpperCase();
+  const snavName = $('snav-name');   if (snavName) snavName.textContent = r.name;
+  const pdName   = $('pd-name');     if (pdName)   pdName.textContent   = r.name;
+  const pdMatric = $('pd-matric');   if (pdMatric) pdMatric.textContent = r.email;
+  const tbAvBig  = $('tb-av-big');   if (tbAvBig)  tbAvBig.textContent  = r.name[0].toUpperCase();
+  const mobAv    = $('mob-snav-av'); if (mobAv)    mobAv.textContent    = r.name[0].toUpperCase();
+  const mobName  = $('mob-snav-name'); if (mobName) mobName.textContent = r.name;
+  loadProfilePic();
+  snavToggle('ai', $('snav-sec-ai'));
+  updateDiff(r.difficulty);
+  updateSBStats();
+  renderTopics(r.topics, r.weak);
+  renderFileList();
+  loadWrong();
+
+  $('login-screen').style.display = 'none';
+  $('dashboard').style.display    = 'block';
+  nav('home', null);
+  document.body.classList.add('dashboard-active');
+
+  const greet = $('welcome-greeting');
+  if (greet) {
+    const hr  = new Date().getHours();
+    const tod = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+    greet.textContent = `${tod}, ${r.name.split(' ')[0]}`;
+  }
+  loadAnnouncements();
+}
+
+async function restoreSession(token) {
+  try {
+    const r = await API('/api/session/restore', { token });
+    saveSession(r.name, r.email, r.token || token);
+    _applyLoginData(r);
+    return true;
+  } catch(e) {
+    localStorage.removeItem('sivarr_token');
+    return false;
+  }
+}
+
+// Auto-restore on page load — try token first, fall back to re-login
+window.addEventListener('DOMContentLoaded', async () => {
   localStorage.removeItem('sivarr_lecturer_token');
   localStorage.removeItem('sivarr_lecturer_name');
 
   const saved = getSavedSession();
-  if (saved) {
-    const btn = $('login-btn');
-    if (btn) { btn.textContent = 'Resuming session...'; btn.disabled = true; }
-    doLogin(saved.name, saved.email);
+  if (!saved) return;
+
+  const btn = $('login-btn');
+  if (btn) { btn.textContent = 'Resuming session...'; btn.disabled = true; }
+
+  // Token restore — no password required
+  if (saved.token) {
+    const ok = await restoreSession(saved.token);
+    if (ok) return;
   }
+
+  // Fallback: full re-login (for legacy sessions or expired tokens)
+  doLogin(saved.name, saved.email);
 });
 
 ['ln','lm'].forEach((id,i) => {

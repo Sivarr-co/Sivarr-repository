@@ -66,12 +66,24 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT          DEFAULT '',
     created_at    TIMESTAMPTZ   DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 CREATE TABLE IF NOT EXISTS user_progress (
     sid        TEXT PRIMARY KEY REFERENCES users(sid) ON DELETE CASCADE,
     data       JSONB NOT NULL   DEFAULT '{}',
     updated_at TIMESTAMPTZ      DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+    token      TEXT PRIMARY KEY,
+    sid        TEXT NOT NULL,
+    name       TEXT NOT NULL DEFAULT '',
+    email      TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ   DEFAULT NOW(),
+    expires_at TIMESTAMPTZ   NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_sid     ON user_sessions(sid);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at);
 
 CREATE TABLE IF NOT EXISTS spaces (
     id         TEXT PRIMARY KEY,
@@ -199,6 +211,96 @@ def db_save_progress(sid: str, data: dict) -> None:
     except Exception as exc:
         log.error(f"db_save_progress failed [{sid}]: {exc}")
         conn.rollback()
+    finally:
+        _release(conn)
+
+
+# ── Sessions ──────────────────────────────────────────────────────
+
+def create_db_session(token: str, sid: str, name: str, email: str, expires_at) -> None:
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO user_sessions (token, sid, name, email, expires_at)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (token) DO UPDATE SET expires_at = EXCLUDED.expires_at
+            """, (token, sid, name, email, expires_at))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"create_db_session failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
+def get_db_session(token: str) -> dict | None:
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT sid, name, email, expires_at FROM user_sessions
+                WHERE token = %s AND expires_at > NOW()
+            """, (token,))
+            row = cur.fetchone()
+        if not row:
+            return None
+        return {"sid": row[0], "name": row[1], "email": row[2], "expires_at": row[3]}
+    finally:
+        _release(conn)
+
+
+def delete_db_session(token: str) -> None:
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM user_sessions WHERE token = %s", (token,))
+        conn.commit()
+    finally:
+        _release(conn)
+
+
+def cleanup_db_sessions() -> int:
+    """Delete expired sessions. Returns number removed."""
+    conn = _get_conn()
+    if not conn:
+        return 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM user_sessions WHERE expires_at <= NOW()")
+            count = cur.rowcount
+        conn.commit()
+        if count:
+            log.info(f"Cleaned up {count} expired sessions")
+        return count
+    except Exception as exc:
+        log.error(f"cleanup_db_sessions failed: {exc}")
+        conn.rollback()
+        return 0
+    finally:
+        _release(conn)
+
+
+def get_user_by_email(email: str) -> dict | None:
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT sid, name, email, phone, password_hash FROM users WHERE email = %s",
+                (email.lower().strip(),)
+            )
+            row = cur.fetchone()
+        if not row:
+            return None
+        return {"sid": row[0], "name": row[1], "email": row[2], "phone": row[3], "password": row[4]}
     finally:
         _release(conn)
 

@@ -35,6 +35,8 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
 
+import database as db
+
 # ═══════════════════════════════════════════════════════════════
 #  LOGGING SETUP
 # ═══════════════════════════════════════════════════════════════
@@ -78,15 +80,29 @@ CLASSES_PATH = DATA_DIR / "classes.json"
 USERS_PATH   = DATA_DIR / "users.json"
 
 def load_users() -> dict:
+    """Load users from JSON file (DB is used directly per-user in login flow)."""
     if USERS_PATH.exists():
-        try: return json.loads(USERS_PATH.read_text())
-        except: return {}
+        try:
+            return json.loads(USERS_PATH.read_text())
+        except Exception:
+            return {}
     return {}
 
+
 def save_users(users: dict):
+    """Save users to JSON file and sync to DB."""
     tmp = str(USERS_PATH) + ".tmp"
-    with open(tmp, "w") as f: json.dump(users, f, indent=2)
+    with open(tmp, "w") as f:
+        json.dump(users, f, indent=2)
     shutil.move(tmp, str(USERS_PATH))
+    # Sync new/updated users to DB
+    if db.is_available():
+        for sid, u in users.items():
+            try:
+                if not db.user_exists(sid):
+                    db.create_user(u)
+            except Exception as e:
+                log.warning(f"DB sync user {sid}: {e}")
 
 # ── Rate limiting config ──────────────────────────────────────
 RATE_LIMIT_CHAT     = int(os.environ.get("RATE_LIMIT_CHAT", 20))      # max chat msgs per window
@@ -396,7 +412,62 @@ API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 # ═══════════════════════════════════════════════════════════════
 
 _model_name = None
-_chat_sessions = {}
+_chat_sessions: dict = {}          # sid → {chat, math, last_used}
+_session_tokens: dict = {}         # token → {sid, name, email, expires}
+
+SESSION_TTL_DAYS  = 30             # auth token lifetime
+CHAT_SESSION_TTL  = 4 * 3600      # evict idle AI sessions after 4 hours
+
+
+def _evict_stale_chat_sessions():
+    cutoff = time.time() - CHAT_SESSION_TTL
+    stale  = [k for k, v in _chat_sessions.items() if v.get("last_used", 0) < cutoff]
+    for k in stale:
+        del _chat_sessions[k]
+    if stale:
+        log.info(f"Evicted {len(stale)} stale AI chat sessions")
+
+
+# ── Token-based session management ────────────────────────────────
+
+def create_session_token(sid: str, name: str, email: str) -> str:
+    token   = secrets.token_urlsafe(32)
+    expires = datetime.datetime.utcnow() + datetime.timedelta(days=SESSION_TTL_DAYS)
+    _session_tokens[token] = {"sid": sid, "name": name, "email": email, "expires": expires}
+    if db.is_available():
+        db.create_db_session(token, sid, name, email, expires)
+    return token
+
+
+def get_session_from_token(token: str) -> dict | None:
+    if not token:
+        return None
+    # Check in-memory first
+    entry = _session_tokens.get(token)
+    if entry:
+        if datetime.datetime.utcnow() < entry["expires"]:
+            return entry
+        del _session_tokens[token]
+        return None
+    # Fallback: check DB
+    if db.is_available():
+        return db.get_db_session(token)
+    return None
+
+
+def delete_session_token(token: str) -> None:
+    _session_tokens.pop(token, None)
+    if db.is_available():
+        db.delete_db_session(token)
+
+
+def cleanup_expired_tokens():
+    now = datetime.datetime.utcnow()
+    stale = [t for t, v in _session_tokens.items() if v.get("expires", now) <= now]
+    for t in stale:
+        del _session_tokens[t]
+    if db.is_available():
+        db.cleanup_db_sessions()
 
 def get_model():
     global _model_name
@@ -423,6 +494,8 @@ def get_model():
 
 
 def get_sessions(sid, memory=""):
+    if len(_chat_sessions) > 500:
+        _evict_stale_chat_sessions()
     if sid not in _chat_sessions:
         model  = get_model()
         system = SYSTEM_PROMPT + (f"\n\n{memory}" if memory else "")
@@ -433,8 +506,10 @@ def get_sessions(sid, memory=""):
                 generation_config=genai.GenerationConfig(temperature=0.7, max_output_tokens=400),
             )
             return m.start_chat(history=[])
-        _chat_sessions[sid] = {"chat": mk(system), "math": mk(MATH_PROMPT)}
+        _chat_sessions[sid] = {"chat": mk(system), "math": mk(MATH_PROMPT), "last_used": time.time()}
         log.info(f"New chat session created for: {sid}")
+    else:
+        _chat_sessions[sid]["last_used"] = time.time()
     return _chat_sessions[sid]
 
 
@@ -522,23 +597,47 @@ def save_json(p, data):
     shutil.move(tmp, str(p))
 
 
+_PROGRESS_DEFAULTS = {
+    "sessions": 0, "questions": 0, "topics": {},
+    "quizzes": [], "wrong_answers": [], "chat_history": [],
+    "difficulty": "medium", "name": "", "matric": "",
+    "uploaded_files": [],
+}
+
 def load_progress(sid):
+    # Try DB first
+    if db.is_available():
+        try:
+            data = db.db_load_progress(sid)
+            if data:
+                return {**_PROGRESS_DEFAULTS, **data}
+        except Exception as e:
+            log.warning(f"DB load_progress fallback for {sid}: {e}")
+    # Fall back to JSON file
     p = ppath(sid)
     if p.exists():
-        return json.loads(p.read_text())
-    return {
-        "sessions": 0, "questions": 0, "topics": {},
-        "quizzes": [], "wrong_answers": [], "chat_history": [],
-        "difficulty": "medium", "name": "", "matric": "",
-        "uploaded_files": [],
-    }
+        try:
+            return {**_PROGRESS_DEFAULTS, **json.loads(p.read_text())}
+        except Exception:
+            pass
+    return dict(_PROGRESS_DEFAULTS)
 
 
 def save_progress(sid, p):
+    # Write to DB
+    if db.is_available():
+        try:
+            db.db_save_progress(sid, p)
+        except Exception as e:
+            log.warning(f"DB save_progress failed for {sid}: {e}")
+    # Always keep JSON backup
     path = ppath(sid)
-    if path.exists():
-        shutil.copy2(str(path), str(path).replace(".json", ".backup.json"))
-    save_json(path, p)
+    try:
+        if path.exists():
+            shutil.copy2(str(path), str(path).replace(".json", ".backup.json"))
+        save_json(path, p)
+    except Exception as e:
+        log.warning(f"JSON save_progress failed for {sid}: {e}")
 
 
 def get_cached(lib, topic):
@@ -683,6 +782,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup():
+    limiter._set_path(DATA_DIR / "rate_limits.json")
+    if db.is_available():
+        ok = db.init_db()
+        if ok:
+            db.migrate_from_json(str(USERS_PATH), str(DATA_DIR))
+            db.cleanup_db_sessions()
+            log.info("Database ready")
+    else:
+        log.info("Running on JSON file storage (no DATABASE_URL set)")
 
 # ── Global error handler ──────────────────────────────────────
 
@@ -840,15 +952,82 @@ async def login(req: LoginRequest, request: Request):
     memory = build_memory(p)
     get_sessions(sid, memory)
 
+    cleanup_expired_tokens()
+    token = create_session_token(sid, p["name"], p["email"])
+
     log.info(f"Login: {p['name']} ({p['email']}) | Sessions: {p['sessions']}")
 
     return {
         "sid": sid, "name": p["name"], "email": p["email"],
+        "token": token,
         "sessions": p["sessions"], "difficulty": p.get("difficulty","medium"),
         "topics": list(p["topics"].keys()), "weak": weak_topics(p),
         "questions": p["questions"], "quizzes": len(p.get("quizzes",[])),
         "wrong_count": len(p.get("wrong_answers",[])), "returning": p["sessions"] > 1,
         "uploaded_files": p.get("uploaded_files", []),
+    }
+
+
+@app.post("/api/session/restore")
+async def session_restore(data: dict):
+    """
+    Restore a session from a saved token — no password re-entry needed.
+    Called on page reload when the client has a stored token.
+    """
+    token = sanitize_text(str(data.get("token", "")), 100)
+    if not token:
+        raise HTTPException(401, "Token required.")
+
+    entry = get_session_from_token(token)
+    if not entry:
+        raise HTTPException(401, "Session expired. Please sign in again.")
+
+    sid   = entry["sid"]
+    name  = entry["name"]
+    email = entry["email"]
+
+    p = load_progress(sid)
+    # Increment session counter only if it's been more than 30 min since last save
+    last_restore = p.get("last_restore_ts", 0)
+    now_ts = time.time()
+    if now_ts - last_restore > 1800:
+        p["sessions"] = p.get("sessions", 0) + 1
+        p["last_restore_ts"] = now_ts
+        save_progress(sid, p)
+
+    memory = build_memory(p)
+    get_sessions(sid, memory)
+
+    log.info(f"Session restored: {name} ({email})")
+
+    return {
+        "sid": sid, "name": p.get("name", name), "email": p.get("email", email),
+        "token": token,
+        "sessions": p["sessions"], "difficulty": p.get("difficulty", "medium"),
+        "topics": list(p.get("topics", {}).keys()), "weak": weak_topics(p),
+        "questions": p.get("questions", 0), "quizzes": len(p.get("quizzes", [])),
+        "wrong_count": len(p.get("wrong_answers", [])), "returning": p["sessions"] > 1,
+        "uploaded_files": p.get("uploaded_files", []),
+    }
+
+
+@app.post("/api/logout")
+async def logout(data: dict):
+    """Invalidate a session token."""
+    token = sanitize_text(str(data.get("token", "")), 100)
+    if token:
+        delete_session_token(token)
+    return {"ok": True}
+
+
+@app.get("/api/health")
+async def health():
+    return {
+        "status": "ok",
+        "db": db.is_available(),
+        "active_sessions": len(_session_tokens),
+        "chat_sessions": len(_chat_sessions),
+        "version": VERSION,
     }
 
 
