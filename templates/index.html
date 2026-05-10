@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SIVARR — Productivity OS</title>
+<title>SIVARR</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <link rel="stylesheet" href="/css/styles.css">
@@ -22,10 +22,9 @@
         <img src="/static/sivarrai.png" alt="SIVARR">
         <span>SIVARR</span>
       </div>
-      <div class="ll-tag">Productivity OS</div>
       <h2 class="ll-headline">Work smarter.<br>Learn deeper.<br>Grow faster.</h2>
       <div class="ll-features">
-        <div class="ll-feat"><i class="ti ti-robot"></i> SIVA AI — your always-on assistant</div>
+        <div class="ll-feat"><i class="ti ti-robot"></i> SIVARR AI — your always-on assistant</div>
         <div class="ll-feat"><i class="ti ti-checkbox"></i> Tasks, Notes, Goals in one workspace</div>
         <div class="ll-feat"><i class="ti ti-school"></i> Built for students, founders &amp; teams</div>
         <div class="ll-feat"><i class="ti ti-bolt"></i> Academic, Personal &amp; Org spaces</div>
@@ -65,22 +64,15 @@
           </div>
         </div>
         <div class="field">
-          <label id="lm-label">Student ID / Matric</label>
+          <label id="lm-label">Email</label>
           <div class="field-ic">
-            <i class="ti ti-id-badge"></i>
-            <input id="lm" type="text" placeholder="e.g. 20051947" autocomplete="off"
+            <i class="ti ti-mail"></i>
+            <input id="lm" type="email" placeholder="your@email.com" autocomplete="email"
               onkeydown="if(event.key==='Enter') $('l-pw').focus()">
           </div>
         </div>
         <!-- Register-only fields -->
         <div id="register-fields" style="display:none">
-          <div class="field">
-            <label>Email</label>
-            <div class="field-ic">
-              <i class="ti ti-mail"></i>
-              <input id="l-email" type="email" placeholder="you@university.edu">
-            </div>
-          </div>
           <div class="field">
             <label>Phone</label>
             <div class="field-ic">
@@ -242,7 +234,7 @@
         <div class="sg"><span class="sl">Core</span></div>
         <button class="si on" id="si-chat" data-panel="chat" onclick="sidebarNav(this)">
           <i class="ti ti-robot si-ic"></i>
-          <span class="si-lb">SIVA AI</span>
+          <span class="si-lb">SIVARR AI</span>
         </button>
         <button class="si" data-panel="home" onclick="sidebarNav(this)">
           <i class="ti ti-home si-ic"></i>

@@ -1119,11 +1119,13 @@ input, textarea, select { font-family: var(--font); }
 
 /* ── MODAL ─────────────────────────────────────────────────── */
 .modal-bg {
+  display:none;
   position:fixed; inset:0;
   background:rgba(0,0,0,.4); z-index:1000;
-  display:flex; align-items:center; justify-content:center;
-  padding:1rem; animation:fadeUp .15s ease;
+  align-items:center; justify-content:center;
+  padding:1rem;
 }
+.modal-bg.open { display:flex; animation:fadeUp .15s ease; }
 .modal-box {
   background:var(--bg2); border:1px solid var(--border);
   border-radius:var(--radius3); padding:1.5rem;
