@@ -1762,6 +1762,21 @@ function stSave(data) {
   localStorage.setItem(ST_KEY(), JSON.stringify(data));
 }
 
+const ST_SECTIONS = ['profile','appearance','notifications','security','plan','data'];
+
+function stToggleSection(id) {
+  const target = $(`st-sec-${id}`);
+  if (!target) return;
+  const isOpen = target.classList.contains('open');
+  // Close all
+  ST_SECTIONS.forEach(s => {
+    const el = $(`st-sec-${s}`);
+    if (el) el.classList.remove('open');
+  });
+  // Toggle clicked — open if it was closed
+  if (!isOpen) target.classList.add('open');
+}
+
 function stInit() {
   // Populate profile fields
   const st = stLoad();
