@@ -2574,6 +2574,8 @@ async def get_enrolled(sid: str):
 
 
 @app.get("/health")
+def health():
+  return {"status":"ok"}
 async def health():
     """Simple health check endpoint for Railway."""
     return {
