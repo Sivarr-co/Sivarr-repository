@@ -848,58 +848,84 @@
 
       <!-- Notes Panel -->
      <div class="panel" id="panel-notes">
-        <div style="flex:1;overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:.875rem;min-height:0">
+       <!-- Doc sidebar -->
+       <div class="doc-sidebar">
+         <div class="doc-sb-top">
+           <button class="doc-new-btn" onclick="docNew()">
+             <i class="ti ti-plus"></i> New Doc
+           </button>
+           <div class="doc-search-wrap">
+             <i class="ti ti-search doc-search-icon"></i>
+             <input class="doc-search-input" id="doc-search" placeholder="Search docs..." oninput="docSearchFilter()">
+           </div>
+         </div>
+         <div class="doc-list" id="doc-list">
+           <div class="doc-list-empty">No docs yet</div>
+         </div>
+       </div>
 
-          <!-- Header -->
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div>
-              <h2 style="font-family:var(--font);font-size:1.2rem;font-weight:800;letter-spacing:-.02em">📓 My Notes</h2>
-              <p style="font-size:.78rem;color:var(--muted);margin-top:2px">Saved to your device</p>
-            </div>
-            <button onclick="noteToggleForm()" id="note-add-btn"
-              style="background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:9px;padding:7px 14px;color:#fff;font-family:var(--font);font-size:.75rem;font-weight:700;cursor:pointer">
-              + New Note
-            </button>
-          </div>
+       <!-- Editor area -->
+       <div class="doc-editor-area">
+         <!-- Empty state -->
+         <div class="doc-empty-state" id="doc-empty-state">
+           <div class="doc-es-icon">📄</div>
+           <div class="doc-es-title">No document open</div>
+           <div class="doc-es-sub">Select a doc or create a new one</div>
+           <button class="doc-es-btn" onclick="docNew()">+ Create your first doc</button>
+         </div>
 
-          <!-- Search -->
-          <div style="position:relative">
-            <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.82rem">🔍</span>
-            <input id="note-search" type="text" placeholder="Search notes..."
-              style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 12px 8px 32px;color:var(--text);font-family:var(--font-body);font-size:.83rem;outline:none;transition:border-color .2s"
-              onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
-              oninput="noteSearch()">
-          </div>
+         <!-- Editor (shown when a doc is open) -->
+         <div class="doc-editor-wrap" id="doc-editor-wrap" style="display:none">
+           <!-- Toolbar -->
+           <div class="doc-toolbar" id="doc-toolbar">
+             <div class="doc-tb-group">
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormat('bold')" title="Bold"><i class="ti ti-bold"></i></button>
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormat('italic')" title="Italic"><i class="ti ti-italic"></i></button>
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormat('underline')" title="Underline"><i class="ti ti-underline"></i></button>
+             </div>
+             <div class="doc-tb-sep"></div>
+             <div class="doc-tb-group">
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormatBlock('h1')" title="Heading 1"><b style="font-size:.8rem">H1</b></button>
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormatBlock('h2')" title="Heading 2"><b style="font-size:.78rem">H2</b></button>
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormatBlock('h3')" title="Heading 3"><b style="font-size:.74rem">H3</b></button>
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormatBlock('p')" title="Paragraph"><i class="ti ti-pilcrow"></i></button>
+             </div>
+             <div class="doc-tb-sep"></div>
+             <div class="doc-tb-group">
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormat('insertUnorderedList')" title="Bullet list"><i class="ti ti-list"></i></button>
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormat('insertOrderedList')" title="Numbered list"><i class="ti ti-list-numbers"></i></button>
+             </div>
+             <div class="doc-tb-sep"></div>
+             <div class="doc-tb-group">
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormatBlock('blockquote')" title="Quote"><i class="ti ti-quote"></i></button>
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormatBlock('pre')" title="Code block"><i class="ti ti-code"></i></button>
+             </div>
+             <div class="doc-tb-sep"></div>
+             <button class="doc-siva-btn" onclick="docAskSiva()">
+               <i class="ti ti-sparkles"></i> SIVA
+             </button>
+           </div>
 
-          <!-- Tag filter -->
-          <div id="note-tag-bar" style="display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px"></div>
+           <!-- Title -->
+           <div class="doc-title-area">
+             <input class="doc-title-input" id="doc-title" placeholder="Untitled" oninput="docTitleChange()">
+           </div>
 
-          <!-- Write form -->
-          <div id="note-write-form" style="display:none;background:var(--card);border:1px solid var(--accent);border-radius:12px;padding:1rem">
-            <input id="note-tag-input" type="text" placeholder="Tag (e.g. Chemistry, MTH301)"
-              style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 11px;color:var(--text);font-family:var(--font-body);font-size:.8rem;outline:none;margin-bottom:.5rem;transition:border-color .2s"
-              onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-            <textarea id="new-note-text"
-              style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.75rem;color:var(--text);font-family:var(--font-body);font-size:.86rem;outline:none;resize:vertical;min-height:120px;line-height:1.6;transition:border-color .2s"
-              placeholder="Write your note here — no character limit..."
-              onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
-              oninput="noteCharCount()"></textarea>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-              <span style="font-size:.72rem;color:var(--muted)" id="note-char-count">0 words</span>
-              <div style="display:flex;gap:6px">
-                <button onclick="noteToggleForm()" style="padding:7px 14px;border-radius:8px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font);font-size:.78rem;font-weight:700;cursor:pointer">Cancel</button>
-                <button onclick="saveNote()" style="padding:7px 14px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-family:var(--font);font-size:.78rem;font-weight:700;cursor:pointer">Save</button>
-              </div>
-            </div>
-          </div>
+           <!-- Content -->
+           <div class="doc-content" id="doc-content"
+                contenteditable="true"
+                oninput="docContentChange()"
+                onkeydown="docKeyDown(event)"
+                data-placeholder="Start writing..."></div>
 
-          <!-- Notes list -->
-          <div id="notes-list">
-            <div class="empty-state"><div class="es-icon">📓</div><div class="es-text">No notes yet — tap New Note!</div></div>
-          </div>
-
-        </div>
- </div>
+           <!-- Footer -->
+           <div class="doc-footer">
+             <span class="doc-save-status" id="doc-save-status">All changes saved</span>
+             <span class="doc-word-count" id="doc-word-count">0 words</span>
+           </div>
+         </div>
+       </div>
+     </div>
 <!-- ── Study Plan Panel ── -->
       <div class="panel" id="panel-studyplan">
         <div style="flex:1;overflow-y:auto;padding:1.25rem">
@@ -2137,6 +2163,14 @@
       <span class="cmd-hint">ESC</span>
     </div>
     <div class="cmd-results" id="cmd-results"></div>
+    <div class="cmd-capture-row" id="cmd-capture-row" style="display:none">
+      <span class="cmd-capture-label">Capture as:</span>
+      <button class="cmd-cap-btn" onmousedown="event.preventDefault();qcCapture('task')">📋 Task</button>
+      <button class="cmd-cap-btn" onmousedown="event.preventDefault();qcCapture('event')">📅 Event</button>
+      <button class="cmd-cap-btn" onmousedown="event.preventDefault();qcCapture('journal')">📓 Journal</button>
+      <button class="cmd-cap-btn" onmousedown="event.preventDefault();qcCapture('goal')">🎯 Goal</button>
+      <button class="cmd-cap-btn" onmousedown="event.preventDefault();qcCapture('note')">💡 Note</button>
+    </div>
     <div class="cmd-footer">
       <div class="cmd-footer-hint"><kbd>↑↓</kbd> navigate</div>
       <div class="cmd-footer-hint"><kbd>↵</kbd> open</div>
@@ -2466,6 +2500,82 @@
   </div>
 
 </div><!-- end mob-sidebar-panel -->
+
+<!-- ══════════════════════════════════════════════════════
+     DAILY SIVA BRIEF OVERLAY
+     ══════════════════════════════════════════════════════ -->
+<div class="brief-overlay" id="brief-overlay">
+  <div class="brief-card">
+    <div class="brief-siva-row">
+      <div class="brief-siva-av">
+        <img src="/static/sivarrai.png" alt="SIVA">
+      </div>
+      <div class="brief-siva-label">SIVA · Your daily brief</div>
+    </div>
+    <div class="brief-greeting" id="brief-greeting">Good morning</div>
+    <div class="brief-date-line" id="brief-date-line">Saturday, 10 May</div>
+    <div class="brief-msg" id="brief-msg">Ready to make today count?</div>
+    <div class="brief-chips" id="brief-chips"></div>
+    <button class="brief-go-btn" onclick="briefDismiss()">Let's go →</button>
+    <button class="brief-skip-btn" onclick="briefDismiss()">Skip for now</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     FOCUS MODE OVERLAY
+     ══════════════════════════════════════════════════════ -->
+<div class="focus-overlay" id="focus-overlay">
+  <!-- Active timer screen -->
+  <div class="focus-screen" id="focus-screen">
+    <button class="focus-close-x" onclick="focusEnd()"><i class="ti ti-x"></i></button>
+    <div class="focus-task-name" id="focus-task-name">Focus Session</div>
+
+    <div class="focus-ring-wrap">
+      <svg class="focus-svg" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="86" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="8"/>
+        <circle id="focus-ring" cx="100" cy="100" r="86" fill="none"
+          stroke="url(#focusGrad)" stroke-width="8" stroke-linecap="round"
+          stroke-dasharray="540" stroke-dashoffset="0"
+          style="transition:stroke-dashoffset .6s ease;transform:rotate(-90deg);transform-origin:50% 50%"/>
+        <defs>
+          <linearGradient id="focusGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#0D7A5F"/>
+            <stop offset="100%" stop-color="#534AB7"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="focus-inner">
+        <div class="focus-time" id="focus-time">25:00</div>
+        <div class="focus-label-sm" id="focus-label-sm">Focus</div>
+      </div>
+    </div>
+
+    <div class="focus-controls">
+      <button class="focus-ctrl-btn focus-ctrl-sec" onclick="focusReset()" title="Reset"><i class="ti ti-refresh"></i></button>
+      <button class="focus-ctrl-btn focus-ctrl-pri" id="focus-play-btn" onclick="focusToggle()">
+        <i class="ti ti-player-play" id="focus-play-icon"></i>
+      </button>
+      <button class="focus-ctrl-btn focus-ctrl-sec" onclick="focusEnd()" title="End"><i class="ti ti-player-stop"></i></button>
+    </div>
+
+    <div class="focus-session-dots" id="focus-session-dots">
+      <div class="fsd fsd-active"></div><div class="fsd"></div><div class="fsd"></div><div class="fsd"></div>
+    </div>
+  </div>
+
+  <!-- Post-session screen -->
+  <div class="focus-done-screen" id="focus-done-screen" style="display:none">
+    <div class="focus-done-emoji">🎉</div>
+    <div class="focus-done-title">Session complete!</div>
+    <div class="focus-done-sub" id="focus-done-sub">You focused for 25 minutes. Great work.</div>
+    <textarea class="focus-done-input" id="focus-done-input" placeholder="What did you complete? (optional)"></textarea>
+    <div class="focus-done-actions">
+      <button class="fda-sec" onclick="focusContinue()"><i class="ti ti-refresh"></i> Another session</button>
+      <button class="fda-pri" onclick="focusFinish()">Done for now</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
 

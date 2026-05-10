@@ -375,6 +375,7 @@ function _applyLoginData(r) {
     greet.textContent = `${tod}, ${r.name.split(' ')[0]}`;
   }
   loadAnnouncements();
+  setTimeout(() => briefCheck(), 800);
 }
 
 async function restoreSession(token) {
@@ -3641,6 +3642,7 @@ function nav(name, btn) {
   syncSnavFromPanel(name);
 
   if (name === 'home')      { loadHome(); return; }
+  if (name === 'notes')     { docInit(); return; }
   if (name === 'templates') { tplInit(); return; }
   if (name === 'calendar')  { calInit(); return; }
   if (name === 'habits')    { habitInit(); return; }
@@ -3650,7 +3652,6 @@ function nav(name, btn) {
   if (name === 'stats')         loadStats();
   if (name === 'more')          syncMore();
   if (name === 'leaderboard')   loadLeaderboard();
-  if (name === 'notes')         loadNotes();
   if (name === 'flux')          loadStudyHelp();
   if (name === 'courses')       loadClasses();
   if (name === 'announcements') loadAllAnnouncements();
@@ -3690,8 +3691,8 @@ function navTab(name, btn) {
   if (name === 'stats')         loadStats();
   if (name === 'more')          syncMore();
   if (name === 'leaderboard')   loadLeaderboard();
-  if (name === 'notes')         loadNotes();
-  if (name === 'flux')     loadStudyHelp();
+  if (name === 'notes')         docInit();
+  if (name === 'flux')          loadStudyHelp();
   if (name === 'courses')       loadClasses();
   if (name === 'announcements') loadAllAnnouncements();
   if (name === 'studyplan') { const d = new Date(); d.setDate(d.getDate()+14); $('sp-date') && ($('sp-date').min = new Date().toISOString().split('T')[0]); }
@@ -3918,8 +3919,11 @@ function renderSHOverview() {
     const isDone = t.status === 'done';
 
     return `<tr style="transition:background .1s" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">
-      <td><div class="sh-cell editable sh-cell-title" style="${isDone ? 'text-decoration:line-through;opacity:.6' : ''}"
-            onclick="inlineEdit(${t.id},'title',this)">${esc(t.title)}</div></td>
+      <td><div class="sh-cell" style="display:flex;align-items:center;gap:6px">
+            <div class="editable sh-cell-title" style="flex:1;${isDone ? 'text-decoration:line-through;opacity:.6' : ''}"
+                onclick="inlineEdit(${t.id},'title',this)">${esc(t.title)}</div>
+            <button class="task-focus-btn" onclick="focusStart(${JSON.stringify(t.title)},25)" title="Focus on this task"><i class="ti ti-player-play" style="font-size:10px"></i></button>
+          </div></td>
       <td><div class="sh-cell" onclick="inlineEditSelect(${t.id},'status',this)">
             <span class="sh-status-pill" style="background:${st.bg};color:${st.color}">
               <span style="width:7px;height:7px;border-radius:50%;background:${st.color};flex-shrink:0"></span>
@@ -6214,5 +6218,503 @@ async function shareResult(score, topic) {
   });
 })();
 
+// ═══════════════════════════════════════════════════════════════
+// FEATURE 1 — QUICK CAPTURE (cmd palette extension)
+// ═══════════════════════════════════════════════════════════════
 
+function qcCapture(type) {
+  if (!S.sid) return;
+  const text = ($('cmd-input')?.value || '').trim();
+  if (!text) { cmdDismiss(); return; }
+
+  const ts   = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+  const sid  = S.sid;
+
+  if (type === 'task') {
+    const tasks = JSON.parse(localStorage.getItem(`sivarr_tasks_${sid}`) || '[]');
+    tasks.unshift({ id: Date.now(), title: text, done: false, priority: 'medium', created: Date.now() });
+    localStorage.setItem(`sivarr_tasks_${sid}`, JSON.stringify(tasks));
+    toast(`📋 Task captured: "${text.slice(0,40)}"`);
+  } else if (type === 'event') {
+    const events = JSON.parse(localStorage.getItem(`sivarr_cal_${sid}`) || '[]');
+    events.push({ id: Date.now(), title: text, date: new Date().toISOString().split('T')[0], time: '' });
+    localStorage.setItem(`sivarr_cal_${sid}`, JSON.stringify(events));
+    toast(`📅 Event captured: "${text.slice(0,40)}"`);
+  } else if (type === 'journal') {
+    const entries = JSON.parse(localStorage.getItem(`sivarr_journal_${sid}`) || '[]');
+    entries.unshift({ id: Date.now(), text, date: ts, prompt: '' });
+    localStorage.setItem(`sivarr_journal_${sid}`, JSON.stringify(entries));
+    toast(`📓 Journal entry saved`);
+  } else if (type === 'goal') {
+    const goals = JSON.parse(localStorage.getItem(`sivarr_goals_${sid}`) || '[]');
+    goals.unshift({ id: Date.now(), title: text, progress: 0, completed: false, created: Date.now() });
+    localStorage.setItem(`sivarr_goals_${sid}`, JSON.stringify(goals));
+    toast(`🎯 Goal captured: "${text.slice(0,40)}"`);
+  } else if (type === 'note') {
+    docCaptureNote(text);
+    toast(`💡 Note saved to Docs`);
+  }
+
+  cmdDismiss();
+}
+
+// Show capture row when user is typing in cmd palette
+const _origCmdSearch = window.cmdSearch;
+function cmdSearch() {
+  if (typeof _origCmdSearch === 'function') _origCmdSearch();
+  const q   = ($('cmd-input')?.value || '').trim();
+  const row = $('cmd-capture-row');
+  if (row) row.style.display = q.length > 1 ? 'flex' : 'none';
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// FEATURE 2 — DAILY SIVA BRIEF
+// ═══════════════════════════════════════════════════════════════
+
+function briefCheck() {
+  if (!S.sid) return;
+  const today = new Date().toDateString();
+  const seen  = localStorage.getItem(`sivarr_brief_${S.sid}`);
+  if (seen === today) return;
+  briefBuild();
+  $('brief-overlay').classList.add('open');
+}
+
+function briefDismiss() {
+  if (!S.sid) return;
+  localStorage.setItem(`sivarr_brief_${S.sid}`, new Date().toDateString());
+  $('brief-overlay')?.classList.remove('open');
+}
+
+function briefBuild() {
+  const hr        = new Date().getHours();
+  const tod       = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = (S.name || 'there').split(' ')[0];
+  const day       = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+
+  const greetEl = $('brief-greeting');
+  if (greetEl) greetEl.textContent = `${tod}, ${firstName} 👋`;
+  const dateEl = $('brief-date-line');
+  if (dateEl) dateEl.textContent = day;
+
+  // Build SIVA message
+  let msg = `Here's your day at a glance, ${firstName}. `;
+  const tasks      = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]').filter(t => !t.done);
+  const habits     = JSON.parse(localStorage.getItem(`sivarr_habits_${S.sid}`) || '[]');
+  const goals      = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]').filter(g => !g.completed);
+  const journalLen = JSON.parse(localStorage.getItem(`sivarr_journal_${S.sid}`) || '[]').length;
+
+  if (tasks.length)   msg += `You have ${tasks.length} task${tasks.length > 1 ? 's' : ''} pending. `;
+  if (goals.length)   msg += `${goals.length} active goal${goals.length > 1 ? 's' : ''} in progress. `;
+  if (journalLen > 0) msg += `Keep your journaling streak alive — write something today. `;
+  if (!tasks.length && !goals.length) msg += `Looks like a clean slate — great time to set a goal or plan your day.`;
+
+  const msgEl = $('brief-msg');
+  if (msgEl) msgEl.textContent = msg;
+
+  // Build chips
+  const chips   = [];
+  const urgentT = tasks.filter(t => t.priority === 'high').slice(0, 2);
+  urgentT.forEach(t => chips.push({ icon:'🔴', label: t.title.slice(0, 28), cls:'urgent' }));
+
+  const streakH = habits.find(h => (h.streak || 0) > 1);
+  if (streakH) chips.push({ icon:'🔥', label:`${streakH.streak} day streak`, cls:'streak' });
+
+  const nextGoal = goals[0];
+  if (nextGoal) chips.push({ icon:'🎯', label: nextGoal.title.slice(0, 28), cls:'goal' });
+
+  if (!chips.length && tasks.length) chips.push({ icon:'📋', label:`${tasks.length} tasks today`, cls:'' });
+
+  const chipsEl = $('brief-chips');
+  if (chipsEl) {
+    chipsEl.innerHTML = chips.slice(0, 4).map(c =>
+      `<div class="brief-chip ${c.cls}">${c.icon} ${esc(c.label)}</div>`
+    ).join('');
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// FEATURE 3 — FOCUS MODE
+// ═══════════════════════════════════════════════════════════════
+
+const FOCUS = {
+  task: '', duration: 25 * 60, remaining: 25 * 60,
+  running: false, interval: null,
+  session: 1, maxSessions: 4,
+  totalCirc: 540,
+};
+
+function focusStart(taskName, minutes) {
+  if (!S.sid) return;
+  FOCUS.task      = taskName || 'Focus Session';
+  FOCUS.duration  = (minutes || 25) * 60;
+  FOCUS.remaining = FOCUS.duration;
+  FOCUS.running   = false;
+  FOCUS.session   = 1;
+  clearInterval(FOCUS.interval);
+
+  const overlay = $('focus-overlay');
+  if (!overlay) return;
+  overlay.classList.add('open');
+
+  const screen = $('focus-screen');
+  const done   = $('focus-done-screen');
+  if (screen) screen.style.display = 'flex';
+  if (done)   done.style.display   = 'none';
+
+  focusRenderState();
+  focusUpdateDots();
+
+  const icon = $('focus-play-icon');
+  if (icon) icon.className = 'ti ti-player-play';
+}
+
+function focusToggle() {
+  if (FOCUS.running) {
+    FOCUS.running = false;
+    clearInterval(FOCUS.interval);
+    const icon = $('focus-play-icon');
+    if (icon) icon.className = 'ti ti-player-play';
+  } else {
+    FOCUS.running = true;
+    FOCUS.interval = setInterval(focusTick, 1000);
+    const icon = $('focus-play-icon');
+    if (icon) icon.className = 'ti ti-player-pause';
+  }
+}
+
+function focusTick() {
+  FOCUS.remaining--;
+  focusRenderState();
+  if (FOCUS.remaining <= 0) {
+    clearInterval(FOCUS.interval);
+    FOCUS.running = false;
+    focusSessionComplete();
+  }
+}
+
+function focusRenderState() {
+  const mins = String(Math.floor(FOCUS.remaining / 60)).padStart(2, '0');
+  const secs = String(FOCUS.remaining % 60).padStart(2, '0');
+  const timeEl = $('focus-time');
+  if (timeEl) timeEl.textContent = `${mins}:${secs}`;
+
+  const pct    = 1 - FOCUS.remaining / FOCUS.duration;
+  const offset = FOCUS.totalCirc * (1 - pct);
+  const ring   = $('focus-ring');
+  if (ring) ring.style.strokeDashoffset = offset;
+}
+
+function focusReset() {
+  clearInterval(FOCUS.interval);
+  FOCUS.running   = false;
+  FOCUS.remaining = FOCUS.duration;
+  focusRenderState();
+  const icon = $('focus-play-icon');
+  if (icon) icon.className = 'ti ti-player-play';
+}
+
+function focusEnd() {
+  clearInterval(FOCUS.interval);
+  FOCUS.running = false;
+  $('focus-overlay')?.classList.remove('open');
+}
+
+function focusSessionComplete() {
+  // Log session
+  const log = JSON.parse(localStorage.getItem(`sivarr_focus_log_${S.sid}`) || '[]');
+  log.push({ task: FOCUS.task, mins: Math.round(FOCUS.duration / 60), ts: Date.now() });
+  localStorage.setItem(`sivarr_focus_log_${S.sid}`, JSON.stringify(log));
+
+  // Show post-session screen
+  const screen = $('focus-screen');
+  const done   = $('focus-done-screen');
+  if (screen) screen.style.display = 'none';
+  if (done)   done.style.display   = 'flex';
+
+  const sub = $('focus-done-sub');
+  if (sub) sub.textContent = `You focused on "${FOCUS.task}" for ${Math.round(FOCUS.duration/60)} min. Great work!`;
+
+  const inp = $('focus-done-input');
+  if (inp) inp.value = '';
+
+  // Dot
+  FOCUS.session = Math.min(FOCUS.session + 1, FOCUS.maxSessions);
+  focusUpdateDots();
+}
+
+function focusUpdateDots() {
+  const dots = document.querySelectorAll('#focus-session-dots .fsd');
+  dots.forEach((d, i) => {
+    d.className = 'fsd';
+    if (i < FOCUS.session - 1) d.classList.add('fsd-done');
+    else if (i === FOCUS.session - 1) d.classList.add('fsd-active');
+  });
+}
+
+function focusContinue() {
+  FOCUS.remaining = FOCUS.duration;
+  FOCUS.running   = false;
+  clearInterval(FOCUS.interval);
+
+  const screen = $('focus-screen');
+  const done   = $('focus-done-screen');
+  if (screen) screen.style.display = 'flex';
+  if (done)   done.style.display   = 'none';
+
+  focusRenderState();
+  const icon = $('focus-play-icon');
+  if (icon) icon.className = 'ti ti-player-play';
+}
+
+function focusFinish() {
+  const note = $('focus-done-input')?.value?.trim();
+  if (note) {
+    const entries = JSON.parse(localStorage.getItem(`sivarr_journal_${S.sid}`) || '[]');
+    const ts = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+    entries.unshift({ id: Date.now(), text: `[Focus] ${FOCUS.task}: ${note}`, date: ts });
+    localStorage.setItem(`sivarr_journal_${S.sid}`, JSON.stringify(entries));
+  }
+  focusEnd();
+  toast('Focus session logged ✓');
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// FEATURE 4 — DOC EDITOR (Docs & Notes)
+// ═══════════════════════════════════════════════════════════════
+
+const DOC_KEY    = () => `sivarr_docs_${S.sid || 'guest'}`;
+const DOC_AUTOSAVE_MS = 1500;
+let   _docId     = null;   // currently open doc id
+let   _docTimer  = null;   // autosave debounce
+
+function docGetAll() {
+  try { return JSON.parse(localStorage.getItem(DOC_KEY()) || '[]'); }
+  catch { return []; }
+}
+function docSaveAll(list) {
+  localStorage.setItem(DOC_KEY(), JSON.stringify(list));
+}
+
+function docNew() {
+  const doc = {
+    id:      Date.now(),
+    title:   '',
+    content: '',
+    created: Date.now(),
+    updated: Date.now(),
+  };
+  const list = docGetAll();
+  list.unshift(doc);
+  docSaveAll(list);
+  _docId = doc.id;
+  docRenderList();
+  docOpenEditor(doc);
+}
+
+function docCaptureNote(text) {
+  const doc = {
+    id:      Date.now(),
+    title:   text.split('\n')[0].slice(0, 60) || 'Quick Note',
+    content: `<p>${esc(text)}</p>`,
+    created: Date.now(),
+    updated: Date.now(),
+  };
+  const list = docGetAll();
+  list.unshift(doc);
+  docSaveAll(list);
+}
+
+function docOpen(id) {
+  const doc = docGetAll().find(d => d.id === id);
+  if (!doc) return;
+  _docId = id;
+  docOpenEditor(doc);
+  docRenderList();
+}
+
+function docOpenEditor(doc) {
+  const emptyState = $('doc-empty-state');
+  const wrap       = $('doc-editor-wrap');
+  if (emptyState) emptyState.style.display = 'none';
+  if (wrap)       wrap.style.display       = 'flex';
+
+  const titleEl = $('doc-title');
+  if (titleEl) titleEl.value = doc.title || '';
+
+  const contentEl = $('doc-content');
+  if (contentEl) {
+    contentEl.innerHTML = doc.content || '';
+    contentEl.focus();
+  }
+  docUpdateWordCount();
+  const statusEl = $('doc-save-status');
+  if (statusEl) {
+    const rel = doc.updated ? _relTime(doc.updated) : '';
+    statusEl.textContent = rel ? `Saved ${rel}` : 'All changes saved';
+  }
+}
+
+function _relTime(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+  return new Date(ts).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+}
+
+function docDelete(id, e) {
+  e?.stopPropagation();
+  const list = docGetAll().filter(d => d.id !== id);
+  docSaveAll(list);
+  if (_docId === id) {
+    _docId = null;
+    const emptyState = $('doc-empty-state');
+    const wrap       = $('doc-editor-wrap');
+    if (emptyState) emptyState.style.display = 'flex';
+    if (wrap)       wrap.style.display       = 'none';
+  }
+  docRenderList();
+}
+
+function docRenderList(filter) {
+  const list  = $('doc-list');
+  if (!list) return;
+  let   docs  = docGetAll();
+  const q     = filter ?? ($('doc-search')?.value?.toLowerCase() || '');
+  if (q) docs = docs.filter(d =>
+    (d.title || '').toLowerCase().includes(q) ||
+    (d.content || '').toLowerCase().includes(q)
+  );
+
+  if (!docs.length) {
+    list.innerHTML = `<div class="doc-list-empty">${q ? 'No docs match' : 'No docs yet'}</div>`;
+    return;
+  }
+  list.innerHTML = docs.map(d => {
+    const title   = d.title || 'Untitled';
+    const preview = d.content ? d.content.replace(/<[^>]+>/g,'').slice(0, 48) : '';
+    const rel     = _relTime(d.updated);
+    return `<div class="doc-item${_docId === d.id ? ' active' : ''}" onclick="docOpen(${d.id})">
+      <div class="doc-item-row">
+        <div class="doc-item-title">${esc(title)}</div>
+        <button class="doc-delete-btn" onmousedown="event.stopPropagation()" onclick="docDelete(${d.id},event)" title="Delete">✕</button>
+      </div>
+      <div class="doc-item-meta">${preview ? esc(preview) : rel}</div>
+    </div>`;
+  }).join('');
+}
+
+function docSearchFilter() {
+  docRenderList($('doc-search')?.value?.toLowerCase() || '');
+}
+
+function docTitleChange() {
+  docScheduleSave();
+}
+
+function docContentChange() {
+  docUpdateWordCount();
+  docScheduleSave();
+  const statusEl = $('doc-save-status');
+  if (statusEl) statusEl.textContent = 'Unsaved…';
+}
+
+function docScheduleSave() {
+  clearTimeout(_docTimer);
+  _docTimer = setTimeout(docSave, DOC_AUTOSAVE_MS);
+}
+
+function docSave() {
+  if (!_docId) return;
+  const list    = docGetAll();
+  const idx     = list.findIndex(d => d.id === _docId);
+  if (idx < 0) return;
+  list[idx].title   = $('doc-title')?.value?.trim() || 'Untitled';
+  list[idx].content = $('doc-content')?.innerHTML || '';
+  list[idx].updated = Date.now();
+  docSaveAll(list);
+  docRenderList();
+  const statusEl = $('doc-save-status');
+  if (statusEl) statusEl.textContent = 'All changes saved';
+}
+
+function docUpdateWordCount() {
+  const text = $('doc-content')?.innerText || '';
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  const wc = $('doc-word-count');
+  if (wc) wc.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+}
+
+function docFormat(cmd) {
+  document.execCommand(cmd, false, null);
+  $('doc-content')?.focus();
+  docScheduleSave();
+}
+
+function docFormatBlock(tag) {
+  document.execCommand('formatBlock', false, tag);
+  $('doc-content')?.focus();
+  docScheduleSave();
+}
+
+function docKeyDown(e) {
+  // Tab → indent
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
+  }
+  // Enter in pre → insert newline without creating new block
+  if (e.key === 'Enter' && !e.shiftKey) {
+    const sel = window.getSelection();
+    if (sel?.anchorNode) {
+      let node = sel.anchorNode;
+      while (node && node !== $('doc-content')) {
+        if (node.nodeName === 'PRE') {
+          e.preventDefault();
+          document.execCommand('insertHTML', false, '\n');
+          return;
+        }
+        node = node.parentNode;
+      }
+    }
+  }
+}
+
+function docAskSiva() {
+  if (!S.sid) return;
+  const content = $('doc-content')?.innerText?.trim() || '';
+  const title   = $('doc-title')?.value?.trim() || '';
+  const sel     = window.getSelection()?.toString()?.trim() || '';
+  const text    = sel || content.slice(0, 600);
+  if (!text) { toast('Write something first, then ask SIVA to assist.'); return; }
+  const prompt  = sel
+    ? `Help me improve or continue this selection from my doc "${title}":\n\n${text}`
+    : `I'm writing a doc titled "${title}". Here's what I have so far:\n\n${text}\n\nPlease continue or improve it.`;
+  nav('chat', null);
+  setTimeout(() => {
+    const inp = $('chat-input') || $('msg-input');
+    if (inp) { inp.value = prompt; inp.focus(); }
+  }, 200);
+}
+
+function docInit() {
+  docRenderList();
+  if (!_docId) {
+    const docs = docGetAll();
+    if (docs.length) docOpen(docs[0].id);
+    else {
+      const emptyState = $('doc-empty-state');
+      const wrap       = $('doc-editor-wrap');
+      if (emptyState) emptyState.style.display = 'flex';
+      if (wrap)       wrap.style.display       = 'none';
+    }
+  } else {
+    const doc = docGetAll().find(d => d.id === _docId);
+    if (doc) docOpenEditor(doc);
+  }
+}
 
