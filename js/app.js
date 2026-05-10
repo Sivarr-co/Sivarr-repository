@@ -95,20 +95,24 @@ function setRole(role) {
 function setAuthTab(tab) {
   AUTH_TAB    = tab;
   const isReg = tab === 'register';
-  $('auth-tab-login').style.cssText    = `padding:8px;border-radius:9px;font-family:var(--font);font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s;border:${!isReg?'2px solid var(--accent)':'1px solid var(--border)'};background:${!isReg?'#4f6ef715':'none'};color:${!isReg?'var(--accent)':'var(--muted)'}`;
-  $('auth-tab-register').style.cssText = `padding:8px;border-radius:9px;font-family:var(--font);font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s;border:${isReg?'2px solid var(--accent)':'1px solid var(--border)'};background:${isReg?'#4f6ef715':'none'};color:${isReg?'var(--accent)':'var(--muted)'}`;
+  const loginTab = $('auth-tab-login');
+  const regTab   = $('auth-tab-register');
+  if (loginTab) loginTab.classList.toggle('active', !isReg);
+  if (regTab)   regTab.classList.toggle('active',  isReg);
   $('register-fields').style.display  = isReg ? 'block' : 'none';
-  $('login-heading').textContent       = isReg ? 'Create Account' : 'Welcome back';
-  $('login-btn').textContent           = isReg ? 'Create Account' : 'Sign In';
-  $('login-err').textContent           = '';
+  const h = $('login-heading'); if (h) h.textContent = isReg ? 'Create account' : 'Welcome back';
+  const s = $('login-sub');     if (s) s.textContent = isReg ? 'Join the SIVARR workspace.' : 'Sign in to your workspace.';
+  const b = $('login-btn');     if (b) b.textContent = isReg ? 'Create Account' : 'Sign In';
+  const e = $('login-err');     if (e) e.textContent = '';
 }
 
 function togglePwVis(inputId, btnId) {
-  const inp = $(inputId);
-  const btn = $(btnId);
+  const inp  = $(inputId);
+  const btn  = $(btnId);
   if (!inp) return;
   inp.type = inp.type === 'password' ? 'text' : 'password';
-  if (btn) btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+  const icon = btn?.querySelector('i');
+  if (icon) icon.className = inp.type === 'password' ? 'ti ti-eye' : 'ti ti-eye-off';
 }
 
 async function doLogin(prefillName, prefillMatric) {
@@ -3064,39 +3068,32 @@ const MOB_SNAV_HEIGHTS = {
 };
 
 function toggleMobileSidebar() {
-  const panel = $('mob-sidebar-panel');
-  if (!panel) return;
-  panel.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar();
+  const sidebar = $('sidebar');
+  if (!sidebar) return;
+  sidebar.classList.contains('mobile-open') ? closeMobileSidebar() : openMobileSidebar();
 }
 
 function openMobileSidebar() {
-  const panel   = $('mob-sidebar-panel');
-  const overlay = $('mob-sidebar-overlay');
-  const fab     = $('mob-fab');
-  if (panel)   panel.classList.add('open');
-  if (overlay) overlay.classList.add('visible');
-  if (fab)     fab.classList.add('open');
+  const sidebar  = $('sidebar');
+  const overlay  = $('overlay');
+  if (sidebar)  sidebar.classList.add('mobile-open');
+  if (overlay)  overlay.classList.add('show');
   document.body.style.overflow = 'hidden';
-  // Sync avatar + name from topbar
-  const av   = $('mob-snav-av');   const tbAv   = $('tb-av');
-  const name = $('mob-snav-name'); const tbName = $('tb-name');
-  if (av && tbAv) {
-    av.innerHTML  = tbAv.innerHTML || '';
-    av.textContent = av.innerHTML ? '' : (tbAv.textContent || '?');
-    if (tbAv.querySelector('img')) av.innerHTML = tbAv.innerHTML;
-    else av.textContent = tbAv.textContent;
-  }
-  if (name && tbName) name.textContent = tbName.textContent;
 }
 
 function closeMobileSidebar() {
-  const panel   = $('mob-sidebar-panel');
-  const overlay = $('mob-sidebar-overlay');
-  const fab     = $('mob-fab');
-  if (panel)   panel.classList.remove('open');
-  if (overlay) overlay.classList.remove('visible');
-  if (fab)     fab.classList.remove('open');
+  const sidebar  = $('sidebar');
+  const overlay  = $('overlay');
+  if (sidebar)  sidebar.classList.remove('mobile-open');
+  if (overlay)  overlay.classList.remove('show');
   document.body.style.overflow = '';
+  // Legacy compat
+  const panel    = $('mob-sidebar-panel');
+  const mOverlay = $('mob-sidebar-overlay');
+  const fab      = $('mob-fab');
+  if (panel)    panel.classList.remove('open');
+  if (mOverlay) mOverlay.classList.remove('visible');
+  if (fab)      fab.classList.remove('open');
 }
 
 function mobSnavToggle(sectionId, btn) {
@@ -3261,20 +3258,18 @@ function snavSelect(itemId, sectionId, btnEl) {
   if (route) route();
 }
 
-// Keep old nav() active-state logic in sync with new sidebar
+// Sync sidebar active state with new .si[data-panel] system
 function syncSnavFromPanel(name) {
-  // Map panel names back to snav item ids
-  const panelToSnav = {
-    chat: 'chat', quiz: 'quizzes', courses: 'courses',
-    announcements: 'announcements', stats: 'progress',
-    progress: 'progress', notes: 'notes', flux: 'tasks',
-    lab: 'study-deck', goals: 'goals', documenthub: 'document-hub',
-  };
-  const snavId = panelToSnav[name];
-  if (snavId) {
-    document.querySelectorAll('.snav-item').forEach(b => b.classList.remove('active'));
-    const el = $(`snav-${snavId}`); if (el) el.classList.add('active');
-  }
+  document.querySelectorAll('.si').forEach(b => b.classList.remove('on'));
+  const el = document.querySelector(`.si[data-panel="${name}"]`);
+  if (el) el.classList.add('on');
+}
+
+// New sidebar nav handler
+function sidebarNav(btn) {
+  const panel = btn.dataset.panel;
+  if (!panel) return;
+  nav(panel, null);
 }
 
 // ═══════════════════════════ NAV ════════════════════════════════
@@ -5673,25 +5668,35 @@ document.addEventListener('click', e => {
 });
 
 function toggleThemeFromMenu() {
-  const isLight = document.body.classList.toggle('light');
-  const sw      = $('pd-toggle-sw');
-  const icon    = $('pd-theme-icon');
-  const label   = $('pd-theme-label');
-  if (sw)    sw.classList.toggle('on', isLight);
-  if (icon)  icon.textContent  = isLight ? '☀️' : '🌙';
-  if (label) label.textContent = isLight ? 'Light Mode' : 'Dark Mode';
-  localStorage.setItem('sivarr_theme', isLight ? 'light' : 'dark');
+  const html    = document.documentElement;
+  const isDark  = html.getAttribute('data-theme') === 'dark';
+  if (isDark) html.removeAttribute('data-theme');
+  else        html.setAttribute('data-theme', 'dark');
+  const nowDark = !isDark;
+
+  const sw        = $('pd-toggle-sw');
+  const icon      = $('pd-theme-icon');
+  const label     = $('pd-theme-label');
+  const themeIcon = $('theme-icon');
+
+  if (sw)        sw.classList.toggle('on', nowDark);
+  if (icon)      icon.className = nowDark ? 'ti ti-moon pd-icon'  : 'ti ti-sun pd-icon';
+  if (label)     label.textContent = nowDark ? 'Dark Mode' : 'Light Mode';
+  if (themeIcon) themeIcon.className = nowDark ? 'ti ti-moon' : 'ti ti-sun';
+
+  localStorage.setItem('sivarr_theme', nowDark ? 'dark' : 'light');
 }
 
 function toggleTheme() { toggleThemeFromMenu(); }
 
 // Apply saved theme on load
 window.addEventListener('DOMContentLoaded', () => {
-  if (localStorage.getItem('sivarr_theme') === 'light') {
-    document.body.classList.add('light');
-    const sw    = $('pd-toggle-sw');    if (sw)    sw.classList.add('on');
-    const icon  = $('pd-theme-icon');   if (icon)  icon.textContent  = '☀️';
-    const label = $('pd-theme-label');  if (label) label.textContent = 'Light Mode';
+  if (localStorage.getItem('sivarr_theme') === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    const sw        = $('pd-toggle-sw');    if (sw)        sw.classList.add('on');
+    const icon      = $('pd-theme-icon');   if (icon)      icon.className = 'ti ti-moon pd-icon';
+    const label     = $('pd-theme-label');  if (label)     label.textContent = 'Dark Mode';
+    const themeIcon = $('theme-icon');      if (themeIcon) themeIcon.className = 'ti ti-moon';
   }
 });
 

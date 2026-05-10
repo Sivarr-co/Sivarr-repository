@@ -3,143 +3,168 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sivarr AI — Your Learning Companion</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<title>SIVARR — Productivity OS</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
 
 <!-- LOGIN -->
 <div id="login-screen">
-  <div class="login-box">
-    <div class="sr-logo">
-      <div class="sr-monogram">
-  <img src="/static/sivarrai.png" alt="Sivarr AI Logo" style="width:30px; height:30px; object-fit:contain;">
-      </div>
-      <div class="sr-name">Sivarr <span>●</span></div>
-    </div>
-    <div class="login-tag">✦ Learning Companion</div>
-    <h2 id="login-heading">Welcome back</h2>
-    <p id="login-sub">Sign in to continue your learning journey.</p>
 
-    <!-- Role selector -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1.25rem">
-      <button id="role-student" onclick="setRole('student')"
-        style="padding:10px;border-radius:10px;border:2px solid var(--accent);background:#4f6ef715;color:var(--accent);font-family:var(--font);font-weight:700;font-size:.88rem;cursor:pointer;transition:all .2s">
-        🎓 I'm a Student
-      </button>
-      <button id="role-lecturer" onclick="setRole('lecturer')"
-        style="padding:10px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--muted);font-family:var(--font);font-weight:700;font-size:.88rem;cursor:pointer;transition:all .2s">
-        👨‍🏫 I'm a Lecturer
-      </button>
-    </div>
-
-    <!-- Sign In / Register tabs — student only -->
-    <div id="auth-tabs" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:1.25rem">
-      <button id="auth-tab-login" onclick="setAuthTab('login')"
-        style="padding:8px;border-radius:9px;border:2px solid var(--accent);background:#4f6ef715;color:var(--accent);font-family:var(--font);font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s">
-        Sign In
-      </button>
-      <button id="auth-tab-register" onclick="setAuthTab('register')"
-        style="padding:8px;border-radius:9px;border:1px solid var(--border);background:none;color:var(--muted);font-family:var(--font);font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s">
-        Register
-      </button>
-    </div>
-
-    <!-- Student fields -->
-    <div id="student-fields">
-      <div class="field">
-        <label>Full Name</label>
-        <input id="ln" type="text" placeholder="Your full name" autocomplete="off"
-          onkeydown="if(event.key==='Enter') $('lm').focus()">
+  <!-- Left branding panel (desktop only) -->
+  <div class="login-left">
+    <div class="ll-orb ll-orb1"></div>
+    <div class="ll-orb ll-orb2"></div>
+    <div class="ll-content">
+      <div class="ll-logo">
+        <img src="/static/sivarrai.png" alt="SIVARR">
+        <span>SIVARR</span>
       </div>
-      <div class="field">
-        <label id="lm-label">Matric Number</label>
-        <input id="lm" type="text" placeholder="20051947" autocomplete="off"
-          onkeydown="if(event.key==='Enter') $('l-pw').focus()">
-      </div>
-      <!-- Register-only fields -->
-      <div id="register-fields" style="display:none">
-        <div class="field">
-          <label>Email</label>
-          <input id="l-email" type="email" placeholder="you@university.edu">
-        </div>
-        <div class="field">
-          <label>Phone</label>
-          <input id="l-phone" type="tel" placeholder="+234 800 000 0000">
-        </div>
-      </div>
-      <div class="field">
-        <label>Password</label>
-        <div style="position:relative">
-          <input id="l-pw" type="password" placeholder="Min. 6 characters"
-            style="padding-right:40px" onkeydown="if(event.key==='Enter') doLogin()">
-          <button type="button" onclick="togglePwVis('l-pw','l-pw-eye')" id="l-pw-eye"
-            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
-                   background:none;border:none;color:var(--muted);cursor:pointer;
-                   font-size:.85rem;padding:2px 4px;line-height:1">👁</button>
-        </div>
+      <div class="ll-tag">Productivity OS</div>
+      <h2 class="ll-headline">Work smarter.<br>Learn deeper.<br>Grow faster.</h2>
+      <div class="ll-features">
+        <div class="ll-feat"><i class="ti ti-robot"></i> SIVA AI — your always-on assistant</div>
+        <div class="ll-feat"><i class="ti ti-checkbox"></i> Tasks, Notes, Goals in one workspace</div>
+        <div class="ll-feat"><i class="ti ti-school"></i> Built for students, founders &amp; teams</div>
+        <div class="ll-feat"><i class="ti ti-bolt"></i> Academic, Personal &amp; Org spaces</div>
       </div>
     </div>
-
-    <!-- Lecturer fields -->
-    <div id="lecturer-fields" style="display:none">
-      <div class="field">
-        <label>Your Name</label>
-        <input id="lec-name-login" type="text" placeholder="Dr. Adeyemi John" autocomplete="off"
-          onkeydown="if(event.key==='Enter') $('lec-pw-login').focus()">
-      </div>
-      <div class="field">
-        <label>Password</label>
-        <div style="position:relative">
-          <input id="lec-pw-login" type="password" placeholder="Lecturer password"
-            style="padding-right:40px" onkeydown="if(event.key==='Enter') doLogin()">
-          <button type="button" onclick="togglePwVis('lec-pw-login','lec-pw-eye')" id="lec-pw-eye"
-            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
-                   background:none;border:none;color:var(--muted);cursor:pointer;
-                   font-size:.85rem;padding:2px 4px;line-height:1">👁</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="login-err"
-      style="color:var(--red);font-size:.78rem;min-height:16px;margin-bottom:8px;text-align:center"></div>
-    <button class="btn-login" id="login-btn" onclick="doLogin()">Sign In</button>
-    <p class="login-note">Sivarr platform</p>
   </div>
-</div>
+
+  <!-- Right form panel -->
+  <div class="login-right">
+    <div class="login-card">
+
+      <!-- Brand (mobile only) -->
+      <div class="lc-brand-mob">
+        <div class="lc-logo-sm">
+          <img src="/static/sivarrai.png" alt="SIVARR">
+        </div>
+        <span>SIVARR</span>
+      </div>
+
+      <h1 id="login-heading">Welcome back</h1>
+      <p id="login-sub">Sign in to your workspace.</p>
+
+      <!-- Auth tabs -->
+      <div class="auth-tabs" id="auth-tabs">
+        <button class="auth-tab active" id="auth-tab-login" onclick="setAuthTab('login')">Sign In</button>
+        <button class="auth-tab" id="auth-tab-register" onclick="setAuthTab('register')">Sign Up</button>
+      </div>
+
+      <!-- Form fields -->
+      <div id="student-fields">
+        <div class="field">
+          <label>Full Name</label>
+          <div class="field-ic">
+            <i class="ti ti-user"></i>
+            <input id="ln" type="text" placeholder="Your full name" autocomplete="off"
+              onkeydown="if(event.key==='Enter') $('lm').focus()">
+          </div>
+        </div>
+        <div class="field">
+          <label id="lm-label">Student ID / Matric</label>
+          <div class="field-ic">
+            <i class="ti ti-id-badge"></i>
+            <input id="lm" type="text" placeholder="e.g. 20051947" autocomplete="off"
+              onkeydown="if(event.key==='Enter') $('l-pw').focus()">
+          </div>
+        </div>
+        <!-- Register-only fields -->
+        <div id="register-fields" style="display:none">
+          <div class="field">
+            <label>Email</label>
+            <div class="field-ic">
+              <i class="ti ti-mail"></i>
+              <input id="l-email" type="email" placeholder="you@university.edu">
+            </div>
+          </div>
+          <div class="field">
+            <label>Phone</label>
+            <div class="field-ic">
+              <i class="ti ti-phone"></i>
+              <input id="l-phone" type="tel" placeholder="+234 800 000 0000">
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div class="field-ic">
+            <i class="ti ti-lock"></i>
+            <input id="l-pw" type="password" placeholder="Min. 6 characters"
+              onkeydown="if(event.key==='Enter') doLogin()">
+            <button type="button" class="field-eye" onclick="togglePwVis('l-pw','l-pw-eye')" id="l-pw-eye">
+              <i class="ti ti-eye"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lecturer stub (hidden — keeps JS compat) -->
+      <div id="lecturer-fields" style="display:none">
+        <input id="lec-name-login" type="hidden">
+        <input id="lec-pw-login"   type="hidden">
+      </div>
+
+      <div id="login-err" class="login-err"></div>
+
+      <button class="btn-login" id="login-btn" onclick="doLogin()">Sign In</button>
+
+      <p class="login-note">
+        By continuing you agree to SIVARR's
+        <a href="#" style="color:var(--teal);text-decoration:none">Terms</a> &amp;
+        <a href="#" style="color:var(--teal);text-decoration:none">Privacy</a>
+      </p>
+
+    </div><!-- /login-card -->
+  </div><!-- /login-right -->
+
+</div><!-- /login-screen -->
 
 <!-- DASHBOARD -->
 <div id="dashboard">
 
   <!-- Topbar -->
   <header class="topbar">
-    <!-- Left: Logo -->
-    <div class="topbar-left">
-      <a class="topbar-logo" href="https://sivarr.vercel.app" target="_blank">
-        <div class="topbar-monogram">
-  <img src="/static/sivarrai.png" alt="Sivarr AI Logo" style="width:30px; height:30px; object-fit:contain;">
-        </div>
-        <span class="topbar-name">Sivarr <span style="color:var(--accent)">●</span></span>
-      </a>
+    <!-- Hamburger (mobile) -->
+    <button class="tb-ham" id="hamburger" onclick="toggleMobileSidebar()" title="Menu">
+      <i class="ti ti-menu-2"></i>
+    </button>
+
+    <!-- Brand -->
+    <div class="tb-brand">
+      <img src="/static/sivarrai.png" alt="SIVARR" style="width:24px;height:24px;object-fit:contain;flex-shrink:0">
+      <span>SIVARR</span>
     </div>
 
-    <!-- Right: Profile dropdown -->
-    <div class="topbar-right" style="display:flex;align-items:center;gap:8px">
-  <button onclick="cmdOpen()"
-    style="display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 12px;color:var(--muted);font-family:var(--font);font-size:.75rem;cursor:pointer;transition:all .2s"
-    onmouseover="this.style.borderColor='var(--border2)';this.style.color='var(--text)'"
-    onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-    <span>🔍</span>
-    <span>Search</span>
-    <kbd style="background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:1px 6px;font-size:.65rem;margin-left:4px">⌘K</kbd>
-  </button>
+    <!-- Search -->
+    <div class="tb-center">
+      <button class="tb-search" onclick="cmdOpen()">
+        <i class="ti ti-search"></i>
+        <span>Search...</span>
+        <kbd>⌘K</kbd>
+      </button>
+    </div>
+
+    <!-- Right actions -->
+    <div class="tb-right">
+      <!-- Theme toggle -->
+      <button class="tb-icon-btn" id="themeBtn" onclick="toggleThemeFromMenu()" title="Toggle theme">
+        <i class="ti ti-sun" id="theme-icon"></i>
+      </button>
+      <!-- Notifications -->
+      <button class="tb-icon-btn" onclick="nav('announcements',null)" title="Notifications">
+        <i class="ti ti-bell"></i>
+      </button>
+      <!-- Profile -->
       <div class="profile-menu" id="profile-menu">
         <button class="profile-trigger" id="profile-trigger" onclick="toggleProfile()">
           <div class="pa" id="tb-av" style="overflow:hidden">?</div>
-          <span class="pn" id="tb-name">Student</span>
-          <span class="pa-arrow">▼</span>
         </button>
+        <!-- Hidden name span kept for JS compat -->
+        <span class="pn" id="tb-name" style="display:none">Student</span>
 
         <div class="profile-dropdown" id="profile-dropdown">
           <!-- Header with avatar + upload -->
@@ -154,7 +179,7 @@
                        box-shadow:0 0 0 3px var(--border)">?</div>
               <div style="position:absolute;bottom:0;right:0;width:18px;height:18px;border-radius:50%;
                           background:var(--accent);display:flex;align-items:center;justify-content:center;
-                          font-size:.6rem;cursor:pointer;border:2px solid var(--card)">✏️</div>
+                          font-size:.6rem;cursor:pointer;border:2px solid var(--card)">✏</div>
             </div>
             <input type="file" id="pfp-input" accept="image/*" style="display:none" onchange="uploadProfilePic(this)">
             <div class="pd-name" id="pd-name">Student</div>
@@ -162,33 +187,31 @@
             <button onclick="$('pfp-input').click()"
               style="margin-top:6px;background:none;border:1px solid var(--border);border-radius:7px;
                      padding:3px 10px;color:var(--muted);font-size:.7rem;cursor:pointer;
-                     font-family:var(--font-body);transition:all .15s"
+                     font-family:var(--font);transition:all .15s"
               onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
               onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-              📷 Change photo
+              Change photo
             </button>
           </div>
 
-          <!-- View Profile -->
-          <button class="pd-item" onclick="nav('stats', null); closeProfile()">
-            <span class="pd-icon">📊</span> My Progress
+          <button class="pd-item" onclick="nav('stats',null);closeProfile()">
+            <i class="ti ti-chart-bar pd-icon"></i> My Progress
           </button>
-          <button class="pd-item" onclick="nav('notes', null); closeProfile()">
-            <span class="pd-icon">📓</span> My Notes
+          <button class="pd-item" onclick="nav('notes',null);closeProfile()">
+            <i class="ti ti-notebook pd-icon"></i> My Notes
           </button>
-          <button class="pd-item" onclick="nav('courses', null); closeProfile()">
-            <span class="pd-icon">🏫</span> Courses
+          <button class="pd-item" onclick="nav('courses',null);closeProfile()">
+            <i class="ti ti-school pd-icon"></i> Courses
           </button>
-          <button class="pd-item" onclick="nav('announcements', null); closeProfile()">
-            <span class="pd-icon">📢</span> Announcements
+          <button class="pd-item" onclick="nav('announcements',null);closeProfile()">
+            <i class="ti ti-bell pd-icon"></i> Announcements
           </button>
 
           <div class="pd-divider"></div>
 
-          <!-- Dark/Light toggle -->
           <div class="pd-toggle" onclick="toggleThemeFromMenu()">
             <div class="pd-toggle-left">
-              <span class="pd-icon" id="pd-theme-icon">🌙</span>
+              <i class="ti ti-moon pd-icon" id="pd-theme-icon"></i>
               <span id="pd-theme-label">Dark Mode</span>
             </div>
             <div class="toggle-sw" id="pd-toggle-sw"></div>
@@ -196,257 +219,106 @@
 
           <div class="pd-divider"></div>
 
-          <!-- Sign out -->
           <button class="pd-item danger" onclick="logout()">
-            <span class="pd-icon">🚪</span> Sign out
+            <i class="ti ti-logout pd-icon"></i> Sign out
           </button>
-        </div>
-      </div>  <!-- closes profile-menu ✓ -->
-    </div>    <!-- closes topbar-right ✓ -->
-</header>
-
-  <!-- Scrollable Tab Bar (mobile only) -->
-  <div class="tab-bar" id="tab-bar">
-    <button class="tab-pill active" id="tab-chat" onclick="navTab('chat', this)">
-      <span class="tp-icon">💬</span> AI Chat
-    </button>
-    <button class="tab-pill" id="tab-quiz" onclick="navTab('quiz', this)">
-      <span class="tp-icon">📝</span> Quiz
-    </button>
-    <button class="tab-pill" id="tab-courses" onclick="navTab('courses', this)">
-      <span class="tp-icon">🏫</span> Classes
-    </button>
-    <button class="tab-pill" id="tab-announcements" onclick="navTab('announcements', this)">
-      <span class="tp-icon">📢</span> Notices
-    </button>
-    <button class="tab-pill" id="tab-stats" onclick="navTab('stats', this)">
-      <span class="tp-icon">📊</span> Progress
-    </button>
-    <button class="tab-pill" id="tab-notes" onclick="navTab('notes', this)">
-      <span class="tp-icon">📓</span> Notes
-    </button>
-    <button class="tab-pill" id="tab-flux" onclick="navTab('flux', this)">
-      <span class="tp-icon">🗂️</span> Flux
-    </button>
-    <button class="tab-pill" id="tab-lab" onclick="navTab('lab', this)">
-      <span class="tp-icon">🧪</span> Study Deck
-    </button>
-    <button class="tab-pill" id="tab-more" onclick="navTab('more', this)">
-      <span class="tp-icon">💡</span> More
-    </button>
-  </div>
-
-  <!-- Body -->
-  <div class="body">
-
-    <!-- Sidebar — redesigned -->
-    <aside class="sidebar">
-
-      <!-- Logo -->
-      <div style="display:flex;align-items:center;gap:10px;padding:16px 14px 12px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0">
-        <img src="/static/sivarrai.png" style="width:30px;height:30px;object-fit:contain">
-        <div>
-          <div style="font-family:var(--font);font-weight:800;font-size:13px;color:#e5e7eb;letter-spacing:-.02em;line-height:1">
-            Sivarr <span style="color:var(--accent)">AI</span>
-          </div>
-          <div style="font-size:9px;color:#4b5563;letter-spacing:.1em;text-transform:uppercase;margin-top:2px">Student</div>
         </div>
       </div>
+    </div>
+  </header>
 
-      <!-- Nav content -->
-      <div style="flex:1;overflow-y:auto;padding:10px 8px;scrollbar-width:none">
+  <!-- Overlay for mobile sidebar -->
+  <div class="overlay" id="overlay" onclick="closeMobileSidebar()"></div>
 
-        <!-- Dashboard shortcut -->
-        <button class="snav-dash-btn" id="snav-dash" onclick="nav('home',null);document.querySelectorAll('.snav-item,.snav-dash-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
-          <span style="font-size:.82rem">⊞</span> Dashboard
+  <!-- Layout -->
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+
+      <div class="sb-scroll">
+
+        <!-- Core -->
+        <div class="sg"><span class="sl">Core</span></div>
+        <button class="si on" id="si-chat" data-panel="chat" onclick="sidebarNav(this)">
+          <i class="ti ti-robot si-ic"></i>
+          <span class="si-lb">SIVA AI</span>
+        </button>
+        <button class="si" data-panel="home" onclick="sidebarNav(this)">
+          <i class="ti ti-home si-ic"></i>
+          <span class="si-lb">Home</span>
+        </button>
+        <button class="si" data-panel="announcements" onclick="sidebarNav(this)">
+          <i class="ti ti-bell si-ic"></i>
+          <span class="si-lb">Inbox</span>
         </button>
 
-        <div style="height:1px;background:rgba(255,255,255,0.05);margin:8px 4px"></div>
-
-        <!-- ── AI ── -->
-        <button class="snav-section-btn open" id="snav-sec-ai" onclick="snavToggle('ai',this)"
-          style="--sec-color:#818cf8">
-          <span class="snav-section-icon" style="background:rgba(129,140,248,0.15)">🧠</span>
-          <span class="snav-section-label">AI</span>
-          <span class="snav-chevron">▼</span>
+        <!-- Academic -->
+        <div class="sg"><span class="sl">Academic</span></div>
+        <button class="si" data-panel="courses" onclick="sidebarNav(this)">
+          <i class="ti ti-school si-ic"></i>
+          <span class="si-lb">Courses</span>
         </button>
-        <div class="snav-items open" id="snav-items-ai" style="max-height:200px">
-          <button class="snav-item active" style="--item-accent:#818cf8" id="snav-chat"
-            onclick="snavSelect('chat','ai',this)">
-            <span class="snav-item-icon">💬</span> Chat
-          </button>
-          <button class="snav-item" style="--item-accent:#818cf8" id="snav-ask-notes"
-            onclick="snavSelect('ask-notes','ai',this)">
-            <span class="snav-item-icon">📄</span> Ask from Notes
-          </button>
-          <button class="snav-item" style="--item-accent:#818cf8" id="snav-generate-quiz"
-            onclick="snavSelect('generate-quiz','ai',this)">
-            <span class="snav-item-icon">✨</span> Generate Quiz
-          </button>
-        </div>
-
-        <!-- ── Academics ── -->
-        <button class="snav-section-btn" id="snav-sec-academics" onclick="snavToggle('academics',this)">
-          <span class="snav-section-icon">🎓</span>
-          <span class="snav-section-label">Academics</span>
-          <span class="snav-chevron">▼</span>
+        <button class="si" data-panel="quiz" onclick="sidebarNav(this)">
+          <i class="ti ti-pencil si-ic"></i>
+          <span class="si-lb">Quiz</span>
         </button>
-        <div class="snav-items" id="snav-items-academics">
-          <button class="snav-item" style="--item-accent:#34d399" id="snav-courses"
-            onclick="snavSelect('courses','academics',this)">
-            <span class="snav-item-icon">📚</span> Courses
-          </button>
-          <button class="snav-item" style="--item-accent:#34d399" id="snav-materials"
-            onclick="snavSelect('materials','academics',this)">
-            <span class="snav-item-icon">🎓</span> Learning Hub
-          </button>
-          <button class="snav-item" style="--item-accent:#34d399" id="snav-announcements"
-            onclick="snavSelect('announcements','academics',this)">
-            <span class="snav-item-icon">📢</span> Announcements
-          </button>
-        </div>
-
-        <!-- ── Planner ── -->
-        <button class="snav-section-btn" id="snav-sec-planner" onclick="snavToggle('planner',this)">
-          <span class="snav-section-icon">📅</span>
-          <span class="snav-section-label">Planner</span>
-          <span class="snav-chevron">▼</span>
+        <button class="si" data-panel="lab" onclick="sidebarNav(this)">
+          <i class="ti ti-flask si-ic"></i>
+          <span class="si-lb">Study Deck</span>
         </button>
-        <div class="snav-items" id="snav-items-planner">
-          <button class="snav-item" style="--item-accent:#fb923c" id="snav-tasks"
-            onclick="snavSelect('tasks','planner',this)">
-            <span class="snav-item-icon">✅</span> Tasks
-          </button>
-          <button class="snav-item" style="--item-accent:#fb923c" id="snav-notes"
-            onclick="snavSelect('notes','planner',this)">
-            <span class="snav-item-icon">📓</span> Notes
-          </button>
-          <button class="snav-item" style="--item-accent:#fb923c" id="snav-study-deck"
-            onclick="snavSelect('study-deck','planner',this)">
-            <span class="snav-item-icon">🧪</span> Study Deck
-          </button>
-          <button class="snav-item" style="--item-accent:#fb923c" id="snav-studyplan"
-            onclick="snavSelect('studyplan','planner',this)">
-            <span class="snav-item-icon">🗺️</span> Study Plan
-          </button>
-          <button class="snav-item" style="--item-accent:#fb923c" id="snav-pomodoro"
-            onclick="snavSelect('pomodoro','planner',this)">
-            <span class="snav-item-icon">⏱</span> Study Timer
-          </button>
-          <button class="snav-item" style="--item-accent:#34d399" id="snav-study-groups"
-            onclick="snavSelect('study-groups','planner',this)">
-            <span class="snav-item-icon">👥</span> Study Groups
-          </button>
-        </div>
-
-        <!-- ── Assessments ── -->
-        <!-- Templates -->
-<button class="snav-section-btn" id="snav-sec-templates" onclick="snavToggle('templates',this)">
-  <span class="snav-section-icon" style="background:rgba(245,158,11,0.15)">⚡</span>
-  <span class="snav-section-label">Templates</span>
-  <span class="snav-chevron">▼</span>
-</button>
-<div class="snav-items" id="snav-items-templates">
-  <button class="snav-item" onclick="snavSelect('templates','templates',this)">
-    <span class="snav-item-icon">📋</span> All Templates
-  </button>
-  <button class="snav-item" onclick="snavSelect('my-templates','templates',this)">
-    <span class="snav-item-icon">⭐</span> My Templates
-  </button>
-  <button class="snav-item" onclick="snavSelect('new-template','templates',this)">
-    <span class="snav-item-icon">➕</span> Create Template
-  </button>
-</div>
-
-<button class="snav-section-btn" id="snav-sec-assessments" onclick="snavToggle('assessments',this)">
-          <span class="snav-section-icon">🧪</span>
-          <span class="snav-section-label">Assessments</span>
-          <span class="snav-chevron">▼</span>
+        <button class="si" data-panel="contenthub" onclick="sidebarNav(this)">
+          <i class="ti ti-brand-youtube si-ic"></i>
+          <span class="si-lb">Content Hub</span>
         </button>
-        <div class="snav-items" id="snav-items-assessments">
-          <button class="snav-item" style="--item-accent:#f472b6" id="snav-quizzes"
-            onclick="snavSelect('quizzes','assessments',this)">
-            <span class="snav-item-icon">📝</span> Quizzes
-          </button>
-          <button class="snav-item" style="--item-accent:#f472b6" id="snav-exams"
-            onclick="snavSelect('exams','assessments',this)">
-            <span class="snav-item-icon">📋</span> Exams
-          </button>
-          <button class="snav-item" style="--item-accent:#f472b6" id="snav-results"
-            onclick="snavSelect('results','assessments',this)">
-            <span class="snav-item-icon">🏆</span> Results
-          </button>
-        </div>
 
-        <!-- ── Insights ── -->
-        <button class="snav-section-btn" id="snav-sec-insights" onclick="snavToggle('insights',this)">
-          <span class="snav-section-icon">📊</span>
-          <span class="snav-section-label">Insights</span>
-          <span class="snav-chevron">▼</span>
+        <!-- Planner -->
+        <div class="sg"><span class="sl">Planner</span></div>
+        <button class="si" data-panel="flux" onclick="sidebarNav(this)">
+          <i class="ti ti-checkbox si-ic"></i>
+          <span class="si-lb">Tasks</span>
         </button>
-        <div class="snav-items" id="snav-items-insights">
-          <button class="snav-item" style="--item-accent:#60a5fa" id="snav-progress"
-            onclick="snavSelect('progress','insights',this)">
-            <span class="snav-item-icon">📈</span> Progress
-          </button>
-          <button class="snav-item" style="--item-accent:#60a5fa" id="snav-weak-areas"
-            onclick="snavSelect('weak-areas','insights',this)">
-            <span class="snav-item-icon">🎯</span> Weak Areas
-          </button>
-          <button class="snav-item" style="--item-accent:#60a5fa" id="snav-recommendations"
-            onclick="snavSelect('recommendations','insights',this)">
-            <span class="snav-item-icon">💡</span> Recommendations
-          </button>
-        </div>
+        <button class="si" data-panel="notes" onclick="sidebarNav(this)">
+          <i class="ti ti-notebook si-ic"></i>
+          <span class="si-lb">Notes</span>
+        </button>
+        <button class="si" data-panel="studyplan" onclick="sidebarNav(this)">
+          <i class="ti ti-map si-ic"></i>
+          <span class="si-lb">Study Plan</span>
+        </button>
+        <button class="si" data-panel="pomodoro" onclick="sidebarNav(this)">
+          <i class="ti ti-clock si-ic"></i>
+          <span class="si-lb">Study Timer</span>
+        </button>
+        <button class="si" data-panel="templates" onclick="sidebarNav(this)">
+          <i class="ti ti-template si-ic"></i>
+          <span class="si-lb">Templates</span>
+        </button>
 
-<!-- ── Spaces ── -->
-<button class="snav-section-btn" id="snav-sec-spaces" onclick="snavToggle('spaces',this)">
-  <span class="snav-section-icon">🧩</span>
-  <span class="snav-section-label">Spaces</span>
-  <span class="snav-chevron">▼</span>
-</button>
-<div class="snav-items" id="snav-items-spaces">
-  <div id="dyn-spaces-container">
-    <div style="font-size:.72rem;color:var(--muted);padding:4px 8px;opacity:.6">No spaces yet</div>
-  </div>
-</div>
+        <!-- Insights -->
+        <div class="sg"><span class="sl">Insights</span></div>
+        <button class="si" data-panel="stats" onclick="sidebarNav(this)">
+          <i class="ti ti-chart-bar si-ic"></i>
+          <span class="si-lb">Progress</span>
+        </button>
+        <button class="si" data-panel="goals" onclick="sidebarNav(this)">
+          <i class="ti ti-target si-ic"></i>
+          <span class="si-lb">Goals</span>
+        </button>
 
-<!-- Bottom Actions -->
-<div style="margin-top:10px;padding:6px 4px;border-top:1px solid rgba(255,255,255,0.05)">
-  <button class="snav-item" onclick="snavSelect('create-new','spaces',this)">
-    <span class="snav-item-icon">➕</span> Create New
-  </button>
-  <button class="snav-item" onclick="snavSelect('settings','spaces',this)">
-    <span class="snav-item-icon">⚙️</span> Settings
-  </button>
-</div>
-
-        <!-- Flux (Planner tasks) kept for backward compat, hidden -->
-        <div style="height:1px;background:rgba(255,255,255,0.05);margin:8px 4px 4px"></div>
-
-        <!-- Quick Stats mini -->
-        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);
-                    border-radius:10px;padding:10px 12px;margin-top:4px" id="sb-stats">
-          <div style="font-size:9px;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Quick Stats</div>
-          <div class="stat-row"><span class="sl">Questions</span><span class="sv" id="sq-q">0</span></div>
-          <div class="stat-row"><span class="sl">Quizzes</span><span class="sv" id="sq-qz">0</span></div>
-          <div class="stat-row"><span class="sl">Sessions</span><span class="sv" id="sq-s">0</span></div>
-          <div class="stat-row"><span class="sl">Revision</span><span class="sv" id="sq-w">0</span></div>
-        </div>
       </div>
 
-      <!-- User footer -->
-      <div style="padding:10px 8px;border-top:1px solid rgba(255,255,255,0.05);flex-shrink:0">
-        <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:9px;cursor:pointer;transition:background .12s"
-          onmouseover="this.style.background='rgba(255,255,255,0.05)'"
-          onmouseout="this.style.background='transparent'">
-          <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));
-                      display:flex;align-items:center;justify-content:center;font-weight:700;
-                      font-size:11px;color:#fff;flex-shrink:0" id="snav-av">?</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:600;color:#d1d5db;truncate" id="snav-name">Student</div>
-            <div style="font-size:10px;color:#4b5563">Student</div>
+      <!-- Sidebar footer -->
+      <div class="sb-foot">
+        <div class="user-row">
+          <div class="u-av" id="snav-av">?</div>
+          <div class="u-info">
+            <div class="u-name" id="snav-name">Student</div>
+            <div class="u-role">Academic</div>
           </div>
+          <button class="tb-icon-btn" onclick="nav('settings',null)" title="Settings" style="flex-shrink:0">
+            <i class="ti ti-settings" style="font-size:16px;color:var(--text3)"></i>
+          </button>
         </div>
       </div>
 
@@ -1864,16 +1736,7 @@
 
   
 
-  <!-- Mobile Nav -->
-  <nav class="mobile-nav">
-    <button class="mn-btn active" onclick="nav('chat',this)" id="mn-chat"><span class="mi">💬</span>Chat</button>
-    <button class="mn-btn" onclick="nav('quiz',this)" id="mn-quiz"><span class="mi">📝</span>Quiz</button>
-    <button class="mn-btn" onclick="nav('stats',this)" id="mn-stats"><span class="mi">📊</span>Progress</button>
-    <button class="mn-btn" onclick="nav('more',this)" id="mn-more"><span class="mi">💡</span>More</button>
-  </nav>
-
-</div>
-</div>
+</div><!-- /dashboard -->
 
 <div class="toast" id="toast"></div>
 
