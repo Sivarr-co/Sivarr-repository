@@ -231,95 +231,120 @@
       <div class="sb-scroll">
 
         <!-- Core -->
-        <div class="sg"><span class="sl">Core</span></div>
-        <button class="si on" id="si-chat" data-panel="chat" onclick="sidebarNav(this)">
-          <i class="ti ti-robot si-ic"></i>
-          <span class="si-lb">SIVARR AI</span>
-        </button>
-        <button class="si" data-panel="home" onclick="sidebarNav(this)">
-          <i class="ti ti-home si-ic"></i>
-          <span class="si-lb">Home</span>
-        </button>
-        <button class="si" data-panel="announcements" onclick="sidebarNav(this)">
-          <i class="ti ti-inbox si-ic"></i>
-          <span class="si-lb">Inbox</span>
-        </button>
+        <div class="sg" onclick="sbToggleSection('core')">
+          <span class="sl">Core</span>
+          <i class="ti ti-chevron-down sg-chev"></i>
+        </div>
+        <div class="sg-items" id="sgi-core">
+          <button class="si on" id="si-chat" data-panel="chat" onclick="sidebarNav(this)">
+            <i class="ti ti-robot si-ic"></i>
+            <span class="si-lb">SIVARR AI</span>
+          </button>
+          <button class="si" data-panel="home" onclick="sidebarNav(this)">
+            <i class="ti ti-home si-ic"></i>
+            <span class="si-lb">Home</span>
+          </button>
+          <button class="si" data-panel="announcements" onclick="sidebarNav(this)">
+            <i class="ti ti-inbox si-ic"></i>
+            <span class="si-lb">Inbox</span>
+          </button>
+        </div>
 
         <!-- Work -->
-        <div class="sg"><span class="sl">Work</span></div>
-        <button class="si" data-panel="flux" onclick="sidebarNav(this)">
-          <i class="ti ti-checkbox si-ic"></i>
-          <span class="si-lb">Tasks</span>
-        </button>
-        <button class="si" data-panel="notes" onclick="sidebarNav(this)">
-          <i class="ti ti-notebook si-ic"></i>
-          <span class="si-lb">Docs &amp; Notes</span>
-        </button>
-        <button class="si" data-panel="calendar" onclick="sidebarNav(this)">
-          <i class="ti ti-calendar si-ic"></i>
-          <span class="si-lb">Calendar</span>
-        </button>
-        <button class="si" data-panel="templates" onclick="sidebarNav(this)">
-          <i class="ti ti-template si-ic"></i>
-          <span class="si-lb">Templates</span>
-        </button>
+        <div class="sg" onclick="sbToggleSection('work')">
+          <span class="sl">Work</span>
+          <i class="ti ti-chevron-down sg-chev"></i>
+        </div>
+        <div class="sg-items" id="sgi-work">
+          <button class="si" data-panel="flux" onclick="sidebarNav(this)">
+            <i class="ti ti-checkbox si-ic"></i>
+            <span class="si-lb">Tasks</span>
+          </button>
+          <button class="si" data-panel="notes" onclick="sidebarNav(this)">
+            <i class="ti ti-notebook si-ic"></i>
+            <span class="si-lb">Docs &amp; Notes</span>
+          </button>
+          <button class="si" data-panel="calendar" onclick="sidebarNav(this)">
+            <i class="ti ti-calendar si-ic"></i>
+            <span class="si-lb">Calendar</span>
+          </button>
+          <button class="si" data-panel="templates" onclick="sidebarNav(this)">
+            <i class="ti ti-template si-ic"></i>
+            <span class="si-lb">Templates</span>
+          </button>
+        </div>
 
         <!-- Academic -->
-        <div class="sg"><span class="sl">Academic</span></div>
-        <button class="si" data-panel="courses" onclick="sidebarNav(this)">
-          <i class="ti ti-school si-ic"></i>
-          <span class="si-lb">Courses</span>
-        </button>
-        <button class="si" data-panel="quiz" onclick="sidebarNav(this)">
-          <i class="ti ti-pencil si-ic"></i>
-          <span class="si-lb">Quiz</span>
-        </button>
-        <button class="si" data-panel="lab" onclick="sidebarNav(this)">
-          <i class="ti ti-flask si-ic"></i>
-          <span class="si-lb">Study Deck</span>
-        </button>
-        <button class="si" data-panel="studyplan" onclick="sidebarNav(this)">
-          <i class="ti ti-map si-ic"></i>
-          <span class="si-lb">Study Plan</span>
-        </button>
-        <button class="si" data-panel="pomodoro" onclick="sidebarNav(this)">
-          <i class="ti ti-clock si-ic"></i>
-          <span class="si-lb">Study Timer</span>
-        </button>
-        <button class="si" data-panel="contenthub" onclick="sidebarNav(this)">
-          <i class="ti ti-brand-youtube si-ic"></i>
-          <span class="si-lb">Content Hub</span>
-        </button>
+        <div class="sg" onclick="sbToggleSection('academic')">
+          <span class="sl">Academic</span>
+          <i class="ti ti-chevron-down sg-chev"></i>
+        </div>
+        <div class="sg-items" id="sgi-academic">
+          <button class="si" data-panel="courses" onclick="sidebarNav(this)">
+            <i class="ti ti-school si-ic"></i>
+            <span class="si-lb">Courses</span>
+          </button>
+          <button class="si" data-panel="quiz" onclick="sidebarNav(this)">
+            <i class="ti ti-pencil si-ic"></i>
+            <span class="si-lb">Quiz</span>
+          </button>
+          <button class="si" data-panel="lab" onclick="sidebarNav(this)">
+            <i class="ti ti-flask si-ic"></i>
+            <span class="si-lb">Study Deck</span>
+          </button>
+          <button class="si" data-panel="studyplan" onclick="sidebarNav(this)">
+            <i class="ti ti-map si-ic"></i>
+            <span class="si-lb">Study Plan</span>
+          </button>
+          <button class="si" data-panel="pomodoro" onclick="sidebarNav(this)">
+            <i class="ti ti-clock si-ic"></i>
+            <span class="si-lb">Study Timer</span>
+          </button>
+          <button class="si" data-panel="contenthub" onclick="sidebarNav(this)">
+            <i class="ti ti-brand-youtube si-ic"></i>
+            <span class="si-lb">Content Hub</span>
+          </button>
+        </div>
 
         <!-- Grow -->
-        <div class="sg"><span class="sl">Grow</span></div>
-        <button class="si" data-panel="goals" onclick="sidebarNav(this)">
-          <i class="ti ti-target si-ic"></i>
-          <span class="si-lb">Goals</span>
-        </button>
-        <button class="si" data-panel="habits" onclick="sidebarNav(this)">
-          <i class="ti ti-repeat si-ic"></i>
-          <span class="si-lb">Habits</span>
-        </button>
-        <button class="si" data-panel="stats" onclick="sidebarNav(this)">
-          <i class="ti ti-chart-bar si-ic"></i>
-          <span class="si-lb">Analytics</span>
-        </button>
-        <button class="si" data-panel="journal" onclick="sidebarNav(this)">
-          <i class="ti ti-writing si-ic"></i>
-          <span class="si-lb">Journal</span>
-        </button>
+        <div class="sg" onclick="sbToggleSection('grow')">
+          <span class="sl">Grow</span>
+          <i class="ti ti-chevron-down sg-chev"></i>
+        </div>
+        <div class="sg-items" id="sgi-grow">
+          <button class="si" data-panel="goals" onclick="sidebarNav(this)">
+            <i class="ti ti-target si-ic"></i>
+            <span class="si-lb">Goals</span>
+          </button>
+          <button class="si" data-panel="habits" onclick="sidebarNav(this)">
+            <i class="ti ti-repeat si-ic"></i>
+            <span class="si-lb">Habits</span>
+          </button>
+          <button class="si" data-panel="stats" onclick="sidebarNav(this)">
+            <i class="ti ti-chart-bar si-ic"></i>
+            <span class="si-lb">Analytics</span>
+          </button>
+          <button class="si" data-panel="journal" onclick="sidebarNav(this)">
+            <i class="ti ti-writing si-ic"></i>
+            <span class="si-lb">Journal</span>
+          </button>
+        </div>
 
         <!-- Connect -->
-        <div class="sg"><span class="sl">Connect</span></div>
-        <button class="si" data-panel="community" onclick="sidebarNav(this)">
-          <i class="ti ti-users si-ic"></i>
-          <span class="si-lb">Community</span>
-        </button>
-        <button class="si" data-panel="library" onclick="sidebarNav(this)">
-          <i class="ti ti-books si-ic"></i>
-          <span class="si-lb">Library</span>
-        </button>
+        <div class="sg" onclick="sbToggleSection('connect')">
+          <span class="sl">Connect</span>
+          <i class="ti ti-chevron-down sg-chev"></i>
+        </div>
+        <div class="sg-items" id="sgi-connect">
+          <button class="si" data-panel="community" onclick="sidebarNav(this)">
+            <i class="ti ti-users si-ic"></i>
+            <span class="si-lb">Community</span>
+          </button>
+          <button class="si" data-panel="library" onclick="sidebarNav(this)">
+            <i class="ti ti-books si-ic"></i>
+            <span class="si-lb">Library</span>
+          </button>
+        </div>
 
       </div>
 

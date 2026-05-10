@@ -3598,6 +3598,31 @@ function syncSnavFromPanel(name) {
   if (el) el.classList.add('on');
 }
 
+// ── Sidebar section collapse ─────────────────────────────────
+const SB_SECTIONS = ['core','work','academic','grow','connect'];
+
+function sbToggleSection(id) {
+  const items = $('sgi-' + id);
+  if (!items) return;
+  const hd = items.previousElementSibling;
+  const willCollapse = !items.classList.contains('collapsed');
+  items.classList.toggle('collapsed', willCollapse);
+  if (hd) hd.classList.toggle('collapsed', willCollapse);
+  willCollapse
+    ? localStorage.setItem('sivarr_sb_' + id, '1')
+    : localStorage.removeItem('sivarr_sb_' + id);
+}
+
+function sbRestoreCollapse() {
+  SB_SECTIONS.forEach(id => {
+    if (localStorage.getItem('sivarr_sb_' + id)) {
+      const items = $('sgi-' + id);
+      const hd = items?.previousElementSibling;
+      if (items) { items.classList.add('collapsed'); hd?.classList.add('collapsed'); }
+    }
+  });
+}
+
 // New sidebar nav handler
 function sidebarNav(btn) {
   const panel = btn.dataset.panel;
@@ -6029,6 +6054,7 @@ function toggleTheme() { toggleThemeFromMenu(); }
 
 // Apply saved theme on load
 window.addEventListener('DOMContentLoaded', () => {
+  sbRestoreCollapse();
   if (localStorage.getItem('sivarr_theme') === 'dark') {
     document.documentElement.setAttribute('data-theme', 'dark');
     const sw        = $('pd-toggle-sw');    if (sw)        sw.classList.add('on');
