@@ -1,6 +1,6 @@
 // ═══════════════════════════ STATE ═══════════════════════════
 const S = {
-  sid: null, name: '', matric: '', diff: 'medium',
+  sid: null, name: '', email: '', diff: 'medium',
   topics: [], weak: [], quizActive: false,
   quizQ: 0, quizScore: 0, curQ: null, wrongAnswers: [],
   stats: { questions: 0, quizzes: 0, sessions: 1, wrong: 0 },
@@ -115,7 +115,7 @@ function togglePwVis(inputId, btnId) {
   if (icon) icon.className = inp.type === 'password' ? 'ti ti-eye' : 'ti ti-eye-off';
 }
 
-async function doLogin(prefillName, prefillMatric) {
+async function doLogin(prefillName, prefillEmail) {
   const err = $('login-err');
   const btn = $('login-btn');
   if (err) err.textContent = '';
@@ -144,32 +144,31 @@ async function doLogin(prefillName, prefillMatric) {
   }
 
   // ── Student path ──────────────────────────────────────────
-  const name   = prefillName   || $('ln')?.value.trim();
-  const matric = prefillMatric || $('lm')?.value.trim();
-  const pw     = $('l-pw')?.value || '';
-  const email  = $('l-email')?.value?.trim() || '';
-  const phone  = $('l-phone')?.value?.trim() || '';
+  const name  = prefillName  || $('ln')?.value.trim();
+  const email = prefillEmail || $('lm')?.value.trim();
+  const pw    = $('l-pw')?.value || '';
+  const phone = $('l-phone')?.value?.trim() || '';
 
-  if (!name || !matric) { if (err) err.textContent = 'Enter your name and matric number.'; return; }
+  if (!name || !email) { if (err) err.textContent = 'Enter your name and email address.'; return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Please wait...'; }
 
   try {
-    const r = await API('/api/login', { name, matric, password: pw, email, phone, action: AUTH_TAB });
+    const r = await API('/api/login', { name, email, password: pw, phone, action: AUTH_TAB });
 
-    S.sid    = r.sid;   S.name   = r.name;  S.matric = r.matric;
-    S.diff   = r.difficulty; S.topics = r.topics; S.weak = r.weak;
-    S.stats  = { questions: r.questions, quizzes: r.quizzes, sessions: r.sessions, wrong: r.wrong_count };
+    S.sid   = r.sid;  S.name  = r.name;  S.email = r.email;
+    S.diff  = r.difficulty; S.topics = r.topics; S.weak = r.weak;
+    S.stats = { questions: r.questions, quizzes: r.quizzes, sessions: r.sessions, wrong: r.wrong_count };
     S.uploadedFiles = r.uploaded_files || [];
-    S.plan   = r.plan || 'free';
+    S.plan  = r.plan || 'free';
 
-    saveSession(name, matric);
+    saveSession(name, email);
 
     $('tb-av').textContent   = r.name[0].toUpperCase();
     $('tb-name').textContent = r.name;
     const snavAv   = $('snav-av');     if (snavAv)   snavAv.textContent   = r.name[0].toUpperCase();
     const snavName = $('snav-name');   if (snavName) snavName.textContent = r.name;
     const pdName   = $('pd-name');     if (pdName)   pdName.textContent   = r.name;
-    const pdMatric = $('pd-matric');   if (pdMatric) pdMatric.textContent = r.matric;
+    const pdMatric = $('pd-matric');   if (pdMatric) pdMatric.textContent = r.email;
     const tbAvBig  = $('tb-av-big');   if (tbAvBig)  tbAvBig.textContent  = r.name[0].toUpperCase();
     const mobAv    = $('mob-snav-av'); if (mobAv)    mobAv.textContent    = r.name[0].toUpperCase();
     const mobName  = $('mob-snav-name'); if (mobName) mobName.textContent = r.name;
@@ -337,28 +336,28 @@ function showAllAnnouncements() {
 // ═══════════════════════════ SESSION PERSISTENCE ══════════════
 // Save login to localStorage so user stays logged in on return
 
-function saveSession(name, matric) {
-  localStorage.setItem('sivarr_name',   name);
-  localStorage.setItem('sivarr_matric', matric);
-  localStorage.setItem('sivarr_ts',     Date.now());
+function saveSession(name, email) {
+  localStorage.setItem('sivarr_name',  name);
+  localStorage.setItem('sivarr_email', email);
+  localStorage.setItem('sivarr_ts',    Date.now());
 }
 
 function clearSession() {
   localStorage.removeItem('sivarr_name');
-  localStorage.removeItem('sivarr_matric');
+  localStorage.removeItem('sivarr_email');
+  localStorage.removeItem('sivarr_matric'); // clear legacy key
   localStorage.removeItem('sivarr_ts');
 }
 
 function getSavedSession() {
-  const name   = localStorage.getItem('sivarr_name');
-  const matric = localStorage.getItem('sivarr_matric');
-  const ts     = localStorage.getItem('sivarr_ts');
-  // Session expires after 30 days
-  if (!name || !matric || !ts) return null;
+  const name  = localStorage.getItem('sivarr_name');
+  const email = localStorage.getItem('sivarr_email');
+  const ts    = localStorage.getItem('sivarr_ts');
+  if (!name || !email || !ts) return null;
   if (Date.now() - parseInt(ts) > 30 * 24 * 60 * 60 * 1000) {
     clearSession(); return null;
   }
-  return { name, matric };
+  return { name, email };
 }
 
 // ═══════════════════════════ LOGIN ════════════════════════════
@@ -379,7 +378,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (saved) {
     const btn = $('login-btn');
     if (btn) { btn.textContent = 'Resuming session...'; btn.disabled = true; }
-    doLogin(saved.name, saved.matric);
+    doLogin(saved.name, saved.email);
   }
 });
 
@@ -1750,7 +1749,7 @@ function stInit() {
   if (phoneEl)  phoneEl.value  = st.phone || '';
   if (avatarL)  avatarL.textContent = S.name ? S.name[0].toUpperCase() : '?';
   if (nameDisp) nameDisp.textContent = S.name || '';
-  if (matDisp)  matDisp.textContent  = S.matric || '';
+  if (matDisp)  matDisp.textContent  = S.email || '';
 
   // Load profile pic into settings avatar
   const saved = localStorage.getItem(`sivarr_pfp_${S.sid}`);
@@ -1868,7 +1867,7 @@ function stLogoutAll() {
 function stExportData() {
   const data = {
     name:    S.name,
-    matric:  S.matric,
+    email:   S.email,
     stats:   S.stats,
     topics:  S.topics,
     exported: new Date().toISOString(),
@@ -1876,7 +1875,7 @@ function stExportData() {
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const a    = document.createElement('a');
   a.href     = URL.createObjectURL(blob);
-  a.download = `sivarr-data-${S.matric || 'export'}.json`;
+  a.download = `sivarr-data-${S.name?.split(' ')[0]?.toLowerCase() || 'export'}.json`;
   a.click();
   toast('Data exported ✓');
 }

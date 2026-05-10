@@ -700,9 +700,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 class LoginRequest(BaseModel):
     name: str
-    matric: str
+    email: str
     password: str = ""
-    email: str    = ""
     phone: str    = ""
     action: str   = "login"   # "login" | "register"
 
@@ -715,13 +714,13 @@ class LoginRequest(BaseModel):
             raise ValueError("Name contains invalid characters.")
         return v
 
-    @validator("matric")
-    def matric_valid(cls, v):
-        v = sanitize_text(v, MAX_MATRIC_LEN)
-        if not v or len(v) < 3:
-            raise ValueError("Matric number is too short.")
-        if not re.match(r"^[a-zA-Z0-9\-/]+$", v):
-            raise ValueError("Matric number contains invalid characters.")
+    @validator("email")
+    def email_valid(cls, v):
+        v = sanitize_text(v, 200).lower().strip()
+        if not v:
+            raise ValueError("Email is required.")
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError("Enter a valid email address.")
         return v
 
 
@@ -798,7 +797,7 @@ async def login(req: LoginRequest, request: Request):
     check_rate_limit(key, RATE_LIMIT_LOGIN, "login")
 
     sid = re.sub(r"[^a-z0-9_]", "_",
-          f"{req.name.lower().strip()}_{req.matric.lower().strip()}")
+          f"{req.name.lower().strip()}_{req.email.lower().strip()}")
 
     users = load_users()
 
@@ -812,14 +811,14 @@ async def login(req: LoginRequest, request: Request):
         users[sid] = {
             "sid":      sid,
             "name":     sanitize_text(req.name.title(), MAX_NAME_LEN),
-            "matric":   req.matric.upper(),
-            "email":    sanitize_text(req.email, 200),
+            "email":    req.email,
+            "matric":   "",
             "phone":    sanitize_text(req.phone, 30),
             "password": hashed,
             "created":  datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
         }
         save_users(users)
-        log.info(f"Register: {users[sid]['name']} ({users[sid]['matric']})")
+        log.info(f"Register: {users[sid]['name']} ({users[sid]['email']})")
 
     # ── LOGIN ──────────────────────────────────────────────────
     else:
@@ -834,17 +833,17 @@ async def login(req: LoginRequest, request: Request):
 
     p = load_progress(sid)
     p["sessions"] += 1
-    p["name"]   = req.name.title()
-    p["matric"] = req.matric.upper()
+    p["name"]  = req.name.title()
+    p["email"] = req.email
     save_progress(sid, p)
 
     memory = build_memory(p)
     get_sessions(sid, memory)
 
-    log.info(f"Login: {p['name']} ({p['matric']}) | Sessions: {p['sessions']}")
+    log.info(f"Login: {p['name']} ({p['email']}) | Sessions: {p['sessions']}")
 
     return {
-        "sid": sid, "name": p["name"], "matric": p["matric"],
+        "sid": sid, "name": p["name"], "email": p["email"],
         "sessions": p["sessions"], "difficulty": p.get("difficulty","medium"),
         "topics": list(p["topics"].keys()), "weak": weak_topics(p),
         "questions": p["questions"], "quizzes": len(p.get("quizzes",[])),
