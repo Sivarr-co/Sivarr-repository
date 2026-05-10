@@ -2751,41 +2751,70 @@ document.addEventListener('keydown', e => {
 // ═══════════════════════ HOME PANEL ═════════════════════════
 
 async function loadHome() {
-  // Greeting
   const hr  = new Date().getHours();
   const tod = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = S.name.split(' ')[0] || 'there';
+
   const greet = $('home-greeting');
-  if (greet) greet.textContent = `${tod}, ${S.name.split(' ')[0] || 'there'} 👋`;
+  if (greet) greet.textContent = `${tod}, ${firstName} 👋`;
   const sub = $('home-sub');
   if (sub) {
     const day = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
     sub.textContent = day;
   }
 
-  // Stats from S object (already loaded on login)
-  const hq = $('home-questions'); if (hq) hq.textContent = S.stats?.questions || 0;
-  const hqz= $('home-quizzes');   if (hqz) hqz.textContent = S.stats?.quizzes || 0;
-  const hs = $('home-sessions');  if (hs) hs.textContent = S.stats?.sessions || 1;
+  // SIVA briefing message
+  const briefMsg = $('home-brief-msg');
+  if (briefMsg) {
+    const msgs = [
+      `Ready to make today count, ${firstName}? Your study streak is building momentum.`,
+      `${firstName}, you've asked ${S.stats?.questions || 0} questions so far. Keep the curiosity going!`,
+      `Good energy, ${firstName}! Check your tasks and make progress on your goals today.`,
+    ];
+    briefMsg.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+  }
 
-  // Goals
+  // Stats
+  const hq  = $('home-questions'); if (hq)  hq.textContent  = S.stats?.questions || 0;
+  const hqz = $('home-quizzes');   if (hqz) hqz.textContent = S.stats?.quizzes   || 0;
+  const hs  = $('home-sessions');  if (hs)  hs.textContent  = S.stats?.sessions  || 1;
+
+  // Goals count stat card
   try {
     const goals = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]')
-      .filter(g => !g.completed).slice(0, 3);
+      .filter(g => !g.completed);
+    const gc = $('home-goals-count'); if (gc) gc.textContent = goals.length;
+
     const gs = $('home-goals-section');
     const gl = $('home-goals-list');
     if (goals.length && gs && gl) {
       gs.style.display = 'block';
-      gl.innerHTML = goals.map(g => {
+      gl.innerHTML = goals.slice(0, 3).map(g => {
         const pct = g.progress || 0;
         const daysLeft = g.deadline
           ? Math.ceil((new Date(g.deadline) - new Date()) / 86400000) : null;
-        return `<div class="home-goal-row">
-          <span class="home-goal-name">${esc(g.title)}</span>
-          ${daysLeft !== null ? `<span style="font-size:.68rem;color:${daysLeft<=3?'var(--red)':'var(--muted)'}">${daysLeft}d</span>` : ''}
-          <div class="home-goal-bar-wrap"><div class="home-goal-bar" style="width:${pct}%"></div></div>
-          <span class="home-goal-pct">${pct}%</span>
+        return `<div class="priority-item">
+          <div class="pr-dot" style="background:var(--teal)"></div>
+          <div class="pr-text">${esc(g.title)}</div>
+          ${daysLeft !== null ? `<span class="pr-tag" style="background:var(--${daysLeft<=3?'red':'teal'}2);color:var(--${daysLeft<=3?'red':'teal'}4)">${daysLeft}d</span>` : ''}
         </div>`;
       }).join('');
+    }
+  } catch(e) {}
+
+  // Today's priorities from tasks
+  try {
+    const tasks = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]')
+      .filter(t => !t.done).slice(0, 4);
+    const pl = $('home-priorities-list');
+    if (pl && tasks.length) {
+      const colors = { high:'var(--red3)', medium:'var(--amber3)', low:'var(--green3)' };
+      pl.innerHTML = tasks.map(t => `
+        <div class="priority-item">
+          <div class="pr-dot" style="background:${colors[t.priority]||'var(--text4)'}"></div>
+          <div class="pr-text">${esc(t.title)}</div>
+          <span class="pr-tag" style="background:var(--bg3);color:var(--text3)">${t.priority||'task'}</span>
+        </div>`).join('');
     }
   } catch(e) {}
 
@@ -2797,28 +2826,291 @@ async function loadHome() {
     if (notes.length && ns && nl) {
       ns.style.display = 'block';
       nl.innerHTML = notes.map(n => `
-        <div class="home-note-card" onclick="nav('notes',null)">
-          ${n.tag ? `<span style="background:#4f6ef715;border:1px solid #4f6ef730;border-radius:10px;padding:1px 8px;font-size:.65rem;color:var(--accent);font-weight:700;display:inline-block;margin-bottom:4px">${esc(n.tag)}</span>` : ''}
-          <div class="home-note-title">${esc(n.text.split('\n')[0].slice(0,60))}</div>
-          <div class="home-note-meta">${n.date || ''}</div>
+        <div class="priority-item" onclick="nav('notes',null)" style="cursor:pointer">
+          <div class="pr-dot" style="background:var(--purple)"></div>
+          <div class="pr-text">${esc(n.text.split('\n')[0].slice(0,60))}</div>
+          <span style="font-size:.7rem;color:var(--text4)">${n.date||''}</span>
         </div>`).join('');
     }
   } catch(e) {}
 
-  // Featured templates (first 2 built-in)
+  // Featured templates
   const htl = $('home-templates-list');
-  if (htl) {
-    const featured = TPL_BUILTIN.slice(0, 2);
-    htl.innerHTML = featured.map(t => `
-      <div class="home-quick-btn" onclick="nav('templates',null)" style="margin-bottom:.5rem">
-        <div class="home-quick-icon" style="background:${t.color}20">${t.icon}</div>
-        <div>
-          <div style="font-weight:600;font-size:.85rem">${esc(t.name)}</div>
-          <div style="font-size:.72rem;color:var(--muted)">${esc(t.desc)}</div>
-        </div>
-        <span style="color:var(--muted);margin-left:auto">→</span>
+  if (htl && typeof TPL_BUILTIN !== 'undefined') {
+    htl.innerHTML = TPL_BUILTIN.slice(0, 3).map(t => `
+      <div class="priority-item" onclick="nav('templates',null)" style="cursor:pointer">
+        <div style="font-size:1.1rem">${t.icon}</div>
+        <div class="pr-text" style="font-weight:500">${esc(t.name)}</div>
+        <span style="color:var(--text3);font-size:12px">→</span>
       </div>`).join('');
   }
+}
+
+// ════════════ CALENDAR ════════════
+let CAL_YEAR = new Date().getFullYear();
+let CAL_MONTH = new Date().getMonth();
+let CAL_EVENTS_KEY = () => `sivarr_cal_${S.sid||'guest'}`;
+
+function calInit() {
+  calRender();
+}
+
+function calNav(dir) {
+  CAL_MONTH += dir;
+  if (CAL_MONTH > 11) { CAL_MONTH = 0; CAL_YEAR++; }
+  if (CAL_MONTH < 0)  { CAL_MONTH = 11; CAL_YEAR--; }
+  calRender();
+}
+
+function calRender() {
+  const lbl = $('cal-month-label');
+  if (lbl) lbl.textContent = new Date(CAL_YEAR, CAL_MONTH, 1)
+    .toLocaleDateString('en-GB', { month:'long', year:'numeric' });
+
+  const grid = $('cal-grid');
+  if (!grid) return;
+
+  const headers = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+    .map(d => `<div class="cal-dh">${d}</div>`).join('');
+
+  const firstDay = new Date(CAL_YEAR, CAL_MONTH, 1).getDay();
+  const daysInMonth = new Date(CAL_YEAR, CAL_MONTH + 1, 0).getDate();
+  const today = new Date();
+  const events = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
+
+  let cells = '';
+  for (let i = 0; i < firstDay; i++) {
+    const prevD = new Date(CAL_YEAR, CAL_MONTH, -firstDay + i + 1).getDate();
+    cells += `<div class="cal-cell other-month"><div class="cal-num">${prevD}</div></div>`;
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = d === today.getDate() && CAL_MONTH === today.getMonth() && CAL_YEAR === today.getFullYear();
+    const dateStr = `${CAL_YEAR}-${String(CAL_MONTH+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const hasEv = events.some(e => e.date === dateStr);
+    cells += `<div class="cal-cell${isToday?' today':''}" onclick="calSelectDay('${dateStr}',${d})">
+      <div class="cal-num">${d}</div>
+      ${hasEv ? '<div class="cal-ev"></div>' : ''}
+    </div>`;
+  }
+  grid.innerHTML = headers + cells;
+}
+
+function calSelectDay(dateStr, d) {
+  const lbl = $('cal-day-label');
+  if (lbl) lbl.textContent = new Date(dateStr+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+
+  const events = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]')
+    .filter(e => e.date === dateStr);
+  const list = $('cal-events-list');
+  if (!list) return;
+
+  if (!events.length) {
+    list.innerHTML = `<div class="ev-row"><div class="ev-time">—</div><div class="ev-dot" style="background:var(--text4)"></div><div class="ev-info"><div class="ev-name">No events</div><div class="ev-sub">Click + Event to add one</div></div></div>`;
+    return;
+  }
+  list.innerHTML = events.map(e => `
+    <div class="ev-row">
+      <div class="ev-time">${esc(e.time||'All day')}</div>
+      <div class="ev-dot" style="background:${e.color||'var(--teal)'}"></div>
+      <div class="ev-info">
+        <div class="ev-name">${esc(e.title)}</div>
+        ${e.desc ? `<div class="ev-sub">${esc(e.desc)}</div>` : ''}
+      </div>
+      <button onclick="calDeleteEvent('${e.id}')" style="background:none;border:none;color:var(--text4);cursor:pointer;font-size:13px;padding:2px 6px" title="Delete">×</button>
+    </div>`).join('');
+}
+
+function calAddEvent() {
+  const date = prompt('Event date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+  if (!date) return;
+  const title = prompt('Event title:');
+  if (!title?.trim()) return;
+  const time = prompt('Time (e.g. 09:00) — leave blank for all day:', '') || '';
+  const colors = ['var(--teal)','var(--purple)','var(--coral)','var(--amber3)','var(--blue)'];
+  const ev = { id: Date.now().toString(), date, title: title.trim(), time, color: colors[Math.floor(Math.random()*colors.length)] };
+  const evs = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
+  evs.push(ev);
+  localStorage.setItem(CAL_EVENTS_KEY(), JSON.stringify(evs));
+  calRender();
+  calSelectDay(date);
+  toast('Event added ✓');
+}
+
+function calDeleteEvent(id) {
+  const evs = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]').filter(e => e.id !== id);
+  localStorage.setItem(CAL_EVENTS_KEY(), JSON.stringify(evs));
+  calRender();
+  toast('Event removed');
+}
+
+// ════════════ HABITS ════════════
+const HAB_KEY = () => `sivarr_habits_${S.sid||'guest'}`;
+
+function habitInit() {
+  const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
+  const tot = $('hab-total'); if (tot) tot.textContent = habits.length;
+  const today = new Date().toISOString().split('T')[0];
+  const doneToday = habits.filter(h => (h.completions||[]).includes(today)).length;
+  const dt = $('hab-today'); if (dt) dt.textContent = doneToday;
+  const maxStreak = habits.reduce((m, h) => Math.max(m, h.streak||0), 0);
+  const hs = $('hab-streak'); if (hs) hs.textContent = maxStreak;
+
+  const list = $('habits-list');
+  if (!list) return;
+  if (!habits.length) {
+    list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text4);font-size:.83rem">No habits yet. Add your first habit!</div>`;
+    return;
+  }
+  list.innerHTML = habits.map((h,i) => {
+    const week = [];
+    for (let d = 6; d >= 0; d--) {
+      const dt2 = new Date(); dt2.setDate(dt2.getDate()-d);
+      week.push((h.completions||[]).includes(dt2.toISOString().split('T')[0]));
+    }
+    const isToday2 = (h.completions||[]).includes(today);
+    const pct = Math.round(week.filter(Boolean).length / 7 * 100);
+    return `<div class="habit-card" onclick="habitToggle(${i})">
+      <div class="habit-emoji">${h.emoji||'📌'}</div>
+      <div class="habit-info">
+        <div class="habit-title">${esc(h.title)}</div>
+        <div class="habit-sub2">Every day · ${h.freq||'daily'}</div>
+        <div class="hdots">${week.map(f=>`<div class="hdot ${f?'f':'e'}"></div>`).join('')}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="habit-pct">${pct}%</div>
+        <div style="font-size:.7rem;color:${isToday2?'var(--teal)':'var(--text4)'}">
+          ${isToday2 ? '✓ done' : 'pending'}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function habitToggle(idx) {
+  const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
+  if (!habits[idx]) return;
+  const today = new Date().toISOString().split('T')[0];
+  habits[idx].completions = habits[idx].completions || [];
+  if (habits[idx].completions.includes(today)) {
+    habits[idx].completions = habits[idx].completions.filter(d => d !== today);
+    habits[idx].streak = Math.max(0, (habits[idx].streak||0) - 1);
+  } else {
+    habits[idx].completions.push(today);
+    habits[idx].streak = (habits[idx].streak||0) + 1;
+  }
+  localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
+  habitInit();
+}
+
+function habitAdd() {
+  const emojis = ['📚','🧘','🏃','💧','🥗','✍️','🎯','🛌','🔔','💡'];
+  const title = prompt('Habit name (e.g. Morning Study):');
+  if (!title?.trim()) return;
+  const emoji = prompt('Pick an emoji:', emojis[Math.floor(Math.random()*emojis.length)]) || '📌';
+  const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
+  habits.push({ id: Date.now().toString(), title: title.trim(), emoji, completions: [], streak: 0 });
+  localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
+  habitInit();
+  toast('Habit added ✓');
+}
+
+// ════════════ JOURNAL ════════════
+const JNL_KEY = () => `sivarr_journal_${S.sid||'guest'}`;
+
+const JNL_PROMPTS = [
+  'What\'s one thing you learned today that surprised you? How can you apply it?',
+  'What\'s your biggest challenge right now, and what\'s one step you can take toward solving it?',
+  'What are you most grateful for today?',
+  'What would make tomorrow even better than today?',
+  'What habit would most transform your life if you built it this month?',
+];
+
+function journalInit() {
+  const lbl = $('journal-date-label');
+  if (lbl) lbl.textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+
+  // Load today's draft
+  const todayKey = `jnl_draft_${new Date().toISOString().split('T')[0]}`;
+  const draft = localStorage.getItem(`${JNL_KEY()}_${todayKey}`) || '';
+  const ta = $('journal-text'); if (ta) ta.value = draft;
+
+  // Random prompt
+  const prompt2 = document.querySelector('.journal-prompt');
+  if (prompt2) prompt2.innerHTML = `<strong>Today's prompt:</strong> ${JNL_PROMPTS[new Date().getDay() % JNL_PROMPTS.length]}`;
+
+  journalRenderEntries();
+}
+
+function journalSave() {
+  const ta = $('journal-text');
+  const mood = $('journal-mood');
+  if (!ta?.value?.trim()) { toast('Write something first!'); return; }
+  const entries = JSON.parse(localStorage.getItem(JNL_KEY()) || '[]');
+  const today = new Date().toISOString().split('T')[0];
+  const existing = entries.findIndex(e => e.date === today);
+  const entry = { date: today, text: ta.value.trim(), mood: mood?.value || '😊', ts: Date.now() };
+  if (existing >= 0) entries[existing] = entry;
+  else entries.unshift(entry);
+  localStorage.setItem(JNL_KEY(), JSON.stringify(entries));
+  localStorage.setItem(`${JNL_KEY()}_jnl_draft_${today}`, ta.value.trim());
+  journalRenderEntries();
+  toast('Journal entry saved ✓');
+}
+
+function journalRenderEntries() {
+  const list = $('journal-entries-list');
+  if (!list) return;
+  const entries = JSON.parse(localStorage.getItem(JNL_KEY()) || '[]');
+  if (!entries.length) {
+    list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text4);font-size:.83rem">No journal entries yet. Start writing above!</div>`;
+    return;
+  }
+  list.innerHTML = entries.map(e => `
+    <div class="journal-entry">
+      <div class="je-date">${e.mood} ${new Date(e.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</div>
+      <div class="je-text">${esc(e.text)}</div>
+    </div>`).join('');
+}
+
+// ════════════ COMMUNITY ════════════
+function communityPost() {
+  const body = prompt('Share something with the community:');
+  if (!body?.trim()) return;
+  const feed = $('community-feed');
+  if (!feed) return;
+  const card = document.createElement('div');
+  card.className = 'feed-card';
+  card.innerHTML = `
+    <div class="feed-hd">
+      <div class="feed-av">${(S.name[0]||'U').toUpperCase()}</div>
+      <div style="flex:1"><div class="feed-name">${esc(S.name||'You')}</div><div class="feed-time">Just now</div></div>
+    </div>
+    <div class="feed-body">${esc(body.trim())}</div>
+    <div class="feed-actions">
+      <button class="feed-action-btn" onclick="this.querySelector('span').textContent=Number(this.querySelector('span').textContent)+1"><i class="ti ti-heart"></i> <span>0</span></button>
+      <button class="feed-action-btn"><i class="ti ti-message"></i> Reply</button>
+    </div>`;
+  feed.insertBefore(card, feed.firstChild);
+  toast('Post shared ✓');
+}
+
+function commFilter(cat, btn) {
+  document.querySelectorAll('[id^="comm-tab-"]').forEach(b => b.classList.remove('sp-add'));
+  if (btn) btn.classList.add('sp-add');
+}
+
+// ════════════ LIBRARY ════════════
+function libFilter(cat, btn) {
+  document.querySelectorAll('[id^="lib-tab-"]').forEach(b => b.classList.remove('sp-add'));
+  if (btn) btn.classList.add('sp-add');
+}
+
+function libSearch(q) {
+  const cards = document.querySelectorAll('#lib-grid .lib-card');
+  cards.forEach(c => {
+    const text = c.textContent.toLowerCase();
+    c.style.display = text.includes(q.toLowerCase()) ? '' : 'none';
+  });
 }
 
 // ═══════════════════════ TEMPLATES SYSTEM ════════════════════
@@ -3282,6 +3574,11 @@ function nav(name, btn) {
 
   if (name === 'home')      { loadHome(); return; }
   if (name === 'templates') { tplInit(); return; }
+  if (name === 'calendar')  { calInit(); return; }
+  if (name === 'habits')    { habitInit(); return; }
+  if (name === 'journal')   { journalInit(); return; }
+  if (name === 'community') return;
+  if (name === 'library')   return;
   if (name === 'stats')         loadStats();
   if (name === 'more')          syncMore();
   if (name === 'leaderboard')   loadLeaderboard();
