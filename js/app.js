@@ -163,8 +163,8 @@ async function doLogin(prefillName, prefillEmail) {
 
     saveSession(name, email);
 
-    $('tb-av').textContent   = r.name[0].toUpperCase();
-    $('tb-name').textContent = r.name;
+    const tbAv = $('tb-av'); if (tbAv) tbAv.textContent = r.name[0].toUpperCase();
+    const tbNm = $('tb-name'); if (tbNm) tbNm.textContent = r.name;
     const snavAv   = $('snav-av');     if (snavAv)   snavAv.textContent   = r.name[0].toUpperCase();
     const snavName = $('snav-name');   if (snavName) snavName.textContent = r.name;
     const pdName   = $('pd-name');     if (pdName)   pdName.textContent   = r.name;
@@ -3365,10 +3365,10 @@ function syncMore() {
 
 // ═══════════════════════════ HELPERS ════════════════════════════
 function updateSBStats() {
-  $('sq-q').textContent  = S.stats.questions;
-  $('sq-qz').textContent = S.stats.quizzes;
-  $('sq-s').textContent  = S.stats.sessions;
-  $('sq-w').textContent  = S.stats.wrong || 0;
+  const sqq  = $('sq-q');  if (sqq)  sqq.textContent  = S.stats.questions;
+  const sqqz = $('sq-qz'); if (sqqz) sqqz.textContent = S.stats.quizzes;
+  const sqs  = $('sq-s');  if (sqs)  sqs.textContent  = S.stats.sessions;
+  const sqw  = $('sq-w');  if (sqw)  sqw.textContent  = S.stats.wrong || 0;
 }
 
 function renderTopics(topics, weak) {
