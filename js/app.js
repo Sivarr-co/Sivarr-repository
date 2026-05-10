@@ -182,8 +182,7 @@ async function doLogin(prefillName, prefillMatric) {
     loadWrong();
 
     $('login-screen').style.display = 'none';
-    const dash= $('dashboard');
-    $('dashboard').style.display    = 'flex';
+    $('dashboard').style.display    = 'block';
     nav('home', null);
     document.body.classList.add('dashboard-active');
 

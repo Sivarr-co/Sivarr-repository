@@ -491,8 +491,12 @@ input, textarea, select { font-family: var(--font); }
 .t-due { font-size:11px; color:var(--text4); }
 
 /* ── LOGIN ─────────────────────────────────────────────────── */
+#dashboard { display: none; }
+
 #login-screen {
-  min-height: 100vh;
+  position: fixed;
+  inset: 0;
+  z-index: 500;
   display: flex;
   background: var(--bg);
   overflow: hidden;
