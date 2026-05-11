@@ -375,6 +375,7 @@ function _applyLoginData(r) {
     const tod = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
     greet.textContent = `${tod}, ${r.name.split(' ')[0]}`;
   }
+  chatCounterInit();
   loadAnnouncements();
   setTimeout(() => briefCheck(), 800);
 }
@@ -536,8 +537,27 @@ async function send() {
     addMsg('sivarr', 'Connection issue — check your internet and try again.');
   }
   $('sb').disabled = false;
+  chatCounterDecrement();
   scrollMsgs();
 }
+
+/* Daily message counter — resets at midnight */
+const CHAT_LIMIT = 20;
+function chatCounterKey() { return `sivarr_chat_count_${new Date().toDateString()}_${S.sid}`; }
+function chatCounterGet()  { return parseInt(localStorage.getItem(chatCounterKey()) || '0', 10); }
+function chatCounterDecrement() {
+  const used = chatCounterGet() + 1;
+  localStorage.setItem(chatCounterKey(), used);
+  chatCounterRender(used);
+}
+function chatCounterRender(used) {
+  const el  = $('chat-msg-counter');
+  if (!el) return;
+  const left = Math.max(0, CHAT_LIMIT - used);
+  el.textContent = `${left} msg${left !== 1 ? 's' : ''} left today`;
+  el.style.color = left <= 5 ? 'var(--coral)' : 'var(--text4)';
+}
+function chatCounterInit() { chatCounterRender(chatCounterGet()); }
 
 function quickPrompt(text) {
   // Hide welcome screen, set input, and send
@@ -3699,6 +3719,7 @@ function nav(name, btn) {
   const mob = document.getElementById(`mn-${name}`); if (mob) mob.classList.add('active');
   syncSnavFromPanel(name);
 
+  if (name === 'chat')      { chatCounterInit(); return; }
   if (name === 'home')      { loadHome(); return; }
   if (name === 'notes')     { docInit(); return; }
   if (name === 'templates') { tplInit(); return; }

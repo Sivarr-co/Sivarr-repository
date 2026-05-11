@@ -415,108 +415,84 @@
       <!-- Chat -->
       <div class="panel active" id="panel-chat">
         <div class="chat-msgs" id="msgs">
-          <!-- Welcome home screen — shown when no messages yet -->
-          <div id="chat-welcome" style="
-            display:flex;flex-direction:column;align-items:center;justify-content:center;
-            min-height:100%;padding:2rem 1.5rem;text-align:center;animation:fadeUp .5s ease">
+          <!-- Welcome screen -->
+          <div id="chat-welcome">
 
-            <!-- Sr orb -->
-            <div style="
-              width:84px;height:84px;
-              background:radial-gradient(circle at 35% 30%, #818cf8, #4f6ef7 45%, #7c3aed 85%);
-              border-radius:50%;margin-bottom:1.75rem;
-              box-shadow:0 0 40px #4f6ef750, 0 0 80px #7c3aed25;
-              display:flex;align-items:center;justify-content:center;
-              font-family:var(--font);font-weight:800;font-size:1.4rem;color:#fff;
-              letter-spacing:-.02em;
-              animation:orb-pulse 3s ease-in-out infinite">
-              <img src="/static/sivarrai.png" alt="Logo" style="
-    width:70%; height:70%; 
-    object-fit:cover; 
-    border-radius:0%;">
+            <!-- Logo orb -->
+            <div class="chat-welcome-orb">
+              <img src="/static/sivarrai.png" alt="SIVA">
             </div>
 
             <!-- Greeting -->
-            <div id="welcome-greeting" style="
-              font-family:var(--font);font-size:1.75rem;font-weight:800;
-              letter-spacing:-.03em;margin-bottom:.4rem">
-              Good morning
-            </div>
-            <p style="color:var(--muted);font-size:.92rem;margin-bottom:2rem">
-              What's on your mind?
-            </p>
+            <h1 class="chat-welcome-heading" id="welcome-greeting">Good morning</h1>
+            <p class="chat-welcome-sub">What are we working on?</p>
 
-            <!-- Quick action pills -->
-            <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:420px;margin-bottom:2rem">
-              <button class="quick-action" onclick="quickPrompt('Explain a topic to me')">
-                <span>💡</span> Explain a topic
+            <!-- 2×2 prompt cards -->
+            <div class="chat-prompt-grid">
+              <button class="chat-prompt-card" onclick="quickPrompt('Help me brainstorm ideas for a new project or topic')">
+                <i class="ti ti-bulb cpc-icon"></i>
+                <div class="cpc-title">Brainstorm ideas</div>
+                <div class="cpc-sub">Think through something new</div>
               </button>
-              <button class="quick-action" onclick="quickPrompt('Help me solve a maths problem')">
-                <span>📐</span> Solve maths
+              <button class="chat-prompt-card" onclick="quickPrompt('Help me write — a draft, email, or post')">
+                <i class="ti ti-pencil cpc-icon"></i>
+                <div class="cpc-title">Help me write</div>
+                <div class="cpc-sub">Drafts, emails, posts</div>
               </button>
-              <button class="quick-action" onclick="quickPrompt('Help me write an essay')">
-                <span>✍️</span> Write an essay
+              <button class="chat-prompt-card" onclick="quickPrompt('Help me make a plan for my projects, goals, or schedule')">
+                <i class="ti ti-map-2 cpc-icon"></i>
+                <div class="cpc-title">Make a plan</div>
+                <div class="cpc-sub">Projects, goals, schedules</div>
               </button>
-              <button class="quick-action" onclick="quickPrompt('Give me career advice')">
-                <span>🎯</span> Career advice
-              </button>
-              <button class="quick-action" onclick="quickPrompt('Help me study for my exams')">
-                <span>📚</span> Exam prep
-              </button>
-              <button class="quick-action" onclick="quickPrompt('Summarise a topic for me')">
-                <span>⚡</span> Quick summary
+              <button class="chat-prompt-card" onclick="quickPrompt('Give me a quick summary of a topic or condense this for me')">
+                <i class="ti ti-bolt cpc-icon"></i>
+                <div class="cpc-title">Quick summary</div>
+                <div class="cpc-sub">Condense anything fast</div>
               </button>
             </div>
 
-            <p style="font-size:.72rem;color:var(--muted2)">Ask anything — I'm here 24/7</p>
+            <p class="chat-welcome-hint">Ask me anything — I'm here 24/7</p>
           </div>
         </div>
+
+        <!-- New input bar -->
         <div class="chat-bar">
           <!-- Attachment preview strip -->
-          <div id="attach-preview" style="display:none;padding:6px 0 4px;display:none;gap:8px;flex-wrap:wrap"></div>
+          <div id="attach-preview" style="display:none;padding:4px 0 2px;gap:8px;flex-wrap:wrap"></div>
 
-          <div style="display:flex;align-items:flex-end;gap:8px;width:100%">
-            <!-- Plus button -->
-            <div style="position:relative;flex-shrink:0">
-              <button id="attach-btn" onclick="toggleAttachMenu()"
-                style="width:38px;height:38px;border-radius:10px;border:1px solid var(--border);
-                       background:var(--surface);color:var(--muted);font-size:1.2rem;cursor:pointer;
-                       display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0"
-                title="Attach">+</button>
-
-              <!-- Dropdown menu -->
-              <div id="attach-menu" style="display:none;position:absolute;bottom:46px;left:0;
-                   background:var(--card);border:1px solid var(--border);border-radius:12px;
-                   padding:6px;min-width:180px;box-shadow:0 8px 30px #00000040;z-index:100;
-                   animation:fadeUp .15s ease">
-                <button class="attach-item" onclick="triggerAttach('image')">
-                  <span>🖼️</span> Upload Image
-                </button>
-                <button class="attach-item" onclick="triggerAttach('pdf')">
-                  <span>📄</span> Upload PDF
-                </button>
-                <button class="attach-item" onclick="triggerAttach('file')">
-                  <span>📎</span> Attach File
-                </button>
-                <button class="attach-item" onclick="triggerAttach('doc')">
-                  <span>📝</span> Upload Document
-                </button>
-              </div>
-            </div>
-
-            <!-- Hidden file inputs -->
-            <input type="file" id="attach-image-input" style="display:none" accept="image/*" onchange="handleAttach(this,'image')">
-            <input type="file" id="attach-pdf-input"   style="display:none" accept=".pdf"   onchange="handleAttach(this,'pdf')">
-            <input type="file" id="attach-file-input"  style="display:none" accept="*/*"    onchange="handleAttach(this,'file')">
-            <input type="file" id="attach-doc-input"   style="display:none" accept=".txt,.md,.docx" onchange="handleAttach(this,'doc')">
-            <button id="voice-btn" onclick="toggleVoice()" title="Voice input"
-              style="width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0">
-              🎤
+          <!-- Pill action row -->
+          <div class="chat-action-pills">
+            <button class="chat-pill" onclick="triggerAttach('image')">
+              <i class="ti ti-photo"></i> Image
             </button>
+            <button class="chat-pill" onclick="triggerAttach('pdf')">
+              <i class="ti ti-file-type-pdf"></i> PDF
+            </button>
+            <button class="chat-pill" onclick="triggerAttach('file')">
+              <i class="ti ti-paperclip"></i> File
+            </button>
+            <button class="chat-pill" onclick="triggerAttach('doc')">
+              <i class="ti ti-file-text"></i> Ask from Doc
+            </button>
+            <span class="chat-msg-counter" id="chat-msg-counter">20 msgs left today</span>
+          </div>
 
-            <textarea class="chat-input" id="ci" placeholder="Ask anything — maths, science, essays, careers..." rows="1"
-              onkeydown="ckd(event)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px'"></textarea>
-            <button class="send-btn" id="sb" onclick="send()">➤</button>
+          <!-- Hidden file inputs -->
+          <input type="file" id="attach-image-input" style="display:none" accept="image/*" onchange="handleAttach(this,'image')">
+          <input type="file" id="attach-pdf-input"   style="display:none" accept=".pdf"   onchange="handleAttach(this,'pdf')">
+          <input type="file" id="attach-file-input"  style="display:none" accept="*/*"    onchange="handleAttach(this,'file')">
+          <input type="file" id="attach-doc-input"   style="display:none" accept=".txt,.md,.docx" onchange="handleAttach(this,'doc')">
+
+          <!-- Input row -->
+          <div class="chat-input-row">
+            <textarea class="chat-input" id="ci" placeholder="Ask SIVA anything..." rows="1"
+              onkeydown="ckd(event)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+            <button id="voice-btn" class="chat-icon-btn" onclick="toggleVoice()" title="Voice input">
+              <i class="ti ti-microphone"></i>
+            </button>
+            <button class="chat-send-btn" id="sb" onclick="send()">
+              <i class="ti ti-arrow-up"></i>
+            </button>
           </div>
         </div>
       </div>
