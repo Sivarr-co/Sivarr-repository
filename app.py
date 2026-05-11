@@ -145,26 +145,27 @@ UNCERTAINTY_PHRASES = [
 
 TOPIC_STRIP = ["what is", "define", "explain", "solve", "calculate"]
 
-SYSTEM_PROMPT = f"""You are the Sivarr AI — a casual, fun, and brilliant learning companion
-built into the Sivarr platform for university students.
+SYSTEM_PROMPT = f"""You are SIVARR — a brilliant, context-aware AI built into the SIVARR platform.
+You are not a generic assistant. You live inside the user's personal workspace and know their tasks, goals, habits, journal, and progress.
+SIVARR was founded by a Lead City University student. Mission: student → skilled professional → employed talent → career growth. Version: {VERSION}
 
-About Sivarr:
-- Founded by a Lead City University student.
-- Mission: student to skilled professional to employed talent to career growth.
-- Version: {VERSION}
+Personality:
+- Warm, direct, and energetic — like the smartest friend in the room, not a textbook.
+- Reference the user's actual data naturally when it's relevant (e.g. "Since you have 3 overdue tasks today...").
+- Celebrate wins. Call out patterns. Be proactive, not just reactive.
 
 Rules:
-1. Be casual and encouraging — like a smart friend, not a textbook.
-2. Keep answers SHORT — 2 to 4 sentences by default.
-3. Show step-by-step explanations ONLY when explicitly asked.
-4. Answer ANY question on any subject.
-5. For math: state the final answer only unless asked for working.
-6. Expand only when user asks for more or explain further.
-7. If unsure, say so clearly — never confidently guess wrong.
-8. Format responses cleanly — use line breaks for readability when needed.
+1. Keep answers SHORT — 2 to 4 sentences by default. Expand only when asked.
+2. Show step-by-step working ONLY when explicitly requested.
+3. Answer ANY question — academics, career, life, creativity, strategy.
+4. For math: state the final answer only unless asked for working.
+5. If unsure, say so — never confidently guess wrong.
+6. Format cleanly — use line breaks for readability when helpful.
+7. When user context is provided at the start of a message, use it to personalise your response naturally. Do NOT echo it back verbatim.
+8. Address the user by their first name occasionally for warmth.
 """
 
-MATH_PROMPT = """You are Sivarr's math expert.
+MATH_PROMPT = """You are SIVARR's math expert.
 1. State the final answer clearly and concisely.
 2. Do NOT show steps unless asked.
 3. One line is enough for simple problems e.g. x = 5.
@@ -517,7 +518,7 @@ def friendly_gemini_error(e):
     """Convert raw Gemini exceptions into short readable messages."""
     msg = str(e).lower()
     if "quota" in msg or "429" in msg or "resource_exhausted" in msg:
-        return "Sivarr is taking a short break — free tier quota reached. Please wait a minute and try again! ⏳"
+        return "SIVARR is taking a short break — free tier quota reached. Please wait a minute and try again! ⏳"
     if "api key" in msg or "invalid" in msg or "401" in msg or "403" in msg:
         return "API key issue — please contact support."
     if "network" in msg or "connection" in msg or "timeout" in msg or "unavailable" in msg:
@@ -839,6 +840,7 @@ class LoginRequest(BaseModel):
 class ChatRequest(BaseModel):
     sid: str
     message: str
+    context: str = ""
 
     @validator("message")
     def msg_valid(cls, v):
@@ -1038,9 +1040,12 @@ async def chat(req: ChatRequest, request: Request):
 
     p   = load_progress(req.sid)
     msg = req.message
+    # Prepend user context snapshot if provided (injected by frontend on first message)
+    if req.context:
+        msg = f"{req.context}\n\nUser: {req.message}"
     cmd = msg.lower()
 
-    log.info(f"Chat: {req.sid[:20]} | {msg[:60]}")
+    log.info(f"Chat: {req.sid[:20]} | {req.message[:60]}")
 
     local = solve_local(msg)
     if local:

@@ -474,7 +474,7 @@ input, textarea, select { font-family: var(--font); }
 .prog-wrap { background:var(--bg3); height:6px; border-radius:3px; overflow:hidden; }
 .prog-fill  { height:100%; border-radius:3px; transition:width .4s; }
 
-/* ── SIVA BOX ──────────────────────────────────────────────── */
+/* ── SIVARR BOX ────────────────────────────────────────────── */
 .siva-box {
   background:var(--teal2);
   border-left:3px solid var(--teal);
@@ -2065,7 +2065,7 @@ input, textarea, select { font-family: var(--font); }
 .doc-save-status { font-size:.72rem; color:var(--text4); }
 .doc-word-count  { font-size:.72rem; color:var(--text4); }
 
-/* ── DAILY SIVA BRIEF ──────────────────────────────────────── */
+/* ── DAILY SIVARR BRIEF ────────────────────────────────────── */
 .brief-overlay {
   position:fixed; inset:0; z-index:3000;
   background:rgba(0,0,0,.65); backdrop-filter:blur(8px);

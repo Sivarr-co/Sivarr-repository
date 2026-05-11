@@ -376,6 +376,7 @@ function _applyLoginData(r) {
     greet.textContent = `${tod}, ${r.name.split(' ')[0]}`;
   }
   chatCounterInit();
+  _contextSent = false; // fresh context for each login session
   loadAnnouncements();
   setTimeout(() => briefCheck(), 800);
 }
@@ -499,6 +500,110 @@ document.addEventListener('click', e => {
 });
 
 
+/* ══════════════════════════════════════════════════════════════
+   SIVARR CONTEXT ENGINE
+   Reads all local data stores and builds a rich snapshot that
+   gets injected into the first message of each chat session,
+   giving SIVARR genuine awareness of the user's world.
+   ══════════════════════════════════════════════════════════════ */
+
+let _contextSent = false; // reset to false on each login
+
+function buildSivarrContext() {
+  if (!S.sid) return '';
+  const sid = S.sid;
+  const today = new Date().toDateString();
+  const lines = [`SIVARR CONTEXT SNAPSHOT for ${S.name} — ${today}`];
+
+  // ── Tasks ─────────────────────────────────────────────────
+  try {
+    const tasks = JSON.parse(localStorage.getItem(`sivarr_tasks_${sid}`) || '[]');
+    const open  = tasks.filter(t => !t.done);
+    const done  = tasks.filter(t => t.done);
+    if (open.length) {
+      lines.push(`Open tasks (${open.length}): ${open.slice(0,6).map(t => t.title || t.text || '').filter(Boolean).join(' | ')}`);
+    }
+    if (done.length) lines.push(`Tasks completed so far: ${done.length}`);
+  } catch(_) {}
+
+  // ── Goals ─────────────────────────────────────────────────
+  try {
+    const goals  = JSON.parse(localStorage.getItem(`sivarr_goals_${sid}`) || '[]');
+    const active = goals.filter(g => !g.done);
+    if (active.length) {
+      lines.push(`Active goals (${active.length}): ${active.slice(0,4).map(g => {
+        const pct = g.progress !== undefined ? ` — ${g.progress}%` : '';
+        const due = g.deadline ? ` (due ${g.deadline})` : '';
+        return (g.title || '') + pct + due;
+      }).filter(Boolean).join(' | ')}`);
+    }
+    const completedGoals = goals.filter(g => g.done);
+    if (completedGoals.length) lines.push(`Goals achieved: ${completedGoals.length}`);
+  } catch(_) {}
+
+  // ── Habits ────────────────────────────────────────────────
+  try {
+    const habits = JSON.parse(localStorage.getItem(`sivarr_habits_${sid}`) || '[]');
+    if (habits.length) {
+      lines.push(`Tracked habits: ${habits.slice(0,5).map(h => {
+        const streak = h.streak ? ` (${h.streak}-day streak)` : '';
+        return (h.name || h.title || '') + streak;
+      }).filter(Boolean).join(' | ')}`);
+    }
+  } catch(_) {}
+
+  // ── Journal ───────────────────────────────────────────────
+  try {
+    const journal = JSON.parse(localStorage.getItem(`sivarr_journal_${sid}`) || '[]');
+    if (journal.length) {
+      const recent = journal[journal.length - 1];
+      const text   = (recent.text || recent.content || recent.entry || '').trim().slice(0, 200);
+      const date   = recent.date || recent.created || '';
+      if (text) lines.push(`Latest journal entry${date ? ` (${date})` : ''}: "${text}${text.length === 200 ? '…' : ''}"`);
+      lines.push(`Total journal entries: ${journal.length}`);
+    }
+  } catch(_) {}
+
+  // ── Focus sessions ────────────────────────────────────────
+  try {
+    const focusLog = JSON.parse(localStorage.getItem(`sivarr_focus_log_${sid}`) || '[]');
+    if (focusLog.length) {
+      const totalMins = focusLog.reduce((s, f) => s + (f.duration || 0), 0);
+      const lastTask  = focusLog[focusLog.length - 1]?.task || '';
+      lines.push(`Focus sessions: ${focusLog.length} sessions, ${totalMins} total minutes`);
+      if (lastTask) lines.push(`Last focus task: "${lastTask}"`);
+    }
+  } catch(_) {}
+
+  // ── Calendar events ───────────────────────────────────────
+  try {
+    const events  = JSON.parse(localStorage.getItem(`sivarr_events_${sid}`) || '[]');
+    const nowMs   = Date.now();
+    const upcoming = events
+      .filter(e => e.date && new Date(e.date).getTime() >= nowMs)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(0, 3);
+    if (upcoming.length) {
+      lines.push(`Upcoming events: ${upcoming.map(e => `${e.title || ''} on ${e.date}`).join(' | ')}`);
+    }
+  } catch(_) {}
+
+  // ── Profile ───────────────────────────────────────────────
+  try {
+    const prof = JSON.parse(localStorage.getItem(`sivarr_profile_${sid}`) || '{}');
+    if (prof.bio)    lines.push(`User bio: "${prof.bio}"`);
+    if (prof.skills?.length) lines.push(`Skills: ${prof.skills.join(', ')}`);
+  } catch(_) {}
+
+  // ── Courses / Topics ──────────────────────────────────────
+  try {
+    if (S.topics?.length) lines.push(`Study topics: ${S.topics.slice(0,6).join(', ')}`);
+  } catch(_) {}
+
+  if (lines.length <= 1) return ''; // only the header, no data yet
+  return lines.join('\n');
+}
+
 async function send() {
   const ci = $('ci'), msg = ci.value.trim();
   if (!msg && !ATTACHMENTS.length) return;
@@ -525,8 +630,16 @@ async function send() {
   ci.value = ''; ci.style.height = 'auto';
   const t = addTyping();
   $('sb').disabled = true;
+
+  // First message of session — attach context snapshot
+  let context = '';
+  if (!_contextSent) {
+    context = buildSivarrContext();
+    _contextSent = true;
+  }
+
   try {
-    const r = await API('/api/chat', { sid: S.sid, message: fullMsg });
+    const r = await API('/api/chat', { sid: S.sid, message: fullMsg, context });
     t.remove();
     addMsg('sivarr', r.reply, r.uncertain);
     S.stats.questions++;
@@ -1953,6 +2066,7 @@ async function stClearChat() {
       body: JSON.stringify({sid: S.sid})
     });
   } catch(e) {}
+  _contextSent = false; // re-inject context on next message after a clear
   toast('Chat history cleared ✓');
 }
 
@@ -6773,7 +6887,7 @@ function docAskSiva() {
   const title   = $('doc-title')?.value?.trim() || '';
   const sel     = window.getSelection()?.toString()?.trim() || '';
   const text    = sel || content.slice(0, 600);
-  if (!text) { toast('Write something first, then ask SIVA to assist.'); return; }
+  if (!text) { toast('Write something first, then ask SIVARR to assist.'); return; }
   const prompt  = sel
     ? `Help me improve or continue this selection from my doc "${title}":\n\n${text}`
     : `I'm writing a doc titled "${title}". Here's what I have so far:\n\n${text}\n\nPlease continue or improve it.`;
