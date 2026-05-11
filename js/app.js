@@ -17,6 +17,7 @@ const API = async (url, body) => {
 };
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const escHtml = esc;
 const $ = id => document.getElementById(id);
 
 // ═══════════════════════════ PROFILE PICTURE ════════════════════
@@ -2669,6 +2670,14 @@ const CMD_ITEMS = [
   { icon:'🧠', label:'Content Hub',   tag:'Spaces',    action:() => nav('contenthub',null) },
   { icon:'⚙️', label:'Settings',      tag:'',          action:() => nav('settings',null) },
   { icon:'➕', label:'Create New',    tag:'',          action:() => cnOpen() },
+  // Org panels
+  { icon:'👥', label:'Team',          tag:'Org',       action:() => nav('team',null) },
+  { icon:'💬', label:'Team Chat',     tag:'Org',       action:() => nav('orgchat',null) },
+  { icon:'🗂', label:'Projects',      tag:'Org',       action:() => nav('projects',null) },
+  { icon:'🪪', label:'People & HR',   tag:'Org',       action:() => nav('hr',null) },
+  { icon:'⚡', label:'Automations',   tag:'Org',       action:() => nav('automations',null) },
+  { icon:'🎯', label:'Opportunities', tag:'Connect',   action:() => nav('opportunities',null) },
+  { icon:'🧑', label:'My Profile',    tag:'',          action:() => nav('profile',null) },
   // Actions
   { icon:'🎤', label:'Voice Input',   tag:'Action',    action:() => { nav('chat',null); setTimeout(toggleVoice, 300); } },
   { icon:'🌙', label:'Toggle Theme',  tag:'Action',    action:() => toggleThemeFromMenu() },
@@ -2699,44 +2708,74 @@ function cmdDismiss() {
 }
 
 function cmdSearch() {
-  const q    = ($('cmd-input')?.value || '').toLowerCase().trim();
-  const res  = $('cmd-results');
+  const q   = ($('cmd-input')?.value || '').toLowerCase().trim();
+  const res = $('cmd-results');
   if (!res) return;
   CMD_IDX = -1;
 
-  // Get notes from localStorage
+  // Show / hide quick-capture row
+  const capRow = $('cmd-capture-row');
+  if (capRow) capRow.style.display = q.length > 1 ? 'flex' : 'none';
+
+  // Search docs (new editor)
+  const docs = JSON.parse(localStorage.getItem(`sivarr_docs_${S.sid}`) || '[]');
+  // Search old notes for backward compat
   const notes = JSON.parse(localStorage.getItem(`sivarr_notes_${S.sid}`) || '[]');
 
-  // Filter panels
+  // Filter panels / actions
   let items = CMD_ITEMS.filter(item =>
-    !q || item.label.toLowerCase().includes(q) || item.tag.toLowerCase().includes(q)
+    !q ||
+    item.label.toLowerCase().includes(q) ||
+    (item.tag || '').toLowerCase().includes(q)
   );
 
-  // Filter notes
+  // Match docs
+  const matchedDocs = q
+    ? docs.filter(d =>
+        (d.title || '').toLowerCase().includes(q) ||
+        (d.content || '').replace(/<[^>]+>/g,'').toLowerCase().includes(q)
+      ).slice(0, 4)
+    : docs.slice(0, 3);
+
+  // Match old notes
   const matchedNotes = q
-    ? notes.filter(n => n.text.toLowerCase().includes(q) || (n.tag||'').toLowerCase().includes(q)).slice(0, 4)
-    : notes.slice(0, 3);
+    ? notes.filter(n =>
+        (n.text || '').toLowerCase().includes(q) ||
+        (n.tag  || '').toLowerCase().includes(q)
+      ).slice(0, 3)
+    : [];
 
   CMD_VISIBLE = [
     ...items.map(i => ({ ...i, type: 'panel' })),
+    ...matchedDocs.map(d => ({
+      icon: '📄',
+      label: (d.title || 'Untitled').slice(0, 50),
+      tag: 'Doc',
+      type: 'doc',
+      action: () => { nav('notes', null); setTimeout(() => docOpen(d.id), 150); }
+    })),
     ...matchedNotes.map(n => ({
       icon: '📓',
-      label: n.text.split('\n')[0].slice(0, 50) || 'Note',
-      tag: n.tag || 'Note',
+      label: (n.text || '').split('\n')[0].slice(0, 50) || 'Note',
+      tag: 'Note',
       type: 'note',
-      action: () => { nav('notes', null); }
-    }))
+      action: () => nav('notes', null),
+    })),
   ];
 
   if (!CMD_VISIBLE.length) {
-    res.innerHTML = `<div class="cmd-empty">No results for "<strong>${esc(q)}</strong>"</div>`;
+    res.innerHTML = q
+      ? `<div class="cmd-empty">No results for "<strong>${esc(q)}</strong>" — capture it below ↓</div>`
+      : `<div class="cmd-empty">Type to search panels, docs, or actions…</div>`;
     return;
   }
 
   // Group by tag
   const groups = {};
   CMD_VISIBLE.forEach((item, idx) => {
-    const g = item.type === 'note' ? 'Notes' : (item.tag || 'Actions');
+    const g = item.type === 'doc'  ? 'Docs'
+            : item.type === 'note' ? 'Notes'
+            : (item.tag || 'Actions');
     if (!groups[g]) groups[g] = [];
     groups[g].push({ ...item, _idx: idx });
   });
@@ -3600,7 +3639,25 @@ function syncSnavFromPanel(name) {
 }
 
 // ── Sidebar section collapse ─────────────────────────────────
-const SB_SECTIONS = ['core','work','academic','grow','connect'];
+const SB_SECTIONS = ['core','work','academic','grow','connect','org'];
+
+// Map panel name → sidebar section id
+const PANEL_SECTION_MAP = {
+  chat:'core', home:'core', announcements:'core',
+  flux:'work', notes:'work', calendar:'work', templates:'work',
+  courses:'academic', quiz:'academic', lab:'academic',
+  studyplan:'academic', pomodoro:'academic', contenthub:'academic',
+  goals:'grow', habits:'grow', stats:'grow', journal:'grow',
+  community:'connect', library:'connect', opportunities:'connect',
+  team:'org', projects:'org', hr:'org', automations:'org', orgchat:'org',
+};
+
+function sbEnsureExpanded(panelName) {
+  const section = PANEL_SECTION_MAP[panelName];
+  if (!section) return;
+  const items = $('sgi-' + section);
+  if (items && items.classList.contains('collapsed')) sbToggleSection(section);
+}
 
 function sbToggleSection(id) {
   const items = $('sgi-' + id);
@@ -3628,6 +3685,7 @@ function sbRestoreCollapse() {
 function sidebarNav(btn) {
   const panel = btn.dataset.panel;
   if (!panel) return;
+  sbEnsureExpanded(panel);
   nav(panel, null);
 }
 
@@ -3670,6 +3728,13 @@ function nav(name, btn) {
   if (name === 'quiz' && !S.quizActive) {
     const qd = $('qd-label'); if (qd) qd.textContent = S.diff.charAt(0).toUpperCase()+S.diff.slice(1);
   }
+  if (name === 'team')          teamInit();
+  if (name === 'orgchat')       orgChatInit();
+  if (name === 'projects')      projectsInit();
+  if (name === 'hr')            hrInit();
+  if (name === 'automations')   autoInit();
+  if (name === 'opportunities') oppInit();
+  if (name === 'profile')       profileInit();
 }
 
 // Mobile tab bar navigation with smooth pill scroll
@@ -3707,6 +3772,13 @@ function navTab(name, btn) {
   if (name === 'quiz' && !S.quizActive) {
     const qd = $('qd-label'); if (qd) qd.textContent = S.diff.charAt(0).toUpperCase()+S.diff.slice(1);
   }
+  if (name === 'team')          teamInit();
+  if (name === 'orgchat')       orgChatInit();
+  if (name === 'projects')      projectsInit();
+  if (name === 'hr')            hrInit();
+  if (name === 'automations')   autoInit();
+  if (name === 'opportunities') oppInit();
+  if (name === 'profile')       profileInit();
 }
 
 async function getSuggestionsMobile() {
@@ -6258,16 +6330,6 @@ function qcCapture(type) {
   cmdDismiss();
 }
 
-// Show capture row when user is typing in cmd palette
-const _origCmdSearch = window.cmdSearch;
-function cmdSearch() {
-  if (typeof _origCmdSearch === 'function') _origCmdSearch();
-  const q   = ($('cmd-input')?.value || '').trim();
-  const row = $('cmd-capture-row');
-  if (row) row.style.display = q.length > 1 ? 'flex' : 'none';
-}
-
-
 // ═══════════════════════════════════════════════════════════════
 // FEATURE 2 — DAILY SIVA BRIEF
 // ═══════════════════════════════════════════════════════════════
@@ -6716,5 +6778,468 @@ function docInit() {
     const doc = docGetAll().find(d => d.id === _docId);
     if (doc) docOpenEditor(doc);
   }
+}
+
+/* ══════════════════════════════════════════════════
+   PHASE 5 — SPACE SWITCHER
+   ══════════════════════════════════════════════════ */
+
+let _currentSpace = 'personal';
+
+function switchSpace(space) {
+  _currentSpace = space;
+  ['personal','academic','org'].forEach(s => {
+    const btn = $('ss-' + s);
+    if (btn) btn.classList.toggle('active', s === space);
+  });
+  // Only the Org section is conditionally hidden — personal/academic sections are always visible
+  document.querySelectorAll('.sg-space-org').forEach(el => {
+    el.style.display = space === 'org' ? '' : 'none';
+  });
+  // Default panel per space
+  const defaults = { personal:'home', academic:'courses', org:'team' };
+  nav(defaults[space], null);
+}
+
+/* ══════════════════════════════════════════════════
+   PHASE 5 — TEAM DASHBOARD
+   ══════════════════════════════════════════════════ */
+
+function teamInit() {
+  const key = `sivarr_team_${S.sid}`;
+  const data = JSON.parse(localStorage.getItem(key) || '{"members":[],"activity":[]}');
+
+  // Ensure owner is always member #1
+  if (S.name && !data.members.find(m => m.you)) {
+    data.members.unshift({ name: S.name, role:'Admin', you:true });
+    localStorage.setItem(key, JSON.stringify(data));
+  }
+
+  // Update stats
+  const tasks   = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]');
+  const openTasks = tasks.filter(t => !t.done).length;
+  const projects = JSON.parse(localStorage.getItem(`sivarr_projects_${S.sid}`) || '[]');
+
+  if ($('team-member-count')) $('team-member-count').textContent = data.members.length;
+  if ($('team-project-count')) $('team-project-count').textContent = projects.length;
+  if ($('team-task-count'))   $('team-task-count').textContent   = openTasks;
+
+  // Render members
+  const list = $('team-member-list');
+  if (list) {
+    list.innerHTML = data.members.map(m => `
+      <div class="team-member-card">
+        <div class="tm-av">${(m.name||'?').charAt(0).toUpperCase()}</div>
+        <div class="tm-info">
+          <div class="tm-name">${escHtml(m.name)}${m.you ? ' (you)' : ''}</div>
+          <div class="tm-role">${escHtml(m.role||'Member')}</div>
+        </div>
+        <span class="tm-badge">${escHtml(m.role||'Member')}</span>
+      </div>`).join('') || '<div class="hr-empty">No members yet.</div>';
+  }
+
+  // Render activity
+  const act = $('team-activity');
+  if (act && data.activity.length) {
+    act.innerHTML = data.activity.slice(-5).reverse().map(a =>
+      `<div class="ta-item"><span class="ta-dot" style="background:var(--teal)"></span><span class="ta-text">${escHtml(a)}</span></div>`
+    ).join('');
+  }
+}
+
+function teamInvite() {
+  const email = prompt('Enter email address to invite:');
+  if (!email || !email.includes('@')) { if (email !== null) toast('Enter a valid email.'); return; }
+  const name = prompt('Their display name:') || email.split('@')[0];
+  const key  = `sivarr_team_${S.sid}`;
+  const data = JSON.parse(localStorage.getItem(key) || '{"members":[],"activity":[]}');
+  data.members.push({ name, role:'Member', email });
+  data.activity.push(`${name} was invited to the team.`);
+  localStorage.setItem(key, JSON.stringify(data));
+  teamInit();
+  toast(`Invite sent to ${email}`);
+}
+
+/* ══════════════════════════════════════════════════
+   PHASE 5 — TEAM CHAT
+   ══════════════════════════════════════════════════ */
+
+function orgChatSend() {
+  const inp = $('orgchat-input');
+  const msg = inp ? inp.value.trim() : '';
+  if (!msg) return;
+  inp.value = '';
+
+  const key  = `sivarr_orgchat_${S.sid}`;
+  const msgs = JSON.parse(localStorage.getItem(key) || '[]');
+  msgs.push({ text: msg, author: S.name || 'You', ts: Date.now(), me: true });
+  localStorage.setItem(key, JSON.stringify(msgs));
+  orgChatRender();
+}
+
+function orgChatRender() {
+  const key  = `sivarr_orgchat_${S.sid}`;
+  const msgs = JSON.parse(localStorage.getItem(key) || '[]');
+  const box  = $('orgchat-messages');
+  if (!box) return;
+
+  if (!msgs.length) {
+    box.innerHTML = '<div class="chat-panel-empty">No messages yet. Start the conversation 👋</div>';
+    return;
+  }
+
+  box.innerHTML = msgs.map(m => `
+    <div class="chat-msg${m.me ? ' me' : ''}">
+      <div class="chat-msg-av">${(m.author||'?').charAt(0).toUpperCase()}</div>
+      <div class="chat-msg-body">
+        <div class="chat-msg-meta">${escHtml(m.author)} · ${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+        <div class="chat-msg-bubble">${escHtml(m.text)}</div>
+      </div>
+    </div>`).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function orgChatInit() { orgChatRender(); }
+
+/* ══════════════════════════════════════════════════
+   PHASE 5 — PROJECTS
+   ══════════════════════════════════════════════════ */
+
+const PROJ_COLORS = ['#0d9488','#7c3aed','#d97706','#dc2626','#2563eb','#059669'];
+
+function projectNew() {
+  const name = prompt('Project name:');
+  if (!name) return;
+  const desc = prompt('Short description (optional):') || '';
+  const key  = `sivarr_projects_${S.sid}`;
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+  list.push({
+    id: Date.now(), name, desc,
+    color: PROJ_COLORS[list.length % PROJ_COLORS.length],
+    tasks: 0, status:'active'
+  });
+  localStorage.setItem(key, JSON.stringify(list));
+  projectsRender();
+  toast('Project created');
+}
+
+function projectsRender() {
+  const key  = `sivarr_projects_${S.sid}`;
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+  const grid = $('projects-grid');
+  if (!grid) return;
+  if (!list.length) { grid.innerHTML = '<div class="projects-empty">No projects yet — create your first one.</div>'; return; }
+  grid.innerHTML = list.map(p => `
+    <div class="project-card">
+      <div class="proj-color" style="background:${p.color}"></div>
+      <div class="proj-name">${escHtml(p.name)}</div>
+      ${p.desc ? `<div class="proj-desc">${escHtml(p.desc)}</div>` : ''}
+      <div class="proj-meta">
+        <span class="proj-badge">${escHtml(p.status)}</span>
+        <span class="proj-tasks">${p.tasks} tasks</span>
+      </div>
+    </div>`).join('');
+}
+
+function projectsInit() { projectsRender(); }
+
+/* ══════════════════════════════════════════════════
+   PHASE 5 — HR / PEOPLE
+   ══════════════════════════════════════════════════ */
+
+function hrTab(tab, btn) {
+  ['directory','leaves','roles'].forEach(t => {
+    const el = $('hr-' + t);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('.hr-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function hrAddMember() {
+  const name  = prompt('Full name:');
+  if (!name) return;
+  const role  = prompt('Role (e.g. Developer, Designer):') || 'Member';
+  const email = prompt('Email:') || '';
+  const key   = `sivarr_team_${S.sid}`;
+  const data  = JSON.parse(localStorage.getItem(key) || '{"members":[],"activity":[]}');
+  data.members.push({ name, role, email });
+  data.activity.push(`${name} was added to the team.`);
+  localStorage.setItem(key, JSON.stringify(data));
+  hrRenderDirectory();
+  toast(`${name} added`);
+}
+
+function hrRenderDirectory() {
+  const key  = `sivarr_team_${S.sid}`;
+  const data = JSON.parse(localStorage.getItem(key) || '{"members":[]}');
+  const list = $('hr-dir-list');
+  if (!list) return;
+  if (!data.members.length) { list.innerHTML = '<div class="hr-empty">No people added yet.</div>'; return; }
+  list.innerHTML = data.members.map(m => `
+    <div class="hr-member-row">
+      <div class="tm-av">${(m.name||'?').charAt(0).toUpperCase()}</div>
+      <div class="tm-info">
+        <div class="tm-name">${escHtml(m.name)}</div>
+        <div class="tm-role">${escHtml(m.email||m.role||'')}</div>
+      </div>
+      <span class="tm-badge">${escHtml(m.role||'Member')}</span>
+    </div>`).join('');
+}
+
+function hrInit() { hrRenderDirectory(); }
+
+/* ══════════════════════════════════════════════════
+   PHASE 8 — AUTOMATIONS
+   ══════════════════════════════════════════════════ */
+
+let _autoBuilderOpen = false;
+
+function autoNew() {
+  _autoBuilderOpen = !_autoBuilderOpen;
+  const builder = $('auto-builder');
+  if (builder) builder.style.display = _autoBuilderOpen ? 'flex' : 'none';
+}
+
+function autoBuilderClose() {
+  _autoBuilderOpen = false;
+  const builder = $('auto-builder');
+  if (builder) builder.style.display = 'none';
+}
+
+function autoSave() {
+  const trigger = $('auto-trigger')?.value;
+  const action  = $('auto-action')?.value;
+  const name    = $('auto-rule-name')?.value.trim();
+  if (!name) { toast('Give your rule a name first.'); return; }
+
+  const key  = `sivarr_automations_${S.sid}`;
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+  list.push({ id: Date.now(), name, trigger, action, enabled: true });
+  localStorage.setItem(key, JSON.stringify(list));
+
+  // Reset form
+  if ($('auto-rule-name')) $('auto-rule-name').value = '';
+  _autoBuilderOpen = false;
+  if ($('auto-builder')) $('auto-builder').style.display = 'none';
+
+  autoRenderList();
+  toast('Automation rule saved');
+}
+
+function autoToggle(id) {
+  const key  = `sivarr_automations_${S.sid}`;
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+  const rule = list.find(r => r.id === id);
+  if (rule) rule.enabled = !rule.enabled;
+  localStorage.setItem(key, JSON.stringify(list));
+  autoRenderList();
+}
+
+function autoDelete(id) {
+  const key  = `sivarr_automations_${S.sid}`;
+  let   list = JSON.parse(localStorage.getItem(key) || '[]');
+  list = list.filter(r => r.id !== id);
+  localStorage.setItem(key, JSON.stringify(list));
+  autoRenderList();
+  toast('Rule deleted');
+}
+
+const AUTO_TRIGGER_LABELS = {
+  task_done:'A task is marked done', goal_progress:'Goal reaches 100%',
+  habit_streak:'Habit streak hits a milestone', daily_open:'I open SIVARR each day',
+  focus_complete:'A Focus session completes',
+};
+const AUTO_ACTION_LABELS = {
+  journal_prompt:'Add a journal prompt', notify_toast:'Show a notification',
+  log_activity:'Log to activity feed', celebrate:'Show a celebration 🎉',
+  create_task:'Create a follow-up task',
+};
+
+function autoRenderList() {
+  const key  = `sivarr_automations_${S.sid}`;
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+  const el   = $('auto-list');
+  if (!el) return;
+  if (!list.length) { el.innerHTML = '<div class="auto-empty">No rules yet. Create your first automation above.</div>'; return; }
+  el.innerHTML = list.map(r => `
+    <div class="auto-rule-card">
+      <div class="auto-rule-icon">⚡</div>
+      <div class="auto-rule-info">
+        <div class="auto-rule-name">${escHtml(r.name)}</div>
+        <div class="auto-rule-desc">
+          When: ${AUTO_TRIGGER_LABELS[r.trigger]||r.trigger} → Then: ${AUTO_ACTION_LABELS[r.action]||r.action}
+        </div>
+      </div>
+      <button class="auto-rule-toggle${r.enabled ? '' : ' off'}" onclick="autoToggle(${r.id})" title="Toggle rule"></button>
+      <button onclick="autoDelete(${r.id})" style="background:none;border:none;color:var(--text4);cursor:pointer;font-size:.9rem;padding:4px" title="Delete">✕</button>
+    </div>`).join('');
+}
+
+function autoInit() { autoRenderList(); }
+
+/* ══════════════════════════════════════════════════
+   PHASE 7 — OPPORTUNITIES BOARD
+   ══════════════════════════════════════════════════ */
+
+let _oppCat = 'all';
+
+const DEMO_OPPS = [
+  { id:1, type:'job', title:'Frontend Developer Intern', org:'TechStart Lagos', desc:'React, TypeScript, 3-month paid internship.', deadline:'2026-06-15', url:'#' },
+  { id:2, type:'scholarship', title:'African Excellence Scholarship', org:'DAAD', desc:'Full scholarship for masters studies in Germany.', deadline:'2026-05-31', url:'#' },
+  { id:3, type:'grant', title:'Youth Innovation Grant', org:'Tony Elumelu Foundation', desc:'$5,000 seed funding for young African entrepreneurs.', deadline:'2026-07-01', url:'#' },
+  { id:4, type:'gig', title:'Brand Identity Designer', org:'Freelance', desc:'Logo, colours, and brand guide for fintech startup.', deadline:'Open', url:'#' },
+  { id:5, type:'internship', title:'Product Design Intern', org:'Flutterwave', desc:'6-month internship for final-year design students.', deadline:'2026-06-30', url:'#' },
+];
+
+function oppSetCat(cat, btn) {
+  _oppCat = cat;
+  document.querySelectorAll('.opp-filter').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  oppRender();
+}
+
+function oppRender() {
+  const key     = `sivarr_opps_${S.sid}`;
+  const custom  = JSON.parse(localStorage.getItem(key) || '[]');
+  const all     = [...DEMO_OPPS, ...custom];
+  const visible = _oppCat === 'all' ? all : all.filter(o => o.type === _oppCat);
+  const grid    = $('opp-grid');
+  if (!grid) return;
+
+  if (!visible.length) { grid.innerHTML = '<div class="opp-empty">No opportunities in this category yet.</div>'; return; }
+
+  grid.innerHTML = visible.map(o => `
+    <div class="opp-card">
+      <div class="opp-card-type">${o.type}</div>
+      <div class="opp-card-title">${escHtml(o.title)}</div>
+      <div class="opp-card-org">${escHtml(o.org)}</div>
+      <div class="opp-card-desc">${escHtml(o.desc)}</div>
+      <div class="opp-card-meta">
+        <span class="opp-deadline">Deadline: ${escHtml(o.deadline)}</span>
+      </div>
+      <button class="opp-apply-btn" onclick="window.open(${JSON.stringify(o.url)},'_blank')">Apply →</button>
+    </div>`).join('');
+}
+
+function oppPost() {
+  const title    = prompt('Opportunity title:');
+  if (!title) return;
+  const org      = prompt('Organisation / company:') || '';
+  const desc     = prompt('Short description:') || '';
+  const typeOpts = ['job','scholarship','grant','gig','internship'];
+  const typeStr  = prompt(`Type (${typeOpts.join('/')}):`) || 'job';
+  const type     = typeOpts.includes(typeStr) ? typeStr : 'job';
+  const deadline = prompt('Deadline (e.g. 2026-06-30 or Open):') || 'Open';
+
+  const key  = `sivarr_opps_${S.sid}`;
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+  list.push({ id: Date.now(), title, org, desc, type, deadline, url:'#' });
+  localStorage.setItem(key, JSON.stringify(list));
+  oppRender();
+  toast('Opportunity posted');
+}
+
+function oppInit() { oppRender(); }
+
+/* ══════════════════════════════════════════════════
+   PHASE 7 — USER PROFILE
+   ══════════════════════════════════════════════════ */
+
+function profileInit() {
+  if (!S.sid) return;
+  const key  = `sivarr_profile_${S.sid}`;
+  const prof = JSON.parse(localStorage.getItem(key) || '{}');
+
+  // Avatar initials
+  const av = $('profile-av-lg');
+  if (av) av.textContent = (S.name || '?').charAt(0).toUpperCase();
+
+  // Name
+  const nameEl = $('profile-name-disp');
+  if (nameEl) nameEl.textContent = S.name || 'Your Name';
+
+  // Bio
+  const bioEl = $('profile-bio-disp');
+  if (bioEl) bioEl.textContent = prof.bio || 'Click to add a bio…';
+
+  // Stats from data stores
+  const goals    = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`)   || '[]');
+  const tasks    = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`)   || '[]');
+  const focusLog = JSON.parse(localStorage.getItem(`sivarr_focus_log_${S.sid}`) || '[]');
+  const journal  = JSON.parse(localStorage.getItem(`sivarr_journal_${S.sid}`) || '[]');
+
+  const focusHrs = focusLog.reduce((s, f) => s + (f.duration || 0), 0) / 60;
+  if ($('ps-goals'))   $('ps-goals').textContent   = goals.length;
+  if ($('ps-tasks'))   $('ps-tasks').textContent   = tasks.filter(t => t.done).length;
+  if ($('ps-focus'))   $('ps-focus').textContent   = focusHrs.toFixed(1);
+  if ($('ps-journal')) $('ps-journal').textContent = journal.length;
+
+  // Achievements
+  profileRenderAchievements(goals, tasks, focusLog, journal);
+
+  // Skills
+  profileRenderSkills(prof.skills || []);
+
+  // Tags
+  const tags = $('profile-tags');
+  if (tags && prof.tags && prof.tags.length) {
+    tags.innerHTML = prof.tags.map(t => `<span class="profile-tag">${escHtml(t)}</span>`).join('');
+  }
+}
+
+function profileRenderAchievements(goals, tasks, focusLog, journal) {
+  const grid = $('achievements-grid');
+  if (!grid) return;
+  const badges = [];
+  if (tasks.filter(t => t.done).length >= 1)  badges.push({ icon:'✅', label:'First Task Done' });
+  if (tasks.filter(t => t.done).length >= 10) badges.push({ icon:'🏆', label:'10 Tasks Crushed' });
+  if (goals.length >= 1)  badges.push({ icon:'🎯', label:'Goal Setter' });
+  if (journal.length >= 1) badges.push({ icon:'📓', label:'First Journal Entry' });
+  if (focusLog.length >= 1) badges.push({ icon:'⏱', label:'Focus Starter' });
+  if (focusLog.reduce((s,f)=>s+(f.duration||0),0) >= 60) badges.push({ icon:'🔥', label:'1hr Focus' });
+
+  if (!badges.length) { grid.innerHTML = '<div class="achieve-empty">Complete tasks, goals, and focus sessions to earn badges.</div>'; return; }
+  grid.innerHTML = badges.map(b =>
+    `<div class="achieve-badge"><span class="a-icon">${b.icon}</span>${escHtml(b.label)}</div>`
+  ).join('');
+}
+
+function profileRenderSkills(skills) {
+  const wrap = $('skills-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = skills.map((s, i) =>
+    `<span class="skill-tag">${escHtml(s)}<button onclick="profileRemoveSkill(${i})">✕</button></span>`
+  ).join('') + `<button class="skill-add-btn" onclick="profileAddSkill()">+ Add skill</button>`;
+}
+
+function profileEditBio() {
+  const key  = `sivarr_profile_${S.sid}`;
+  const prof = JSON.parse(localStorage.getItem(key) || '{}');
+  const bio  = prompt('Enter your bio:', prof.bio || '');
+  if (bio === null) return;
+  prof.bio = bio;
+  localStorage.setItem(key, JSON.stringify(prof));
+  const bioEl = $('profile-bio-disp');
+  if (bioEl) bioEl.textContent = bio || 'Click to add a bio…';
+}
+
+function profileAddSkill() {
+  const skill = prompt('Add a skill (e.g. Python, Design, Leadership):');
+  if (!skill) return;
+  const key  = `sivarr_profile_${S.sid}`;
+  const prof = JSON.parse(localStorage.getItem(key) || '{}');
+  prof.skills = prof.skills || [];
+  prof.skills.push(skill.trim());
+  localStorage.setItem(key, JSON.stringify(prof));
+  profileRenderSkills(prof.skills);
+}
+
+function profileRemoveSkill(idx) {
+  const key  = `sivarr_profile_${S.sid}`;
+  const prof = JSON.parse(localStorage.getItem(key) || '{}');
+  prof.skills = (prof.skills || []).filter((_, i) => i !== idx);
+  localStorage.setItem(key, JSON.stringify(prof));
+  profileRenderSkills(prof.skills);
 }
 

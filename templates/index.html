@@ -228,6 +228,19 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
 
+      <!-- Space Switcher -->
+      <div class="space-switcher" id="space-switcher">
+        <button class="ss-btn active" id="ss-personal" onclick="switchSpace('personal')" title="Personal">
+          <i class="ti ti-user"></i><span>Personal</span>
+        </button>
+        <button class="ss-btn" id="ss-academic" onclick="switchSpace('academic')" title="Academic">
+          <i class="ti ti-school"></i><span>Academic</span>
+        </button>
+        <button class="ss-btn" id="ss-org" onclick="switchSpace('org')" title="Organisation">
+          <i class="ti ti-building"></i><span>Org</span>
+        </button>
+      </div>
+
       <div class="sb-scroll">
 
         <!-- Core -->
@@ -331,18 +344,50 @@
         </div>
 
         <!-- Connect -->
-        <div class="sg" onclick="sbToggleSection('connect')">
+        <div class="sg" data-spaces="personal" onclick="sbToggleSection('connect')">
           <span class="sl">Connect</span>
           <i class="ti ti-chevron-down sg-chev"></i>
         </div>
-        <div class="sg-items" id="sgi-connect">
+        <div class="sg-items" id="sgi-connect" data-spaces="personal">
           <button class="si" data-panel="community" onclick="sidebarNav(this)">
             <i class="ti ti-users si-ic"></i>
             <span class="si-lb">Community</span>
           </button>
+          <button class="si" data-panel="opportunities" onclick="sidebarNav(this)">
+            <i class="ti ti-briefcase si-ic"></i>
+            <span class="si-lb">Opportunities</span>
+          </button>
           <button class="si" data-panel="library" onclick="sidebarNav(this)">
-            <i class="ti ti-books si-ic"></i>
-            <span class="si-lb">Library</span>
+            <i class="ti ti-plug-connected si-ic"></i>
+            <span class="si-lb">Integrations</span>
+          </button>
+        </div>
+
+        <!-- Org (hidden by default, shown when Org space active) -->
+        <div class="sg sg-space-org" onclick="sbToggleSection('org')" style="display:none">
+          <span class="sl">Organisation</span>
+          <i class="ti ti-chevron-down sg-chev"></i>
+        </div>
+        <div class="sg-items sg-space-org" id="sgi-org" style="display:none">
+          <button class="si" data-panel="team" onclick="sidebarNav(this)">
+            <i class="ti ti-users-group si-ic"></i>
+            <span class="si-lb">Team</span>
+          </button>
+          <button class="si" data-panel="orgchat" onclick="sidebarNav(this)">
+            <i class="ti ti-message-circle si-ic"></i>
+            <span class="si-lb">Team Chat</span>
+          </button>
+          <button class="si" data-panel="projects" onclick="sidebarNav(this)">
+            <i class="ti ti-layout-kanban si-ic"></i>
+            <span class="si-lb">Projects</span>
+          </button>
+          <button class="si" data-panel="hr" onclick="sidebarNav(this)">
+            <i class="ti ti-id-badge si-ic"></i>
+            <span class="si-lb">People & HR</span>
+          </button>
+          <button class="si" data-panel="automations" onclick="sidebarNav(this)">
+            <i class="ti ti-bolt si-ic"></i>
+            <span class="si-lb">Automations</span>
           </button>
         </div>
 
@@ -2144,6 +2189,169 @@
         </div>
       </div>
 
+      <!-- ══════════ NEW PANELS (Phases 5-8) ══════════ -->
+
+      <!-- Team Dashboard -->
+      <div class="panel" id="panel-team">
+        <div class="np-wrap">
+          <div class="np-head">
+            <div><h2 class="np-title">👥 Team</h2><p class="np-sub">Your organisation at a glance</p></div>
+            <button class="np-action-btn" onclick="teamInvite()"><i class="ti ti-user-plus"></i> Invite</button>
+          </div>
+          <div class="org-stats-row">
+            <div class="org-stat-card"><div class="org-stat-val" id="team-member-count">1</div><div class="org-stat-lbl">Members</div></div>
+            <div class="org-stat-card"><div class="org-stat-val" id="team-project-count">0</div><div class="org-stat-lbl">Projects</div></div>
+            <div class="org-stat-card"><div class="org-stat-val" id="team-task-count">0</div><div class="org-stat-lbl">Open Tasks</div></div>
+            <div class="org-stat-card"><div class="org-stat-val" id="team-msg-count">0</div><div class="org-stat-lbl">Messages</div></div>
+          </div>
+          <div class="np-section-title">Members</div>
+          <div class="team-member-list" id="team-member-list"></div>
+          <div class="np-section-title" style="margin-top:20px">Recent Activity</div>
+          <div class="team-activity" id="team-activity">
+            <div class="ta-item"><span class="ta-dot" style="background:var(--teal)"></span><span class="ta-text">Welcome to your Org space — invite your team to get started.</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Team Chat -->
+      <div class="panel" id="panel-orgchat">
+        <div class="chat-panel-wrap">
+          <div class="chat-panel-head">
+            <div class="chat-panel-title"><i class="ti ti-message-circle"></i> Team Chat</div>
+            <span class="chat-panel-badge">General</span>
+          </div>
+          <div class="chat-panel-messages" id="orgchat-messages">
+            <div class="chat-panel-empty">No messages yet. Start the conversation 👋</div>
+          </div>
+          <div class="chat-panel-input-row">
+            <input class="chat-panel-input" id="orgchat-input" placeholder="Message the team…"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();orgChatSend()}">
+            <button class="chat-panel-send" onclick="orgChatSend()"><i class="ti ti-send"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Projects -->
+      <div class="panel" id="panel-projects">
+        <div class="np-wrap">
+          <div class="np-head">
+            <div><h2 class="np-title">🗂 Projects</h2><p class="np-sub">Org-level project boards</p></div>
+            <button class="np-action-btn" onclick="projectNew()"><i class="ti ti-plus"></i> New Project</button>
+          </div>
+          <div class="projects-grid" id="projects-grid">
+            <div class="projects-empty">No projects yet — create your first one.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HR / People -->
+      <div class="panel" id="panel-hr">
+        <div class="np-wrap">
+          <div class="np-head">
+            <div><h2 class="np-title">🪪 People & HR</h2><p class="np-sub">Team structure and records</p></div>
+            <button class="np-action-btn" onclick="hrAddMember()"><i class="ti ti-user-plus"></i> Add Person</button>
+          </div>
+          <div class="hr-tabs">
+            <button class="hr-tab active" onclick="hrTab('directory',this)">Directory</button>
+            <button class="hr-tab" onclick="hrTab('leaves',this)">Leave Requests</button>
+            <button class="hr-tab" onclick="hrTab('roles',this)">Roles</button>
+          </div>
+          <div id="hr-directory"><div class="hr-directory-list" id="hr-dir-list"></div></div>
+          <div id="hr-leaves" style="display:none"><div class="hr-empty">No leave requests yet.</div></div>
+          <div id="hr-roles" style="display:none">
+            <div class="hr-role-row"><span class="hr-role-badge" style="background:var(--teal2);color:var(--teal4)">Admin</span><span class="hr-role-desc">Full access to all spaces</span></div>
+            <div class="hr-role-row"><span class="hr-role-badge" style="background:var(--purple2);color:var(--purple3)">Member</span><span class="hr-role-desc">Access to assigned spaces</span></div>
+            <div class="hr-role-row"><span class="hr-role-badge" style="background:var(--amber2);color:var(--amber)">Guest</span><span class="hr-role-desc">View-only access</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Automations (Phase 8) -->
+      <div class="panel" id="panel-automations">
+        <div class="np-wrap">
+          <div class="np-head">
+            <div><h2 class="np-title">⚡ Automations</h2><p class="np-sub">Build when → then rules that run automatically</p></div>
+            <button class="np-action-btn" onclick="autoNew()"><i class="ti ti-plus"></i> New Rule</button>
+          </div>
+          <div class="auto-builder" id="auto-builder" style="display:none">
+            <div class="auto-builder-title">New Automation Rule</div>
+            <div class="auto-row">
+              <div class="auto-label-tag">WHEN</div>
+              <select class="auto-select" id="auto-trigger">
+                <option value="task_done">A task is marked done</option>
+                <option value="goal_complete">A goal reaches 100%</option>
+                <option value="habit_streak">Habit streak hits milestone</option>
+                <option value="daily_open">I open SIVARR each day</option>
+                <option value="focus_complete">A Focus session completes</option>
+              </select>
+            </div>
+            <div class="auto-row">
+              <div class="auto-label-tag">THEN</div>
+              <select class="auto-select" id="auto-action">
+                <option value="journal_prompt">Add a journal prompt</option>
+                <option value="notify_toast">Show a notification</option>
+                <option value="log_activity">Log to activity feed</option>
+                <option value="celebrate">Show a celebration 🎉</option>
+                <option value="create_task">Create a follow-up task</option>
+              </select>
+            </div>
+            <input class="auto-name-input" id="auto-rule-name" placeholder="Rule name e.g. Daily celebration">
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="auto-save-btn" onclick="autoSave()">Save Rule</button>
+              <button class="auto-cancel-btn" onclick="autoBuilderClose()">Cancel</button>
+            </div>
+          </div>
+          <div class="auto-list" id="auto-list">
+            <div class="auto-empty">No rules yet — create your first automation.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Opportunity Board (Phase 7) -->
+      <div class="panel" id="panel-opportunities">
+        <div class="np-wrap">
+          <div class="np-head">
+            <div><h2 class="np-title">🎯 Opportunities</h2><p class="np-sub">Jobs, grants, gigs and scholarships curated for you</p></div>
+            <button class="np-action-btn" onclick="oppPost()"><i class="ti ti-plus"></i> Post</button>
+          </div>
+          <div class="opp-filter-bar">
+            <button class="opp-filter active" onclick="oppSetCat('all',this)">All</button>
+            <button class="opp-filter" onclick="oppSetCat('job',this)">💼 Jobs</button>
+            <button class="opp-filter" onclick="oppSetCat('grant',this)">💰 Grants</button>
+            <button class="opp-filter" onclick="oppSetCat('gig',this)">⚡ Gigs</button>
+            <button class="opp-filter" onclick="oppSetCat('scholarship',this)">🎓 Scholarships</button>
+            <button class="opp-filter" onclick="oppSetCat('internship',this)">🏢 Internships</button>
+          </div>
+          <div class="opp-grid" id="opp-grid"></div>
+        </div>
+      </div>
+
+      <!-- User Profile (Phase 7) -->
+      <div class="panel" id="panel-profile">
+        <div class="np-wrap profile-np">
+          <div class="profile-hero">
+            <div class="profile-av-lg" id="profile-av-lg">?</div>
+            <div class="profile-hero-info">
+              <div class="profile-name" id="profile-name-disp">Your Name</div>
+              <div class="profile-bio-disp" id="profile-bio-disp" onclick="profileEditBio()">Click to add a bio…</div>
+              <div class="profile-tags" id="profile-tags"></div>
+            </div>
+          </div>
+          <div class="profile-stats-row">
+            <div class="profile-stat"><span id="ps-goals">0</span><small>Goals</small></div>
+            <div class="profile-stat"><span id="ps-tasks">0</span><small>Tasks done</small></div>
+            <div class="profile-stat"><span id="ps-focus">0</span><small>Focus hrs</small></div>
+            <div class="profile-stat"><span id="ps-journal">0</span><small>Entries</small></div>
+          </div>
+          <div class="np-section-title">Achievements</div>
+          <div class="achievements-grid" id="achievements-grid"></div>
+          <div class="np-section-title" style="margin-top:20px">Skills</div>
+          <div class="skills-wrap" id="skills-wrap">
+            <button class="skill-tag-add" onclick="profileAddSkill()">+ Add skill</button>
+          </div>
+        </div>
+      </div>
+
 </main>
   </div>
 
@@ -2500,7 +2708,6 @@
   </div>
 
 </div><!-- end mob-sidebar-panel -->
-
 <!-- ══════════════════════════════════════════════════════
      DAILY SIVA BRIEF OVERLAY
      ══════════════════════════════════════════════════════ -->
