@@ -2653,7 +2653,9 @@ input, textarea, select { font-family: var(--font); }
 /* ══════════════════════════════════════════════════
    ORG SPACE (Work Hub)  — os-* classes
    ══════════════════════════════════════════════════ */
-.os-panel { display:flex; flex-direction:column; height:100%; overflow:hidden; }
+/* .os-panel must NOT set display — .panel{display:none} and .panel.active{display:flex}
+   already control panel visibility; adding display here would break that cascade */
+.panel.os-panel { flex-direction:column; height:100%; overflow:hidden; }
 
 /* Hero bar */
 .os-hero {
@@ -2718,9 +2720,9 @@ input, textarea, select { font-family: var(--font); }
 .os-tab:hover { color:var(--fg); }
 .os-tab.on { color:var(--teal); border-bottom-color:var(--teal); font-weight:600; }
 
-/* Panes */
-.os-pane { display:none; flex:1; overflow:hidden; flex-direction:column; }
-.os-pane.on { display:flex; }
+/* Panes — use #panel-org for highest specificity to beat any cascade */
+#panel-org .os-pane { display:none !important; flex:1; overflow:hidden; flex-direction:column; }
+#panel-org .os-pane.on { display:flex !important; }
 
 /* Scrollable content area */
 .os-scroll {
