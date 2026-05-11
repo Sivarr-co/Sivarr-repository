@@ -369,25 +369,9 @@
           <i class="ti ti-chevron-down sg-chev"></i>
         </div>
         <div class="sg-items sg-space-org" id="sgi-org" style="display:none">
-          <button class="si" data-panel="team" onclick="sidebarNav(this)">
-            <i class="ti ti-users-group si-ic"></i>
-            <span class="si-lb">Team</span>
-          </button>
-          <button class="si" data-panel="orgchat" onclick="sidebarNav(this)">
-            <i class="ti ti-message-circle si-ic"></i>
-            <span class="si-lb">Team Chat</span>
-          </button>
-          <button class="si" data-panel="projects" onclick="sidebarNav(this)">
-            <i class="ti ti-layout-kanban si-ic"></i>
-            <span class="si-lb">Projects</span>
-          </button>
-          <button class="si" data-panel="hr" onclick="sidebarNav(this)">
-            <i class="ti ti-id-badge si-ic"></i>
-            <span class="si-lb">People & HR</span>
-          </button>
-          <button class="si" data-panel="automations" onclick="sidebarNav(this)">
-            <i class="ti ti-bolt si-ic"></i>
-            <span class="si-lb">Automations</span>
+          <button class="si" data-panel="org" onclick="sidebarNav(this)">
+            <i class="ti ti-building si-ic"></i>
+            <span class="si-lb">Work Hub</span>
           </button>
         </div>
 
@@ -2165,123 +2149,158 @@
         </div>
       </div>
 
-      <!-- ══════════ NEW PANELS (Phases 5-8) ══════════ -->
+      <!-- ══════════ ORG SPACE ══════════ -->
+      <div class="panel os-panel" id="panel-org">
 
-      <!-- Team Dashboard -->
-      <div class="panel" id="panel-team">
-        <div class="np-wrap">
-          <div class="np-head">
-            <div><h2 class="np-title">👥 Team</h2><p class="np-sub">Your organisation at a glance</p></div>
-            <button class="np-action-btn" onclick="teamInvite()"><i class="ti ti-user-plus"></i> Invite</button>
+        <!-- Space hero -->
+        <div class="os-hero">
+          <div class="os-hero-icon"><i class="ti ti-building"></i></div>
+          <div class="os-hero-info">
+            <div class="os-hero-name" id="os-space-name">Work Hub</div>
+            <div class="os-hero-meta">
+              <span>Organisation space</span>
+              <span class="os-sep">·</span>
+              <span><i class="ti ti-users"></i> <span id="os-member-count">1</span> members</span>
+              <span class="os-sep">·</span>
+              <span class="os-online-badge"><i class="ti ti-point-filled"></i> <span id="os-online-count">1</span> online</span>
+            </div>
           </div>
-          <div class="org-stats-row">
-            <div class="org-stat-card"><div class="org-stat-val" id="team-member-count">1</div><div class="org-stat-lbl">Members</div></div>
-            <div class="org-stat-card"><div class="org-stat-val" id="team-project-count">0</div><div class="org-stat-lbl">Projects</div></div>
-            <div class="org-stat-card"><div class="org-stat-val" id="team-task-count">0</div><div class="org-stat-lbl">Open Tasks</div></div>
-            <div class="org-stat-card"><div class="org-stat-val" id="team-msg-count">0</div><div class="org-stat-lbl">Messages</div></div>
-          </div>
-          <div class="np-section-title">Members</div>
-          <div class="team-member-list" id="team-member-list"></div>
-          <div class="np-section-title" style="margin-top:20px">Recent Activity</div>
-          <div class="team-activity" id="team-activity">
-            <div class="ta-item"><span class="ta-dot" style="background:var(--teal)"></span><span class="ta-text">Welcome to your Org space — invite your team to get started.</span></div>
+          <div class="os-hero-actions">
+            <button class="os-btn-ghost" onclick="teamInvite()"><i class="ti ti-user-plus"></i> Invite</button>
+            <button class="os-btn-primary" onclick="orgNewTask()"><i class="ti ti-plus"></i> New task</button>
+            <button class="os-btn-icon" onclick="orgMoreMenu()"><i class="ti ti-dots"></i></button>
           </div>
         </div>
-      </div>
 
-      <!-- Team Chat -->
-      <div class="panel" id="panel-orgchat">
-        <div class="chat-panel-wrap">
-          <div class="chat-panel-head">
-            <div class="chat-panel-title"><i class="ti ti-message-circle"></i> Team Chat</div>
-            <span class="chat-panel-badge">General</span>
+        <!-- Tab bar -->
+        <div class="os-tabs" role="tablist">
+          <button class="os-tab on" id="os-tab-overview" onclick="orgTab('overview',this)" role="tab"><i class="ti ti-layout-dashboard"></i>Overview</button>
+          <button class="os-tab" id="os-tab-tasks"    onclick="orgTab('tasks',this)"    role="tab"><i class="ti ti-checkbox"></i>Tasks</button>
+          <button class="os-tab" id="os-tab-projects" onclick="orgTab('projects',this)" role="tab"><i class="ti ti-folders"></i>Projects</button>
+          <button class="os-tab" id="os-tab-docs"     onclick="orgTab('docs',this)"     role="tab"><i class="ti ti-file-text"></i>Docs</button>
+          <button class="os-tab" id="os-tab-members"  onclick="orgTab('members',this)"  role="tab"><i class="ti ti-users"></i>Members</button>
+          <button class="os-tab" id="os-tab-insights" onclick="orgTab('insights',this)" role="tab"><i class="ti ti-chart-bar"></i>Insights</button>
+          <button class="os-tab" id="os-tab-chat"     onclick="orgTab('chat',this)"     role="tab"><i class="ti ti-message-circle"></i>Chat</button>
+        </div>
+
+        <!-- ── OVERVIEW ── -->
+        <div class="os-pane on" id="os-pane-overview">
+          <div class="os-scroll">
+            <div class="os-stat-row">
+              <div class="os-stat"><div class="os-stat-lbl">Open tasks</div><div class="os-stat-val" id="os-open-tasks">0</div><div class="os-stat-sub" id="os-overdue-lbl"></div></div>
+              <div class="os-stat"><div class="os-stat-lbl">Completed this month</div><div class="os-stat-val" id="os-done-tasks">0</div><div class="os-stat-sub os-s">↑ tracked</div></div>
+              <div class="os-stat"><div class="os-stat-lbl">Active projects</div><div class="os-stat-val" id="os-proj-count">0</div><div class="os-stat-sub">tracked</div></div>
+              <div class="os-stat"><div class="os-stat-lbl">Team members</div><div class="os-stat-val" id="os-mem-count">1</div><div class="os-stat-sub" id="os-invite-lbl"></div></div>
+            </div>
+            <div class="os-grid2">
+              <div class="os-card">
+                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-alert-triangle" style="color:var(--coral)"></i>Priority tasks</span><span class="os-card-link" onclick="orgTab('tasks',null)">Board →</span></div>
+                <div id="os-priority-tasks"><div class="os-empty">No tasks yet.</div></div>
+              </div>
+              <div class="os-card">
+                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-folders"></i>Projects</span><span class="os-card-link" onclick="orgTab('projects',null)">All →</span></div>
+                <div id="os-proj-progress"><div class="os-empty">No projects yet.</div></div>
+              </div>
+            </div>
+            <div class="os-grid2">
+              <div class="os-card">
+                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-users"></i>Team</span><span class="os-card-link" onclick="orgTab('members',null)">Manage →</span></div>
+                <div id="os-team-mini"><div class="os-empty">No members yet.</div></div>
+              </div>
+              <div class="os-card">
+                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-activity"></i>Recent activity</span></div>
+                <div id="os-activity-feed"><div class="os-empty">No activity yet.</div></div>
+              </div>
+            </div>
           </div>
-          <div class="chat-panel-messages" id="orgchat-messages">
-            <div class="chat-panel-empty">No messages yet. Start the conversation 👋</div>
+        </div>
+
+        <!-- ── TASKS KANBAN ── -->
+        <div class="os-pane" id="os-pane-tasks">
+          <div class="os-toolbar">
+            <button class="os-tool-btn os-tool-active"><i class="ti ti-layout-kanban"></i>Board</button>
+            <button class="os-tool-btn"><i class="ti ti-list"></i>List</button>
+            <div style="flex:1"></div>
+            <button class="os-tool-btn os-tool-action" onclick="orgNewTask()"><i class="ti ti-plus"></i>Add task</button>
           </div>
-          <div class="chat-panel-input-row">
-            <input class="chat-panel-input" id="orgchat-input" placeholder="Message the team…"
+          <div class="os-scroll"><div class="os-kanban" id="os-kanban"></div></div>
+        </div>
+
+        <!-- ── PROJECTS ── -->
+        <div class="os-pane" id="os-pane-projects">
+          <div class="os-toolbar">
+            <button class="os-btn-primary" onclick="projectNew()"><i class="ti ti-plus"></i>New project</button>
+          </div>
+          <div class="os-scroll"><div class="os-proj-grid" id="os-proj-grid"></div></div>
+        </div>
+
+        <!-- ── DOCS ── -->
+        <div class="os-pane" id="os-pane-docs">
+          <div class="os-toolbar">
+            <button class="os-btn-primary" onclick="orgNewDoc()"><i class="ti ti-plus"></i>New doc</button>
+          </div>
+          <div class="os-scroll"><div class="os-docs-grid" id="os-docs-grid"></div></div>
+        </div>
+
+        <!-- ── MEMBERS ── -->
+        <div class="os-pane" id="os-pane-members">
+          <div class="os-toolbar">
+            <button class="os-btn-primary" onclick="teamInvite()"><i class="ti ti-user-plus"></i>Invite member</button>
+            <div style="flex:1"></div>
+            <span class="os-toolbar-label" id="os-member-label">1 member</span>
+          </div>
+          <div class="os-scroll">
+            <div class="os-card" style="margin-bottom:14px"><div id="os-members-list"></div></div>
+            <div class="os-invite-box">
+              <div class="os-invite-title">Invite someone new</div>
+              <div class="os-invite-sub">They'll get a link to join this space.</div>
+              <div class="os-invite-row">
+                <input type="email" class="os-invite-input" id="os-invite-email" placeholder="email@example.com">
+                <button class="os-btn-primary" onclick="orgSendInvite()">Send invite</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── INSIGHTS ── -->
+        <div class="os-pane" id="os-pane-insights">
+          <div class="os-scroll">
+            <div class="os-stat-row">
+              <div class="os-stat"><div class="os-stat-lbl">Velocity (tasks/wk)</div><div class="os-stat-val" id="os-velocity">—</div><div class="os-stat-sub os-s">from history</div></div>
+              <div class="os-stat"><div class="os-stat-lbl">On-time rate</div><div class="os-stat-val" id="os-ontime">—</div><div class="os-stat-sub">of tasks</div></div>
+              <div class="os-stat"><div class="os-stat-lbl">Total focus hrs</div><div class="os-stat-val" id="os-focus-hrs">0</div><div class="os-stat-sub">this month</div></div>
+              <div class="os-stat"><div class="os-stat-lbl">Goals active</div><div class="os-stat-val" id="os-goals-active">0</div><div class="os-stat-sub">tracked</div></div>
+            </div>
+            <div class="os-grid2" style="margin-bottom:12px">
+              <div class="os-card">
+                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-chart-bar"></i>Tasks per week</span></div>
+                <div class="os-bar-chart" id="os-bar-chart"></div>
+              </div>
+              <div class="os-card">
+                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-user-check"></i>Tasks by member</span></div>
+                <div id="os-tasks-by-member"></div>
+              </div>
+            </div>
+            <div class="os-card">
+              <div class="os-card-head"><span class="os-card-title"><i class="ti ti-sparkles" style="color:var(--teal)"></i>SIVARR insights</span></div>
+              <div id="os-ai-insights"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── CHAT ── -->
+        <div class="os-pane os-pane-chat" id="os-pane-chat">
+          <div class="os-chat-messages" id="os-chat-messages">
+            <div class="os-chat-empty">No messages yet. Start the conversation 👋</div>
+          </div>
+          <div class="os-chat-bar">
+            <input class="os-chat-input" id="os-chat-input" placeholder="Message the team…"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();orgChatSend()}">
-            <button class="chat-panel-send" onclick="orgChatSend()"><i class="ti ti-send"></i></button>
+            <button class="os-chat-send" onclick="orgChatSend()"><i class="ti ti-send"></i></button>
           </div>
         </div>
-      </div>
 
-      <!-- Projects -->
-      <div class="panel" id="panel-projects">
-        <div class="np-wrap">
-          <div class="np-head">
-            <div><h2 class="np-title">🗂 Projects</h2><p class="np-sub">Org-level project boards</p></div>
-            <button class="np-action-btn" onclick="projectNew()"><i class="ti ti-plus"></i> New Project</button>
-          </div>
-          <div class="projects-grid" id="projects-grid">
-            <div class="projects-empty">No projects yet — create your first one.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- HR / People -->
-      <div class="panel" id="panel-hr">
-        <div class="np-wrap">
-          <div class="np-head">
-            <div><h2 class="np-title">🪪 People & HR</h2><p class="np-sub">Team structure and records</p></div>
-            <button class="np-action-btn" onclick="hrAddMember()"><i class="ti ti-user-plus"></i> Add Person</button>
-          </div>
-          <div class="hr-tabs">
-            <button class="hr-tab active" onclick="hrTab('directory',this)">Directory</button>
-            <button class="hr-tab" onclick="hrTab('leaves',this)">Leave Requests</button>
-            <button class="hr-tab" onclick="hrTab('roles',this)">Roles</button>
-          </div>
-          <div id="hr-directory"><div class="hr-directory-list" id="hr-dir-list"></div></div>
-          <div id="hr-leaves" style="display:none"><div class="hr-empty">No leave requests yet.</div></div>
-          <div id="hr-roles" style="display:none">
-            <div class="hr-role-row"><span class="hr-role-badge" style="background:var(--teal2);color:var(--teal4)">Admin</span><span class="hr-role-desc">Full access to all spaces</span></div>
-            <div class="hr-role-row"><span class="hr-role-badge" style="background:var(--purple2);color:var(--purple3)">Member</span><span class="hr-role-desc">Access to assigned spaces</span></div>
-            <div class="hr-role-row"><span class="hr-role-badge" style="background:var(--amber2);color:var(--amber)">Guest</span><span class="hr-role-desc">View-only access</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Automations (Phase 8) -->
-      <div class="panel" id="panel-automations">
-        <div class="np-wrap">
-          <div class="np-head">
-            <div><h2 class="np-title">⚡ Automations</h2><p class="np-sub">Build when → then rules that run automatically</p></div>
-            <button class="np-action-btn" onclick="autoNew()"><i class="ti ti-plus"></i> New Rule</button>
-          </div>
-          <div class="auto-builder" id="auto-builder" style="display:none">
-            <div class="auto-builder-title">New Automation Rule</div>
-            <div class="auto-row">
-              <div class="auto-label-tag">WHEN</div>
-              <select class="auto-select" id="auto-trigger">
-                <option value="task_done">A task is marked done</option>
-                <option value="goal_complete">A goal reaches 100%</option>
-                <option value="habit_streak">Habit streak hits milestone</option>
-                <option value="daily_open">I open SIVARR each day</option>
-                <option value="focus_complete">A Focus session completes</option>
-              </select>
-            </div>
-            <div class="auto-row">
-              <div class="auto-label-tag">THEN</div>
-              <select class="auto-select" id="auto-action">
-                <option value="journal_prompt">Add a journal prompt</option>
-                <option value="notify_toast">Show a notification</option>
-                <option value="log_activity">Log to activity feed</option>
-                <option value="celebrate">Show a celebration 🎉</option>
-                <option value="create_task">Create a follow-up task</option>
-              </select>
-            </div>
-            <input class="auto-name-input" id="auto-rule-name" placeholder="Rule name e.g. Daily celebration">
-            <div style="display:flex;gap:8px;margin-top:8px">
-              <button class="auto-save-btn" onclick="autoSave()">Save Rule</button>
-              <button class="auto-cancel-btn" onclick="autoBuilderClose()">Cancel</button>
-            </div>
-          </div>
-          <div class="auto-list" id="auto-list">
-            <div class="auto-empty">No rules yet — create your first automation.</div>
-          </div>
-        </div>
-      </div>
+      </div><!-- /panel-org -->
 
       <!-- Opportunity Board (Phase 7) -->
       <div class="panel" id="panel-opportunities">

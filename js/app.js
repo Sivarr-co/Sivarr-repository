@@ -3783,7 +3783,7 @@ const PANEL_SECTION_MAP = {
   studyplan:'academic', pomodoro:'academic', contenthub:'academic',
   goals:'grow', habits:'grow', stats:'grow', journal:'grow',
   community:'connect', library:'connect', opportunities:'connect',
-  team:'org', projects:'org', hr:'org', automations:'org', orgchat:'org',
+  team:'org', projects:'org', hr:'org', automations:'org', orgchat:'org', org:'org',
 };
 
 function sbEnsureExpanded(panelName) {
@@ -3868,6 +3868,7 @@ function nav(name, btn) {
   if (name === 'projects')      projectsInit();
   if (name === 'hr')            hrInit();
   if (name === 'automations')   autoInit();
+  if (name === 'org')           orgInit();
   if (name === 'opportunities') oppInit();
   if (name === 'profile')       profileInit();
 }
@@ -3912,6 +3913,7 @@ function navTab(name, btn) {
   if (name === 'projects')      projectsInit();
   if (name === 'hr')            hrInit();
   if (name === 'automations')   autoInit();
+  if (name === 'org')           orgInit();
   if (name === 'opportunities') oppInit();
   if (name === 'profile')       profileInit();
 }
@@ -6932,8 +6934,299 @@ function switchSpace(space) {
     el.style.display = space === 'org' ? '' : 'none';
   });
   // Default panel per space
-  const defaults = { personal:'home', academic:'courses', org:'team' };
+  const defaults = { personal:'home', academic:'courses', org:'org' };
   nav(defaults[space], null);
+}
+
+/* ══════════════════════════════════════════════════
+   ORG SPACE — Work Hub
+   ══════════════════════════════════════════════════ */
+
+const ORG_KEY      = () => `sivarr_org_${S.sid}`;
+const ORG_KANBAN_COLS = ['To Do','In Progress','Review','Done'];
+
+function orgGetData() {
+  return JSON.parse(localStorage.getItem(ORG_KEY()) || JSON.stringify({
+    name: (S.name ? S.name + "'s" : 'Your') + ' Work Hub',
+    members: [], tasks: [], projects: [], docs: [], activity: [], chatMsgs: []
+  }));
+}
+
+function orgSaveData(d) { localStorage.setItem(ORG_KEY(), JSON.stringify(d)); }
+
+function orgInit() {
+  const d = orgGetData();
+
+  // Ensure owner is always in members
+  if (!d.members.find(m => m.email === S.email || m.name === S.name)) {
+    d.members.unshift({ name: S.name || 'You', role: 'Admin', email: S.email || '' });
+    orgSaveData(d);
+  }
+
+  // Hero
+  const nameEl = $('os-space-name'); if (nameEl) nameEl.textContent = d.name;
+  const mcEl   = $('os-member-count'); if (mcEl) mcEl.textContent = d.members.length;
+  const ocEl   = $('os-online-count'); if (ocEl) ocEl.textContent = 1;
+
+  orgRenderOverview(d);
+  orgRenderKanban(d);
+  orgRenderProjects(d);
+  orgRenderDocs(d);
+  orgRenderMembers(d);
+  orgRenderInsights(d);
+  orgChatRender();
+}
+
+function orgTab(tab, btn) {
+  document.querySelectorAll('.os-tab').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.os-pane').forEach(p => p.classList.remove('on'));
+  const pane = $('os-pane-' + tab);
+  if (pane) pane.classList.add('on');
+  if (btn) { btn.classList.add('on'); }
+  else {
+    const b = $('os-tab-' + tab); if (b) b.classList.add('on');
+  }
+  if (tab === 'chat') orgChatRender();
+}
+
+function orgRenderOverview(d) {
+  const open     = d.tasks.filter(t => t.col !== 'Done').length;
+  const done     = d.tasks.filter(t => t.col === 'Done').length;
+  const overdue  = d.tasks.filter(t => t.col !== 'Done' && t.due && t.due < new Date().toISOString().slice(0,10)).length;
+
+  const setVal = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  setVal('os-open-tasks', open);
+  setVal('os-done-tasks', done);
+  setVal('os-proj-count', d.projects.length);
+  setVal('os-mem-count',  d.members.length);
+  const ovEl = $('os-overdue-lbl');
+  if (ovEl) ovEl.textContent = overdue ? `${overdue} overdue` : '';
+  if (ovEl) ovEl.style.color = overdue ? 'var(--coral)' : 'var(--muted)';
+  const invEl = $('os-invite-lbl');
+  if (invEl) invEl.textContent = d.members.length === 1 ? 'Just you — invite your team' : '';
+
+  // Priority tasks
+  const pt = $('os-priority-tasks');
+  if (pt) {
+    const pri = d.tasks.filter(t => t.col !== 'Done' && t.priority === 'high').slice(0,5);
+    pt.innerHTML = pri.length
+      ? pri.map(t => `<div class="os-task-card"><div class="os-task-title">${escHtml(t.title)}</div><div class="os-task-meta"><span>${escHtml(t.col)}</span>${t.due ? `<span>${t.due}</span>` : ''}</div></div>`).join('')
+      : '<div class="os-empty">No high-priority tasks.</div>';
+  }
+
+  // Projects mini
+  const pp = $('os-proj-progress');
+  if (pp) {
+    pp.innerHTML = d.projects.length
+      ? d.projects.slice(0,4).map(p => `<div class="os-task-card"><div class="os-task-tag">${escHtml(p.status||'active')}</div><div class="os-task-title">${escHtml(p.name)}</div></div>`).join('')
+      : '<div class="os-empty">No projects yet.</div>';
+  }
+
+  // Team mini
+  const tm = $('os-team-mini');
+  if (tm) {
+    tm.innerHTML = d.members.slice(0,5).map(m => `
+      <div class="os-member-row">
+        <div class="os-member-av">${(m.name||'?')[0].toUpperCase()}</div>
+        <div class="os-member-info">
+          <div class="os-member-name">${escHtml(m.name)}</div>
+          <div class="os-member-role">${escHtml(m.role||'Member')}</div>
+        </div>
+      </div>`).join('') || '<div class="os-empty">No members yet.</div>';
+  }
+
+  // Activity feed
+  const af = $('os-activity-feed');
+  if (af) {
+    af.innerHTML = d.activity.length
+      ? d.activity.slice(-6).reverse().map(a => `<div class="os-empty" style="padding:4px 0">· ${escHtml(a)}</div>`).join('')
+      : '<div class="os-empty">No activity yet.</div>';
+  }
+}
+
+function orgRenderKanban(d) {
+  const board = $('os-kanban');
+  if (!board) return;
+  board.innerHTML = ORG_KANBAN_COLS.map(col => {
+    const tasks = d.tasks.filter(t => t.col === col);
+    return `
+    <div class="os-col">
+      <div class="os-col-head">
+        <span class="os-col-title">${col}</span>
+        <span class="os-col-count">${tasks.length}</span>
+      </div>
+      ${tasks.map(t => `
+        <div class="os-task-card">
+          ${t.priority === 'high' ? '<div class="os-task-tag">High</div>' : ''}
+          <div class="os-task-title">${escHtml(t.title)}</div>
+          <div class="os-task-meta">
+            ${t.assignee ? `<span>${escHtml(t.assignee)}</span>` : ''}
+            ${t.due ? `<span>${t.due}</span>` : ''}
+          </div>
+        </div>`).join('')}
+      <button class="os-add-card-btn" onclick="orgAddTaskToCol('${col}')">+ Add task</button>
+    </div>`;
+  }).join('');
+}
+
+function orgRenderProjects(d) {
+  const grid = $('os-proj-grid');
+  if (!grid) return;
+  const COLORS = ['#0d9488','#7c3aed','#d97706','#dc2626','#2563eb','#059669'];
+  if (!d.projects.length) {
+    grid.innerHTML = '<div class="os-empty" style="padding:20px 0">No projects yet — create your first one.</div>';
+    return;
+  }
+  grid.innerHTML = d.projects.map((p, i) => `
+    <div class="os-proj-card">
+      <div class="os-proj-stripe" style="background:${COLORS[i % COLORS.length]}"></div>
+      <div class="os-proj-name">${escHtml(p.name)}</div>
+      ${p.desc ? `<div class="os-proj-desc">${escHtml(p.desc)}</div>` : ''}
+      <div class="os-proj-meta">
+        <span class="os-proj-badge">${escHtml(p.status||'active')}</span>
+        <span class="os-proj-tasks-count">${p.tasks||0} tasks</span>
+      </div>
+    </div>`).join('');
+}
+
+function orgRenderDocs(d) {
+  const grid = $('os-docs-grid');
+  if (!grid) return;
+  if (!d.docs.length) {
+    grid.innerHTML = '<div class="os-empty" style="padding:20px 0">No docs yet — create one to share with your team.</div>';
+    return;
+  }
+  grid.innerHTML = d.docs.map(doc => `
+    <div class="os-doc-card">
+      <div class="os-doc-icon"><i class="ti ti-file-text"></i></div>
+      <div class="os-doc-name">${escHtml(doc.title)}</div>
+      <div class="os-doc-meta">${doc.updated || 'Just now'}</div>
+    </div>`).join('');
+}
+
+function orgRenderMembers(d) {
+  const list = $('os-members-list');
+  if (!list) return;
+  const lbl = $('os-member-label');
+  if (lbl) lbl.textContent = `${d.members.length} member${d.members.length !== 1 ? 's' : ''}`;
+  if (!d.members.length) { list.innerHTML = '<div class="os-empty" style="padding:16px 0">No members yet.</div>'; return; }
+  list.innerHTML = d.members.map(m => `
+    <div class="os-member-row">
+      <div class="os-member-av">${(m.name||'?')[0].toUpperCase()}</div>
+      <div class="os-member-info">
+        <div class="os-member-name">${escHtml(m.name)}</div>
+        <div class="os-member-role">${escHtml(m.email || '')}</div>
+      </div>
+      <span class="os-member-badge">${escHtml(m.role||'Member')}</span>
+    </div>`).join('');
+}
+
+function orgRenderInsights(d) {
+  const vel = $('os-velocity');
+  const otr = $('os-ontime');
+  const fhr = $('os-focus-hrs');
+  const gac = $('os-goals-active');
+  const done = d.tasks.filter(t => t.col === 'Done').length;
+  if (vel) vel.textContent = done > 0 ? (done / Math.max(1, Math.ceil(done / 5))).toFixed(1) : '—';
+  if (otr) otr.textContent = done > 0 ? Math.round((done / Math.max(1, d.tasks.length)) * 100) + '%' : '—';
+  if (fhr) fhr.textContent = '0';
+  if (gac) gac.textContent = '0';
+
+  const chart = $('os-bar-chart');
+  if (chart) {
+    const weeks = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const vals  = weeks.map(() => Math.floor(Math.random() * done + 0.5));
+    const max   = Math.max(...vals, 1);
+    chart.innerHTML = weeks.map((w, i) => `
+      <div class="os-bar-col">
+        <div class="os-bar-fill" style="height:${Math.round((vals[i]/max)*60)+4}px"></div>
+        <div class="os-bar-lbl">${w}</div>
+      </div>`).join('');
+  }
+
+  const tbm = $('os-tasks-by-member');
+  if (tbm) {
+    tbm.innerHTML = d.members.length
+      ? d.members.map(m => {
+          const count = d.tasks.filter(t => t.assignee === m.name).length;
+          return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.82rem">
+            <div class="os-member-av" style="width:24px;height:24px;font-size:.7rem">${(m.name||'?')[0].toUpperCase()}</div>
+            <span style="flex:1;color:var(--fg)">${escHtml(m.name)}</span>
+            <span style="color:var(--muted)">${count}</span>
+          </div>`;
+        }).join('')
+      : '<div class="os-empty">No members yet.</div>';
+  }
+
+  const ai = $('os-ai-insights');
+  if (ai) {
+    if (!done && !d.tasks.length) {
+      ai.innerHTML = '<div class="os-empty">Start adding tasks to unlock AI insights.</div>';
+    } else {
+      const rate = d.tasks.length ? Math.round((done / d.tasks.length) * 100) : 0;
+      ai.innerHTML = `<div style="font-size:.84rem;color:var(--fg);line-height:1.6;padding:4px 0">
+        Your team has completed <strong>${done}</strong> tasks (${rate}% completion rate).
+        ${rate >= 70 ? ' Great momentum — keep it up!' : rate >= 40 ? ' Solid progress. Focus on clearing the backlog.' : ' Consider breaking tasks into smaller steps to build momentum.'}
+      </div>`;
+    }
+  }
+}
+
+function orgNewTask() {
+  const title = prompt('Task title:');
+  if (!title) return;
+  const d = orgGetData();
+  d.tasks.push({ id: Date.now(), title, col: 'To Do', priority: 'normal', created: new Date().toISOString().slice(0,10) });
+  d.activity.push(`Task "${title}" was created.`);
+  orgSaveData(d);
+  orgInit();
+  toast('Task created');
+}
+
+function orgAddTaskToCol(col) {
+  const title = prompt(`Add task to "${col}":`);
+  if (!title) return;
+  const d = orgGetData();
+  d.tasks.push({ id: Date.now(), title, col, priority: 'normal', created: new Date().toISOString().slice(0,10) });
+  d.activity.push(`Task "${title}" added to ${col}.`);
+  orgSaveData(d);
+  orgInit();
+  orgTab('tasks', null);
+  toast('Task added');
+}
+
+function orgNewDoc() {
+  const title = prompt('Document title:');
+  if (!title) return;
+  const d = orgGetData();
+  d.docs.push({ id: Date.now(), title, updated: new Date().toLocaleDateString() });
+  d.activity.push(`Doc "${title}" was created.`);
+  orgSaveData(d);
+  orgRenderDocs(d);
+  toast('Doc created');
+}
+
+function orgSendInvite() {
+  const email = $('os-invite-email')?.value.trim();
+  if (!email || !email.includes('@')) { toast('Enter a valid email address.'); return; }
+  const name = email.split('@')[0];
+  const d = orgGetData();
+  if (d.members.find(m => m.email === email)) { toast('Already a member.'); return; }
+  d.members.push({ name, role: 'Member', email });
+  d.activity.push(`${name} was invited to the team.`);
+  orgSaveData(d);
+  if ($('os-invite-email')) $('os-invite-email').value = '';
+  orgInit();
+  toast(`Invite sent to ${email}`);
+}
+
+function orgMoreMenu() {
+  const name = prompt('Rename this space:', orgGetData().name);
+  if (!name) return;
+  const d = orgGetData();
+  d.name = name;
+  orgSaveData(d);
+  orgInit();
 }
 
 /* ══════════════════════════════════════════════════
@@ -6991,7 +7284,7 @@ function teamInvite() {
   data.members.push({ name, role:'Member', email });
   data.activity.push(`${name} was invited to the team.`);
   localStorage.setItem(key, JSON.stringify(data));
-  teamInit();
+  orgInit();
   toast(`Invite sent to ${email}`);
 }
 
@@ -7000,7 +7293,7 @@ function teamInvite() {
    ══════════════════════════════════════════════════ */
 
 function orgChatSend() {
-  const inp = $('orgchat-input');
+  const inp = $('os-chat-input');
   const msg = inp ? inp.value.trim() : '';
   if (!msg) return;
   inp.value = '';
@@ -7015,20 +7308,20 @@ function orgChatSend() {
 function orgChatRender() {
   const key  = `sivarr_orgchat_${S.sid}`;
   const msgs = JSON.parse(localStorage.getItem(key) || '[]');
-  const box  = $('orgchat-messages');
+  const box  = $('os-chat-messages');
   if (!box) return;
 
   if (!msgs.length) {
-    box.innerHTML = '<div class="chat-panel-empty">No messages yet. Start the conversation 👋</div>';
+    box.innerHTML = '<div class="os-chat-empty">No messages yet. Start the conversation 👋</div>';
     return;
   }
 
   box.innerHTML = msgs.map(m => `
-    <div class="chat-msg${m.me ? ' me' : ''}">
-      <div class="chat-msg-av">${(m.author||'?').charAt(0).toUpperCase()}</div>
-      <div class="chat-msg-body">
-        <div class="chat-msg-meta">${escHtml(m.author)} · ${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
-        <div class="chat-msg-bubble">${escHtml(m.text)}</div>
+    <div class="os-chat-msg${m.me ? ' me' : ''}">
+      <div class="os-chat-av">${(m.author||'?').charAt(0).toUpperCase()}</div>
+      <div>
+        <div class="os-chat-meta">${escHtml(m.author)} · ${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+        <div class="os-chat-bubble">${escHtml(m.text)}</div>
       </div>
     </div>`).join('');
   box.scrollTop = box.scrollHeight;
@@ -7046,15 +7339,11 @@ function projectNew() {
   const name = prompt('Project name:');
   if (!name) return;
   const desc = prompt('Short description (optional):') || '';
-  const key  = `sivarr_projects_${S.sid}`;
-  const list = JSON.parse(localStorage.getItem(key) || '[]');
-  list.push({
-    id: Date.now(), name, desc,
-    color: PROJ_COLORS[list.length % PROJ_COLORS.length],
-    tasks: 0, status:'active'
-  });
-  localStorage.setItem(key, JSON.stringify(list));
-  projectsRender();
+  const d = orgGetData();
+  d.projects.push({ id: Date.now(), name, desc, tasks: 0, status: 'active' });
+  d.activity.push(`Project "${name}" was created.`);
+  orgSaveData(d);
+  orgRenderProjects(d);
   toast('Project created');
 }
 
