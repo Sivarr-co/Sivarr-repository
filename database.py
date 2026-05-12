@@ -461,6 +461,115 @@ def get_space_data(user_sid: str, space_id: str) -> dict:
         _release(conn)
 
 
+# ── Admin queries ─────────────────────────────────────────────────
+
+def get_all_spaces_admin() -> list:
+    """All spaces across all users — for admin dashboard only."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT s.id, s.name, s.icon, s.space_type, s.user_sid,
+                       u.name AS owner_name, u.email AS owner_email, s.created_at
+                FROM spaces s
+                LEFT JOIN users u ON u.sid = s.user_sid
+                ORDER BY s.created_at DESC
+            """)
+            rows = cur.fetchall()
+        return [
+            {
+                "id": r[0], "name": r[1], "icon": r[2], "type": r[3],
+                "user_sid": r[4], "owner": r[5] or "Unknown",
+                "owner_email": r[6] or "",
+                "created_at": r[7].isoformat() if r[7] else None,
+            }
+            for r in rows
+        ]
+    finally:
+        _release(conn)
+
+
+def get_all_sessions_admin() -> list:
+    """All non-expired sessions — for admin dashboard only."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT s.token, s.sid, s.name, s.email, s.created_at, s.expires_at
+                FROM user_sessions s
+                WHERE s.expires_at > NOW()
+                ORDER BY s.created_at DESC
+            """)
+            rows = cur.fetchall()
+        return [
+            {
+                "token":      r[0][:12] + "…",
+                "token_full": r[0],
+                "sid":        r[1],
+                "name":       r[2],
+                "email":      r[3],
+                "created_at": r[4].isoformat() if r[4] else None,
+                "expires_at": r[5].isoformat() if r[5] else None,
+            }
+            for r in rows
+        ]
+    finally:
+        _release(conn)
+
+
+def delete_user_cascade(sid: str) -> bool:
+    """Delete a user and all associated data."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM space_data  WHERE user_sid = %s", (sid,))
+            cur.execute("DELETE FROM spaces       WHERE user_sid = %s", (sid,))
+            cur.execute("DELETE FROM user_sessions WHERE sid = %s", (sid,))
+            cur.execute("DELETE FROM user_progress WHERE sid = %s", (sid,))
+            cur.execute("DELETE FROM users         WHERE sid = %s", (sid,))
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"delete_user_cascade failed [{sid}]: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def get_platform_stats() -> dict:
+    """Aggregate platform-wide stats for the admin overview."""
+    conn = _get_conn()
+    if not conn:
+        return {}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM users")
+            total_users = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM spaces")
+            total_spaces = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM user_sessions WHERE expires_at > NOW()")
+            active_sessions = cur.fetchone()[0]
+            cur.execute("""
+                SELECT COUNT(*), space_type FROM spaces GROUP BY space_type
+            """)
+            spaces_by_type = {r[1]: r[0] for r in cur.fetchall()}
+        return {
+            "total_users":     total_users,
+            "total_spaces":    total_spaces,
+            "active_sessions": active_sessions,
+            "spaces_by_type":  spaces_by_type,
+        }
+    finally:
+        _release(conn)
+
+
 # ── One-time migration from JSON files ────────────────────────────
 
 def migrate_from_json(users_path: str, data_dir: str) -> tuple[int, int]:

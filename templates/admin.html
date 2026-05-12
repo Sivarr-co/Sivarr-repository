@@ -1,208 +1,828 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sivarr AI — Admin Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Sivarr — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#08090d;--surface:#0f1117;--card:#13151c;--border:#1c1f2a;
-  --accent:#4f6ef7;--accent2:#7c3aed;--green:#22c55e;--red:#ef4444;
-  --yellow:#f59e0b;--text:#f0f1f5;--muted:#5a5f7a;
-  --font:'Outfit',sans-serif;--body:'DM Sans',sans-serif;
+  --bg:#07080d;--surface:#0d0f17;--card:#111420;--border:#1a1d2e;
+  --border2:#232640;--hover:#ffffff08;--hover2:#ffffff10;
+  --accent:#4f6ef7;--accent2:#7c3aed;--accent3:#06b6d4;
+  --green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--orange:#f97316;
+  --text:#eceef5;--muted:#5c6180;--muted2:#3a3f58;
+  --font:'Outfit',sans-serif;--mono:'DM Mono',monospace;
+  --r:10px;--r2:14px;--r3:18px;
 }
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--body);font-size:14px}
-::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:#1c1f2a;border-radius:3px}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 
-/* LOGIN */
-#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;background:radial-gradient(ellipse at 50% 0%,#1a1f3a,var(--bg) 65%)}
-.lbox{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:2.5rem;width:100%;max-width:380px;animation:fadeUp .4s ease}
-.logo{display:flex;align-items:center;gap:10px;margin-bottom:1.75rem}
-.mono{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--font);font-weight:800;font-size:13px}
-.lbox h2{font-family:var(--font);font-size:1.3rem;font-weight:700;margin-bottom:.3rem}
-.lbox p{color:var(--muted);font-size:.83rem;margin-bottom:1.5rem}
+/* ── ANIMATIONS ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══════════════════════════════════════
+   LOGIN SCREEN
+══════════════════════════════════════ */
+#login{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:2rem;background:radial-gradient(ellipse 80% 50% at 50% -10%,#1a2040 0%,var(--bg) 60%);
+}
+.lbox{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r3);
+  padding:2.5rem;width:100%;max-width:400px;animation:fadeUp .5s ease;
+  box-shadow:0 24px 64px rgba(0,0,0,.4);
+}
+.lbox-logo{display:flex;align-items:center;gap:12px;margin-bottom:2rem}
+.logo-icon{
+  width:42px;height:42px;border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:14px;letter-spacing:-.5px;flex-shrink:0;
+}
+.lbox-logo-text{font-size:1.1rem;font-weight:800;letter-spacing:-.02em}
+.lbox-logo-sub{font-size:.74rem;color:var(--muted);margin-top:1px}
+.lbox h2{font-size:1.25rem;font-weight:800;margin-bottom:.3rem}
+.lbox p{color:var(--muted);font-size:.83rem;margin-bottom:1.75rem;line-height:1.5}
 .field{margin-bottom:1rem}
-.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
-.field input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:10px 13px;color:var(--text);font-family:var(--body);font-size:.88rem;outline:none;transition:border-color .2s}
+.field label{display:block;font-size:.67rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+.field input{
+  width:100%;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:10px 13px;color:var(--text);
+  font-family:var(--font);font-size:.88rem;outline:none;transition:border-color .2s;
+}
 .field input:focus{border-color:var(--accent)}
-.btn{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:9px;padding:12px;font-family:var(--font);font-size:.93rem;font-weight:700;cursor:pointer;transition:opacity .2s}
-.btn:hover{opacity:.88}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.err{color:var(--red);font-size:.8rem;margin-top:.75rem;text-align:center}
+.grad-btn{
+  width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;border:none;border-radius:var(--r);padding:12px;
+  font-family:var(--font);font-size:.93rem;font-weight:700;cursor:pointer;
+  transition:opacity .2s;letter-spacing:-.01em;
+}
+.grad-btn:hover{opacity:.88}
+.grad-btn:disabled{opacity:.45;cursor:not-allowed}
+.l-err{color:var(--red);font-size:.8rem;margin-top:.75rem;text-align:center;min-height:18px}
 
-/* DASHBOARD */
-#dash{display:none;flex-direction:column;min-height:100vh}
-.topbar{height:54px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;flex-shrink:0}
+/* ══════════════════════════════════════
+   DASHBOARD SHELL
+══════════════════════════════════════ */
+#dash{display:none;height:100vh;flex-direction:column}
+
+/* ── Topbar ── */
+.topbar{
+  height:52px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 1.25rem;flex-shrink:0;gap:1rem;z-index:50;
+}
 .topbar-l{display:flex;align-items:center;gap:10px}
-.tb-name{font-family:var(--font);font-weight:700;font-size:.95rem}
-.chip{background:#4f6ef715;border:1px solid #4f6ef730;color:var(--accent);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.04em;text-transform:uppercase}
-.signout{background:none;border:1px solid var(--border);border-radius:7px;padding:4px 10px;color:var(--muted);font-size:.72rem;cursor:pointer;font-family:var(--body)}
+.topbar-logo{
+  width:28px;height:28px;border-radius:8px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:10px;
+}
+.topbar-title{font-weight:700;font-size:.95rem;letter-spacing:-.01em}
+.chip{
+  padding:2px 9px;border-radius:20px;font-size:.65rem;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.chip-admin{background:#4f6ef718;border:1px solid #4f6ef735;color:var(--accent)}
+.chip-green{background:#14532d;border:1px solid #22c55e30;color:var(--green)}
+.chip-red  {background:#7f1d1d;border:1px solid #ef444430;color:var(--red)}
+.topbar-r{display:flex;align-items:center;gap:8px}
+.tb-ts{font-size:.72rem;color:var(--muted)}
+.icon-btn{
+  width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+  background:none;color:var(--muted);cursor:pointer;display:flex;
+  align-items:center;justify-content:center;font-size:.9rem;
+  transition:all .15s;
+}
+.icon-btn:hover{background:var(--hover2);color:var(--text);border-color:var(--border2)}
+.signout-btn{
+  padding:5px 12px;border-radius:8px;border:1px solid var(--border);
+  background:none;color:var(--muted);font-size:.75rem;cursor:pointer;
+  font-family:var(--font);transition:all .15s;
+}
+.signout-btn:hover{border-color:var(--red);color:var(--red)}
 
-.content{padding:1.5rem;flex:1;overflow-y:auto;max-width:1200px;margin:0 auto;width:100%}
+/* ── Body layout ── */
+.dash-body{flex:1;display:flex;overflow:hidden}
 
-/* Summary cards */
-.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
-.sc{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.1rem;position:relative;overflow:hidden}
-.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
-.sc-label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
-.sc-val{font-family:var(--font);font-size:2rem;font-weight:800;color:var(--accent)}
+/* ── Sidebar ── */
+.sidebar{
+  width:210px;background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;padding:12px 8px;
+}
+.sb-section{font-size:.63rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.07em;padding:8px 10px 4px;margin-top:6px}
+.sb-section:first-child{margin-top:0}
+.sb-item{
+  display:flex;align-items:center;gap:9px;padding:8px 10px;
+  border-radius:var(--r);cursor:pointer;color:var(--muted);
+  font-size:.84rem;font-weight:500;transition:all .15s;position:relative;
+}
+.sb-item:hover{background:var(--hover);color:var(--text)}
+.sb-item.active{background:#4f6ef712;color:var(--accent);font-weight:700}
+.sb-item.active::before{
+  content:'';position:absolute;left:0;top:20%;bottom:20%;
+  width:2.5px;border-radius:2px;background:var(--accent);
+}
+.sb-item svg,.sb-item .sb-ico{width:16px;height:16px;flex-shrink:0;opacity:.7}
+.sb-item.active .sb-ico{opacity:1}
+.sb-badge{
+  margin-left:auto;background:var(--accent);color:#fff;
+  font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:10px;min-width:18px;
+  text-align:center;
+}
+.sb-spacer{flex:1}
+.sb-footer{padding:10px;border-top:1px solid var(--border);margin-top:8px}
+.sb-footer-info{font-size:.7rem;color:var(--muted);text-align:center;line-height:1.6}
 
-/* Table */
-.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.table-head{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.table-head h3{font-family:var(--font);font-weight:700;font-size:.95rem}
-.search-input{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-family:var(--body);font-size:.82rem;outline:none;width:220px;transition:border-color .2s}
-.search-input:focus{border-color:var(--accent)}
+/* ── Main content ── */
+.main{flex:1;overflow-y:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1.5rem}
+.section{display:none;flex-direction:column;gap:1.5rem;animation:fadeIn .25s ease}
+.section.active{display:flex}
+.page-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.page-hd-l h2{font-size:1.3rem;font-weight:800;letter-spacing:-.03em}
+.page-hd-l p{font-size:.8rem;color:var(--muted);margin-top:3px}
+.page-hd-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ── Buttons ── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;padding:7px 14px;
+  border-radius:var(--r);font-size:.8rem;font-weight:600;cursor:pointer;
+  transition:all .15s;border:none;font-family:var(--font);
+}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#3d5de0}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{background:#cc2020}
+.btn-ghost{background:none;border:1px solid var(--border);color:var(--text)}
+.btn-ghost:hover{background:var(--hover);border-color:var(--border2)}
+.btn-sm{padding:5px 11px;font-size:.75rem}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ── Stat cards ── */
+.stat-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r2);
+  padding:1rem 1.1rem;position:relative;overflow:hidden;
+}
+.stat-card::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--c1,var(--accent)),var(--c2,var(--accent2)));
+}
+.stat-card.c-blue  {--c1:#4f6ef7;--c2:#7c3aed}
+.stat-card.c-teal  {--c1:#06b6d4;--c2:#0ea5e9}
+.stat-card.c-green {--c1:#22c55e;--c2:#16a34a}
+.stat-card.c-amber {--c1:#f59e0b;--c2:#f97316}
+.stat-card.c-red   {--c1:#ef4444;--c2:#dc2626}
+.stat-card.c-purple{--c1:#7c3aed;--c2:#9333ea}
+.stat-label{font-size:.67rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.stat-val{font-size:2rem;font-weight:800;color:var(--text);letter-spacing:-.03em;line-height:1}
+.stat-sub{font-size:.7rem;color:var(--muted);margin-top:4px}
+
+/* ── Cards ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden}
+.card-hd{
+  padding:.9rem 1.1rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+}
+.card-hd h3{font-size:.9rem;font-weight:700}
+.card-hd-r{display:flex;align-items:center;gap:8px}
+.card-body{padding:1.1rem}
+.card-body-np{padding:0}
+
+/* ── Grid layouts ── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem}
+
+/* ── Table ── */
+.tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
-th{padding:10px 14px;text-align:left;font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--surface)}
-td{padding:11px 14px;font-size:.83rem;border-bottom:1px solid var(--border)}
-tr:last-child td{border:none}
-tr:hover td{background:#ffffff05}
-.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:700}
-.b-easy{background:#14532d;color:#22c55e}
-.b-medium{background:#78350f;color:#f59e0b}
-.b-hard{background:#7f1d1d;color:#ef4444}
-.score-bar{background:var(--border);border-radius:20px;height:5px;width:80px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:6px}
-.score-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:20px}
-.tag{display:inline-block;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 7px;font-size:.68rem;color:var(--muted);margin:1px}
-.tag.weak{border-color:#f59e0b50;color:var(--yellow)}
-.empty{padding:3rem;text-align:center;color:var(--muted)}
+thead th{
+  padding:9px 12px;text-align:left;font-size:.67rem;font-weight:700;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.06em;
+  border-bottom:1px solid var(--border);background:var(--surface);
+  white-space:nowrap;
+}
+tbody td{
+  padding:10px 12px;font-size:.82rem;border-bottom:1px solid var(--border);
+  vertical-align:middle;
+}
+tbody tr:last-child td{border:none}
+tbody tr:hover td{background:var(--hover)}
+.tbl-empty{padding:3rem;text-align:center;color:var(--muted);font-size:.84rem}
 
-/* Student detail modal */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
+/* ── Search / filter bar ── */
+.filter-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:.75rem 1.1rem;border-bottom:1px solid var(--border)}
+.search-inp{
+  flex:1;min-width:160px;max-width:260px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:7px 11px;color:var(--text);font-family:var(--font);
+  font-size:.82rem;outline:none;transition:border-color .2s;
+}
+.search-inp:focus{border-color:var(--accent)}
+.filter-sel{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:7px 10px;color:var(--text);font-family:var(--font);
+  font-size:.82rem;outline:none;cursor:pointer;
+}
+.filter-sel:focus{border-color:var(--accent)}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:700}
+.b-easy   {background:#14532d;color:#22c55e}
+.b-medium {background:#78350f;color:#f59e0b}
+.b-hard   {background:#7f1d1d;color:#ef4444}
+.b-personal{background:#1e3a5f;color:#60a5fa}
+.b-academic{background:#451a03;color:#fbbf24}
+.b-org    {background:#164e63;color:#22d3ee}
+.b-info   {background:#1e3a5f;color:#60a5fa}
+.b-warning{background:#78350f;color:#f59e0b}
+.b-deadline{background:#7f1d1d;color:#ef4444}
+.b-exam   {background:#3b0764;color:#c084fc}
+.b-online {background:#14532d;color:#22c55e}
+
+/* ── Score bar ── */
+.score-bar{display:inline-flex;align-items:center;gap:6px;vertical-align:middle}
+.score-track{width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;display:inline-block}
+.score-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+
+/* ── Charts ── */
+.chart-wrap{padding:1rem 1.1rem}
+.chart-title{font-size:.78rem;font-weight:700;color:var(--muted);margin-bottom:.75rem;text-transform:uppercase;letter-spacing:.05em}
+.bar-chart{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:flex;align-items:center;gap:8px}
+.bar-label{width:120px;font-size:.76rem;color:var(--text);text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;height:18px;background:var(--surface);border-radius:4px;overflow:hidden;position:relative}
+.bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--bc,var(--accent)),var(--bc2,var(--accent2)));transition:width .6s ease}
+.bar-val{width:36px;font-size:.72rem;color:var(--muted);font-family:var(--mono);flex-shrink:0;text-align:right}
+.donut-row{display:flex;align-items:center;gap:1rem;padding:.5rem 0}
+.donut-legend{display:flex;flex-direction:column;gap:6px;flex:1}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:.78rem}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── Mini stat inside chart ── */
+.mini-stats{display:flex;gap:1rem;flex-wrap:wrap;padding:.75rem 1.1rem;border-bottom:1px solid var(--border)}
+.mini-stat{display:flex;flex-direction:column;gap:2px}
+.mini-stat-val{font-size:1.1rem;font-weight:800}
+.mini-stat-lbl{font-size:.66rem;color:var(--muted)}
+
+/* ── Activity feed ── */
+.feed{display:flex;flex-direction:column;gap:0}
+.feed-item{
+  display:flex;align-items:center;gap:10px;padding:10px 1.1rem;
+  border-bottom:1px solid var(--border);
+}
+.feed-item:last-child{border:none}
+.feed-av{
+  width:30px;height:30px;border-radius:8px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:.78rem;
+}
+.feed-name{font-weight:600;font-size:.83rem}
+.feed-sub{font-size:.72rem;color:var(--muted)}
+.feed-time{font-size:.7rem;color:var(--muted);margin-left:auto;white-space:nowrap}
+
+/* ── User detail modal ── */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;
+  display:none;align-items:center;justify-content:center;
+  padding:1rem;backdrop-filter:blur(6px);
+}
 .overlay.open{display:flex}
-.modal{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:1.75rem;width:90%;max-width:500px;max-height:80vh;overflow-y:auto;animation:fadeUp .25s ease}
-.modal h3{font-family:var(--font);font-weight:700;font-size:1.1rem;margin-bottom:1.25rem}
-.modal-close{float:right;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;margin-top:-4px}
-.detail-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem}
-.detail-row:last-child{border:none}
-.detail-row .dl{color:var(--muted)}
-.detail-row .dv{font-weight:600}
+.modal{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r3);
+  width:100%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;
+  box-shadow:0 32px 80px rgba(0,0,0,.5);animation:fadeUp .25s ease;
+}
+.modal-hd{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1.1rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.modal-hd h3{font-size:1rem;font-weight:800}
+.modal-hd button{
+  background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;
+  padding:4px;border-radius:6px;line-height:1;
+}
+.modal-hd button:hover{background:var(--hover);color:var(--text)}
+.modal-body{overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:14px}
+.modal-section{display:flex;flex-direction:column;gap:6px}
+.modal-section-title{font-size:.67rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.07em}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.detail-item{background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:8px 10px}
+.detail-item .lbl{font-size:.66rem;color:var(--muted);margin-bottom:2px}
+.detail-item .val{font-size:.9rem;font-weight:700}
+.tag-list{display:flex;flex-wrap:wrap;gap:5px}
+.tag{
+  display:inline-block;padding:2px 8px;border-radius:20px;
+  font-size:.68rem;background:var(--surface);border:1px solid var(--border);color:var(--muted);
+}
+.tag.weak{border-color:#f59e0b40;color:var(--yellow)}
 
-@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+/* ── Announcements ── */
+.ann-create{display:flex;flex-direction:column;gap:10px;padding:1.1rem;border-bottom:1px solid var(--border)}
+.ann-textarea{
+  width:100%;min-height:80px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:10px 12px;color:var(--text);
+  font-family:var(--font);font-size:.88rem;resize:vertical;outline:none;
+}
+.ann-textarea:focus{border-color:var(--accent)}
+.ann-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ann-list{display:flex;flex-direction:column;gap:0}
+.ann-item{
+  display:flex;align-items:flex-start;gap:12px;padding:12px 1.1rem;
+  border-bottom:1px solid var(--border);
+}
+.ann-item:last-child{border:none}
+.ann-type-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;
+}
+.ann-body{flex:1}
+.ann-text{font-size:.84rem;color:var(--text);line-height:1.5;margin-bottom:4px}
+.ann-meta{font-size:.7rem;color:var(--muted)}
+.ann-del{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:.8rem;padding:4px;border-radius:6px;flex-shrink:0;
+}
+.ann-del:hover{background:#ef444415;color:var(--red)}
 
-@media(max-width:768px){
-  .summary{grid-template-columns:repeat(2,1fr)}
-  .search-input{width:150px}
-  th:nth-child(4),td:nth-child(4),th:nth-child(6),td:nth-child(6){display:none}
+/* ── System Health ── */
+.health-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.health-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r2);
+  padding:1rem 1.1rem;display:flex;align-items:center;gap:12px;
+}
+.health-icon{
+  width:40px;height:40px;border-radius:10px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+}
+.health-icon.ok{background:#14532d}
+.health-icon.warn{background:#78350f}
+.health-icon.err{background:#7f1d1d}
+.health-info{}
+.health-label{font-size:.7rem;color:var(--muted);margin-bottom:2px}
+.health-val{font-size:.92rem;font-weight:700}
+.health-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── Spinner ── */
+.spinner{
+  width:16px;height:16px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .7s linear infinite;display:inline-block;
+}
+
+/* ── Empty state ── */
+.empty-state{
+  padding:3rem;text-align:center;display:flex;flex-direction:column;
+  align-items:center;gap:10px;color:var(--muted);
+}
+.empty-icon{font-size:2.5rem;opacity:.3}
+.empty-text{font-size:.84rem}
+
+/* ── Dot indicator ── */
+.live-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--green);
+  display:inline-block;margin-right:4px;
+  box-shadow:0 0 0 2px #22c55e30;animation:pulse 2s ease infinite;
+}
+
+/* ── Mono text ── */
+.mono-text{font-family:var(--mono);font-size:.76rem;color:var(--muted);letter-spacing:-.01em}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .stat-row{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:900px){
+  .sidebar{width:52px;padding:8px 4px}
+  .sb-item span,.sb-section,.sb-badge,.sb-footer-info{display:none}
+  .sb-item{justify-content:center;padding:10px}
+  .stat-row{grid-template-columns:repeat(2,1fr)}
+  .grid2,.grid3{grid-template-columns:1fr}
+  .health-grid{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .main{padding:1rem}
+  .stat-row{grid-template-columns:1fr 1fr}
+  .detail-grid{grid-template-columns:1fr}
+  thead th:nth-child(n+5),tbody td:nth-child(n+5){display:none}
 }
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
+<!-- ══ LOGIN ══════════════════════════════════════════════════ -->
 <div id="login">
   <div class="lbox">
-    <div class="logo">
-      <div class="mono">Sr</div>
+    <div class="lbox-logo">
+      <div class="logo-icon">Sr</div>
       <div>
-        <div style="font-family:var(--font);font-weight:700;font-size:1.1rem">Sivarr AI</div>
-        <div style="font-size:.75rem;color:var(--muted)">Admin Dashboard</div>
+        <div class="lbox-logo-text">Sivarr AI</div>
+        <div class="lbox-logo-sub">Admin Dashboard</div>
       </div>
     </div>
-    <h2>Lecturer Access</h2>
-    <p>Enter your admin password to view student data.</p>
+    <h2>Welcome back</h2>
+    <p>Enter your admin password to access the platform control panel.</p>
     <div class="field">
       <label>Admin Password</label>
-      <input id="pw" type="password" placeholder="Enter password" onkeydown="if(event.key==='Enter')doAdminLogin()">
+      <input id="pw" type="password" placeholder="••••••••••••"
+        onkeydown="if(event.key==='Enter')doAdminLogin()">
     </div>
-    <button class="btn" id="login-btn" onclick="doAdminLogin()">Access Dashboard</button>
-    <div class="err" id="err"></div>
+    <button class="grad-btn" id="login-btn" onclick="doAdminLogin()">Access Dashboard</button>
+    <div class="l-err" id="l-err"></div>
   </div>
 </div>
 
-<!-- DASHBOARD -->
+<!-- ══ DASHBOARD ══════════════════════════════════════════════ -->
 <div id="dash">
+
+  <!-- Topbar -->
   <header class="topbar">
     <div class="topbar-l">
-      <div class="mono" style="width:30px;height:30px;font-size:11px;border-radius:8px">Sr</div>
-      <span class="tb-name">Sivarr AI</span>
-      <span class="chip">Admin</span>
+      <div class="topbar-logo">Sr</div>
+      <span class="topbar-title">Sivarr</span>
+      <span class="chip chip-admin">Admin</span>
+      <span id="db-status-chip"></span>
     </div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <span style="color:var(--muted);font-size:.78rem" id="last-updated"></span>
-      <button class="btn" style="width:auto;padding:6px 16px;font-size:.78rem" onclick="loadStudents()">↻ Refresh</button>
-      <button class="signout" onclick="signOut()">Sign out</button>
+    <div class="topbar-r">
+      <span class="tb-ts" id="last-updated"></span>
+      <button class="icon-btn" onclick="refreshCurrent()" title="Refresh">↻</button>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
     </div>
   </header>
 
-  <div class="content">
-    <div style="margin-bottom:1.25rem">
-      <h2 style="font-family:var(--font);font-size:1.3rem;font-weight:800;letter-spacing:-.02em">Student Overview</h2>
-      <p style="color:var(--muted);font-size:.83rem;margin-top:3px">All registered students and their learning progress</p>
-    </div>
+  <!-- Body -->
+  <div class="dash-body">
 
-    <!-- Summary -->
-    <div class="summary">
-      <div class="sc"><div class="sc-label">Total Students</div><div class="sc-val" id="s-total">—</div></div>
-      <div class="sc"><div class="sc-label">Questions Asked</div><div class="sc-val" id="s-questions">—</div></div>
-      <div class="sc"><div class="sc-label">Quizzes Taken</div><div class="sc-val" id="s-quizzes">—</div></div>
-      <div class="sc"><div class="sc-label">Avg Quiz Score</div><div class="sc-val" id="s-avg">—</div></div>
-    </div>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sb-section">Platform</div>
+      <div class="sb-item active" onclick="navTo('overview',this)" data-section="overview">
+        <span class="sb-ico">📊</span><span>Overview</span>
+      </div>
+      <div class="sb-item" onclick="navTo('users',this)" data-section="users">
+        <span class="sb-ico">👥</span><span>Users</span>
+        <span class="sb-badge" id="sb-badge-users">0</span>
+      </div>
+      <div class="sb-item" onclick="navTo('sessions',this)" data-section="sessions">
+        <span class="sb-ico">⚡</span><span>Live Sessions</span>
+        <span class="sb-badge" id="sb-badge-sessions" style="background:var(--green)">0</span>
+      </div>
+      <div class="sb-section">Content</div>
+      <div class="sb-item" onclick="navTo('spaces',this)" data-section="spaces">
+        <span class="sb-ico">🧩</span><span>Spaces</span>
+      </div>
+      <div class="sb-item" onclick="navTo('announcements',this)" data-section="announcements">
+        <span class="sb-ico">📢</span><span>Announcements</span>
+      </div>
+      <div class="sb-spacer"></div>
+      <div class="sb-item" onclick="navTo('health',this)" data-section="health">
+        <span class="sb-ico">🛡️</span><span>System Health</span>
+      </div>
+      <div class="sb-footer">
+        <div class="sb-footer-info" id="sb-version">v—</div>
+      </div>
+    </nav>
 
-    <!-- Table -->
-    <div class="table-wrap">
-      <div class="table-head">
-        <h3>Students</h3>
-        <input class="search-input" id="search" placeholder="Search name or matric..." oninput="filterTable()">
+    <!-- Main -->
+    <main class="main">
+
+      <!-- ─── OVERVIEW ─────────────────────────────── -->
+      <div class="section active" id="sec-overview">
+        <div class="page-hd">
+          <div class="page-hd-l">
+            <h2>Platform Overview</h2>
+            <p>Live snapshot of Sivarr AI activity and metrics</p>
+          </div>
+          <div class="page-hd-r">
+            <button class="btn btn-ghost btn-sm" onclick="loadOverview()">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- Stat cards -->
+        <div class="stat-row" id="stat-row">
+          <div class="stat-card c-blue"><div class="stat-label">Total Users</div><div class="stat-val" id="ov-users">—</div><div class="stat-sub">Registered accounts</div></div>
+          <div class="stat-card c-green"><div class="stat-label">Active Sessions</div><div class="stat-val" id="ov-sessions">—</div><div class="stat-sub">Right now</div></div>
+          <div class="stat-card c-teal"><div class="stat-label">Spaces Created</div><div class="stat-val" id="ov-spaces">—</div><div class="stat-sub">Across all users</div></div>
+          <div class="stat-card c-amber"><div class="stat-label">Questions Asked</div><div class="stat-val" id="ov-questions">—</div><div class="stat-sub">Total AI interactions</div></div>
+          <div class="stat-card c-purple"><div class="stat-label">Quizzes Taken</div><div class="stat-val" id="ov-quizzes">—</div><div class="stat-sub">Completed quizzes</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Avg Quiz Score</div><div class="stat-val" id="ov-avg">—</div><div class="stat-sub">Platform-wide average</div></div>
+        </div>
+
+        <!-- Charts row -->
+        <div class="grid2">
+          <!-- Difficulty distribution -->
+          <div class="card">
+            <div class="card-hd"><h3>Difficulty Distribution</h3></div>
+            <div class="chart-wrap">
+              <div class="bar-chart" id="diff-chart"></div>
+            </div>
+          </div>
+          <!-- Top topics -->
+          <div class="card">
+            <div class="card-hd"><h3>Top Topics Studied</h3></div>
+            <div class="chart-wrap">
+              <div class="bar-chart" id="topics-chart"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Spaces by type + Recent activity -->
+        <div class="grid2">
+          <div class="card">
+            <div class="card-hd"><h3>Spaces by Type</h3></div>
+            <div class="chart-wrap">
+              <div class="bar-chart" id="spaces-chart"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd">
+              <h3>Recent Active Sessions</h3>
+              <span class="chip chip-green"><span class="live-dot"></span>Live</span>
+            </div>
+            <div class="feed" id="recent-feed">
+              <div class="tbl-empty">Loading…</div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div style="overflow-x:auto">
-        <table id="students-table">
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Matric</th>
-              <th>Sessions</th>
-              <th>Questions</th>
-              <th>Quiz Avg</th>
-              <th>Difficulty</th>
-              <th>Last Seen</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="tbody">
-            <tr><td colspan="8" class="empty">Loading...</td></tr>
-          </tbody>
-        </table>
+
+      <!-- ─── USERS ──────────────────────────────────── -->
+      <div class="section" id="sec-users">
+        <div class="page-hd">
+          <div class="page-hd-l">
+            <h2>Users</h2>
+            <p id="users-count-label">All registered users</p>
+          </div>
+          <div class="page-hd-r">
+            <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadUsers()">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="filter-bar">
+            <input class="search-inp" id="user-search" placeholder="Search name, email or matric…" oninput="filterUsers()">
+            <select class="filter-sel" id="diff-filter" onchange="filterUsers()">
+              <option value="">All difficulties</option>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Matric</th>
+                  <th>Sessions</th>
+                  <th>Questions</th>
+                  <th>Quizzes</th>
+                  <th>Avg Score</th>
+                  <th>Difficulty</th>
+                  <th>Last Seen</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="users-tbody">
+                <tr><td colspan="11" class="tbl-empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
-    </div>
+
+      <!-- ─── SESSIONS ───────────────────────────────── -->
+      <div class="section" id="sec-sessions">
+        <div class="page-hd">
+          <div class="page-hd-l">
+            <h2>Live Sessions</h2>
+            <p>Currently authenticated users — refreshes every 30s</p>
+          </div>
+          <div class="page-hd-r">
+            <button class="btn btn-danger btn-sm" onclick="killAllSessions()">Kill All Sessions</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadSessions()">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="mini-stats">
+            <div class="mini-stat">
+              <div class="mini-stat-val" id="sess-count" style="color:var(--green)">0</div>
+              <div class="mini-stat-lbl">Active sessions</div>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Token</th>
+                  <th>Created</th>
+                  <th>Expires</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="sessions-tbody">
+                <tr><td colspan="6" class="tbl-empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── SPACES ─────────────────────────────────── -->
+      <div class="section" id="sec-spaces">
+        <div class="page-hd">
+          <div class="page-hd-l">
+            <h2>Spaces</h2>
+            <p>All spaces created across the platform</p>
+          </div>
+          <div class="page-hd-r">
+            <select class="filter-sel" id="space-type-filter" onchange="filterSpaces()">
+              <option value="">All types</option>
+              <option value="personal">Personal</option>
+              <option value="academic">Academic</option>
+              <option value="org">Organisation</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadSpaces()">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Space</th>
+                  <th>Type</th>
+                  <th>Owner</th>
+                  <th>Email</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody id="spaces-tbody">
+                <tr><td colspan="5" class="tbl-empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── ANNOUNCEMENTS ──────────────────────────── -->
+      <div class="section" id="sec-announcements">
+        <div class="page-hd">
+          <div class="page-hd-l">
+            <h2>Announcements</h2>
+            <p>Platform-wide messages visible to all students</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><h3>Create Announcement</h3></div>
+          <div class="ann-create">
+            <textarea class="ann-textarea" id="ann-text" placeholder="Write your announcement…"></textarea>
+            <div class="ann-row">
+              <select class="filter-sel" id="ann-type">
+                <option value="info">ℹ Info</option>
+                <option value="warning">⚠ Warning</option>
+                <option value="deadline">⏰ Deadline</option>
+                <option value="exam">📝 Exam</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="postAnnouncement()">Post Announcement</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><h3>All Announcements</h3></div>
+          <div class="ann-list" id="ann-list">
+            <div class="tbl-empty">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── SYSTEM HEALTH ──────────────────────────── -->
+      <div class="section" id="sec-health">
+        <div class="page-hd">
+          <div class="page-hd-l">
+            <h2>System Health</h2>
+            <p>Platform infrastructure status and controls</p>
+          </div>
+          <div class="page-hd-r">
+            <button class="btn btn-ghost btn-sm" onclick="loadHealth()">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="health-grid" id="health-grid">
+          <div class="health-card">
+            <div class="health-icon ok" id="hc-db-icon">🗄️</div>
+            <div class="health-info">
+              <div class="health-label">Database</div>
+              <div class="health-val" id="hc-db">Checking…</div>
+            </div>
+          </div>
+          <div class="health-card">
+            <div class="health-icon ok">⚡</div>
+            <div class="health-info">
+              <div class="health-label">Active Sessions</div>
+              <div class="health-val" id="hc-sessions">—</div>
+            </div>
+          </div>
+          <div class="health-card">
+            <div class="health-icon ok">🏷️</div>
+            <div class="health-info">
+              <div class="health-label">App Version</div>
+              <div class="health-val" id="hc-version">—</div>
+            </div>
+          </div>
+          <div class="health-card">
+            <div class="health-icon ok">👥</div>
+            <div class="health-info">
+              <div class="health-label">Total Users</div>
+              <div class="health-val" id="hc-users">—</div>
+            </div>
+          </div>
+          <div class="health-card">
+            <div class="health-icon ok">🧩</div>
+            <div class="health-info">
+              <div class="health-label">Total Spaces</div>
+              <div class="health-val" id="hc-spaces">—</div>
+            </div>
+          </div>
+          <div class="health-card">
+            <div class="health-icon warn">🕐</div>
+            <div class="health-info">
+              <div class="health-label">Server Time (UTC)</div>
+              <div class="health-val mono-text" id="hc-time">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><h3>Maintenance Actions</h3></div>
+          <div class="card-body">
+            <div class="health-actions">
+              <button class="btn btn-ghost" onclick="cleanupSessions()">🧹 Cleanup Expired Sessions</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
   </div>
 </div>
 
-<!-- Student Detail Modal -->
-<div class="overlay" id="modal" onclick="closeModal(event)">
-  <div class="modal" id="modal-content">
-    <button class="modal-close" onclick="closeModal()">✕</button>
-    <h3 id="modal-title">Student Details</h3>
-    <div id="modal-body"></div>
+<!-- User detail modal -->
+<div class="overlay" id="user-modal" onclick="if(event.target===this)closeUserModal()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3 id="modal-title">User Details</h3>
+      <button onclick="closeUserModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
   </div>
 </div>
 
+<!-- ══ SCRIPT ══════════════════════════════════════════════════ -->
 <script>
-let TOKEN = '';
-let ALL_STUDENTS = [];
+'use strict';
 
+let TOKEN = '';
+let ALL_USERS    = [];
+let ALL_SPACES   = [];
+let ALL_SESSIONS = [];
+let OVERVIEW     = {};
+let _sessInterval = null;
+let _currentSection = 'overview';
+
+/* ── Auth ─────────────────────────────────────────── */
 async function doAdminLogin() {
   const pw  = document.getElementById('pw').value.trim();
   const btn = document.getElementById('login-btn');
-  const err = document.getElementById('err');
+  const err = document.getElementById('l-err');
   if (!pw) { err.textContent = 'Enter the admin password.'; return; }
-  btn.disabled = true; btn.textContent = 'Checking...';
+  btn.disabled = true; btn.textContent = 'Verifying…';
   try {
     const r = await fetch('/api/admin/login', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({password: pw})
     });
-    if (!r.ok) throw new Error('Wrong password');
+    if (!r.ok) throw new Error('bad');
     const d = await r.json();
     TOKEN = d.token;
-    localStorage.setItem('sivarr_admin_token', TOKEN);
+    sessionStorage.setItem('sivarr_admin_token', TOKEN);
     showDash();
-  } catch(e) {
+  } catch {
     err.textContent = 'Incorrect password. Try again.';
     btn.disabled = false; btn.textContent = 'Access Dashboard';
   }
@@ -211,99 +831,481 @@ async function doAdminLogin() {
 function showDash() {
   document.getElementById('login').style.display = 'none';
   document.getElementById('dash').style.display  = 'flex';
-  loadStudents();
-}
-
-async function loadStudents() {
-  document.getElementById('last-updated').textContent = 'Loading...';
-  try {
-    const r = await fetch(`/api/admin/students?token=${TOKEN}`);
-    if (!r.ok) { signOut(); return; }
-    const d = await r.json();
-    ALL_STUDENTS = d.students;
-    document.getElementById('s-total').textContent     = d.total;
-    document.getElementById('s-questions').textContent = d.total_questions;
-    document.getElementById('s-quizzes').textContent   = d.total_quizzes;
-    document.getElementById('s-avg').textContent       = d.avg_score + '%';
-    document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
-    renderTable(ALL_STUDENTS);
-  } catch(e) {
-    document.getElementById('last-updated').textContent = 'Error loading data';
-  }
-}
-
-function renderTable(students) {
-  const tbody = document.getElementById('tbody');
-  if (!students.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">No students registered yet.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = students.map((s, i) => `
-    <tr>
-      <td style="font-weight:600">${esc(s.name)}</td>
-      <td style="color:var(--muted)">${esc(s.matric)}</td>
-      <td>${s.sessions}</td>
-      <td>${s.questions}</td>
-      <td>
-        ${s.quizzes > 0 ? `<span style="font-weight:600">${s.avg_score}%</span>
-        <div class="score-bar"><div class="score-fill" style="width:${s.avg_score}%"></div></div>` : '<span style="color:var(--muted)">No quizzes</span>'}
-      </td>
-      <td><span class="badge b-${s.difficulty}">${s.difficulty.charAt(0).toUpperCase()+s.difficulty.slice(1)}</span></td>
-      <td style="color:var(--muted);font-size:.78rem">${s.last_seen}</td>
-      <td><button onclick="viewStudent(${i})" style="background:none;border:1px solid var(--border);border-radius:7px;padding:4px 10px;color:var(--accent);font-size:.72rem;cursor:pointer">View</button></td>
-    </tr>`).join('');
-}
-
-function filterTable() {
-  const q = document.getElementById('search').value.toLowerCase();
-  const filtered = ALL_STUDENTS.filter(s =>
-    s.name.toLowerCase().includes(q) || s.matric.toLowerCase().includes(q)
-  );
-  renderTable(filtered);
-}
-
-function viewStudent(idx) {
-  const s = ALL_STUDENTS[idx];
-  document.getElementById('modal-title').textContent = s.name + ' — ' + s.matric;
-  document.getElementById('modal-body').innerHTML = `
-    <div class="detail-row"><span class="dl">Sessions</span><span class="dv">${s.sessions}</span></div>
-    <div class="detail-row"><span class="dl">Questions asked</span><span class="dv">${s.questions}</span></div>
-    <div class="detail-row"><span class="dl">Quizzes taken</span><span class="dv">${s.quizzes}</span></div>
-    <div class="detail-row"><span class="dl">Average score</span><span class="dv">${s.avg_score}%</span></div>
-    <div class="detail-row"><span class="dl">Difficulty</span><span class="dv">${s.difficulty.charAt(0).toUpperCase()+s.difficulty.slice(1)}</span></div>
-    <div class="detail-row"><span class="dl">Wrong answers saved</span><span class="dv">${s.wrong_count}</span></div>
-    <div class="detail-row"><span class="dl">Last seen</span><span class="dv">${s.last_seen}</span></div>
-    <div class="detail-row" style="flex-direction:column;gap:6px">
-      <span class="dl">Topics studied</span>
-      <div>${s.topics.length ? s.topics.map(t => `<span class="tag">${esc(t)}</span>`).join('') : '<span style="color:var(--muted)">None yet</span>'}</div>
-    </div>
-    <div class="detail-row" style="flex-direction:column;gap:6px">
-      <span class="dl">Weak areas</span>
-      <div>${s.weak.length ? s.weak.map(t => `<span class="tag weak">${esc(t)}</span>`).join('') : '<span style="color:var(--muted)">None identified</span>'}</div>
-    </div>`;
-  document.getElementById('modal').classList.add('open');
-}
-
-function closeModal(e) {
-  if (!e || e.target === document.getElementById('modal')) {
-    document.getElementById('modal').classList.remove('open');
-  }
+  loadOverview();
+  loadUsers();
+  startSessionPoller();
 }
 
 function signOut() {
   TOKEN = '';
-  localStorage.removeItem('sivarr_admin_token');
+  sessionStorage.removeItem('sivarr_admin_token');
   location.reload();
 }
 
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+/* ── Navigation ───────────────────────────────────── */
+function navTo(section, el) {
+  _currentSection = section;
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + section).classList.add('active');
+  if (el) el.classList.add('active');
+  // Lazy-load section data
+  if (section === 'sessions')     loadSessions();
+  if (section === 'spaces')       loadSpaces();
+  if (section === 'announcements')loadAnnouncements();
+  if (section === 'health')       loadHealth();
+  setTimestamp();
 }
 
-// Auto-login if token saved
+function refreshCurrent() {
+  if (_currentSection === 'overview')      loadOverview();
+  if (_currentSection === 'users')         loadUsers();
+  if (_currentSection === 'sessions')      loadSessions();
+  if (_currentSection === 'spaces')        loadSpaces();
+  if (_currentSection === 'announcements') loadAnnouncements();
+  if (_currentSection === 'health')        loadHealth();
+}
+
+/* ── Helpers ──────────────────────────────────────── */
+function setTimestamp() {
+  document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+function apiFetch(url) {
+  return fetch(url + (url.includes('?') ? '&' : '?') + 'token=' + TOKEN)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+}
+
+function apiPost(url, body) {
+  return fetch(url, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({token: TOKEN, ...body})
+  }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch { return iso; }
+}
+
+function fmtDT(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); } catch { return iso; }
+}
+
+function initials(name) {
+  return (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+}
+
+/* ── Overview ─────────────────────────────────────── */
+async function loadOverview() {
+  try {
+    const d = await apiFetch('/api/admin/overview');
+    OVERVIEW = d;
+    document.getElementById('ov-users').textContent     = d.total_users;
+    document.getElementById('ov-sessions').textContent  = d.active_sessions;
+    document.getElementById('ov-spaces').textContent    = d.total_spaces;
+    document.getElementById('ov-questions').textContent = d.total_questions;
+    document.getElementById('ov-quizzes').textContent   = d.total_quizzes;
+    document.getElementById('ov-avg').textContent       = d.avg_score + '%';
+    document.getElementById('sb-badge-users').textContent    = d.total_users;
+    document.getElementById('sb-badge-sessions').textContent = d.active_sessions;
+
+    // DB chip
+    const dbChip = document.getElementById('db-status-chip');
+    if (d.db_available) {
+      dbChip.className = 'chip chip-green'; dbChip.textContent = '⬤ DB Connected';
+    } else {
+      dbChip.className = 'chip chip-red'; dbChip.textContent = '⬤ DB Offline';
+    }
+
+    // Version
+    const sbVer = document.getElementById('sb-version');
+    if (sbVer) sbVer.textContent = 'v' + (d.version || '—');
+
+    renderDiffChart(d.diff_counts || {});
+    renderTopicsChart(d.top_topics || []);
+    renderSpacesChart(d.spaces_by_type || {});
+    renderRecentFeed(d.recent_sessions || []);
+    setTimestamp();
+  } catch(e) {
+    if (String(e).includes('401')) signOut();
+  }
+}
+
+function renderBar(label, value, max, colorVar, colorVar2) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return `<div class="bar-row">
+    <div class="bar-label" title="${esc(label)}">${esc(label)}</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width:${pct}%;--bc:${colorVar||'var(--accent)'};--bc2:${colorVar2||'var(--accent2)'}"></div>
+    </div>
+    <div class="bar-val">${value}</div>
+  </div>`;
+}
+
+function renderDiffChart(counts) {
+  const max = Math.max(1, ...Object.values(counts));
+  document.getElementById('diff-chart').innerHTML =
+    renderBar('Easy',   counts.easy   || 0, max, '#22c55e', '#16a34a') +
+    renderBar('Medium', counts.medium || 0, max, '#f59e0b', '#f97316') +
+    renderBar('Hard',   counts.hard   || 0, max, '#ef4444', '#dc2626');
+}
+
+function renderTopicsChart(topics) {
+  if (!topics.length) {
+    document.getElementById('topics-chart').innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:.5rem 0">No topics yet</div>';
+    return;
+  }
+  const max = topics[0][1];
+  document.getElementById('topics-chart').innerHTML =
+    topics.map(([topic, count]) => renderBar(topic, count, max)).join('');
+}
+
+function renderSpacesChart(byType) {
+  const items = [
+    ['Personal',     byType.personal  || 0, '#60a5fa', '#3b82f6'],
+    ['Academic',     byType.academic  || 0, '#fbbf24', '#f59e0b'],
+    ['Organisation', byType.org       || 0, '#22d3ee', '#06b6d4'],
+  ];
+  const max = Math.max(1, ...items.map(i => i[1]));
+  document.getElementById('spaces-chart').innerHTML =
+    items.map(([lbl, val, c1, c2]) => renderBar(lbl, val, max, c1, c2)).join('');
+}
+
+function renderRecentFeed(sessions) {
+  const feed = document.getElementById('recent-feed');
+  if (!sessions.length) {
+    feed.innerHTML = '<div class="tbl-empty">No active sessions</div>'; return;
+  }
+  feed.innerHTML = sessions.map(s => `
+    <div class="feed-item">
+      <div class="feed-av">${initials(s.name)}</div>
+      <div>
+        <div class="feed-name">${esc(s.name)}</div>
+        <div class="feed-sub">${esc(s.email)}</div>
+      </div>
+      <div class="feed-time"><span class="chip b-online">online</span></div>
+    </div>`).join('');
+}
+
+/* ── Users ────────────────────────────────────────── */
+async function loadUsers() {
+  try {
+    const d = await apiFetch('/api/admin/users-full');
+    ALL_USERS = d.users || [];
+    document.getElementById('sb-badge-users').textContent = ALL_USERS.length;
+    renderUsersTable(ALL_USERS);
+    setTimestamp();
+  } catch(e) {
+    if (String(e).includes('401')) signOut();
+  }
+}
+
+function filterUsers() {
+  const q    = document.getElementById('user-search').value.toLowerCase();
+  const diff = document.getElementById('diff-filter').value;
+  const filtered = ALL_USERS.filter(u => {
+    const match = !q || u.name.toLowerCase().includes(q)
+                     || (u.email||'').toLowerCase().includes(q)
+                     || (u.matric||'').toLowerCase().includes(q);
+    const dMatch = !diff || u.difficulty === diff;
+    return match && dMatch;
+  });
+  renderUsersTable(filtered);
+}
+
+function renderUsersTable(users) {
+  const tbody = document.getElementById('users-tbody');
+  const label = document.getElementById('users-count-label');
+  if (label) label.textContent = `${users.length} user${users.length !== 1 ? 's' : ''}`;
+
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">No users found</div></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map((u, i) => `
+    <tr>
+      <td class="mono-text">${i + 1}</td>
+      <td>
+        <div style="font-weight:600;font-size:.85rem">${esc(u.name)}</div>
+        <div style="font-size:.7rem;color:var(--muted)">${esc(u.sid||'').slice(0,12)}…</div>
+      </td>
+      <td style="color:var(--muted)">${esc(u.email||'—')}</td>
+      <td class="mono-text">${esc(u.matric||'—')}</td>
+      <td>${u.sessions}</td>
+      <td>${u.questions}</td>
+      <td>${u.quizzes}</td>
+      <td>
+        ${u.quizzes > 0
+          ? `<span style="font-weight:700">${u.avg_score}%</span>
+             <span class="score-bar"><span class="score-track"><span class="score-fill" style="width:${u.avg_score}%"></span></span></span>`
+          : '<span style="color:var(--muted);font-size:.76rem">—</span>'}
+      </td>
+      <td><span class="badge b-${u.difficulty}">${u.difficulty}</span></td>
+      <td style="color:var(--muted);font-size:.76rem">${esc(u.last_seen||'Never')}</td>
+      <td>
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-ghost btn-sm" onclick="viewUser(${i})">View</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteUser('${esc(u.sid)}','${esc(u.name)}')">Del</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function viewUser(idx) {
+  const u = ALL_USERS[idx];
+  document.getElementById('modal-title').textContent = u.name;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-section">
+      <div class="modal-section-title">Account</div>
+      <div class="detail-grid">
+        <div class="detail-item"><div class="lbl">Email</div><div class="val">${esc(u.email||'—')}</div></div>
+        <div class="detail-item"><div class="lbl">Matric</div><div class="val">${esc(u.matric||'—')}</div></div>
+        <div class="detail-item"><div class="lbl">Difficulty</div><div class="val"><span class="badge b-${u.difficulty}">${u.difficulty}</span></div></div>
+        <div class="detail-item"><div class="lbl">User ID</div><div class="val mono-text" style="font-size:.72rem">${esc(u.sid||'')}</div></div>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Activity</div>
+      <div class="detail-grid">
+        <div class="detail-item"><div class="lbl">Sessions</div><div class="val">${u.sessions}</div></div>
+        <div class="detail-item"><div class="lbl">Questions</div><div class="val">${u.questions}</div></div>
+        <div class="detail-item"><div class="lbl">Quizzes</div><div class="val">${u.quizzes}</div></div>
+        <div class="detail-item"><div class="lbl">Avg Score</div><div class="val">${u.avg_score}%</div></div>
+        <div class="detail-item"><div class="lbl">Wrong Saved</div><div class="val">${u.wrong_count}</div></div>
+        <div class="detail-item"><div class="lbl">Last Seen</div><div class="val" style="font-size:.8rem">${esc(u.last_seen||'Never')}</div></div>
+      </div>
+    </div>
+    ${u.topics && u.topics.length ? `
+    <div class="modal-section">
+      <div class="modal-section-title">Topics Studied</div>
+      <div class="tag-list">${u.topics.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+    </div>` : ''}
+    ${u.weak && u.weak.length ? `
+    <div class="modal-section">
+      <div class="modal-section-title">Weak Areas</div>
+      <div class="tag-list">${u.weak.map(t => `<span class="tag weak">${esc(t)}</span>`).join('')}</div>
+    </div>` : ''}
+    <div class="modal-section">
+      <button class="btn btn-danger btn-sm" onclick="deleteUser('${esc(u.sid)}','${esc(u.name)}');closeUserModal()">Delete this user</button>
+    </div>`;
+  document.getElementById('user-modal').classList.add('open');
+}
+
+function closeUserModal() {
+  document.getElementById('user-modal').classList.remove('open');
+}
+
+async function deleteUser(sid, name) {
+  if (!confirm(`Permanently delete "${name}" and all their data? This cannot be undone.`)) return;
+  try {
+    await apiPost('/api/admin/user-delete', {sid});
+    ALL_USERS = ALL_USERS.filter(u => u.sid !== sid);
+    renderUsersTable(ALL_USERS);
+    loadOverview();
+  } catch { alert('Failed to delete user.'); }
+}
+
+function exportCSV() {
+  if (!ALL_USERS.length) return;
+  const cols = ['name','email','matric','sessions','questions','quizzes','avg_score','difficulty','last_seen'];
+  const rows = [cols.join(','), ...ALL_USERS.map(u => cols.map(c => JSON.stringify(u[c]??'')).join(','))];
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sivarr_users_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+/* ── Sessions ─────────────────────────────────────── */
+function startSessionPoller() {
+  loadSessions();
+  _sessInterval = setInterval(loadSessions, 30000);
+}
+
+async function loadSessions() {
+  try {
+    const d = await apiFetch('/api/admin/sessions-list');
+    ALL_SESSIONS = d.sessions || [];
+    const count = d.count || 0;
+    document.getElementById('sess-count').textContent = count;
+    document.getElementById('sb-badge-sessions').textContent = count;
+    renderSessionsTable(ALL_SESSIONS);
+    setTimestamp();
+  } catch(e) {
+    if (String(e).includes('401')) signOut();
+  }
+}
+
+function renderSessionsTable(sessions) {
+  const tbody = document.getElementById('sessions-tbody');
+  if (!sessions.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">⚡</div><div class="empty-text">No active sessions</div></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = sessions.map(s => `
+    <tr>
+      <td style="font-weight:600">${esc(s.name)}</td>
+      <td style="color:var(--muted)">${esc(s.email)}</td>
+      <td class="mono-text">${esc(s.token)}</td>
+      <td style="color:var(--muted);font-size:.76rem">${fmtDT(s.created_at)}</td>
+      <td style="color:var(--muted);font-size:.76rem">${fmtDT(s.expires_at)}</td>
+      <td>
+        <button class="btn btn-danger btn-sm"
+          onclick="killSession('${esc(s.token_full)}','${esc(s.name)}')">Kill</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function killSession(token_full, name) {
+  if (!confirm(`End session for "${name}"?`)) return;
+  try {
+    await apiPost('/api/admin/session-kill', {target_token: token_full});
+    loadSessions();
+  } catch { alert('Failed to kill session.'); }
+}
+
+async function killAllSessions() {
+  if (!confirm(`Kill ALL active sessions? All users will be signed out.`)) return;
+  await Promise.all(ALL_SESSIONS.map(s =>
+    apiPost('/api/admin/session-kill', {target_token: s.token_full}).catch(()=>{})
+  ));
+  loadSessions();
+}
+
+/* ── Spaces ───────────────────────────────────────── */
+async function loadSpaces() {
+  try {
+    const d = await apiFetch('/api/admin/spaces-list');
+    ALL_SPACES = d.spaces || [];
+    renderSpacesTable(ALL_SPACES);
+    setTimestamp();
+  } catch(e) {
+    if (String(e).includes('401')) signOut();
+  }
+}
+
+function filterSpaces() {
+  const type = document.getElementById('space-type-filter').value;
+  const filtered = type ? ALL_SPACES.filter(s => s.type === type) : ALL_SPACES;
+  renderSpacesTable(filtered);
+}
+
+function renderSpacesTable(spaces) {
+  const tbody = document.getElementById('spaces-tbody');
+  if (!spaces.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🧩</div><div class="empty-text">No spaces found</div></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = spaces.map(s => `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:1.1rem">${esc(s.icon||'🧩')}</span>
+          <span style="font-weight:600">${esc(s.name)}</span>
+        </div>
+      </td>
+      <td><span class="badge b-${s.type}">${s.type}</span></td>
+      <td style="font-weight:500">${esc(s.owner||'—')}</td>
+      <td style="color:var(--muted)">${esc(s.owner_email||'—')}</td>
+      <td style="color:var(--muted);font-size:.76rem">${fmtDT(s.created_at)}</td>
+    </tr>`).join('');
+}
+
+/* ── Announcements ────────────────────────────────── */
+async function loadAnnouncements() {
+  try {
+    const d = await apiFetch('/api/admin/announcements-list');
+    renderAnnouncements(d.announcements || []);
+    setTimestamp();
+  } catch(e) {
+    if (String(e).includes('401')) signOut();
+  }
+}
+
+const ANN_COLORS = {info:'#60a5fa',warning:'#f59e0b',deadline:'#ef4444',exam:'#c084fc'};
+
+function renderAnnouncements(anns) {
+  const list = document.getElementById('ann-list');
+  if (!anns.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📢</div><div class="empty-text">No announcements yet</div></div>';
+    return;
+  }
+  list.innerHTML = anns.slice().reverse().map((a, i) => {
+    const realIdx = anns.length - 1 - i;
+    return `<div class="ann-item">
+      <div class="ann-type-dot" style="background:${ANN_COLORS[a.type]||'#60a5fa'}"></div>
+      <div class="ann-body">
+        <div class="ann-text">${esc(a.text)}</div>
+        <div class="ann-meta">
+          <span class="badge b-${a.type}">${a.type}</span> ·
+          ${esc(a.lecturer||'Admin')} · ${esc(a.date||'')}
+        </div>
+      </div>
+      <button class="ann-del" onclick="deleteAnnouncement(${realIdx})" title="Delete">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function postAnnouncement() {
+  const text = document.getElementById('ann-text').value.trim();
+  const type = document.getElementById('ann-type').value;
+  if (!text) { document.getElementById('ann-text').focus(); return; }
+  try {
+    await apiPost('/api/admin/announcement-create', {text, type});
+    document.getElementById('ann-text').value = '';
+    loadAnnouncements();
+  } catch { alert('Failed to post announcement.'); }
+}
+
+async function deleteAnnouncement(idx) {
+  if (!confirm('Delete this announcement?')) return;
+  try {
+    await apiPost('/api/admin/announcement-delete', {index: idx});
+    loadAnnouncements();
+  } catch { alert('Failed to delete announcement.'); }
+}
+
+/* ── System Health ────────────────────────────────── */
+async function loadHealth() {
+  try {
+    const d = await apiFetch('/api/admin/overview');
+    const dbOk = d.db_available;
+    const dbIcon = document.getElementById('hc-db-icon');
+    document.getElementById('hc-db').textContent  = dbOk ? 'Connected ✓' : 'Unavailable ✗';
+    if (dbIcon) {
+      dbIcon.className = 'health-icon ' + (dbOk ? 'ok' : 'err');
+    }
+    document.getElementById('hc-sessions').textContent = d.active_sessions + ' active';
+    document.getElementById('hc-version').textContent  = 'v' + (d.version||'—');
+    document.getElementById('hc-users').textContent    = d.total_users + ' registered';
+    document.getElementById('hc-spaces').textContent   = d.total_spaces + ' spaces';
+    document.getElementById('hc-time').textContent     = new Date().toISOString().slice(0,19).replace('T',' ');
+    setTimestamp();
+  } catch {}
+}
+
+async function cleanupSessions() {
+  try {
+    const d = await apiPost('/api/admin/cleanup-sessions', {});
+    alert(`Cleaned up ${d.removed} expired sessions.`);
+    loadSessions();
+  } catch { alert('Cleanup failed.'); }
+}
+
+/* ── Auto-login ───────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('sivarr_admin_token');
+  const saved = sessionStorage.getItem('sivarr_admin_token');
   if (saved) { TOKEN = saved; showDash(); }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeUserModal();
 });
 </script>
 </body>

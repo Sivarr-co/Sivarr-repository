@@ -1541,6 +1541,224 @@ async def admin_students(token: str):
     }
 
 
+def get_all_students_full():
+    """Extended student list — includes sid, email, and topic distribution."""
+    users_map = load_users()  # sid → user dict (has email)
+    students  = []
+    for f in DATA_DIR.glob("*_progress.json"):
+        if "backup" in f.name:
+            continue
+        sid = f.stem.replace("_progress", "")
+        try:
+            data    = json.loads(f.read_text())
+            quizzes = data.get("quizzes", [])
+            avg     = (sum(q["score"] for q in quizzes) / len(quizzes) * 100) if quizzes else 0
+            topics  = data.get("topics", {})
+            # Email: prefer DB/users.json over progress file
+            user_row = users_map.get(sid, {})
+            email = user_row.get("email") or data.get("email", "")
+            students.append({
+                "sid":        sid,
+                "name":       data.get("name", "Unknown"),
+                "email":      email,
+                "matric":     data.get("matric", "N/A"),
+                "sessions":   data.get("sessions", 0),
+                "questions":  data.get("questions", 0),
+                "quizzes":    len(quizzes),
+                "avg_score":  round(avg, 1),
+                "topics":     sorted(topics.keys(), key=lambda t: -topics[t])[:8],
+                "weak":       sorted(topics, key=lambda t: topics[t])[:3] if topics else [],
+                "wrong_count": len(data.get("wrong_answers", [])),
+                "difficulty": data.get("difficulty", "medium"),
+                "last_seen":  data.get("chat_history", [{}])[-1].get("time", "Never") if data.get("chat_history") else "Never",
+                "created_at": data.get("created_at", ""),
+            })
+        except Exception as e:
+            log.error(f"admin: error reading {f}: {e}")
+    return sorted(students, key=lambda s: s["sessions"], reverse=True)
+
+
+@app.get("/api/admin/overview")
+async def admin_overview(token: str):
+    if not hmac.compare_digest(token, _expected_admin_token()):
+        raise HTTPException(401, "Unauthorized")
+    students = get_all_students_full()
+    total_q  = sum(s["questions"] for s in students)
+    total_qz = sum(s["quizzes"]   for s in students)
+    avg_all  = round((sum(s["avg_score"] for s in students) / len(students)), 1) if students else 0
+
+    # Difficulty breakdown
+    diff_counts = {"easy": 0, "medium": 0, "hard": 0}
+    for s in students:
+        diff_counts[s["difficulty"]] = diff_counts.get(s["difficulty"], 0) + 1
+
+    # Topic frequency
+    topic_freq: dict = {}
+    for s in students:
+        for t in s["topics"]:
+            topic_freq[t] = topic_freq.get(t, 0) + 1
+    top_topics = sorted(topic_freq.items(), key=lambda x: -x[1])[:8]
+
+    # DB stats (if available)
+    db_stats = db.get_platform_stats() if db.is_available() else {}
+    active_sessions_db = db_stats.get("active_sessions", len(_session_tokens))
+    spaces_by_type     = db_stats.get("spaces_by_type", {})
+    total_spaces       = db_stats.get("total_spaces", 0)
+
+    # Recent sessions (last 5 in-memory)
+    now = datetime.datetime.utcnow()
+    recent = sorted(
+        [{"name": v["name"], "email": v["email"], "expires": str(v["expires"])}
+         for v in _session_tokens.values() if v.get("expires", now) > now],
+        key=lambda x: x["expires"], reverse=True
+    )[:5]
+
+    return {
+        "total_users":    len(students),
+        "active_sessions": active_sessions_db,
+        "total_questions": total_q,
+        "total_quizzes":   total_qz,
+        "avg_score":       avg_all,
+        "total_spaces":    total_spaces,
+        "diff_counts":     diff_counts,
+        "top_topics":      top_topics,
+        "recent_sessions": recent,
+        "spaces_by_type":  spaces_by_type,
+        "db_available":    db.is_available(),
+        "version":         VERSION,
+    }
+
+
+@app.get("/api/admin/users-full")
+async def admin_users_full(token: str):
+    if not hmac.compare_digest(token, _expected_admin_token()):
+        raise HTTPException(401, "Unauthorized")
+    return {"users": get_all_students_full()}
+
+
+@app.get("/api/admin/sessions-list")
+async def admin_sessions_list(token: str):
+    if not hmac.compare_digest(token, _expected_admin_token()):
+        raise HTTPException(401, "Unauthorized")
+    # Prefer DB list; fall back to in-memory
+    if db.is_available():
+        sessions = db.get_all_sessions_admin()
+    else:
+        now = datetime.datetime.utcnow()
+        sessions = [
+            {
+                "token":      t[:12] + "…",
+                "token_full": t,
+                "sid":        v["sid"],
+                "name":       v["name"],
+                "email":      v["email"],
+                "created_at": None,
+                "expires_at": str(v["expires"]),
+            }
+            for t, v in _session_tokens.items()
+            if v.get("expires", now) > now
+        ]
+    return {"sessions": sessions, "count": len(sessions)}
+
+
+@app.get("/api/admin/spaces-list")
+async def admin_spaces_list(token: str):
+    if not hmac.compare_digest(token, _expected_admin_token()):
+        raise HTTPException(401, "Unauthorized")
+    spaces = db.get_all_spaces_admin() if db.is_available() else []
+    return {"spaces": spaces, "count": len(spaces)}
+
+
+@app.post("/api/admin/user-delete")
+async def admin_user_delete(data: dict):
+    token = str(data.get("token", ""))
+    if not hmac.compare_digest(token, _expected_admin_token()):
+        raise HTTPException(401, "Unauthorized")
+    sid = sanitize_text(str(data.get("sid", "")), 60)
+    if not sid:
+        raise HTTPException(400, "sid required")
+    # Remove from JSON store
+    users = load_users()
+    users.pop(sid, None)
+    save_users(users)
+    # Remove progress file
+    pf = ppath(sid)
+    if pf.exists():
+        pf.unlink()
+    # Remove from DB cascade
+    if db.is_available():
+        db.delete_user_cascade(sid)
+    # Kill any live sessions for this user
+    tokens_to_kill = [t for t, v in _session_tokens.items() if v.get("sid") == sid]
+    for t in tokens_to_kill:
+        delete_session_token(t)
+    log.info(f"Admin deleted user {sid}")
+    return {"ok": True}
+
+
+@app.post("/api/admin/session-kill")
+async def admin_session_kill(data: dict):
+    token = str(data.get("token", ""))
+    if not hmac.compare_digest(token, _expected_admin_token()):
+        raise HTTPException(401, "Unauthorized")
+    target = str(data.get("target_token", ""))
+    if not target:
+        raise HTTPException(400, "target_token required")
+    delete_session_token(target)
+    return {"ok": True}
+
+
+@app.get("/api/admin/announcements-list")
+async def admin_announcements_list(token: str):
+    if not hmac.compare_digest(token, _expected_admin_token()):
+        raise HTTPException(401, "Unauthorized")
+    data = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
+    return {"announcements": data}
+
+
+@app.post("/api/admin/announcement-create")
+async def admin_announcement_create(data: dict):
+    token = str(data.get("token", ""))
+    if not hmac.compare_digest(token, _expected_admin_token()):
+        raise HTTPException(401, "Unauthorized")
+    text = sanitize_text(str(data.get("text", "")), 500)
+    atype = str(data.get("type", "info"))
+    if atype not in ["info", "warning", "deadline", "exam"]:
+        atype = "info"
+    if not text:
+        raise HTTPException(400, "text required")
+    anns = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
+    anns.append({
+        "text":     text,
+        "type":     atype,
+        "lecturer": "Admin",
+        "date":     datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+    })
+    ANN_PATH.write_text(json.dumps(anns, indent=2))
+    return {"ok": True}
+
+
+@app.post("/api/admin/announcement-delete")
+async def admin_announcement_delete(data: dict):
+    token = str(data.get("token", ""))
+    if not hmac.compare_digest(token, _expected_admin_token()):
+        raise HTTPException(401, "Unauthorized")
+    idx  = int(data.get("index", -1))
+    anns = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
+    if 0 <= idx < len(anns):
+        anns.pop(idx)
+        ANN_PATH.write_text(json.dumps(anns, indent=2))
+    return {"ok": True}
+
+
+@app.post("/api/admin/cleanup-sessions")
+async def admin_cleanup_sessions(data: dict):
+    token = str(data.get("token", ""))
+    if not hmac.compare_digest(token, _expected_admin_token()):
+        raise HTTPException(401, "Unauthorized")
+    count = db.cleanup_db_sessions() if db.is_available() else 0
+    cleanup_expired_tokens()
+    return {"ok": True, "removed": count}
 
 
 # ═══════════════════════════════════════════════════════════════
