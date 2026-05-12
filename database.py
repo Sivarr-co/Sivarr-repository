@@ -94,6 +94,15 @@ CREATE TABLE IF NOT EXISTS spaces (
     space_type TEXT DEFAULT 'personal',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS space_data (
+    space_id   TEXT NOT NULL,
+    user_sid   TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    data       JSONB NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ    DEFAULT NOW(),
+    PRIMARY KEY (space_id, user_sid)
+);
+CREATE INDEX IF NOT EXISTS idx_space_data_user ON space_data(user_sid);
 """
 
 
@@ -378,8 +387,76 @@ def delete_space(user_sid: str, space_id: str) -> None:
         return
     try:
         with conn.cursor() as cur:
+            cur.execute("DELETE FROM space_data WHERE space_id = %s AND user_sid = %s", (space_id, user_sid))
             cur.execute("DELETE FROM spaces WHERE id = %s AND user_sid = %s", (space_id, user_sid))
         conn.commit()
+    finally:
+        _release(conn)
+
+
+# ── Space data ────────────────────────────────────────────────────
+
+def get_all_spaces_with_data(user_sid: str) -> list:
+    """Return all spaces for a user, each with its data blob."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT s.id, s.name, s.icon, s.color, s.space_type, sd.data
+                FROM spaces s
+                LEFT JOIN space_data sd
+                       ON sd.space_id = s.id AND sd.user_sid = s.user_sid
+                WHERE s.user_sid = %s
+                ORDER BY s.created_at
+            """, (user_sid,))
+            return [
+                {
+                    "id": r[0], "name": r[1], "icon": r[2], "color": r[3],
+                    "type": r[4], "data": (r[5] if isinstance(r[5], dict) else json.loads(r[5])) if r[5] else {}
+                }
+                for r in cur.fetchall()
+            ]
+    finally:
+        _release(conn)
+
+
+def save_space_data(user_sid: str, space_id: str, data: dict) -> None:
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO space_data (space_id, user_sid, data, updated_at)
+                VALUES (%s, %s, %s::jsonb, NOW())
+                ON CONFLICT (space_id, user_sid) DO UPDATE SET
+                    data       = EXCLUDED.data,
+                    updated_at = NOW()
+            """, (space_id, user_sid, json.dumps(data)))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"save_space_data failed [{space_id}]: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
+def get_space_data(user_sid: str, space_id: str) -> dict:
+    conn = _get_conn()
+    if not conn:
+        return {}
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT data FROM space_data WHERE space_id = %s AND user_sid = %s",
+                (space_id, user_sid)
+            )
+            row = cur.fetchone()
+        if not row:
+            return {}
+        return row[0] if isinstance(row[0], dict) else json.loads(row[0])
     finally:
         _release(conn)
 

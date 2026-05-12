@@ -983,6 +983,8 @@ async def login(req: LoginRequest, request: Request):
 
     log.info(f"{'Register' if req.action=='register' else 'Login'}: {user['name']} ({email}) | Sessions: {p['sessions']}")
 
+    spaces = db.get_all_spaces_with_data(sid) if db.is_available() else []
+
     return {
         "sid": sid, "name": user["name"], "email": user["email"],
         "token": token,
@@ -991,6 +993,7 @@ async def login(req: LoginRequest, request: Request):
         "questions": p.get("questions", 0), "quizzes": len(p.get("quizzes", [])),
         "wrong_count": len(p.get("wrong_answers", [])), "returning": p["sessions"] > 1,
         "uploaded_files": p.get("uploaded_files", []),
+        "spaces": spaces,
     }
 
 
@@ -1026,6 +1029,8 @@ async def session_restore(data: dict):
 
     log.info(f"Session restored: {name} ({email})")
 
+    spaces = db.get_all_spaces_with_data(sid) if db.is_available() else []
+
     return {
         "sid": sid, "name": p.get("name", name), "email": p.get("email", email),
         "token": token,
@@ -1034,6 +1039,7 @@ async def session_restore(data: dict):
         "questions": p.get("questions", 0), "quizzes": len(p.get("quizzes", [])),
         "wrong_count": len(p.get("wrong_answers", [])), "returning": p["sessions"] > 1,
         "uploaded_files": p.get("uploaded_files", []),
+        "spaces": spaces,
     }
 
 
@@ -1055,6 +1061,69 @@ async def health():
         "chat_sessions": len(_chat_sessions),
         "version": VERSION,
     }
+
+
+# ── Spaces API ────────────────────────────────────────────────────
+
+def _resolve_token(data: dict) -> tuple[str, str]:
+    """Return (sid, name) from a token or raise 401."""
+    token = sanitize_text(str(data.get("token", "")), 100)
+    if not token:
+        raise HTTPException(401, "Token required.")
+    entry = get_session_from_token(token)
+    if not entry:
+        raise HTTPException(401, "Session expired.")
+    return entry["sid"], entry["name"]
+
+
+@app.post("/api/spaces/list")
+async def spaces_list(data: dict):
+    """Return all spaces + their data blobs for the authenticated user."""
+    sid, _ = _resolve_token(data)
+    spaces = db.get_all_spaces_with_data(sid)
+    return {"spaces": spaces}
+
+
+@app.post("/api/spaces/sync")
+async def spaces_sync(data: dict):
+    """Upsert a single space's metadata (name, icon, type)."""
+    sid, _ = _resolve_token(data)
+    space = data.get("space")
+    if not space or not space.get("id") or not space.get("name"):
+        raise HTTPException(400, "space.id and space.name are required.")
+    db.save_space(sid, {
+        "id":   sanitize_text(str(space["id"]), 60),
+        "name": sanitize_text(str(space["name"]), 120),
+        "icon": sanitize_text(str(space.get("icon", "🧩")), 10),
+        "color": sanitize_text(str(space.get("color", "#4f6ef7")), 20),
+        "type": sanitize_text(str(space.get("type", "personal")), 20),
+    })
+    return {"ok": True}
+
+
+@app.post("/api/spaces/data/save")
+async def spaces_data_save(data: dict):
+    """Save a space's data blob."""
+    sid, _ = _resolve_token(data)
+    space_id = sanitize_text(str(data.get("space_id", "")), 60)
+    blob     = data.get("data")
+    if not space_id:
+        raise HTTPException(400, "space_id required.")
+    if not isinstance(blob, dict):
+        raise HTTPException(400, "data must be a JSON object.")
+    db.save_space_data(sid, space_id, blob)
+    return {"ok": True}
+
+
+@app.post("/api/spaces/delete")
+async def spaces_delete(data: dict):
+    """Delete a space and its data."""
+    sid, _ = _resolve_token(data)
+    space_id = sanitize_text(str(data.get("space_id", "")), 60)
+    if not space_id:
+        raise HTTPException(400, "space_id required.")
+    db.delete_space(sid, space_id)
+    return {"ok": True}
 
 
 @app.post("/api/chat")

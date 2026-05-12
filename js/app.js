@@ -416,6 +416,11 @@ function _applyLoginData(r) {
   _contextSent = false; // fresh context for each login session
   loadAnnouncements();
   setTimeout(() => briefCheck(), 800);
+
+  // Seed localStorage from server spaces (server wins on login/restore)
+  if (r.spaces && r.spaces.length) {
+    seedSpacesFromServer(r.spaces);
+  }
   setTimeout(() => spaceRenderSidebar(), 100);
 }
 
@@ -7710,6 +7715,68 @@ function profileRemoveSkill(idx) {
 }
 
 /* ════════════════════════════════════════════════════════════
+   SPACES — server sync layer
+════════════════════════════════════════════════════════════ */
+
+function _spToken() { return localStorage.getItem('sivarr_token') || ''; }
+
+async function _spFetch(url, body) {
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: _spToken(), ...body }),
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+// Seed localStorage from server data (called on login/restore)
+function seedSpacesFromServer(serverSpaces) {
+  // Build the spaces list from server, merging with any local-only entries
+  const existing = JSON.parse(localStorage.getItem(spacesKey()) || '[]');
+  const serverIds = new Set(serverSpaces.map(s => s.id));
+
+  // Keep local spaces that the server doesn't know about yet (just created, pending sync)
+  const localOnly = existing.filter(s => !serverIds.has(s.id));
+
+  const merged = [
+    ...serverSpaces.map(s => ({ id: s.id, name: s.name, type: s.type, icon: s.icon })),
+    ...localOnly,
+  ];
+  localStorage.setItem(spacesKey(), JSON.stringify(merged));
+
+  // Seed each space's data blob
+  serverSpaces.forEach(s => {
+    if (s.data && Object.keys(s.data).length) {
+      const key = spaceDataKey(s.id);
+      // Only overwrite if server has data; don't clobber a richer local cache
+      const local = JSON.parse(localStorage.getItem(key) || '{}');
+      const serverTs  = s.data._updatedAt || 0;
+      const localTs   = local._updatedAt  || 0;
+      if (serverTs >= localTs) {
+        localStorage.setItem(key, JSON.stringify(s.data));
+      }
+    }
+  });
+}
+
+// Sync space metadata to server (fire-and-forget)
+function syncSpaceMeta(space) {
+  _spFetch('/api/spaces/sync', { space });
+}
+
+// Debounced space data save to server
+const _spDataTimers = {};
+function syncSpaceData(id, data) {
+  clearTimeout(_spDataTimers[id]);
+  _spDataTimers[id] = setTimeout(() => {
+    _spFetch('/api/spaces/data/save', { space_id: id, data });
+  }, 1500);
+}
+
+/* ════════════════════════════════════════════════════════════
    SPACES — management layer
 ════════════════════════════════════════════════════════════ */
 
@@ -7727,7 +7794,10 @@ function getSpaceData(id) {
   return JSON.parse(localStorage.getItem(spaceDataKey(id)) || '{}');
 }
 function setSpaceData(id, data) {
+  // Tag with timestamp so server/client can resolve conflicts
+  data._updatedAt = Date.now();
   localStorage.setItem(spaceDataKey(id), JSON.stringify(data));
+  syncSpaceData(id, data);
 }
 
 // ── Sidebar render ───────────────────────────────────────────
@@ -7810,6 +7880,7 @@ function spRename(id) {
   if (!name || !name.trim()) return;
   sp.name = name.trim();
   saveSpaces(spaces);
+  if (id !== 'org') syncSpaceMeta(sp);
   spaceRenderSidebar();
   // Update panel name display
   const nameEl = id === 'org'
@@ -7845,8 +7916,8 @@ function spDelete(id) {
   if (!confirm(`Delete "${sp.name}"? This cannot be undone.`)) return;
   saveSpaces(spaces.filter(s => s.id !== id));
   localStorage.removeItem(spaceDataKey(id));
+  _spFetch('/api/spaces/delete', { space_id: id });
   spaceRenderSidebar();
-  // If currently viewing this space, go home
   nav('home');
 }
 
@@ -7890,11 +7961,13 @@ function cspCreate() {
     nav('org');
     return;
   }
-  const icon = type === 'personal' ? '👤' : '🎓';
-  const id   = `sp_${Date.now()}`;
+  const icon  = type === 'personal' ? '👤' : '🎓';
+  const id    = `sp_${Date.now()}`;
+  const space = { id, name, type, icon };
   const spaces = getSpaces();
-  spaces.push({ id, name, type, icon });
+  spaces.push(space);
   saveSpaces(spaces);
+  syncSpaceMeta(space);
   spaceRenderSidebar();
   closeCreateSpaceModal();
   openSpace(id);
