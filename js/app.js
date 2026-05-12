@@ -3812,7 +3812,7 @@ function syncSnavFromPanel(name) {
 }
 
 // ── Sidebar section collapse ─────────────────────────────────
-const SB_SECTIONS = ['core','work','academic','grow','connect','org'];
+const SB_SECTIONS = ['core','work','academic','grow','connect','org','spaces'];
 
 // Map panel name → sidebar section id
 const PANEL_SECTION_MAP = {
@@ -7737,25 +7737,23 @@ function spaceRenderSidebar() {
   const spaces = getSpaces();
 
   // Ensure the Org hub entry exists
-  let changed = false;
   if (!spaces.find(s => s.id === 'org')) {
-    spaces.unshift({ id:'org', name:'Organisation Hub', type:'org', icon:'🏢', color:'teal' });
-    changed = true;
+    spaces.unshift({ id:'org', name:'Organisation Hub', type:'org', icon:'🏢' });
+    saveSpaces(spaces);
   }
-  if (changed) saveSpaces(spaces);
+
+  // Dot colour per type
+  const dotColor = { personal:'#185FA5', academic:'#EF9F27', org:'var(--teal)', default:'var(--purple)' };
 
   list.innerHTML = spaces.map(sp => {
-    const pipClass = sp.type === 'personal' ? 'blue'
-                   : sp.type === 'academic'  ? 'amber'
-                   : sp.type === 'org'        ? 'teal'
-                   : 'purple';
-    return `<div class="sb-space-row" onclick="openSpace('${sp.id}')" id="sb-space-row-${sp.id}">
-      <div class="sp-pip ${pipClass}">${sp.icon || '🧩'}</div>
-      <span class="sb-space-name">${sp.name}</span>
-      <button class="sb-space-more" onclick="event.stopPropagation();spMoreMenu('${sp.id}',this)" title="Options">
-        <i class="ti ti-dots"></i>
-      </button>
-    </div>`;
+    const col = dotColor[sp.type] || dotColor.default;
+    return `<button class="si sp-si" id="sb-space-row-${sp.id}" onclick="openSpace('${sp.id}')">
+      <span class="si-ic sp-si-dot" style="color:${col};font-size:10px">●</span>
+      <span class="si-lb">${sp.name}</span>
+      <span class="sb-space-more" onclick="event.stopPropagation();spMoreMenu('${sp.id}',this)" title="Options">
+        <i class="ti ti-dots-vertical" style="font-size:12px;color:var(--text4)"></i>
+      </span>
+    </button>`;
   }).join('');
 }
 
@@ -7765,10 +7763,10 @@ function openSpace(id) {
   const sp = spaces.find(s => s.id === id);
   if (!sp) return;
 
-  // Highlight active row
-  document.querySelectorAll('.sb-space-row').forEach(el => el.classList.remove('active'));
+  // Highlight active row (reuse .si.on style)
+  document.querySelectorAll('.sp-si').forEach(el => el.classList.remove('on'));
   const row = $(`sb-space-row-${id}`);
-  if (row) row.classList.add('active');
+  if (row) row.classList.add('on');
 
   if (sp.type === 'org') {
     nav('org'); return;

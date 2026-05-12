@@ -336,7 +336,7 @@ input, textarea, select { font-family: var(--font); }
 .sidebar.collapsed .sub-nav, .sidebar.collapsed .si-ch,
 .sidebar.collapsed .si-bd, .sidebar.collapsed .sb-spaces,
 .sidebar.collapsed .u-name, .sidebar.collapsed .u-role,
-.sidebar.collapsed .sg-chev { display:none!important; }
+.sidebar.collapsed .sg-chev, .sidebar.collapsed .sb-spaces-add { display:none!important; }
 .sidebar.collapsed .sg { padding:6px 8px; justify-content:center; }
 .sidebar.collapsed .si    { padding:8px; justify-content:center; }
 .sidebar.collapsed .si-ic { margin:0; }
@@ -2959,57 +2959,29 @@ input, textarea, select { font-family: var(--font); }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SPACES — Sidebar zone
+   SPACES — Sidebar zone (lives inside sb-scroll as a sg section)
 ═══════════════════════════════════════════════════════════════ */
-.sb-spaces-zone {
-  padding: 10px 0 4px;
-  border-top: 1px solid var(--border);
-  margin-top: 6px;
-}
-.sb-spaces-hd {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 14px 6px;
-  font-size: .68rem; font-weight: 700; letter-spacing: .07em;
-  color: var(--muted); text-transform: uppercase;
-}
-.sb-spaces-hd button {
+
+/* + button inside the Spaces section header */
+.sb-spaces-add {
   background: none; border: none; cursor: pointer;
-  color: var(--muted); font-size: .85rem; padding: 2px 4px;
-  border-radius: 4px; line-height: 1;
+  color: var(--text4); font-size: 11px; padding: 2px 4px;
+  border-radius: 4px; line-height: 1; display: flex; align-items: center;
+  transition: var(--transition);
 }
-.sb-spaces-hd button:hover { background: var(--hover); color: var(--fg); }
+.sb-spaces-add:hover { background: var(--bg3); color: var(--text2); }
 
-.sb-space-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 14px; border-radius: 8px; cursor: pointer;
-  transition: background .15s; position: relative;
-}
-.sb-space-row:hover { background: var(--hover); }
-.sb-space-row.active { background: var(--hover2,var(--hover)); }
+/* Space items share .si styling; dot indicator */
+.sp-si-dot { font-size: 10px !important; }
 
-.sp-pip {
-  width: 24px; height: 24px; border-radius: 7px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: .85rem;
-}
-.sp-pip.blue   { background: var(--blue2,#E6F1FB); }
-.sp-pip.teal   { background: var(--teal2); }
-.sp-pip.amber  { background: var(--amber2,#FEF6E4); }
-.sp-pip.purple { background: var(--purple2); }
-
-.sb-space-name {
-  flex: 1; font-size: .82rem; font-weight: 500; color: var(--fg);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.sb-space-type {
-  font-size: .62rem; color: var(--muted);
-}
+/* Options button on hover */
 .sb-space-more {
   opacity: 0; background: none; border: none; cursor: pointer;
-  color: var(--muted); font-size: .8rem; padding: 2px 4px; border-radius: 4px;
+  padding: 2px 3px; border-radius: 4px; flex-shrink: 0;
+  transition: opacity .15s;
 }
-.sb-space-row:hover .sb-space-more { opacity: 1; }
-.sb-space-more:hover { background: var(--hover); color: var(--fg); }
+.si.sp-si:hover .sb-space-more { opacity: 1; }
+.sb-space-more:hover { background: var(--bg3); }
 
 /* ═══════════════════════════════════════════════════════════════
    SPACES — Panel base (shared Personal + Academic)

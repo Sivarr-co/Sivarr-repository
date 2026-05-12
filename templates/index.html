@@ -339,17 +339,22 @@
           </button>
         </div>
 
-      </div>
+        <!-- ── Spaces ────────────────────────────────────────── -->
+        <div class="sg sb-spaces-sg" onclick="sbToggleSection('spaces')">
+          <span class="sl">Spaces</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="sb-spaces-add" onclick="event.stopPropagation();openCreateSpaceModal()" title="New space">
+              <i class="ti ti-plus"></i>
+            </button>
+            <i class="ti ti-chevron-down sg-chev"></i>
+          </div>
+        </div>
+        <div class="sg-items" id="sgi-spaces">
+          <div id="sb-spaces-list">
+            <!-- rendered by spaceRenderSidebar() -->
+          </div>
+        </div>
 
-      <!-- ── SPACES zone ─────────────────────────────────────── -->
-      <div class="sb-spaces-zone">
-        <div class="sb-spaces-hd">
-          <span>Spaces</span>
-          <button onclick="openCreateSpaceModal()" title="New space"><i class="ti ti-plus"></i></button>
-        </div>
-        <div id="sb-spaces-list">
-          <!-- rendered by spaceRenderSidebar() -->
-        </div>
       </div>
 
       <!-- Sidebar footer -->
