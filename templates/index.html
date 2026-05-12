@@ -55,43 +55,62 @@
 
       <!-- Form fields -->
       <div id="student-fields">
-        <div class="field">
+
+        <!-- Register-only: Full Name -->
+        <div class="field" id="name-field" style="display:none">
           <label>Full Name</label>
           <div class="field-ic">
             <i class="ti ti-user"></i>
-            <input id="ln" type="text" placeholder="Your full name" autocomplete="off"
+            <input id="ln" type="text" placeholder="Your full name" autocomplete="name"
               onkeydown="if(event.key==='Enter') $('lm').focus()">
           </div>
         </div>
+
+        <!-- Email (always visible) -->
         <div class="field">
-          <label id="lm-label">Email</label>
+          <label>Email</label>
           <div class="field-ic">
             <i class="ti ti-mail"></i>
             <input id="lm" type="email" placeholder="your@email.com" autocomplete="email"
               onkeydown="if(event.key==='Enter') $('l-pw').focus()">
           </div>
         </div>
+
+        <!-- Password (always visible) -->
+        <div class="field">
+          <label>Password</label>
+          <div class="field-ic">
+            <i class="ti ti-lock"></i>
+            <input id="l-pw" type="password" placeholder="Min. 8 characters"
+              onkeydown="if(event.key==='Enter') { AUTH_TAB==='register'?$('l-cpw').focus():doLogin() }">
+            <button type="button" class="field-eye" onclick="togglePwVis('l-pw','l-pw-eye')" id="l-pw-eye">
+              <i class="ti ti-eye"></i>
+            </button>
+          </div>
+        </div>
+
         <!-- Register-only fields -->
         <div id="register-fields" style="display:none">
           <div class="field">
-            <label>Phone</label>
+            <label>Confirm Password</label>
+            <div class="field-ic">
+              <i class="ti ti-lock-check"></i>
+              <input id="l-cpw" type="password" placeholder="Re-enter your password"
+                onkeydown="if(event.key==='Enter') doLogin()">
+              <button type="button" class="field-eye" onclick="togglePwVis('l-cpw','l-cpw-eye')" id="l-cpw-eye">
+                <i class="ti ti-eye"></i>
+              </button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Phone <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
             <div class="field-ic">
               <i class="ti ti-phone"></i>
               <input id="l-phone" type="tel" placeholder="+234 800 000 0000">
             </div>
           </div>
         </div>
-        <div class="field">
-          <label>Password</label>
-          <div class="field-ic">
-            <i class="ti ti-lock"></i>
-            <input id="l-pw" type="password" placeholder="Min. 6 characters"
-              onkeydown="if(event.key==='Enter') doLogin()">
-            <button type="button" class="field-eye" onclick="togglePwVis('l-pw','l-pw-eye')" id="l-pw-eye">
-              <i class="ti ti-eye"></i>
-            </button>
-          </div>
-        </div>
+
       </div>
 
       <!-- Lecturer stub (hidden — keeps JS compat) -->

@@ -287,6 +287,25 @@ def cleanup_db_sessions() -> int:
         _release(conn)
 
 
+def update_user(user: dict) -> None:
+    """Update an existing user row (name, phone, etc.)."""
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users SET name=%s, phone=%s
+                WHERE sid=%s
+            """, (user.get("name", ""), user.get("phone", ""), user["sid"]))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"update_user failed [{user.get('sid')}]: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
 def get_user_by_email(email: str) -> dict | None:
     conn = _get_conn()
     if not conn:

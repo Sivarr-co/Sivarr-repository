@@ -12,7 +12,13 @@ const API = async (url, body) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) {
+    let detail = r.statusText;
+    try { const j = await r.json(); detail = j.detail || detail; } catch { try { detail = await r.text() || detail; } catch {} }
+    const err = new Error(detail);
+    err.status = r.status;
+    throw err;
+  }
   return r.json();
 };
 
@@ -100,11 +106,22 @@ function setAuthTab(tab) {
   const regTab   = $('auth-tab-register');
   if (loginTab) loginTab.classList.toggle('active', !isReg);
   if (regTab)   regTab.classList.toggle('active',  isReg);
-  $('register-fields').style.display  = isReg ? 'block' : 'none';
+
+  // Show name + register-only fields only when registering
+  const nf = $('name-field');       if (nf) nf.style.display       = isReg ? 'block' : 'none';
+  const rf = $('register-fields');  if (rf) rf.style.display        = isReg ? 'block' : 'none';
+
+  // Update password placeholder
+  const pw = $('l-pw'); if (pw) pw.placeholder = isReg ? 'Min. 8 characters' : 'Your password';
+
   const h = $('login-heading'); if (h) h.textContent = isReg ? 'Create account' : 'Welcome back';
   const s = $('login-sub');     if (s) s.textContent = isReg ? 'Join the SIVARR workspace.' : 'Sign in to your workspace.';
-  const b = $('login-btn');     if (b) b.textContent = isReg ? 'Create Account' : 'Sign In';
+  const b = $('login-btn');     if (b) b.textContent = isReg ? 'Create account' : 'Sign in';
   const e = $('login-err');     if (e) e.textContent = '';
+
+  // Focus the first visible field
+  if (isReg) { setTimeout(() => $('ln')?.focus(), 50); }
+  else        { setTimeout(() => $('lm')?.focus(), 50); }
 }
 
 function togglePwVis(inputId, btnId) {
@@ -116,7 +133,7 @@ function togglePwVis(inputId, btnId) {
   if (icon) icon.className = inp.type === 'password' ? 'ti ti-eye' : 'ti ti-eye-off';
 }
 
-async function doLogin(prefillName, prefillEmail) {
+async function doLogin(prefillEmail) {
   const err = $('login-err');
   const btn = $('login-btn');
   if (err) err.textContent = '';
@@ -145,16 +162,34 @@ async function doLogin(prefillName, prefillEmail) {
   }
 
   // ── Student path ──────────────────────────────────────────
-  const name  = prefillName  || $('ln')?.value.trim();
-  const email = prefillEmail || $('lm')?.value.trim();
+  const isReg = AUTH_TAB === 'register';
+  const email = (prefillEmail || $('lm')?.value || '').trim();
   const pw    = $('l-pw')?.value || '';
-  const phone = $('l-phone')?.value?.trim() || '';
 
-  if (!name || !email) { if (err) err.textContent = 'Enter your name and email address.'; return; }
-  if (btn) { btn.disabled = true; btn.textContent = 'Please wait...'; }
+  // Client-side validation
+  if (!email) { if (err) err.textContent = 'Email address is required.'; $('lm')?.focus(); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { if (err) err.textContent = 'Enter a valid email address.'; $('lm')?.focus(); return; }
+  if (!pw)    { if (err) err.textContent = 'Password is required.'; $('l-pw')?.focus(); return; }
+
+  let body = { email, password: pw, action: AUTH_TAB };
+
+  if (isReg) {
+    const name  = ($('ln')?.value || '').trim();
+    const cpw   = $('l-cpw')?.value || '';
+    const phone = ($('l-phone')?.value || '').trim();
+
+    if (!name || name.length < 2) { if (err) err.textContent = 'Full name is required (min 2 characters).'; $('ln')?.focus(); return; }
+    if (pw.length < 8)            { if (err) err.textContent = 'Password must be at least 8 characters.'; $('l-pw')?.focus(); return; }
+    if (cpw && cpw !== pw)        { if (err) err.textContent = 'Passwords do not match.'; $('l-cpw')?.focus(); return; }
+    if (!cpw)                     { if (err) err.textContent = 'Please confirm your password.'; $('l-cpw')?.focus(); return; }
+
+    body = { ...body, name, confirm_password: cpw, phone };
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Please wait…'; }
 
   try {
-    const r = await API('/api/login', { name, email, password: pw, phone, action: AUTH_TAB });
+    const r = await API('/api/login', body);
     saveSession(r.name, r.email, r.token);
     _applyLoginData(r);
 
@@ -165,21 +200,23 @@ async function doLogin(prefillName, prefillEmail) {
         const latest = ad.announcements[0];
         addMsg('sivarr', `📢 Announcement from your lecturer:\n\n"${latest.message}"\n\n— ${latest.author}, ${latest.date}`);
       }
-    } catch(e) {}
+    } catch(_) {}
 
   } catch(e) {
-    const msg = e.message || '';
-    const text = msg.includes('409') ? 'Account already exists — sign in instead.' :
-                 msg.includes('401') ? 'Incorrect password.' :
-                 msg.includes('400') ? 'Password must be at least 6 characters.' :
-                 msg.includes('422') ? 'Check your name and matric number.' :
-                 'Login failed — ' + (msg || 'check your connection');
+    const status = e.status || 0;
+    const detail = e.message || '';
+    const text = status === 409 ? detail :
+                 status === 401 ? detail :
+                 status === 400 ? detail :
+                 status === 422 ? 'Check your details and try again.' :
+                 status === 429 ? 'Too many attempts — please wait a moment.' :
+                 detail || 'Something went wrong — check your connection and try again.';
     if (err) err.textContent = text;
-    console.error('Login error:', e);
-    if (btn) { btn.disabled = false; btn.textContent = AUTH_TAB === 'register' ? 'Create Account' : 'Sign In'; }
+    if (btn) { btn.disabled = false; btn.textContent = isReg ? 'Create account' : 'Sign in'; }
     clearSession();
+    return;
   }
-  if (btn) { btn.disabled = false; btn.textContent = AUTH_TAB === 'register' ? 'Create Account' : 'Sign In'; }
+  if (btn) { btn.disabled = false; btn.textContent = isReg ? 'Create account' : 'Sign in'; }
 }
 
 // ═══════════════════════════ ANNOUNCEMENTS ══════════════════════
@@ -410,8 +447,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (ok) return;
   }
 
-  // Fallback: full re-login (for legacy sessions or expired tokens)
-  doLogin(saved.name, saved.email);
+  // Fallback: pre-fill email and show login form for expired/invalid tokens
+  if (saved.email && $('lm')) $('lm').value = saved.email;
+  if (btn) { btn.textContent = 'Sign in'; btn.disabled = false; }
 });
 
 ['ln','lm'].forEach((id,i) => {

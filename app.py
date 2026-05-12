@@ -95,11 +95,13 @@ def save_users(users: dict):
     with open(tmp, "w") as f:
         json.dump(users, f, indent=2)
     shutil.move(tmp, str(USERS_PATH))
-    # Sync new/updated users to DB
+    # Sync to DB — create new rows, update existing ones
     if db.is_available():
         for sid, u in users.items():
             try:
-                if not db.user_exists(sid):
+                if db.user_exists(sid):
+                    db.update_user(u)
+                else:
                     db.create_user(u)
             except Exception as e:
                 log.warning(f"DB sync user {sid}: {e}")
@@ -812,20 +814,12 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ── Request models with validation ────────────────────────────
 
 class LoginRequest(BaseModel):
-    name: str
+    name: str     = ""          # required only for register
     email: str
     password: str = ""
+    confirm_password: str = ""  # register only
     phone: str    = ""
-    action: str   = "login"   # "login" | "register"
-
-    @validator("name")
-    def name_valid(cls, v):
-        v = sanitize_text(v, MAX_NAME_LEN)
-        if not v or len(v) < 2:
-            raise ValueError("Name must be at least 2 characters.")
-        if not re.match(r"^[a-zA-Z\s\-'.]+$", v):
-            raise ValueError("Name contains invalid characters.")
-        return v
+    action: str   = "login"     # "login" | "register"
 
     @validator("email")
     def email_valid(cls, v):
@@ -910,62 +904,92 @@ async def login(req: LoginRequest, request: Request):
     key = get_client_key(request)
     check_rate_limit(key, RATE_LIMIT_LOGIN, "login")
 
-    sid = re.sub(r"[^a-z0-9_]", "_",
-          f"{req.name.lower().strip()}_{req.email.lower().strip()}")
-
+    email = req.email  # already normalised by validator
     users = load_users()
 
     # ── REGISTER ──────────────────────────────────────────────
     if req.action == "register":
-        if not req.password or len(req.password) < 6:
-            raise HTTPException(400, "Password must be at least 6 characters.")
-        if sid in users:
-            raise HTTPException(409, "Account already exists. Please sign in.")
+        # Validate name
+        name = sanitize_text(req.name.strip(), MAX_NAME_LEN)
+        if not name or len(name) < 2:
+            raise HTTPException(400, "Full name is required.")
+        if not re.match(r"^[a-zA-Z\s\-'.]+$", name):
+            raise HTTPException(400, "Name contains invalid characters.")
+
+        # Validate password
+        if not req.password or len(req.password) < 8:
+            raise HTTPException(400, "Password must be at least 8 characters.")
+        if req.confirm_password and req.confirm_password != req.password:
+            raise HTTPException(400, "Passwords do not match.")
+
+        # Enforce email uniqueness across JSON store
+        for u in users.values():
+            if u.get("email", "").lower() == email:
+                raise HTTPException(409, "An account with this email already exists. Sign in instead.")
+        # Also enforce in DB if available
+        if db.is_available():
+            existing = db.get_user_by_email(email)
+            if existing:
+                raise HTTPException(409, "An account with this email already exists. Sign in instead.")
+
+        # Generate a random UUID-based SID (not derived from user-supplied data)
+        sid    = uuid.uuid4().hex[:20]
         hashed = bcrypt.hashpw(req.password.encode(), bcrypt.gensalt()).decode()
         users[sid] = {
             "sid":      sid,
-            "name":     sanitize_text(req.name.title(), MAX_NAME_LEN),
-            "email":    req.email,
-            "matric":   "",
+            "name":     name.title(),
+            "email":    email,
             "phone":    sanitize_text(req.phone, 30),
             "password": hashed,
             "created":  datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "role":     "student",
         }
         save_users(users)
-        log.info(f"Register: {users[sid]['name']} ({users[sid]['email']})")
+        user = users[sid]
+        log.info(f"Register: {user['name']} ({email})")
 
     # ── LOGIN ──────────────────────────────────────────────────
     else:
-        if sid in users:
-            stored = users[sid].get("password", "")
-            if stored:
-                if not req.password:
-                    raise HTTPException(401, "Password required.")
-                if not bcrypt.checkpw(req.password.encode(), stored.encode()):
-                    raise HTTPException(401, "Incorrect password.")
-        # Legacy accounts (no password) pass through until they register
+        # Look up by email — no name required
+        user = next((u for u in users.values() if u.get("email", "").lower() == email), None)
+        # Fallback to DB lookup
+        if not user and db.is_available():
+            user = db.get_user_by_email(email)
+
+        if not user:
+            raise HTTPException(401, "No account found with this email. Sign up first.")
+
+        stored = user.get("password", "")
+        if not stored:
+            raise HTTPException(401, "Account has no password set. Please register again.")
+        if not req.password:
+            raise HTTPException(401, "Password required.")
+        if not bcrypt.checkpw(req.password.encode(), stored.encode()):
+            raise HTTPException(401, "Incorrect password.")
+
+        sid = user["sid"]
 
     p = load_progress(sid)
-    p["sessions"] += 1
-    p["name"]  = req.name.title()
-    p["email"] = req.email
+    p["sessions"] = p.get("sessions", 0) + 1
+    p["name"]  = user["name"]
+    p["email"] = user["email"]
     save_progress(sid, p)
 
     memory = build_memory(p)
     get_sessions(sid, memory)
 
     cleanup_expired_tokens()
-    token = create_session_token(sid, p["name"], p["email"])
+    token = create_session_token(sid, user["name"], user["email"])
 
-    log.info(f"Login: {p['name']} ({p['email']}) | Sessions: {p['sessions']}")
+    log.info(f"{'Register' if req.action=='register' else 'Login'}: {user['name']} ({email}) | Sessions: {p['sessions']}")
 
     return {
-        "sid": sid, "name": p["name"], "email": p["email"],
+        "sid": sid, "name": user["name"], "email": user["email"],
         "token": token,
-        "sessions": p["sessions"], "difficulty": p.get("difficulty","medium"),
-        "topics": list(p["topics"].keys()), "weak": weak_topics(p),
-        "questions": p["questions"], "quizzes": len(p.get("quizzes",[])),
-        "wrong_count": len(p.get("wrong_answers",[])), "returning": p["sessions"] > 1,
+        "sessions": p["sessions"], "difficulty": p.get("difficulty", "medium"),
+        "topics": list(p.get("topics", {}).keys()), "weak": weak_topics(p),
+        "questions": p.get("questions", 0), "quizzes": len(p.get("quizzes", [])),
+        "wrong_count": len(p.get("wrong_answers", [])), "returning": p["sessions"] > 1,
         "uploaded_files": p.get("uploaded_files", []),
     }
 
