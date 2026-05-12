@@ -247,18 +247,6 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
 
-      <!-- Space Switcher -->
-      <div class="space-switcher" id="space-switcher">
-        <button class="ss-btn active" id="ss-personal" onclick="switchSpace('personal')" title="Personal">
-          <i class="ti ti-user"></i><span>Personal</span>
-        </button>
-        <button class="ss-btn" id="ss-academic" onclick="switchSpace('academic')" title="Academic">
-          <i class="ti ti-school"></i><span>Academic</span>
-        </button>
-        <button class="ss-btn" id="ss-org" onclick="switchSpace('org')" title="Organisation">
-          <i class="ti ti-building"></i><span>Org</span>
-        </button>
-      </div>
 
       <div class="sb-scroll">
 
@@ -306,37 +294,6 @@
           </button>
         </div>
 
-        <!-- Academic -->
-        <div class="sg" onclick="sbToggleSection('academic')">
-          <span class="sl">Academic</span>
-          <i class="ti ti-chevron-down sg-chev"></i>
-        </div>
-        <div class="sg-items" id="sgi-academic">
-          <button class="si" data-panel="courses" onclick="sidebarNav(this)">
-            <i class="ti ti-school si-ic"></i>
-            <span class="si-lb">Courses</span>
-          </button>
-          <button class="si" data-panel="quiz" onclick="sidebarNav(this)">
-            <i class="ti ti-pencil si-ic"></i>
-            <span class="si-lb">Quiz</span>
-          </button>
-          <button class="si" data-panel="lab" onclick="sidebarNav(this)">
-            <i class="ti ti-flask si-ic"></i>
-            <span class="si-lb">Study Deck</span>
-          </button>
-          <button class="si" data-panel="studyplan" onclick="sidebarNav(this)">
-            <i class="ti ti-map si-ic"></i>
-            <span class="si-lb">Study Plan</span>
-          </button>
-          <button class="si" data-panel="pomodoro" onclick="sidebarNav(this)">
-            <i class="ti ti-clock si-ic"></i>
-            <span class="si-lb">Study Timer</span>
-          </button>
-          <button class="si" data-panel="contenthub" onclick="sidebarNav(this)">
-            <i class="ti ti-brand-youtube si-ic"></i>
-            <span class="si-lb">Content Hub</span>
-          </button>
-        </div>
 
         <!-- Grow -->
         <div class="sg" onclick="sbToggleSection('grow')">
@@ -382,18 +339,17 @@
           </button>
         </div>
 
-        <!-- Org (hidden by default, shown when Org space active) -->
-        <div class="sg sg-space-org" onclick="sbToggleSection('org')" style="display:none">
-          <span class="sl">Organisation</span>
-          <i class="ti ti-chevron-down sg-chev"></i>
-        </div>
-        <div class="sg-items sg-space-org" id="sgi-org" style="display:none">
-          <button class="si" data-panel="org" onclick="sidebarNav(this)">
-            <i class="ti ti-building si-ic"></i>
-            <span class="si-lb">Work Hub</span>
-          </button>
-        </div>
+      </div>
 
+      <!-- ── SPACES zone ─────────────────────────────────────── -->
+      <div class="sb-spaces-zone">
+        <div class="sb-spaces-hd">
+          <span>Spaces</span>
+          <button onclick="openCreateSpaceModal()" title="New space"><i class="ti ti-plus"></i></button>
+        </div>
+        <div id="sb-spaces-list">
+          <!-- rendered by spaceRenderSidebar() -->
+        </div>
       </div>
 
       <!-- Sidebar footer -->
@@ -2175,7 +2131,7 @@
         <div class="os-hero">
           <div class="os-hero-icon"><i class="ti ti-building"></i></div>
           <div class="os-hero-info">
-            <div class="os-hero-name" id="os-space-name">Work Hub</div>
+            <div class="os-hero-name" id="os-space-name" onclick="spRename('org')" title="Click to rename">Organisation Hub</div>
             <div class="os-hero-meta">
               <span>Organisation space</span>
               <span class="os-sep">·</span>
@@ -2320,6 +2276,404 @@
         </div>
 
       </div><!-- /panel-org -->
+
+      <!-- ══════════════════════════════════════════════════════
+           PERSONAL SPACE
+           ══════════════════════════════════════════════════════ -->
+      <div class="panel sp-panel" id="panel-personal">
+
+        <div class="sp-hero sp-hero-blue">
+          <div class="sp-hero-icon sp-ic-blue"><i class="ti ti-user"></i></div>
+          <div class="sp-hero-info">
+            <div class="sp-hero-name" id="ps-space-name">Personal</div>
+            <div class="sp-hero-meta">Private workspace · <span id="ps-streak">0</span>-day streak 🔥</div>
+          </div>
+          <div class="sp-hero-actions">
+            <button class="sp-btn-ghost" onclick="spRenameByType('personal')"><i class="ti ti-pencil"></i> Rename</button>
+            <button class="sp-btn-primary sp-btn-blue" onclick="psNewTask()"><i class="ti ti-plus"></i> New task</button>
+          </div>
+        </div>
+
+        <div class="sp-tabs" id="ps-tabs">
+          <button class="sp-tab on" id="ps-tab-overview"   onclick="spTab('ps','overview',this)"><i class="ti ti-layout-dashboard"></i>Overview</button>
+          <button class="sp-tab" id="ps-tab-tasks"         onclick="spTab('ps','tasks',this)"><i class="ti ti-checkbox"></i>Tasks</button>
+          <button class="sp-tab" id="ps-tab-goals"         onclick="spTab('ps','goals',this)"><i class="ti ti-target"></i>Goals</button>
+          <button class="sp-tab" id="ps-tab-habits"        onclick="spTab('ps','habits',this)"><i class="ti ti-repeat"></i>Habits</button>
+          <button class="sp-tab" id="ps-tab-journal"       onclick="spTab('ps','journal',this)"><i class="ti ti-writing"></i>Journal</button>
+          <button class="sp-tab" id="ps-tab-notes"         onclick="spTab('ps','notes',this)"><i class="ti ti-file-text"></i>Notes</button>
+          <button class="sp-tab" id="ps-tab-analytics"     onclick="spTab('ps','analytics',this)"><i class="ti ti-chart-bar"></i>Analytics</button>
+        </div>
+
+        <!-- OVERVIEW -->
+        <div class="sp-pane on" id="ps-pane-overview">
+          <div class="sp-scroll">
+            <div class="sp-stat-row">
+              <div class="sp-stat"><div class="sp-stat-lbl">Done today</div><div class="sp-stat-val sp-val-blue" id="ps-done-today">0</div></div>
+              <div class="sp-stat"><div class="sp-stat-lbl">Active goals</div><div class="sp-stat-val sp-val-blue" id="ps-active-goals">0</div></div>
+              <div class="sp-stat"><div class="sp-stat-lbl">Habit streak</div><div class="sp-stat-val sp-val-blue" id="ps-habit-streak">0🔥</div></div>
+              <div class="sp-stat"><div class="sp-stat-lbl">Journal this month</div><div class="sp-stat-val sp-val-blue" id="ps-journal-month">0</div></div>
+            </div>
+            <div class="sp-grid2">
+              <div class="sp-card">
+                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-checkbox"></i>Priority tasks</span><span class="sp-card-link" onclick="spTab('ps','tasks',null)">Board →</span></div>
+                <div id="ps-priority-tasks"><div class="sp-empty">No tasks yet.</div></div>
+              </div>
+              <div class="sp-card">
+                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-target"></i>Active goals</span><span class="sp-card-link" onclick="spTab('ps','goals',null)">All →</span></div>
+                <div id="ps-goals-widget"><div class="sp-empty">No goals yet.</div></div>
+              </div>
+            </div>
+            <div class="sp-grid2">
+              <div class="sp-card">
+                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-repeat"></i>Today's habits</span><span class="sp-card-link" onclick="spTab('ps','habits',null)">All →</span></div>
+                <div id="ps-habits-widget"><div class="sp-empty">No habits yet.</div></div>
+              </div>
+              <div class="sp-card">
+                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-writing"></i>Journal</span><span class="sp-card-link" onclick="spTab('ps','journal',null)">Write →</span></div>
+                <div id="ps-journal-widget"><div class="sp-empty">No entries yet.</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TASKS -->
+        <div class="sp-pane" id="ps-pane-tasks">
+          <div class="sp-toolbar">
+            <button class="sp-tool-btn sp-tool-active"><i class="ti ti-layout-kanban"></i>Board</button>
+            <button class="sp-tool-btn"><i class="ti ti-list"></i>List</button>
+            <div style="flex:1"></div>
+            <button class="sp-btn-primary sp-btn-blue" onclick="psNewTask()"><i class="ti ti-plus"></i>New task</button>
+          </div>
+          <div class="sp-scroll"><div class="sp-kanban" id="ps-kanban"></div></div>
+        </div>
+
+        <!-- GOALS -->
+        <div class="sp-pane" id="ps-pane-goals">
+          <div class="sp-toolbar">
+            <button class="sp-btn-primary sp-btn-blue" onclick="psNewGoal()"><i class="ti ti-plus"></i>New goal</button>
+          </div>
+          <div class="sp-scroll"><div class="sp-goals-grid" id="ps-goals-grid"></div></div>
+        </div>
+
+        <!-- HABITS -->
+        <div class="sp-pane" id="ps-pane-habits">
+          <div class="sp-toolbar">
+            <div class="sp-hstats">
+              <div class="sp-hstat"><div class="sp-hstat-val" id="ps-best-streak">0</div><div class="sp-hstat-lbl">Best streak</div></div>
+              <div class="sp-hstat"><div class="sp-hstat-val" id="ps-done-today-h">0</div><div class="sp-hstat-lbl">Done today</div></div>
+              <div class="sp-hstat"><div class="sp-hstat-val" id="ps-week-rate">—</div><div class="sp-hstat-lbl">This week</div></div>
+            </div>
+            <div style="flex:1"></div>
+            <button class="sp-btn-primary sp-btn-blue" onclick="psNewHabit()"><i class="ti ti-plus"></i>Add habit</button>
+          </div>
+          <div class="sp-scroll"><div id="ps-habits-list"></div></div>
+        </div>
+
+        <!-- JOURNAL -->
+        <div class="sp-pane" id="ps-pane-journal">
+          <div class="sp-scroll">
+            <div class="sp-grid2 sp-grid2-journal">
+              <div class="sp-journal-left">
+                <div class="sp-journal-prompt" id="ps-journal-prompt">What are you grateful for today?</div>
+                <div class="sp-mood-row">
+                  <button class="sp-mood-btn" onclick="psMood('😄',this)">😄</button>
+                  <button class="sp-mood-btn" onclick="psMood('🙂',this)">🙂</button>
+                  <button class="sp-mood-btn" onclick="psMood('😐',this)">😐</button>
+                  <button class="sp-mood-btn" onclick="psMood('😔',this)">😔</button>
+                  <button class="sp-mood-btn" onclick="psMood('🤯',this)">🤯</button>
+                </div>
+                <textarea class="sp-journal-input" id="ps-journal-text" placeholder="Start writing…"></textarea>
+                <button class="sp-btn-primary sp-btn-blue" style="width:100%;margin-top:10px" onclick="psSaveJournal()">
+                  <i class="ti ti-device-floppy"></i> Save entry
+                </button>
+              </div>
+              <div class="sp-journal-right">
+                <div class="sp-card-title" style="margin-bottom:10px;font-size:.82rem;font-weight:700;color:var(--muted)">PAST ENTRIES</div>
+                <div id="ps-journal-entries"><div class="sp-empty">No entries yet.</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- NOTES -->
+        <div class="sp-pane" id="ps-pane-notes">
+          <div class="sp-toolbar">
+            <button class="sp-btn-primary sp-btn-blue" onclick="psNewNote()"><i class="ti ti-plus"></i>New note</button>
+          </div>
+          <div class="sp-scroll"><div class="sp-notes-grid" id="ps-notes-grid"></div></div>
+        </div>
+
+        <!-- ANALYTICS -->
+        <div class="sp-pane" id="ps-pane-analytics">
+          <div class="sp-scroll">
+            <div class="sp-stat-row">
+              <div class="sp-stat"><div class="sp-stat-lbl">Tasks this week</div><div class="sp-stat-val sp-val-blue" id="ps-week-tasks">0</div></div>
+              <div class="sp-stat"><div class="sp-stat-lbl">Habit rate</div><div class="sp-stat-val sp-val-blue" id="ps-habit-rate">—</div></div>
+              <div class="sp-stat"><div class="sp-stat-lbl">Journal entries</div><div class="sp-stat-val sp-val-blue" id="ps-journal-count">0</div></div>
+              <div class="sp-stat"><div class="sp-stat-lbl">Goals on track</div><div class="sp-stat-val sp-val-blue" id="ps-goals-track">—</div></div>
+            </div>
+            <div class="sp-grid2">
+              <div class="sp-card">
+                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-chart-bar"></i>Tasks per day</span></div>
+                <div class="sp-bar-chart" id="ps-task-chart"></div>
+              </div>
+              <div class="sp-card">
+                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-repeat"></i>Habit completion</span></div>
+                <div id="ps-habit-chart"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /panel-personal -->
+
+      <!-- ══════════════════════════════════════════════════════
+           ACADEMIC SPACE
+           ══════════════════════════════════════════════════════ -->
+      <div class="panel sp-panel" id="panel-academic">
+
+        <div class="sp-hero sp-hero-amber">
+          <div class="sp-hero-icon sp-ic-amber"><i class="ti ti-school"></i></div>
+          <div class="sp-hero-info">
+            <div class="sp-hero-name" id="ac-space-name">Academic</div>
+            <div class="sp-hero-meta"><span id="ac-course-count">0</span> active courses · Exam in <span id="ac-exam-days">—</span> days</div>
+          </div>
+          <div class="sp-hero-actions">
+            <button class="sp-btn-ghost" onclick="spRenameByType('academic')"><i class="ti ti-pencil"></i> Rename</button>
+            <button class="sp-btn-primary sp-btn-amber" onclick="acAddCourse()"><i class="ti ti-plus"></i> Add course</button>
+          </div>
+        </div>
+
+        <div class="sp-tabs" id="ac-tabs">
+          <button class="sp-tab sp-tab-amber on" id="ac-tab-overview"  onclick="spTab('ac','overview',this)"><i class="ti ti-layout-dashboard"></i>Overview</button>
+          <button class="sp-tab sp-tab-amber" id="ac-tab-courses"      onclick="spTab('ac','courses',this)"><i class="ti ti-books"></i>Courses</button>
+          <button class="sp-tab sp-tab-amber" id="ac-tab-deck"         onclick="spTab('ac','deck',this)"><i class="ti ti-cards"></i>Study Deck</button>
+          <button class="sp-tab sp-tab-amber" id="ac-tab-quiz"         onclick="spTab('ac','quiz',this)"><i class="ti ti-pencil"></i>Quiz</button>
+          <button class="sp-tab sp-tab-amber" id="ac-tab-planner"      onclick="spTab('ac','planner',this)"><i class="ti ti-map"></i>Planner</button>
+          <button class="sp-tab sp-tab-amber" id="ac-tab-timer"        onclick="spTab('ac','timer',this)"><i class="ti ti-clock"></i>Timer</button>
+          <button class="sp-tab sp-tab-amber" id="ac-tab-groups"       onclick="spTab('ac','groups',this)"><i class="ti ti-users"></i>Study Groups</button>
+        </div>
+
+        <!-- OVERVIEW -->
+        <div class="sp-pane on" id="ac-pane-overview">
+          <div class="sp-scroll">
+            <div class="sp-stat-row">
+              <div class="sp-stat"><div class="sp-stat-lbl">Cards reviewed</div><div class="sp-stat-val sp-val-amber" id="ac-cards-today">0</div></div>
+              <div class="sp-stat"><div class="sp-stat-lbl">Quiz accuracy</div><div class="sp-stat-val sp-val-amber" id="ac-quiz-acc">—</div></div>
+              <div class="sp-stat"><div class="sp-stat-lbl">Study streak</div><div class="sp-stat-val sp-val-amber" id="ac-study-streak">0🔥</div></div>
+              <div class="sp-stat"><div class="sp-stat-lbl">Exam countdown</div><div class="sp-stat-val sp-val-amber" id="ac-exam-countdown">—</div></div>
+            </div>
+            <div class="sp-grid2">
+              <div class="sp-card">
+                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-books"></i>Courses</span><span class="sp-card-link" onclick="spTab('ac','courses',null)">All →</span></div>
+                <div id="ac-courses-widget"><div class="sp-empty">No courses yet.</div></div>
+              </div>
+              <div class="sp-card">
+                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-map"></i>Today's plan</span><span class="sp-card-link" onclick="spTab('ac','planner',null)">Full plan →</span></div>
+                <div id="ac-plan-widget"><div class="sp-empty">No study plan yet.</div></div>
+              </div>
+            </div>
+            <div class="sp-grid2">
+              <div class="sp-card">
+                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-cards"></i>Study deck</span><span class="sp-card-link" onclick="spTab('ac','deck',null)">Review →</span></div>
+                <div id="ac-deck-widget"><div class="sp-empty">No flashcards yet.</div></div>
+              </div>
+              <div class="sp-card">
+                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-sparkles" style="color:var(--amber3)"></i>SIVA insights</span></div>
+                <div id="ac-insights-widget">
+                  <div class="sp-insight-strip sp-insight-amber">Start adding courses to unlock study insights.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- COURSES -->
+        <div class="sp-pane" id="ac-pane-courses">
+          <div class="sp-toolbar">
+            <button class="sp-btn-primary sp-btn-amber" onclick="acAddCourse()"><i class="ti ti-plus"></i>Add course</button>
+            <div style="flex:1"></div>
+            <button class="sp-tool-btn sp-tool-amber-active" id="ac-filter-all" onclick="acFilterCourses('all',this)">All</button>
+            <button class="sp-tool-btn" id="ac-filter-active" onclick="acFilterCourses('active',this)">Active</button>
+            <button class="sp-tool-btn" id="ac-filter-done" onclick="acFilterCourses('done',this)">Done</button>
+          </div>
+          <div class="sp-scroll"><div class="sp-courses-grid" id="ac-courses-grid"></div></div>
+        </div>
+
+        <!-- STUDY DECK -->
+        <div class="sp-pane" id="ac-pane-deck">
+          <div class="sp-scroll">
+            <div class="sp-grid2">
+              <div>
+                <div class="sp-deck-filter" id="ac-deck-filter"></div>
+                <div class="sp-flashcard" id="ac-flashcard" onclick="acFlipCard()">
+                  <div class="sp-flashcard-inner" id="ac-flashcard-inner">
+                    <div class="sp-card-front">
+                      <div class="sp-fc-counter" id="ac-fc-counter">Card 0 of 0</div>
+                      <div class="sp-fc-question" id="ac-fc-question">Add a course and create flashcards to start reviewing.</div>
+                      <div class="sp-fc-flip">Tap to flip</div>
+                    </div>
+                    <div class="sp-card-back">
+                      <div class="sp-fc-answer" id="ac-fc-answer"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="sp-deck-rate-row" id="ac-rate-row" style="display:none">
+                  <button class="sp-rate-btn sp-rate-again" onclick="acRateCard('again')">Again</button>
+                  <button class="sp-rate-btn sp-rate-hard"  onclick="acRateCard('hard')">Hard</button>
+                  <button class="sp-rate-btn sp-rate-good"  onclick="acRateCard('good')">Good</button>
+                  <button class="sp-rate-btn sp-rate-easy"  onclick="acRateCard('easy')">Easy</button>
+                </div>
+              </div>
+              <div>
+                <div class="sp-card" style="margin-bottom:14px">
+                  <div class="sp-card-head"><span class="sp-card-title">Session stats</span></div>
+                  <div class="sp-deck-stats">
+                    <div class="sp-dstat"><span id="ac-ds-done">0</span><small>Done</small></div>
+                    <div class="sp-dstat"><span id="ac-ds-left">0</span><small>Left</small></div>
+                    <div class="sp-dstat"><span id="ac-ds-acc">—</span><small>Accuracy</small></div>
+                  </div>
+                </div>
+                <div class="sp-card">
+                  <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-plus"></i> Add card</span></div>
+                  <input class="sp-input" id="ac-card-q" placeholder="Question…" style="margin-bottom:8px">
+                  <input class="sp-input" id="ac-card-a" placeholder="Answer…" style="margin-bottom:10px">
+                  <button class="sp-btn-primary sp-btn-amber" style="width:100%" onclick="acAddCard()">Add to deck</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- QUIZ -->
+        <div class="sp-pane" id="ac-pane-quiz">
+          <div class="sp-scroll">
+            <div class="sp-quiz-wrap" id="ac-quiz-config">
+              <div class="sp-card" style="max-width:440px;margin:0 auto">
+                <div class="sp-card-title" style="margin-bottom:16px;font-size:1rem">Configure quiz</div>
+                <label class="sp-label">Course</label>
+                <select class="sp-select" id="ac-quiz-course" style="margin-bottom:12px">
+                  <option value="">All courses</option>
+                </select>
+                <label class="sp-label">Difficulty</label>
+                <div class="sp-diff-row" style="margin-bottom:12px">
+                  <button class="sp-diff-btn sp-diff-active" onclick="acSetDiff('easy',this)">Easy</button>
+                  <button class="sp-diff-btn" onclick="acSetDiff('medium',this)">Medium</button>
+                  <button class="sp-diff-btn" onclick="acSetDiff('hard',this)">Hard</button>
+                </div>
+                <button class="sp-btn-primary sp-btn-amber" style="width:100%" onclick="acStartQuiz()"><i class="ti ti-pencil"></i> Start quiz</button>
+              </div>
+            </div>
+            <div class="sp-quiz-active" id="ac-quiz-active" style="display:none">
+              <div class="sp-quiz-prog-bar"><div id="ac-quiz-prog-fill" style="width:0%;background:var(--amber3)"></div></div>
+              <div class="sp-quiz-counter" id="ac-quiz-counter">Question 1</div>
+              <div class="sp-quiz-question" id="ac-quiz-q"></div>
+              <div class="sp-quiz-options" id="ac-quiz-opts"></div>
+              <div class="sp-quiz-nav">
+                <button class="sp-btn-ghost" onclick="acQuizSkip()">Skip</button>
+                <button class="sp-btn-primary sp-btn-amber" onclick="acQuizNext()">Next →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLANNER -->
+        <div class="sp-pane" id="ac-pane-planner">
+          <div class="sp-toolbar">
+            <span style="font-size:.84rem;font-weight:600;color:var(--fg)" id="ac-plan-name">Study Plan</span>
+            <span style="font-size:.76rem;color:var(--muted);margin-left:8px" id="ac-plan-sub">Generated by SIVA</span>
+            <div style="flex:1"></div>
+            <button class="sp-btn-primary sp-btn-amber" onclick="acGenPlan()"><i class="ti ti-wand"></i> Generate plan</button>
+          </div>
+          <div class="sp-scroll">
+            <div id="ac-plan-content">
+              <div class="sp-card" style="max-width:420px;margin:0 auto">
+                <div class="sp-card-title" style="margin-bottom:14px">Generate a study plan</div>
+                <label class="sp-label">Subject / Exam</label>
+                <input class="sp-input" id="ac-plan-subject" placeholder="e.g. Data Structures Final" style="margin-bottom:10px">
+                <label class="sp-label">Exam date</label>
+                <input class="sp-input" type="date" id="ac-plan-date" style="margin-bottom:10px">
+                <label class="sp-label">Hours per day</label>
+                <input class="sp-input" type="number" id="ac-plan-hrs" value="2" min="1" max="12" style="margin-bottom:14px">
+                <button class="sp-btn-primary sp-btn-amber" style="width:100%" onclick="acCreatePlan()"><i class="ti ti-wand"></i> Create plan</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TIMER -->
+        <div class="sp-pane" id="ac-pane-timer">
+          <div class="sp-scroll" style="align-items:center">
+            <div class="sp-timer-wrap">
+              <div class="sp-timer-modes">
+                <button class="sp-tmode-btn sp-tmode-active" id="ac-mode-focus"  onclick="acSetMode('focus',this)">Focus</button>
+                <button class="sp-tmode-btn" id="ac-mode-short"  onclick="acSetMode('short',this)">Short break</button>
+                <button class="sp-tmode-btn" id="ac-mode-long"   onclick="acSetMode('long',this)">Long break</button>
+              </div>
+              <div class="sp-timer-display" id="ac-timer-display">25:00</div>
+              <div class="sp-timer-label" id="ac-timer-label">Focus session</div>
+              <div class="sp-timer-btns">
+                <button class="sp-btn-primary sp-btn-amber sp-timer-start" id="ac-timer-start" onclick="acTimerToggle()">Start</button>
+                <button class="sp-btn-ghost" onclick="acTimerReset()">Reset</button>
+              </div>
+              <div class="sp-timer-stats">
+                <div class="sp-tstat"><div class="sp-tstat-val" id="ac-t-today">0</div><div class="sp-tstat-lbl">Today</div></div>
+                <div class="sp-tstat"><div class="sp-tstat-val" id="ac-t-total">0</div><div class="sp-tstat-lbl">Total</div></div>
+                <div class="sp-tstat"><div class="sp-tstat-val" id="ac-t-mins">0</div><div class="sp-tstat-lbl">Minutes</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STUDY GROUPS -->
+        <div class="sp-pane" id="ac-pane-groups">
+          <div class="sp-toolbar">
+            <button class="sp-btn-primary sp-btn-amber" onclick="acNewGroup()"><i class="ti ti-plus"></i>Create group</button>
+            <div style="flex:1"></div>
+            <button class="sp-btn-ghost" onclick="acJoinGroup()"><i class="ti ti-door-enter"></i>Join by ID</button>
+          </div>
+          <div class="sp-scroll"><div class="sp-groups-grid" id="ac-groups-grid"></div></div>
+        </div>
+
+      </div><!-- /panel-academic -->
+
+      <!-- ══════════════════════════════════════════════════════
+           CREATE SPACE MODAL
+           ══════════════════════════════════════════════════════ -->
+      <div class="csp-overlay" id="create-space-modal" style="display:none" onclick="if(event.target===this)closeCreateSpaceModal()">
+        <div class="csp-modal">
+          <div class="csp-head">
+            <h2>Create a space</h2>
+            <button class="csp-close" onclick="closeCreateSpaceModal()"><i class="ti ti-x"></i></button>
+          </div>
+          <p class="csp-sub">Pick a type to get started — you can always customise later.</p>
+          <div class="csp-types" id="csp-types">
+            <div class="csp-type" data-type="personal" onclick="cspSelectType('personal',this)">
+              <div class="csp-type-icon" style="background:var(--blue2)"><i class="ti ti-user" style="color:var(--blue)"></i></div>
+              <div class="csp-type-name">Personal</div>
+              <div class="csp-type-desc">Tasks, goals, habits &amp; journal</div>
+            </div>
+            <div class="csp-type" data-type="org" onclick="cspSelectType('org',this)">
+              <div class="csp-type-icon" style="background:var(--teal2)"><i class="ti ti-building" style="color:var(--teal)"></i></div>
+              <div class="csp-type-name">Organisation</div>
+              <div class="csp-type-desc">Team tasks, projects &amp; chat</div>
+            </div>
+            <div class="csp-type" data-type="academic" onclick="cspSelectType('academic',this)">
+              <div class="csp-type-icon" style="background:var(--amber2)"><i class="ti ti-school" style="color:var(--amber3)"></i></div>
+              <div class="csp-type-name">Academic</div>
+              <div class="csp-type-desc">Courses, flashcards, quiz &amp; timer</div>
+            </div>
+          </div>
+          <div id="csp-name-row" style="display:none">
+            <label class="sp-label" style="margin-top:16px;display:block">Space name</label>
+            <input class="sp-input" id="csp-name-input" placeholder="e.g. My Study Hub, Q3 Projects…" style="margin-top:6px">
+          </div>
+          <div class="csp-footer" id="csp-footer" style="display:none">
+            <button class="sp-btn-ghost" onclick="closeCreateSpaceModal()">Cancel</button>
+            <button class="sp-btn-primary sp-btn-teal" onclick="cspCreate()">Create space →</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Opportunity Board (Phase 7) -->
       <div class="panel" id="panel-opportunities">

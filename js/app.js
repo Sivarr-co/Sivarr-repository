@@ -416,6 +416,7 @@ function _applyLoginData(r) {
   _contextSent = false; // fresh context for each login session
   loadAnnouncements();
   setTimeout(() => briefCheck(), 800);
+  setTimeout(() => spaceRenderSidebar(), 100);
 }
 
 async function restoreSession(token) {
@@ -3822,6 +3823,7 @@ const PANEL_SECTION_MAP = {
   goals:'grow', habits:'grow', stats:'grow', journal:'grow',
   community:'connect', library:'connect', opportunities:'connect',
   team:'org', projects:'org', hr:'org', automations:'org', orgchat:'org', org:'org',
+  personal:'spaces', academic:'spaces',
 };
 
 function sbEnsureExpanded(panelName) {
@@ -3909,6 +3911,8 @@ function nav(name, btn) {
   if (name === 'org')           orgInit();
   if (name === 'opportunities') oppInit();
   if (name === 'profile')       profileInit();
+  if (name === 'personal')      psRenderOverview();
+  if (name === 'academic')      acRenderOverview();
 }
 
 // Mobile tab bar navigation with smooth pill scroll
@@ -7704,4 +7708,808 @@ function profileRemoveSkill(idx) {
   localStorage.setItem(key, JSON.stringify(prof));
   profileRenderSkills(prof.skills);
 }
+
+/* ════════════════════════════════════════════════════════════
+   SPACES — management layer
+════════════════════════════════════════════════════════════ */
+
+// ── Storage helpers ──────────────────────────────────────────
+function spacesKey()   { return `sivarr_spaces_${S.sid}`; }
+function spaceDataKey(id) { return `sivarr_sp_${S.sid}_${id}`; }
+
+function getSpaces() {
+  return JSON.parse(localStorage.getItem(spacesKey()) || '[]');
+}
+function saveSpaces(list) {
+  localStorage.setItem(spacesKey(), JSON.stringify(list));
+}
+function getSpaceData(id) {
+  return JSON.parse(localStorage.getItem(spaceDataKey(id)) || '{}');
+}
+function setSpaceData(id, data) {
+  localStorage.setItem(spaceDataKey(id), JSON.stringify(data));
+}
+
+// ── Sidebar render ───────────────────────────────────────────
+function spaceRenderSidebar() {
+  const list = $('sb-spaces-list');
+  if (!list) return;
+  const spaces = getSpaces();
+
+  // Ensure the Org hub entry exists
+  let changed = false;
+  if (!spaces.find(s => s.id === 'org')) {
+    spaces.unshift({ id:'org', name:'Organisation Hub', type:'org', icon:'🏢', color:'teal' });
+    changed = true;
+  }
+  if (changed) saveSpaces(spaces);
+
+  list.innerHTML = spaces.map(sp => {
+    const pipClass = sp.type === 'personal' ? 'blue'
+                   : sp.type === 'academic'  ? 'amber'
+                   : sp.type === 'org'        ? 'teal'
+                   : 'purple';
+    return `<div class="sb-space-row" onclick="openSpace('${sp.id}')" id="sb-space-row-${sp.id}">
+      <div class="sp-pip ${pipClass}">${sp.icon || '🧩'}</div>
+      <span class="sb-space-name">${sp.name}</span>
+      <button class="sb-space-more" onclick="event.stopPropagation();spMoreMenu('${sp.id}',this)" title="Options">
+        <i class="ti ti-dots"></i>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// ── Open a space ─────────────────────────────────────────────
+function openSpace(id) {
+  const spaces = getSpaces();
+  const sp = spaces.find(s => s.id === id);
+  if (!sp) return;
+
+  // Highlight active row
+  document.querySelectorAll('.sb-space-row').forEach(el => el.classList.remove('active'));
+  const row = $(`sb-space-row-${id}`);
+  if (row) row.classList.add('active');
+
+  if (sp.type === 'org') {
+    nav('org'); return;
+  }
+  if (sp.type === 'personal') {
+    // Set name in panel
+    const nameEl = $('ps-space-name');
+    if (nameEl) nameEl.textContent = sp.name;
+    nav('personal'); psInit(id); return;
+  }
+  if (sp.type === 'academic') {
+    const nameEl = $('ac-space-name');
+    if (nameEl) nameEl.textContent = sp.name;
+    nav('academic'); acInit(id); return;
+  }
+}
+
+// ── Tab switching ─────────────────────────────────────────────
+function spTab(prefix, pane, btn) {
+  const panel = document.getElementById(`panel-${prefix === 'ps' ? 'personal' : 'academic'}`);
+  if (!panel) return;
+  panel.querySelectorAll('.sp-pane').forEach(p => p.classList.remove('on'));
+  panel.querySelectorAll('.sp-tab').forEach(t => t.classList.remove('on'));
+  const target = panel.querySelector(`#${prefix}-pane-${pane}`);
+  if (target) target.classList.add('on');
+  if (btn) btn.classList.add('on');
+}
+
+// ── Rename wrappers (HTML panels use type names, not space IDs) ──
+function spRenameByType(type) {
+  const sp = getSpaces().find(s => s.type === type);
+  if (sp) spRename(sp.id);
+}
+
+// ── Rename space ──────────────────────────────────────────────
+function spRename(id) {
+  const spaces = getSpaces();
+  const sp = spaces.find(s => s.id === id);
+  if (!sp) return;
+  const name = prompt('Rename space:', sp.name);
+  if (!name || !name.trim()) return;
+  sp.name = name.trim();
+  saveSpaces(spaces);
+  spaceRenderSidebar();
+  // Update panel name display
+  const nameEl = id === 'org'
+    ? $('os-space-name')
+    : $(`${sp.type === 'personal' ? 'ps' : 'ac'}-space-name`);
+  if (nameEl) nameEl.textContent = sp.name;
+}
+
+// ── More-menu ─────────────────────────────────────────────────
+function spMoreMenu(id, btn) {
+  const spaces = getSpaces();
+  const sp = spaces.find(s => s.id === id);
+  if (!sp) return;
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu';
+  menu.style.cssText = 'position:fixed;z-index:9999;';
+  const r = btn.getBoundingClientRect();
+  menu.style.top  = r.bottom + 4 + 'px';
+  menu.style.left = r.left + 'px';
+  menu.innerHTML = `
+    <div class="ctx-item" onclick="spRename('${id}')"><i class="ti ti-pencil"></i> Rename</div>
+    ${sp.id !== 'org' ? `<div class="ctx-item ctx-danger" onclick="spDelete('${id}')"><i class="ti ti-trash"></i> Delete</div>` : ''}
+  `;
+  document.body.appendChild(menu);
+  const remove = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click',remove); } };
+  setTimeout(() => document.addEventListener('click', remove), 0);
+}
+
+function spDelete(id) {
+  const spaces = getSpaces();
+  const sp = spaces.find(s => s.id === id);
+  if (!sp || sp.id === 'org') return;
+  if (!confirm(`Delete "${sp.name}"? This cannot be undone.`)) return;
+  saveSpaces(spaces.filter(s => s.id !== id));
+  localStorage.removeItem(spaceDataKey(id));
+  spaceRenderSidebar();
+  // If currently viewing this space, go home
+  nav('home');
+}
+
+// ── Create Space modal ────────────────────────────────────────
+let _cspType = 'personal';
+
+function openCreateSpaceModal() {
+  _cspType = '';
+  const modal = $('create-space-modal');
+  if (!modal) return;
+  modal.querySelectorAll('.csp-type').forEach(el => el.classList.remove('selected'));
+  const inp = $('csp-name-input');
+  if (inp) inp.value = '';
+  const nameRow = $('csp-name-row');
+  const footer  = $('csp-footer');
+  if (nameRow) nameRow.style.display = 'none';
+  if (footer)  footer.style.display  = 'none';
+  modal.style.display = 'flex';
+}
+function closeCreateSpaceModal() {
+  const modal = $('create-space-modal');
+  if (modal) modal.style.display = 'none';
+}
+function cspSelectType(type, el) {
+  _cspType = type;
+  document.querySelectorAll('.csp-type').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  const nameRow = $('csp-name-row');
+  const footer  = $('csp-footer');
+  if (nameRow) { nameRow.style.display = 'block'; $('csp-name-input')?.focus(); }
+  if (footer)  footer.style.display  = 'flex';
+}
+function cspCreate() {
+  const inp  = $('csp-name-input');
+  const name = inp ? inp.value.trim() : '';
+  if (!_cspType) { alert('Please select a space type.'); return; }
+  if (!name) { inp && inp.focus(); return; }
+  const type = _cspType;
+  if (type === 'org') {
+    closeCreateSpaceModal();
+    nav('org');
+    return;
+  }
+  const icon = type === 'personal' ? '👤' : '🎓';
+  const id   = `sp_${Date.now()}`;
+  const spaces = getSpaces();
+  spaces.push({ id, name, type, icon });
+  saveSpaces(spaces);
+  spaceRenderSidebar();
+  closeCreateSpaceModal();
+  openSpace(id);
+}
+
+/* ════════════════════════════════════════════════════════════
+   PERSONAL SPACE (ps-*)
+════════════════════════════════════════════════════════════ */
+let _psId = null;
+
+function psInit(id) {
+  _psId = id;
+  // Show first pane
+  spTab('ps', 'overview', document.querySelector('#panel-personal .sp-tab'));
+  psRenderOverview();
+}
+
+function psData() { return getSpaceData(_psId || 'personal'); }
+function psSave(d) { setSpaceData(_psId || 'personal', d); }
+
+function psRenderOverview() {
+  const d = psData();
+  const done    = (d.tasks   || []).filter(t => t.done).length;
+  const goals   = (d.goals   || []).length;
+  const bestStreak = (d.habits || []).reduce((mx, h) => Math.max(mx, h.streak||0), 0);
+  const now     = new Date();
+  const entries = (d.journal || []).filter(e => {
+    const d2 = new Date(e.id); return d2.getMonth() === now.getMonth() && d2.getFullYear() === now.getFullYear();
+  }).length;
+
+  const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  set('ps-done-today',    done);
+  set('ps-active-goals',  goals);
+  set('ps-habit-streak',  bestStreak + '🔥');
+  set('ps-journal-month', entries);
+  set('ps-streak',        d.streak || 0);
+}
+
+// Tasks / Kanban
+function psNewTask() {
+  const title = prompt('New task:');
+  if (!title) return;
+  const d = psData();
+  d.tasks = d.tasks || [];
+  d.tasks.push({ id: Date.now(), title, status:'todo', done:false, created: Date.now() });
+  psSave(d);
+  psRenderKanban();
+}
+
+function psRenderKanban() {
+  const kanban = $('ps-kanban');
+  if (!kanban) return;
+  const d = psData();
+  const tasks = d.tasks || [];
+  const cols = [
+    { key:'todo',       label:'To Do' },
+    { key:'inprogress', label:'In Progress' },
+    { key:'done',       label:'Done' },
+  ];
+  kanban.innerHTML = cols.map(col => {
+    const items = tasks.filter(t => t.status === col.key);
+    return `<div class="os-col" style="min-width:200px;max-width:260px;flex:1">
+      <div class="os-col-hd">
+        <span class="os-col-title">${col.label}</span>
+        <span class="os-col-count">${items.length}</span>
+      </div>
+      <div class="os-col-body">
+        ${items.map(t => `<div class="os-task-card" onclick="psMoveTask(${t.id})">
+          <span class="os-task-title">${t.title}</span>
+        </div>`).join('')}
+        <button class="os-add-task-btn" onclick="psNewTask()"><i class="ti ti-plus"></i> Add task</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function psMoveTask(id) {
+  const d = psData();
+  const t = (d.tasks || []).find(t => t.id === id);
+  if (!t) return;
+  const order = ['todo','inprogress','done'];
+  const next = order[(order.indexOf(t.status) + 1) % order.length];
+  t.status = next; t.done = next === 'done';
+  psSave(d); psRenderKanban();
+}
+
+// Goals
+function psNewGoal() {
+  const title = prompt('Goal title:');
+  if (!title) return;
+  const d = psData();
+  d.goals = d.goals || [];
+  d.goals.push({ id: Date.now(), title, progress: 0, target: 100 });
+  psSave(d); psRenderGoals();
+}
+
+function psRenderGoals() {
+  const grid = $('ps-goals-grid');
+  if (!grid) return;
+  const goals = psData().goals || [];
+  if (!goals.length) {
+    grid.innerHTML = '<p style="color:var(--muted);font-size:.84rem">No goals yet.</p>'; return;
+  }
+  grid.innerHTML = goals.map(g => {
+    const pct = Math.min(100, Math.round((g.progress / (g.target || 100)) * 100));
+    return `<div class="sp-goal-card">
+      <div class="sp-goal-title">${g.title}</div>
+      <div class="sp-goal-bar-bg"><div class="sp-goal-bar-fill" style="width:${pct}%"></div></div>
+      <div class="sp-goal-meta"><span>${pct}%</span><span onclick="psUpdateGoal(${g.id})" style="cursor:pointer;color:var(--blue)">Update</span></div>
+    </div>`;
+  }).join('');
+}
+
+function psUpdateGoal(id) {
+  const d = psData();
+  const g = (d.goals || []).find(g => g.id === id);
+  if (!g) return;
+  const v = prompt(`Progress for "${g.title}" (0-${g.target}):`, g.progress);
+  if (v === null) return;
+  g.progress = Math.max(0, Math.min(g.target, parseInt(v) || 0));
+  psSave(d); psRenderGoals();
+}
+
+// Habits
+function psNewHabit() {
+  const name = prompt('New habit:');
+  if (!name) return;
+  const d = psData();
+  d.habits = d.habits || [];
+  d.habits.push({ id: Date.now(), name, streak: 0, doneToday: false });
+  psSave(d); psRenderHabits();
+}
+
+function psRenderHabits() {
+  const list = $('ps-habits-list');
+  if (!list) return;
+  const habits = psData().habits || [];
+  if (!habits.length) {
+    list.innerHTML = '<p style="color:var(--muted);font-size:.84rem">No habits yet.</p>'; return;
+  }
+  list.innerHTML = habits.map(h => `
+    <div class="sp-habit-row">
+      <div class="sp-habit-check ${h.doneToday ? 'done' : ''}" onclick="psToggleHabit(${h.id})">
+        ${h.doneToday ? '<i class="ti ti-check"></i>' : ''}
+      </div>
+      <span class="sp-habit-name">${h.name}</span>
+      <span class="sp-habit-streak">🔥 ${h.streak}</span>
+    </div>`).join('');
+}
+
+function psToggleHabit(id) {
+  const d = psData();
+  const h = (d.habits || []).find(h => h.id === id);
+  if (!h) return;
+  h.doneToday = !h.doneToday;
+  h.streak = h.doneToday ? (h.streak || 0) + 1 : Math.max(0, (h.streak || 0) - 1);
+  psSave(d); psRenderHabits();
+}
+
+// Journal
+function psSaveJournal() {
+  const textarea = $('ps-journal-text');
+  if (!textarea || !textarea.value.trim()) return;
+  const d = psData();
+  d.journal = d.journal || [];
+  d.journal.unshift({ id: Date.now(), text: textarea.value.trim(), date: new Date().toLocaleString() });
+  textarea.value = '';
+  psSave(d); psRenderJournal();
+}
+
+function psMood(mood, btn) {
+  const d = psData();
+  d.lastMood = mood;
+  psSave(d);
+  document.querySelectorAll('.sp-mood-btn').forEach(b => b.style.opacity = '.4');
+  if (btn) btn.style.opacity = '1';
+}
+
+function psRenderJournal() {
+  const entries = $('ps-journal-entries');
+  if (!entries) return;
+  const journal = psData().journal || [];
+  entries.innerHTML = journal.map(e => `
+    <div class="sp-journal-entry">
+      <div class="sp-journal-entry-date">${e.date}</div>
+      <div class="sp-journal-entry-text">${e.text}</div>
+    </div>`).join('') || '<p style="color:var(--muted);font-size:.84rem">No entries yet.</p>';
+}
+
+// Notes
+function psNewNote() {
+  const title = prompt('Note title:');
+  if (!title) return;
+  const d = psData();
+  d.notes = d.notes || [];
+  d.notes.unshift({ id: Date.now(), title, body: '', date: new Date().toLocaleDateString() });
+  psSave(d); psRenderNotes();
+}
+
+function psRenderNotes() {
+  const grid = $('ps-notes-grid');
+  if (!grid) return;
+  const notes = psData().notes || [];
+  if (!notes.length) {
+    grid.innerHTML = '<p style="color:var(--muted);font-size:.84rem">No notes yet.</p>'; return;
+  }
+  grid.innerHTML = notes.map(n => `
+    <div class="sp-note-card" onclick="psEditNote(${n.id})">
+      <div class="sp-note-title">${n.title}</div>
+      <div class="sp-note-preview">${n.body || 'Empty note…'}</div>
+      <div class="sp-note-date">${n.date}</div>
+    </div>`).join('');
+}
+
+function psEditNote(id) {
+  const d = psData();
+  const n = (d.notes || []).find(n => n.id === id);
+  if (!n) return;
+  const body = prompt(`"${n.title}"\n\nEdit note:`, n.body);
+  if (body === null) return;
+  n.body = body;
+  psSave(d); psRenderNotes();
+}
+
+/* ════════════════════════════════════════════════════════════
+   ACADEMIC SPACE (ac-*)
+════════════════════════════════════════════════════════════ */
+let _acId = null;
+let _acTimer = null;
+let _acTimerRunning = false;
+let _acTimerSeconds = 25 * 60;
+let _acTimerMode = 'focus';
+const _acTimerModes = { focus: 25*60, short: 5*60, long: 15*60 };
+let _acCards = [];
+let _acCardIdx = 0;
+let _acQuizQ = 0;
+let _acQuizScore = 0;
+let _acQuizItems = [];
+
+function acInit(id) {
+  _acId = id;
+  spTab('ac', 'overview', document.querySelector('#panel-academic .sp-tab'));
+  acRenderOverview();
+}
+
+function acData() { return getSpaceData(_acId || 'academic'); }
+function acSave(d) { setSpaceData(_acId || 'academic', d); }
+
+function acRenderOverview() {
+  const d = acData();
+  const courses  = (d.courses || []).length;
+  const sessions = d.pomodoroSessions || 0;
+  const ratings  = d.cardRatings || {};
+  const goodCount = Object.values(ratings).filter(r => r === 'good' || r === 'easy').length;
+  const total     = Object.keys(ratings).length || 1;
+  const acc = total > 1 ? Math.round(goodCount / total * 100) + '%' : '—';
+
+  const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  set('ac-course-count',  courses);
+  set('ac-cards-today',   sessions > 0 ? Object.keys(ratings).length : 0);
+  set('ac-quiz-acc',      acc);
+  set('ac-study-streak',  (d.studyStreak || 0) + '🔥');
+  set('ac-exam-countdown','—');
+}
+
+// ── Courses ──────────────────────────────────────────────────
+function acAddCourse() {
+  const name = prompt('Course name:');
+  if (!name) return;
+  const code = prompt('Course code (e.g. CSC 301):') || '';
+  const d = acData();
+  d.courses = d.courses || [];
+  d.courses.push({ id: Date.now(), name, code, progress: 0 });
+  acSave(d); acRenderCourses();
+}
+
+function acRenderCourses() {
+  const grid = $('ac-courses-grid');
+  if (!grid) return;
+  const courses = acData().courses || [];
+  if (!courses.length) {
+    grid.innerHTML = '<p style="color:var(--muted);font-size:.84rem">No courses yet.</p>'; return;
+  }
+  grid.innerHTML = courses.map(c => `
+    <div class="sp-course-card" onclick="acUpdateCourse(${c.id})">
+      <div class="sp-course-banner"></div>
+      <div class="sp-course-body">
+        <div class="sp-course-title">${c.name}</div>
+        <div class="sp-course-code">${c.code}</div>
+        <div class="sp-course-prog">
+          <div class="sp-course-bar"><div class="sp-course-bar-fill" style="width:${c.progress}%"></div></div>
+          <span class="sp-course-pct">${c.progress}%</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function acUpdateCourse(id) {
+  const d = acData();
+  const c = (d.courses || []).find(c => c.id === id);
+  if (!c) return;
+  const v = prompt(`Progress for "${c.name}" (0-100):`, c.progress);
+  if (v === null) return;
+  c.progress = Math.max(0, Math.min(100, parseInt(v) || 0));
+  acSave(d); acRenderCourses();
+}
+
+// ── Flashcards ───────────────────────────────────────────────
+function acLoadCards() {
+  _acCards = acData().cards || [];
+  _acCardIdx = 0;
+  acShowCard();
+}
+
+function acShowCard() {
+  const inner = $('ac-flashcard-inner');
+  const qEl   = $('ac-fc-question');
+  const aEl   = $('ac-fc-answer');
+  const nav   = $('ac-fc-counter');
+  const rateRow = $('ac-rate-row');
+  if (!inner) return;
+  if (!_acCards.length) {
+    if (qEl) qEl.textContent = 'No cards yet — add one below.';
+    if (aEl) aEl.textContent = '';
+    if (nav) nav.textContent = 'Card 0 of 0';
+    if (rateRow) rateRow.style.display = 'none';
+    return;
+  }
+  const card = _acCards[_acCardIdx];
+  inner.classList.remove('flipped');
+  if (qEl) qEl.textContent = card.q;
+  if (aEl) aEl.textContent = card.a;
+  if (nav) nav.textContent = `Card ${_acCardIdx + 1} of ${_acCards.length}`;
+  if (rateRow) rateRow.style.display = 'flex';
+}
+
+function acFlipCard() {
+  const inner = $('ac-flashcard-inner');
+  if (inner) inner.classList.toggle('flipped');
+}
+
+function acRateCard(rating) {
+  if (!_acCards.length) return;
+  const d = acData();
+  d.cardRatings = d.cardRatings || {};
+  d.cardRatings[_acCards[_acCardIdx].id] = rating;
+  acSave(d);
+  _acCardIdx = (_acCardIdx + 1) % _acCards.length;
+  acShowCard();
+}
+
+function acPrevCard() {
+  if (!_acCards.length) return;
+  _acCardIdx = (_acCardIdx - 1 + _acCards.length) % _acCards.length;
+  acShowCard();
+}
+
+function acNextCard() {
+  if (!_acCards.length) return;
+  _acCardIdx = (_acCardIdx + 1) % _acCards.length;
+  acShowCard();
+}
+
+function acAddCard() {
+  const qEl = $('ac-card-q');
+  const aEl = $('ac-card-a');
+  const q = qEl ? qEl.value.trim() : prompt('Question:');
+  const a = aEl ? aEl.value.trim() : prompt('Answer:');
+  if (!q || !a) return;
+  const d = acData();
+  d.cards = d.cards || [];
+  d.cards.push({ id: Date.now(), q, a });
+  acSave(d);
+  if (qEl) qEl.value = '';
+  if (aEl) aEl.value = '';
+  _acCards = d.cards;
+  _acCardIdx = d.cards.length - 1;
+  acShowCard();
+}
+
+// ── Pomodoro Timer ────────────────────────────────────────────
+function acSetMode(mode, btn) {
+  _acTimerMode = mode;
+  _acTimerSeconds = _acTimerModes[mode] || 25*60;
+  acTimerStop();
+  acRenderTimer();
+  document.querySelectorAll('.sp-tmode-btn').forEach(b => b.classList.remove('sp-tmode-active'));
+  if (btn) btn.classList.add('sp-tmode-active');
+  const lbl = $('ac-timer-label');
+  if (lbl) lbl.textContent = mode === 'focus' ? 'Focus session' : mode === 'short' ? 'Short break' : 'Long break';
+}
+
+function acTimerToggle() {
+  if (_acTimerRunning) acTimerStop();
+  else acTimerStart();
+}
+
+function acTimerStart() {
+  if (_acTimerRunning) return;
+  _acTimerRunning = true;
+  const btn = $('ac-timer-start');
+  if (btn) btn.innerHTML = '<i class="ti ti-player-pause"></i> Pause';
+  const startBtn = $('ac-timer-start');
+  if (startBtn) startBtn.textContent = 'Pause';
+  _acTimer = setInterval(() => {
+    if (_acTimerSeconds <= 0) {
+      acTimerStop();
+      if (_acTimerMode === 'focus') {
+        const d = acData();
+        d.pomodoroSessions = (d.pomodoroSessions || 0) + 1;
+        d.studyStreak = (d.studyStreak || 0) + 1;
+        acSave(d);
+        const el = $('ac-t-today');
+        if (el) el.textContent = d.pomodoroSessions;
+      }
+      _acTimerSeconds = _acTimerModes[_acTimerMode] || 25*60;
+    } else {
+      _acTimerSeconds--;
+    }
+    acRenderTimer();
+  }, 1000);
+}
+
+function acTimerStop() {
+  _acTimerRunning = false;
+  if (_acTimer) { clearInterval(_acTimer); _acTimer = null; }
+  const btn = $('ac-timer-start');
+  if (btn) btn.textContent = 'Start';
+}
+
+function acTimerReset() {
+  acTimerStop();
+  _acTimerSeconds = _acTimerModes[_acTimerMode] || 25*60;
+  acRenderTimer();
+}
+
+function acRenderTimer() {
+  const m = Math.floor(_acTimerSeconds / 60).toString().padStart(2,'0');
+  const s = (_acTimerSeconds % 60).toString().padStart(2,'0');
+  const el = $('ac-timer-display');
+  if (el) el.textContent = `${m}:${s}`;
+}
+
+// ── Quiz ──────────────────────────────────────────────────────
+function acStartQuiz() {
+  const cards = acData().cards || [];
+  if (cards.length < 2) { alert('Add at least 2 flashcards to start a quiz.'); return; }
+  _acQuizItems = [...cards].sort(() => Math.random() - .5).slice(0, Math.min(10, cards.length));
+  _acQuizQ = 0; _acQuizScore = 0;
+  const cfg = $('ac-quiz-config');
+  const active = $('ac-quiz-active');
+  if (cfg) cfg.style.display = 'none';
+  if (active) active.style.display = 'flex';
+  acRenderQuizQ();
+}
+
+function acRenderQuizQ() {
+  const active = $('ac-quiz-active');
+  if (!active) return;
+  if (_acQuizQ >= _acQuizItems.length) {
+    active.innerHTML = `<div class="sp-quiz-result">
+      <div style="font-size:2rem">🎉</div>
+      <div style="font-size:1.1rem;font-weight:700;margin:8px 0">Quiz Complete!</div>
+      <div>Score: ${_acQuizScore} / ${_acQuizItems.length}</div>
+      <button class="sp-timer-btn sp-timer-start" style="margin-top:16px" onclick="acResetQuiz()">Try Again</button>
+    </div>`;
+    return;
+  }
+  const q = _acQuizItems[_acQuizQ];
+  const others = (acData().cards || []).filter(c => c.id !== q.id);
+  const wrongs = others.sort(() => Math.random() - .5).slice(0, 3).map(c => c.a);
+  const opts = [...wrongs, q.a].sort(() => Math.random() - .5);
+  active.innerHTML = `
+    <div style="font-size:.72rem;color:var(--muted)">${_acQuizQ+1} / ${_acQuizItems.length}</div>
+    <div class="sp-quiz-q">${q.q}</div>
+    <div class="sp-quiz-opts">
+      ${opts.map(o => `<button class="sp-quiz-opt" onclick="acAnswerQuiz(this,'${o.replace(/'/g,"\\'")}','${q.a.replace(/'/g,"\\'")}')">
+        ${o}
+      </button>`).join('')}
+    </div>`;
+}
+
+function acAnswerQuiz(btn, chosen, correct) {
+  document.querySelectorAll('.sp-quiz-opt').forEach(b => b.disabled = true);
+  if (chosen === correct) {
+    btn.classList.add('correct'); _acQuizScore++;
+  } else {
+    btn.classList.add('wrong');
+    document.querySelectorAll('.sp-quiz-opt').forEach(b => {
+      if (b.textContent.trim() === correct) b.classList.add('correct');
+    });
+  }
+  setTimeout(() => { _acQuizQ++; acRenderQuizQ(); }, 1200);
+}
+
+function acResetQuiz() {
+  const cfg = $('ac-quiz-config');
+  const active = $('ac-quiz-active');
+  if (cfg) cfg.style.display = 'flex';
+  if (active) active.style.display = 'none';
+}
+
+// ── Study Groups ──────────────────────────────────────────────
+function acNewGroup() {
+  const name = prompt('Study group name:');
+  if (!name) return;
+  const subject = prompt('Subject:') || '';
+  const d = acData();
+  d.groups = d.groups || [];
+  d.groups.push({ id: Date.now(), name, subject, members: 1 });
+  acSave(d); acRenderGroups();
+}
+
+function acJoinGroup(id) {
+  const d = acData();
+  const g = (d.groups || []).find(g => g.id === id);
+  if (!g) return;
+  g.members = (g.members || 1) + 1;
+  acSave(d); acRenderGroups();
+}
+
+function acRenderGroups() {
+  const grid = $('ac-groups-grid');
+  if (!grid) return;
+  const groups = acData().groups || [];
+  if (!groups.length) {
+    grid.innerHTML = '<p style="color:var(--muted);font-size:.84rem">No groups yet.</p>'; return;
+  }
+  grid.innerHTML = groups.map(g => `
+    <div class="sp-group-card">
+      <div class="sp-group-name">${g.name}</div>
+      <div class="sp-group-sub">${g.subject}</div>
+      <div class="sp-group-badge"><i class="ti ti-users"></i> ${g.members} member${g.members !== 1 ? 's' : ''}</div>
+      <button class="sp-timer-btn" style="margin-top:8px;background:var(--amber3);color:#fff;padding:6px 14px;font-size:.76rem" onclick="acJoinGroup(${g.id})">Join</button>
+    </div>`).join('');
+}
+
+// ── Quiz helpers ──────────────────────────────────────────────
+function acSetDiff(diff, btn) {
+  document.querySelectorAll('.sp-diff-btn').forEach(b => b.classList.remove('sp-diff-active'));
+  if (btn) btn.classList.add('sp-diff-active');
+}
+function acQuizSkip() { _acQuizQ++; acRenderQuizQ(); }
+function acQuizNext() { _acQuizQ++; acRenderQuizQ(); }
+
+// ── Course filter ─────────────────────────────────────────────
+function acFilterCourses(filter, btn) {
+  document.querySelectorAll('.sp-tool-btn').forEach(b => b.classList.remove('sp-tool-amber-active'));
+  if (btn) btn.classList.add('sp-tool-amber-active');
+  const d = acData();
+  let courses = d.courses || [];
+  if (filter === 'active') courses = courses.filter(c => c.progress < 100);
+  if (filter === 'done')   courses = courses.filter(c => c.progress >= 100);
+  const grid = $('ac-courses-grid');
+  if (!grid) return;
+  if (!courses.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:.84rem">No courses.</p>'; return; }
+  grid.innerHTML = courses.map(c => `
+    <div class="sp-course-card" onclick="acUpdateCourse(${c.id})">
+      <div class="sp-course-banner"></div>
+      <div class="sp-course-body">
+        <div class="sp-course-title">${c.name}</div>
+        <div class="sp-course-code">${c.code}</div>
+        <div class="sp-course-prog">
+          <div class="sp-course-bar"><div class="sp-course-bar-fill" style="width:${c.progress}%"></div></div>
+          <span class="sp-course-pct">${c.progress}%</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Planner plan generator ────────────────────────────────────
+function acGenPlan() {
+  const subject = $('ac-plan-subject')?.value.trim();
+  const date    = $('ac-plan-date')?.value;
+  const hrs     = parseInt($('ac-plan-hrs')?.value || '2');
+  if (!subject) { alert('Enter a subject or exam title.'); return; }
+  const d = acData();
+  d.plan = d.plan || [];
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const items = days.slice(0,5).map(day => ({
+    id: Date.now() + Math.random(), title: `${subject} — ${hrs}h review`, due: day
+  }));
+  d.plan = [...items, ...d.plan];
+  acSave(d); acRenderPlan();
+}
+
+// ── Planner ───────────────────────────────────────────────────
+function acCreatePlan() {
+  const title = prompt('Plan / assignment title:');
+  if (!title) return;
+  const due = prompt('Due date (e.g. Mon, May 13):') || 'TBD';
+  const d = acData();
+  d.plan = d.plan || [];
+  d.plan.unshift({ id: Date.now(), title, due });
+  acSave(d); acRenderPlan();
+}
+
+function acRenderPlan() {
+  const cont = $('ac-plan-content');
+  if (!cont) return;
+  const items = acData().plan || [];
+  if (!items.length) {
+    cont.innerHTML = '<p style="color:var(--muted);font-size:.84rem">No plan items yet.</p>'; return;
+  }
+  cont.innerHTML = `<div class="sp-plan-week">
+    <div class="sp-plan-week-hd">Upcoming</div>
+    ${items.map(it => `
+      <div class="sp-plan-item">
+        <div class="sp-plan-dot"></div>
+        <span class="sp-plan-text">${it.title}</span>
+        <span class="sp-plan-due">${it.due}</span>
+      </div>`).join('')}
+  </div>`;
+}
+
 
