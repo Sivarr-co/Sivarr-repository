@@ -422,6 +422,8 @@ function _applyLoginData(r) {
     seedSpacesFromServer(r.spaces);
   }
   setTimeout(() => spaceRenderSidebar(), 100);
+  // Handle Stripe payment return
+  setTimeout(() => agCheckPaymentReturn(), 500);
 }
 
 async function restoreSession(token) {
@@ -3826,7 +3828,7 @@ const PANEL_SECTION_MAP = {
   courses:'academic', quiz:'academic', lab:'academic',
   studyplan:'academic', pomodoro:'academic', contenthub:'academic',
   goals:'grow', habits:'grow', stats:'grow', journal:'grow',
-  community:'connect', library:'connect', opportunities:'connect',
+  community:'connect', library:'connect', opportunities:'connect', agents:'connect',
   team:'org', projects:'org', hr:'org', automations:'org', orgchat:'org', org:'org',
   personal:'spaces', academic:'spaces',
 };
@@ -3918,6 +3920,7 @@ function nav(name, btn) {
   if (name === 'profile')       profileInit();
   if (name === 'personal')      psRenderOverview();
   if (name === 'academic')      acRenderOverview();
+  if (name === 'agents')        agInit();
 }
 
 // Mobile tab bar navigation with smooth pill scroll
@@ -8581,6 +8584,1374 @@ function acRenderPlan() {
         <span class="sp-plan-due">${it.due}</span>
       </div>`).join('')}
   </div>`;
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  AGENTS MARKETPLACE
+// ═══════════════════════════════════════════════════════════════
+
+const _ag = {
+  view:      'marketplace', // current sub-view
+  category:  'all',
+  filters:   [],
+  templates: [],
+  agents:    [],
+  myAgent:   null,
+  viewStack: [], // for back-button navigation
+};
+
+const AG_CAT_COLORS = {
+  workspace:  '#4f6ef7',
+  academic:   '#d97706',
+  ai_prompts: '#6b7280',
+  goals:      '#22c55e',
+  journal:    '#7f77dd',
+  study_decks:'#d85a30',
+};
+const AG_CAT_ICONS = {
+  workspace:  'ti-layout-dashboard',
+  academic:   'ti-school',
+  ai_prompts: 'ti-message-bolt',
+  goals:      'ti-target',
+  journal:    'ti-notebook',
+  study_decks:'ti-cards',
+};
+const AG_CAT_LABELS = {
+  all:        'All',
+  workspace:  'Workspace',
+  academic:   'Academic',
+  ai_prompts: 'AI Prompts',
+  goals:      'Goals',
+  journal:    'Journal',
+  study_decks:'Study Decks',
+};
+
+// ── Init ──────────────────────────────────────────────────────
+async function agInit() {
+  await agLoadMyAgent();
+  agUpdateTopbarBtn();
+  if (_ag.templates.length === 0) {
+    agRenderLoading();
+    await agFetchTemplates();
+  }
+  agRenderMarketplace();
+}
+
+async function agLoadMyAgent() {
+  if (!S.token) return;
+  try {
+    const r = await fetch(`/api/agents/me?token=${S.token}`);
+    const d = await r.json();
+    _ag.myAgent = d.agent || null;
+  } catch { _ag.myAgent = null; }
+}
+
+function agUpdateTopbarBtn() {
+  const label = $('ag-btn-label');
+  if (label) {
+    label.textContent = _ag.myAgent ? 'Dashboard' : 'Become an Agent';
+  }
+}
+
+// ── Fetch ─────────────────────────────────────────────────────
+async function agFetchTemplates(category = 'all', sort = 'popular') {
+  try {
+    const r = await fetch(`/api/agents/templates?category=${category}&sort=${sort}&limit=60`);
+    const d = await r.json();
+    _ag.templates = d.templates || [];
+  } catch { _ag.templates = []; }
+}
+
+async function agFetchAgents(sort = 'downloads') {
+  try {
+    const r = await fetch(`/api/agents?sort=${sort}`);
+    const d = await r.json();
+    _ag.agents = d.agents || [];
+  } catch { _ag.agents = []; }
+}
+
+// ── Navigation ────────────────────────────────────────────────
+function agNav(view, pushStack = true) {
+  if (pushStack && view !== _ag.view) _ag.viewStack.push(_ag.view);
+  _ag.view = view;
+  const backBtn = $('ag-back-btn');
+  if (backBtn) backBtn.style.display = _ag.viewStack.length ? 'flex' : 'none';
+  agUpdateTitle(view);
+}
+
+function agBack() {
+  if (!_ag.viewStack.length) return;
+  const prev = _ag.viewStack.pop();
+  _ag.view = prev;
+  const backBtn = $('ag-back-btn');
+  if (backBtn) backBtn.style.display = _ag.viewStack.length ? 'flex' : 'none';
+  agUpdateTitle(prev);
+
+  if (prev === 'marketplace') agRenderMarketplace();
+  else if (prev === 'directory') agRenderDirectory();
+  else if (prev === 'apply')   agRenderApply();
+  else if (prev === 'dashboard') agRenderDashboard();
+  else agRenderMarketplace();
+}
+
+function agUpdateTitle(view) {
+  const titles = {
+    marketplace: 'Sivarr Agents',
+    directory:   'Browse Agents',
+    apply:       'Become an Agent',
+    dashboard:   'Creator Dashboard',
+    builder:     'New Template',
+    detail:      'Template',
+    profile:     'Agent Profile',
+  };
+  const t = $('ag-topbar-title');
+  if (t) t.textContent = titles[view] || 'Sivarr Agents';
+}
+
+function agNavDashboardOrApply() {
+  if (_ag.myAgent) {
+    agNav('dashboard');
+    agRenderDashboard();
+  } else {
+    agNav('apply');
+    agRenderApply();
+  }
+}
+
+// ── Loading state ─────────────────────────────────────────────
+function agRenderLoading() {
+  const v = $('ag-view');
+  if (v) v.innerHTML = `<div class="ag-loading"><div class="ag-spinner"></div><span>Loading…</span></div>`;
+}
+
+// ── Marketplace ───────────────────────────────────────────────
+async function agRenderMarketplace() {
+  agNav('marketplace', false);
+  const v = $('ag-view');
+  if (!v) return;
+
+  const filtered = agApplyFilters(_ag.templates, _ag.category, _ag.filters);
+
+  v.innerHTML = `
+    <div class="ag-market-wrap">
+
+      <!-- Category tabs -->
+      <div class="ag-cats">
+        ${['all','workspace','academic','ai_prompts','goals','journal','study_decks'].map(c => `
+          <button class="ag-cat${_ag.category===c?' active':''}"
+            onclick="agSetCategory('${c}')">${AG_CAT_LABELS[c]||c}</button>
+        `).join('')}
+      </div>
+
+      <!-- Filter chips -->
+      <div class="ag-filters">
+        ${[
+          {id:'popular',   label:'🔥 Most popular'},
+          {id:'new',       label:'✨ New this week'},
+          {id:'free',      label:'🆓 Free only'},
+          {id:'under5',    label:'💸 Under $5'},
+          {id:'top_rated', label:'⭐ Top rated'},
+        ].map(f => `
+          <button class="ag-chip${_ag.filters.includes(f.id)?' active':''}"
+            onclick="agToggleFilter('${f.id}')">${f.label}</button>
+        `).join('')}
+      </div>
+
+      <!-- Featured banner -->
+      ${await agFeaturedBannerHTML()}
+
+      <!-- Template grid -->
+      <div class="ag-section-hd">
+        <div class="ag-section-title">🔥 Trending this week</div>
+        <span class="ag-section-link" onclick="agNav('directory');agRenderDirectory()">
+          All agents →
+        </span>
+      </div>
+      <div class="ag-grid" id="ag-grid">
+        ${filtered.length
+          ? filtered.map(t => agTemplateCardHTML(t)).join('')
+          : '<div class="ag-empty"><div class="ag-empty-icon">🔍</div><p>No templates found.</p></div>'}
+      </div>
+
+      <!-- Top agents section -->
+      <div class="ag-section-hd" style="margin-top:8px">
+        <div class="ag-section-title">🌟 Top agents</div>
+        <span class="ag-section-link" onclick="agNav('directory');agRenderDirectory()">See all →</span>
+      </div>
+      <div id="ag-agents-preview">
+        <div class="ag-loading" style="height:100px"><div class="ag-spinner"></div></div>
+      </div>
+
+    </div>
+  `;
+
+  // Load agents in background
+  agFetchAgents().then(() => {
+    const cont = $('ag-agents-preview');
+    if (!cont) return;
+    if (!_ag.agents.length) {
+      cont.innerHTML = '<p style="font-size:.8rem;color:var(--muted);padding:12px 0">No agents yet — be the first to apply!</p>';
+      return;
+    }
+    cont.innerHTML = _ag.agents.slice(0,5).map(a => agAgentRowHTML(a)).join('');
+  });
+}
+
+async function agFeaturedBannerHTML() {
+  try {
+    const r = await fetch('/api/agents/featured');
+    const d = await r.json();
+    const t = d.template;
+    if (!t || !t.id) return '';
+    const color = t.thumbnail_color || AG_CAT_COLORS[t.category] || '#4f6ef7';
+    const icon  = AG_CAT_ICONS[t.category] || 'ti-template';
+    return `
+      <div class="ag-featured" style="margin-bottom:24px" onclick="agOpenTemplate('${t.id}')">
+        <div class="ag-feat-thumb" style="background:${color}20">
+          <i class="ti ${icon}" style="color:${color};font-size:2.5rem"></i>
+        </div>
+        <div class="ag-feat-body">
+          <div class="ag-feat-label">⭐ Featured this week</div>
+          <div class="ag-feat-name">${esc(t.name)}</div>
+          <div class="ag-feat-desc">${esc(t.short_description||'')}</div>
+          <div class="ag-feat-meta">
+            <span>by <strong>${esc(t.agent_name||'')}</strong></span>
+            <span>📥 ${t.download_count||0} downloads</span>
+            <span>★ ${(t.avg_rating||0).toFixed(1)}</span>
+          </div>
+          <div class="ag-feat-actions">
+            <button class="ag-get-btn" onclick="event.stopPropagation();agOpenTemplate('${t.id}')">
+              Preview template →
+            </button>
+          </div>
+        </div>
+      </div>`;
+  } catch { return ''; }
+}
+
+function agTemplateCardHTML(t) {
+  const color = t.thumbnail_color || AG_CAT_COLORS[t.category] || '#4f6ef7';
+  const icon  = AG_CAT_ICONS[t.category] || 'ti-template';
+  const price = parseFloat(t.price||0);
+  const priceLabel = price === 0 ? 'Free' : `$${price.toFixed(2)}`;
+  const isFree = price === 0;
+  return `
+    <div class="ag-card" onclick="agOpenTemplate('${t.id}')">
+      <div class="ag-card-thumb" style="background:${color}20">
+        <i class="ti ${icon}" style="color:${color};font-size:1.8rem"></i>
+      </div>
+      <div class="ag-card-body">
+        <span class="ag-card-tag">${AG_CAT_LABELS[t.category]||t.category}</span>
+        <div class="ag-card-name">${esc(t.name)}</div>
+        <div class="ag-card-meta">
+          <div class="ag-mini-av">${(t.agent_name||'?')[0].toUpperCase()}</div>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.agent_name||'')}</span>
+          <span class="ag-card-rating">★ ${(t.avg_rating||0).toFixed(1)}</span>
+        </div>
+        <div class="ag-card-footer">
+          <span class="ag-price${isFree?' free':''}">${priceLabel}</span>
+          <button class="ag-get-btn"
+            onclick="event.stopPropagation();agHandleGet('${t.id}',${price})">
+            Get
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function agAgentRowHTML(a) {
+  return `
+    <div class="ag-agent-row" onclick="agOpenAgentProfile('${a.id}')">
+      <div class="ag-agent-av">${(a.display_name||'?')[0].toUpperCase()}</div>
+      <div class="ag-agent-info">
+        <div class="ag-agent-name">
+          ${esc(a.display_name||'')}
+          ${a.verified ? '<i class="ti ti-rosette-discount-check ag-verified-badge" title="Verified"></i>' : ''}
+        </div>
+        <div class="ag-agent-stats">${a.total_downloads||0} downloads · ★ ${(a.avg_rating||0).toFixed(1)}</div>
+      </div>
+      <button class="ag-tb-btn" style="font-size:.72rem;padding:4px 10px">View</button>
+    </div>`;
+}
+
+// ── Filters ───────────────────────────────────────────────────
+async function agSetCategory(cat) {
+  _ag.category = cat;
+  agRenderLoading();
+  await agFetchTemplates(cat === 'all' ? 'all' : cat);
+  agRenderMarketplace();
+}
+
+function agToggleFilter(id) {
+  const idx = _ag.filters.indexOf(id);
+  if (idx === -1) _ag.filters.push(id);
+  else _ag.filters.splice(idx, 1);
+  const v = $('ag-view');
+  if (v) {
+    // re-render just the chips + grid without full refetch
+    const chips = v.querySelectorAll('.ag-chip');
+    chips.forEach(c => {
+      const cid = c.getAttribute('onclick').match(/'(\w+)'/)?.[1];
+      if (cid) c.classList.toggle('active', _ag.filters.includes(cid));
+    });
+    const grid = $('ag-grid');
+    if (grid) {
+      const filtered = agApplyFilters(_ag.templates, _ag.category, _ag.filters);
+      grid.innerHTML = filtered.length
+        ? filtered.map(t => agTemplateCardHTML(t)).join('')
+        : '<div class="ag-empty"><div class="ag-empty-icon">🔍</div><p>No templates found.</p></div>';
+    }
+  }
+}
+
+function agApplyFilters(templates, category, filters) {
+  let list = [...templates];
+  if (category && category !== 'all') list = list.filter(t => t.category === category);
+  if (filters.includes('free'))     list = list.filter(t => parseFloat(t.price||0) === 0);
+  if (filters.includes('under5'))   list = list.filter(t => parseFloat(t.price||0) < 5);
+  if (filters.includes('top_rated'))list = [...list].sort((a,b) => (b.avg_rating||0) - (a.avg_rating||0));
+  if (filters.includes('popular'))  list = [...list].sort((a,b) => (b.download_count||0) - (a.download_count||0));
+  if (filters.includes('new'))      list = [...list].sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0));
+  return list;
+}
+
+// ── Template detail ───────────────────────────────────────────
+async function agOpenTemplate(id) {
+  agNav('detail');
+  agRenderLoading();
+  const v = $('ag-view');
+  if (!v) return;
+  try {
+    const r = await fetch(`/api/agents/templates/${id}`);
+    const d = await r.json();
+    const t = d.template;
+    if (!t || !t.id) { v.innerHTML = '<div class="ag-empty"><div class="ag-empty-icon">😕</div><p>Template not found.</p></div>'; return; }
+    const color  = t.thumbnail_color || AG_CAT_COLORS[t.category] || '#4f6ef7';
+    const icon   = AG_CAT_ICONS[t.category] || 'ti-template';
+    const price  = parseFloat(t.price||0);
+    const isFree = price === 0;
+
+    // Check ownership
+    let owned = false;
+    if (S.token) {
+      try {
+        const or = await fetch(`/api/agents/templates/${id}/owned?token=${S.token}`);
+        const od = await or.json();
+        owned = od.owned;
+      } catch {}
+    }
+
+    const reviewsHTML = (t.reviews||[]).map(rv => `
+      <div class="ag-review-item">
+        <div class="ag-review-header">
+          <div class="ag-review-av">${(rv.reviewer_name||'?')[0].toUpperCase()}</div>
+          <span class="ag-review-name">${esc(rv.reviewer_name||'')}</span>
+          <span class="ag-review-stars">${'★'.repeat(rv.rating||5)}</span>
+        </div>
+        <div class="ag-review-text">${esc(rv.review_text||'')}</div>
+      </div>`).join('') || '<p style="font-size:.8rem;color:var(--muted)">No reviews yet. Be the first!</p>';
+
+    const includedHTML = (t.included_items||[]).map(item => `
+      <div class="ag-included-item">
+        <i class="ti ${item.icon||'ti-check'}"></i>
+        <span>${esc(item.description||'')}</span>
+      </div>`).join('') || agDefaultIncluded(t.contents || {});
+
+    v.innerHTML = `
+      <div class="ag-detail-wrap">
+        <div class="ag-detail-grid">
+          <!-- Left column -->
+          <div>
+            <div class="ag-detail-thumb" style="background:${color}20">
+              <i class="ti ${icon}" style="color:${color}"></i>
+            </div>
+            <div class="ag-detail-cat">${AG_CAT_LABELS[t.category]||t.category}</div>
+            <div class="ag-detail-name">${esc(t.name)}</div>
+            <div class="ag-detail-agent-row">
+              <div class="ag-detail-agent-av">${(t.agent_name||'?')[0].toUpperCase()}</div>
+              <span onclick="agOpenAgentProfile('${t.agent_id}')" style="cursor:pointer;color:var(--accent)">
+                ${esc(t.agent_name||'')}
+              </span>
+              ${t.agent_verified ? '<i class="ti ti-rosette-discount-check ag-verified-badge"></i>' : ''}
+              <span class="ag-detail-stars">${'★'.repeat(Math.round(t.avg_rating||0))}${'☆'.repeat(5-Math.round(t.avg_rating||0))}</span>
+              <span style="color:var(--muted)">(${t.review_count||0})</span>
+            </div>
+            <div class="ag-detail-desc">${esc(t.full_description||t.short_description||'')}</div>
+            <div class="ag-detail-stats-row">
+              <span><strong>${isFree ? 'Free' : '$'+price.toFixed(2)}</strong> price</span>
+              <span><strong>${t.download_count||0}</strong> downloads</span>
+              <span><strong>${(t.avg_rating||0).toFixed(1)}</strong> rating</span>
+            </div>
+            <button class="ag-detail-cta${owned?' owned':''}"
+              onclick="${owned ? '' : `agHandleGet('${id}',${price})`}">
+              ${owned ? '✓ Installed' : isFree ? 'Get for free' : `Buy for $${price.toFixed(2)}`}
+            </button>
+            <button class="ag-detail-secondary" onclick="agOpenAgentProfile('${t.agent_id}')">
+              View agent profile
+            </button>
+          </div>
+
+          <!-- Right column -->
+          <div>
+            <div class="ag-detail-card">
+              <div class="ag-detail-card-title">What's included</div>
+              ${includedHTML}
+            </div>
+            <div class="ag-detail-card">
+              <div class="ag-detail-card-title">Reviews</div>
+              ${reviewsHTML}
+              ${owned ? `
+                <button style="margin-top:10px;width:100%;padding:7px;border:1px solid var(--border);border-radius:8px;background:none;color:var(--accent);font-size:.78rem;font-weight:700;cursor:pointer"
+                  onclick="agLeaveReview('${id}')">
+                  + Leave a review
+                </button>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>`;
+  } catch {
+    v.innerHTML = '<div class="ag-empty"><div class="ag-empty-icon">😕</div><p>Failed to load template.</p></div>';
+  }
+}
+
+function agDefaultIncluded(contents) {
+  const items = [];
+  if ((contents.spaces||[]).length)      items.push({icon:'ti-layout-sidebar',description:`${contents.spaces.length} Space${contents.spaces.length>1?'s':''}`});
+  if ((contents.tasks||[]).length)       items.push({icon:'ti-checkbox',description:`${contents.tasks.length} pre-built tasks`});
+  if ((contents.habits||[]).length)      items.push({icon:'ti-repeat',description:`${contents.habits.length} habit${contents.habits.length>1?'s':''}`});
+  if ((contents.goals||[]).length)       items.push({icon:'ti-target',description:`${contents.goals.length} goal template${contents.goals.length>1?'s':''}`});
+  if ((contents.aiPrompts||[]).length)   items.push({icon:'ti-message-bolt',description:`${contents.aiPrompts.length} AI prompts`});
+  if ((contents.studyDeck||[]).length)   items.push({icon:'ti-cards',description:`${contents.studyDeck.length} flashcards`});
+  if ((contents.journalPrompts||[]).length) items.push({icon:'ti-notebook',description:`${contents.journalPrompts.length} journal prompts`});
+  if (!items.length) return '<p style="font-size:.8rem;color:var(--muted)">Template contents not listed.</p>';
+  return items.map(i => `<div class="ag-included-item"><i class="ti ${i.icon}"></i><span>${i.description}</span></div>`).join('');
+}
+
+// ── Get / install / purchase ──────────────────────────────────
+async function agHandleGet(templateId, price) {
+  if (!S.sid) { showToast('Sign in to get templates.'); return; }
+  if (parseFloat(price) === 0) {
+    await agInstallFree(templateId);
+  } else {
+    await agStartCheckout(templateId);
+  }
+}
+
+async function agInstallFree(templateId) {
+  try {
+    const r = await fetch(`/api/agents/templates/${templateId}/install`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({token: S.token}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      if (d.contents) agApplyContents(d.contents);
+      agShowInstallSuccess('Template installed! Check your Spaces.');
+      agOpenTemplate(templateId);
+    }
+  } catch { showToast('Install failed. Try again.'); }
+}
+
+async function agStartCheckout(templateId) {
+  showToast('Redirecting to checkout…');
+  try {
+    const r = await fetch('/api/payments/checkout', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({token: S.token, template_id: templateId}),
+    });
+    const d = await r.json();
+    if (d.status === 'installed') {
+      if (d.contents) agApplyContents(d.contents);
+      agShowInstallSuccess('Template installed!');
+      agOpenTemplate(templateId);
+    } else if (d.checkout_url) {
+      window.location.href = d.checkout_url;
+    }
+  } catch { showToast('Checkout failed. Try again.'); }
+}
+
+function agApplyContents(contents) {
+  // Spaces
+  (contents.spaces || []).forEach(sp => {
+    const spaces = getSpaces();
+    const id = `sp_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+    const space = {id, name:sp.name||'New Space', type:sp.type||'personal', icon:sp.type==='personal'?'👤':'🎓'};
+    spaces.push(space);
+    saveSpaces(spaces);
+    syncSpaceMeta(space);
+  });
+  // Tasks
+  (contents.tasks || []).forEach(task => {
+    const tasks = JSON.parse(localStorage.getItem('sivarr_tasks')||'[]');
+    tasks.push({id:`task_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...task, done:false});
+    localStorage.setItem('sivarr_tasks', JSON.stringify(tasks));
+  });
+  // Goals
+  (contents.goals || []).forEach(g => {
+    const goals = JSON.parse(localStorage.getItem('sivarr_goals')||'[]');
+    goals.push({id:`gl_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...g, done:false});
+    localStorage.setItem('sivarr_goals', JSON.stringify(goals));
+  });
+  // Habits
+  (contents.habits || []).forEach(h => {
+    const habits = JSON.parse(localStorage.getItem('sivarr_habits')||'[]');
+    habits.push({id:`hb_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...h});
+    localStorage.setItem('sivarr_habits', JSON.stringify(habits));
+  });
+  // Sidebar re-render
+  if (typeof spaceRenderSidebar === 'function') setTimeout(spaceRenderSidebar, 200);
+}
+
+function agShowInstallSuccess(msg) {
+  const el = document.createElement('div');
+  el.className = 'ag-install-success';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ── Agent profile ─────────────────────────────────────────────
+async function agOpenAgentProfile(agentId) {
+  agNav('profile');
+  agRenderLoading();
+  const v = $('ag-view');
+  if (!v) return;
+  try {
+    const r = await fetch(`/api/agents/${agentId}`);
+    const d = await r.json();
+    const a = d.agent;
+    if (!a || !a.id) { v.innerHTML = '<div class="ag-empty"><div class="ag-empty-icon">😕</div><p>Agent not found.</p></div>'; return; }
+    const templates = a.templates || [];
+
+    // Check follow state
+    let isFollowing = false;
+    if (S.token) {
+      // Optimistic — no dedicated endpoint, infer from UI state
+    }
+
+    v.innerHTML = `
+      <div class="ag-profile-wrap">
+        <div class="ag-profile-hero">
+          <div class="ag-profile-av">${(a.display_name||'?')[0].toUpperCase()}</div>
+          <div class="ag-profile-info">
+            <div class="ag-profile-name">
+              ${esc(a.display_name||'')}
+              ${a.verified ? '<i class="ti ti-rosette-discount-check ag-verified-badge" title="Verified Agent"></i>' : ''}
+            </div>
+            <div class="ag-profile-bio">${esc(a.bio||'')}</div>
+            <div class="ag-profile-stats">
+              <div><strong>${templates.length}</strong> templates</div>
+              <div><strong>${a.total_downloads||0}</strong> downloads</div>
+              <div><strong>${(a.avg_rating||0).toFixed(1)}</strong> avg rating</div>
+              <div><strong>${a.follower_count||0}</strong> followers</div>
+            </div>
+          </div>
+          <button class="ag-follow-btn${isFollowing?' following':''}" id="ag-follow-btn-${agentId}"
+            onclick="agToggleFollow('${agentId}')">
+            ${isFollowing ? 'Following' : '+ Follow'}
+          </button>
+        </div>
+
+        <div class="ag-section-hd">
+          <div class="ag-section-title">Templates by ${esc(a.display_name||'')}</div>
+        </div>
+        <div class="ag-grid">
+          ${templates.length
+            ? templates.map(t => agTemplateCardHTML(t)).join('')
+            : '<div class="ag-empty" style="grid-column:1/-1"><div class="ag-empty-icon">📦</div><p>No published templates yet.</p></div>'}
+        </div>
+      </div>`;
+  } catch {
+    v.innerHTML = '<div class="ag-empty"><div class="ag-empty-icon">😕</div><p>Failed to load agent.</p></div>';
+  }
+}
+
+async function agToggleFollow(agentId) {
+  const btn = $(`ag-follow-btn-${agentId}`);
+  if (!btn || !S.token) return;
+  const following = btn.classList.contains('following');
+  btn.classList.toggle('following', !following);
+  btn.textContent = !following ? 'Following' : '+ Follow';
+  try {
+    await fetch(`/api/agents/${agentId}/follow`, {
+      method: following ? 'DELETE' : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({token: S.token}),
+    });
+  } catch {}
+}
+
+// ── Agents directory ──────────────────────────────────────────
+async function agRenderDirectory() {
+  agNav('directory');
+  agRenderLoading();
+  const v = $('ag-view');
+  if (!v) return;
+  await agFetchAgents();
+  v.innerHTML = `
+    <div class="ag-dir-wrap">
+      <div class="ag-dir-sort" id="ag-dir-sort">
+        ${[
+          {id:'downloads',label:'Most downloads'},
+          {id:'rating',   label:'Highest rated'},
+          {id:'newest',   label:'Newest'},
+        ].map(s => `
+          <button class="ag-dir-sort-btn${s.id==='downloads'?' active':''}"
+            onclick="agReSortAgents('${s.id}',this)">${s.label}</button>
+        `).join('')}
+      </div>
+      <div id="ag-dir-list">
+        ${_ag.agents.length
+          ? _ag.agents.map(a => agAgentRowHTML(a)).join('')
+          : '<div class="ag-empty"><div class="ag-empty-icon">🌐</div><p>No agents yet.<br>Be the first — <span style="color:var(--accent);cursor:pointer" onclick="agNav(\'apply\');agRenderApply()">apply here</span>.</p></div>'}
+      </div>
+    </div>`;
+}
+
+async function agReSortAgents(sort, btn) {
+  const btns = document.querySelectorAll('.ag-dir-sort-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  await agFetchAgents(sort);
+  const list = $('ag-dir-list');
+  if (list) list.innerHTML = _ag.agents.map(a => agAgentRowHTML(a)).join('');
+}
+
+// ── Become an agent (3-step form) ─────────────────────────────
+const _agApply = { step:1, data:{} };
+
+function agRenderApply(step) {
+  if (!step) step = 1;
+  _agApply.step = step;
+  agNav('apply');
+  const v = $('ag-view');
+  if (!v) return;
+
+  const steps = ['Profile', 'Payout', 'Confirm'];
+  const stepsHTML = steps.map((s,i) => `
+    <div class="ag-apply-step${i+1===step?' active':i+1<step?' done':''}">
+      <div class="ag-step-dot">${i+1<step?'✓':i+1}</div>
+      <span class="ag-step-label">${s}</span>
+    </div>`).join('');
+
+  let bodyHTML = '';
+  if (step === 1) {
+    bodyHTML = `
+      <div class="ag-apply-card">
+        <div class="ag-apply-title">Set up your agent profile</div>
+        <div class="ag-apply-sub">This is how you'll appear in the marketplace.</div>
+        <div class="ag-field">
+          <label>Display name</label>
+          <input id="ag-app-name" placeholder="Your creator name" value="${esc(_agApply.data.display_name||S.name||'')}">
+        </div>
+        <div class="ag-field">
+          <label>Bio <span style="color:var(--muted);font-weight:400">(1–2 lines)</span></label>
+          <textarea id="ag-app-bio" rows="2" placeholder="Describe what you create…">${esc(_agApply.data.bio||'')}</textarea>
+        </div>
+        <div class="ag-field">
+          <label>Speciality</label>
+          <div class="ag-spec-grid">
+            ${['Workspace','Academic','AI prompts','Goals','Journal','Study decks'].map(s => {
+              const id = s.toLowerCase().replace(/ /g,'_');
+              const sel = (_agApply.data.speciality||[]).includes(s);
+              return `<button class="ag-spec-chip${sel?' sel':''}" onclick="agToggleSpec(this,'${s}')">${s}</button>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="ag-apply-nav">
+        <button class="ag-btn-next" onclick="agApplyNext(1)">Continue →</button>
+      </div>`;
+  } else if (step === 2) {
+    bodyHTML = `
+      <div class="ag-apply-card">
+        <div class="ag-apply-title">Set up payouts</div>
+        <div class="ag-apply-sub">You earn <strong>90%</strong> of every sale. Sivarr takes 10%. Paid monthly via Stripe. Minimum payout $10.</div>
+        <div class="ag-earn-card">
+          <div style="font-size:.72rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">💰 Revenue split</div>
+          <div style="font-size:.84rem;line-height:1.8">
+            You keep: <strong style="color:var(--green,#22c55e)">90%</strong> of every sale<br>
+            Sivarr fee: <strong>10%</strong><br>
+            Paid: <strong>Monthly</strong> (min $10)
+          </div>
+        </div>
+        <div class="ag-field">
+          <label>Stripe payout email</label>
+          <input id="ag-app-email" type="email" placeholder="your@email.com" value="${esc(_agApply.data.stripe_email||'')}">
+        </div>
+        <div class="ag-field">
+          <label>Country</label>
+          <select id="ag-app-country">
+            ${['US','GB','CA','AU','NG','GH','KE','ZA','IN','DE','FR','NL','SG','AE'].map(c =>
+              `<option value="${c}"${(_agApply.data.country||'US')===c?' selected':''}>${c}</option>`
+            ).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="ag-apply-nav">
+        <button class="ag-btn-back" onclick="agRenderApply(1)">← Back</button>
+        <button class="ag-btn-next" onclick="agApplyNext(2)">Continue →</button>
+      </div>`;
+  } else if (step === 3) {
+    const d = _agApply.data;
+    bodyHTML = `
+      <div class="ag-apply-card">
+        <div class="ag-apply-title">Review your application</div>
+        <div class="ag-apply-sub">Check everything looks right before submitting.</div>
+        <div style="font-size:.84rem;line-height:2">
+          <strong>Name:</strong> ${esc(d.display_name||'')}<br>
+          <strong>Bio:</strong> ${esc(d.bio||'')}<br>
+          <strong>Speciality:</strong> ${(d.speciality||[]).join(', ')||'—'}<br>
+          <strong>Payout email:</strong> ${esc(d.stripe_email||'—')}<br>
+          <strong>Country:</strong> ${esc(d.country||'—')}
+        </div>
+      </div>
+      <div class="ag-apply-card" style="background:linear-gradient(135deg,#4f6ef710,transparent);border-color:#4f6ef730">
+        <div style="font-size:.8rem;color:var(--text2);line-height:1.7">
+          ✅ Once submitted, our team will review your application.<br>
+          ✅ You'll receive a Stripe onboarding link to complete payout setup.<br>
+          ✅ After approval you can start publishing templates immediately.
+        </div>
+      </div>
+      <div class="ag-apply-nav">
+        <button class="ag-btn-back" onclick="agRenderApply(2)">← Back</button>
+        <button class="ag-btn-next" id="ag-submit-btn" onclick="agSubmitApplication()">Submit application →</button>
+      </div>`;
+  }
+
+  v.innerHTML = `
+    <div class="ag-apply-wrap">
+      <div class="ag-apply-steps">${stepsHTML}</div>
+      ${bodyHTML}
+    </div>`;
+}
+
+function agToggleSpec(btn, spec) {
+  btn.classList.toggle('sel');
+  const specs = _agApply.data.speciality || [];
+  const idx = specs.indexOf(spec);
+  if (idx === -1) specs.push(spec);
+  else specs.splice(idx, 1);
+  _agApply.data.speciality = specs;
+}
+
+function agApplyNext(fromStep) {
+  if (fromStep === 1) {
+    _agApply.data.display_name = ($('ag-app-name')||{}).value?.trim();
+    _agApply.data.bio          = ($('ag-app-bio')||{}).value?.trim();
+    if (!_agApply.data.display_name) { showToast('Enter a display name.'); return; }
+    agRenderApply(2);
+  } else if (fromStep === 2) {
+    _agApply.data.stripe_email = ($('ag-app-email')||{}).value?.trim();
+    _agApply.data.country      = ($('ag-app-country')||{}).value;
+    agRenderApply(3);
+  }
+}
+
+async function agSubmitApplication() {
+  const btn = $('ag-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+  try {
+    const r = await fetch('/api/agents/apply', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({token: S.token, ..._agApply.data}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      _ag.myAgent = {id: d.agent_id, status:'applied', ..._agApply.data};
+      agUpdateTopbarBtn();
+      $('ag-view').innerHTML = `
+        <div class="ag-apply-wrap" style="text-align:center">
+          <div style="font-size:3rem;margin-bottom:16px">🎉</div>
+          <div style="font-family:var(--font);font-size:1.2rem;font-weight:800;margin-bottom:8px">Application submitted!</div>
+          <p style="font-size:.84rem;color:var(--muted);margin-bottom:24px">
+            ${d.onboarding_url
+              ? 'Check your email for the Stripe onboarding link to complete payout setup.'
+              : "Our team will review your application and activate your account shortly."}
+          </p>
+          ${d.onboarding_url ? `<a href="${d.onboarding_url}" target="_blank" class="ag-btn-next" style="display:inline-block;text-decoration:none;padding:10px 24px">Complete Stripe setup →</a>` : ''}
+          <br><br>
+          <button class="ag-btn-back" onclick="agNav('marketplace',false);agRenderMarketplace()">Back to marketplace</button>
+        </div>`;
+    } else {
+      if (btn) { btn.disabled = false; btn.textContent = 'Submit application →'; }
+      showToast(d.detail || 'Submission failed.');
+    }
+  } catch {
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit application →'; }
+    showToast('Submission failed. Try again.');
+  }
+}
+
+// ── Creator dashboard ─────────────────────────────────────────
+const _agDash = { tab:'overview', templates:[], earnings:{}, payouts:[], reviews:[] };
+
+async function agRenderDashboard() {
+  if (!_ag.myAgent) { agNav('apply'); agRenderApply(); return; }
+  agNav('dashboard');
+  const v = $('ag-view');
+  if (!v) return;
+  v.innerHTML = `
+    <div class="ag-dash-wrap">
+      <div class="ag-dash-tabs">
+        <button class="ag-dash-tab active" id="ag-dt-overview"  onclick="agDashTab('overview',this)">Overview</button>
+        <button class="ag-dash-tab"        id="ag-dt-templates" onclick="agDashTab('templates',this)">My Templates</button>
+        <button class="ag-dash-tab"        id="ag-dt-earnings"  onclick="agDashTab('earnings',this)">Earnings</button>
+        <button class="ag-dash-tab"        id="ag-dt-reviews"   onclick="agDashTab('reviews',this)">Reviews</button>
+        <button class="ag-dash-tab"        id="ag-dt-settings"  onclick="agDashTab('settings',this)">Settings</button>
+      </div>
+      <div id="ag-dash-content">
+        <div class="ag-loading"><div class="ag-spinner"></div></div>
+      </div>
+    </div>`;
+  await agDashLoadOverview();
+}
+
+async function agDashTab(tab, btn) {
+  _agDash.tab = tab;
+  document.querySelectorAll('.ag-dash-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (tab === 'overview')   await agDashLoadOverview();
+  if (tab === 'templates')  await agDashLoadTemplates();
+  if (tab === 'earnings')   await agDashLoadEarnings();
+  if (tab === 'reviews')    await agDashLoadReviews();
+  if (tab === 'settings')   agDashRenderSettings();
+}
+
+async function agDashLoadOverview() {
+  const [earningsR, templatesR] = await Promise.all([
+    fetch(`/api/agents/me/earnings?token=${S.token}`).then(r=>r.json()).catch(()=>({})),
+    fetch(`/api/agents/me/templates?token=${S.token}`).then(r=>r.json()).catch(()=>({templates:[]})),
+  ]);
+  const agent = _ag.myAgent || {};
+  const earnings = earningsR;
+  const templates = templatesR.templates || [];
+  const monthly = (earnings.monthly||[])[0] || {};
+  const totalEarned = parseFloat(agent.total_earned||0).toFixed(2);
+  const monthNet    = parseFloat(monthly.net||0).toFixed(2);
+  const allDL       = agent.total_downloads || 0;
+  const avgRating   = parseFloat(agent.avg_rating||0).toFixed(1);
+
+  const byTpl = earnings.by_template || [];
+  const maxNet = Math.max(...byTpl.map(t=>t.net), 0.01);
+
+  const barRows = byTpl.map(t => `
+    <div class="ag-bar-row">
+      <span class="ag-bar-label" title="${esc(t.name)}">${esc(t.name)}</span>
+      <div class="ag-bar-track"><div class="ag-bar-fill" style="width:${((t.net/maxNet)*100).toFixed(1)}%"></div></div>
+      <span class="ag-bar-val">$${t.net.toFixed(2)}</span>
+    </div>`).join('') || '<p style="font-size:.8rem;color:var(--muted)">No earnings yet.</p>';
+
+  const feed = templates.slice(0,5).map(t => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.8rem">
+      <i class="ti ${AG_CAT_ICONS[t.category]||'ti-template'}" style="color:${AG_CAT_COLORS[t.category]||'var(--accent)'}"></i>
+      <span style="flex:1;font-weight:600">${esc(t.name)}</span>
+      <span style="color:var(--muted)">${t.download_count||0} downloads</span>
+      <span class="ag-status-badge ${t.status==='published'?'live':t.status}">${t.status}</span>
+    </div>`).join('') || '<p style="font-size:.8rem;color:var(--muted)">No templates yet.</p>';
+
+  $('ag-dash-content').innerHTML = `
+    <div class="ag-stat-row">
+      <div class="ag-stat-card" style="--c1:#22c55e">
+        <div class="ag-stat-label">Total earned</div>
+        <div class="ag-stat-val">$${totalEarned}</div>
+      </div>
+      <div class="ag-stat-card" style="--c1:#4f6ef7">
+        <div class="ag-stat-label">This month</div>
+        <div class="ag-stat-val">$${monthNet}</div>
+      </div>
+      <div class="ag-stat-card" style="--c1:#f59e0b">
+        <div class="ag-stat-label">Downloads</div>
+        <div class="ag-stat-val">${allDL}</div>
+      </div>
+      <div class="ag-stat-card" style="--c1:#7f77dd">
+        <div class="ag-stat-label">Avg rating</div>
+        <div class="ag-stat-val">${avgRating}</div>
+      </div>
+    </div>
+
+    ${parseFloat(agent.pending_earnings||0) > 0 ? `
+    <div class="ag-payout-card">
+      <div>
+        <div style="font-size:.72rem;font-weight:700;color:#22c55e;text-transform:uppercase;letter-spacing:.06em">Upcoming payout</div>
+        <div style="font-size:1.1rem;font-weight:800;font-family:var(--font)">$${parseFloat(agent.pending_earnings).toFixed(2)}</div>
+        <div style="font-size:.78rem;color:var(--muted)">Paid on the 1st of next month via Stripe</div>
+      </div>
+      <div style="font-size:1.4rem">💸</div>
+    </div>` : ''}
+
+    <div style="margin-bottom:24px">
+      <div class="ag-section-title" style="margin-bottom:12px">Revenue by template</div>
+      <div class="ag-bar-chart">${barRows}</div>
+    </div>
+
+    <div>
+      <div class="ag-section-hd">
+        <div class="ag-section-title">Recent templates</div>
+        <button class="ag-section-link" onclick="agDashTab('templates',document.getElementById('ag-dt-templates'))">See all</button>
+      </div>
+      ${feed}
+    </div>`;
+}
+
+async function agDashLoadTemplates() {
+  const r = await fetch(`/api/agents/me/templates?token=${S.token}`).catch(()=>({ok:false}));
+  const d = r.ok !== false ? await r.json() : {templates:[]};
+  const templates = d.templates || [];
+
+  $('ag-dash-content').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="ag-section-title">My templates (${templates.length})</div>
+      <button class="ag-tb-btn ag-tb-btn--primary" onclick="agOpenBuilder()">
+        <i class="ti ti-plus"></i> New template
+      </button>
+    </div>
+    ${templates.length ? `
+    <table class="ag-tpl-table">
+      <thead><tr>
+        <th></th><th>Name</th><th>Downloads</th><th>Price</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${templates.map(t => `
+          <tr>
+            <td><i class="ti ${AG_CAT_ICONS[t.category]||'ti-template'}" style="color:${AG_CAT_COLORS[t.category]||'var(--accent)'}"></i></td>
+            <td style="font-weight:600">${esc(t.name)}</td>
+            <td>${t.download_count||0}</td>
+            <td>${parseFloat(t.price||0)===0?'Free':'$'+parseFloat(t.price).toFixed(2)}</td>
+            <td><span class="ag-status-badge ${t.status==='published'?'live':t.status}">${t.status}</span></td>
+            <td style="display:flex;gap:6px">
+              <button class="ag-tb-btn" style="font-size:.7rem;padding:3px 9px" onclick="agOpenBuilder('${t.id}')">Edit</button>
+              ${t.status==='draft'?`<button class="ag-tb-btn ag-tb-btn--primary" style="font-size:.7rem;padding:3px 9px" onclick="agPublishTemplate('${t.id}')">Publish</button>`:''}
+              <button class="ag-tb-btn" style="font-size:.7rem;padding:3px 9px;color:var(--red)" onclick="agDeleteTemplate('${t.id}')">Delete</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `
+    <div class="ag-empty">
+      <div class="ag-empty-icon">📦</div>
+      <p>No templates yet.</p>
+      <button class="ag-btn-next" style="margin-top:12px" onclick="agOpenBuilder()">Create your first template</button>
+    </div>`}`;
+}
+
+async function agPublishTemplate(id) {
+  if (!confirm('Publish this template? It will be visible in the marketplace.')) return;
+  const r = await fetch(`/api/agents/me/templates/${id}/publish`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({token: S.token}),
+  });
+  const d = await r.json();
+  if (d.ok) { showToast('Template published!'); agDashLoadTemplates(); }
+  else showToast(d.detail || 'Publish failed.');
+}
+
+async function agDeleteTemplate(id) {
+  if (!confirm('Delete this template? This cannot be undone.')) return;
+  const r = await fetch(`/api/agents/me/templates/${id}`, {
+    method:'DELETE', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({token: S.token}),
+  });
+  const d = await r.json();
+  if (d.ok) { showToast('Template deleted.'); agDashLoadTemplates(); }
+}
+
+async function agDashLoadEarnings() {
+  const [earningsR, payoutsR] = await Promise.all([
+    fetch(`/api/agents/me/earnings?token=${S.token}`).then(r=>r.json()).catch(()=>({})),
+    fetch(`/api/agents/me/payouts?token=${S.token}`).then(r=>r.json()).catch(()=>({payouts:[]})),
+  ]);
+  const monthly = earningsR.monthly || [];
+  const payouts = payoutsR.payouts || [];
+  const agent   = _ag.myAgent || {};
+  const totalGross = monthly.reduce((s,m)=>s+m.gross,0).toFixed(2);
+  const totalFee   = monthly.reduce((s,m)=>s+m.fee,0).toFixed(2);
+  const totalNet   = monthly.reduce((s,m)=>s+m.net,0).toFixed(2);
+
+  const monthRows = monthly.map(m => `
+    <tr>
+      <td>${m.month||''}</td>
+      <td>${m.downloads||0}</td>
+      <td>$${m.gross.toFixed(2)}</td>
+      <td style="color:var(--muted)">$${m.fee.toFixed(2)}</td>
+      <td style="color:var(--green,#22c55e);font-weight:700">$${m.net.toFixed(2)}</td>
+      <td><span class="ag-status-badge live">Paid</span></td>
+    </tr>`).join('') || `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">No earnings yet.</td></tr>`;
+
+  $('ag-dash-content').innerHTML = `
+    <div class="ag-stat-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px">
+      <div class="ag-stat-card" style="--c1:#4f6ef7"><div class="ag-stat-label">Total gross</div><div class="ag-stat-val">$${totalGross}</div></div>
+      <div class="ag-stat-card" style="--c1:#ef4444"><div class="ag-stat-label">Sivarr fee (10%)</div><div class="ag-stat-val">$${totalFee}</div></div>
+      <div class="ag-stat-card" style="--c1:#22c55e"><div class="ag-stat-label">Your net earnings</div><div class="ag-stat-val">$${totalNet}</div></div>
+    </div>
+
+    <div class="ag-section-title" style="margin-bottom:12px">Monthly breakdown</div>
+    <table class="ag-earnings-table" style="margin-bottom:28px">
+      <thead><tr>
+        <th>Month</th><th>Downloads</th><th>Gross</th><th>Sivarr (10%)</th><th>Your earnings</th><th>Status</th>
+      </tr></thead>
+      <tbody>${monthRows}</tbody>
+    </table>
+
+    ${payouts.length ? `
+    <div class="ag-section-title" style="margin-bottom:12px">Payout history</div>
+    <table class="ag-earnings-table">
+      <thead><tr><th>Date</th><th>Amount</th><th>Transfer ID</th><th>Status</th></tr></thead>
+      <tbody>
+        ${payouts.map(p => `
+          <tr>
+            <td>${p.paid_at ? str(p.paid_at).slice(0,10) : p.created_at?.slice(0,10)||'—'}</td>
+            <td style="font-weight:700">$${parseFloat(p.amount).toFixed(2)}</td>
+            <td style="font-size:.72rem;color:var(--muted)">${p.stripe_transfer_id||'—'}</td>
+            <td><span class="ag-status-badge ${p.status==='paid'?'live':'review'}">${p.status}</span></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : ''}`;
+}
+
+async function agDashLoadReviews() {
+  const r = await fetch(`/api/agents/me/reviews?token=${S.token}`).catch(()=>({ok:false}));
+  const d = r.ok !== false ? await r.json() : {reviews:[]};
+  const reviews = d.reviews || [];
+
+  $('ag-dash-content').innerHTML = reviews.length ? `
+    ${reviews.map(rv => `
+      <div class="ag-review-item">
+        <div class="ag-review-header">
+          <div class="ag-review-av">${(rv.reviewer_name||'?')[0].toUpperCase()}</div>
+          <span class="ag-review-name">${esc(rv.reviewer_name||'')}</span>
+          <span class="ag-review-stars">${'★'.repeat(rv.rating||5)}</span>
+          <span style="margin-left:auto;font-size:.72rem;color:var(--muted)">${esc(rv.template_name||'')}</span>
+        </div>
+        <div class="ag-review-text">${esc(rv.review_text||'')}</div>
+      </div>`).join('')}` :
+    '<div class="ag-empty"><div class="ag-empty-icon">💬</div><p>No reviews yet.</p></div>';
+}
+
+function agDashRenderSettings() {
+  const a = _ag.myAgent || {};
+  $('ag-dash-content').innerHTML = `
+    <div style="max-width:480px">
+      <div class="ag-apply-card">
+        <div class="ag-apply-title">Agent settings</div>
+        <div class="ag-field"><label>Display name</label>
+          <input id="ag-set-name" value="${esc(a.display_name||'')}"></div>
+        <div class="ag-field"><label>Bio</label>
+          <textarea id="ag-set-bio" rows="2">${esc(a.bio||'')}</textarea></div>
+        <button class="ag-btn-next" onclick="agSaveSettings()">Save changes</button>
+      </div>
+      <div class="ag-apply-card" style="border-color:#ef444430;background:#ef444408">
+        <div style="font-size:.84rem;font-weight:700;color:var(--red);margin-bottom:8px">Danger zone</div>
+        <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px">Deleting your agent account will remove all templates and forfeit any unpaid earnings.</p>
+        <button onclick="agDeleteAccount()" style="background:none;border:1px solid #ef4444;border-radius:8px;padding:7px 16px;color:var(--red);font-size:.78rem;font-weight:700;cursor:pointer">Delete agent account</button>
+      </div>
+    </div>`;
+}
+
+async function agSaveSettings() {
+  const name = ($('ag-set-name')||{}).value?.trim();
+  const bio  = ($('ag-set-bio')||{}).value?.trim();
+  const r = await fetch('/api/agents/me', {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({token: S.token, display_name:name, bio}),
+  });
+  const d = await r.json();
+  if (d.ok) { _ag.myAgent = {...(_ag.myAgent||{}), display_name:name, bio}; showToast('Settings saved.'); }
+  else showToast(d.detail||'Save failed.');
+}
+
+async function agDeleteAccount() {
+  if (!confirm('Delete your agent account? This cannot be undone.')) return;
+  showToast('Contact support to delete your agent account.');
+}
+
+// ── Template builder (4-step) ─────────────────────────────────
+const _agBuilder = {
+  step:1, id:null,
+  data:{ name:'', short_description:'', full_description:'', category:'workspace',
+         tags:[], thumbnail_color:'#4f6ef7', price:0, contents:{}, included_items:[], free:true }
+};
+const AG_COLORS = ['#4f6ef7','#7c3aed','#22c55e','#d97706','#ef4444','#7f77dd','#d85a30'];
+const AG_CONTENTS = [
+  {id:'spaces',       icon:'🏠', name:'Spaces',         desc:'Personal or academic spaces'},
+  {id:'tasks',        icon:'✅', name:'Task board',      desc:'Pre-built task list'},
+  {id:'goals',        icon:'🎯', name:'Goals',           desc:'Pre-configured goal templates'},
+  {id:'habits',       icon:'🔁', name:'Habit stack',     desc:'Daily and weekly habits'},
+  {id:'studyDeck',    icon:'🃏', name:'Study deck',      desc:'Flashcard set'},
+  {id:'aiPrompts',    icon:'🤖', name:'AI prompt pack',  desc:'Up to 100 AI prompts'},
+  {id:'journalPrompts',icon:'📓',name:'Journal prompts', desc:'Reflection prompt set'},
+];
+
+async function agOpenBuilder(templateId) {
+  _agBuilder.step = 1;
+  _agBuilder.id = templateId || null;
+  if (templateId) {
+    // Pre-load existing template
+    try {
+      const r = await fetch(`/api/agents/templates/${templateId}`);
+      const d = await r.json();
+      if (d.template) {
+        const t = d.template;
+        _agBuilder.data = {
+          name: t.name, short_description: t.short_description,
+          full_description: t.full_description, category: t.category,
+          tags: t.tags||[], thumbnail_color: t.thumbnail_color||'#4f6ef7',
+          price: t.price, contents: t.contents||{},
+          included_items: t.included_items||[],
+          free: parseFloat(t.price||0)===0,
+        };
+      }
+    } catch {}
+  }
+  agNav('builder');
+  agRenderBuilder();
+}
+
+function agRenderBuilder() {
+  const step = _agBuilder.step;
+  const d = _agBuilder.data;
+  const v = $('ag-view');
+  if (!v) return;
+  const stepsBar = [1,2,3,4].map(i =>
+    `<div class="ag-builder-step${i<step?' done':i===step?' active':''}"></div>`).join('');
+
+  let body = '';
+  if (step === 1) {
+    body = `
+      <div class="ag-apply-card">
+        <div class="ag-apply-title">Step 1 — Basics</div>
+        <div class="ag-field"><label>Template name <span style="color:var(--muted)">(max 60 chars)</span></label>
+          <input id="ab-name" maxlength="60" placeholder="My awesome template" value="${esc(d.name)}"></div>
+        <div class="ag-field"><label>Short description <span style="color:var(--muted)">(max 120)</span></label>
+          <input id="ab-short" maxlength="120" placeholder="One-liner…" value="${esc(d.short_description)}"></div>
+        <div class="ag-field"><label>Full description</label>
+          <textarea id="ab-full" rows="4" maxlength="800" placeholder="Detailed description…">${esc(d.full_description)}</textarea></div>
+        <div class="ag-field"><label>Category</label>
+          <select id="ab-cat">
+            ${Object.entries(AG_CAT_LABELS).filter(([k])=>k!=='all').map(([k,v]) =>
+              `<option value="${k}"${d.category===k?' selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+        <div class="ag-field"><label>Tags <span style="color:var(--muted)">(comma-separated, up to 5)</span></label>
+          <input id="ab-tags" placeholder="productivity, students…" value="${(d.tags||[]).join(', ')}"></div>
+        <div class="ag-field"><label>Thumbnail colour</label>
+          <div class="ag-color-picker">
+            ${AG_COLORS.map(c => `
+              <div class="ag-color-swatch${d.thumbnail_color===c?' sel':''}"
+                style="background:${c}" onclick="agBuilderSetColor('${c}',this)"></div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+  } else if (step === 2) {
+    body = `
+      <div class="ag-apply-card">
+        <div class="ag-apply-title">Step 2 — Contents</div>
+        <div class="ag-apply-sub">Select what gets installed when a user gets this template.</div>
+        <div class="ag-contents-check">
+          ${AG_CONTENTS.map(c => {
+            const hasSel = d.contents && (d.contents[c.id]||[]).length > 0;
+            return `
+              <div class="ag-content-row${hasSel?' sel':''}" onclick="agBuilderToggleContent('${c.id}',this)">
+                <input type="checkbox"${hasSel?' checked':''} onclick="event.stopPropagation();agBuilderToggleContent('${c.id}',this.closest('.ag-content-row'))">
+                <span class="ag-content-icon">${c.icon}</span>
+                <div class="ag-content-info">
+                  <div class="ag-content-name">${c.name}</div>
+                  <div class="ag-content-desc">${c.desc}</div>
+                </div>
+              </div>`;}).join('')}
+        </div>
+      </div>`;
+  } else if (step === 3) {
+    body = `
+      <div class="ag-apply-card">
+        <div class="ag-apply-title">Step 3 — Pricing</div>
+        <div class="ag-pricing-toggle">
+          <button class="ag-pricing-opt${d.free?' active':''}" onclick="agBuilderSetPricing(true)">🆓 Free</button>
+          <button class="ag-pricing-opt${!d.free?' active':''}" onclick="agBuilderSetPricing(false)">💰 Paid</button>
+        </div>
+        <div id="ab-price-wrap" style="${d.free?'display:none':''}">
+          <div class="ag-field"><label>Price (USD)</label>
+            <input id="ab-price" type="number" min="1" max="999" step="0.01" placeholder="4.99"
+              value="${d.price>0?d.price:''}" oninput="agBuilderUpdateEarnings()">
+          </div>
+          <div class="ag-earn-card" id="ab-earn-preview">
+            ${agBuilderEarningsHTML(d.price||0)}
+          </div>
+        </div>
+      </div>`;
+  } else if (step === 4) {
+    const color = d.thumbnail_color || '#4f6ef7';
+    const icon  = AG_CAT_ICONS[d.category] || 'ti-template';
+    body = `
+      <div class="ag-apply-card">
+        <div class="ag-apply-title">Step 4 — Preview & publish</div>
+        <div class="ag-apply-sub">This is how your template will appear in the marketplace.</div>
+        <div style="max-width:240px;margin-bottom:20px">
+          <div class="ag-card">
+            <div class="ag-card-thumb" style="background:${color}20">
+              <i class="ti ${icon}" style="color:${color};font-size:1.8rem"></i>
+            </div>
+            <div class="ag-card-body">
+              <span class="ag-card-tag">${AG_CAT_LABELS[d.category]||d.category}</span>
+              <div class="ag-card-name">${esc(d.name||'Template name')}</div>
+              <div class="ag-card-footer">
+                <span class="ag-price${d.free?' free':''}">${d.free?'Free':'$'+parseFloat(d.price||0).toFixed(2)}</span>
+                <button class="ag-get-btn">Get</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="ag-btn-back" style="flex:1" onclick="agSaveTemplate('draft')">Save as draft</button>
+        <button class="ag-btn-next" style="flex:1" onclick="agSaveTemplate('published')">Publish template 🚀</button>
+      </div>`;
+  }
+
+  v.innerHTML = `
+    <div class="ag-builder-wrap">
+      <div class="ag-builder-steps">${stepsBar}</div>
+      ${body}
+      ${step < 4 ? `
+      <div class="ag-apply-nav">
+        ${step > 1 ? `<button class="ag-btn-back" onclick="agBuilderStep(${step-1})">← Back</button>` : '<span></span>'}
+        <button class="ag-btn-next" onclick="agBuilderStep(${step+1})">Continue →</button>
+      </div>` : ''}
+    </div>`;
+}
+
+function agBuilderStep(step) {
+  const d = _agBuilder.data;
+  if (_agBuilder.step === 1) {
+    d.name = ($('ab-name')||{}).value?.trim()||'';
+    d.short_description = ($('ab-short')||{}).value?.trim()||'';
+    d.full_description  = ($('ab-full')||{}).value?.trim()||'';
+    d.category = ($('ab-cat')||{}).value||'workspace';
+    d.tags = (($('ab-tags')||{}).value||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,5);
+    if (!d.name) { showToast('Enter a template name.'); return; }
+  }
+  _agBuilder.step = step;
+  agRenderBuilder();
+}
+
+function agBuilderSetColor(color, el) {
+  _agBuilder.data.thumbnail_color = color;
+  document.querySelectorAll('.ag-color-swatch').forEach(s => s.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function agBuilderToggleContent(id, row) {
+  row.classList.toggle('sel');
+  const cb = row.querySelector('input[type=checkbox]');
+  if (cb) cb.checked = row.classList.contains('sel');
+  const d = _agBuilder.data;
+  if (!d.contents) d.contents = {};
+  if (row.classList.contains('sel')) {
+    if (!d.contents[id] || d.contents[id].length === 0) d.contents[id] = [{}];
+  } else {
+    delete d.contents[id];
+  }
+}
+
+function agBuilderSetPricing(isFree) {
+  _agBuilder.data.free = isFree;
+  const wrap = $('ab-price-wrap');
+  if (wrap) wrap.style.display = isFree ? 'none' : '';
+  document.querySelectorAll('.ag-pricing-opt').forEach((b,i) => b.classList.toggle('active', i===0?isFree:!isFree));
+}
+
+function agBuilderUpdateEarnings() {
+  const price = parseFloat(($('ab-price')||{}).value||0);
+  _agBuilder.data.price = price;
+  const prev = $('ab-earn-preview');
+  if (prev) prev.innerHTML = agBuilderEarningsHTML(price);
+}
+
+function agBuilderEarningsHTML(price) {
+  const net = (price * 0.9).toFixed(2);
+  const fee = (price * 0.1).toFixed(2);
+  return `
+    <div style="font-size:.78rem;line-height:1.9">
+      At <strong>$${parseFloat(price||0).toFixed(2)}</strong> per download:<br>
+      You earn: <strong style="color:var(--green,#22c55e)">$${net}</strong> per sale<br>
+      Sivarr fee: <strong>$${fee}</strong> per sale
+    </div>`;
+}
+
+async function agSaveTemplate(status) {
+  const d = _agBuilder.data;
+  if ($('ab-price')) d.price = parseFloat(($('ab-price')||{}).value||0);
+  const body = {
+    token: S.token,
+    name: d.name, short_description: d.short_description,
+    full_description: d.full_description, category: d.category,
+    tags: d.tags, thumbnail_color: d.thumbnail_color,
+    price: d.free ? 0 : d.price,
+    contents: d.contents, included_items: d.included_items,
+  };
+  try {
+    let r;
+    if (_agBuilder.id) {
+      body.status = status;
+      r = await fetch(`/api/agents/me/templates/${_agBuilder.id}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body),
+      });
+    } else {
+      r = await fetch('/api/agents/me/templates', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body),
+      });
+    }
+    const result = await r.json();
+    if (result.ok || result.template_id) {
+      const tid = result.template_id || _agBuilder.id;
+      if (status === 'published' && tid) {
+        await fetch(`/api/agents/me/templates/${tid}/publish`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({token: S.token}),
+        });
+      }
+      showToast(status === 'published' ? 'Template published!' : 'Draft saved.');
+      agNav('dashboard');
+      agRenderDashboard();
+    } else {
+      showToast(result.detail || 'Save failed.');
+    }
+  } catch { showToast('Save failed. Try again.'); }
+}
+
+// ── Review form ───────────────────────────────────────────────
+function agLeaveReview(templateId) {
+  const rating = parseInt(prompt('Your rating (1–5):') || '0');
+  if (!rating || rating < 1 || rating > 5) { showToast('Rating must be 1–5.'); return; }
+  const text = prompt('Leave a short review (optional):') || '';
+  fetch(`/api/agents/templates/${templateId}/review`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({token: S.token, rating, review_text: text}),
+  }).then(r=>r.json()).then(d => {
+    if (d.ok) { showToast('Review submitted!'); agOpenTemplate(templateId); }
+    else showToast(d.detail||'Review failed.');
+  });
+}
+
+// ── Check payment success on page load ────────────────────────
+function agCheckPaymentReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const payment = params.get('payment');
+  const templateId = params.get('template');
+  if (payment === 'success' && templateId) {
+    showToast('Payment successful! Template installed.');
+    history.replaceState({}, '', window.location.pathname);
+    nav('agents');
+    agOpenTemplate(templateId);
+  } else if (payment === 'cancelled') {
+    showToast('Payment cancelled.');
+    history.replaceState({}, '', window.location.pathname);
+  }
 }
 
 

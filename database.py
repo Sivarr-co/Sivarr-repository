@@ -103,6 +103,94 @@ CREATE TABLE IF NOT EXISTS space_data (
     PRIMARY KEY (space_id, user_sid)
 );
 CREATE INDEX IF NOT EXISTS idx_space_data_user ON space_data(user_sid);
+
+-- ── Agents Marketplace ────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS agents (
+    id                TEXT PRIMARY KEY,
+    user_sid          TEXT REFERENCES users(sid) ON DELETE CASCADE,
+    display_name      TEXT NOT NULL DEFAULT '',
+    bio               TEXT DEFAULT '',
+    speciality        JSONB DEFAULT '[]',
+    profile_photo_url TEXT,
+    stripe_account_id TEXT,
+    status            TEXT DEFAULT 'applied',
+    verified          BOOLEAN DEFAULT false,
+    follower_count    INTEGER DEFAULT 0,
+    total_downloads   INTEGER DEFAULT 0,
+    avg_rating        NUMERIC(3,2) DEFAULT 0.0,
+    pending_earnings  NUMERIC(10,2) DEFAULT 0.0,
+    total_earned      NUMERIC(10,2) DEFAULT 0.0,
+    created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agents_user   ON agents(user_sid);
+CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
+
+CREATE TABLE IF NOT EXISTS agent_templates (
+    id                TEXT PRIMARY KEY,
+    agent_id          TEXT REFERENCES agents(id) ON DELETE CASCADE,
+    name              TEXT NOT NULL,
+    short_description TEXT DEFAULT '',
+    full_description  TEXT DEFAULT '',
+    category          TEXT NOT NULL DEFAULT 'workspace',
+    tags              JSONB DEFAULT '[]',
+    thumbnail_color   TEXT DEFAULT '#4f6ef7',
+    price             NUMERIC(8,2) DEFAULT 0.00,
+    contents          JSONB NOT NULL DEFAULT '{}',
+    included_items    JSONB DEFAULT '[]',
+    status            TEXT DEFAULT 'draft',
+    download_count    INTEGER DEFAULT 0,
+    avg_rating        NUMERIC(3,2) DEFAULT 0.0,
+    review_count      INTEGER DEFAULT 0,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agent_tpl_agent  ON agent_templates(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_tpl_status ON agent_templates(status);
+
+CREATE TABLE IF NOT EXISTS template_downloads (
+    id                TEXT PRIMARY KEY,
+    template_id       TEXT REFERENCES agent_templates(id),
+    buyer_sid         TEXT REFERENCES users(sid),
+    agent_id          TEXT REFERENCES agents(id),
+    gross_amount      NUMERIC(8,2) DEFAULT 0.00,
+    sivarr_fee        NUMERIC(8,2) DEFAULT 0.00,
+    agent_earnings    NUMERIC(8,2) DEFAULT 0.00,
+    stripe_session_id TEXT,
+    status            TEXT DEFAULT 'completed',
+    downloaded_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_dl_buyer    ON template_downloads(buyer_sid);
+CREATE INDEX IF NOT EXISTS idx_dl_template ON template_downloads(template_id);
+
+CREATE TABLE IF NOT EXISTS template_reviews (
+    id           TEXT PRIMARY KEY,
+    template_id  TEXT REFERENCES agent_templates(id),
+    reviewer_sid TEXT REFERENCES users(sid),
+    rating       INTEGER CHECK (rating BETWEEN 1 AND 5),
+    review_text  TEXT,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(template_id, reviewer_sid)
+);
+
+CREATE TABLE IF NOT EXISTS agent_follows (
+    follower_sid TEXT REFERENCES users(sid),
+    agent_id     TEXT REFERENCES agents(id),
+    followed_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (follower_sid, agent_id)
+);
+
+CREATE TABLE IF NOT EXISTS agent_payouts (
+    id                 TEXT PRIMARY KEY,
+    agent_id           TEXT REFERENCES agents(id),
+    amount             NUMERIC(10,2) NOT NULL,
+    stripe_transfer_id TEXT,
+    status             TEXT DEFAULT 'pending',
+    period_month       INTEGER,
+    period_year        INTEGER,
+    paid_at            TIMESTAMPTZ,
+    created_at         TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 
@@ -638,3 +726,629 @@ def migrate_from_json(users_path: str, data_dir: str) -> tuple[int, int]:
         _release(conn)
 
     return users_count, progress_count
+
+
+# ═══════════════════════════════════════════════════════════════
+#  AGENTS MARKETPLACE
+# ═══════════════════════════════════════════════════════════════
+
+def _row_to_agent(row) -> dict:
+    if not row:
+        return {}
+    keys = ["id","user_sid","display_name","bio","speciality","profile_photo_url",
+            "stripe_account_id","status","verified","follower_count","total_downloads",
+            "avg_rating","pending_earnings","total_earned","created_at"]
+    d = dict(zip(keys, row))
+    d["speciality"] = d.get("speciality") or []
+    d["avg_rating"] = float(d.get("avg_rating") or 0)
+    d["pending_earnings"] = float(d.get("pending_earnings") or 0)
+    d["total_earned"] = float(d.get("total_earned") or 0)
+    if d.get("created_at"):
+        d["created_at"] = str(d["created_at"])
+    return d
+
+
+def _row_to_template(row) -> dict:
+    if not row:
+        return {}
+    keys = ["id","agent_id","name","short_description","full_description","category",
+            "tags","thumbnail_color","price","contents","included_items","status",
+            "download_count","avg_rating","review_count","created_at","updated_at"]
+    d = dict(zip(keys, row))
+    d["tags"] = d.get("tags") or []
+    d["contents"] = d.get("contents") or {}
+    d["included_items"] = d.get("included_items") or []
+    d["price"] = float(d.get("price") or 0)
+    d["avg_rating"] = float(d.get("avg_rating") or 0)
+    for k in ("created_at","updated_at"):
+        if d.get(k):
+            d[k] = str(d[k])
+    return d
+
+
+# ── Agents ────────────────────────────────────────────────────
+
+def get_agent_by_user(user_sid: str) -> dict:
+    conn = _get_conn()
+    if not conn:
+        return {}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM agents WHERE user_sid = %s LIMIT 1", (user_sid,))
+            return _row_to_agent(cur.fetchone())
+    finally:
+        _release(conn)
+
+
+def get_agent_by_id(agent_id: str) -> dict:
+    conn = _get_conn()
+    if not conn:
+        return {}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM agents WHERE id = %s LIMIT 1", (agent_id,))
+            return _row_to_agent(cur.fetchone())
+    finally:
+        _release(conn)
+
+
+def create_agent(agent: dict) -> dict:
+    conn = _get_conn()
+    if not conn:
+        return agent
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO agents (id, user_sid, display_name, bio, speciality,
+                    stripe_account_id, status)
+                VALUES (%s,%s,%s,%s,%s::jsonb,%s,%s)
+                ON CONFLICT (id) DO NOTHING
+            """, (
+                agent["id"], agent["user_sid"], agent["display_name"],
+                agent.get("bio",""), json.dumps(agent.get("speciality",[])),
+                agent.get("stripe_account_id"), agent.get("status","applied"),
+            ))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"create_agent: {exc}"); conn.rollback()
+    finally:
+        _release(conn)
+    return agent
+
+
+def update_agent(agent_id: str, fields: dict) -> bool:
+    allowed = {"display_name","bio","speciality","profile_photo_url",
+               "stripe_account_id","status","verified"}
+    sets, vals = [], []
+    for k, v in fields.items():
+        if k not in allowed:
+            continue
+        if k == "speciality":
+            sets.append(f"{k} = %s::jsonb")
+            vals.append(json.dumps(v))
+        else:
+            sets.append(f"{k} = %s")
+            vals.append(v)
+    if not sets:
+        return False
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"UPDATE agents SET {', '.join(sets)} WHERE id = %s",
+                vals + [agent_id]
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"update_agent: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def get_all_agents(sort: str = "downloads") -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    order = {
+        "downloads": "total_downloads DESC",
+        "rating":    "avg_rating DESC",
+        "newest":    "created_at DESC",
+    }.get(sort, "total_downloads DESC")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"SELECT * FROM agents WHERE status = 'active' ORDER BY {order} LIMIT 100"
+            )
+            return [_row_to_agent(r) for r in cur.fetchall()]
+    finally:
+        _release(conn)
+
+
+# ── Templates ─────────────────────────────────────────────────
+
+def get_templates(category: str = None, sort: str = "popular",
+                  free_only: bool = False, limit: int = 60) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    wheres = ["status = 'published'"]
+    vals = []
+    if category and category != "all":
+        wheres.append("category = %s")
+        vals.append(category)
+    if free_only:
+        wheres.append("price = 0")
+    order = {
+        "popular": "download_count DESC",
+        "newest":  "created_at DESC",
+        "rating":  "avg_rating DESC",
+        "price":   "price ASC",
+    }.get(sort, "download_count DESC")
+    where_clause = " AND ".join(wheres)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"SELECT * FROM agent_templates WHERE {where_clause} ORDER BY {order} LIMIT %s",
+                vals + [limit]
+            )
+            return [_row_to_template(r) for r in cur.fetchall()]
+    finally:
+        _release(conn)
+
+
+def get_template_by_id(template_id: str) -> dict:
+    conn = _get_conn()
+    if not conn:
+        return {}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM agent_templates WHERE id = %s LIMIT 1", (template_id,))
+            return _row_to_template(cur.fetchone())
+    finally:
+        _release(conn)
+
+
+def get_featured_template() -> dict:
+    conn = _get_conn()
+    if not conn:
+        return {}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT at.*, a.display_name as agent_name, a.verified as agent_verified
+                FROM agent_templates at
+                JOIN agents a ON a.id = at.agent_id
+                WHERE at.status = 'published'
+                ORDER BY at.download_count DESC LIMIT 1
+            """)
+            row = cur.fetchone()
+            if not row:
+                return {}
+            cols = [desc[0] for desc in cur.description]
+            return dict(zip(cols, row))
+    finally:
+        _release(conn)
+
+
+def get_agent_templates(agent_id: str, include_drafts: bool = False) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            if include_drafts:
+                cur.execute(
+                    "SELECT * FROM agent_templates WHERE agent_id = %s ORDER BY created_at DESC",
+                    (agent_id,)
+                )
+            else:
+                cur.execute(
+                    "SELECT * FROM agent_templates WHERE agent_id=%s AND status='published' ORDER BY created_at DESC",
+                    (agent_id,)
+                )
+            return [_row_to_template(r) for r in cur.fetchall()]
+    finally:
+        _release(conn)
+
+
+def create_template(tpl: dict) -> dict:
+    conn = _get_conn()
+    if not conn:
+        return tpl
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO agent_templates
+                    (id, agent_id, name, short_description, full_description, category,
+                     tags, thumbnail_color, price, contents, included_items, status)
+                VALUES (%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s::jsonb,%s::jsonb,%s)
+            """, (
+                tpl["id"], tpl["agent_id"], tpl["name"],
+                tpl.get("short_description",""), tpl.get("full_description",""),
+                tpl.get("category","workspace"),
+                json.dumps(tpl.get("tags",[])),
+                tpl.get("thumbnail_color","#4f6ef7"),
+                tpl.get("price",0),
+                json.dumps(tpl.get("contents",{})),
+                json.dumps(tpl.get("included_items",[])),
+                tpl.get("status","draft"),
+            ))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"create_template: {exc}"); conn.rollback()
+    finally:
+        _release(conn)
+    return tpl
+
+
+def update_template(template_id: str, agent_id: str, fields: dict) -> bool:
+    allowed = {"name","short_description","full_description","category","tags",
+               "thumbnail_color","price","contents","included_items","status"}
+    json_cols = {"tags","contents","included_items"}
+    sets, vals = [], []
+    for k, v in fields.items():
+        if k not in allowed:
+            continue
+        if k in json_cols:
+            sets.append(f"{k} = %s::jsonb")
+            vals.append(json.dumps(v))
+        else:
+            sets.append(f"{k} = %s")
+            vals.append(v)
+    if not sets:
+        return False
+    sets.append("updated_at = NOW()")
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"UPDATE agent_templates SET {', '.join(sets)} WHERE id=%s AND agent_id=%s",
+                vals + [template_id, agent_id]
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"update_template: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def delete_template(template_id: str, agent_id: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM agent_templates WHERE id=%s AND agent_id=%s",
+                (template_id, agent_id)
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"delete_template: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+# ── Downloads ─────────────────────────────────────────────────
+
+def check_download(buyer_sid: str, template_id: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM template_downloads WHERE buyer_sid=%s AND template_id=%s LIMIT 1",
+                (buyer_sid, template_id)
+            )
+            return cur.fetchone() is not None
+    finally:
+        _release(conn)
+
+
+def record_download(dl: dict) -> None:
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO template_downloads
+                    (id, template_id, buyer_sid, agent_id, gross_amount, sivarr_fee,
+                     agent_earnings, stripe_session_id, status)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT DO NOTHING
+            """, (
+                dl["id"], dl["template_id"], dl["buyer_sid"], dl["agent_id"],
+                dl.get("gross_amount",0), dl.get("sivarr_fee",0), dl.get("agent_earnings",0),
+                dl.get("stripe_session_id"), dl.get("status","completed"),
+            ))
+            # Increment download_count on the template
+            cur.execute(
+                "UPDATE agent_templates SET download_count = download_count + 1 WHERE id = %s",
+                (dl["template_id"],)
+            )
+            # Increment total_downloads on the agent
+            cur.execute(
+                "UPDATE agents SET total_downloads = total_downloads + 1 WHERE id = %s",
+                (dl["agent_id"],)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"record_download: {exc}"); conn.rollback()
+    finally:
+        _release(conn)
+
+
+def add_agent_earnings(agent_id: str, amount: float) -> None:
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE agents
+                SET pending_earnings = pending_earnings + %s,
+                    total_earned     = total_earned + %s
+                WHERE id = %s
+            """, (amount, amount, agent_id))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"add_agent_earnings: {exc}"); conn.rollback()
+    finally:
+        _release(conn)
+
+
+def get_agent_earnings(agent_id: str) -> dict:
+    """Monthly earnings breakdown per template."""
+    conn = _get_conn()
+    if not conn:
+        return {"monthly": [], "by_template": []}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT DATE_TRUNC('month', downloaded_at) as month,
+                       COUNT(*) as downloads,
+                       SUM(gross_amount) as gross,
+                       SUM(sivarr_fee) as fee,
+                       SUM(agent_earnings) as net
+                FROM template_downloads
+                WHERE agent_id = %s AND status = 'completed'
+                GROUP BY 1 ORDER BY 1 DESC LIMIT 12
+            """, (agent_id,))
+            monthly = []
+            for r in cur.fetchall():
+                monthly.append({
+                    "month": str(r[0])[:7] if r[0] else "",
+                    "downloads": r[1], "gross": float(r[2] or 0),
+                    "fee": float(r[3] or 0), "net": float(r[4] or 0),
+                })
+            cur.execute("""
+                SELECT t.id, t.name, COUNT(*) as downloads,
+                       SUM(d.agent_earnings) as net
+                FROM template_downloads d
+                JOIN agent_templates t ON t.id = d.template_id
+                WHERE d.agent_id = %s AND d.status = 'completed'
+                GROUP BY t.id, t.name ORDER BY net DESC
+            """, (agent_id,))
+            by_tpl = [{"id": r[0], "name": r[1],
+                       "downloads": r[2], "net": float(r[3] or 0)}
+                      for r in cur.fetchall()]
+        return {"monthly": monthly, "by_template": by_tpl}
+    finally:
+        _release(conn)
+
+
+def get_payouts(agent_id: str) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id,amount,stripe_transfer_id,status,period_month,period_year,paid_at,created_at "
+                "FROM agent_payouts WHERE agent_id=%s ORDER BY created_at DESC LIMIT 24",
+                (agent_id,)
+            )
+            cols = ["id","amount","stripe_transfer_id","status",
+                    "period_month","period_year","paid_at","created_at"]
+            return [dict(zip(cols, r)) for r in cur.fetchall()]
+    finally:
+        _release(conn)
+
+
+# ── Reviews ───────────────────────────────────────────────────
+
+def add_review(review: dict) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO template_reviews (id, template_id, reviewer_sid, rating, review_text)
+                VALUES (%s,%s,%s,%s,%s)
+                ON CONFLICT (template_id, reviewer_sid) DO UPDATE
+                SET rating=EXCLUDED.rating, review_text=EXCLUDED.review_text
+            """, (review["id"], review["template_id"], review["reviewer_sid"],
+                  review["rating"], review.get("review_text","")))
+            # Recompute avg_rating + review_count on the template
+            cur.execute("""
+                UPDATE agent_templates SET
+                    avg_rating   = (SELECT AVG(rating) FROM template_reviews WHERE template_id=%s),
+                    review_count = (SELECT COUNT(*) FROM template_reviews WHERE template_id=%s)
+                WHERE id = %s
+            """, (review["template_id"], review["template_id"], review["template_id"]))
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"add_review: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def get_template_reviews(template_id: str, limit: int = 10) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT r.id, r.rating, r.review_text, r.created_at,
+                       u.name as reviewer_name
+                FROM template_reviews r
+                JOIN users u ON u.sid = r.reviewer_sid
+                WHERE r.template_id = %s
+                ORDER BY r.created_at DESC LIMIT %s
+            """, (template_id, limit))
+            cols = ["id","rating","review_text","created_at","reviewer_name"]
+            rows = []
+            for row in cur.fetchall():
+                d = dict(zip(cols, row))
+                # Anonymise: first name + last initial
+                parts = (d.get("reviewer_name") or "").split()
+                if len(parts) >= 2:
+                    d["reviewer_name"] = f"{parts[0]} {parts[-1][0]}."
+                d["created_at"] = str(d["created_at"])
+                rows.append(d)
+            return rows
+    finally:
+        _release(conn)
+
+
+def get_agent_reviews(agent_id: str) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT r.id, r.rating, r.review_text, r.created_at,
+                       u.name as reviewer_name, t.name as template_name
+                FROM template_reviews r
+                JOIN users u ON u.sid = r.reviewer_sid
+                JOIN agent_templates t ON t.id = r.template_id
+                WHERE t.agent_id = %s
+                ORDER BY r.created_at DESC LIMIT 50
+            """, (agent_id,))
+            cols = ["id","rating","review_text","created_at","reviewer_name","template_name"]
+            rows = []
+            for row in cur.fetchall():
+                d = dict(zip(cols, row))
+                parts = (d.get("reviewer_name") or "").split()
+                if len(parts) >= 2:
+                    d["reviewer_name"] = f"{parts[0]} {parts[-1][0]}."
+                d["created_at"] = str(d["created_at"])
+                rows.append(d)
+            return rows
+    finally:
+        _release(conn)
+
+
+# ── Follows ───────────────────────────────────────────────────
+
+def follow_agent(follower_sid: str, agent_id: str) -> None:
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO agent_follows (follower_sid, agent_id)
+                VALUES (%s,%s) ON CONFLICT DO NOTHING
+            """, (follower_sid, agent_id))
+            cur.execute(
+                "UPDATE agents SET follower_count = follower_count + 1 WHERE id=%s",
+                (agent_id,)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"follow_agent: {exc}"); conn.rollback()
+    finally:
+        _release(conn)
+
+
+def unfollow_agent(follower_sid: str, agent_id: str) -> None:
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM agent_follows WHERE follower_sid=%s AND agent_id=%s",
+                (follower_sid, agent_id)
+            )
+            cur.execute(
+                "UPDATE agents SET follower_count = GREATEST(0, follower_count - 1) WHERE id=%s",
+                (agent_id,)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"unfollow_agent: {exc}"); conn.rollback()
+    finally:
+        _release(conn)
+
+
+def is_following(follower_sid: str, agent_id: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM agent_follows WHERE follower_sid=%s AND agent_id=%s LIMIT 1",
+                (follower_sid, agent_id)
+            )
+            return cur.fetchone() is not None
+    finally:
+        _release(conn)
+
+
+def get_agents_with_pending_earnings(min_amount: float = 10.0) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, stripe_account_id, pending_earnings FROM agents "
+                "WHERE status='active' AND pending_earnings >= %s",
+                (min_amount,)
+            )
+            return [{"id": r[0], "stripe_account_id": r[1], "pending_earnings": float(r[2])}
+                    for r in cur.fetchall()]
+    finally:
+        _release(conn)
+
+
+def record_payout(payout: dict) -> None:
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO agent_payouts
+                    (id, agent_id, amount, stripe_transfer_id, status, period_month, period_year, paid_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,NOW())
+            """, (
+                payout["id"], payout["agent_id"], payout["amount"],
+                payout.get("stripe_transfer_id"), payout.get("status","paid"),
+                payout.get("period_month"), payout.get("period_year"),
+            ))
+            cur.execute(
+                "UPDATE agents SET pending_earnings = 0 WHERE id=%s",
+                (payout["agent_id"],)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"record_payout: {exc}"); conn.rollback()
+    finally:
+        _release(conn)

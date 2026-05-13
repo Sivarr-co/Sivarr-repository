@@ -337,6 +337,11 @@
             <i class="ti ti-plug-connected si-ic"></i>
             <span class="si-lb">Integrations</span>
           </button>
+          <button class="si" data-panel="agents" onclick="sidebarNav(this)" id="nav-agents">
+            <i class="ti ti-robot si-ic"></i>
+            <span class="si-lb">Agents</span>
+            <span class="si-badge si-badge--new">New</span>
+          </button>
         </div>
 
         <!-- ── Spaces ────────────────────────────────────────── -->
@@ -2725,10 +2730,46 @@
         </div>
       </div>
 
+      <!-- ══════════════════════════════════════════════════
+           AGENTS MARKETPLACE PANEL
+           All sub-views rendered inside #ag-view by JS
+      ══════════════════════════════════════════════════ -->
+      <div class="panel" id="panel-agents">
+
+        <!-- Top bar (persistent) -->
+        <div class="ag-topbar">
+          <div class="ag-topbar-left">
+            <button class="ag-back-btn" id="ag-back-btn" onclick="agBack()" style="display:none">
+              <i class="ti ti-arrow-left"></i>
+            </button>
+            <span class="ag-topbar-title" id="ag-topbar-title">Sivarr Agents</span>
+          </div>
+          <div class="ag-topbar-right">
+            <button class="ag-tb-btn" onclick="agNav('directory')" id="ag-btn-browse">
+              <i class="ti ti-users"></i> Browse Agents
+            </button>
+            <button class="ag-tb-btn ag-tb-btn--primary" id="ag-btn-dashboard-or-apply"
+              onclick="agNavDashboardOrApply()">
+              <i class="ti ti-layout-dashboard"></i> <span id="ag-btn-label">Become an Agent</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic view container -->
+        <div class="ag-view-wrap" id="ag-view">
+          <!-- Populated by agRenderMarketplace() on load -->
+          <div class="ag-loading">
+            <div class="ag-spinner"></div>
+            <span>Loading marketplace…</span>
+          </div>
+        </div>
+
+      </div><!-- /panel-agents -->
+
 </main>
   </div>
 
-  
+
 
 </div><!-- /dashboard -->
 
@@ -3030,6 +3071,7 @@
     <div class="snav-items" id="mob-items-connect">
       <button class="snav-item" style="--item-accent:#818cf8" onclick="navMob('community')"><span class="snav-item-icon">👥</span> Community</button>
       <button class="snav-item" style="--item-accent:#818cf8" onclick="navMob('library')"><span class="snav-item-icon">📚</span> Library</button>
+      <button class="snav-item" style="--item-accent:#4f6ef7" onclick="navMob('agents')"><span class="snav-item-icon">🤖</span> Agents</button>
     </div>
 
     <!-- Insights -->
