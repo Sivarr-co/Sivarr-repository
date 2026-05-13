@@ -4166,6 +4166,71 @@ input, textarea, select { font-family: var(--font); }
   .ag-tb-btn span { display:none; }
 }
 
+/* ── NGN / Currency toggle ───────────────────────────────── */
+.ag-currency-toggle {
+  display:flex; align-items:center; background:var(--bg3);
+  border:1px solid var(--border); border-radius:8px; padding:2px;
+  gap:2px; flex-shrink:0;
+}
+.ag-currency-opt {
+  padding:4px 10px; border-radius:6px; border:none; background:none;
+  font-size:.72rem; font-weight:700; color:var(--muted); cursor:pointer;
+  transition:var(--transition); font-family:var(--font); white-space:nowrap;
+}
+.ag-currency-opt.active {
+  background:var(--bg); color:var(--text);
+  box-shadow:0 1px 3px rgba(0,0,0,.18);
+}
+.ag-currency-opt.ngn.active { color:#22c55e; }
+.ag-currency-opt.usd.active { color:var(--accent); }
+
+/* ── Paystack button ─────────────────────────────────────── */
+.ag-paystack-btn {
+  display:flex; align-items:center; gap:7px; width:100%;
+  padding:11px 14px; border:none; border-radius:10px; cursor:pointer;
+  font-family:var(--font); font-size:.88rem; font-weight:700;
+  background:#0ba4db; color:#fff; transition:var(--transition);
+  margin-bottom:8px; justify-content:center;
+}
+.ag-paystack-btn:hover { background:#0991c4; }
+.ag-paystack-btn .ag-paystack-logo {
+  font-size:.72rem; background:#fff; color:#0ba4db;
+  border-radius:4px; padding:1px 5px; font-weight:900; letter-spacing:.03em;
+}
+.ag-paystack-btn.disabled { opacity:.5; cursor:not-allowed; }
+
+/* NGN price display */
+.ag-price-ngn {
+  font-size:.72rem; color:var(--muted); margin-top:1px;
+  font-weight:600;
+}
+.ag-price.ngn-active { display:none; }
+.ag-currency-ngn .ag-price { display:none; }
+.ag-currency-ngn .ag-price-ngn { display:block !important; color:var(--green,#22c55e); }
+
+/* ── NGN price badge on cards ────────────────────────────── */
+.ag-ngn-price {
+  font-size:.8rem; font-weight:800; font-family:var(--font);
+  color:#22c55e;
+}
+.ag-ngn-price.free { color:var(--green,#22c55e); }
+
+/* ── Payment method selector ─────────────────────────────── */
+.ag-pay-methods {
+  display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;
+}
+.ag-pay-method {
+  border:2px solid var(--border); border-radius:10px; padding:12px 10px;
+  cursor:pointer; text-align:center; transition:var(--transition);
+  background:var(--bg2);
+}
+.ag-pay-method:hover { border-color:var(--accent); }
+.ag-pay-method.active.stripe  { border-color:var(--accent); background:var(--accent)10; }
+.ag-pay-method.active.paystack{ border-color:#0ba4db; background:#0ba4db10; }
+.ag-pay-method-icon { font-size:1.3rem; margin-bottom:4px; }
+.ag-pay-method-label { font-size:.72rem; font-weight:700; color:var(--text2); }
+.ag-pay-method-sub   { font-size:.65rem; color:var(--muted); margin-top:1px; }
+
 /* override csp-types inside modal to have horizontal padding */
 #create-space-modal .csp-types  { padding: 0 20px; }
 #create-space-modal #csp-name-row { padding: 0 20px; }

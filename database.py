@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS agent_templates (
     tags              JSONB DEFAULT '[]',
     thumbnail_color   TEXT DEFAULT '#4f6ef7',
     price             NUMERIC(8,2) DEFAULT 0.00,
+    price_ngn         NUMERIC(10,2),
     contents          JSONB NOT NULL DEFAULT '{}',
     included_items    JSONB DEFAULT '[]',
     status            TEXT DEFAULT 'draft',
@@ -191,6 +192,9 @@ CREATE TABLE IF NOT EXISTS agent_payouts (
     paid_at            TIMESTAMPTZ,
     created_at         TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ── Migrations for existing installs ──────────────────────────
+ALTER TABLE agent_templates ADD COLUMN IF NOT EXISTS price_ngn NUMERIC(10,2);
 """
 
 
@@ -752,13 +756,14 @@ def _row_to_template(row) -> dict:
     if not row:
         return {}
     keys = ["id","agent_id","name","short_description","full_description","category",
-            "tags","thumbnail_color","price","contents","included_items","status",
+            "tags","thumbnail_color","price","price_ngn","contents","included_items","status",
             "download_count","avg_rating","review_count","created_at","updated_at"]
     d = dict(zip(keys, row))
     d["tags"] = d.get("tags") or []
     d["contents"] = d.get("contents") or {}
     d["included_items"] = d.get("included_items") or []
     d["price"] = float(d.get("price") or 0)
+    d["price_ngn"] = float(d["price_ngn"]) if d.get("price_ngn") is not None else None
     d["avg_rating"] = float(d.get("avg_rating") or 0)
     for k in ("created_at","updated_at"):
         if d.get(k):
@@ -963,8 +968,8 @@ def create_template(tpl: dict) -> dict:
             cur.execute("""
                 INSERT INTO agent_templates
                     (id, agent_id, name, short_description, full_description, category,
-                     tags, thumbnail_color, price, contents, included_items, status)
-                VALUES (%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s::jsonb,%s::jsonb,%s)
+                     tags, thumbnail_color, price, price_ngn, contents, included_items, status)
+                VALUES (%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s,%s::jsonb,%s::jsonb,%s)
             """, (
                 tpl["id"], tpl["agent_id"], tpl["name"],
                 tpl.get("short_description",""), tpl.get("full_description",""),
@@ -972,6 +977,7 @@ def create_template(tpl: dict) -> dict:
                 json.dumps(tpl.get("tags",[])),
                 tpl.get("thumbnail_color","#4f6ef7"),
                 tpl.get("price",0),
+                tpl.get("price_ngn"),  # None = auto-calculated client-side
                 json.dumps(tpl.get("contents",{})),
                 json.dumps(tpl.get("included_items",[])),
                 tpl.get("status","draft"),
@@ -986,7 +992,7 @@ def create_template(tpl: dict) -> dict:
 
 def update_template(template_id: str, agent_id: str, fields: dict) -> bool:
     allowed = {"name","short_description","full_description","category","tags",
-               "thumbnail_color","price","contents","included_items","status"}
+               "thumbnail_color","price","price_ngn","contents","included_items","status"}
     json_cols = {"tags","contents","included_items"}
     sets, vals = [], []
     for k, v in fields.items():
@@ -1083,6 +1089,22 @@ def record_download(dl: dict) -> None:
         conn.commit()
     except Exception as exc:
         log.error(f"record_download: {exc}"); conn.rollback()
+    finally:
+        _release(conn)
+
+
+def check_payment_reference(reference: str) -> bool:
+    """Return True if this payment reference was already processed."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM template_downloads WHERE stripe_session_id = %s LIMIT 1",
+                (reference,)
+            )
+            return cur.fetchone() is not None
     finally:
         _release(conn)
 

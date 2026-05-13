@@ -44,6 +44,13 @@ except ImportError:
     STRIPE_AVAILABLE = False
     stripe = None
 
+try:
+    import httpx as _httpx
+    HTTPX_AVAILABLE = True
+except ImportError:
+    HTTPX_AVAILABLE = False
+    _httpx = None
+
 import database as db
 
 # ═══════════════════════════════════════════════════════════════
@@ -82,6 +89,13 @@ ADMIN_PASSWORD     = os.environ.get("ADMIN_PASSWORD", "sivarr_admin_2024")
 LECTURER_PASSWORD  = os.environ.get("LECTURER_PASSWORD", "sivarr_lecturer_2024")
 BASE_URL           = os.environ.get("BASE_URL", "https://sivarr.up.railway.app")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+# ── Paystack (NGN payments) ───────────────────────────────────
+PAYSTACK_SECRET_KEY = os.environ.get("PAYSTACK_SECRET_KEY", "")
+PAYSTACK_PUBLIC_KEY = os.environ.get("PAYSTACK_PUBLIC_KEY", "")
+PAYSTACK_AVAILABLE  = bool(PAYSTACK_SECRET_KEY)
+NAIRA_RATE          = int(os.environ.get("NAIRA_RATE", "1650"))  # USD→NGN
+PAYSTACK_API        = "https://api.paystack.co"
 
 # ── Shared file paths (defined early so all functions can use them) ──
 ANN_PATH    = DATA_DIR / "announcements.json"
@@ -3296,6 +3310,7 @@ async def ag_create_template(data: dict):
         "tags":              [sanitize_text(str(t),50) for t in (data.get("tags") or [])[:5]],
         "thumbnail_color":   sanitize_text(str(data.get("thumbnail_color","#4f6ef7")),20),
         "price":             max(0.0, float(data.get("price",0))),
+        "price_ngn":         float(data["price_ngn"]) if data.get("price_ngn") is not None else None,
         "contents":          data.get("contents") or {},
         "included_items":    data.get("included_items") or [],
         "status":            "draft",
@@ -3315,11 +3330,13 @@ async def ag_update_template(template_id: str, data: dict):
         raise HTTPException(403, "No agent profile.")
     fields = {}
     for k in ("name","short_description","full_description","category","tags",
-              "thumbnail_color","price","contents","included_items"):
+              "thumbnail_color","price","price_ngn","contents","included_items"):
         if k in data:
             fields[k] = data[k]
     if "price" in fields:
         fields["price"] = max(0.0, float(fields["price"]))
+    if "price_ngn" in fields:
+        fields["price_ngn"] = float(fields["price_ngn"]) if fields["price_ngn"] is not None else None
     db.update_template(template_id, agent["id"], fields)
     return {"ok": True}
 
@@ -3617,6 +3634,212 @@ def _ag_demo_templates() -> list:
             "agent_id": "demo_agent_6",
         },
     ]
+
+
+# ── Payment config (public) ───────────────────────────────────
+
+@app.get("/api/config/payment")
+async def payment_config():
+    """Return public payment keys + Naira rate. Safe to expose."""
+    return {
+        "paystack_public_key": PAYSTACK_PUBLIC_KEY,
+        "paystack_available":  PAYSTACK_AVAILABLE,
+        "stripe_available":    STRIPE_AVAILABLE,
+        "naira_rate":          NAIRA_RATE,
+    }
+
+
+# ── Paystack — NGN payments ───────────────────────────────────
+
+@app.post("/api/payments/paystack/initialize")
+async def paystack_initialize(data: dict):
+    """Create a Paystack transaction and return the authorization URL + reference."""
+    sid, _ = _resolve_token(data)
+    if not PAYSTACK_AVAILABLE:
+        raise HTTPException(503, "Paystack not configured.")
+    template_id = sanitize_text(str(data.get("template_id","")), 60)
+    email       = sanitize_text(str(data.get("email", "")), 200)
+    if not template_id:
+        raise HTTPException(400, "template_id required.")
+    if not db.is_available():
+        raise HTTPException(503, "DB unavailable.")
+    t = db.get_template_by_id(template_id)
+    if not t:
+        raise HTTPException(404, "Template not found.")
+
+    # Determine NGN price
+    price_usd = float(t.get("price", 0))
+    price_ngn = t.get("price_ngn") or round(price_usd * NAIRA_RATE, 2)
+    if price_ngn == 0:
+        # Free — install directly
+        if not db.check_download(sid, template_id):
+            dl_id = uuid.uuid4().hex[:20]
+            db.record_download({
+                "id": dl_id, "template_id": template_id, "buyer_sid": sid,
+                "agent_id": t["agent_id"], "gross_amount": 0,
+                "sivarr_fee": 0, "agent_earnings": 0, "status": "completed",
+            })
+        return {"status": "installed", "contents": t.get("contents", {})}
+
+    amount_kobo = int(price_ngn * 100)  # Paystack uses kobo
+    reference   = f"siv_{uuid.uuid4().hex[:16]}"
+
+    payload = {
+        "email":       email or f"buyer_{sid}@sivarr.app",
+        "amount":      amount_kobo,
+        "currency":    "NGN",
+        "reference":   reference,
+        "callback_url": f"{BASE_URL}/?payment=success&template={template_id}&gateway=paystack&ref={reference}",
+        "metadata": {
+            "template_id": template_id,
+            "buyer_sid":   sid,
+            "agent_id":    t["agent_id"],
+            "price_usd":   str(price_usd),
+            "price_ngn":   str(price_ngn),
+        },
+    }
+    headers = {
+        "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
+        "Content-Type":  "application/json",
+    }
+    if not HTTPX_AVAILABLE:
+        raise HTTPException(503, "HTTP client unavailable.")
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(f"{PAYSTACK_API}/transaction/initialize",
+                                     json=payload, headers=headers)
+        result = resp.json()
+    except Exception as e:
+        log.error(f"Paystack initialize error: {e}")
+        raise HTTPException(502, "Paystack API unreachable.")
+    if not result.get("status"):
+        raise HTTPException(400, result.get("message", "Paystack error."))
+    return {
+        "authorization_url": result["data"]["authorization_url"],
+        "access_code":       result["data"]["access_code"],
+        "reference":         reference,
+        "amount_kobo":       amount_kobo,
+        "price_ngn":         price_ngn,
+    }
+
+
+@app.get("/api/payments/paystack/verify/{reference}")
+async def paystack_verify(reference: str, token: str = ""):
+    """Verify a Paystack transaction by reference and install the template."""
+    reference = sanitize_text(reference, 80)
+    if not PAYSTACK_AVAILABLE or not HTTPX_AVAILABLE:
+        raise HTTPException(503, "Paystack not configured.")
+    if not reference:
+        raise HTTPException(400, "reference required.")
+
+    # Resolve user
+    sid = None
+    if token:
+        entry = get_session_from_token(sanitize_text(token, 100))
+        if entry:
+            sid = entry["sid"]
+
+    # Call Paystack verify endpoint
+    headers = {"Authorization": f"Bearer {PAYSTACK_SECRET_KEY}"}
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(f"{PAYSTACK_API}/transaction/verify/{reference}",
+                                    headers=headers)
+        result = resp.json()
+    except Exception as e:
+        log.error(f"Paystack verify error: {e}")
+        raise HTTPException(502, "Paystack API unreachable.")
+
+    if not result.get("status"):
+        raise HTTPException(400, result.get("message","Verification failed."))
+
+    tx = result["data"]
+    if tx.get("status") != "success":
+        raise HTTPException(402, "Payment not completed.")
+
+    meta        = tx.get("metadata", {})
+    template_id = meta.get("template_id","") or sanitize_text(str(tx.get("template_id","")),60)
+    buyer_sid   = meta.get("buyer_sid","") or sid or ""
+    agent_id    = meta.get("agent_id","")
+    amount_kobo = int(tx.get("amount", 0))
+    price_ngn   = amount_kobo / 100
+    price_usd   = price_ngn / NAIRA_RATE
+
+    if not template_id or not db.is_available():
+        return {"ok": True, "verified": True, "contents": {}}
+
+    # Idempotency — don't double-install
+    if db.check_payment_reference(reference):
+        t = db.get_template_by_id(template_id)
+        return {"ok": True, "already_processed": True, "contents": t.get("contents",{}) if t else {}}
+
+    if buyer_sid and not db.check_download(buyer_sid, template_id):
+        t = db.get_template_by_id(template_id)
+        agent_id = agent_id or (t.get("agent_id","") if t else "")
+        net = round(price_usd * 0.90, 4)
+        fee = round(price_usd * 0.10, 4)
+        dl_id = uuid.uuid4().hex[:20]
+        db.record_download({
+            "id": dl_id, "template_id": template_id, "buyer_sid": buyer_sid,
+            "agent_id": agent_id, "gross_amount": price_usd, "sivarr_fee": fee,
+            "agent_earnings": net, "stripe_session_id": reference, "status": "completed",
+        })
+        if agent_id:
+            db.add_agent_earnings(agent_id, net)
+        t = db.get_template_by_id(template_id)
+        return {"ok": True, "contents": t.get("contents",{}) if t else {}}
+
+    t = db.get_template_by_id(template_id)
+    return {"ok": True, "contents": t.get("contents",{}) if t else {}}
+
+
+@app.post("/api/webhooks/paystack")
+async def paystack_webhook(request: Request):
+    """Paystack webhook — HMAC-SHA512 verified."""
+    payload    = await request.body()
+    sig_header = request.headers.get("x-paystack-signature", "")
+
+    if not PAYSTACK_SECRET_KEY:
+        raise HTTPException(503, "Paystack not configured.")
+
+    expected = hmac.new(PAYSTACK_SECRET_KEY.encode(), payload, hashlib.sha512).hexdigest()
+    if not hmac.compare_digest(sig_header, expected):
+        raise HTTPException(400, "Invalid signature.")
+
+    try:
+        event = json.loads(payload)
+    except Exception:
+        raise HTTPException(400, "Invalid JSON.")
+
+    if event.get("event") == "charge.success":
+        tx        = event.get("data", {})
+        meta      = tx.get("metadata", {})
+        reference = tx.get("reference","")
+        template_id = meta.get("template_id","")
+        buyer_sid   = meta.get("buyer_sid","")
+        agent_id    = meta.get("agent_id","")
+        amount_kobo = int(tx.get("amount", 0))
+        price_ngn   = amount_kobo / 100
+        price_usd   = price_ngn / NAIRA_RATE
+
+        if template_id and buyer_sid and db.is_available():
+            if not db.check_payment_reference(reference):
+                if not db.check_download(buyer_sid, template_id):
+                    t = db.get_template_by_id(template_id)
+                    aid = agent_id or (t.get("agent_id","") if t else "")
+                    net = round(price_usd * 0.90, 4)
+                    fee = round(price_usd * 0.10, 4)
+                    dl_id = uuid.uuid4().hex[:20]
+                    db.record_download({
+                        "id": dl_id, "template_id": template_id, "buyer_sid": buyer_sid,
+                        "agent_id": aid, "gross_amount": price_usd, "sivarr_fee": fee,
+                        "agent_earnings": net, "stripe_session_id": reference, "status": "completed",
+                    })
+                    if aid:
+                        db.add_agent_earnings(aid, net)
+                    log.info(f"Paystack: installed template {template_id} for {buyer_sid}")
+
+    return {"received": True}
 
 
 @app.get("/health")

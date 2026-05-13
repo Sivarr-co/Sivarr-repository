@@ -8592,13 +8592,19 @@ function acRenderPlan() {
 // ═══════════════════════════════════════════════════════════════
 
 const _ag = {
-  view:      'marketplace', // current sub-view
-  category:  'all',
-  filters:   [],
-  templates: [],
-  agents:    [],
-  myAgent:   null,
-  viewStack: [], // for back-button navigation
+  view:       'marketplace', // current sub-view
+  category:   'all',
+  filters:    [],
+  templates:  [],
+  agents:     [],
+  myAgent:    null,
+  viewStack:  [], // for back-button navigation
+  currency:   'usd', // 'usd' | 'ngn'
+  nairaRate:  1650,
+  paystackKey: '',
+  paystackAvailable: false,
+  stripeAvailable:   false,
+  payConfig:  null,    // cache from /api/config/payment
 };
 
 const AG_CAT_COLORS = {
@@ -8629,13 +8635,39 @@ const AG_CAT_LABELS = {
 
 // ── Init ──────────────────────────────────────────────────────
 async function agInit() {
-  await agLoadMyAgent();
+  await Promise.all([agLoadMyAgent(), agLoadPaymentConfig()]);
   agUpdateTopbarBtn();
   if (_ag.templates.length === 0) {
     agRenderLoading();
     await agFetchTemplates();
   }
   agRenderMarketplace();
+}
+
+async function agLoadPaymentConfig() {
+  if (_ag.payConfig) return;
+  try {
+    const r = await fetch('/api/config/payment');
+    const d = await r.json();
+    _ag.paystackKey       = d.paystack_public_key || '';
+    _ag.paystackAvailable = d.paystack_available  || false;
+    _ag.stripeAvailable   = d.stripe_available    || false;
+    _ag.nairaRate         = d.naira_rate          || 1650;
+    _ag.payConfig = d;
+    // Load Paystack inline JS if available and not already loaded
+    if (_ag.paystackAvailable && !window.PaystackPop) {
+      agLoadPaystackScript();
+    }
+  } catch { /* no payment config */ }
+}
+
+function agLoadPaystackScript() {
+  if (document.getElementById('paystack-js')) return;
+  const s = document.createElement('script');
+  s.id  = 'paystack-js';
+  s.src = 'https://js.paystack.co/v1/inline.js';
+  s.async = true;
+  document.head.appendChild(s);
 }
 
 async function agLoadMyAgent() {
@@ -8725,6 +8757,41 @@ function agRenderLoading() {
   if (v) v.innerHTML = `<div class="ag-loading"><div class="ag-spinner"></div><span>Loading…</span></div>`;
 }
 
+// ── Currency helpers ──────────────────────────────────────────
+function agNgnPrice(t) {
+  if (t.price_ngn != null) return t.price_ngn;
+  return Math.round(parseFloat(t.price || 0) * _ag.nairaRate);
+}
+
+function agFormatPrice(t) {
+  if (_ag.currency === 'ngn') {
+    const ngn = agNgnPrice(t);
+    return ngn === 0 ? 'Free' : `₦${ngn.toLocaleString()}`;
+  }
+  const usd = parseFloat(t.price || 0);
+  return usd === 0 ? 'Free' : `$${usd.toFixed(2)}`;
+}
+
+function agIsFree(t) {
+  return parseFloat(t.price || 0) === 0;
+}
+
+function agSetCurrency(cur) {
+  _ag.currency = cur;
+  // Re-render grid in-place without full fetch
+  const grid = $('ag-grid');
+  if (grid) {
+    const filtered = agApplyFilters(_ag.templates, _ag.category, _ag.filters);
+    grid.innerHTML = filtered.length
+      ? filtered.map(t => agTemplateCardHTML(t)).join('')
+      : '<div class="ag-empty"><div class="ag-empty-icon">🔍</div><p>No templates found.</p></div>';
+  }
+  // Update toggle visual
+  document.querySelectorAll('.ag-currency-opt').forEach(b => {
+    b.classList.toggle('active', b.dataset.cur === cur);
+  });
+}
+
 // ── Marketplace ───────────────────────────────────────────────
 async function agRenderMarketplace() {
   agNav('marketplace', false);
@@ -8736,12 +8803,20 @@ async function agRenderMarketplace() {
   v.innerHTML = `
     <div class="ag-market-wrap">
 
-      <!-- Category tabs -->
-      <div class="ag-cats">
-        ${['all','workspace','academic','ai_prompts','goals','journal','study_decks'].map(c => `
-          <button class="ag-cat${_ag.category===c?' active':''}"
-            onclick="agSetCategory('${c}')">${AG_CAT_LABELS[c]||c}</button>
-        `).join('')}
+      <!-- Category tabs + currency toggle row -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="ag-cats" style="flex:1;margin-bottom:0">
+          ${['all','workspace','academic','ai_prompts','goals','journal','study_decks'].map(c => `
+            <button class="ag-cat${_ag.category===c?' active':''}"
+              onclick="agSetCategory('${c}')">${AG_CAT_LABELS[c]||c}</button>
+          `).join('')}
+        </div>
+        <div class="ag-currency-toggle">
+          <button class="ag-currency-opt usd${_ag.currency==='usd'?' active':''}"
+            data-cur="usd" onclick="agSetCurrency('usd')">$ USD</button>
+          <button class="ag-currency-opt ngn${_ag.currency==='ngn'?' active':''}"
+            data-cur="ngn" onclick="agSetCurrency('ngn')">₦ NGN</button>
+        </div>
       </div>
 
       <!-- Filter chips -->
@@ -8831,11 +8906,12 @@ async function agFeaturedBannerHTML() {
 }
 
 function agTemplateCardHTML(t) {
-  const color = t.thumbnail_color || AG_CAT_COLORS[t.category] || '#4f6ef7';
-  const icon  = AG_CAT_ICONS[t.category] || 'ti-template';
-  const price = parseFloat(t.price||0);
-  const priceLabel = price === 0 ? 'Free' : `$${price.toFixed(2)}`;
-  const isFree = price === 0;
+  const color      = t.thumbnail_color || AG_CAT_COLORS[t.category] || '#4f6ef7';
+  const icon       = AG_CAT_ICONS[t.category] || 'ti-template';
+  const isFree     = agIsFree(t);
+  const priceLabel = agFormatPrice(t);
+  const price      = parseFloat(t.price||0);
+  const priceNgn   = agNgnPrice(t);
   return `
     <div class="ag-card" onclick="agOpenTemplate('${t.id}')">
       <div class="ag-card-thumb" style="background:${color}20">
@@ -8850,7 +8926,11 @@ function agTemplateCardHTML(t) {
           <span class="ag-card-rating">★ ${(t.avg_rating||0).toFixed(1)}</span>
         </div>
         <div class="ag-card-footer">
-          <span class="ag-price${isFree?' free':''}">${priceLabel}</span>
+          <div>
+            <span class="ag-price${isFree?' free':''}">${priceLabel}</span>
+            ${!isFree && _ag.currency === 'usd' ? `<div class="ag-price-ngn">≈ ₦${priceNgn.toLocaleString()}</div>` : ''}
+            ${!isFree && _ag.currency === 'ngn' ? `<div class="ag-price-ngn">≈ $${price.toFixed(2)}</div>` : ''}
+          </div>
           <button class="ag-get-btn"
             onclick="event.stopPropagation();agHandleGet('${t.id}',${price})">
             Get
@@ -8927,10 +9007,11 @@ async function agOpenTemplate(id) {
     const d = await r.json();
     const t = d.template;
     if (!t || !t.id) { v.innerHTML = '<div class="ag-empty"><div class="ag-empty-icon">😕</div><p>Template not found.</p></div>'; return; }
-    const color  = t.thumbnail_color || AG_CAT_COLORS[t.category] || '#4f6ef7';
-    const icon   = AG_CAT_ICONS[t.category] || 'ti-template';
-    const price  = parseFloat(t.price||0);
-    const isFree = price === 0;
+    const color    = t.thumbnail_color || AG_CAT_COLORS[t.category] || '#4f6ef7';
+    const icon     = AG_CAT_ICONS[t.category] || 'ti-template';
+    const price    = parseFloat(t.price||0);
+    const isFree   = price === 0;
+    const priceNgn = agNgnPrice(t);
 
     // Check ownership
     let owned = false;
@@ -8983,9 +9064,32 @@ async function agOpenTemplate(id) {
               <span><strong>${t.download_count||0}</strong> downloads</span>
               <span><strong>${(t.avg_rating||0).toFixed(1)}</strong> rating</span>
             </div>
+            ${!isFree && !owned ? `
+              <div class="ag-pay-methods">
+                <div class="ag-pay-method stripe${_ag.currency==='usd'?' active':''}"
+                  onclick="agSelectPayment('${id}',${price},'usd')">
+                  <i class="ti ti-credit-card"></i>
+                  <div>
+                    <div style="font-weight:700">$${price.toFixed(2)} <span style="font-size:.7rem;font-weight:400">USD</span></div>
+                    <div style="font-size:.68rem;color:var(--muted)">via Stripe</div>
+                  </div>
+                </div>
+                ${_ag.paystackAvailable ? `
+                <div class="ag-pay-method paystack${_ag.currency==='ngn'?' active':''}"
+                  onclick="agSelectPayment('${id}',${price},'ngn')">
+                  <i class="ti ti-currency-naira"></i>
+                  <div>
+                    <div style="font-weight:700">₦${priceNgn.toLocaleString()} <span style="font-size:.7rem;font-weight:400">NGN</span></div>
+                    <div style="font-size:.68rem;color:var(--muted)">via Paystack</div>
+                  </div>
+                </div>` : ''}
+              </div>` : ''}
             <button class="ag-detail-cta${owned?' owned':''}"
               onclick="${owned ? '' : `agHandleGet('${id}',${price})`}">
-              ${owned ? '✓ Installed' : isFree ? 'Get for free' : `Buy for $${price.toFixed(2)}`}
+              ${owned ? '✓ Installed' : isFree ? 'Get for free'
+                : _ag.currency === 'ngn' && _ag.paystackAvailable
+                  ? `Buy for ₦${priceNgn.toLocaleString()}`
+                  : `Buy for $${price.toFixed(2)}`}
             </button>
             <button class="ag-detail-secondary" onclick="agOpenAgentProfile('${t.agent_id}')">
               View agent profile
@@ -9033,9 +9137,16 @@ async function agHandleGet(templateId, price) {
   if (!S.sid) { showToast('Sign in to get templates.'); return; }
   if (parseFloat(price) === 0) {
     await agInstallFree(templateId);
+  } else if (_ag.currency === 'ngn' && _ag.paystackAvailable) {
+    await agStartPaystackCheckout(templateId);
   } else {
     await agStartCheckout(templateId);
   }
+}
+
+async function agSelectPayment(templateId, price, currency) {
+  _ag.currency = currency;
+  await agHandleGet(templateId, price);
 }
 
 async function agInstallFree(templateId) {
@@ -9071,6 +9182,57 @@ async function agStartCheckout(templateId) {
       window.location.href = d.checkout_url;
     }
   } catch { showToast('Checkout failed. Try again.'); }
+}
+
+async function agStartPaystackCheckout(templateId) {
+  if (!window.PaystackPop) {
+    showToast('Paystack not ready. Please refresh and try again.');
+    return;
+  }
+  showToast('Preparing payment…');
+  try {
+    const r = await fetch('/api/payments/paystack/initialize', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ token: S.token, template_id: templateId }),
+    });
+    const d = await r.json();
+    if (d.status === 'installed') {
+      if (d.contents) agApplyContents(d.contents);
+      agShowInstallSuccess('Template installed!');
+      agOpenTemplate(templateId);
+      return;
+    }
+    if (!d.access_code) { showToast(d.detail || 'Payment setup failed.'); return; }
+    const handler = window.PaystackPop.setup({
+      key:         _ag.paystackKey,
+      email:       S.email || '',
+      access_code: d.access_code,
+      ref:         d.reference,
+      onSuccess(transaction) { agHandlePaystackSuccess(transaction, templateId); },
+      onCancel()             { showToast('Payment cancelled.'); },
+    });
+    handler.openIframe();
+  } catch { showToast('Payment failed. Try again.'); }
+}
+
+async function agHandlePaystackSuccess(transaction, templateId) {
+  showToast('Verifying payment…');
+  try {
+    const r = await fetch(`/api/payments/paystack/verify/${transaction.reference}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ token: S.token }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      if (d.contents) agApplyContents(d.contents);
+      agShowInstallSuccess('Payment successful! Template installed.');
+      agOpenTemplate(templateId);
+    } else {
+      showToast(d.detail || 'Verification failed. Contact support.');
+    }
+  } catch { showToast('Verification failed. Try again.'); }
 }
 
 function agApplyContents(contents) {
@@ -9672,7 +9834,7 @@ async function agDeleteAccount() {
 const _agBuilder = {
   step:1, id:null,
   data:{ name:'', short_description:'', full_description:'', category:'workspace',
-         tags:[], thumbnail_color:'#4f6ef7', price:0, contents:{}, included_items:[], free:true }
+         tags:[], thumbnail_color:'#4f6ef7', price:0, price_ngn:null, contents:{}, included_items:[], free:true }
 };
 const AG_COLORS = ['#4f6ef7','#7c3aed','#22c55e','#d97706','#ef4444','#7f77dd','#d85a30'];
 const AG_CONTENTS = [
@@ -9699,7 +9861,7 @@ async function agOpenBuilder(templateId) {
           name: t.name, short_description: t.short_description,
           full_description: t.full_description, category: t.category,
           tags: t.tags||[], thumbnail_color: t.thumbnail_color||'#4f6ef7',
-          price: t.price, contents: t.contents||{},
+          price: t.price, price_ngn: t.price_ngn||null, contents: t.contents||{},
           included_items: t.included_items||[],
           free: parseFloat(t.price||0)===0,
         };
@@ -9777,6 +9939,12 @@ function agRenderBuilder() {
             <input id="ab-price" type="number" min="1" max="999" step="0.01" placeholder="4.99"
               value="${d.price>0?d.price:''}" oninput="agBuilderUpdateEarnings()">
           </div>
+          ${_ag.paystackAvailable ? `
+          <div class="ag-field" style="margin-top:8px">
+            <label>Price (NGN) <span style="font-size:.7rem;font-weight:400;color:var(--muted)">— leave blank to auto-calculate (≈ USD × ${_ag.nairaRate})</span></label>
+            <input id="ab-price-ngn" type="number" min="100" step="50" placeholder="Auto"
+              value="${d.price_ngn||''}" oninput="agBuilderUpdateNgn()">
+          </div>` : ''}
           <div class="ag-earn-card" id="ab-earn-preview">
             ${agBuilderEarningsHTML(d.price||0)}
           </div>
@@ -9870,6 +10038,11 @@ function agBuilderUpdateEarnings() {
   if (prev) prev.innerHTML = agBuilderEarningsHTML(price);
 }
 
+function agBuilderUpdateNgn() {
+  const v = ($('ab-price-ngn')||{}).value;
+  _agBuilder.data.price_ngn = v ? parseFloat(v) : null;
+}
+
 function agBuilderEarningsHTML(price) {
   const net = (price * 0.9).toFixed(2);
   const fee = (price * 0.1).toFixed(2);
@@ -9883,13 +10056,15 @@ function agBuilderEarningsHTML(price) {
 
 async function agSaveTemplate(status) {
   const d = _agBuilder.data;
-  if ($('ab-price')) d.price = parseFloat(($('ab-price')||{}).value||0);
+  if ($('ab-price'))     d.price     = parseFloat(($('ab-price')||{}).value||0);
+  if ($('ab-price-ngn')) d.price_ngn = ($('ab-price-ngn').value) ? parseFloat($('ab-price-ngn').value) : null;
   const body = {
     token: S.token,
     name: d.name, short_description: d.short_description,
     full_description: d.full_description, category: d.category,
     tags: d.tags, thumbnail_color: d.thumbnail_color,
     price: d.free ? 0 : d.price,
+    price_ngn: d.free ? null : d.price_ngn,
     contents: d.contents, included_items: d.included_items,
   };
   try {
@@ -9940,9 +10115,18 @@ function agLeaveReview(templateId) {
 
 // ── Check payment success on page load ────────────────────────
 function agCheckPaymentReturn() {
-  const params = new URLSearchParams(window.location.search);
-  const payment = params.get('payment');
+  const params     = new URLSearchParams(window.location.search);
+  const payment    = params.get('payment');
   const templateId = params.get('template');
+  const gateway    = params.get('gateway');
+  const ref        = params.get('ref');
+
+  if (gateway === 'paystack' && ref) {
+    history.replaceState({}, '', window.location.pathname);
+    nav('agents');
+    agHandlePaystackReturn(ref, templateId);
+    return;
+  }
   if (payment === 'success' && templateId) {
     showToast('Payment successful! Template installed.');
     history.replaceState({}, '', window.location.pathname);
@@ -9952,6 +10136,25 @@ function agCheckPaymentReturn() {
     showToast('Payment cancelled.');
     history.replaceState({}, '', window.location.pathname);
   }
+}
+
+async function agHandlePaystackReturn(reference, templateId) {
+  showToast('Verifying payment…');
+  try {
+    const r = await fetch(`/api/payments/paystack/verify/${reference}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ token: S.token }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      if (d.contents) agApplyContents(d.contents);
+      agShowInstallSuccess('Payment successful! Template installed.');
+      if (templateId) agOpenTemplate(templateId);
+    } else {
+      showToast(d.detail || 'Verification failed. Contact support.');
+    }
+  } catch { showToast('Verification failed.'); }
 }
 
 
