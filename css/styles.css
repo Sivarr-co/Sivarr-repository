@@ -965,6 +965,25 @@ input, textarea, select { font-family: var(--font); }
   margin-bottom:12px;
 }
 
+.stats-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;
+}
+.stat-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-top:3px solid var(--sc, var(--accent));
+  border-radius:var(--radius2); padding:12px 14px;
+  transition:var(--transition);
+}
+.stat-card:hover { box-shadow:var(--shadow); }
+.sc-label {
+  font-size:.68rem; font-weight:700; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px;
+}
+.sc-val {
+  font-size:1.55rem; font-weight:800; font-family:var(--font);
+  line-height:1; letter-spacing:-.03em;
+}
+
 /* ── NOTES PANEL ───────────────────────────────────────────── */
 .note-card {
   background:var(--bg2); border:1px solid var(--border);
@@ -2517,8 +2536,9 @@ input, textarea, select { font-family: var(--font); }
 }
 .opp-filter:hover  { border-color:var(--teal); color:var(--text2); }
 .opp-filter.active { background:var(--teal); color:#fff; border-color:var(--teal); }
+#panel-opportunities { overflow-y: auto; }
 .opp-grid {
-  display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px;
+  display:grid; grid-template-columns:1fr 1fr; gap:14px;
 }
 .opp-card {
   background:var(--bg2); border:1px solid var(--border);

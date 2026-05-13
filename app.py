@@ -945,6 +945,13 @@ async def login(req: LoginRequest, request: Request):
             "role":     "student",
         }
         save_users(users)
+        # Explicitly persist to DB — save_users() may silently skip the new user
+        # if a bulk DB sync error occurs (common on Railway after dyno restart)
+        if db.is_available() and not db.user_exists(sid):
+            try:
+                db.create_user(users[sid])
+            except Exception as _e:
+                log.error(f"Critical: failed to persist new user {sid} to DB: {_e}")
         user = users[sid]
         log.info(f"Register: {user['name']} ({email})")
 
