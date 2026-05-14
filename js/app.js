@@ -7577,11 +7577,11 @@ async function projectNew() {
   ], { confirmLabel:'Create Project' });
   if (!d || !d.name) return;
   const name = d.name; const desc = d.desc||'';
-  const d = orgGetData();
-  d.projects.push({ id: Date.now(), name, desc, tasks: 0, status: 'active' });
-  d.activity.push(`Project "${name}" was created.`);
-  orgSaveData(d);
-  orgRenderProjects(d);
+  const org = orgGetData();
+  org.projects.push({ id: Date.now(), name, desc, tasks: 0, status: 'active' });
+  org.activity.push(`Project "${name}" was created.`);
+  orgSaveData(org);
+  orgRenderProjects(org);
   toast('Project created');
 }
 
