@@ -4238,3 +4238,147 @@ input, textarea, select { font-family: var(--font); }
   padding: 14px 20px; border-top: 1px solid var(--border);
   display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   UNIVERSAL DIALOG MODAL  (siModal)
+   Replaces all native prompt() / confirm() / alert() calls
+   ═══════════════════════════════════════════════════════════════ */
+.si-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); backdrop-filter: blur(6px);
+  z-index: 9999; align-items: center; justify-content: center; padding: 20px;
+}
+.si-modal-overlay.open { display: flex; }
+@keyframes si-modal-in {
+  from { opacity:0; transform:translateY(10px) scale(.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+.si-modal-box {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; width: 100%; max-width: 420px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.35); overflow: hidden;
+  animation: si-modal-in .18s cubic-bezier(.34,1.3,.64,1);
+}
+.si-modal-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px 14px; border-bottom: 1px solid var(--border);
+}
+.si-modal-title { font-size: .9rem; font-weight: 700; color: var(--text1); }
+.si-modal-x {
+  width: 26px; height: 26px; border: none; background: none;
+  color: var(--text3); cursor: pointer; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .85rem; transition: background .12s, color .12s;
+}
+.si-modal-x:hover { background: var(--bg3); color: var(--text1); }
+.si-modal-desc { padding: 10px 18px 0; font-size: .78rem; color: var(--text3); line-height: 1.5; }
+.si-modal-body { padding: 14px 18px; }
+.si-modal-form-body { padding: 14px 18px; max-height: 55vh; overflow-y: auto; }
+.si-modal-confirm-body { padding: 16px 18px 6px; }
+.si-modal-confirm-msg { font-size: .86rem; color: var(--text2); line-height: 1.65; margin: 0; }
+.si-modal-input {
+  width: 100%; background: var(--bg3); border: 1.5px solid var(--border);
+  border-radius: 8px; color: var(--text1); font-size: .86rem;
+  padding: 9px 12px; outline: none; font-family: var(--font);
+  box-sizing: border-box; transition: border-color .15s;
+}
+.si-modal-input:focus { border-color: var(--accent); }
+.si-modal-textarea { resize: vertical; min-height: 72px; }
+.si-modal-field { margin-bottom: 14px; }
+.si-modal-field:last-child { margin-bottom: 0; }
+.si-modal-label {
+  display: block; font-size: .72rem; font-weight: 700; color: var(--text3);
+  margin-bottom: 5px; text-transform: uppercase; letter-spacing: .05em;
+}
+.si-modal-emoji-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.si-modal-emoji-btn {
+  width: 36px; height: 36px; border: 2px solid transparent;
+  background: var(--bg3); border-radius: 8px; font-size: 1.1rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: border-color .12s, background .12s;
+}
+.si-modal-emoji-btn:hover { background: var(--border); }
+.si-modal-emoji-btn.sel { border-color: var(--accent); background: var(--teal2); }
+.si-modal-ft {
+  display: flex; gap: 8px; padding: 12px 18px 16px;
+  border-top: 1px solid var(--border); justify-content: flex-end;
+}
+.si-modal-btn {
+  padding: 8px 20px; border-radius: 8px; font-size: .82rem;
+  font-weight: 700; cursor: pointer; border: none;
+  font-family: var(--font); transition: opacity .15s, background .15s;
+}
+.si-modal-btn-cancel { background: var(--bg3); color: var(--text2); }
+.si-modal-btn-cancel:hover { background: var(--border); }
+.si-modal-btn-primary { background: var(--accent); color: #fff; }
+.si-modal-btn-primary:hover { opacity: .85; }
+.si-modal-btn-primary.danger { background: var(--red3,#ef4444); }
+
+/* ═══════════════════════════════════════════════════════════════
+   ONBOARDING FLOW
+   Shown once to new users after first sign-up
+   ═══════════════════════════════════════════════════════════════ */
+.si-onboard-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: var(--bg); display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+@keyframes si-ob-in {
+  from { opacity:0; transform:translateY(16px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.si-onboard-box {
+  width: 100%; max-width: 540px; text-align: center;
+  animation: si-ob-in .3s cubic-bezier(.34,1.2,.64,1);
+}
+.si-ob-logo {
+  font-size: 1.4rem; font-weight: 800; color: var(--accent);
+  letter-spacing: -.03em; margin-bottom: 32px;
+}
+.si-ob-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 36px; }
+.si-ob-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--border); transition: background .25s, width .25s;
+}
+.si-ob-dot.active { background: var(--accent); width: 20px; border-radius: 4px; }
+.si-ob-emoji { font-size: 3rem; margin-bottom: 16px; }
+.si-ob-title { font-size: 1.6rem; font-weight: 800; color: var(--text1); line-height: 1.2; margin-bottom: 10px; }
+.si-ob-sub { font-size: .9rem; color: var(--text3); line-height: 1.6; margin-bottom: 32px; max-width: 380px; margin-left: auto; margin-right: auto; }
+.si-ob-role-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 32px; }
+.si-ob-role-card {
+  padding: 20px 12px; border: 2px solid var(--border); border-radius: 12px;
+  background: var(--bg2); cursor: pointer; transition: border-color .15s, background .15s;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.si-ob-role-card:hover { border-color: var(--accent); background: var(--teal2); }
+.si-ob-role-card.sel { border-color: var(--accent); background: var(--teal2); }
+.si-ob-role-card .si-ob-role-icon { font-size: 1.8rem; }
+.si-ob-role-card .si-ob-role-label { font-size: .8rem; font-weight: 700; color: var(--text1); }
+.si-ob-role-card .si-ob-role-desc { font-size: .7rem; color: var(--text3); text-align: center; line-height: 1.4; }
+.si-ob-features { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 32px; }
+.si-ob-feat {
+  padding: 14px 10px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.si-ob-feat-icon { font-size: 1.4rem; }
+.si-ob-feat-label { font-size: .72rem; font-weight: 700; color: var(--text2); }
+.si-ob-actions { display: flex; gap: 10px; justify-content: center; align-items: center; }
+.si-ob-btn-pri {
+  padding: 12px 32px; background: var(--accent); color: #fff;
+  border: none; border-radius: 10px; font-size: .88rem; font-weight: 700;
+  cursor: pointer; font-family: var(--font); transition: opacity .15s;
+}
+.si-ob-btn-pri:hover { opacity: .85; }
+.si-ob-btn-sec {
+  padding: 12px 20px; background: none; color: var(--text3);
+  border: none; font-size: .82rem; cursor: pointer; font-family: var(--font);
+  transition: color .15s;
+}
+.si-ob-btn-sec:hover { color: var(--text1); }
+.si-ob-skip { position: absolute; top: 18px; right: 20px; background: none; border: none; color: var(--text4); font-size: .8rem; cursor: pointer; font-family: var(--font); }
+.si-ob-skip:hover { color: var(--text2); }
+@media (max-width:480px) {
+  .si-ob-role-grid  { grid-template-columns: 1fr; }
+  .si-ob-features   { grid-template-columns: repeat(2,1fr); }
+  .si-ob-title      { font-size: 1.3rem; }
+}

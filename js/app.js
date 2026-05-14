@@ -26,6 +26,180 @@ const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 const escHtml = esc;
 const $ = id => document.getElementById(id);
 
+// ═══════════════════════════════════════════════════════════════
+// UNIVERSAL DIALOG MODAL  (siModal)
+// Async promise-based replacement for all browser prompt/confirm/alert calls.
+// Usage:
+//   const name = await siModal.input('Add Habit', 'Habit name…');
+//   if (!await siModal.confirm('Delete?', {danger:true})) return;
+//   await siModal.alert('Something went wrong.');
+//   const data = await siModal.form('New Event', [{id:'title',label:'Title',…}]);
+// ═══════════════════════════════════════════════════════════════
+const siModal = (() => {
+  let _res = null;
+
+  function _show(html) {
+    return new Promise(resolve => {
+      _res = resolve;
+      const overlay = $('si-modal-overlay');
+      const box     = $('si-modal-box');
+      if (!overlay || !box) { resolve(null); return; }
+      box.innerHTML = html;
+      overlay.classList.add('open');
+      const first = box.querySelector('input,textarea,select');
+      if (first) setTimeout(() => first.focus(), 60);
+    });
+  }
+
+  function _done(val) {
+    const o = $('si-modal-overlay');
+    if (o) o.classList.remove('open');
+    if (_res) { _res(val); _res = null; }
+  }
+
+  function _bgClose(e) {
+    if (e.target === $('si-modal-overlay')) _done(null);
+  }
+
+  document.addEventListener('keydown', e => {
+    const o = $('si-modal-overlay');
+    if (!o || !o.classList.contains('open')) return;
+    if (e.key === 'Escape') { _done(null); return; }
+    if (e.key === 'Enter' && !e.shiftKey && e.target.tagName !== 'TEXTAREA') {
+      const btn = o.querySelector('.si-modal-btn-primary');
+      if (btn) { e.preventDefault(); btn.click(); }
+    }
+  });
+
+  // ── input ──────────────────────────────────────────────────
+  function input(title, placeholder = '', defaultVal = '', opts = {}) {
+    const { description = '', confirmLabel = 'Confirm', type = 'text' } = opts;
+    return _show(`
+      <div class="si-modal-hd">
+        <span class="si-modal-title">${title}</span>
+        <button class="si-modal-x" onclick="siModal._done(null)"><i class="ti ti-x"></i></button>
+      </div>
+      ${description ? `<div class="si-modal-desc">${description}</div>` : ''}
+      <div class="si-modal-body">
+        <input id="si-m-inp" class="si-modal-input" type="${type}"
+          placeholder="${placeholder}" value="${esc(defaultVal)}" autocomplete="off">
+      </div>
+      <div class="si-modal-ft">
+        <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(null)">Cancel</button>
+        <button class="si-modal-btn si-modal-btn-primary" onclick="siModal._subInput()">${confirmLabel}</button>
+      </div>`);
+  }
+  function _subInput() {
+    const v = ($('si-m-inp') || {}).value?.trim() || '';
+    _done(v || null);
+  }
+
+  // ── confirm ────────────────────────────────────────────────
+  function confirm(message, opts = {}) {
+    const { title = 'Confirm', confirmLabel = 'Confirm', danger = false } = opts;
+    return _show(`
+      <div class="si-modal-hd">
+        <span class="si-modal-title">${title}</span>
+        <button class="si-modal-x" onclick="siModal._done(false)"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="si-modal-confirm-body">
+        <p class="si-modal-confirm-msg">${message}</p>
+      </div>
+      <div class="si-modal-ft">
+        <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(false)">Cancel</button>
+        <button class="si-modal-btn si-modal-btn-primary${danger ? ' danger' : ''}"
+          onclick="siModal._done(true)">${confirmLabel}</button>
+      </div>`);
+  }
+
+  // ── alert ──────────────────────────────────────────────────
+  function alert(message, opts = {}) {
+    const { title = 'Notice' } = opts;
+    return _show(`
+      <div class="si-modal-hd">
+        <span class="si-modal-title">${title}</span>
+      </div>
+      <div class="si-modal-confirm-body">
+        <p class="si-modal-confirm-msg">${message}</p>
+      </div>
+      <div class="si-modal-ft">
+        <button class="si-modal-btn si-modal-btn-primary" onclick="siModal._done(true)">OK</button>
+      </div>`);
+  }
+
+  // ── form ───────────────────────────────────────────────────
+  // fields: [{id, label, type ('text'|'textarea'|'select'|'emoji'|'date'|'number'),
+  //           placeholder, default, options (for select/emoji), required}]
+  function form(title, fields, opts = {}) {
+    const { confirmLabel = 'Save', description = '' } = opts;
+    const fHTML = fields.map(f => {
+      if (f.type === 'emoji') return `
+        <div class="si-modal-field">
+          <label class="si-modal-label">${f.label}</label>
+          <div class="si-modal-emoji-grid" id="smg-${f.id}">
+            ${(f.options || []).map(e => `
+              <button type="button" class="si-modal-emoji-btn${(f.default||'')=== e?' sel':''}"
+                onclick="siModal._pickEmoji('smg-${f.id}','si-mf-${f.id}',this)">${e}</button>`).join('')}
+          </div>
+          <input type="hidden" id="si-mf-${f.id}" value="${esc(f.default||'')}">
+        </div>`;
+      if (f.type === 'select') return `
+        <div class="si-modal-field">
+          <label class="si-modal-label">${f.label}</label>
+          <select id="si-mf-${f.id}" class="si-modal-input">
+            ${(f.options || []).map(o =>
+              `<option value="${o.value}"${o.value===(f.default||'')?' selected':''}>${o.label}</option>`
+            ).join('')}
+          </select>
+        </div>`;
+      if (f.type === 'textarea') return `
+        <div class="si-modal-field">
+          <label class="si-modal-label">${f.label}</label>
+          <textarea id="si-mf-${f.id}" class="si-modal-input si-modal-textarea"
+            placeholder="${f.placeholder||''}" rows="3">${esc(f.default||'')}</textarea>
+        </div>`;
+      return `
+        <div class="si-modal-field">
+          <label class="si-modal-label">${f.label}${f.required?'<span style="color:var(--red3)"> *</span>':''}</label>
+          <input id="si-mf-${f.id}" class="si-modal-input" type="${f.type||'text'}"
+            placeholder="${f.placeholder||''}" value="${esc(f.default||'')}">
+        </div>`;
+    }).join('');
+    const ids = JSON.stringify(fields.map(f => f.id));
+    return _show(`
+      <div class="si-modal-hd">
+        <span class="si-modal-title">${title}</span>
+        <button class="si-modal-x" onclick="siModal._done(null)"><i class="ti ti-x"></i></button>
+      </div>
+      ${description ? `<div class="si-modal-desc">${description}</div>` : ''}
+      <div class="si-modal-form-body">${fHTML}</div>
+      <div class="si-modal-ft">
+        <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(null)">Cancel</button>
+        <button class="si-modal-btn si-modal-btn-primary"
+          onclick="siModal._subForm(${ids.replace(/"/g,"'")})">
+          ${confirmLabel}
+        </button>
+      </div>`);
+  }
+  function _subForm(ids) {
+    const result = {};
+    for (const id of ids) {
+      const el = $(`si-mf-${id}`);
+      result[id] = el ? el.value.trim() : '';
+    }
+    _done(result);
+  }
+  function _pickEmoji(gridId, hidId, btn) {
+    const grid = $(gridId);
+    if (grid) grid.querySelectorAll('.si-modal-emoji-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    const hid = $(hidId);
+    if (hid) hid.value = btn.textContent;
+  }
+
+  return { input, confirm, alert, form, _done, _bgClose, _subInput, _subForm, _pickEmoji };
+})();
+
 // ═══════════════════════════ PROFILE PICTURE ════════════════════
 
 const PFP_KEY = () => `sivarr_pfp_${S.sid || 'guest'}`;
@@ -424,6 +598,8 @@ function _applyLoginData(r) {
   setTimeout(() => spaceRenderSidebar(), 100);
   // Handle Stripe payment return
   setTimeout(() => agCheckPaymentReturn(), 500);
+  // Show onboarding for new users
+  if (!r.returning) setTimeout(() => siObMaybeStart(), 600);
 }
 
 async function restoreSession(token) {
@@ -1290,7 +1466,7 @@ async function glSaveGoal() {
 }
 
 async function glUpdateProgress(id, current) {
-  const val = prompt(`Update progress (0-100%). Currently ${current}%:`);
+  const val = await siModal.input('Update Progress', '0 – 100', String(current), { type:'number', confirmLabel:'Update', description:`Currently at ${current}%` });
   if (val === null) return;
   const pct = Math.min(Math.max(parseInt(val)||0, 0), 100);
   try {
@@ -1317,7 +1493,7 @@ async function glMarkDone(id) {
 }
 
 async function glDelete(id) {
-  if (!confirm('Delete this goal?')) return;
+  if (!await siModal.confirm('This goal will be permanently deleted.', { title:'Delete Goal', confirmLabel:'Delete', danger:true })) return;
   try {
     await API('/api/goals/delete', {sid:S.sid, id});
     GL_GOALS = GL_GOALS.filter(x=>x.id!==id);
@@ -1468,13 +1644,13 @@ async function dhAISuggest() {
   } catch(e) { toast('AI suggestion failed — try again.'); }
 }
 
-function dhDeleteDoc(id) {
-  if (!confirm('Delete this document?')) return;
+async function dhDeleteDoc(id) {
+  if (!await siModal.confirm('This document will be permanently deleted.', { title:'Delete Document', confirmLabel:'Delete', danger:true })) return;
   const docs = dhLoadDocs().filter(d=>d.id!==id);
   dhSaveDocs(docs);
   dhRenderList();
   toast('Document deleted');
-  }
+}
   // ═══════════════════════ STUDY PLAN ═════════════════════════
 
   function spLoadSaved() {
@@ -2082,8 +2258,8 @@ function stChangePassword() {
   toast('Password update coming soon — backend integration needed. 🔧');
 }
 
-function stLogoutAll() {
-  if (!confirm('Sign out of all devices?')) return;
+async function stLogoutAll() {
+  if (!await siModal.confirm('You will be signed out on all devices.', { title:'Sign Out Everywhere', confirmLabel:'Sign Out', danger:true })) return;
   clearSession();
   location.reload();
 }
@@ -2105,7 +2281,7 @@ function stExportData() {
 }
 
 async function stClearChat() {
-  if (!confirm('Clear all chat history? This cannot be undone.')) return;
+  if (!await siModal.confirm('All chat history will be permanently deleted.', { title:'Clear Chat History', confirmLabel:'Clear', danger:true })) return;
   try {
     await fetch('/api/clear-history', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -2117,14 +2293,13 @@ async function stClearChat() {
 }
 
 async function stClearWrong() {
-  if (!confirm('Clear revision list?')) return;
+  if (!await siModal.confirm('Your revision list will be cleared.', { title:'Clear Revision List', confirmLabel:'Clear', danger:true })) return;
   try { await API('/api/wrong/clear', {sid: S.sid, idx: 'all'}); } catch(e) {}
   toast('Revision list cleared ✓');
 }
 
 async function stResetProgress() {
-  if (!confirm('⚠️ Reset ALL progress? This cannot be undone.')) return;
-  if (!confirm('Are you absolutely sure? All stats, topics and quiz history will be deleted.')) return;
+  if (!await siModal.confirm('This will permanently delete all stats, topics, and quiz history. This cannot be undone.', { title:'⚠️ Reset All Progress', confirmLabel:'Reset Everything', danger:true })) return;
   try {
     await fetch('/api/reset-progress', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -2319,8 +2494,9 @@ function lhUnenroll(id) {
   toast('Unenrolled');
 }
 
-function lhUpdateProgress(id) {
-  const val = prompt('Your progress (0-100%):');
+async function lhUpdateProgress(id) {
+  const cur = localStorage.getItem(`lh_prog_${S.sid}_${id}`) || '0';
+  const val = await siModal.input('Update Progress', '0 – 100', cur, { type:'number', confirmLabel:'Update' });
   if (val === null) return;
   const pct = Math.min(Math.max(parseInt(val)||0, 0), 100);
   localStorage.setItem(`lh_prog_${S.sid}_${id}`, pct);
@@ -2790,11 +2966,11 @@ function spMenu(id) {
   $('dspm-' + id)?.classList.toggle('open');
 }
 
-function spRename(id) {
+async function spRename(id) {
   const spaces = spGetAll();
   const sp = spaces.find(s => s.id === id);
   if (!sp) return;
-  const n = prompt('Rename space:', sp.name);
+  const n = await siModal.input('Rename Space', sp.name, sp.name, { confirmLabel:'Rename' });
   if (!n?.trim()) return;
   sp.name = n.trim();
   spSaveAll(spaces);
@@ -2802,11 +2978,11 @@ function spRename(id) {
   document.querySelectorAll('.dsp-menu').forEach(m => m.classList.remove('open'));
 }
 
-function spAddMember(id) {
+async function spAddMember(id) {
   const spaces = spGetAll();
   const sp = spaces.find(s => s.id === id);
   if (!sp) return;
-  const m = prompt('Add member (name or matric):');
+  const m = await siModal.input('Add Member', 'Name or matric number', '', { confirmLabel:'Add' });
   if (!m?.trim()) return;
   sp.members = sp.members || [];
   sp.members.push(m.trim());
@@ -2815,8 +2991,8 @@ function spAddMember(id) {
   document.querySelectorAll('.dsp-menu').forEach(m => m.classList.remove('open'));
 }
 
-function spDelete(id) {
-  if (!confirm('Delete this space?')) return;
+async function spDelete(id) {
+  if (!await siModal.confirm('This space and all its data will be permanently deleted.', { title:'Delete Space', confirmLabel:'Delete', danger:true })) return;
   spSaveAll(spGetAll().filter(s => s.id !== id));
   spRender();
   toast('Space deleted.');
@@ -3183,19 +3359,21 @@ function calSelectDay(dateStr, d) {
     </div>`).join('');
 }
 
-function calAddEvent() {
-  const date = prompt('Event date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
-  if (!date) return;
-  const title = prompt('Event title:');
-  if (!title?.trim()) return;
-  const time = prompt('Time (e.g. 09:00) — leave blank for all day:', '') || '';
+async function calAddEvent() {
+  const today = new Date().toISOString().split('T')[0];
+  const d = await siModal.form('Add Event', [
+    { id:'date',  label:'Date',              type:'date',  default:today, required:true },
+    { id:'title', label:'Event title',       placeholder:'e.g. Exam, Study session', required:true },
+    { id:'time',  label:'Time (leave blank for all day)', type:'text', placeholder:'e.g. 09:00' },
+  ], { confirmLabel:'Add Event' });
+  if (!d || !d.title) return;
   const colors = ['var(--teal)','var(--purple)','var(--coral)','var(--amber3)','var(--blue)'];
-  const ev = { id: Date.now().toString(), date, title: title.trim(), time, color: colors[Math.floor(Math.random()*colors.length)] };
+  const ev = { id: Date.now().toString(), date: d.date || today, title: d.title, time: d.time||'', color: colors[Math.floor(Math.random()*colors.length)] };
   const evs = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
   evs.push(ev);
   localStorage.setItem(CAL_EVENTS_KEY(), JSON.stringify(evs));
   calRender();
-  calSelectDay(date);
+  calSelectDay(ev.date);
   toast('Event added ✓');
 }
 
@@ -3265,13 +3443,16 @@ function habitToggle(idx) {
   habitInit();
 }
 
-function habitAdd() {
+async function habitAdd() {
   const emojis = ['📚','🧘','🏃','💧','🥗','✍️','🎯','🛌','🔔','💡'];
-  const title = prompt('Habit name (e.g. Morning Study):');
-  if (!title?.trim()) return;
-  const emoji = prompt('Pick an emoji:', emojis[Math.floor(Math.random()*emojis.length)]) || '📌';
+  const d = await siModal.form('Add Habit', [
+    { id:'title', label:'Habit name', placeholder:'e.g. Morning Study', required:true },
+    { id:'emoji', label:'Pick an emoji', type:'emoji',
+      options: emojis, default: emojis[Math.floor(Math.random()*emojis.length)] },
+  ], { confirmLabel:'Add Habit' });
+  if (!d || !d.title) return;
   const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
-  habits.push({ id: Date.now().toString(), title: title.trim(), emoji, completions: [], streak: 0 });
+  habits.push({ id: Date.now().toString(), title: d.title, emoji: d.emoji || '📌', completions: [], streak: 0 });
   localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
   habitInit();
   toast('Habit added ✓');
@@ -3336,8 +3517,8 @@ function journalRenderEntries() {
 }
 
 // ════════════ COMMUNITY ════════════
-function communityPost() {
-  const body = prompt('Share something with the community:');
+async function communityPost() {
+  const body = await siModal.input('Share with Community', 'What\'s on your mind?', '', { confirmLabel:'Post' });
   if (!body?.trim()) return;
   const feed = $('community-feed');
   if (!feed) return;
@@ -3501,8 +3682,8 @@ function tplCreate() {
   toast('Template created! ⚡');
 }
 
-function tplDelete(id) {
-  if (!confirm('Delete this template?')) return;
+async function tplDelete(id) {
+  if (!await siModal.confirm('This template will be permanently deleted.', { title:'Delete Template', confirmLabel:'Delete', danger:true })) return;
   tplSaveCustom(tplGetCustom().filter(t => t.id !== id));
   tplRender();
   toast('Template deleted.');
@@ -4834,12 +5015,12 @@ function handleTabSwitch() {
   }
 }
 
-function confirmSubmitExam() {
+async function confirmSubmitExam() {
   const answered   = Object.keys(EXAM_STATE.answers).length;
   const total      = EXAM_STATE.questions.length;
   const unanswered = total - answered;
   if (unanswered > 0) {
-    const ok = confirm(`You have ${unanswered} unanswered question${unanswered>1?'s':''}. Submit anyway?`);
+    const ok = await siModal.confirm(`You have ${unanswered} unanswered question${unanswered>1?'s':''}. Submit anyway?`, { title:'Submit Exam', confirmLabel:'Submit' });
     if (!ok) return;
   }
   submitExam();
@@ -6036,7 +6217,7 @@ async function submitAssignment(code, assignId) {
 }
 
 async function confirmLeaveClass(code) {
-  if (!confirm('Leave this class?')) return;
+  if (!await siModal.confirm('You will lose access to class materials and discussions.', { title:'Leave Class', confirmLabel:'Leave', danger:true })) return;
   await fetch('/api/class/leave', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
@@ -7222,8 +7403,8 @@ function orgRenderInsights(d) {
   }
 }
 
-function orgNewTask() {
-  const title = prompt('Task title:');
+async function orgNewTask() {
+  const title = await siModal.input('New Task', 'Task title', '', { confirmLabel:'Create Task' });
   if (!title) return;
   const d = orgGetData();
   d.tasks.push({ id: Date.now(), title, col: 'To Do', priority: 'normal', created: new Date().toISOString().slice(0,10) });
@@ -7233,8 +7414,8 @@ function orgNewTask() {
   toast('Task created');
 }
 
-function orgAddTaskToCol(col) {
-  const title = prompt(`Add task to "${col}":`);
+async function orgAddTaskToCol(col) {
+  const title = await siModal.input(`Add to "${col}"`, 'Task title', '', { confirmLabel:'Add Task' });
   if (!title) return;
   const d = orgGetData();
   d.tasks.push({ id: Date.now(), title, col, priority: 'normal', created: new Date().toISOString().slice(0,10) });
@@ -7245,8 +7426,8 @@ function orgAddTaskToCol(col) {
   toast('Task added');
 }
 
-function orgNewDoc() {
-  const title = prompt('Document title:');
+async function orgNewDoc() {
+  const title = await siModal.input('New Document', 'Document title', '', { confirmLabel:'Create' });
   if (!title) return;
   const d = orgGetData();
   d.docs.push({ id: Date.now(), title, updated: new Date().toLocaleDateString() });
@@ -7270,8 +7451,8 @@ function orgSendInvite() {
   toast(`Invite sent to ${email}`);
 }
 
-function orgMoreMenu() {
-  const name = prompt('Rename this space:', orgGetData().name);
+async function orgMoreMenu() {
+  const name = await siModal.input('Rename Space', 'Space name', orgGetData().name, { confirmLabel:'Rename' });
   if (!name) return;
   const d = orgGetData();
   d.name = name;
@@ -7325,10 +7506,14 @@ function teamInit() {
   }
 }
 
-function teamInvite() {
-  const email = prompt('Enter email address to invite:');
-  if (!email || !email.includes('@')) { if (email !== null) toast('Enter a valid email.'); return; }
-  const name = prompt('Their display name:') || email.split('@')[0];
+async function teamInvite() {
+  const d = await siModal.form('Invite Team Member', [
+    { id:'email', label:'Email address', type:'text', placeholder:'colleague@example.com', required:true },
+    { id:'name',  label:'Display name',  placeholder:'Their name (optional)' },
+  ], { confirmLabel:'Send Invite' });
+  if (!d || !d.email || !d.email.includes('@')) return;
+  const email = d.email;
+  const name  = d.name || email.split('@')[0];
   const key  = `sivarr_team_${S.sid}`;
   const data = JSON.parse(localStorage.getItem(key) || '{"members":[],"activity":[]}');
   data.members.push({ name, role:'Member', email });
@@ -7385,10 +7570,13 @@ function orgChatInit() { orgChatRender(); }
 
 const PROJ_COLORS = ['#0d9488','#7c3aed','#d97706','#dc2626','#2563eb','#059669'];
 
-function projectNew() {
-  const name = prompt('Project name:');
-  if (!name) return;
-  const desc = prompt('Short description (optional):') || '';
+async function projectNew() {
+  const d = await siModal.form('New Project', [
+    { id:'name', label:'Project name',             placeholder:'e.g. Website Redesign', required:true },
+    { id:'desc', label:'Description (optional)',   placeholder:'What is this project about?' },
+  ], { confirmLabel:'Create Project' });
+  if (!d || !d.name) return;
+  const name = d.name; const desc = d.desc||'';
   const d = orgGetData();
   d.projects.push({ id: Date.now(), name, desc, tasks: 0, status: 'active' });
   d.activity.push(`Project "${name}" was created.`);
@@ -7430,11 +7618,14 @@ function hrTab(tab, btn) {
   if (btn) btn.classList.add('active');
 }
 
-function hrAddMember() {
-  const name  = prompt('Full name:');
-  if (!name) return;
-  const role  = prompt('Role (e.g. Developer, Designer):') || 'Member';
-  const email = prompt('Email:') || '';
+async function hrAddMember() {
+  const d = await siModal.form('Add Team Member', [
+    { id:'name',  label:'Full name',             placeholder:'e.g. Amaka Johnson', required:true },
+    { id:'role',  label:'Role',                  placeholder:'e.g. Developer, Designer', default:'Member' },
+    { id:'email', label:'Email (optional)',       placeholder:'member@example.com' },
+  ], { confirmLabel:'Add Member' });
+  if (!d || !d.name) return;
+  const name = d.name; const role = d.role||'Member'; const email = d.email||'';
   const key   = `sivarr_team_${S.sid}`;
   const data  = JSON.parse(localStorage.getItem(key) || '{"members":[],"activity":[]}');
   data.members.push({ name, role, email });
@@ -7596,19 +7787,20 @@ function oppRender() {
     </div>`).join('');
 }
 
-function oppPost() {
-  const title    = prompt('Opportunity title:');
-  if (!title) return;
-  const org      = prompt('Organisation / company:') || '';
-  const desc     = prompt('Short description:') || '';
-  const typeOpts = ['job','scholarship','grant','gig','internship'];
-  const typeStr  = prompt(`Type (${typeOpts.join('/')}):`) || 'job';
-  const type     = typeOpts.includes(typeStr) ? typeStr : 'job';
-  const deadline = prompt('Deadline (e.g. 2026-06-30 or Open):') || 'Open';
-
+async function oppPost() {
+  const d = await siModal.form('Post Opportunity', [
+    { id:'title',    label:'Title',            placeholder:'e.g. Frontend Developer Intern', required:true },
+    { id:'org',      label:'Organisation',     placeholder:'Company or institution name' },
+    { id:'desc',     label:'Short description',type:'textarea', placeholder:'What is this opportunity about?' },
+    { id:'type',     label:'Type',             type:'select',
+      options:[{value:'job',label:'Job'},{value:'internship',label:'Internship'},{value:'scholarship',label:'Scholarship'},{value:'grant',label:'Grant'},{value:'gig',label:'Gig'}],
+      default:'job' },
+    { id:'deadline', label:'Deadline',         placeholder:'e.g. 2026-06-30 or Open', default:'Open' },
+  ], { confirmLabel:'Post Opportunity' });
+  if (!d || !d.title) return;
   const key  = `sivarr_opps_${S.sid}`;
   const list = JSON.parse(localStorage.getItem(key) || '[]');
-  list.push({ id: Date.now(), title, org, desc, type, deadline, url:'#' });
+  list.push({ id: Date.now(), title: d.title, org: d.org, desc: d.desc, type: d.type||'job', deadline: d.deadline||'Open', url:'#' });
   localStorage.setItem(key, JSON.stringify(list));
   oppRender();
   toast('Opportunity posted');
@@ -7687,10 +7879,10 @@ function profileRenderSkills(skills) {
   ).join('') + `<button class="skill-add-btn" onclick="profileAddSkill()">+ Add skill</button>`;
 }
 
-function profileEditBio() {
+async function profileEditBio() {
   const key  = `sivarr_profile_${S.sid}`;
   const prof = JSON.parse(localStorage.getItem(key) || '{}');
-  const bio  = prompt('Enter your bio:', prof.bio || '');
+  const bio  = await siModal.input('Edit Bio', 'Tell people about yourself…', prof.bio || '', { confirmLabel:'Save Bio' });
   if (bio === null) return;
   prof.bio = bio;
   localStorage.setItem(key, JSON.stringify(prof));
@@ -7698,8 +7890,8 @@ function profileEditBio() {
   if (bioEl) bioEl.textContent = bio || 'Click to add a bio…';
 }
 
-function profileAddSkill() {
-  const skill = prompt('Add a skill (e.g. Python, Design, Leadership):');
+async function profileAddSkill() {
+  const skill = await siModal.input('Add Skill', 'e.g. Python, Design, Leadership', '', { confirmLabel:'Add' });
   if (!skill) return;
   const key  = `sivarr_profile_${S.sid}`;
   const prof = JSON.parse(localStorage.getItem(key) || '{}');
@@ -7875,11 +8067,11 @@ function spRenameByType(type) {
 }
 
 // ── Rename space ──────────────────────────────────────────────
-function spRename(id) {
+async function spRename(id) {
   const spaces = getSpaces();
   const sp = spaces.find(s => s.id === id);
   if (!sp) return;
-  const name = prompt('Rename space:', sp.name);
+  const name = await siModal.input('Rename Space', sp.name, sp.name, { confirmLabel:'Rename' });
   if (!name || !name.trim()) return;
   sp.name = name.trim();
   saveSpaces(spaces);
@@ -7912,11 +8104,11 @@ function spMoreMenu(id, btn) {
   setTimeout(() => document.addEventListener('click', remove), 0);
 }
 
-function spDelete(id) {
+async function spDelete(id) {
   const spaces = getSpaces();
   const sp = spaces.find(s => s.id === id);
   if (!sp || sp.id === 'org') return;
-  if (!confirm(`Delete "${sp.name}"? This cannot be undone.`)) return;
+  if (!await siModal.confirm(`"${sp.name}" and all its data will be permanently deleted.`, { title:'Delete Space', confirmLabel:'Delete', danger:true })) return;
   saveSpaces(spaces.filter(s => s.id !== id));
   localStorage.removeItem(spaceDataKey(id));
   _spFetch('/api/spaces/delete', { space_id: id });
@@ -7956,7 +8148,7 @@ function cspSelectType(type, el) {
 function cspCreate() {
   const inp  = $('csp-name-input');
   const name = inp ? inp.value.trim() : '';
-  if (!_cspType) { alert('Please select a space type.'); return; }
+  if (!_cspType) { toast('Please select a space type.'); return; }
   if (!name) { inp && inp.focus(); return; }
   const type = _cspType;
   if (type === 'org') {
@@ -8010,8 +8202,8 @@ function psRenderOverview() {
 }
 
 // Tasks / Kanban
-function psNewTask() {
-  const title = prompt('New task:');
+async function psNewTask() {
+  const title = await siModal.input('New Task', 'What needs to be done?', '', { confirmLabel:'Add Task' });
   if (!title) return;
   const d = psData();
   d.tasks = d.tasks || [];
@@ -8058,8 +8250,8 @@ function psMoveTask(id) {
 }
 
 // Goals
-function psNewGoal() {
-  const title = prompt('Goal title:');
+async function psNewGoal() {
+  const title = await siModal.input('New Goal', 'e.g. Read 12 books this year', '', { confirmLabel:'Add Goal' });
   if (!title) return;
   const d = psData();
   d.goals = d.goals || [];
@@ -8084,19 +8276,19 @@ function psRenderGoals() {
   }).join('');
 }
 
-function psUpdateGoal(id) {
+async function psUpdateGoal(id) {
   const d = psData();
   const g = (d.goals || []).find(g => g.id === id);
   if (!g) return;
-  const v = prompt(`Progress for "${g.title}" (0-${g.target}):`, g.progress);
+  const v = await siModal.input(`Update: ${g.title}`, `0 – ${g.target}`, String(g.progress), { type:'number', confirmLabel:'Update' });
   if (v === null) return;
   g.progress = Math.max(0, Math.min(g.target, parseInt(v) || 0));
   psSave(d); psRenderGoals();
 }
 
 // Habits
-function psNewHabit() {
-  const name = prompt('New habit:');
+async function psNewHabit() {
+  const name = await siModal.input('New Habit', 'e.g. Read 30 mins, Morning walk', '', { confirmLabel:'Add Habit' });
   if (!name) return;
   const d = psData();
   d.habits = d.habits || [];
@@ -8161,8 +8353,8 @@ function psRenderJournal() {
 }
 
 // Notes
-function psNewNote() {
-  const title = prompt('Note title:');
+async function psNewNote() {
+  const title = await siModal.input('New Note', 'Note title', '', { confirmLabel:'Create Note' });
   if (!title) return;
   const d = psData();
   d.notes = d.notes || [];
@@ -8185,11 +8377,11 @@ function psRenderNotes() {
     </div>`).join('');
 }
 
-function psEditNote(id) {
+async function psEditNote(id) {
   const d = psData();
   const n = (d.notes || []).find(n => n.id === id);
   if (!n) return;
-  const body = prompt(`"${n.title}"\n\nEdit note:`, n.body);
+  const body = await siModal.input(`Edit: ${n.title}`, 'Note content…', n.body, { confirmLabel:'Save', type:'text' });
   if (body === null) return;
   n.body = body;
   psSave(d); psRenderNotes();
@@ -8237,13 +8429,15 @@ function acRenderOverview() {
 }
 
 // ── Courses ──────────────────────────────────────────────────
-function acAddCourse() {
-  const name = prompt('Course name:');
-  if (!name) return;
-  const code = prompt('Course code (e.g. CSC 301):') || '';
+async function acAddCourse() {
+  const d2 = await siModal.form('Add Course', [
+    { id:'name', label:'Course name',            placeholder:'e.g. Data Structures', required:true },
+    { id:'code', label:'Course code (optional)', placeholder:'e.g. CSC 301' },
+  ], { confirmLabel:'Add Course' });
+  if (!d2 || !d2.name) return;
   const d = acData();
   d.courses = d.courses || [];
-  d.courses.push({ id: Date.now(), name, code, progress: 0 });
+  d.courses.push({ id: Date.now(), name: d2.name, code: d2.code||'', progress: 0 });
   acSave(d); acRenderCourses();
 }
 
@@ -8268,11 +8462,11 @@ function acRenderCourses() {
     </div>`).join('');
 }
 
-function acUpdateCourse(id) {
+async function acUpdateCourse(id) {
   const d = acData();
   const c = (d.courses || []).find(c => c.id === id);
   if (!c) return;
-  const v = prompt(`Progress for "${c.name}" (0-100):`, c.progress);
+  const v = await siModal.input(`${c.name} Progress`, '0 – 100', String(c.progress), { type:'number', confirmLabel:'Update' });
   if (v === null) return;
   c.progress = Math.max(0, Math.min(100, parseInt(v) || 0));
   acSave(d); acRenderCourses();
@@ -8334,11 +8528,19 @@ function acNextCard() {
   acShowCard();
 }
 
-function acAddCard() {
+async function acAddCard() {
   const qEl = $('ac-card-q');
   const aEl = $('ac-card-a');
-  const q = qEl ? qEl.value.trim() : prompt('Question:');
-  const a = aEl ? aEl.value.trim() : prompt('Answer:');
+  let q = qEl ? qEl.value.trim() : null;
+  let a = aEl ? aEl.value.trim() : null;
+  if (!q || !a) {
+    const d2 = await siModal.form('Add Flashcard', [
+      { id:'q', label:'Question', placeholder:'Front of card', required:true },
+      { id:'a', label:'Answer',   placeholder:'Back of card',  required:true },
+    ], { confirmLabel:'Add Card' });
+    if (!d2 || !d2.q || !d2.a) return;
+    q = d2.q; a = d2.a;
+  }
   if (!q || !a) return;
   const d = acData();
   d.cards = d.cards || [];
@@ -8417,7 +8619,7 @@ function acRenderTimer() {
 // ── Quiz ──────────────────────────────────────────────────────
 function acStartQuiz() {
   const cards = acData().cards || [];
-  if (cards.length < 2) { alert('Add at least 2 flashcards to start a quiz.'); return; }
+  if (cards.length < 2) { toast('Add at least 2 flashcards to start a quiz.'); return; }
   _acQuizItems = [...cards].sort(() => Math.random() - .5).slice(0, Math.min(10, cards.length));
   _acQuizQ = 0; _acQuizScore = 0;
   const cfg = $('ac-quiz-config');
@@ -8474,13 +8676,15 @@ function acResetQuiz() {
 }
 
 // ── Study Groups ──────────────────────────────────────────────
-function acNewGroup() {
-  const name = prompt('Study group name:');
-  if (!name) return;
-  const subject = prompt('Subject:') || '';
+async function acNewGroup() {
+  const d2 = await siModal.form('New Study Group', [
+    { id:'name',    label:'Group name', placeholder:'e.g. CSC 401 Study Team', required:true },
+    { id:'subject', label:'Subject',    placeholder:'e.g. Operating Systems' },
+  ], { confirmLabel:'Create Group' });
+  if (!d2 || !d2.name) return;
   const d = acData();
   d.groups = d.groups || [];
-  d.groups.push({ id: Date.now(), name, subject, members: 1 });
+  d.groups.push({ id: Date.now(), name: d2.name, subject: d2.subject||'', members: 1 });
   acSave(d); acRenderGroups();
 }
 
@@ -8558,13 +8762,15 @@ function acGenPlan() {
 }
 
 // ── Planner ───────────────────────────────────────────────────
-function acCreatePlan() {
-  const title = prompt('Plan / assignment title:');
-  if (!title) return;
-  const due = prompt('Due date (e.g. Mon, May 13):') || 'TBD';
+async function acCreatePlan() {
+  const d2 = await siModal.form('New Plan Item', [
+    { id:'title', label:'Title',    placeholder:'Assignment or study plan', required:true },
+    { id:'due',   label:'Due date', placeholder:'e.g. Mon, May 13', default:'TBD' },
+  ], { confirmLabel:'Add to Plan' });
+  if (!d2 || !d2.title) return;
   const d = acData();
   d.plan = d.plan || [];
-  d.plan.unshift({ id: Date.now(), title, due });
+  d.plan.unshift({ id: Date.now(), title: d2.title, due: d2.due||'TBD' });
   acSave(d); acRenderPlan();
 }
 
@@ -9701,7 +9907,7 @@ async function agDashLoadTemplates() {
 }
 
 async function agPublishTemplate(id) {
-  if (!confirm('Publish this template? It will be visible in the marketplace.')) return;
+  if (!await siModal.confirm('Your template will be visible to all users in the marketplace.', { title:'Publish Template', confirmLabel:'Publish' })) return;
   const r = await fetch(`/api/agents/me/templates/${id}/publish`, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({token: S.token}),
@@ -9712,7 +9918,7 @@ async function agPublishTemplate(id) {
 }
 
 async function agDeleteTemplate(id) {
-  if (!confirm('Delete this template? This cannot be undone.')) return;
+  if (!await siModal.confirm('This template will be permanently removed from the marketplace.', { title:'Delete Template', confirmLabel:'Delete', danger:true })) return;
   const r = await fetch(`/api/agents/me/templates/${id}`, {
     method:'DELETE', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({token: S.token}),
@@ -9826,7 +10032,7 @@ async function agSaveSettings() {
 }
 
 async function agDeleteAccount() {
-  if (!confirm('Delete your agent account? This cannot be undone.')) return;
+  if (!await siModal.confirm('Your agent profile and all templates will be permanently removed.', { title:'Delete Agent Account', confirmLabel:'Delete Account', danger:true })) return;
   showToast('Contact support to delete your agent account.');
 }
 
@@ -10100,16 +10306,21 @@ async function agSaveTemplate(status) {
 }
 
 // ── Review form ───────────────────────────────────────────────
-function agLeaveReview(templateId) {
-  const rating = parseInt(prompt('Your rating (1–5):') || '0');
-  if (!rating || rating < 1 || rating > 5) { showToast('Rating must be 1–5.'); return; }
-  const text = prompt('Leave a short review (optional):') || '';
+async function agLeaveReview(templateId) {
+  const d = await siModal.form('Leave a Review', [
+    { id:'rating', label:'Rating', type:'select',
+      options:[{value:'5',label:'⭐⭐⭐⭐⭐ — Excellent'},{value:'4',label:'⭐⭐⭐⭐ — Good'},{value:'3',label:'⭐⭐⭐ — Average'},{value:'2',label:'⭐⭐ — Poor'},{value:'1',label:'⭐ — Terrible'}],
+      default:'5' },
+    { id:'text', label:'Review (optional)', type:'textarea', placeholder:'What did you think?' },
+  ], { confirmLabel:'Submit Review' });
+  if (!d) return;
+  const rating = parseInt(d.rating || '5');
   fetch(`/api/agents/templates/${templateId}/review`, {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({token: S.token, rating, review_text: text}),
-  }).then(r=>r.json()).then(d => {
-    if (d.ok) { showToast('Review submitted!'); agOpenTemplate(templateId); }
-    else showToast(d.detail||'Review failed.');
+    body: JSON.stringify({token: S.token, rating, review_text: d.text||''}),
+  }).then(r=>r.json()).then(r => {
+    if (r.ok) { showToast('Review submitted!'); agOpenTemplate(templateId); }
+    else showToast(r.detail||'Review failed.');
   });
 }
 
@@ -10157,4 +10368,127 @@ async function agHandlePaystackReturn(reference, templateId) {
   } catch { showToast('Verification failed.'); }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ONBOARDING FLOW
+// Shown once to new users on first login. Stores completion in
+// localStorage keyed to the user's SID so it never repeats.
+// Steps: 1 Welcome → 2 Role → 3 Feature tour → 4 Ready
+// ═══════════════════════════════════════════════════════════════
 
+let _siObStep = 1;
+let _siObRole = '';
+
+function siObMaybeStart() {
+  if (!S.sid) return;
+  const done = localStorage.getItem(`si_onboarded_${S.sid}`);
+  if (done) return;
+  _siObStep = 1;
+  _siObRole = '';
+  const el = $('si-onboard');
+  if (el) el.style.display = 'flex';
+  siObRender();
+}
+
+function siObFinish() {
+  if (S.sid) localStorage.setItem(`si_onboarded_${S.sid}`, '1');
+  const el = $('si-onboard');
+  if (el) el.style.display = 'none';
+}
+
+function siObRender() {
+  const box = $('si-onboard-box');
+  if (!box) return;
+  const dots = [1,2,3,4].map(i =>
+    `<div class="si-ob-dot${_siObStep===i?' active':''}"></div>`).join('');
+
+  let content = '';
+  if (_siObStep === 1) {
+    content = `
+      <div class="si-ob-emoji">👋</div>
+      <div class="si-ob-title">Welcome to Sivarr,<br>${esc(S.name.split(' ')[0])}!</div>
+      <div class="si-ob-sub">Your all-in-one productivity platform for students and professionals. Let's get you set up in under a minute.</div>
+      <div class="si-ob-actions">
+        <button class="si-ob-btn-pri" onclick="siObNext()">Get started →</button>
+      </div>`;
+  } else if (_siObStep === 2) {
+    content = `
+      <div class="si-ob-title">How will you use Sivarr?</div>
+      <div class="si-ob-sub">Choose your primary focus — you can use all features regardless.</div>
+      <div class="si-ob-role-grid">
+        <div class="si-ob-role-card${_siObRole==='student'?' sel':''}" onclick="siObSelectRole('student',this)">
+          <div class="si-ob-role-icon">🎓</div>
+          <div class="si-ob-role-label">Student</div>
+          <div class="si-ob-role-desc">Courses, exams, study tools & flashcards</div>
+        </div>
+        <div class="si-ob-role-card${_siObRole==='professional'?' sel':''}" onclick="siObSelectRole('professional',this)">
+          <div class="si-ob-role-icon">💼</div>
+          <div class="si-ob-role-label">Professional</div>
+          <div class="si-ob-role-desc">Projects, tasks, team spaces & goals</div>
+        </div>
+        <div class="si-ob-role-card${_siObRole==='personal'?' sel':''}" onclick="siObSelectRole('personal',this)">
+          <div class="si-ob-role-icon">🌱</div>
+          <div class="si-ob-role-label">Personal</div>
+          <div class="si-ob-role-desc">Habits, journaling, goals & self-growth</div>
+        </div>
+      </div>
+      <div class="si-ob-actions">
+        <button class="si-ob-btn-sec" onclick="siObPrev()">← Back</button>
+        <button class="si-ob-btn-pri" onclick="siObNext()">Continue →</button>
+      </div>`;
+  } else if (_siObStep === 3) {
+    content = `
+      <div class="si-ob-title">Here's what's waiting for you</div>
+      <div class="si-ob-sub">Everything you need, in one place.</div>
+      <div class="si-ob-features">
+        <div class="si-ob-feat"><div class="si-ob-feat-icon">🤖</div><div class="si-ob-feat-label">AI Tutor</div></div>
+        <div class="si-ob-feat"><div class="si-ob-feat-icon">✅</div><div class="si-ob-feat-label">Tasks</div></div>
+        <div class="si-ob-feat"><div class="si-ob-feat-icon">🎯</div><div class="si-ob-feat-label">Goals</div></div>
+        <div class="si-ob-feat"><div class="si-ob-feat-icon">🔁</div><div class="si-ob-feat-label">Habits</div></div>
+        <div class="si-ob-feat"><div class="si-ob-feat-icon">📚</div><div class="si-ob-feat-label">Study Tools</div></div>
+        <div class="si-ob-feat"><div class="si-ob-feat-icon">🏠</div><div class="si-ob-feat-label">Spaces</div></div>
+        <div class="si-ob-feat"><div class="si-ob-feat-icon">📅</div><div class="si-ob-feat-label">Calendar</div></div>
+        <div class="si-ob-feat"><div class="si-ob-feat-icon">🛒</div><div class="si-ob-feat-label">Agents Market</div></div>
+        <div class="si-ob-feat"><div class="si-ob-feat-icon">📊</div><div class="si-ob-feat-label">Analytics</div></div>
+      </div>
+      <div class="si-ob-actions">
+        <button class="si-ob-btn-sec" onclick="siObPrev()">← Back</button>
+        <button class="si-ob-btn-pri" onclick="siObNext()">Almost there →</button>
+      </div>`;
+  } else if (_siObStep === 4) {
+    const firstStep = _siObRole === 'student'
+      ? 'Head to the <strong>Chat</strong> panel and ask your AI tutor anything.'
+      : _siObRole === 'professional'
+        ? 'Open <strong>Spaces</strong> and create your first workspace.'
+        : 'Check out <strong>Habits</strong> and add your first daily habit.';
+    content = `
+      <div class="si-ob-emoji">🎉</div>
+      <div class="si-ob-title">You're all set!</div>
+      <div class="si-ob-sub">
+        Your Sivarr workspace is ready. A suggested first step:<br>
+        <span style="color:var(--text1)">${firstStep}</span>
+      </div>
+      <div class="si-ob-actions">
+        <button class="si-ob-btn-pri" onclick="siObFinish()">Let's go →</button>
+      </div>`;
+  }
+
+  box.innerHTML = `
+    <div class="si-ob-logo">SIVARR</div>
+    <div class="si-ob-dots">${dots}</div>
+    ${content}`;
+}
+
+function siObSelectRole(role, el) {
+  _siObRole = role;
+  document.querySelectorAll('.si-ob-role-card').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function siObNext() {
+  if (_siObStep < 4) { _siObStep++; siObRender(); }
+  else siObFinish();
+}
+
+function siObPrev() {
+  if (_siObStep > 1) { _siObStep--; siObRender(); }
+}
