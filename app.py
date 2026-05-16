@@ -509,11 +509,16 @@ def delete_session_token(token: str) -> None:
         db.delete_db_session(token)
 
 
-def send_email(to: str, subject: str, html_body: str) -> bool:
-    """Send a transactional email via Resend. Returns True on success."""
-    if not RESEND_AVAILABLE or not RESEND_API_KEY:
-        log.warning(f"Email skipped (Resend not configured): '{subject}' → {to}")
-        return False
+def send_email(to: str, subject: str, html_body: str) -> tuple[bool, str]:
+    """Send a transactional email via Resend. Returns (success, detail)."""
+    if not RESEND_AVAILABLE:
+        msg = "resend package not installed"
+        log.warning(f"Email skipped ({msg}): '{subject}' → {to}")
+        return False, msg
+    if not RESEND_API_KEY:
+        msg = "RESEND_API_KEY not set"
+        log.warning(f"Email skipped ({msg}): '{subject}' → {to}")
+        return False, msg
     try:
         _resend.api_key = RESEND_API_KEY
         _resend.Emails.send({
@@ -523,10 +528,10 @@ def send_email(to: str, subject: str, html_body: str) -> bool:
             "html":    html_body,
         })
         log.info(f"Email sent: '{subject}' → {to}")
-        return True
+        return True, "ok"
     except Exception as exc:
         log.error(f"Email send failed: {exc}")
-        return False
+        return False, str(exc)
 
 
 def _email_reset_html(reset_url: str) -> str:
@@ -1060,7 +1065,7 @@ async def admin_page():
 
 
 @app.post("/api/login")
-async def login(req: LoginRequest, request: Request, bg: BackgroundTasks = None):
+async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
     key = get_client_key(request)
     check_rate_limit(key, RATE_LIMIT_LOGIN, "login")
 
@@ -1115,12 +1120,11 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks = None)
         user = users[sid]
         log.info(f"Register: {user['name']} ({email})")
         # Send verification email in background (don't block registration)
-        if bg:
-            verify_token = db.create_email_verify_token(sid, email)
-            verify_url   = f"{BASE_URL}/?verify={verify_token}"
-            bg.add_task(send_email, email,
-                        "Verify your Sivarr email",
-                        _email_verify_html(verify_url, user['name']))
+        verify_token = db.create_email_verify_token(sid, email)
+        verify_url   = f"{BASE_URL}/?verify={verify_token}"
+        bg.add_task(send_email, email,
+                    "Verify your Sivarr email",
+                    _email_verify_html(verify_url, user['name']))
 
     # ── LOGIN ──────────────────────────────────────────────────
     else:
@@ -1226,6 +1230,27 @@ async def logout(data: dict):
     if token:
         delete_session_token(token)
     return {"ok": True}
+
+
+@app.get("/api/admin/test-email")
+async def test_email(to: str = "", key: str = ""):
+    """Quick diagnostic — call with ?to=your@email.com&key=ADMIN_PASSWORD"""
+    if key != ADMIN_PASSWORD:
+        raise HTTPException(403, "Wrong key.")
+    target = to or "djhunterd712@gmail.com"
+    ok, detail = send_email(
+        target,
+        "SIVARR email test",
+        "<h2>Email is working ✓</h2><p>Resend is configured correctly on your Railway deployment.</p>"
+    )
+    return {
+        "sent": ok,
+        "detail": detail,
+        "resend_available": RESEND_AVAILABLE,
+        "api_key_set": bool(RESEND_API_KEY),
+        "from": RESEND_FROM,
+        "to": target,
+    }
 
 
 @app.post("/api/auth/forgot-password")
