@@ -547,6 +547,7 @@ function getSavedSession() {
 
 // ═══════════════════════════ LOGIN ════════════════════════════
 function logout() {
+  if (window.Sentry) Sentry.setUser(null);
   clearSession();
   document.body.classList.remove('dashboard-active');
   location.reload();
@@ -590,6 +591,11 @@ function _applyLoginData(r) {
   // Show/hide email verification banner
   const vb = $('verify-banner');
   if (vb) vb.style.display = r.email_verified === false ? 'flex' : 'none';
+
+  // Tag Sentry errors with the logged-in user (no PII beyond id/email)
+  if (window.Sentry) {
+    Sentry.setUser({ id: r.sid, email: r.email });
+  }
 
   chatCounterInit();
   _contextSent = false; // fresh context for each login session

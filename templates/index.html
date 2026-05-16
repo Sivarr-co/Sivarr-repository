@@ -7,6 +7,26 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <link rel="stylesheet" href="/css/styles.css">
+<!-- Sentry error monitoring — DSN injected by server into window.SIVARR_CONFIG -->
+<script src="https://cdn.jsdelivr.net/npm/@sentry/browser@8/build/bundle.min.js" crossorigin="anonymous"></script>
+<script>
+(function(){
+  var cfg = window.SIVARR_CONFIG || {};
+  if (window.Sentry && cfg.sentry_dsn) {
+    Sentry.init({
+      dsn: cfg.sentry_dsn,
+      release: cfg.version,
+      environment: cfg.environment || 'production',
+      tracesSampleRate: 0.1,
+      ignoreErrors: [
+        'ResizeObserver loop limit exceeded',
+        'Non-Error promise rejection captured',
+        /^Script error\.?$/,
+      ],
+    });
+  }
+})();
+</script>
 </head>
 <body>
 
@@ -3043,7 +3063,7 @@
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260516" defer></script>
+<script src="/js/app.js?v=20260516b" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

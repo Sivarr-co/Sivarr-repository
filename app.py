@@ -58,6 +58,14 @@ except ImportError:
     RESEND_AVAILABLE = False
     _resend = None
 
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    SENTRY_AVAILABLE = True
+except ImportError:
+    SENTRY_AVAILABLE = False
+
 import database as db
 
 # ═══════════════════════════════════════════════════════════════
@@ -105,6 +113,9 @@ PAYSTACK_PUBLIC_KEY = os.environ.get("PAYSTACK_PUBLIC_KEY", "")
 PAYSTACK_AVAILABLE  = bool(PAYSTACK_SECRET_KEY)
 NAIRA_RATE          = int(os.environ.get("NAIRA_RATE", "1650"))  # USD→NGN
 PAYSTACK_API        = "https://api.paystack.co"
+
+# ── Sentry ────────────────────────────────────────────────────
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 
 # ── Shared file paths (defined early so all functions can use them) ──
 ANN_PATH    = DATA_DIR / "announcements.json"
@@ -883,6 +894,18 @@ def parse_quiz_json(raw: str, topic: str) -> dict:
 
 app = FastAPI(title="Sivarr AI", version=VERSION)
 
+# Init Sentry before any middleware so it captures all errors
+if SENTRY_AVAILABLE and SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[StarletteIntegration(), FastApiIntegration()],
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+        release=VERSION,
+        environment=os.environ.get("RAILWAY_ENVIRONMENT", "production"),
+    )
+    log.info("Sentry initialized")
+
 from fastapi.staticfiles import StaticFiles
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/css",    StaticFiles(directory="css"),    name="css")
@@ -1001,7 +1024,16 @@ class AdminLoginRequest(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return Path("templates/index.html").read_text()
+    html = Path("templates/index.html").read_text()
+    config = json.dumps({
+        "sentry_dsn":    SENTRY_DSN,
+        "paystack_pk":   PAYSTACK_PUBLIC_KEY,
+        "version":       VERSION,
+        "environment":   os.environ.get("RAILWAY_ENVIRONMENT", "production"),
+    })
+    inject = f'<script>window.SIVARR_CONFIG={config};</script>'
+    html = html.replace('<meta charset="UTF-8">', f'<meta charset="UTF-8">\n{inject}', 1)
+    return html
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page():
