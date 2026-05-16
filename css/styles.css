@@ -66,6 +66,9 @@ html,body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  /* Respect iPhone notch / home bar in standalone PWA mode */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 body.dashboard-active { overflow: hidden; }

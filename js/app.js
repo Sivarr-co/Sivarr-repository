@@ -768,6 +768,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 });
 
+// Register service worker for PWA install + offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .catch(err => console.warn('SW registration failed:', err));
+  });
+}
+
 // ═══════════════════════════ ATTACHMENTS ════════════════════════
 
 let ATTACHMENTS = []; // { name, type, content (base64 or text) }

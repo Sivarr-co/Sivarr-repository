@@ -25,7 +25,7 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 
@@ -1045,6 +1045,14 @@ async def index():
     inject = f'<script>window.SIVARR_CONFIG={config};</script>'
     html = html.replace('<meta charset="UTF-8">', f'<meta charset="UTF-8">\n{inject}', 1)
     return html
+
+@app.get("/sw.js")
+async def service_worker():
+    return Response(
+        content=Path("js/sw.js").read_text(),
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-store, no-cache"},
+    )
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page():
