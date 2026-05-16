@@ -195,6 +195,23 @@ CREATE TABLE IF NOT EXISTS agent_payouts (
 
 -- ── Migrations for existing installs ──────────────────────────
 ALTER TABLE agent_templates ADD COLUMN IF NOT EXISTS price_ngn NUMERIC(10,2);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    token      TEXT PRIMARY KEY,
+    sid        TEXT NOT NULL,
+    email      TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used       BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS email_verify_tokens (
+    token      TEXT PRIMARY KEY,
+    sid        TEXT NOT NULL,
+    email      TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used       BOOLEAN DEFAULT FALSE
+);
 """
 
 
@@ -421,6 +438,180 @@ def get_user_by_email(email: str) -> dict | None:
         if not row:
             return None
         return {"sid": row[0], "name": row[1], "email": row[2], "phone": row[3], "password": row[4]}
+    finally:
+        _release(conn)
+
+
+# ── Password Reset & Email Verification Tokens ───────────────────
+
+# In-memory fallback when DB is not available (tokens survive until server restart)
+_reset_tokens_mem:  dict = {}
+_verify_tokens_mem: dict = {}
+
+
+def create_reset_token(sid: str, email: str) -> str:
+    import secrets, datetime
+    token   = secrets.token_urlsafe(32)
+    expires = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    _reset_tokens_mem[token] = {"sid": sid, "email": email, "expires": expires, "used": False}
+    conn = _get_conn()
+    if not conn:
+        return token
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO password_reset_tokens (token, sid, email, expires_at, used) "
+                "VALUES (%s, %s, %s, %s, FALSE)",
+                (token, sid, email, expires)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"create_reset_token failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+    return token
+
+
+def get_reset_token(token: str) -> dict | None:
+    import datetime
+    # In-memory first
+    entry = _reset_tokens_mem.get(token)
+    if entry and not entry["used"] and datetime.datetime.utcnow() < entry["expires"]:
+        return entry
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT sid, email, expires_at, used FROM password_reset_tokens WHERE token = %s",
+                (token,)
+            )
+            row = cur.fetchone()
+        if not row:
+            return None
+        sid, email, expires_at, used = row
+        if used or datetime.datetime.utcnow() > expires_at.replace(tzinfo=None):
+            return None
+        return {"sid": sid, "email": email, "expires": expires_at}
+    finally:
+        _release(conn)
+
+
+def mark_reset_token_used(token: str) -> None:
+    if token in _reset_tokens_mem:
+        _reset_tokens_mem[token]["used"] = True
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE password_reset_tokens SET used = TRUE WHERE token = %s", (token,))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"mark_reset_token_used failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
+def create_email_verify_token(sid: str, email: str) -> str:
+    import secrets, datetime
+    token   = secrets.token_urlsafe(32)
+    expires = datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+    _verify_tokens_mem[token] = {"sid": sid, "email": email, "expires": expires, "used": False}
+    conn = _get_conn()
+    if not conn:
+        return token
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO email_verify_tokens (token, sid, email, expires_at, used) "
+                "VALUES (%s, %s, %s, %s, FALSE)",
+                (token, sid, email, expires)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"create_email_verify_token failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+    return token
+
+
+def get_email_verify_token(token: str) -> dict | None:
+    import datetime
+    entry = _verify_tokens_mem.get(token)
+    if entry and not entry["used"] and datetime.datetime.utcnow() < entry["expires"]:
+        return entry
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT sid, email, expires_at, used FROM email_verify_tokens WHERE token = %s",
+                (token,)
+            )
+            row = cur.fetchone()
+        if not row:
+            return None
+        sid, email, expires_at, used = row
+        if used or datetime.datetime.utcnow() > expires_at.replace(tzinfo=None):
+            return None
+        return {"sid": sid, "email": email}
+    finally:
+        _release(conn)
+
+
+def mark_email_verified(sid: str) -> None:
+    # Update in-memory verify token entries
+    for entry in _verify_tokens_mem.values():
+        if entry.get("sid") == sid:
+            entry["used"] = True
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET email_verified = TRUE WHERE sid = %s", (sid,))
+            cur.execute("UPDATE email_verify_tokens SET used = TRUE WHERE sid = %s", (sid,))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"mark_email_verified failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
+def is_email_verified(sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT email_verified FROM users WHERE sid = %s", (sid,))
+            row = cur.fetchone()
+        return bool(row and row[0])
+    finally:
+        _release(conn)
+
+
+def update_user_password(sid: str, hashed_pw: str) -> None:
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET password_hash = %s WHERE sid = %s",
+                (hashed_pw, sid)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"update_user_password failed: {exc}")
+        conn.rollback()
     finally:
         _release(conn)
 

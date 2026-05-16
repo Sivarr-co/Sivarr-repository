@@ -676,6 +676,15 @@ input, textarea, select { font-family: var(--font); }
 .btn-login:hover { opacity: .9; }
 .btn-login:active { transform: scale(.99); }
 
+/* Ghost back / link button used in auth sub-flows */
+.auth-back-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--teal); font-size: 0.85rem; padding: 4px 0;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: inherit; transition: opacity .15s;
+}
+.auth-back-btn:hover { opacity: .75; }
+
 /* Footer note */
 .login-note {
   text-align: center; font-size: .74rem; color: var(--text4);

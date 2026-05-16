@@ -284,6 +284,7 @@ function setAuthTab(tab) {
   // Show name + register-only fields only when registering
   const nf = $('name-field');       if (nf) nf.style.display       = isReg ? 'block' : 'none';
   const rf = $('register-fields');  if (rf) rf.style.display        = isReg ? 'block' : 'none';
+  const fl = $('forgot-pw-link');   if (fl) fl.style.display        = isReg ? 'none'  : 'block';
 
   // Update password placeholder
   const pw = $('l-pw'); if (pw) pw.placeholder = isReg ? 'Min. 8 characters' : 'Your password';
@@ -586,6 +587,10 @@ function _applyLoginData(r) {
     const tod = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
     greet.textContent = `${tod}, ${r.name.split(' ')[0]}`;
   }
+  // Show/hide email verification banner
+  const vb = $('verify-banner');
+  if (vb) vb.style.display = r.email_verified === false ? 'flex' : 'none';
+
   chatCounterInit();
   _contextSent = false; // fresh context for each login session
   loadAnnouncements();
@@ -614,10 +619,122 @@ async function restoreSession(token) {
   }
 }
 
+// ── Auth sub-flow helpers ──────────────────────────────────────────
+
+let _resetToken = null; // token from ?reset= URL param
+
+function showLoginView() {
+  const panels = ['forgot-pw-form','forgot-sent-view','reset-pw-form'];
+  panels.forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
+  const mainEls = ['student-fields','login-err','login-btn','login-note','auth-tabs','forgot-pw-link'];
+  mainEls.forEach(id => { const el = $(id); if (el) el.style.display = ''; });
+  // Restore correct heading/sub
+  const h = $('login-heading'); if (h) h.textContent = 'Welcome back';
+  const s = $('login-sub');     if (s) s.textContent = 'Sign in to your workspace.';
+}
+
+function showForgotPassword() {
+  const mainEls = ['student-fields','login-err','login-btn','login-note','auth-tabs','forgot-pw-link'];
+  mainEls.forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
+  const fp = $('forgot-pw-form'); if (fp) fp.style.display = 'block';
+  const h  = $('login-heading');  if (h)  h.style.display  = 'none';
+  const sub= $('login-sub');      if (sub) sub.style.display = 'none';
+  setTimeout(() => $('fp-email')?.focus(), 50);
+}
+
+async function submitForgotPassword() {
+  const email = ($('fp-email')?.value || '').trim();
+  const err   = $('forgot-err');
+  const btn   = $('fp-btn');
+  if (err) err.textContent = '';
+  if (!email) { if (err) err.textContent = 'Please enter your email.'; return; }
+  if (btn) { btn.textContent = 'Sending...'; btn.disabled = true; }
+  try {
+    await API('/api/auth/forgot-password', { email });
+  } catch(e) { /* always proceed to sent view */ }
+  if (btn) { btn.textContent = 'Send reset link'; btn.disabled = false; }
+  const fp  = $('forgot-pw-form');   if (fp)  fp.style.display  = 'none';
+  const sv  = $('forgot-sent-view'); if (sv)  sv.style.display  = 'block';
+}
+
+function showResetPasswordForm(token) {
+  _resetToken = token;
+  const mainEls = ['student-fields','login-err','login-btn','login-note','auth-tabs','forgot-pw-link'];
+  mainEls.forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
+  const h   = $('login-heading');  if (h)   h.style.display   = 'none';
+  const sub = $('login-sub');      if (sub) sub.style.display = 'none';
+  const rp  = $('reset-pw-form'); if (rp)  rp.style.display  = 'block';
+  setTimeout(() => $('rp-pw')?.focus(), 50);
+}
+
+async function submitResetPassword() {
+  const pw   = $('rp-pw')?.value  || '';
+  const cpw  = $('rp-cpw')?.value || '';
+  const err  = $('reset-err');
+  const btn  = $('rp-btn');
+  if (err) err.textContent = '';
+  if (!pw)          { if (err) err.textContent = 'Enter a new password.'; return; }
+  if (pw.length < 6){ if (err) err.textContent = 'Password must be at least 6 characters.'; return; }
+  if (pw !== cpw)   { if (err) err.textContent = 'Passwords do not match.'; return; }
+  if (btn) { btn.textContent = 'Updating...'; btn.disabled = true; }
+  try {
+    await API('/api/auth/reset-password', { token: _resetToken, password: pw });
+    // Clear URL params then show success
+    history.replaceState(null, '', '/');
+    showLoginView();
+    const h   = $('login-heading'); if (h)  { h.style.display = ''; h.textContent = 'Welcome back'; }
+    const sub = $('login-sub');     if (sub){ sub.style.display = ''; }
+    toast('Password updated! Please sign in with your new password.');
+  } catch(e) {
+    if (err) err.textContent = e.message || 'Reset link is invalid or expired.';
+  } finally {
+    if (btn) { btn.textContent = 'Update password'; btn.disabled = false; }
+  }
+}
+
+function checkAuthParams() {
+  const params = new URLSearchParams(window.location.search);
+  const reset    = params.get('reset');
+  const verify   = params.get('verify');
+  const verified = params.get('verified');
+
+  if (reset) {
+    history.replaceState(null, '', '/');
+    showResetPasswordForm(reset);
+    return;
+  }
+  if (verify) {
+    // Browser will hit the GET endpoint which redirects back with ?verified=1
+    history.replaceState(null, '', '/');
+    return;
+  }
+  if (verified === '1') {
+    history.replaceState(null, '', '/');
+    toast('Email verified! You can now sign in.');
+  } else if (verified === 'error') {
+    history.replaceState(null, '', '/');
+    toast('Verification link is invalid or expired. Please request a new one.');
+  }
+}
+
+async function resendVerificationEmail() {
+  const token = getSavedSession()?.token;
+  if (!token) return;
+  try {
+    await API('/api/auth/resend-verification', { token });
+    toast('Verification email resent. Check your inbox.');
+  } catch(e) {
+    toast('Could not resend — please try again shortly.');
+  }
+}
+
 // Auto-restore on page load — try token first, fall back to re-login
 window.addEventListener('DOMContentLoaded', async () => {
   localStorage.removeItem('sivarr_lecturer_token');
   localStorage.removeItem('sivarr_lecturer_name');
+
+  // Handle ?reset= / ?verify= / ?verified= URL params before anything else
+  checkAuthParams();
 
   const saved = getSavedSession();
   if (!saved) return;
@@ -629,6 +746,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (saved.token) {
     const ok = await restoreSession(saved.token);
     if (ok) return;
+    // Session was stored but is now expired/invalid — tell the user
+    toast('Your session expired — please sign in again.');
   }
 
   // Fallback: pre-fill email and show login form for expired/invalid tokens

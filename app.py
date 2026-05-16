@@ -24,8 +24,8 @@ from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 
@@ -50,6 +50,13 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
     _httpx = None
+
+try:
+    import resend as _resend
+    RESEND_AVAILABLE = True
+except ImportError:
+    RESEND_AVAILABLE = False
+    _resend = None
 
 import database as db
 
@@ -88,6 +95,8 @@ for d in [DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR]:
 ADMIN_PASSWORD     = os.environ.get("ADMIN_PASSWORD", "sivarr_admin_2024")
 LECTURER_PASSWORD  = os.environ.get("LECTURER_PASSWORD", "sivarr_lecturer_2024")
 BASE_URL           = os.environ.get("BASE_URL", "https://sivarr.up.railway.app")
+RESEND_API_KEY     = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM        = os.environ.get("RESEND_FROM_EMAIL", "Sivarr <noreply@sivarr.app>")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
 # ── Paystack (NGN payments) ───────────────────────────────────
@@ -487,6 +496,81 @@ def delete_session_token(token: str) -> None:
     _session_tokens.pop(token, None)
     if db.is_available():
         db.delete_db_session(token)
+
+
+def send_email(to: str, subject: str, html_body: str) -> bool:
+    """Send a transactional email via Resend. Returns True on success."""
+    if not RESEND_AVAILABLE or not RESEND_API_KEY:
+        log.warning(f"Email skipped (Resend not configured): '{subject}' → {to}")
+        return False
+    try:
+        _resend.api_key = RESEND_API_KEY
+        _resend.Emails.send({
+            "from":    RESEND_FROM,
+            "to":      [to],
+            "subject": subject,
+            "html":    html_body,
+        })
+        log.info(f"Email sent: '{subject}' → {to}")
+        return True
+    except Exception as exc:
+        log.error(f"Email send failed: {exc}")
+        return False
+
+
+def _email_reset_html(reset_url: str) -> str:
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
+  <div style="margin-bottom:28px">
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+  </div>
+  <h2 style="margin:0 0 10px;font-size:1.4rem">Reset your password</h2>
+  <p style="color:#555;line-height:1.6;margin:0 0 28px">
+    Someone requested a password reset for your Sivarr account.<br>
+    Click below to set a new password. This link expires in <strong>1 hour</strong>.
+  </p>
+  <a href="{reset_url}"
+     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+            border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
+    Reset Password →
+  </a>
+  <p style="color:#999;font-size:.78rem;margin-top:32px;line-height:1.5">
+    If you didn't request this, you can safely ignore this email.<br>
+    Your password won't change until you click the link above.
+  </p>
+  <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">
+    SIVARR · Your productivity OS
+  </p>
+</body></html>"""
+
+
+def _email_verify_html(verify_url: str, name: str) -> str:
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
+  <div style="margin-bottom:28px">
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+  </div>
+  <h2 style="margin:0 0 10px;font-size:1.4rem">Welcome, {name} 👋</h2>
+  <p style="color:#555;line-height:1.6;margin:0 0 28px">
+    Verify your email address to complete your Sivarr account setup.<br>
+    This link expires in <strong>24 hours</strong>.
+  </p>
+  <a href="{verify_url}"
+     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+            border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
+    Verify Email →
+  </a>
+  <p style="color:#999;font-size:.78rem;margin-top:32px;line-height:1.5">
+    If you didn't create a Sivarr account, you can safely ignore this email.
+  </p>
+  <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">
+    SIVARR · Your productivity OS
+  </p>
+</body></html>"""
 
 
 def cleanup_expired_tokens():
@@ -925,7 +1009,7 @@ async def admin_page():
 
 
 @app.post("/api/login")
-async def login(req: LoginRequest, request: Request):
+async def login(req: LoginRequest, request: Request, bg: BackgroundTasks = None):
     key = get_client_key(request)
     check_rate_limit(key, RATE_LIMIT_LOGIN, "login")
 
@@ -979,6 +1063,13 @@ async def login(req: LoginRequest, request: Request):
                 log.error(f"Critical: failed to persist new user {sid} to DB: {_e}")
         user = users[sid]
         log.info(f"Register: {user['name']} ({email})")
+        # Send verification email in background (don't block registration)
+        if bg:
+            verify_token = db.create_email_verify_token(sid, email)
+            verify_url   = f"{BASE_URL}/?verify={verify_token}"
+            bg.add_task(send_email, email,
+                        "Verify your Sivarr email",
+                        _email_verify_html(verify_url, user['name']))
 
     # ── LOGIN ──────────────────────────────────────────────────
     else:
@@ -1026,6 +1117,7 @@ async def login(req: LoginRequest, request: Request):
         "wrong_count": len(p.get("wrong_answers", [])), "returning": p["sessions"] > 1,
         "uploaded_files": p.get("uploaded_files", []),
         "spaces": spaces,
+        "email_verified": db.is_email_verified(sid) if db.is_available() else True,
     }
 
 
@@ -1072,6 +1164,7 @@ async def session_restore(data: dict):
         "wrong_count": len(p.get("wrong_answers", [])), "returning": p["sessions"] > 1,
         "uploaded_files": p.get("uploaded_files", []),
         "spaces": spaces,
+        "email_verified": db.is_email_verified(sid) if db.is_available() else True,
     }
 
 
@@ -1081,6 +1174,72 @@ async def logout(data: dict):
     token = sanitize_text(str(data.get("token", "")), 100)
     if token:
         delete_session_token(token)
+    return {"ok": True}
+
+
+@app.post("/api/auth/forgot-password")
+async def forgot_password(data: dict, bg: BackgroundTasks):
+    email = sanitize_text(str(data.get("email", "")), 200).lower().strip()
+    if not email:
+        raise HTTPException(400, "Email required.")
+    # Always return 200 — never reveal whether email exists (prevents enumeration)
+    user = db.get_user_by_email(email) if db.is_available() else None
+    if not user:
+        # Try JSON fallback
+        users = load_users()
+        user = next((u for u in users.values() if u.get("email", "").lower() == email), None)
+    if user:
+        sid = user.get("sid") or user.get("id", "")
+        reset_token = db.create_reset_token(sid, email)
+        reset_url   = f"{BASE_URL}/?reset={reset_token}"
+        bg.add_task(send_email, email,
+                    "Reset your Sivarr password",
+                    _email_reset_html(reset_url))
+    return {"ok": True, "message": "If that email exists, a reset link has been sent."}
+
+
+@app.post("/api/auth/reset-password")
+async def reset_password(data: dict):
+    token    = sanitize_text(str(data.get("token", "")), 200)
+    password = str(data.get("password", ""))
+    if not token or not password:
+        raise HTTPException(400, "Token and new password required.")
+    if len(password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters.")
+    rec = db.get_reset_token(token)
+    if not rec:
+        raise HTTPException(400, "Reset link is invalid or has expired.")
+    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    db.update_user_password(rec["sid"], hashed)
+    db.mark_reset_token_used(token)
+    return {"ok": True, "message": "Password updated. You can now sign in."}
+
+
+@app.get("/api/auth/verify-email/{token}")
+async def verify_email_endpoint(token: str):
+    rec = db.get_email_verify_token(token)
+    if not rec:
+        return RedirectResponse(url="/?verified=error", status_code=302)
+    db.mark_email_verified(rec["sid"])
+    return RedirectResponse(url="/?verified=1", status_code=302)
+
+
+@app.post("/api/auth/resend-verification")
+async def resend_verification(data: dict, bg: BackgroundTasks):
+    token = sanitize_text(str(data.get("token", "")), 100)
+    if not token:
+        raise HTTPException(400, "Token required.")
+    entry = get_session_from_token(token)
+    if not entry:
+        raise HTTPException(401, "Session expired.")
+    sid   = entry["sid"]
+    email = entry["email"]
+    if db.is_email_verified(sid):
+        return {"ok": True, "message": "Already verified."}
+    verify_token = db.create_email_verify_token(sid, email)
+    verify_url   = f"{BASE_URL}/?verify={verify_token}"
+    bg.add_task(send_email, email, "Verify your Sivarr email",
+                _email_verify_html(verify_url, entry.get("name", "")))
     return {"ok": True}
 
 

@@ -89,6 +89,12 @@
           </div>
         </div>
 
+        <!-- Forgot password link (sign-in only) -->
+        <div id="forgot-pw-link" style="text-align:right;margin-top:-4px;margin-bottom:4px">
+          <button type="button" class="auth-back-btn" style="font-size:0.82rem;padding:0"
+            onclick="showForgotPassword()">Forgot password?</button>
+        </div>
+
         <!-- Register-only fields -->
         <div id="register-fields" style="display:none">
           <div class="field">
@@ -129,6 +135,69 @@
         <a href="#" style="color:var(--teal);text-decoration:none">Privacy</a>
       </p>
 
+      <!-- ── Forgot password form ── -->
+      <div id="forgot-pw-form" style="display:none">
+        <button type="button" class="auth-back-btn" onclick="showLoginView()">
+          <i class="ti ti-arrow-left"></i> Back to sign in
+        </button>
+        <h2 style="margin:16px 0 6px;font-size:1.25rem">Reset your password</h2>
+        <p style="color:var(--muted);font-size:0.88rem;margin-bottom:18px">
+          Enter your email and we'll send you a reset link.
+        </p>
+        <div class="field">
+          <label>Email</label>
+          <div class="field-ic">
+            <i class="ti ti-mail"></i>
+            <input id="fp-email" type="email" placeholder="your@email.com"
+              onkeydown="if(event.key==='Enter') submitForgotPassword()">
+          </div>
+        </div>
+        <div id="forgot-err" class="login-err"></div>
+        <button class="btn-login" id="fp-btn" onclick="submitForgotPassword()">Send reset link</button>
+      </div>
+
+      <!-- ── Forgot password sent confirmation ── -->
+      <div id="forgot-sent-view" style="display:none;text-align:center;padding:24px 0">
+        <i class="ti ti-mail-check" style="font-size:3rem;color:var(--teal)"></i>
+        <h2 style="margin:14px 0 8px;font-size:1.2rem">Check your inbox</h2>
+        <p style="color:var(--muted);font-size:0.88rem;line-height:1.55">
+          If that email has an account, a reset link is on its way.<br>
+          Check your spam folder too.
+        </p>
+        <button type="button" class="auth-back-btn" style="margin-top:20px;font-size:0.88rem"
+          onclick="showLoginView()">Back to sign in</button>
+      </div>
+
+      <!-- ── Reset password form (shown when ?reset=TOKEN in URL) ── -->
+      <div id="reset-pw-form" style="display:none">
+        <h2 style="margin:0 0 6px;font-size:1.25rem">Set a new password</h2>
+        <p style="color:var(--muted);font-size:0.88rem;margin-bottom:18px">Choose something strong.</p>
+        <div class="field">
+          <label>New Password</label>
+          <div class="field-ic">
+            <i class="ti ti-lock"></i>
+            <input id="rp-pw" type="password" placeholder="Min. 6 characters"
+              onkeydown="if(event.key==='Enter') $('rp-cpw').focus()">
+            <button type="button" class="field-eye" onclick="togglePwVis('rp-pw','rp-pw-eye')" id="rp-pw-eye">
+              <i class="ti ti-eye"></i>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Confirm Password</label>
+          <div class="field-ic">
+            <i class="ti ti-lock-check"></i>
+            <input id="rp-cpw" type="password" placeholder="Re-enter your password"
+              onkeydown="if(event.key==='Enter') submitResetPassword()">
+            <button type="button" class="field-eye" onclick="togglePwVis('rp-cpw','rp-cpw-eye')" id="rp-cpw-eye">
+              <i class="ti ti-eye"></i>
+            </button>
+          </div>
+        </div>
+        <div id="reset-err" class="login-err"></div>
+        <button class="btn-login" id="rp-btn" onclick="submitResetPassword()">Update password</button>
+      </div>
+
     </div><!-- /login-card -->
   </div><!-- /login-right -->
 
@@ -136,6 +205,14 @@
 
 <!-- DASHBOARD -->
 <div id="dashboard">
+
+  <!-- Email verification banner (hidden by default) -->
+  <div id="verify-banner" style="display:none;background:#1a3a2e;border-bottom:1px solid var(--teal);padding:10px 20px;display:none;align-items:center;gap:12px;font-size:0.88rem">
+    <i class="ti ti-mail" style="color:var(--teal);font-size:1.1rem"></i>
+    <span style="flex:1;color:var(--text)">Please verify your email address. Check your inbox for the verification link.</span>
+    <button type="button" onclick="resendVerificationEmail()" style="color:var(--teal);background:none;border:none;cursor:pointer;font-size:0.85rem;text-decoration:underline">Resend</button>
+    <button type="button" onclick="this.closest('#verify-banner').style.display='none'" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:1.1rem;line-height:1">&times;</button>
+  </div>
 
   <!-- Topbar -->
   <header class="topbar">
@@ -2966,7 +3043,7 @@
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260514" defer></script>
+<script src="/js/app.js?v=20260516" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
