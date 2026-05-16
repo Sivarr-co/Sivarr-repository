@@ -776,6 +776,73 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// ═══════════════════════ AUTOSAVE SYSTEM ════════════════════════
+
+let _unsavedChanges  = false;
+let _saveStatusTimer = null;
+let _jnlDraftTimer   = null;
+
+function _saveStatus(state) {
+  const el = $('global-save-status');
+  clearTimeout(_saveStatusTimer);
+  const cfg = {
+    unsaved: { text: '● Unsaved', color: 'var(--coral)' },
+    saving:  { text: '● Saving…', color: 'var(--text3)' },
+    saved:   { text: '✓ Saved',   color: 'var(--teal)'  },
+  };
+  const c = cfg[state];
+  _unsavedChanges = state === 'unsaved' || state === 'saving';
+  if (el) {
+    el.textContent = c ? c.text : '';
+    el.style.color = c ? c.color : '';
+  }
+  if (state === 'saved') {
+    _saveStatusTimer = setTimeout(() => {
+      if (el) el.textContent = '';
+      _unsavedChanges = false;
+    }, 2500);
+  }
+}
+
+// Warn before tab close / navigation when there are unsaved edits
+window.addEventListener('beforeunload', e => {
+  if (_unsavedChanges) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// Journal input → debounced draft autosave
+function _jnlInput() {
+  _saveStatus('unsaved');
+  clearTimeout(_jnlDraftTimer);
+  _jnlDraftTimer = setTimeout(() => {
+    const ta = $('journal-text');
+    if (!ta?.value?.trim()) return;
+    const today = new Date().toISOString().split('T')[0];
+    localStorage.setItem(`${JNL_KEY()}_jnl_draft_${today}`, ta.value.trim());
+    _saveStatus('saved');
+  }, 1500);
+}
+
+// Note textarea → track unsaved, persist draft
+function _noteInput() {
+  const ta = $('new-note-text');
+  if (!ta) return;
+  if (ta.value.trim()) {
+    localStorage.setItem(`sivarr_note_draft_${S.sid}`, ta.value);
+    _saveStatus('unsaved');
+  } else {
+    localStorage.removeItem(`sivarr_note_draft_${S.sid}`);
+    _saveStatus('saved');
+  }
+}
+
+// Wire journal textarea after DOM is ready
+window.addEventListener('DOMContentLoaded', () => {
+  const jnl = $('journal-text');
+  if (jnl) jnl.addEventListener('input', _jnlInput);
+  const noteTA = $('new-note-text');
+  if (noteTA) noteTA.addEventListener('input', _noteInput);
+});
+
 // ═══════════════════════════ ATTACHMENTS ════════════════════════
 
 let ATTACHMENTS = []; // { name, type, content (base64 or text) }
@@ -1771,8 +1838,12 @@ function dhSaveDoc(silent = false) {
   if (idx >= 0) docs[idx] = DH_ACTIVE;
   else docs.push(DH_ACTIVE);
   dhSaveDocs(docs);
+  _saveStatus('saved');
   if (!silent) {
     toast('Document saved ✓');
+    const st = $('dh-save-status');
+    if (st) { st.textContent = 'Saved'; st.style.color = 'var(--green)'; }
+  } else {
     const st = $('dh-save-status');
     if (st) { st.textContent = 'Saved'; st.style.color = 'var(--green)'; }
   }
@@ -1782,8 +1853,9 @@ function dhAutoSave() {
   const st = $('dh-save-status');
   if (st) { st.textContent = 'Unsaved changes'; st.style.color = 'var(--yellow)'; }
   dhUpdateWordCount();
+  _saveStatus('unsaved');
   clearTimeout(DH_SAVE_TIMER);
-  DH_SAVE_TIMER = setTimeout(() => dhSaveDoc(true), 2000);
+  DH_SAVE_TIMER = setTimeout(() => { _saveStatus('saving'); dhSaveDoc(true); }, 2000);
 }
 
 function dhUpdateWordCount() {
@@ -2415,6 +2487,7 @@ function stSaveProfile() {
   const tbAv   = $('tb-av');   if (tbAv)   tbAv.textContent   = name[0].toUpperCase();
   const tbName = $('tb-name'); if (tbName) tbName.textContent = name;
 
+  _saveStatus('saved');
   toast('Profile saved ✓');
 }
 
@@ -3687,6 +3760,7 @@ function journalSave() {
   localStorage.setItem(JNL_KEY(), JSON.stringify(entries));
   localStorage.setItem(`${JNL_KEY()}_jnl_draft_${today}`, ta.value.trim());
   journalRenderEntries();
+  _saveStatus('saved');
   toast('Journal entry saved ✓');
 }
 
@@ -6525,11 +6599,17 @@ function renderNotes(notes, filter = '') {
   const open = form.style.display === 'none' || !form.style.display;
   form.style.display = open ? 'block' : 'none';
   if (open) {
-    $('new-note-text').focus();
-    delete $('new-note-text').dataset.editIdx;
+    const ta = $('new-note-text');
+    if (ta) {
+      delete ta.dataset.editIdx;
+      // Restore unsaved draft if user was mid-write
+      const draft = localStorage.getItem(`sivarr_note_draft_${S.sid}`);
+      ta.value = draft || '';
+      if (draft) _saveStatus('unsaved');
+    }
     if ($('note-tag-input')) $('note-tag-input').value = '';
-    if ($('new-note-text')) $('new-note-text').value = '';
     noteCharCount();
+    ta?.focus();
   }
 }
 
@@ -6610,10 +6690,12 @@ function saveNote() {
 
   const trimmed = notes.slice(0, 100);
   localStorage.setItem(`sivarr_notes_${S.sid}`, JSON.stringify(trimmed));
+  localStorage.removeItem(`sivarr_note_draft_${S.sid}`);
   ta.value = '';
   if ($('note-tag-input')) $('note-tag-input').value = '';
   noteCharCount();
   $('note-write-form').style.display = 'none';
+  _saveStatus('saved');
   renderNotes(trimmed);
   noteRenderTagBar(trimmed);
 }

@@ -132,6 +132,12 @@ input, textarea, select { font-family: var(--font); }
 }
 
 .tb-right { display:flex; align-items:center; gap:4px; margin-left:auto; }
+.global-save-status {
+  font-size: .7rem; white-space: nowrap;
+  color: var(--text4); padding: 0 6px;
+  transition: color .2s, opacity .2s;
+  opacity: 1; pointer-events: none;
+}
 
 .tb-btn {
   width:32px; height:32px; border-radius:var(--radius);
