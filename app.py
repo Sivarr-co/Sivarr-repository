@@ -649,6 +649,17 @@ def friendly_gemini_error(e):
         return "AI model unavailable — try again in a moment."
     return "Something went wrong — please try again shortly."
 
+_AI_ERROR_PREFIXES = (
+    "SIVARR is taking a short break",
+    "API key issue",
+    "Connection issue",
+    "AI model unavailable",
+    "Something went wrong",
+)
+
+def _is_ai_error(text: str) -> bool:
+    return any(text.startswith(p) for p in _AI_ERROR_PREFIXES)
+
 
 def gemini_ask(session, question):
     try:
@@ -1370,19 +1381,21 @@ async def chat(req: ChatRequest, request: Request):
         p["questions"] += 1
         p["topics"]["math"] = p["topics"].get("math", 0) + 1
         save_progress(req.sid, p)
-        return {"reply": local, "uncertain": False}
+        return {"reply": local, "uncertain": False, "error": False}
 
     sessions = get_sessions(req.sid)
 
     if is_math(cmd):
         ans = gemini_ask(sessions["math"], msg)
         uncertain = is_uncertain(ans)
-        p["questions"] += 1
-        p["topics"]["math"] = p["topics"].get("math", 0) + 1
-        add_history(p, req.sid, "user", msg)
-        add_history(p, req.sid, "sivarr", ans)
-        save_progress(req.sid, p)
-        return {"reply": ans, "uncertain": uncertain}
+        is_err = _is_ai_error(ans)
+        if not is_err:
+            p["questions"] += 1
+            p["topics"]["math"] = p["topics"].get("math", 0) + 1
+            add_history(p, req.sid, "user", msg)
+            add_history(p, req.sid, "sivarr", ans)
+            save_progress(req.sid, p)
+        return {"reply": ans, "uncertain": uncertain, "error": is_err}
 
     lib    = load_json(lpath())
     topic  = strip_topic(cmd)
@@ -1391,21 +1404,23 @@ async def chat(req: ChatRequest, request: Request):
         p["questions"] += 1
         p["topics"][topic] = p["topics"].get(topic, 0) + 1
         save_progress(req.sid, p)
-        return {"reply": cached, "uncertain": False}
+        return {"reply": cached, "uncertain": False, "error": False}
 
     ans       = gemini_ask(sessions["chat"], msg)
     uncertain = is_uncertain(ans)
+    is_err    = _is_ai_error(ans)
 
-    if topic and any(kw in cmd for kw in ["what is","define","explain"]) and not uncertain:
-        set_cached(lib, topic, ans)
-        save_json(lpath(), lib)
+    if not is_err:
+        if topic and any(kw in cmd for kw in ["what is","define","explain"]) and not uncertain:
+            set_cached(lib, topic, ans)
+            save_json(lpath(), lib)
+        p["questions"] += 1
+        p["topics"][topic or "general"] = p["topics"].get(topic or "general", 0) + 1
+        add_history(p, req.sid, "user", msg)
+        add_history(p, req.sid, "sivarr", ans)
+        save_progress(req.sid, p)
 
-    p["questions"] += 1
-    p["topics"][topic or "general"] = p["topics"].get(topic or "general", 0) + 1
-    add_history(p, req.sid, "user", msg)
-    add_history(p, req.sid, "sivarr", ans)
-    save_progress(req.sid, p)
-    return {"reply": ans, "uncertain": uncertain}
+    return {"reply": ans, "uncertain": uncertain, "error": is_err}
 
 
 @app.get("/api/quiz/question")

@@ -951,54 +951,108 @@ function buildSivarrContext() {
   return lines.join('\n');
 }
 
-async function send() {
-  const ci = $('ci'), msg = ci.value.trim();
+let _lastFailedMsg = null; // stored for retryChat()
+
+async function send(retryText = null) {
+  const ci  = $('ci');
+  const msg = retryText || ci?.value.trim() || '';
   if (!msg && !ATTACHMENTS.length) return;
   if (!S.sid) return;
 
-  // Build message with attachment context
+  // Build full message with attachment context
   let fullMsg = msg;
   if (ATTACHMENTS.length) {
-    const attachContext = ATTACHMENTS.map(a => {
-      if (a.type === 'image') return `[Image attached: ${a.name}]`;
-      return `[File attached: ${a.name}]\n\nContent:\n${a.content.slice(0, 3000)}`;
-    }).join('\n\n');
+    const attachContext = ATTACHMENTS.map(a =>
+      a.type === 'image'
+        ? `[Image attached: ${a.name}]`
+        : `[File attached: ${a.name}]\n\nContent:\n${a.content.slice(0, 3000)}`
+    ).join('\n\n');
     fullMsg = msg ? `${msg}\n\n${attachContext}` : attachContext;
   }
 
-  // Show user message with attachment chips
-  const displayMsg = msg || `📎 ${ATTACHMENTS.map(a => a.name).join(', ')}`;
-  addMsg('user', displayMsg);
-  if (ATTACHMENTS.length) {
-    ATTACHMENTS = [];
-    renderAttachPreview();
+  // Show user bubble only on original send, not retry
+  if (!retryText) {
+    const displayMsg = msg || `📎 ${ATTACHMENTS.map(a => a.name).join(', ')}`;
+    addMsg('user', displayMsg);
+    if (ATTACHMENTS.length) { ATTACHMENTS = []; renderAttachPreview(); }
+    if (ci) { ci.value = ''; ci.style.height = 'auto'; }
   }
 
-  ci.value = ''; ci.style.height = 'auto';
-  const t = addTyping();
-  $('sb').disabled = true;
+  const t   = addTyping();
+  const btn = $('sb'); if (btn) btn.disabled = true;
+
+  // "Taking a bit longer…" nudge after 8 s
+  const slowTimer = setTimeout(() => {
+    const inner = t.querySelector('.typing');
+    if (inner) inner.innerHTML =
+      '<span style="font-size:.8rem;color:var(--muted);padding:4px 0">Taking a bit longer…</span>';
+  }, 8000);
 
   // First message of session — attach context snapshot
   let context = '';
-  if (!_contextSent) {
+  if (!_contextSent && !retryText) {
     context = buildSivarrContext();
     _contextSent = true;
   }
 
-  try {
-    const r = await API('/api/chat', { sid: S.sid, message: fullMsg, context });
-    t.remove();
-    addMsg('sivarr', r.reply, r.uncertain);
-    S.stats.questions++;
-    updateSBStats();
-    refreshTopics();
-  } catch(e) {
-    t.remove();
-    addMsg('sivarr', 'Connection issue — check your internet and try again.');
+  let r = null, lastErr = null, attempts = 0;
+  while (attempts < 2) {
+    attempts++;
+    try {
+      r = await Promise.race([
+        API('/api/chat', { sid: S.sid, message: fullMsg, context }),
+        new Promise((_, rej) => setTimeout(
+          () => rej(Object.assign(new Error('Request timed out'), { name: 'AbortError' })),
+          20000
+        )),
+      ]);
+      break; // success
+    } catch(e) {
+      lastErr = e;
+      // Only auto-retry on network failure — not on timeout or server errors
+      if (e.name === 'AbortError' || (e.status && e.status < 500) || attempts >= 2) break;
+      await new Promise(res => setTimeout(res, 1500));
+    }
   }
-  $('sb').disabled = false;
-  chatCounterDecrement();
+
+  clearTimeout(slowTimer);
+  t.remove();
+
+  if (r) {
+    addMsg('sivarr', r.reply, r.uncertain, r.error);
+    if (!r.error) {
+      _lastFailedMsg = null;
+      S.stats.questions++;
+      updateSBStats();
+      refreshTopics();
+      chatCounterDecrement(); // only counts real successful answers
+    } else {
+      _lastFailedMsg = fullMsg; // AI returned an error string — allow retry
+    }
+  } else {
+    const isTimeout = lastErr?.name === 'AbortError';
+    const errText = isTimeout
+      ? 'Request timed out — SIVARR may be busy. Tap "Try again" below.'
+      : 'Could not reach SIVARR — check your connection and tap "Try again".';
+    addMsg('sivarr', errText, false, true);
+    _lastFailedMsg = fullMsg;
+  }
+
+  if (btn) btn.disabled = false;
   scrollMsgs();
+}
+
+function retryChat() {
+  if (!_lastFailedMsg) return;
+  // Remove the last error bubble so it doesn't stack up
+  const msgs = $('msgs');
+  if (msgs) {
+    const errBubs = msgs.querySelectorAll('.msg-error');
+    if (errBubs.length) errBubs[errBubs.length - 1].closest('.msg')?.remove();
+  }
+  const txt = _lastFailedMsg;
+  _lastFailedMsg = null;
+  send(txt);
 }
 
 /* Daily message counter — resets at midnight */
@@ -1028,20 +1082,22 @@ function quickPrompt(text) {
   send();
 }
 
-function addMsg(role, text, uncertain = false) {
+function addMsg(role, text, uncertain = false, isError = false) {
   const welcome = $('chat-welcome');
   if (welcome) welcome.style.display = 'none';
 
   const w = $('msgs'), d = document.createElement('div');
   d.className = `msg ${role}`;
-  const av      = role === 'sivarr' ? 'Sr' : S.name[0]?.toUpperCase() || 'U';
+  const av       = role === 'sivarr' ? 'Sr' : S.name[0]?.toUpperCase() || 'U';
   const rendered = role === 'sivarr' ? renderMarkdown(text) : esc(text);
+  const errClass = isError ? ' msg-error' : '';
   d.innerHTML = `
     <div class="msg-av">${av}</div>
     <div style="min-width:0;flex:1">
-      <div class="msg-bub md-body">${rendered}</div>
+      <div class="msg-bub md-body${errClass}">${rendered}</div>
       ${uncertain ? `<div class="uncertain">⚠️ Verify this with your lecturer</div>` : ''}
-      ${role === 'sivarr' ? `<button class="action-btn" style="margin-top:5px;font-size:.68rem" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Download</button>` : ''}
+      ${isError  ? `<button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>` : ''}
+      ${role === 'sivarr' && !isError ? `<button class="action-btn" style="margin-top:5px;font-size:.68rem" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Download</button>` : ''}
     </div>`;
   w.appendChild(d);
   scrollMsgs();

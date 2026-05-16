@@ -676,6 +676,21 @@ input, textarea, select { font-family: var(--font); }
 .btn-login:hover { opacity: .9; }
 .btn-login:active { transform: scale(.99); }
 
+/* Chat error bubble + retry */
+.msg-error {
+  border: 1px solid var(--coral) !important;
+  color: var(--coral) !important;
+  background: rgba(255, 80, 80, .06) !important;
+}
+.chat-retry-btn {
+  display: inline-block; margin-top: 7px;
+  background: none; border: 1px solid var(--coral);
+  color: var(--coral); border-radius: 8px;
+  padding: 3px 12px; font-size: .76rem; cursor: pointer;
+  font-family: inherit; transition: background .15s;
+}
+.chat-retry-btn:hover { background: rgba(255, 80, 80, .12); }
+
 /* Ghost back / link button used in auth sub-flows */
 .auth-back-btn {
   background: none; border: none; cursor: pointer;
