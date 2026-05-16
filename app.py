@@ -4082,14 +4082,11 @@ async def paystack_webhook(request: Request):
 
 
 @app.get("/health")
-def health():
-  return {"status":"ok"}
-async def health():
-    """Simple health check endpoint for Railway."""
+async def railway_health():
+    """Railway healthcheck endpoint."""
     return {
         "status":  "ok",
         "version": VERSION,
         "time":    datetime.datetime.now().isoformat(),
         "gemini":  GEMINI_AVAILABLE,
-        "model":   _model_name or "not initialized",
-}
+    }

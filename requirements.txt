@@ -9,4 +9,4 @@ python-dotenv==1.0.1
 psycopg2-binary==2.9.9
 httpx==0.27.0
 resend==2.4.0
-sentry-sdk[fastapi]
+sentry-sdk==2.8.0
