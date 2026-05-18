@@ -117,6 +117,9 @@ PAYSTACK_API        = "https://api.paystack.co"
 # ── Sentry ────────────────────────────────────────────────────
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 
+# ── Analytics ─────────────────────────────────────────────────
+PLAUSIBLE_DOMAIN = os.environ.get("PLAUSIBLE_DOMAIN", "")
+
 # ── Shared file paths (defined early so all functions can use them) ──
 ANN_PATH    = DATA_DIR / "announcements.json"
 TOPICS_PATH = DATA_DIR / "class_topics.json"
@@ -343,7 +346,8 @@ def check_rate_limit(key: str, limit: int, endpoint: str) -> None:
         log.warning(f"Rate limit exceeded | key={key} | endpoint={endpoint}")
         raise HTTPException(
             status_code=429,
-            detail=f"Too many requests. Please wait {RATE_LIMIT_WINDOW} seconds before trying again."
+            detail=f"Too many requests. Please wait {RATE_LIMIT_WINDOW} seconds before trying again.",
+            headers={"Retry-After": str(RATE_LIMIT_WINDOW)},
         )
 
 # ═══════════════════════════════════════════════════════════════
@@ -583,6 +587,35 @@ def _email_verify_html(verify_url: str, name: str) -> str:
     If you didn't create a Sivarr account, you can safely ignore this email.
   </p>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">
+    SIVARR · Your productivity OS
+  </p>
+</body></html>"""
+
+
+def _email_welcome_html(name: str) -> str:
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
+  <div style="margin-bottom:28px">
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+  </div>
+  <h2 style="margin:0 0 10px;font-size:1.4rem">You're in, {name}.</h2>
+  <p style="color:#555;line-height:1.6;margin:0 0 20px">
+    Your Sivarr workspace is ready. Here's what you can do right now:
+  </p>
+  <ul style="color:#555;line-height:2;margin:0 0 28px;padding-left:20px">
+    <li>Chat with your AI assistant</li>
+    <li>Write in your journal</li>
+    <li>Set goals and track progress</li>
+    <li>Create notes and study docs</li>
+  </ul>
+  <a href="https://sivarr.up.railway.app"
+     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+            border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
+    Open Sivarr →
+  </a>
+  <hr style="border:none;border-top:1px solid #eee;margin:32px 0">
   <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">
     SIVARR · Your productivity OS
   </p>
@@ -1042,10 +1075,11 @@ class AdminLoginRequest(BaseModel):
 async def index():
     html = Path("templates/index.html").read_text()
     config = json.dumps({
-        "sentry_dsn":    SENTRY_DSN,
-        "paystack_pk":   PAYSTACK_PUBLIC_KEY,
-        "version":       VERSION,
-        "environment":   os.environ.get("RAILWAY_ENVIRONMENT", "production"),
+        "sentry_dsn":      SENTRY_DSN,
+        "paystack_pk":     PAYSTACK_PUBLIC_KEY,
+        "version":         VERSION,
+        "environment":     os.environ.get("RAILWAY_ENVIRONMENT", "production"),
+        "plausible_domain": PLAUSIBLE_DOMAIN,
     })
     inject = f'<script>window.SIVARR_CONFIG={config};</script>'
     html = html.replace('<meta charset="UTF-8">', f'<meta charset="UTF-8">\n{inject}', 1)
@@ -1125,6 +1159,9 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
         bg.add_task(send_email, email,
                     "Verify your Sivarr email",
                     _email_verify_html(verify_url, user['name']))
+        bg.add_task(send_email, email,
+                    "Welcome to Sivarr",
+                    _email_welcome_html(user['name']))
 
     # ── LOGIN ──────────────────────────────────────────────────
     else:
@@ -4079,6 +4116,32 @@ async def paystack_webhook(request: Request):
                     log.info(f"Paystack: installed template {template_id} for {buyer_sid}")
 
     return {"received": True}
+
+
+@app.post("/api/feedback")
+async def submit_feedback(data: dict):
+    token = sanitize_text(str(data.get("token", "")), 100)
+    if not token:
+        raise HTTPException(401, "Token required.")
+    entry = get_session_from_token(token)
+    if not entry:
+        raise HTTPException(401, "Session expired.")
+    sid  = entry["sid"]
+    text = sanitize_text(str(data.get("text", "")), 1000)
+    if not text:
+        raise HTTPException(400, "Feedback text required.")
+    rating = data.get("rating")
+    if rating is not None:
+        try:
+            rating = int(rating)
+            if not 1 <= rating <= 5:
+                rating = None
+        except (ValueError, TypeError):
+            rating = None
+    page = sanitize_text(str(data.get("page", "")), 200)
+    saved = db.save_feedback(sid, rating, text, page) if db.is_available() else False
+    log.info(f"Feedback: sid={sid} rating={rating} page={page} saved_to_db={saved}")
+    return {"ok": True}
 
 
 @app.get("/health")

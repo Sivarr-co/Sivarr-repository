@@ -212,6 +212,14 @@ CREATE TABLE IF NOT EXISTS email_verify_tokens (
     expires_at TIMESTAMPTZ NOT NULL,
     used       BOOLEAN DEFAULT FALSE
 );
+CREATE TABLE IF NOT EXISTS feedback (
+    id         SERIAL PRIMARY KEY,
+    sid        TEXT NOT NULL,
+    rating     SMALLINT,
+    text       TEXT NOT NULL,
+    page       TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 
@@ -1563,5 +1571,24 @@ def record_payout(payout: dict) -> None:
         conn.commit()
     except Exception as exc:
         log.error(f"record_payout: {exc}"); conn.rollback()
+    finally:
+        _release(conn)
+
+
+def save_feedback(sid: str, rating: int, text: str, page: str = "") -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO feedback (sid, rating, text, page) VALUES (%s, %s, %s, %s)",
+                (sid, rating, text, page)
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"save_feedback: {exc}"); conn.rollback()
+        return False
     finally:
         _release(conn)

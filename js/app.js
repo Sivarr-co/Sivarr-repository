@@ -17,10 +17,18 @@ const API = async (url, body) => {
     try { const j = await r.json(); detail = j.detail || detail; } catch { try { detail = await r.text() || detail; } catch {} }
     const err = new Error(detail);
     err.status = r.status;
+    if (r.status === 429) {
+      const retryAfter = r.headers.get('Retry-After');
+      err.retryAfter = retryAfter ? parseInt(retryAfter) : 60;
+    }
     throw err;
   }
   return r.json();
 };
+
+function track(event, props = {}) {
+  if (window.plausible) window.plausible(event, { props });
+}
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const escHtml = esc;
@@ -366,6 +374,7 @@ async function doLogin(prefillEmail) {
   try {
     const r = await API('/api/login', body);
     saveSession(r.name, r.email, r.token);
+    track(isReg ? 'Register' : 'Login');
     _applyLoginData(r);
 
     try {
@@ -1084,14 +1093,22 @@ async function send(retryText = null) {
       break; // success
     } catch(e) {
       lastErr = e;
-      // Only auto-retry on network failure — not on timeout or server errors
-      if (e.name === 'AbortError' || (e.status && e.status < 500) || attempts >= 2) break;
+      // Only auto-retry on network failure — not on timeout, 429, or other server errors
+      if (e.name === 'AbortError' || e.status === 429 || (e.status && e.status < 500) || attempts >= 2) break;
       await new Promise(res => setTimeout(res, 1500));
     }
   }
 
   clearTimeout(slowTimer);
   t.remove();
+
+  if (!r && lastErr?.status === 429) {
+    const wait = lastErr.retryAfter || 60;
+    addMsg('sivarr', `You've sent a lot of messages — please wait ${wait} seconds before trying again.`, false, true);
+    if (btn) btn.disabled = false;
+    scrollMsgs();
+    return;
+  }
 
   if (r) {
     addMsg('sivarr', r.reply, r.uncertain, r.error);
@@ -1101,6 +1118,7 @@ async function send(retryText = null) {
       updateSBStats();
       refreshTopics();
       chatCounterDecrement(); // only counts real successful answers
+      track('Chat_Sent');
     } else {
       _lastFailedMsg = fullMsg; // AI returned an error string — allow retry
     }
@@ -1657,10 +1675,8 @@ async function glLoad() {
 function glRender() {
   const list = $('gl-list'); if (!list) return;
   if (!GL_GOALS.length) {
-    list.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:var(--muted)">
-      <div style="font-size:2rem;margin-bottom:.5rem">🎯</div>
-      <div style="font-size:.85rem">No goals yet — set your first target!</div>
-    </div>`; return;
+    list.innerHTML = `<div class="empty-state"><div class="es-icon">🎯</div><div class="es-text">No goals yet.</div><button class="es-cta" onclick="$('gl-form')?.scrollIntoView({behavior:'smooth'})">Set your first goal →</button></div>`;
+    return;
   }
 
   const today = new Date();
@@ -6556,7 +6572,9 @@ function renderNotes(notes, filter = '') {
     display = notes.filter(n => (n.tag||'').toLowerCase() === filter.toLowerCase());
   }
   if (!display.length) {
-    list.innerHTML = `<div class="empty-state"><div class="es-icon">📓</div><div class="es-text">${filter ? 'No notes with this tag.' : 'No notes yet — tap New Note!'}</div></div>`;
+    list.innerHTML = filter
+      ? `<div class="empty-state"><div class="es-icon">📓</div><div class="es-text">No notes with this tag.</div></div>`
+      : `<div class="empty-state"><div class="es-icon">📓</div><div class="es-text">Nothing here yet.</div><button class="es-cta" onclick="noteToggleForm()">Write your first note →</button></div>`;
     return;
   }
   list.innerHTML = display.map((n, i) => {
@@ -10762,4 +10780,47 @@ function siObNext() {
 
 function siObPrev() {
   if (_siObStep > 1) { _siObStep--; siObRender(); }
+}
+
+// ═══════════════════════════ FEEDBACK ═══════════════════════════
+
+let _fbRating = 0;
+
+function openFeedback() {
+  _fbRating = 0;
+  const modal = $('feedback-modal'); if (!modal) return;
+  const txt = $('fb-text');   if (txt) txt.value = '';
+  const ferr = $('fb-error'); if (ferr) { ferr.style.display = 'none'; ferr.textContent = ''; }
+  document.querySelectorAll('.fb-star').forEach(s => s.classList.remove('active'));
+  modal.style.display = 'flex';
+  setTimeout(() => txt?.focus(), 50);
+}
+
+function closeFeedback() {
+  const modal = $('feedback-modal'); if (modal) modal.style.display = 'none';
+}
+
+function fbSetRating(v) {
+  _fbRating = v;
+  document.querySelectorAll('.fb-star').forEach(s => {
+    s.classList.toggle('active', parseInt(s.dataset.v) <= v);
+  });
+}
+
+async function submitFeedback() {
+  const text = $('fb-text')?.value.trim() || '';
+  const ferr = $('fb-error');
+  if (!text) {
+    if (ferr) { ferr.textContent = 'Please write something before sending.'; ferr.style.display = 'block'; }
+    return;
+  }
+  const token = localStorage.getItem('sivarr_token') || '';
+  const page  = window.location.pathname;
+  try {
+    await API('/api/feedback', { token, text, rating: _fbRating || null, page });
+    closeFeedback();
+    track('Feedback_Sent', { rating: _fbRating });
+  } catch(e) {
+    if (ferr) { ferr.textContent = e.message || 'Failed to send — try again.'; ferr.style.display = 'block'; }
+  }
 }
