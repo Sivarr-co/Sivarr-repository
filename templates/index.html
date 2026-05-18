@@ -1822,9 +1822,9 @@
               <div class="h-stat-lbl">Quizzes Done</div>
             </div>
             <div class="h-stat-card">
-              <div class="h-stat-ic" style="background:var(--amber2)">⏱️</div>
+              <div class="h-stat-ic" style="background:var(--amber2)">🔥</div>
               <div class="h-stat-val" id="home-sessions">0</div>
-              <div class="h-stat-lbl">Study Sessions</div>
+              <div class="h-stat-lbl">Day Streak</div>
             </div>
             <div class="h-stat-card">
               <div class="h-stat-ic" style="background:var(--green2)">🎯</div>
@@ -1913,6 +1913,20 @@
                 <button class="h-card-link" onclick="nav('notes',null)">View all →</button>
               </div>
               <div id="home-notes-list"></div>
+            </div>
+          </div>
+
+          <!-- Latest Journal Entry -->
+          <div id="home-journal-section" style="margin-bottom:14px;display:none">
+            <div class="h2col-card">
+              <div class="h-card-hd">
+                <span class="h-card-title">Latest Journal Entry</span>
+                <button class="h-card-link" onclick="nav('journal',null)">Open journal →</button>
+              </div>
+              <div style="padding:10px 0 2px">
+                <div id="home-journal-text" style="font-size:.83rem;color:var(--text2);line-height:1.6;font-style:italic"></div>
+                <div id="home-journal-date" style="font-size:.72rem;color:var(--text4);margin-top:6px"></div>
+              </div>
             </div>
           </div>
 
@@ -3090,7 +3104,7 @@
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260519a" defer></script>
+<script src="/js/app.js?v=20260519b" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

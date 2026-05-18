@@ -607,7 +607,8 @@ function _applyLoginData(r) {
   }
 
   chatCounterInit();
-  _contextSent = false; // fresh context for each login session
+  _contextSent  = false; // fresh context for each login session
+  _chatMsgCount = 0;
   loadAnnouncements();
   setTimeout(() => briefCheck(), 800);
 
@@ -939,6 +940,82 @@ document.addEventListener('click', e => {
    ══════════════════════════════════════════════════════════════ */
 
 let _contextSent = false; // reset to false on each login
+let _chatMsgCount = 0;   // messages sent this session
+
+// ── Activity streak (fires across all features) ───────────────
+function _recordActivity() {
+  if (!S.sid) return;
+  const key = `sivarr_streak_${S.sid}`;
+  const today = new Date().toDateString();
+  try {
+    const d = JSON.parse(localStorage.getItem(key) || '{}');
+    if (d.last === today) return;
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    const streak = d.last === yesterday ? (d.streak || 0) + 1 : 1;
+    localStorage.setItem(key, JSON.stringify({ last: today, streak }));
+  } catch(_) {}
+}
+
+function _getActivityStreak() {
+  if (!S.sid) return 0;
+  try {
+    const d = JSON.parse(localStorage.getItem(`sivarr_streak_${S.sid}`) || '{}');
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    if (d.last === today || d.last === yesterday) return d.streak || 0;
+    return 0;
+  } catch(_) { return 0; }
+}
+
+// ── Lightweight micro-context for messages 2+ ─────────────────
+function buildMicroContext() {
+  if (!S.sid) return '';
+  try {
+    const tasks  = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]').filter(t => !t.done);
+    const goals  = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]').filter(g => !g.completed);
+    const streak = _getActivityStreak();
+    const parts  = [];
+    if (tasks.length)  parts.push(`${tasks.length} open tasks`);
+    if (goals.length)  parts.push(`top goal: ${goals[0].title}${goals[0].progress ? ` ${goals[0].progress}%` : ''}`);
+    if (streak > 1)    parts.push(`${streak}-day streak`);
+    return parts.length ? `[Context: ${parts.join(' · ')}] ` : '';
+  } catch(_) { return ''; }
+}
+
+// ── Proactive greeting in chat (once per day) ─────────────────
+function chatProactiveGreet() {
+  if (!S.sid) return;
+  const today = new Date().toDateString();
+  const key   = `sivarr_greeted_${S.sid}`;
+  if (localStorage.getItem(key) === today) return;
+
+  const welcome = $('chat-welcome');
+  if (!welcome || welcome.style.display === 'none') return;
+
+  const firstName = S.name.split(' ')[0];
+  const hr  = new Date().getHours();
+  const tod = hr < 12 ? 'Morning' : hr < 17 ? 'Afternoon' : 'Evening';
+
+  const tasks  = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]').filter(t => !t.done);
+  const goals  = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]').filter(g => !g.completed);
+  const jnl    = JSON.parse(localStorage.getItem(`sivarr_journal_${S.sid}`) || '[]');
+  const habits = JSON.parse(localStorage.getItem(`sivarr_habits_${S.sid}`) || '[]');
+  const bestStreak = habits.reduce((m, h) => Math.max(m, h.streak || 0), 0);
+  const today8601  = new Date().toISOString().split('T')[0];
+  const journaledToday = jnl.some(e => e.date === today8601);
+
+  const lines = [`${tod}, ${firstName}.`];
+  if (tasks.length)           lines.push(`You have **${tasks.length} task${tasks.length > 1 ? 's' : ''}** open.`);
+  if (goals.length)           lines.push(`Your **${goals[0].title}** goal is at ${goals[0].progress || 0}%.`);
+  if (bestStreak >= 3)        lines.push(`🔥 ${bestStreak}-day habit streak — don't break it.`);
+  if (!journaledToday && jnl.length) lines.push(`Haven't journalled today yet.`);
+  if (!tasks.length && !goals.length) lines.push(`Your slate is clean — good time to set a goal or plan your week.`);
+  lines.push(`What are we working on?`);
+
+  welcome.style.display = 'none';
+  addMsg('sivarr', lines.join(' '), false, false);
+  localStorage.setItem(key, today);
+}
 
 function buildSivarrContext() {
   if (!S.sid) return '';
@@ -1072,11 +1149,16 @@ async function send(retryText = null) {
       '<span style="font-size:.8rem;color:var(--muted);padding:4px 0">Taking a bit longer…</span>';
   }, 8000);
 
-  // First message of session — attach context snapshot
+  // Always inject context: full snapshot on message 1, micro-context on 2+
   let context = '';
-  if (!_contextSent && !retryText) {
-    context = buildSivarrContext();
-    _contextSent = true;
+  if (!retryText) {
+    _chatMsgCount++;
+    if (!_contextSent) {
+      context = buildSivarrContext();
+      _contextSent = true;
+    } else {
+      context = buildMicroContext();
+    }
   }
 
   let r = null, lastErr = null, attempts = 0;
@@ -1119,6 +1201,7 @@ async function send(retryText = null) {
       refreshTopics();
       chatCounterDecrement(); // only counts real successful answers
       track('Chat_Sent');
+      _recordActivity();
     } else {
       _lastFailedMsg = fullMsg; // AI returned an error string — allow retry
     }
@@ -1322,7 +1405,7 @@ async function showResult() {
       </div>
       <button class="btn-start" onclick="startQuiz()">Take Another Quiz</button>
     </div>`;
-  S.stats.quizzes++; updateSBStats(); loadWrong(); S.quizActive = false;
+  S.stats.quizzes++; updateSBStats(); loadWrong(); S.quizActive = false; _recordActivity();
 }
 
 function resetQuiz() {
@@ -2566,7 +2649,8 @@ async function stClearChat() {
       body: JSON.stringify({sid: S.sid})
     });
   } catch(e) {}
-  _contextSent = false; // re-inject context on next message after a clear
+  _contextSent  = false; // re-inject context on next message after a clear
+  _chatMsgCount = 0;
   toast('Chat history cleared ✓');
 }
 
@@ -3468,99 +3552,209 @@ document.addEventListener('keydown', e => {
 // ═══════════════════════ HOME PANEL ═════════════════════════
 
 async function loadHome() {
-  const hr  = new Date().getHours();
-  const tod = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+  if (!S.sid) return;
+  _recordActivity();
+
+  const hr        = new Date().getHours();
+  const tod       = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = S.name.split(' ')[0] || 'there';
+  const today8601 = new Date().toISOString().split('T')[0];
 
   const greet = $('home-greeting');
   if (greet) greet.textContent = `${tod}, ${firstName} 👋`;
   const sub = $('home-sub');
-  if (sub) {
-    const day = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
-    sub.textContent = day;
-  }
+  if (sub) sub.textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
 
-  // SIVA briefing message
+  // Pull all live data
+  const tasks   = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]');
+  const goals   = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]');
+  const habits  = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
+  const jnl     = JSON.parse(localStorage.getItem(JNL_KEY()) || '[]');
+  const events  = JSON.parse(localStorage.getItem(`sivarr_events_${S.sid}`) || '[]');
+  const notes   = JSON.parse(localStorage.getItem(`sivarr_notes_${S.sid}`) || '[]');
+
+  const openTasks    = tasks.filter(t => !t.done);
+  const activeGoals  = goals.filter(g => !g.completed);
+  const streak       = _getActivityStreak();
+
+  // ── SIVA brief (real data, not random) ────────────────────────
   const briefMsg = $('home-brief-msg');
   if (briefMsg) {
-    const msgs = [
-      `Ready to make today count, ${firstName}? Your study streak is building momentum.`,
-      `${firstName}, you've asked ${S.stats?.questions || 0} questions so far. Keep the curiosity going!`,
-      `Good energy, ${firstName}! Check your tasks and make progress on your goals today.`,
-    ];
-    briefMsg.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+    const parts = [];
+    if (openTasks.length)  parts.push(`${openTasks.length} task${openTasks.length > 1 ? 's' : ''} open`);
+    if (activeGoals.length) {
+      const g = activeGoals[0];
+      parts.push(`**${g.title}** at ${g.progress || 0}%`);
+    }
+    const journaledToday = jnl.some(e => e.date === today8601);
+    if (!journaledToday && jnl.length) parts.push(`haven't journalled today`);
+    if (streak > 1) parts.push(`${streak}-day streak 🔥`);
+
+    if (parts.length) {
+      briefMsg.textContent = `${firstName}: ${parts.join(' · ')}. Make it count.`;
+    } else {
+      briefMsg.textContent = `Clean slate, ${firstName}. Set a goal, plan your week, or just ask me something.`;
+    }
   }
 
-  // Stats
+  // ── Stats ─────────────────────────────────────────────────────
   const hq  = $('home-questions'); if (hq)  hq.textContent  = S.stats?.questions || 0;
   const hqz = $('home-quizzes');   if (hqz) hqz.textContent = S.stats?.quizzes   || 0;
-  const hs  = $('home-sessions');  if (hs)  hs.textContent  = S.stats?.sessions  || 1;
+  const hs  = $('home-sessions');  if (hs)  hs.textContent  = streak || S.stats?.sessions || 1;
+  const gc  = $('home-goals-count'); if (gc) gc.textContent = activeGoals.length;
 
-  // Goals count stat card
+  // ── Today's priorities ─────────────────────────────────────────
   try {
-    const goals = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]')
-      .filter(g => !g.completed);
-    const gc = $('home-goals-count'); if (gc) gc.textContent = goals.length;
+    const pl = $('home-priorities-list');
+    if (pl) {
+      const hi = openTasks.filter(t => t.priority === 'high').slice(0, 2);
+      const display = hi.length ? hi : openTasks.slice(0, 4);
+      const colors  = { high:'var(--red3)', medium:'var(--amber3)', low:'var(--green3)' };
+      if (display.length) {
+        pl.innerHTML = display.map(t => `
+          <div class="priority-item" onclick="nav('flux',null)" style="cursor:pointer">
+            <div class="pr-dot" style="background:${colors[t.priority]||'var(--text4)'}"></div>
+            <div class="pr-text">${esc(t.title)}</div>
+            <span class="pr-tag" style="background:var(--bg3);color:var(--text3)">${t.priority||'task'}</span>
+          </div>`).join('');
+      } else {
+        pl.innerHTML = `<div class="priority-item"><div class="pr-dot" style="background:var(--text4)"></div><div class="pr-text" style="color:var(--text4)">All done — nice work.</div></div>`;
+      }
+    }
+  } catch(_) {}
 
+  // ── Today's schedule ──────────────────────────────────────────
+  try {
+    const sl = $('home-schedule-list');
+    if (sl) {
+      const todayEvts = events
+        .filter(e => (e.date || '').startsWith(today8601))
+        .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+      if (todayEvts.length) {
+        sl.innerHTML = todayEvts.slice(0, 4).map(e => `
+          <div class="sched-item">
+            <div class="sched-time">${e.time || 'All day'}</div>
+            <div class="sched-dot" style="background:var(--teal)"></div>
+            <div class="sched-info">
+              <div class="sched-name">${esc(e.title)}</div>
+              ${e.desc ? `<div class="sched-sub">${esc(e.desc.slice(0,40))}</div>` : ''}
+            </div>
+          </div>`).join('');
+      } else {
+        sl.innerHTML = `<div class="sched-item"><div class="sched-time">—</div><div class="sched-dot" style="background:var(--text4)"></div><div class="sched-info"><div class="sched-name" style="color:var(--text4)">No events today</div><div class="sched-sub">Add some in Calendar →</div></div></div>`;
+      }
+    }
+  } catch(_) {}
+
+  // ── Habits check-in ────────────────────────────────────────────
+  try {
+    const hl = $('home-habits-list');
+    if (hl) {
+      if (!habits.length) {
+        hl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:8px 0">No habits yet — <button onclick="nav('habits',null)" style="background:none;border:none;color:var(--teal);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">add one →</button></div>`;
+      } else {
+        hl.innerHTML = habits.slice(0, 5).map((h, i) => {
+          const done = (h.completions || []).includes(today8601);
+          return `<div class="habit-check-row" onclick="homeHabitToggle(${i})" style="cursor:pointer">
+            <div class="habit-cb ${done ? 'done' : ''}"></div>
+            <div class="habit-name">${esc(h.emoji || '📌')} ${esc(h.title)}</div>
+            <div class="habit-streak">${h.streak > 0 ? `🔥 ${h.streak}d` : '—'}</div>
+          </div>`;
+        }).join('');
+      }
+    }
+  } catch(_) {}
+
+  // ── Active goals ───────────────────────────────────────────────
+  try {
     const gs = $('home-goals-section');
     const gl = $('home-goals-list');
-    if (goals.length && gs && gl) {
-      gs.style.display = 'block';
-      gl.innerHTML = goals.slice(0, 3).map(g => {
-        const pct = g.progress || 0;
-        const daysLeft = g.deadline
-          ? Math.ceil((new Date(g.deadline) - new Date()) / 86400000) : null;
-        return `<div class="priority-item">
-          <div class="pr-dot" style="background:var(--teal)"></div>
-          <div class="pr-text">${esc(g.title)}</div>
-          ${daysLeft !== null ? `<span class="pr-tag" style="background:var(--${daysLeft<=3?'red':'teal'}2);color:var(--${daysLeft<=3?'red':'teal'}4)">${daysLeft}d</span>` : ''}
-        </div>`;
-      }).join('');
+    if (gs && gl) {
+      if (activeGoals.length) {
+        gs.style.display = 'block';
+        gl.innerHTML = activeGoals.slice(0, 3).map(g => {
+          const pct      = g.progress || 0;
+          const daysLeft = g.deadline ? Math.ceil((new Date(g.deadline) - new Date()) / 86400000) : null;
+          const urgency  = daysLeft !== null && daysLeft <= 3 ? 'red' : 'teal';
+          return `<div class="priority-item" onclick="nav('goals',null)" style="cursor:pointer">
+            <div class="pr-dot" style="background:var(--${urgency})"></div>
+            <div style="flex:1;min-width:0">
+              <div class="pr-text">${esc(g.title)}</div>
+              <div style="height:3px;background:var(--border);border-radius:2px;margin-top:4px">
+                <div style="height:3px;width:${pct}%;background:var(--teal);border-radius:2px;transition:width .4s"></div>
+              </div>
+            </div>
+            <span class="pr-tag" style="background:var(--${urgency}2);color:var(--${urgency}4)">
+              ${daysLeft !== null ? `${daysLeft}d` : `${pct}%`}
+            </span>
+          </div>`;
+        }).join('');
+      } else {
+        gs.style.display = 'none';
+      }
     }
-  } catch(e) {}
+  } catch(_) {}
 
-  // Today's priorities from tasks
+  // ── Recent notes ───────────────────────────────────────────────
   try {
-    const tasks = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]')
-      .filter(t => !t.done).slice(0, 4);
-    const pl = $('home-priorities-list');
-    if (pl && tasks.length) {
-      const colors = { high:'var(--red3)', medium:'var(--amber3)', low:'var(--green3)' };
-      pl.innerHTML = tasks.map(t => `
-        <div class="priority-item">
-          <div class="pr-dot" style="background:${colors[t.priority]||'var(--text4)'}"></div>
-          <div class="pr-text">${esc(t.title)}</div>
-          <span class="pr-tag" style="background:var(--bg3);color:var(--text3)">${t.priority||'task'}</span>
-        </div>`).join('');
-    }
-  } catch(e) {}
-
-  // Recent notes
-  try {
-    const notes = JSON.parse(localStorage.getItem(`sivarr_notes_${S.sid}`) || '[]').slice(0, 3);
     const ns = $('home-notes-section');
     const nl = $('home-notes-list');
-    if (notes.length && ns && nl) {
+    if (ns && nl && notes.length) {
       ns.style.display = 'block';
-      nl.innerHTML = notes.map(n => `
+      nl.innerHTML = notes.slice(0, 3).map(n => `
         <div class="priority-item" onclick="nav('notes',null)" style="cursor:pointer">
           <div class="pr-dot" style="background:var(--purple)"></div>
-          <div class="pr-text">${esc(n.text.split('\n')[0].slice(0,60))}</div>
-          <span style="font-size:.7rem;color:var(--text4)">${n.date||''}</span>
+          <div class="pr-text">${esc((n.text || '').split('\n')[0].slice(0, 60))}</div>
+          <span style="font-size:.7rem;color:var(--text4)">${n.date || ''}</span>
+        </div>`).join('');
+    } else if (ns) {
+      ns.style.display = 'none';
+    }
+  } catch(_) {}
+
+  // ── Journal latest entry ───────────────────────────────────────
+  try {
+    const js = $('home-journal-section');
+    const jt = $('home-journal-text');
+    if (js && jt && jnl.length) {
+      const latest = jnl[0];
+      js.style.display = 'block';
+      jt.textContent   = (latest.text || '').slice(0, 120) + ((latest.text || '').length > 120 ? '…' : '');
+      const jd = $('home-journal-date');
+      if (jd) jd.textContent = latest.date || '';
+    }
+  } catch(_) {}
+
+  // ── Featured templates ─────────────────────────────────────────
+  try {
+    const htl = $('home-templates-list');
+    if (htl && typeof TPL_BUILTIN !== 'undefined') {
+      htl.innerHTML = TPL_BUILTIN.slice(0, 3).map(t => `
+        <div class="priority-item" onclick="nav('templates',null)" style="cursor:pointer">
+          <div style="font-size:1.1rem">${t.icon}</div>
+          <div class="pr-text" style="font-weight:500">${esc(t.name)}</div>
+          <span style="color:var(--text3);font-size:12px">→</span>
         </div>`).join('');
     }
-  } catch(e) {}
+  } catch(_) {}
+}
 
-  // Featured templates
-  const htl = $('home-templates-list');
-  if (htl && typeof TPL_BUILTIN !== 'undefined') {
-    htl.innerHTML = TPL_BUILTIN.slice(0, 3).map(t => `
-      <div class="priority-item" onclick="nav('templates',null)" style="cursor:pointer">
-        <div style="font-size:1.1rem">${t.icon}</div>
-        <div class="pr-text" style="font-weight:500">${esc(t.name)}</div>
-        <span style="color:var(--text3);font-size:12px">→</span>
-      </div>`).join('');
+function homeHabitToggle(idx) {
+  if (!S.sid) return;
+  const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
+  if (!habits[idx]) return;
+  const today = new Date().toISOString().split('T')[0];
+  habits[idx].completions = habits[idx].completions || [];
+  if (habits[idx].completions.includes(today)) {
+    habits[idx].completions = habits[idx].completions.filter(d => d !== today);
+    habits[idx].streak = Math.max(0, (habits[idx].streak || 0) - 1);
+  } else {
+    habits[idx].completions.push(today);
+    habits[idx].streak = (habits[idx].streak || 0) + 1;
+    _recordActivity();
   }
+  localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
+  loadHome();
 }
 
 // ════════════ CALENDAR ════════════
@@ -3718,6 +3912,7 @@ function habitToggle(idx) {
     habits[idx].streak = (habits[idx].streak||0) + 1;
   }
   localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
+  _recordActivity();
   habitInit();
 }
 
@@ -3777,6 +3972,7 @@ function journalSave() {
   localStorage.setItem(`${JNL_KEY()}_jnl_draft_${today}`, ta.value.trim());
   journalRenderEntries();
   _saveStatus('saved');
+  _recordActivity();
   toast('Journal entry saved ✓');
 }
 
@@ -3788,11 +3984,24 @@ function journalRenderEntries() {
     list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text4);font-size:.83rem">No journal entries yet. Start writing above!</div>`;
     return;
   }
-  list.innerHTML = entries.map(e => `
+  list.innerHTML = entries.map((e, i) => `
     <div class="journal-entry">
       <div class="je-date">${e.mood} ${new Date(e.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</div>
       <div class="je-text">${esc(e.text)}</div>
+      <button onclick="reflectWithAI(${i})" style="margin-top:8px;background:none;border:1px solid var(--border);border-radius:7px;padding:5px 12px;color:var(--teal);font-size:.75rem;font-weight:600;cursor:pointer;font-family:var(--font)">✨ Reflect with AI</button>
     </div>`).join('');
+}
+
+function reflectWithAI(idx) {
+  const entries = JSON.parse(localStorage.getItem(JNL_KEY()) || '[]');
+  const e = entries[idx];
+  if (!e) return;
+  const prompt = `Here's my journal entry from ${e.date}:\n\n"${e.text}"\n\nReflect on this with me. What patterns do you notice? What should I pay attention to?`;
+  nav('chat', null);
+  setTimeout(() => {
+    const ci = $('ci');
+    if (ci) { ci.value = prompt; ci.focus(); }
+  }, 300);
 }
 
 // ════════════ COMMUNITY ════════════
@@ -4340,7 +4549,7 @@ function nav(name, btn) {
   const mob = document.getElementById(`mn-${name}`); if (mob) mob.classList.add('active');
   syncSnavFromPanel(name);
 
-  if (name === 'chat')      { chatCounterInit(); return; }
+  if (name === 'chat')      { chatCounterInit(); setTimeout(chatProactiveGreet, 400); return; }
   if (name === 'home')      { loadHome(); return; }
   if (name === 'notes')     { docInit(); return; }
   if (name === 'templates') { tplInit(); return; }
@@ -4890,7 +5099,27 @@ function deleteSHTask(id) {
 function moveSHTask(id, newStatus) {
   const data = getSHData();
   const task = (data.tasks || []).find(t => t.id === id);
-  if (task) { task.status = newStatus; saveSHData(data); }
+  if (task) {
+    task.status = newStatus;
+    task.done   = newStatus === 'done';
+    saveSHData(data);
+    if (newStatus === 'done') {
+      _recordActivity();
+      // Auto-bump linked goal progress
+      if (task.goalId && S.sid) {
+        try {
+          const goals = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]');
+          const g = goals.find(g => String(g.id) === String(task.goalId));
+          if (g && !g.completed) {
+            g.progress = Math.min(100, (g.progress || 0) + 10);
+            if (g.progress >= 100) g.completed = true;
+            localStorage.setItem(`sivarr_goals_${S.sid}`, JSON.stringify(goals));
+            toast(`🎯 ${g.title}: ${g.progress}%`);
+          }
+        } catch(_) {}
+      }
+    }
+  }
   renderSHBoard();
   if (SH_VIEW === 'list') renderSHListView();
 }
@@ -6706,6 +6935,7 @@ function saveNote() {
     toast('Note saved ✓');
   }
 
+  _recordActivity();
   const trimmed = notes.slice(0, 100);
   localStorage.setItem(`sivarr_notes_${S.sid}`, JSON.stringify(trimmed));
   localStorage.removeItem(`sivarr_note_draft_${S.sid}`);
@@ -8535,6 +8765,7 @@ function psMoveTask(id) {
   const order = ['todo','inprogress','done'];
   const next = order[(order.indexOf(t.status) + 1) % order.length];
   t.status = next; t.done = next === 'done';
+  if (next === 'done') _recordActivity();
   psSave(d); psRenderKanban();
 }
 
