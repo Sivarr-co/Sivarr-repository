@@ -622,6 +622,8 @@ function _applyLoginData(r) {
   setTimeout(() => agCheckPaymentReturn(), 500);
   // Show onboarding for new users
   if (!r.returning) setTimeout(() => siObMaybeStart(), 600);
+  // Accept any pending org invite from URL
+  setTimeout(_acceptPendingOrgInvite, 800);
 }
 
 async function restoreSession(token) {
@@ -710,10 +712,11 @@ async function submitResetPassword() {
 }
 
 function checkAuthParams() {
-  const params = new URLSearchParams(window.location.search);
+  const params   = new URLSearchParams(window.location.search);
   const reset    = params.get('reset');
   const verify   = params.get('verify');
   const verified = params.get('verified');
+  const orgInvite = params.get('org_invite');
 
   if (reset) {
     history.replaceState(null, '', '/');
@@ -721,7 +724,6 @@ function checkAuthParams() {
     return;
   }
   if (verify) {
-    // Browser will hit the GET endpoint which redirects back with ?verified=1
     history.replaceState(null, '', '/');
     return;
   }
@@ -732,6 +734,40 @@ function checkAuthParams() {
     history.replaceState(null, '', '/');
     toast('Verification link is invalid or expired. Please request a new one.');
   }
+  if (orgInvite) {
+    history.replaceState(null, '', '/');
+    sessionStorage.setItem('pending_org_invite', orgInvite);
+  }
+}
+
+async function _acceptPendingOrgInvite() {
+  const inviteToken = sessionStorage.getItem('pending_org_invite');
+  if (!inviteToken) return;
+  sessionStorage.removeItem('pending_org_invite');
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try {
+    const r = await API('/api/org/join', { token, invite_token: inviteToken });
+    if (r.ok) {
+      toast(`You joined ${r.org_name || 'the organization'}!`);
+      navigate('org');
+    }
+  } catch(e) {
+    toast(e.message || 'Invite link is invalid or expired.');
+  }
+}
+
+async function orgCreateSpace() {
+  const name = await siModal.input('Create Organization Space', 'e.g. Acme Corp, My Startup', '', { confirmLabel:'Create Space' });
+  if (!name) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await API('/api/org/create', { token, name });
+    if (r.ok) {
+      toast(`${r.name} created!`);
+      await orgInit();
+    }
+  } catch(e) { toast(e.message || 'Could not create space'); }
 }
 
 async function resendVerificationEmail() {
@@ -7750,39 +7786,91 @@ function switchSpace(space) {
    ORG SPACE — Work Hub
    ══════════════════════════════════════════════════ */
 
-const ORG_KEY      = () => `sivarr_org_${S.sid}`;
-const ORG_KANBAN_COLS = ['To Do','In Progress','Review','Done'];
+// ORG state — populated from API
+let ORG = null; // { id, name, member_role, owner_sid, ... }
+let ORG_MEMBERS  = [];
+let ORG_TASKS    = [];
+let ORG_PROJECTS = [];
+let ORG_DOCS     = [];
 
-function orgGetData() {
-  return JSON.parse(localStorage.getItem(ORG_KEY()) || JSON.stringify({
-    name: (S.name ? S.name + "'s" : 'Your') + ' Work Hub',
-    members: [], tasks: [], projects: [], docs: [], activity: [], chatMsgs: []
-  }));
-}
+const ORG_KANBAN_COLS = ['todo','inprogress','review','done'];
+const ORG_COL_LABELS  = { todo:'To Do', inprogress:'In Progress', review:'Review', done:'Done' };
 
-function orgSaveData(d) { localStorage.setItem(ORG_KEY(), JSON.stringify(d)); }
+async function orgInit() {
+  if (!S.sid) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
 
-function orgInit() {
-  const d = orgGetData();
+  // Show loading state
+  const nameEl = $('os-space-name');
+  if (nameEl) nameEl.textContent = 'Loading…';
 
-  // Ensure owner is always in members
-  if (!d.members.find(m => m.email === S.email || m.name === S.name)) {
-    d.members.unshift({ name: S.name || 'You', role: 'Admin', email: S.email || '' });
-    orgSaveData(d);
+  try {
+    const r = await API('/api/org/get', { token });
+    if (!r.org) {
+      _orgShowSetup();
+      return;
+    }
+    ORG      = r.org;
+    ORG_MEMBERS  = r.members  || [];
+    ORG_TASKS    = r.tasks    || [];
+    ORG_PROJECTS = r.projects || [];
+    ORG_DOCS     = r.docs     || [];
+  } catch(e) {
+    if (e.status === 404) { _orgShowSetup(); return; }
+    toast('Could not load organization data.');
+    return;
   }
 
   // Hero
-  const nameEl = $('os-space-name'); if (nameEl) nameEl.textContent = d.name;
-  const mcEl   = $('os-member-count'); if (mcEl) mcEl.textContent = d.members.length;
-  const ocEl   = $('os-online-count'); if (ocEl) ocEl.textContent = 1;
+  if (nameEl) nameEl.textContent = ORG.name;
+  const mcEl = $('os-member-count'); if (mcEl) mcEl.textContent = ORG_MEMBERS.length;
+  const ocEl = $('os-online-count'); if (ocEl) ocEl.textContent = 1;
 
-  orgRenderOverview(d);
-  orgRenderKanban(d);
-  orgRenderProjects(d);
-  orgRenderDocs(d);
-  orgRenderMembers(d);
-  orgRenderInsights(d);
+  // Hide setup card, show org content
+  const setup = $('org-setup-card');
+  if (setup) setup.style.display = 'none';
+  const content = $('org-main-content');
+  if (content) content.style.display = '';
+
+  orgRenderOverview();
+  orgRenderKanban();
+  orgRenderProjects();
+  orgRenderDocs();
+  orgRenderMembers();
+  orgRenderInsights();
   orgChatRender();
+}
+
+function _orgShowSetup() {
+  const setup = $('org-setup-card');
+  if (setup) setup.style.display = 'flex';
+  const content = $('org-main-content');
+  if (content) content.style.display = 'none';
+}
+
+function _orgMemberName(sid) {
+  const m = ORG_MEMBERS.find(x => x.sid === sid);
+  return m ? m.name : sid;
+}
+
+async function _orgRefresh() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token || !ORG) return;
+  try {
+    const r = await API('/api/org/get', { token });
+    ORG         = r.org;
+    ORG_MEMBERS  = r.members  || [];
+    ORG_TASKS    = r.tasks    || [];
+    ORG_PROJECTS = r.projects || [];
+    ORG_DOCS     = r.docs     || [];
+  } catch(e) { return; }
+  orgRenderOverview();
+  orgRenderKanban();
+  orgRenderProjects();
+  orgRenderDocs();
+  orgRenderMembers();
+  orgRenderInsights();
 }
 
 function orgTab(tab, btn) {
@@ -7797,43 +7885,44 @@ function orgTab(tab, btn) {
   if (tab === 'chat') orgChatRender();
 }
 
-function orgRenderOverview(d) {
-  const open     = d.tasks.filter(t => t.col !== 'Done').length;
-  const done     = d.tasks.filter(t => t.col === 'Done').length;
-  const overdue  = d.tasks.filter(t => t.col !== 'Done' && t.due && t.due < new Date().toISOString().slice(0,10)).length;
+function orgRenderOverview() {
+  const today   = new Date().toISOString().slice(0,10);
+  const open    = ORG_TASKS.filter(t => t.status !== 'done').length;
+  const done    = ORG_TASKS.filter(t => t.status === 'done').length;
+  const overdue = ORG_TASKS.filter(t => t.status !== 'done' && t.due_date && t.due_date < today).length;
 
   const setVal = (id, v) => { const el = $(id); if (el) el.textContent = v; };
   setVal('os-open-tasks', open);
   setVal('os-done-tasks', done);
-  setVal('os-proj-count', d.projects.length);
-  setVal('os-mem-count',  d.members.length);
+  setVal('os-proj-count', ORG_PROJECTS.length);
+  setVal('os-mem-count',  ORG_MEMBERS.length);
   const ovEl = $('os-overdue-lbl');
   if (ovEl) ovEl.textContent = overdue ? `${overdue} overdue` : '';
   if (ovEl) ovEl.style.color = overdue ? 'var(--coral)' : 'var(--muted)';
   const invEl = $('os-invite-lbl');
-  if (invEl) invEl.textContent = d.members.length === 1 ? 'Just you — invite your team' : '';
+  if (invEl) invEl.textContent = ORG_MEMBERS.length <= 1 ? 'Just you — invite your team' : '';
 
   // Priority tasks
   const pt = $('os-priority-tasks');
   if (pt) {
-    const pri = d.tasks.filter(t => t.col !== 'Done' && t.priority === 'high').slice(0,5);
+    const pri = ORG_TASKS.filter(t => t.status !== 'done' && t.priority === 'high').slice(0,5);
     pt.innerHTML = pri.length
-      ? pri.map(t => `<div class="os-task-card"><div class="os-task-title">${escHtml(t.title)}</div><div class="os-task-meta"><span>${escHtml(t.col)}</span>${t.due ? `<span>${t.due}</span>` : ''}</div></div>`).join('')
+      ? pri.map(t => `<div class="os-task-card" onclick="orgEditTask('${t.id}')"><div class="os-task-title">${escHtml(t.title)}</div><div class="os-task-meta"><span>${escHtml(ORG_COL_LABELS[t.status]||t.status)}</span>${t.due_date ? `<span>${t.due_date}</span>` : ''}</div></div>`).join('')
       : '<div class="os-empty">No high-priority tasks.</div>';
   }
 
   // Projects mini
   const pp = $('os-proj-progress');
   if (pp) {
-    pp.innerHTML = d.projects.length
-      ? d.projects.slice(0,4).map(p => `<div class="os-task-card"><div class="os-task-tag">${escHtml(p.status||'active')}</div><div class="os-task-title">${escHtml(p.name)}</div></div>`).join('')
+    pp.innerHTML = ORG_PROJECTS.length
+      ? ORG_PROJECTS.slice(0,4).map(p => `<div class="os-task-card"><div class="os-task-tag">${escHtml(p.status||'active')}</div><div class="os-task-title">${escHtml(p.name)}</div></div>`).join('')
       : '<div class="os-empty">No projects yet.</div>';
   }
 
   // Team mini
   const tm = $('os-team-mini');
   if (tm) {
-    tm.innerHTML = d.members.slice(0,5).map(m => `
+    tm.innerHTML = ORG_MEMBERS.slice(0,5).map(m => `
       <div class="os-member-row">
         <div class="os-member-av">${(m.name||'?')[0].toUpperCase()}</div>
         <div class="os-member-info">
@@ -7843,33 +7932,28 @@ function orgRenderOverview(d) {
       </div>`).join('') || '<div class="os-empty">No members yet.</div>';
   }
 
-  // Activity feed
   const af = $('os-activity-feed');
-  if (af) {
-    af.innerHTML = d.activity.length
-      ? d.activity.slice(-6).reverse().map(a => `<div class="os-empty" style="padding:4px 0">· ${escHtml(a)}</div>`).join('')
-      : '<div class="os-empty">No activity yet.</div>';
-  }
+  if (af) af.innerHTML = '<div class="os-empty">Activity from team chat will appear here.</div>';
 }
 
-function orgRenderKanban(d) {
+function orgRenderKanban() {
   const board = $('os-kanban');
   if (!board) return;
   board.innerHTML = ORG_KANBAN_COLS.map(col => {
-    const tasks = d.tasks.filter(t => t.col === col);
+    const tasks = ORG_TASKS.filter(t => t.status === col);
     return `
     <div class="os-col">
       <div class="os-col-head">
-        <span class="os-col-title">${col}</span>
+        <span class="os-col-title">${ORG_COL_LABELS[col]}</span>
         <span class="os-col-count">${tasks.length}</span>
       </div>
       ${tasks.map(t => `
-        <div class="os-task-card">
+        <div class="os-task-card" onclick="orgEditTask('${t.id}')">
           ${t.priority === 'high' ? '<div class="os-task-tag">High</div>' : ''}
           <div class="os-task-title">${escHtml(t.title)}</div>
           <div class="os-task-meta">
-            ${t.assignee ? `<span>${escHtml(t.assignee)}</span>` : ''}
-            ${t.due ? `<span>${t.due}</span>` : ''}
+            ${t.assignee_sid ? `<span>${escHtml(_orgMemberName(t.assignee_sid))}</span>` : ''}
+            ${t.due_date ? `<span>${t.due_date}</span>` : ''}
           </div>
         </div>`).join('')}
       <button class="os-add-card-btn" onclick="orgAddTaskToCol('${col}')">+ Add task</button>
@@ -7877,66 +7961,69 @@ function orgRenderKanban(d) {
   }).join('');
 }
 
-function orgRenderProjects(d) {
+function orgRenderProjects() {
   const grid = $('os-proj-grid');
   if (!grid) return;
-  const COLORS = ['#0d9488','#7c3aed','#d97706','#dc2626','#2563eb','#059669'];
-  if (!d.projects.length) {
+  if (!ORG_PROJECTS.length) {
     grid.innerHTML = '<div class="os-empty" style="padding:20px 0">No projects yet — create your first one.</div>';
     return;
   }
-  grid.innerHTML = d.projects.map((p, i) => `
+  grid.innerHTML = ORG_PROJECTS.map(p => {
+    const color = p.color || '#0d9488';
+    const taskCount = ORG_TASKS.filter(t => t.project_id === p.id).length;
+    return `
     <div class="os-proj-card">
-      <div class="os-proj-stripe" style="background:${COLORS[i % COLORS.length]}"></div>
+      <div class="os-proj-stripe" style="background:${escHtml(color)}"></div>
       <div class="os-proj-name">${escHtml(p.name)}</div>
-      ${p.desc ? `<div class="os-proj-desc">${escHtml(p.desc)}</div>` : ''}
+      ${p.description ? `<div class="os-proj-desc">${escHtml(p.description)}</div>` : ''}
       <div class="os-proj-meta">
         <span class="os-proj-badge">${escHtml(p.status||'active')}</span>
-        <span class="os-proj-tasks-count">${p.tasks||0} tasks</span>
+        <span class="os-proj-tasks-count">${taskCount} tasks</span>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-function orgRenderDocs(d) {
+function orgRenderDocs() {
   const grid = $('os-docs-grid');
   if (!grid) return;
-  if (!d.docs.length) {
+  if (!ORG_DOCS.length) {
     grid.innerHTML = '<div class="os-empty" style="padding:20px 0">No docs yet — create one to share with your team.</div>';
     return;
   }
-  grid.innerHTML = d.docs.map(doc => `
-    <div class="os-doc-card">
+  grid.innerHTML = ORG_DOCS.map(doc => `
+    <div class="os-doc-card" onclick="orgOpenDoc('${doc.id}')">
       <div class="os-doc-icon"><i class="ti ti-file-text"></i></div>
       <div class="os-doc-name">${escHtml(doc.title)}</div>
-      <div class="os-doc-meta">${doc.updated || 'Just now'}</div>
+      <div class="os-doc-meta">${doc.updated_at ? new Date(doc.updated_at).toLocaleDateString() : 'Just now'}</div>
     </div>`).join('');
 }
 
-function orgRenderMembers(d) {
+function orgRenderMembers() {
   const list = $('os-members-list');
   if (!list) return;
   const lbl = $('os-member-label');
-  if (lbl) lbl.textContent = `${d.members.length} member${d.members.length !== 1 ? 's' : ''}`;
-  if (!d.members.length) { list.innerHTML = '<div class="os-empty" style="padding:16px 0">No members yet.</div>'; return; }
-  list.innerHTML = d.members.map(m => `
+  if (lbl) lbl.textContent = `${ORG_MEMBERS.length} member${ORG_MEMBERS.length !== 1 ? 's' : ''}`;
+  if (!ORG_MEMBERS.length) { list.innerHTML = '<div class="os-empty" style="padding:16px 0">No members yet.</div>'; return; }
+  list.innerHTML = ORG_MEMBERS.map(m => `
     <div class="os-member-row">
       <div class="os-member-av">${(m.name||'?')[0].toUpperCase()}</div>
       <div class="os-member-info">
-        <div class="os-member-name">${escHtml(m.name)}</div>
+        <div class="os-member-name">${escHtml(m.name)}${m.sid === S.sid ? ' <span style="color:var(--muted);font-size:.75rem">(you)</span>' : ''}</div>
         <div class="os-member-role">${escHtml(m.email || '')}</div>
       </div>
-      <span class="os-member-badge">${escHtml(m.role||'Member')}</span>
+      <span class="os-member-badge">${escHtml(m.role||'member')}</span>
     </div>`).join('');
 }
 
-function orgRenderInsights(d) {
+function orgRenderInsights() {
   const vel = $('os-velocity');
   const otr = $('os-ontime');
   const fhr = $('os-focus-hrs');
   const gac = $('os-goals-active');
-  const done = d.tasks.filter(t => t.col === 'Done').length;
+  const done = ORG_TASKS.filter(t => t.status === 'done').length;
   if (vel) vel.textContent = done > 0 ? (done / Math.max(1, Math.ceil(done / 5))).toFixed(1) : '—';
-  if (otr) otr.textContent = done > 0 ? Math.round((done / Math.max(1, d.tasks.length)) * 100) + '%' : '—';
+  if (otr) otr.textContent = done > 0 ? Math.round((done / Math.max(1, ORG_TASKS.length)) * 100) + '%' : '—';
   if (fhr) fhr.textContent = '0';
   if (gac) gac.textContent = '0';
 
@@ -7954,9 +8041,9 @@ function orgRenderInsights(d) {
 
   const tbm = $('os-tasks-by-member');
   if (tbm) {
-    tbm.innerHTML = d.members.length
-      ? d.members.map(m => {
-          const count = d.tasks.filter(t => t.assignee === m.name).length;
+    tbm.innerHTML = ORG_MEMBERS.length
+      ? ORG_MEMBERS.map(m => {
+          const count = ORG_TASKS.filter(t => t.assignee_sid === m.sid).length;
           return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.82rem">
             <div class="os-member-av" style="width:24px;height:24px;font-size:.7rem">${(m.name||'?')[0].toUpperCase()}</div>
             <span style="flex:1;color:var(--fg)">${escHtml(m.name)}</span>
@@ -7968,10 +8055,10 @@ function orgRenderInsights(d) {
 
   const ai = $('os-ai-insights');
   if (ai) {
-    if (!done && !d.tasks.length) {
+    if (!done && !ORG_TASKS.length) {
       ai.innerHTML = '<div class="os-empty">Start adding tasks to unlock AI insights.</div>';
     } else {
-      const rate = d.tasks.length ? Math.round((done / d.tasks.length) * 100) : 0;
+      const rate = ORG_TASKS.length ? Math.round((done / ORG_TASKS.length) * 100) : 0;
       ai.innerHTML = `<div style="font-size:.84rem;color:var(--fg);line-height:1.6;padding:4px 0">
         Your team has completed <strong>${done}</strong> tasks (${rate}% completion rate).
         ${rate >= 70 ? ' Great momentum — keep it up!' : rate >= 40 ? ' Solid progress. Focus on clearing the backlog.' : ' Consider breaking tasks into smaller steps to build momentum.'}
@@ -7981,60 +8068,94 @@ function orgRenderInsights(d) {
 }
 
 async function orgNewTask() {
+  if (!ORG) return;
   const title = await siModal.input('New Task', 'Task title', '', { confirmLabel:'Create Task' });
   if (!title) return;
-  const d = orgGetData();
-  d.tasks.push({ id: Date.now(), title, col: 'To Do', priority: 'normal', created: new Date().toISOString().slice(0,10) });
-  d.activity.push(`Task "${title}" was created.`);
-  orgSaveData(d);
-  orgInit();
-  toast('Task created');
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/tasks/create', { token, title, status: 'todo', priority: 'normal' });
+    await _orgRefresh();
+    toast('Task created');
+  } catch(e) { toast(e.message || 'Could not create task'); }
 }
 
 async function orgAddTaskToCol(col) {
-  const title = await siModal.input(`Add to "${col}"`, 'Task title', '', { confirmLabel:'Add Task' });
+  if (!ORG) return;
+  const label = ORG_COL_LABELS[col] || col;
+  const title = await siModal.input(`Add to "${label}"`, 'Task title', '', { confirmLabel:'Add Task' });
   if (!title) return;
-  const d = orgGetData();
-  d.tasks.push({ id: Date.now(), title, col, priority: 'normal', created: new Date().toISOString().slice(0,10) });
-  d.activity.push(`Task "${title}" added to ${col}.`);
-  orgSaveData(d);
-  orgInit();
-  orgTab('tasks', null);
-  toast('Task added');
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/tasks/create', { token, title, status: col, priority: 'normal' });
+    await _orgRefresh();
+    orgTab('tasks', null);
+    toast('Task added');
+  } catch(e) { toast(e.message || 'Could not add task'); }
+}
+
+async function orgEditTask(taskId) {
+  if (!ORG) return;
+  const task = ORG_TASKS.find(t => String(t.id) === String(taskId));
+  if (!task) return;
+  const d = await siModal.form('Edit Task', [
+    { id:'title',    label:'Title',    placeholder:'Task title',     required:true, default: task.title },
+    { id:'status',   label:'Status',   type:'select', options: ORG_KANBAN_COLS.map(c => ({ value:c, label:ORG_COL_LABELS[c] })), default: task.status },
+    { id:'priority', label:'Priority', type:'select', options: [{value:'normal',label:'Normal'},{value:'high',label:'High'}], default: task.priority || 'normal' },
+    { id:'due_date', label:'Due date', type:'date', default: task.due_date || '' },
+  ], { confirmLabel:'Save' });
+  if (!d || !d.title) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/tasks/update', { token, task_id: taskId, title: d.title, status: d.status, priority: d.priority, due_date: d.due_date || null });
+    await _orgRefresh();
+    toast('Task updated');
+  } catch(e) { toast(e.message || 'Could not update task'); }
 }
 
 async function orgNewDoc() {
+  if (!ORG) return;
   const title = await siModal.input('New Document', 'Document title', '', { confirmLabel:'Create' });
   if (!title) return;
-  const d = orgGetData();
-  d.docs.push({ id: Date.now(), title, updated: new Date().toLocaleDateString() });
-  d.activity.push(`Doc "${title}" was created.`);
-  orgSaveData(d);
-  orgRenderDocs(d);
-  toast('Doc created');
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/docs/save', { token, title, content: '' });
+    await _orgRefresh();
+    toast('Doc created');
+  } catch(e) { toast(e.message || 'Could not create doc'); }
 }
 
-function orgSendInvite() {
+async function orgOpenDoc(docId) {
+  const doc = ORG_DOCS.find(d => String(d.id) === String(docId));
+  if (!doc) return;
+  const content = await siModal.form('Edit Document', [
+    { id:'content', label:'Content', type:'textarea', placeholder:'Write here…', default: doc.content || '' },
+  ], { confirmLabel:'Save' });
+  if (content === null) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/docs/save', { token, doc_id: docId, title: doc.title, content: content.content || '' });
+    await _orgRefresh();
+    toast('Doc saved');
+  } catch(e) { toast(e.message || 'Could not save doc'); }
+}
+
+async function orgSendInvite() {
+  if (!ORG) return;
   const email = $('os-invite-email')?.value.trim();
   if (!email || !email.includes('@')) { toast('Enter a valid email address.'); return; }
-  const name = email.split('@')[0];
-  const d = orgGetData();
-  if (d.members.find(m => m.email === email)) { toast('Already a member.'); return; }
-  d.members.push({ name, role: 'Member', email });
-  d.activity.push(`${name} was invited to the team.`);
-  orgSaveData(d);
-  if ($('os-invite-email')) $('os-invite-email').value = '';
-  orgInit();
-  toast(`Invite sent to ${email}`);
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/invite', { token, email, role: 'member' });
+    if ($('os-invite-email')) $('os-invite-email').value = '';
+    toast(`Invite sent to ${email}`);
+  } catch(e) { toast(e.message || 'Could not send invite'); }
 }
 
 async function orgMoreMenu() {
-  const name = await siModal.input('Rename Space', 'Space name', orgGetData().name, { confirmLabel:'Rename' });
+  if (!ORG) return;
+  const name = await siModal.input('Rename Space', 'Space name', ORG.name || '', { confirmLabel:'Rename' });
   if (!name) return;
-  const d = orgGetData();
-  d.name = name;
-  orgSaveData(d);
-  orgInit();
+  toast('Rename coming soon — contact support to change org name.');
 }
 
 /* ══════════════════════════════════════════════════
@@ -8084,59 +8205,60 @@ function teamInit() {
 }
 
 async function teamInvite() {
+  if (!ORG) { toast('You need to be part of an organization first.'); return; }
   const d = await siModal.form('Invite Team Member', [
     { id:'email', label:'Email address', type:'text', placeholder:'colleague@example.com', required:true },
-    { id:'name',  label:'Display name',  placeholder:'Their name (optional)' },
+    { id:'role',  label:'Role',          type:'select', options:[{value:'member',label:'Member'},{value:'manager',label:'Manager'},{value:'admin',label:'Admin'}] },
   ], { confirmLabel:'Send Invite' });
   if (!d || !d.email || !d.email.includes('@')) return;
-  const email = d.email;
-  const name  = d.name || email.split('@')[0];
-  const key  = `sivarr_team_${S.sid}`;
-  const data = JSON.parse(localStorage.getItem(key) || '{"members":[],"activity":[]}');
-  data.members.push({ name, role:'Member', email });
-  data.activity.push(`${name} was invited to the team.`);
-  localStorage.setItem(key, JSON.stringify(data));
-  orgInit();
-  toast(`Invite sent to ${email}`);
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/invite', { token, email: d.email, role: d.role || 'member' });
+    toast(`Invite sent to ${d.email}`);
+  } catch(e) { toast(e.message || 'Could not send invite'); }
 }
 
 /* ══════════════════════════════════════════════════
    PHASE 5 — TEAM CHAT
    ══════════════════════════════════════════════════ */
 
-function orgChatSend() {
+async function orgChatSend() {
+  if (!ORG) return;
   const inp = $('os-chat-input');
   const msg = inp ? inp.value.trim() : '';
   if (!msg) return;
   inp.value = '';
-
-  const key  = `sivarr_orgchat_${S.sid}`;
-  const msgs = JSON.parse(localStorage.getItem(key) || '[]');
-  msgs.push({ text: msg, author: S.name || 'You', ts: Date.now(), me: true });
-  localStorage.setItem(key, JSON.stringify(msgs));
-  orgChatRender();
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/messages/send', { token, content: msg, channel: 'general' });
+    await orgChatRender();
+  } catch(e) { toast(e.message || 'Could not send message'); }
 }
 
-function orgChatRender() {
-  const key  = `sivarr_orgchat_${S.sid}`;
-  const msgs = JSON.parse(localStorage.getItem(key) || '[]');
-  const box  = $('os-chat-messages');
-  if (!box) return;
-
-  if (!msgs.length) {
-    box.innerHTML = '<div class="os-chat-empty">No messages yet. Start the conversation 👋</div>';
-    return;
-  }
-
-  box.innerHTML = msgs.map(m => `
-    <div class="os-chat-msg${m.me ? ' me' : ''}">
-      <div class="os-chat-av">${(m.author||'?').charAt(0).toUpperCase()}</div>
-      <div>
-        <div class="os-chat-meta">${escHtml(m.author)} · ${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
-        <div class="os-chat-bubble">${escHtml(m.text)}</div>
-      </div>
-    </div>`).join('');
-  box.scrollTop = box.scrollHeight;
+async function orgChatRender() {
+  const box = $('os-chat-messages');
+  if (!box || !ORG) return;
+  try {
+    const r = await API('/api/org/messages', { token: localStorage.getItem('sivarr_token') || '', channel: 'general' });
+    const msgs = r.messages || [];
+    if (!msgs.length) {
+      box.innerHTML = '<div class="os-chat-empty">No messages yet. Start the conversation!</div>';
+      return;
+    }
+    box.innerHTML = msgs.map(m => {
+      const me = m.author_sid === S.sid;
+      const ts = m.created_at ? new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
+      return `
+      <div class="os-chat-msg${me ? ' me' : ''}">
+        <div class="os-chat-av">${(m.author_name||'?').charAt(0).toUpperCase()}</div>
+        <div>
+          <div class="os-chat-meta">${escHtml(m.author_name)} · ${ts}</div>
+          <div class="os-chat-bubble">${escHtml(m.content)}</div>
+        </div>
+      </div>`;
+    }).join('');
+    box.scrollTop = box.scrollHeight;
+  } catch(e) { box.innerHTML = '<div class="os-chat-empty">Could not load messages.</div>'; }
 }
 
 function orgChatInit() { orgChatRender(); }
@@ -8148,18 +8270,19 @@ function orgChatInit() { orgChatRender(); }
 const PROJ_COLORS = ['#0d9488','#7c3aed','#d97706','#dc2626','#2563eb','#059669'];
 
 async function projectNew() {
+  if (!ORG) return;
   const d = await siModal.form('New Project', [
-    { id:'name', label:'Project name',             placeholder:'e.g. Website Redesign', required:true },
-    { id:'desc', label:'Description (optional)',   placeholder:'What is this project about?' },
+    { id:'name',  label:'Project name',           placeholder:'e.g. Website Redesign', required:true },
+    { id:'desc',  label:'Description (optional)', placeholder:'What is this project about?' },
+    { id:'color', label:'Color',                  type:'color', default:'#0D7A5F' },
   ], { confirmLabel:'Create Project' });
   if (!d || !d.name) return;
-  const name = d.name; const desc = d.desc||'';
-  const org = orgGetData();
-  org.projects.push({ id: Date.now(), name, desc, tasks: 0, status: 'active' });
-  org.activity.push(`Project "${name}" was created.`);
-  orgSaveData(org);
-  orgRenderProjects(org);
-  toast('Project created');
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/projects/create', { token, name: d.name, description: d.desc||'', color: d.color||'#0D7A5F' });
+    await _orgRefresh();
+    toast('Project created');
+  } catch(e) { toast(e.message || 'Could not create project'); }
 }
 
 function projectsRender() {

@@ -593,6 +593,34 @@ def _email_verify_html(verify_url: str, name: str) -> str:
 </body></html>"""
 
 
+def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role: str) -> str:
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
+  <div style="margin-bottom:28px">
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+  </div>
+  <h2 style="margin:0 0 10px;font-size:1.4rem">You're invited to join <strong>{org_name}</strong></h2>
+  <p style="color:#555;line-height:1.6;margin:0 0 8px">
+    <strong>{inviter_name}</strong> has invited you to join their organization on Sivarr as a <strong>{role}</strong>.
+  </p>
+  <p style="color:#555;line-height:1.6;margin:0 0 28px">
+    Sivarr is an all-in-one OS for work — tasks, projects, docs, AI, and team chat in one place.
+    This invite expires in <strong>7 days</strong>.
+  </p>
+  <a href="{join_url}"
+     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+            border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
+    Accept Invite &amp; Join {org_name} →
+  </a>
+  <p style="color:#999;font-size:.78rem;margin-top:32px;line-height:1.5">
+    If you weren't expecting this, you can safely ignore this email.
+  </p>
+  <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+</body></html>"""
+
+
 def _email_welcome_html(name: str) -> str:
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
@@ -4116,6 +4144,275 @@ async def paystack_webhook(request: Request):
                     log.info(f"Paystack: installed template {template_id} for {buyer_sid}")
 
     return {"received": True}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  ORG SPACE — Multi-user organisation API
+# ═══════════════════════════════════════════════════════════════
+
+@app.post("/api/org/get")
+async def org_get(data: dict):
+    """Return the org the current user belongs to, or null."""
+    sid, name = _resolve_token(data)
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org:
+        return {"org": None}
+    members  = db.get_org_members(org["id"])
+    tasks    = db.get_org_tasks(org["id"])
+    projects = db.get_org_projects(org["id"])
+    docs     = db.get_org_docs(org["id"])
+    return {
+        "org": {
+            "id":          org["id"],
+            "name":        org["name"],
+            "description": org.get("description", ""),
+            "logo":        org.get("logo", ""),
+            "plan":        org.get("plan", "free"),
+            "member_role": org.get("member_role", "member"),
+            "owner_sid":   org.get("owner_sid", ""),
+            "created_at":  str(org.get("created_at", "")),
+        },
+        "members":  members,
+        "tasks":    tasks,
+        "projects": projects,
+        "docs":     docs,
+    }
+
+
+@app.post("/api/org/create")
+async def org_create(data: dict, bg: BackgroundTasks):
+    sid, uname = _resolve_token(data)
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    existing = db.get_org_by_member(sid)
+    if existing:
+        raise HTTPException(409, "You already belong to an organization.")
+    org_name = sanitize_text(str(data.get("name", "")).strip(), 80)
+    if not org_name or len(org_name) < 2:
+        raise HTTPException(400, "Organization name must be at least 2 characters.")
+    org_id = uuid.uuid4().hex[:20]
+    ok = db.create_org(sid, org_name, org_id)
+    if not ok:
+        raise HTTPException(500, "Failed to create organization.")
+    log.info(f"Org created: {org_name} ({org_id}) by {sid}")
+    return {"ok": True, "org_id": org_id, "name": org_name}
+
+
+@app.post("/api/org/invite")
+async def org_invite(data: dict, bg: BackgroundTasks):
+    sid, uname = _resolve_token(data)
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org:
+        raise HTTPException(404, "You don't belong to an organization.")
+    if org.get("member_role") not in ("owner", "admin", "manager"):
+        raise HTTPException(403, "Only owners, admins, and managers can invite members.")
+    email = sanitize_text(str(data.get("email", "")).strip().lower(), 120)
+    if not email or "@" not in email:
+        raise HTTPException(400, "Valid email required.")
+    role  = sanitize_text(str(data.get("role", "member")), 20)
+    if role not in ("admin", "manager", "member", "guest"):
+        role = "member"
+    token      = secrets.token_urlsafe(32)
+    expires_at = datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    ok = db.create_org_invite(org["id"], email, role, sid, token, expires_at)
+    if not ok:
+        raise HTTPException(500, "Failed to create invite.")
+    join_url = f"{BASE_URL}/?org_invite={token}"
+    bg.add_task(send_email, email,
+                f"You're invited to join {org['name']} on Sivarr",
+                _email_org_invite_html(uname, org["name"], join_url, role))
+    log.info(f"Org invite: {email} → {org['name']} as {role}")
+    return {"ok": True}
+
+
+@app.get("/api/org/join/{token}")
+async def org_join_link(token: str):
+    """Redirect invite links to the app — the client handles actual join."""
+    return RedirectResponse(url=f"/?org_invite={token}", status_code=302)
+
+
+@app.post("/api/org/join")
+async def org_join(data: dict):
+    """Accept an org invite — called by the client after the user logs in."""
+    sid, _ = _resolve_token(data)
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    token = sanitize_text(str(data.get("token", "")), 100)
+    if not token:
+        raise HTTPException(400, "Invite token required.")
+    invite = db.get_org_invite(token)
+    if not invite:
+        raise HTTPException(404, "Invite not found or already used.")
+    if invite["expires_at"] < datetime.datetime.utcnow():
+        raise HTTPException(410, "This invite link has expired.")
+    ok = db.use_org_invite(token, sid)
+    if not ok:
+        raise HTTPException(500, "Failed to join organization.")
+    org = db.get_org_by_member(sid)
+    return {"ok": True, "org_name": org["name"] if org else ""}
+
+
+@app.post("/api/org/tasks")
+async def org_tasks_list(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    project_id = data.get("project_id")
+    tasks = db.get_org_tasks(org["id"], project_id)
+    return {"tasks": tasks}
+
+
+@app.post("/api/org/tasks/create")
+async def org_task_create(data: dict):
+    sid, uname = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    title = sanitize_text(str(data.get("title", "")).strip(), 200)
+    if not title: raise HTTPException(400, "Task title required.")
+    task_id    = uuid.uuid4().hex[:20]
+    status     = sanitize_text(str(data.get("status", "todo")), 20)
+    priority   = sanitize_text(str(data.get("priority", "normal")), 20)
+    desc       = sanitize_text(str(data.get("description", "")), 2000)
+    assignee   = sanitize_text(str(data.get("assignee_sid", "")), 40) or None
+    project_id = sanitize_text(str(data.get("project_id", "")), 40) or None
+    due_date   = sanitize_text(str(data.get("due_date", "")), 10) or None
+    ok = db.create_org_task(org["id"], task_id, title, sid, status, priority, desc, assignee, project_id, due_date)
+    if not ok: raise HTTPException(500, "Failed to create task.")
+    return {"ok": True, "task_id": task_id}
+
+
+@app.post("/api/org/tasks/update")
+async def org_task_update(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    task_id = sanitize_text(str(data.get("task_id", "")), 40)
+    if not task_id: raise HTTPException(400, "task_id required.")
+    allowed = {"title", "description", "status", "priority", "assignee_sid", "project_id", "due_date"}
+    updates = {k: sanitize_text(str(v), 2000) for k, v in data.items() if k in allowed}
+    db.update_org_task(task_id, updates)
+    return {"ok": True}
+
+
+@app.post("/api/org/tasks/delete")
+async def org_task_delete(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    task_id = sanitize_text(str(data.get("task_id", "")), 40)
+    if not task_id: raise HTTPException(400, "task_id required.")
+    db.delete_org_task(task_id)
+    return {"ok": True}
+
+
+@app.post("/api/org/projects")
+async def org_projects_list(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    return {"projects": db.get_org_projects(org["id"])}
+
+
+@app.post("/api/org/projects/create")
+async def org_project_create(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    name = sanitize_text(str(data.get("name", "")).strip(), 120)
+    if not name: raise HTTPException(400, "Project name required.")
+    project_id = uuid.uuid4().hex[:20]
+    desc  = sanitize_text(str(data.get("description", "")), 500)
+    color = sanitize_text(str(data.get("color", "#0D7A5F")), 20)
+    ok = db.create_org_project(org["id"], project_id, name, sid, desc, color)
+    if not ok: raise HTTPException(500, "Failed to create project.")
+    return {"ok": True, "project_id": project_id}
+
+
+@app.post("/api/org/projects/update")
+async def org_project_update(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    project_id = sanitize_text(str(data.get("project_id", "")), 40)
+    if not project_id: raise HTTPException(400, "project_id required.")
+    allowed = {"name", "description", "status", "color"}
+    updates = {k: sanitize_text(str(v), 500) for k, v in data.items() if k in allowed}
+    db.update_org_project(project_id, updates)
+    return {"ok": True}
+
+
+@app.post("/api/org/docs")
+async def org_docs_list(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    return {"docs": db.get_org_docs(org["id"])}
+
+
+@app.post("/api/org/docs/save")
+async def org_doc_save(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    doc_id  = sanitize_text(str(data.get("doc_id", "") or uuid.uuid4().hex[:20]), 40)
+    title   = sanitize_text(str(data.get("title", "Untitled Doc")).strip(), 200)
+    content = sanitize_text(str(data.get("content", "")), 50000)
+    ok = db.save_org_doc(org["id"], doc_id, title, content, sid)
+    if not ok: raise HTTPException(500, "Failed to save doc.")
+    return {"ok": True, "doc_id": doc_id}
+
+
+@app.post("/api/org/docs/get")
+async def org_doc_get(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    doc_id = sanitize_text(str(data.get("doc_id", "")), 40)
+    if not doc_id: raise HTTPException(400, "doc_id required.")
+    doc = db.get_org_doc(doc_id)
+    if not doc: raise HTTPException(404, "Doc not found.")
+    return {"doc": doc}
+
+
+@app.post("/api/org/docs/delete")
+async def org_doc_delete(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    doc_id = sanitize_text(str(data.get("doc_id", "")), 40)
+    if not doc_id: raise HTTPException(400, "doc_id required.")
+    db.delete_org_doc(doc_id)
+    return {"ok": True}
+
+
+@app.post("/api/org/messages")
+async def org_messages_list(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    channel = sanitize_text(str(data.get("channel", "general")), 60)
+    msgs = db.get_org_messages(org["id"], channel)
+    return {"messages": msgs}
+
+
+@app.post("/api/org/messages/send")
+async def org_message_send(data: dict):
+    sid, uname = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    content = sanitize_text(str(data.get("content", "")).strip(), 2000)
+    if not content: raise HTTPException(400, "Message content required.")
+    channel = sanitize_text(str(data.get("channel", "general")), 60)
+    ok = db.send_org_message(org["id"], channel, sid, uname, content)
+    if not ok: raise HTTPException(500, "Failed to send message.")
+    return {"ok": True}
 
 
 @app.post("/api/feedback")

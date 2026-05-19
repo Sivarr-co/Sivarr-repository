@@ -2293,6 +2293,20 @@
       <!-- ══════════ ORG SPACE ══════════ -->
       <div class="panel os-panel" id="panel-org">
 
+        <!-- Setup card — shown when user has no org -->
+        <div id="org-setup-card" style="display:none;align-items:center;justify-content:center;min-height:60vh;flex-direction:column;gap:20px;text-align:center;padding:40px">
+          <div style="font-size:3rem;opacity:.4"><i class="ti ti-building"></i></div>
+          <div style="font-size:1.25rem;font-weight:600;color:var(--fg)">You're not part of an organization yet</div>
+          <div style="font-size:.9rem;color:var(--muted);max-width:380px">Create a new space for your team, or ask a teammate to send you an invite link.</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+            <button class="os-btn-primary" onclick="orgCreateSpace()"><i class="ti ti-plus"></i> Create Organization</button>
+          </div>
+          <div style="font-size:.8rem;color:var(--muted);margin-top:8px">Have an invite link? Open it in your browser and you'll be added automatically.</div>
+        </div>
+
+        <!-- Main org content — hidden until org is loaded -->
+        <div id="org-main-content">
+
         <!-- Space hero -->
         <div class="os-hero">
           <div class="os-hero-icon"><i class="ti ti-building"></i></div>
@@ -2441,6 +2455,7 @@
           </div>
         </div>
 
+        </div><!-- /org-main-content -->
       </div><!-- /panel-org -->
 
       <!-- ══════════════════════════════════════════════════════
@@ -3122,7 +3137,7 @@
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260519c" defer></script>
+<script src="/js/app.js?v=20260519d" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

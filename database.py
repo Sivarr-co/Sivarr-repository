@@ -220,6 +220,97 @@ CREATE TABLE IF NOT EXISTS feedback (
     page       TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ── Multi-user Organisations ───────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS orgs (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    owner_sid   TEXT REFERENCES users(sid) ON DELETE SET NULL,
+    logo        TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    plan        TEXT DEFAULT 'free',
+    settings    JSONB DEFAULT '{}',
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS org_members (
+    id          SERIAL PRIMARY KEY,
+    org_id      TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    user_sid    TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    role        TEXT DEFAULT 'member',
+    invited_by  TEXT,
+    joined_at   TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(org_id, user_sid)
+);
+CREATE INDEX IF NOT EXISTS idx_org_members_org  ON org_members(org_id);
+CREATE INDEX IF NOT EXISTS idx_org_members_user ON org_members(user_sid);
+
+CREATE TABLE IF NOT EXISTS org_invites (
+    token       TEXT PRIMARY KEY,
+    org_id      TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    email       TEXT NOT NULL,
+    role        TEXT DEFAULT 'member',
+    invited_by  TEXT,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    used        BOOLEAN DEFAULT FALSE,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_org_invites_org ON org_invites(org_id);
+
+CREATE TABLE IF NOT EXISTS org_tasks (
+    id           TEXT PRIMARY KEY,
+    org_id       TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    title        TEXT NOT NULL,
+    description  TEXT DEFAULT '',
+    status       TEXT DEFAULT 'todo',
+    priority     TEXT DEFAULT 'normal',
+    assignee_sid TEXT REFERENCES users(sid) ON DELETE SET NULL,
+    created_by   TEXT REFERENCES users(sid) ON DELETE SET NULL,
+    project_id   TEXT,
+    due_date     DATE,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_org_tasks_org     ON org_tasks(org_id);
+CREATE INDEX IF NOT EXISTS idx_org_tasks_project ON org_tasks(project_id);
+
+CREATE TABLE IF NOT EXISTS org_projects (
+    id           TEXT PRIMARY KEY,
+    org_id       TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    name         TEXT NOT NULL,
+    description  TEXT DEFAULT '',
+    status       TEXT DEFAULT 'active',
+    color        TEXT DEFAULT '#0D7A5F',
+    created_by   TEXT REFERENCES users(sid) ON DELETE SET NULL,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_org_projects_org ON org_projects(org_id);
+
+CREATE TABLE IF NOT EXISTS org_docs (
+    id           TEXT PRIMARY KEY,
+    org_id       TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    title        TEXT NOT NULL,
+    content      TEXT DEFAULT '',
+    created_by   TEXT REFERENCES users(sid) ON DELETE SET NULL,
+    updated_by   TEXT REFERENCES users(sid) ON DELETE SET NULL,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_org_docs_org ON org_docs(org_id);
+
+CREATE TABLE IF NOT EXISTS org_messages (
+    id           SERIAL PRIMARY KEY,
+    org_id       TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    channel      TEXT DEFAULT 'general',
+    content      TEXT NOT NULL,
+    author_sid   TEXT REFERENCES users(sid) ON DELETE SET NULL,
+    author_name  TEXT NOT NULL DEFAULT '',
+    created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_org_messages_org     ON org_messages(org_id);
+CREATE INDEX IF NOT EXISTS idx_org_messages_channel ON org_messages(org_id, channel);
 """
 
 
@@ -1571,6 +1662,330 @@ def record_payout(payout: dict) -> None:
         conn.commit()
     except Exception as exc:
         log.error(f"record_payout: {exc}"); conn.rollback()
+    finally:
+        _release(conn)
+
+
+# ── Org functions ────────────────────────────────────────────────
+
+def create_org(owner_sid: str, name: str, org_id: str) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO orgs (id, name, owner_sid) VALUES (%s, %s, %s) ON CONFLICT (id) DO NOTHING",
+                (org_id, name, owner_sid)
+            )
+            cur.execute(
+                "INSERT INTO org_members (org_id, user_sid, role, invited_by) VALUES (%s, %s, 'owner', %s) ON CONFLICT (org_id, user_sid) DO NOTHING",
+                (org_id, owner_sid, owner_sid)
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_org: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def get_org_by_member(user_sid: str) -> dict | None:
+    conn = _get_conn()
+    if not conn: return None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT o.*, om.role AS member_role
+                FROM orgs o
+                JOIN org_members om ON om.org_id = o.id
+                WHERE om.user_sid = %s
+                ORDER BY o.created_at ASC
+                LIMIT 1
+            """, (user_sid,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+    except Exception as exc:
+        log.error(f"get_org_by_member: {exc}"); return None
+    finally:
+        _release(conn)
+
+
+def get_org_members(org_id: str) -> list:
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT om.role, om.joined_at, u.sid, u.name, u.email
+                FROM org_members om
+                JOIN users u ON u.sid = om.user_sid
+                WHERE om.org_id = %s
+                ORDER BY om.joined_at ASC
+            """, (org_id,))
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_org_members: {exc}"); return []
+    finally:
+        _release(conn)
+
+
+def create_org_invite(org_id: str, email: str, role: str, invited_by: str, token: str, expires_at) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO org_invites (token, org_id, email, role, invited_by, expires_at) VALUES (%s, %s, %s, %s, %s, %s)",
+                (token, org_id, email.lower(), role, invited_by, expires_at)
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_org_invite: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def get_org_invite(token: str) -> dict | None:
+    conn = _get_conn()
+    if not conn: return None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM org_invites WHERE token = %s AND used = FALSE", (token,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+    except Exception as exc:
+        log.error(f"get_org_invite: {exc}"); return None
+    finally:
+        _release(conn)
+
+
+def use_org_invite(token: str, user_sid: str) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM org_invites WHERE token=%s AND used=FALSE", (token,))
+            inv = cur.fetchone()
+            if not inv: return False
+            cur.execute("UPDATE org_invites SET used=TRUE WHERE token=%s", (token,))
+            cur.execute(
+                "INSERT INTO org_members (org_id, user_sid, role, invited_by) VALUES (%s,%s,%s,%s) ON CONFLICT (org_id, user_sid) DO NOTHING",
+                (inv[1], user_sid, inv[3], inv[4])
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"use_org_invite: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def get_org_tasks(org_id: str, project_id: str = None) -> list:
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if project_id:
+                cur.execute("SELECT * FROM org_tasks WHERE org_id=%s AND project_id=%s ORDER BY created_at DESC", (org_id, project_id))
+            else:
+                cur.execute("SELECT * FROM org_tasks WHERE org_id=%s ORDER BY created_at DESC", (org_id,))
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_org_tasks: {exc}"); return []
+    finally:
+        _release(conn)
+
+
+def create_org_task(org_id: str, task_id: str, title: str, created_by: str,
+                    status: str = "todo", priority: str = "normal",
+                    description: str = "", assignee_sid: str = None,
+                    project_id: str = None, due_date: str = None) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO org_tasks (id, org_id, title, description, status, priority, assignee_sid, created_by, project_id, due_date)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (task_id, org_id, title, description, status, priority, assignee_sid or None, created_by, project_id or None, due_date or None))
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_org_task: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def update_org_task(task_id: str, updates: dict) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    allowed = {"title", "description", "status", "priority", "assignee_sid", "project_id", "due_date"}
+    sets = {k: v for k, v in updates.items() if k in allowed}
+    if not sets: return True
+    try:
+        with conn.cursor() as cur:
+            cols = ", ".join(f"{k}=%s" for k in sets)
+            cur.execute(f"UPDATE org_tasks SET {cols}, updated_at=NOW() WHERE id=%s", (*sets.values(), task_id))
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"update_org_task: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def delete_org_task(task_id: str) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM org_tasks WHERE id=%s", (task_id,))
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"delete_org_task: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def get_org_projects(org_id: str) -> list:
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM org_projects WHERE org_id=%s ORDER BY created_at DESC", (org_id,))
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_org_projects: {exc}"); return []
+    finally:
+        _release(conn)
+
+
+def create_org_project(org_id: str, project_id: str, name: str, created_by: str,
+                       description: str = "", color: str = "#0D7A5F") -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO org_projects (id, org_id, name, description, color, created_by) VALUES (%s,%s,%s,%s,%s,%s)",
+                (project_id, org_id, name, description, color, created_by)
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_org_project: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def update_org_project(project_id: str, updates: dict) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    allowed = {"name", "description", "status", "color"}
+    sets = {k: v for k, v in updates.items() if k in allowed}
+    if not sets: return True
+    try:
+        with conn.cursor() as cur:
+            cols = ", ".join(f"{k}=%s" for k in sets)
+            cur.execute(f"UPDATE org_projects SET {cols}, updated_at=NOW() WHERE id=%s", (*sets.values(), project_id))
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"update_org_project: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def get_org_docs(org_id: str) -> list:
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT id, org_id, title, created_by, created_at, updated_at FROM org_docs WHERE org_id=%s ORDER BY updated_at DESC", (org_id,))
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_org_docs: {exc}"); return []
+    finally:
+        _release(conn)
+
+
+def save_org_doc(org_id: str, doc_id: str, title: str, content: str, user_sid: str) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO org_docs (id, org_id, title, content, created_by, updated_by)
+                VALUES (%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (id) DO UPDATE SET title=%s, content=%s, updated_by=%s, updated_at=NOW()
+            """, (doc_id, org_id, title, content, user_sid, user_sid, title, content, user_sid))
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"save_org_doc: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def get_org_doc(doc_id: str) -> dict | None:
+    conn = _get_conn()
+    if not conn: return None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM org_docs WHERE id=%s", (doc_id,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+    except Exception as exc:
+        log.error(f"get_org_doc: {exc}"); return None
+    finally:
+        _release(conn)
+
+
+def delete_org_doc(doc_id: str) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM org_docs WHERE id=%s", (doc_id,))
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"delete_org_doc: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def get_org_messages(org_id: str, channel: str = "general", limit: int = 60) -> list:
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM org_messages WHERE org_id=%s AND channel=%s ORDER BY created_at DESC LIMIT %s",
+                (org_id, channel, limit)
+            )
+            return list(reversed([dict(r) for r in cur.fetchall()]))
+    except Exception as exc:
+        log.error(f"get_org_messages: {exc}"); return []
+    finally:
+        _release(conn)
+
+
+def send_org_message(org_id: str, channel: str, author_sid: str, author_name: str, content: str) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO org_messages (org_id, channel, content, author_sid, author_name) VALUES (%s,%s,%s,%s,%s)",
+                (org_id, channel, content, author_sid, author_name)
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"send_org_message: {exc}"); conn.rollback(); return False
     finally:
         _release(conn)
 
