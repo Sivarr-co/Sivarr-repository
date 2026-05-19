@@ -286,9 +286,19 @@
         <i class="ti ti-sun" id="theme-icon"></i>
       </button>
       <!-- Notifications -->
-      <button class="tb-icon-btn" onclick="nav('announcements',null)" title="Notifications">
-        <i class="ti ti-bell"></i>
-      </button>
+      <div style="position:relative">
+        <button class="tb-icon-btn" id="notif-btn" onclick="notifToggle()" title="Notifications">
+          <i class="ti ti-bell"></i>
+          <span id="notif-badge" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;background:#ef4444;border-radius:50%;border:2px solid var(--bg)"></span>
+        </button>
+        <div id="notif-panel" style="display:none;position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.25);z-index:9999;overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border)">
+            <span style="font-size:.85rem;font-weight:700">Notifications</span>
+            <button onclick="notifMarkAllRead()" style="background:none;border:none;color:var(--teal);font-size:.75rem;cursor:pointer;font-family:var(--font)">Mark all read</button>
+          </div>
+          <div id="notif-list" style="max-height:340px;overflow-y:auto"></div>
+        </div>
+      </div>
       <!-- Profile -->
       <div class="profile-menu" id="profile-menu">
         <button class="profile-trigger" id="profile-trigger" onclick="toggleProfile()">
@@ -898,6 +908,14 @@
                   <option value="low">🟢 Low</option>
                 </select>
               </div>
+            </div>
+
+            <!-- Link to goal -->
+            <div class="sh-field-group">
+              <label class="sh-field-label">Link to goal <span style="color:var(--text4);font-weight:400">(optional)</span></label>
+              <select id="sh-modal-goal" class="sh-input" style="font-size:.82rem">
+                <option value="">— No goal —</option>
+              </select>
             </div>
 
             <!-- Due date + Time -->
@@ -3104,7 +3122,7 @@
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260519b" defer></script>
+<script src="/js/app.js?v=20260519c" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

@@ -609,6 +609,7 @@ function _applyLoginData(r) {
   chatCounterInit();
   _contextSent  = false; // fresh context for each login session
   _chatMsgCount = 0;
+  setTimeout(_buildNotifs, 1200);
   loadAnnouncements();
   setTimeout(() => briefCheck(), 800);
 
@@ -1739,7 +1740,52 @@ async function loadProgress() {
         <div style="font-size:.78rem;color:var(--text);margin-top:1px">${esc(d.best_topic)}</div>
       </div>
     </div>` : ''}
+
+    <!-- AI coaching CTA -->
+    <div style="background:linear-gradient(135deg,var(--accent)15,var(--accent2)10);border:1px solid var(--accent)30;border-radius:12px;padding:1rem;margin-bottom:.875rem;text-align:center">
+      <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">✨ AI Coaching</div>
+      <div style="font-size:.8rem;color:var(--text2);margin-bottom:.75rem">Get a personalised coaching session based on your progress data.</div>
+      <button onclick="getProgressCoaching()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:9px;padding:9px 22px;font-family:var(--font);font-size:.8rem;font-weight:700;cursor:pointer">Get coaching from SIVARR →</button>
+    </div>
   `;
+}
+
+function getProgressCoaching() {
+  if (!S.sid) return;
+  const tasks   = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]');
+  const goals   = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]');
+  const habits  = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
+  const jnl     = JSON.parse(localStorage.getItem(JNL_KEY()) || '[]');
+  const streak  = _getActivityStreak();
+  const today8601 = new Date().toISOString().split('T')[0];
+
+  const doneTasks   = tasks.filter(t => t.done).length;
+  const openTasks   = tasks.filter(t => !t.done).length;
+  const activeGoals = goals.filter(g => !g.completed);
+  const habitsToday = habits.filter(h => (h.completions || []).includes(today8601)).length;
+  const jnlThisWeek = jnl.filter(e => {
+    const diff = (Date.now() - new Date(e.date + 'T12:00:00').getTime()) / 86400000;
+    return diff <= 7;
+  }).length;
+
+  const lines = [
+    `Here's my Sivarr data for coaching:`,
+    `- Tasks: ${doneTasks} done, ${openTasks} still open`,
+    activeGoals.length ? `- Active goals: ${activeGoals.map(g => `${g.title} (${g.progress || 0}%)`).join(', ')}` : '- No active goals',
+    `- Habit check-ins today: ${habitsToday}/${habits.length}`,
+    `- Journal entries this week: ${jnlThisWeek}`,
+    `- Activity streak: ${streak} day${streak !== 1 ? 's' : ''}`,
+    S.stats?.questions ? `- AI questions asked: ${S.stats.questions}` : '',
+    S.stats?.quizzes   ? `- Quizzes completed: ${S.stats.quizzes}` : '',
+    ``,
+    `Based on this, give me a honest coaching session. What patterns do you see? What should I stop, start, or do more of? Be direct and specific.`,
+  ].filter(Boolean);
+
+  nav('chat', null);
+  setTimeout(() => {
+    const ci = $('ci');
+    if (ci) { ci.value = lines.join('\n'); ci.focus(); }
+  }, 350);
 }
 
 // ═══════════════════════ GOALS ═════════════════════════════
@@ -3554,6 +3600,7 @@ document.addEventListener('keydown', e => {
 async function loadHome() {
   if (!S.sid) return;
   _recordActivity();
+  _buildNotifs();
 
   const hr        = new Date().getHours();
   const tod       = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
@@ -5018,10 +5065,18 @@ function openEditTask(id) {
   $('sh-modal-time').value     = task.time        || '';
   $('sh-modal-priority').value = task.priority    || 'normal';
   $('sh-modal-summary').value  = task.summary     || '';
+  _populateGoalPicker(task.goalId || '');
   const fn = $('sh-modal-file-name');
   if (fn) fn.textContent = task.attachName || 'No file chosen';
   modal.style.display = 'flex';
   setTimeout(() => $('sh-modal-title')?.focus(), 100);
+}
+
+function _populateGoalPicker(selectedId = '') {
+  const sel = $('sh-modal-goal'); if (!sel) return;
+  const goals = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]').filter(g => !g.completed);
+  sel.innerHTML = '<option value="">— No goal —</option>' +
+    goals.map(g => `<option value="${g.id}" ${String(g.id) === String(selectedId) ? 'selected' : ''}>${esc(g.title)}</option>`).join('');
 }
 
 function openAddTask(col) {
@@ -5039,6 +5094,7 @@ function openAddTask(col) {
   $('sh-modal-time').value     = '';
   $('sh-modal-priority').value = 'normal';
   $('sh-modal-summary').value  = '';
+  _populateGoalPicker('');
   const fn = $('sh-modal-file-name'); if (fn) fn.textContent = 'No file chosen';
   const fi = $('sh-modal-file');      if (fi) { fi.value = ''; fi._filename = ''; }
   modal.style.display = 'flex';
@@ -5059,6 +5115,7 @@ function saveSHModal() {
   data.tasks = data.tasks || [];
   const editId = $('sh-modal-bg')._editId;
 
+  const goalId = $('sh-modal-goal')?.value || '';
   const fields = {
     title,
     status:   $('sh-modal-status')?.value   || 'todo',
@@ -5070,6 +5127,7 @@ function saveSHModal() {
     priority: $('sh-modal-priority')?.value  || 'normal',
     summary:  $('sh-modal-summary')?.value.trim()  || '',
     attachName: $('sh-modal-file')?._filename || '',
+    goalId:   goalId,
     updated:  now,
   };
 
@@ -11011,6 +11069,133 @@ function siObNext() {
 
 function siObPrev() {
   if (_siObStep > 1) { _siObStep--; siObRender(); }
+}
+
+// ═══════════════════════ NOTIFICATIONS ══════════════════════════
+
+const NOTIF_KEY = () => `sivarr_notifs_${S.sid || 'guest'}`;
+
+function _buildNotifs() {
+  if (!S.sid) return;
+  const today8601    = new Date().toISOString().split('T')[0];
+  const nowMs        = Date.now();
+  const existing     = JSON.parse(localStorage.getItem(NOTIF_KEY()) || '[]');
+  const existingIds  = new Set(existing.map(n => n.id));
+  const fresh        = [];
+
+  try {
+    // Overdue tasks
+    const tasks = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]')
+      .filter(t => !t.done && t.date && new Date(t.date) < new Date(today8601));
+    tasks.slice(0, 3).forEach(t => {
+      const id = `overdue_${t.id}`;
+      if (!existingIds.has(id))
+        fresh.push({ id, type:'overdue', icon:'⏰', msg:`Overdue: "${t.title.slice(0,40)}"`, read:false, ts: nowMs });
+    });
+
+    // Goals with deadline ≤ 3 days
+    const goals = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]')
+      .filter(g => !g.completed && g.deadline);
+    goals.forEach(g => {
+      const days = Math.ceil((new Date(g.deadline) - new Date(today8601)) / 86400000);
+      if (days >= 0 && days <= 3) {
+        const id = `goal_deadline_${g.id}`;
+        if (!existingIds.has(id))
+          fresh.push({ id, type:'deadline', icon:'🎯', msg:`Goal deadline in ${days === 0 ? 'today' : days + 'd'}: "${g.title.slice(0,35)}"`, read:false, ts: nowMs });
+      }
+    });
+
+    // Habit streak at risk (streak > 3, not done today)
+    const habits = JSON.parse(localStorage.getItem(`sivarr_habits_${S.sid}`) || '[]');
+    const streakHabit = habits.find(h => (h.streak || 0) >= 3 && !(h.completions || []).includes(today8601));
+    if (streakHabit) {
+      const id = `streak_risk_${today8601}`;
+      if (!existingIds.has(id))
+        fresh.push({ id, type:'streak', icon:'🔥', msg:`${streakHabit.streak}-day streak at risk — complete "${streakHabit.title.slice(0,30)}"`, read:false, ts: nowMs });
+    }
+
+    // Journal not written in > 3 days
+    const jnl = JSON.parse(localStorage.getItem(`sivarr_journal_${S.sid}`) || '[]');
+    if (jnl.length) {
+      const daysSince = Math.floor((nowMs - new Date(jnl[0].date + 'T12:00:00').getTime()) / 86400000);
+      if (daysSince >= 3) {
+        const id = `journal_gap_${today8601}`;
+        if (!existingIds.has(id))
+          fresh.push({ id, type:'journal', icon:'📓', msg:`Last journal entry was ${daysSince} days ago — write something today.`, read:false, ts: nowMs });
+      }
+    }
+  } catch(_) {}
+
+  if (fresh.length) {
+    const merged = [...fresh, ...existing].slice(0, 20);
+    localStorage.setItem(NOTIF_KEY(), JSON.stringify(merged));
+  }
+
+  _renderNotifBadge();
+}
+
+function _renderNotifBadge() {
+  const badge = $('notif-badge'); if (!badge) return;
+  const notifs = JSON.parse(localStorage.getItem(NOTIF_KEY()) || '[]');
+  const unread = notifs.filter(n => !n.read).length;
+  badge.style.display = unread > 0 ? 'block' : 'none';
+}
+
+function notifToggle() {
+  const panel = $('notif-panel'); if (!panel) return;
+  const open  = panel.style.display !== 'none';
+  if (open) { panel.style.display = 'none'; return; }
+  _renderNotifList();
+  panel.style.display = 'block';
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function _close(e) {
+      if (!$('notif-panel')?.contains(e.target) && e.target.id !== 'notif-btn' && !$('notif-btn')?.contains(e.target)) {
+        if ($('notif-panel')) $('notif-panel').style.display = 'none';
+        document.removeEventListener('click', _close);
+      }
+    });
+  }, 0);
+}
+
+function _renderNotifList() {
+  const list   = $('notif-list');  if (!list) return;
+  const notifs = JSON.parse(localStorage.getItem(NOTIF_KEY()) || '[]');
+
+  if (!notifs.length) {
+    list.innerHTML = `<div style="padding:24px;text-align:center;font-size:.82rem;color:var(--text4)">You're all caught up 👌</div>`;
+    return;
+  }
+
+  const NAV_MAP = { overdue:'flux', deadline:'goals', streak:'habits', journal:'journal' };
+  list.innerHTML = notifs.map(n => `
+    <div onclick="notifAction('${n.id}')" style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:${n.read ? 'transparent' : 'var(--teal)08'};transition:background .15s"
+         onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='${n.read ? 'transparent' : 'var(--teal)08'}'">
+      <span style="font-size:1.1rem;flex-shrink:0;margin-top:1px">${n.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.8rem;color:var(--text);line-height:1.45">${esc(n.msg)}</div>
+      </div>
+      ${!n.read ? `<div style="width:7px;height:7px;background:var(--teal);border-radius:50%;flex-shrink:0;margin-top:5px"></div>` : ''}
+    </div>`).join('');
+
+  // store nav map for onclick
+  list._navMap = NAV_MAP;
+  notifMarkAllRead();
+}
+
+function notifAction(id) {
+  const notifs  = JSON.parse(localStorage.getItem(NOTIF_KEY()) || '[]');
+  const n       = notifs.find(x => x.id === id);
+  if (!n) return;
+  const dest = { overdue:'flux', deadline:'goals', streak:'habits', journal:'journal' }[n.type];
+  if (dest) nav(dest, null);
+  if ($('notif-panel')) $('notif-panel').style.display = 'none';
+}
+
+function notifMarkAllRead() {
+  const notifs = JSON.parse(localStorage.getItem(NOTIF_KEY()) || '[]').map(n => ({ ...n, read: true }));
+  localStorage.setItem(NOTIF_KEY(), JSON.stringify(notifs));
+  _renderNotifBadge();
 }
 
 // ═══════════════════════════ FEEDBACK ═══════════════════════════

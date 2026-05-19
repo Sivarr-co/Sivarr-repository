@@ -1196,6 +1196,11 @@ input, textarea, select { font-family: var(--font); }
 .es-cta:hover { opacity:.85; }
 
 /* ── FEEDBACK ──────────────────────────────────────────────── */
+/* ── NOTIFICATIONS ─────────────────────────────────────────── */
+#notif-panel { animation: fadeIn .15s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+
+/* ── FEEDBACK ──────────────────────────────────────────────── */
 .feedback-btn {
   display:flex; align-items:center; gap:7px;
   width:100%; padding:9px 12px; margin-top:8px;
