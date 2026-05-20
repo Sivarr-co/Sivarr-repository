@@ -1744,11 +1744,18 @@ def record_payout(payout: dict) -> None:
 
 # ── Org functions ────────────────────────────────────────────────
 
-def create_org(owner_sid: str, name: str, org_id: str) -> bool:
+def create_org(owner_sid: str, name: str, org_id: str, owner_name: str = "") -> tuple[bool, str]:
+    """Create org + add owner as member. Returns (ok, error_message)."""
     conn = _get_conn()
-    if not conn: return False
+    if not conn:
+        return False, "could not get DB connection"
     try:
         with conn.cursor() as cur:
+            # Ensure owner row exists in users to avoid FK violation
+            cur.execute(
+                "INSERT INTO users (sid, name) VALUES (%s, %s) ON CONFLICT (sid) DO NOTHING",
+                (owner_sid, owner_name or owner_sid)
+            )
             cur.execute(
                 "INSERT INTO orgs (id, name, owner_sid) VALUES (%s, %s, %s) ON CONFLICT (id) DO NOTHING",
                 (org_id, name, owner_sid)
@@ -1758,11 +1765,12 @@ def create_org(owner_sid: str, name: str, org_id: str) -> bool:
                 (org_id, owner_sid, owner_sid)
             )
         conn.commit()
-        return True
+        return True, ""
     except Exception as exc:
-        log.error(f"create_org: {exc}\n{traceback.format_exc()}")
+        err = str(exc)
+        log.error(f"create_org: {err}\n{traceback.format_exc()}")
         conn.rollback()
-        return False
+        return False, err
     finally:
         _release(conn)
 

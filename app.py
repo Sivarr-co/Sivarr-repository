@@ -4204,9 +4204,10 @@ async def org_create(data: dict, bg: BackgroundTasks):
     if not org_name or len(org_name) < 2:
         raise HTTPException(400, "Organization name must be at least 2 characters.")
     org_id = uuid.uuid4().hex[:20]
-    ok = db.create_org(sid, org_name, org_id)
+    ok, err = db.create_org(sid, org_name, org_id, owner_name=uname)
     if not ok:
-        raise HTTPException(500, "Failed to create organization. Check server logs.")
+        log.error(f"org_create failed for {sid}: {err}")
+        raise HTTPException(500, f"Failed to create organization: {err or 'check server logs'}")
     log.info(f"Org created: {org_name} ({org_id}) by {sid}")
     return {"ok": True, "org_id": org_id, "name": org_name}
 

@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SIVARR — Organization Space Mockup</title>
+<style>
+:root {
+  --bg:#0F1117; --bg2:#161B22; --bg3:#1C2130;
+  --border:#21262D; --border2:#2D333B;
+  --teal:#0D7A5F; --teal-light:#11A07C; --teal2:#0D2E25;
+  --purple:#534AB7; --purple-light:#6E65D4;
+  --coral:#E8614A; --amber:#B37D0E; --amber-bg:#854F0B;
+  --fg:#E6EDF3; --fg2:#B0BAC4; --muted:#6B7A8D;
+  --card:#161B22; --card2:#1C2130;
+  --green:#2EA043; --green-bg:#0F2D1A;
+  --blue:#3B82F6; --blue-bg:#0D1F3C;
+  --radius:12px; --radius-sm:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;font-size:14px;line-height:1.5}
+
+/* ── LAYOUT ─────────────────────────────────────────── */
+.layout{display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ─────────────────────────────────────────── */
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sb-logo{padding:20px 18px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.sb-logo-mark{width:30px;height:30px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;letter-spacing:-0.5px}
+.sb-logo-text{font-weight:700;font-size:15px;letter-spacing:.5px;color:var(--fg)}
+.sb-org{padding:12px 14px;margin:10px 10px 0;background:var(--teal2);border-radius:10px;cursor:pointer}
+.sb-org-name{font-weight:700;font-size:13px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-org-sub{font-size:11px;color:var(--teal-light);margin-top:2px}
+.sb-nav{padding:10px 0;flex:1}
+.sb-section{padding:6px 16px 2px;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:8px}
+.sb-item{display:flex;align-items:center;gap:10px;padding:7px 16px;color:var(--fg2);cursor:pointer;border-radius:0;transition:background .15s,color .15s;font-size:13px}
+.sb-item:hover{background:var(--bg3);color:var(--fg)}
+.sb-item.on{color:var(--teal-light);background:var(--teal2)}
+.sb-item svg,.sb-item .si{width:16px;height:16px;opacity:.75;flex-shrink:0}
+.sb-item.on svg,.sb-item.on .si{opacity:1}
+.sb-badge{margin-left:auto;background:var(--teal);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px}
+.sb-footer{padding:12px 14px;border-top:1px solid var(--border)}
+.sb-user{display:flex;align-items:center;gap:10px}
+.sb-avatar{width:30px;height:30px;border-radius:50%;background:var(--purple);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.sb-uname{font-size:12px;font-weight:600;color:var(--fg)}
+.sb-urole{font-size:10px;color:var(--muted)}
+
+/* ── MAIN ─────────────────────────────────────────── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── ORG HERO ─────────────────────────────────────── */
+.os-hero{padding:24px 28px 0;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.os-hero-top{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+.os-org-avatar{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--teal) 0%,var(--purple) 100%);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#fff;flex-shrink:0}
+.os-hero-info{flex:1}
+.os-hero-name{font-size:1.25rem;font-weight:800;color:var(--fg);letter-spacing:-.3px}
+.os-hero-meta{display:flex;align-items:center;gap:12px;margin-top:4px}
+.os-hero-tag{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.os-hero-dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block}
+.os-hero-actions{display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all .15s}
+.btn-teal{background:var(--teal);color:#fff;border-color:var(--teal)}
+.btn-teal:hover{background:var(--teal-light)}
+.btn-ghost{background:transparent;color:var(--fg2);border-color:var(--border2)}
+.btn-ghost:hover{background:var(--bg3);color:var(--fg)}
+.os-stat-row{display:flex;gap:0;margin-bottom:0}
+.os-stat{padding:10px 20px 12px;border-top:1px solid var(--border);flex:1;text-align:center}
+.os-stat:first-child{padding-left:0;text-align:left}
+.os-stat-val{font-size:1.1rem;font-weight:800;color:var(--fg)}
+.os-stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:1px}
+
+/* ── TABS ─────────────────────────────────────────── */
+.os-tabs{display:flex;gap:0;padding:0 28px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;scrollbar-width:none}
+.os-tabs::-webkit-scrollbar{display:none}
+.os-tab{padding:11px 14px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;display:flex;align-items:center;gap:6px}
+.os-tab:hover{color:var(--fg)}
+.os-tab.on{color:var(--teal-light);border-bottom-color:var(--teal)}
+
+/* ── PANES ─────────────────────────────────────────── */
+.os-panes{flex:1;overflow:hidden;position:relative}
+.os-pane{display:none;height:100%;overflow-y:auto;padding:24px 28px}
+.os-pane.on{display:block}
+.os-pane::-webkit-scrollbar{width:4px}
+.os-pane::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* ── CARDS ─────────────────────────────────────────── */
+.os-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.os-card-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.os-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.os-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+
+/* ── OVERVIEW ─────────────────────────────────────── */
+.ov-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.ov-kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.ov-kpi-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.ov-kpi-val{font-size:1.6rem;font-weight:800;color:var(--fg);margin:6px 0 2px;line-height:1}
+.ov-kpi-delta{font-size:11px;display:flex;align-items:center;gap:4px}
+.delta-up{color:var(--green)}
+.delta-dn{color:var(--coral)}
+.ov-row{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px}
+.activity-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.act-avatar{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.act-body{flex:1}
+.act-text{font-size:13px;color:var(--fg2);line-height:1.4}
+.act-text strong{color:var(--fg)}
+.act-time{font-size:11px;color:var(--muted);margin-top:2px}
+.pinned-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.pinned-item:last-child{border-bottom:none}
+.pin-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.pin-name{font-size:13px;color:var(--fg);font-weight:500}
+.pin-meta{font-size:11px;color:var(--muted);margin-top:1px}
+
+/* ── GOALS ─────────────────────────────────────────── */
+.goal-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:12px}
+.goal-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.goal-title{font-size:.95rem;font-weight:700;color:var(--fg);line-height:1.3}
+.goal-owner{display:flex;align-items:center;gap:6px;margin-top:6px}
+.goal-owner-av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700}
+.goal-owner-name{font-size:11px;color:var(--muted)}
+.goal-badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.badge-on-track{background:var(--green-bg);color:var(--green)}
+.badge-at-risk{background:#2D1810;color:var(--coral)}
+.badge-ahead{background:var(--blue-bg);color:var(--blue)}
+.goal-progress-bar{height:6px;background:var(--bg3);border-radius:3px;margin-bottom:8px}
+.goal-progress-fill{height:100%;border-radius:3px;background:var(--teal)}
+.goal-progress-fill.coral{background:var(--coral)}
+.goal-progress-fill.blue{background:var(--blue)}
+.goal-meta{display:flex;align-items:center;justify-content:space-between}
+.goal-pct{font-size:12px;font-weight:700;color:var(--fg)}
+.goal-due{font-size:11px;color:var(--muted)}
+.goal-krs{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.goal-kr{display:flex;align-items:center;gap:10px;padding:6px 0}
+.goal-kr-check{width:16px;height:16px;border-radius:4px;border:2px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px}
+.goal-kr-check.done{background:var(--teal);border-color:var(--teal);color:#fff}
+.goal-kr-text{font-size:12px;color:var(--fg2);flex:1}
+.goal-kr-prog{font-size:11px;color:var(--teal-light);font-weight:600;white-space:nowrap}
+
+/* ── KANBAN ─────────────────────────────────────────── */
+.os-kanban{display:flex;gap:14px;height:calc(100% - 0px);overflow-x:auto;padding-bottom:12px}
+.os-kanban::-webkit-scrollbar{height:4px}
+.os-kanban::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.os-col{min-width:240px;max-width:260px;background:var(--bg3);border-radius:var(--radius);display:flex;flex-direction:column;flex-shrink:0}
+.os-col-header{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.os-col-title{font-size:12px;font-weight:700;color:var(--fg2);text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px}
+.col-count{background:var(--border2);color:var(--muted);font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px}
+.os-col-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+.os-col-body::-webkit-scrollbar{display:none}
+.os-task-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;cursor:pointer;transition:border-color .15s}
+.os-task-card:hover{border-color:var(--border2)}
+.task-tag{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;margin-bottom:8px}
+.tag-feature{background:var(--blue-bg);color:var(--blue)}
+.tag-bug{background:#2D1810;color:var(--coral)}
+.tag-design{background:#1E1830;color:var(--purple-light)}
+.tag-infra{background:#2A2010;color:var(--amber)}
+.task-title{font-size:13px;font-weight:600;color:var(--fg);line-height:1.35;margin-bottom:8px}
+.task-meta{display:flex;align-items:center;justify-content:space-between}
+.task-assignees{display:flex}
+.task-av{width:20px;height:20px;border-radius:50%;border:2px solid var(--bg3);margin-right:-6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700}
+.task-due{font-size:10px;color:var(--muted)}
+.task-due.late{color:var(--coral)}
+.os-col-add{padding:8px 10px;margin:0 8px 8px;border-radius:var(--radius-sm);border:1px dashed var(--border);color:var(--muted);font-size:12px;cursor:pointer;text-align:center;transition:all .15s}
+.os-col-add:hover{border-color:var(--teal);color:var(--teal-light)}
+
+/* ── PROJECTS ─────────────────────────────────────── */
+.os-proj-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.proj-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;cursor:pointer;transition:border-color .15s}
+.proj-card:hover{border-color:var(--border2)}
+.proj-cover{height:80px;border-radius:var(--radius-sm);margin-bottom:14px;display:flex;align-items:center;justify-content:center;font-size:2rem}
+.proj-name{font-size:.9rem;font-weight:700;color:var(--fg);margin-bottom:4px}
+.proj-desc{font-size:12px;color:var(--muted);line-height:1.4;margin-bottom:12px}
+.proj-footer{display:flex;align-items:center;justify-content:space-between}
+.proj-avatars{display:flex}
+.proj-av{width:22px;height:22px;border-radius:50%;border:2px solid var(--card);margin-right:-6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700}
+.proj-status{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px}
+
+/* ── DOCS ─────────────────────────────────────────── */
+.doc-row{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+.doc-row:hover{border-color:var(--border2)}
+.doc-icon{font-size:1.4rem;flex-shrink:0}
+.doc-body{flex:1}
+.doc-name{font-size:13px;font-weight:600;color:var(--fg)}
+.doc-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.doc-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px}
+
+/* ── MEMBERS ─────────────────────────────────────── */
+.os-member-row{display:flex;align-items:center;gap:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px}
+.mem-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+.mem-info{flex:1}
+.mem-name{font-size:13px;font-weight:700;color:var(--fg)}
+.mem-handle{font-size:11px;color:var(--muted);margin-top:1px}
+.mem-role{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.role-founder{background:var(--teal2);color:var(--teal-light)}
+.role-lead{background:#1E1830;color:var(--purple-light)}
+.role-member{background:var(--bg3);color:var(--fg2)}
+.role-viewer{background:var(--bg3);color:var(--muted)}
+.mem-tasks{font-size:11px;color:var(--muted);text-align:right;min-width:60px}
+.mem-tasks strong{color:var(--fg);display:block;font-size:14px;font-weight:700}
+
+/* ── INSIGHTS ─────────────────────────────────────── */
+.chart-placeholder{background:var(--bg3);border-radius:var(--radius-sm);height:160px;display:flex;align-items:flex-end;padding:12px;gap:6px;overflow:hidden}
+.chart-bar{flex:1;background:var(--teal);border-radius:3px 3px 0 0;opacity:.8;transition:opacity .2s;cursor:pointer}
+.chart-bar:hover{opacity:1}
+.chart-bar.purple{background:var(--purple)}
+.chart-bar.coral{background:var(--coral)}
+.insight-metric{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.insight-metric:last-child{border-bottom:none}
+.im-label{font-size:13px;color:var(--fg2);display:flex;align-items:center;gap:8px}
+.im-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.im-val{font-size:14px;font-weight:700;color:var(--fg)}
+.im-delta{font-size:11px;margin-left:6px}
+
+/* ── CHAT ─────────────────────────────────────────── */
+.chat-layout{display:flex;height:100%;gap:0;overflow:hidden}
+.chat-sidebar{width:200px;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.chat-sidebar-title{padding:14px 14px 10px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.chat-channel{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--fg2)}
+.chat-channel:hover{background:var(--bg3);color:var(--fg)}
+.chat-channel.on{background:var(--teal2);color:var(--teal-light)}
+.chat-channel-hash{opacity:.6;font-weight:600}
+.chat-unread{margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--teal)}
+.chat-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.chat-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.chat-header-name{font-weight:700;font-size:14px}
+.chat-header-desc{font-size:11px;color:var(--muted);margin-top:1px}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.chat-messages::-webkit-scrollbar{width:4px}
+.chat-messages::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.chat-msg{display:flex;gap:10px;align-items:flex-start}
+.chat-msg-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.chat-msg-body{}
+.chat-msg-meta{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
+.chat-msg-name{font-size:13px;font-weight:700;color:var(--fg)}
+.chat-msg-time{font-size:11px;color:var(--muted)}
+.chat-msg-text{font-size:13px;color:var(--fg2);line-height:1.5}
+.chat-input-area{padding:12px 18px;border-top:1px solid var(--border)}
+.chat-input-box{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 14px;display:flex;align-items:center;gap:10px}
+.chat-input{background:transparent;border:none;outline:none;color:var(--fg);font-size:13px;flex:1}
+.chat-input::placeholder{color:var(--muted)}
+
+/* ── FOUNDER ─────────────────────────────────────── */
+.os-briefing-card{background:linear-gradient(135deg,var(--teal2) 0%,#0D1830 100%);border:1px solid var(--teal);border-radius:var(--radius);padding:24px;margin-bottom:16px}
+.brief-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.brief-icon{width:44px;height:44px;border-radius:12px;background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:20px}
+.brief-title{font-size:1rem;font-weight:800;color:var(--fg)}
+.brief-sub{font-size:12px;color:var(--teal-light);margin-top:2px}
+.brief-body{font-size:13px;color:var(--fg2);line-height:1.6;margin-bottom:14px}
+.brief-highlights{display:flex;flex-direction:column;gap:8px}
+.brief-hi{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(13,122,95,.12);border-radius:var(--radius-sm)}
+.brief-hi-icon{font-size:1.1rem;flex-shrink:0;margin-top:1px}
+.brief-hi-text{font-size:12.5px;color:var(--fg2);line-height:1.4}
+.brief-hi-text strong{color:var(--fg)}
+.founder-access-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.fa-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:border-color .15s}
+.fa-card:hover{border-color:var(--teal)}
+.fa-icon{font-size:1.5rem;margin-bottom:8px}
+.fa-title{font-size:13px;font-weight:700;color:var(--fg)}
+.fa-desc{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4}
+
+/* ── SECTION HEADINGS ─────────────────────────────── */
+.os-section-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.os-section-title{font-size:.95rem;font-weight:700;color:var(--fg)}
+.os-section-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* ── MISC ─────────────────────────────────────────── */
+.tag-pill{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:4px}
+.progress-thin{height:4px;background:var(--bg3);border-radius:2px;margin:4px 0}
+.progress-thin-fill{height:100%;border-radius:2px}
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ─── SIDEBAR ─────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-mark">SV</div>
+    <span class="sb-logo-text">SIVARR</span>
+  </div>
+  <div class="sb-org">
+    <div class="sb-org-name">HNTROX</div>
+    <div class="sb-org-sub">Organization Space</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-section">Workspace</div>
+    <div class="sb-item"><span class="si">🏠</span> Home</div>
+    <div class="sb-item on"><span class="si">🏢</span> Organization<span class="sb-badge">9</span></div>
+    <div class="sb-item"><span class="si">🤖</span> AI Agents</div>
+    <div class="sb-item"><span class="si">✅</span> My Tasks</div>
+    <div class="sb-item"><span class="si">📊</span> Dashboard</div>
+    <div class="sb-section">Tools</div>
+    <div class="sb-item"><span class="si">🧠</span> AI Tools</div>
+    <div class="sb-item"><span class="si">⚙️</span> Settings</div>
+  </nav>
+  <div class="sb-footer">
+    <div class="sb-user">
+      <div class="sb-avatar" style="background:var(--purple)">N</div>
+      <div>
+        <div class="sb-uname">HNTR0X</div>
+        <div class="sb-urole">Founder</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ─── MAIN ─────────────────────────────────────── -->
+<main class="main">
+
+  <!-- HERO -->
+  <div class="os-hero">
+    <div class="os-hero-top">
+      <div class="os-org-avatar">H</div>
+      <div class="os-hero-info">
+        <div class="os-hero-name">HNTROX</div>
+        <div class="os-hero-meta">
+          <span class="os-hero-tag"><span class="os-hero-dot"></span> Active</span>
+          <span class="os-hero-tag">· 5 members</span>
+          <span class="os-hero-tag">· Created Jan 2026</span>
+        </div>
+      </div>
+      <div class="os-hero-actions">
+        <button class="btn btn-ghost">⚙ Settings</button>
+        <button class="btn btn-teal">+ Invite Member</button>
+      </div>
+    </div>
+    <div class="os-stat-row">
+      <div class="os-stat">
+        <div class="os-stat-val">12</div>
+        <div class="os-stat-lbl">Active Goals</div>
+      </div>
+      <div class="os-stat">
+        <div class="os-stat-val">47</div>
+        <div class="os-stat-lbl">Open Tasks</div>
+      </div>
+      <div class="os-stat">
+        <div class="os-stat-val">6</div>
+        <div class="os-stat-lbl">Projects</div>
+      </div>
+      <div class="os-stat">
+        <div class="os-stat-val">83%</div>
+        <div class="os-stat-lbl">Sprint Progress</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="os-tabs" id="os-tabs">
+    <div class="os-tab on" data-pane="overview">📋 Overview</div>
+    <div class="os-tab" data-pane="goals">🎯 Goals</div>
+    <div class="os-tab" data-pane="tasks">⚡ Tasks</div>
+    <div class="os-tab" data-pane="projects">📁 Projects</div>
+    <div class="os-tab" data-pane="docs">📄 Docs</div>
+    <div class="os-tab" data-pane="members">👥 Members</div>
+    <div class="os-tab" data-pane="insights">📈 Insights</div>
+    <div class="os-tab" data-pane="chat">💬 Chat</div>
+    <div class="os-tab" data-pane="founder">👑 Founder</div>
+  </div>
+
+  <!-- PANES -->
+  <div class="os-panes">
+
+    <!-- ── OVERVIEW ───────────────────────────────── -->
+    <div class="os-pane on" id="pane-overview">
+      <div class="ov-kpi-grid">
+        <div class="ov-kpi">
+          <div class="ov-kpi-label">Tasks Completed</div>
+          <div class="ov-kpi-val">128</div>
+          <div class="ov-kpi-delta delta-up">↑ 14% this week</div>
+        </div>
+        <div class="ov-kpi">
+          <div class="ov-kpi-label">Goals On Track</div>
+          <div class="ov-kpi-val">9/12</div>
+          <div class="ov-kpi-delta delta-up">↑ 2 from last sprint</div>
+        </div>
+        <div class="ov-kpi">
+          <div class="ov-kpi-label">Avg. Response</div>
+          <div class="ov-kpi-val">2.4h</div>
+          <div class="ov-kpi-delta delta-up">↓ 30min faster</div>
+        </div>
+        <div class="ov-kpi">
+          <div class="ov-kpi-label">Blockers</div>
+          <div class="ov-kpi-val">3</div>
+          <div class="ov-kpi-delta delta-dn">↑ 1 new today</div>
+        </div>
+      </div>
+
+      <div class="ov-row">
+        <div class="os-card">
+          <div class="os-card-title">Recent Activity <span style="color:var(--teal-light);font-size:11px;font-weight:500;text-transform:none;letter-spacing:0;cursor:pointer">View all</span></div>
+          <div class="activity-item">
+            <div class="act-avatar" style="background:var(--purple)">N</div>
+            <div class="act-body">
+              <div class="act-text"><strong>HNTR0X</strong> completed goal <strong>Launch Beta V2</strong></div>
+              <div class="act-time">2 hours ago</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="act-avatar" style="background:var(--teal)">K</div>
+            <div class="act-body">
+              <div class="act-text"><strong>Kemi A.</strong> moved 4 tasks to <strong>In Review</strong></div>
+              <div class="act-time">4 hours ago</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="act-avatar" style="background:var(--coral)">D</div>
+            <div class="act-body">
+              <div class="act-text"><strong>Dayo M.</strong> created project <strong>Marketing Push Q2</strong></div>
+              <div class="act-time">Yesterday at 3:45 PM</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="act-avatar" style="background:var(--amber-bg)">T</div>
+            <div class="act-body">
+              <div class="act-text"><strong>Tolu F.</strong> added 8 docs to <strong>Product Wiki</strong></div>
+              <div class="act-time">Yesterday at 11:02 AM</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="act-avatar" style="background:var(--blue-bg);color:var(--blue)">A</div>
+            <div class="act-body">
+              <div class="act-text"><strong>Adaeze C.</strong> invited to organization as <strong>Lead Designer</strong></div>
+              <div class="act-time">2 days ago</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="os-card" style="margin-bottom:14px">
+            <div class="os-card-title">Pinned</div>
+            <div class="pinned-item">
+              <div class="pin-icon" style="background:var(--teal2)">🎯</div>
+              <div>
+                <div class="pin-name">Q2 OKRs</div>
+                <div class="pin-meta">Goals · Last updated 2d ago</div>
+              </div>
+            </div>
+            <div class="pinned-item">
+              <div class="pin-icon" style="background:#1E1830">📋</div>
+              <div>
+                <div class="pin-name">Sprint 7 Board</div>
+                <div class="pin-meta">Kanban · 12 open tasks</div>
+              </div>
+            </div>
+            <div class="pinned-item">
+              <div class="pin-icon" style="background:#2A2010">📄</div>
+              <div>
+                <div class="pin-name">Product Roadmap</div>
+                <div class="pin-meta">Docs · Shared with 5</div>
+              </div>
+            </div>
+          </div>
+          <div class="os-card">
+            <div class="os-card-title">This Sprint</div>
+            <div style="margin-bottom:8px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12px;color:var(--fg2)">Sprint 7 Progress</span>
+                <span style="font-size:12px;font-weight:700;color:var(--teal-light)">83%</span>
+              </div>
+              <div class="progress-thin"><div class="progress-thin-fill" style="width:83%;background:var(--teal)"></div></div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+              <span class="tag-pill" style="background:var(--green-bg);color:var(--green)">✓ 15 done</span>
+              <span class="tag-pill" style="background:var(--blue-bg);color:var(--blue)">⚡ 8 in progress</span>
+              <span class="tag-pill" style="background:#2D1810;color:var(--coral)">⚠ 3 blocked</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── GOALS ───────────────────────────────────── -->
+    <div class="os-pane" id="pane-goals">
+      <div class="os-section-heading">
+        <div>
+          <div class="os-section-title">Organizational Goals</div>
+          <div class="os-section-sub">12 active · Q2 2026</div>
+        </div>
+        <button class="btn btn-teal">+ New Goal</button>
+      </div>
+
+      <div class="goal-card">
+        <div class="goal-header">
+          <div>
+            <div class="goal-title">Launch SIVARR Public Beta to 1,000 Users</div>
+            <div class="goal-owner">
+              <div class="goal-owner-av" style="background:var(--purple)">N</div>
+              <span class="goal-owner-name">HNTR0X · Product</span>
+            </div>
+          </div>
+          <span class="goal-badge badge-on-track">On Track</span>
+        </div>
+        <div class="goal-progress-bar"><div class="goal-progress-fill" style="width:72%"></div></div>
+        <div class="goal-meta">
+          <span class="goal-pct">72% complete</span>
+          <span class="goal-due">Due Jun 30, 2026</span>
+        </div>
+        <div class="goal-krs">
+          <div class="goal-kr">
+            <div class="goal-kr-check done">✓</div>
+            <div class="goal-kr-text">Ship org collaboration features</div>
+            <div class="goal-kr-prog">100%</div>
+          </div>
+          <div class="goal-kr">
+            <div class="goal-kr-check done">✓</div>
+            <div class="goal-kr-text">Complete onboarding flow redesign</div>
+            <div class="goal-kr-prog">100%</div>
+          </div>
+          <div class="goal-kr">
+            <div class="goal-kr-check"></div>
+            <div class="goal-kr-text">Acquire 1,000 beta signups via launch campaign</div>
+            <div class="goal-kr-prog">340 / 1k</div>
+          </div>
+          <div class="goal-kr">
+            <div class="goal-kr-check"></div>
+            <div class="goal-kr-text">Achieve &lt;2s avg. page load time</div>
+            <div class="goal-kr-prog">2.4s now</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="goal-card">
+        <div class="goal-header">
+          <div>
+            <div class="goal-title">Close $50K in Annual Recurring Revenue</div>
+            <div class="goal-owner">
+              <div class="goal-owner-av" style="background:var(--coral)">D</div>
+              <span class="goal-owner-name">Dayo M. · Sales</span>
+            </div>
+          </div>
+          <span class="goal-badge badge-at-risk">At Risk</span>
+        </div>
+        <div class="goal-progress-bar"><div class="goal-progress-fill coral" style="width:38%"></div></div>
+        <div class="goal-meta">
+          <span class="goal-pct">38% — $19K ARR</span>
+          <span class="goal-due">Due Jun 30, 2026</span>
+        </div>
+        <div class="goal-krs">
+          <div class="goal-kr">
+            <div class="goal-kr-check done">✓</div>
+            <div class="goal-kr-text">Build pipeline of 50 qualified leads</div>
+            <div class="goal-kr-prog">52 leads</div>
+          </div>
+          <div class="goal-kr">
+            <div class="goal-kr-check"></div>
+            <div class="goal-kr-text">Convert 10 pilots to paid accounts</div>
+            <div class="goal-kr-prog">3 / 10</div>
+          </div>
+          <div class="goal-kr">
+            <div class="goal-kr-check"></div>
+            <div class="goal-kr-text">Land 2 enterprise contracts ($10K+ each)</div>
+            <div class="goal-kr-prog">0 / 2</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="goal-card">
+        <div class="goal-header">
+          <div>
+            <div class="goal-title">Build AI Agent Marketplace MVP</div>
+            <div class="goal-owner">
+              <div class="goal-owner-av" style="background:var(--teal)">K</div>
+              <span class="goal-owner-name">Kemi A. · Engineering</span>
+            </div>
+          </div>
+          <span class="goal-badge badge-ahead">Ahead</span>
+        </div>
+        <div class="goal-progress-bar"><div class="goal-progress-fill blue" style="width:91%"></div></div>
+        <div class="goal-meta">
+          <span class="goal-pct">91% complete</span>
+          <span class="goal-due">Due May 31, 2026</span>
+        </div>
+        <div class="goal-krs">
+          <div class="goal-kr">
+            <div class="goal-kr-check done">✓</div>
+            <div class="goal-kr-text">Design agent card component system</div>
+            <div class="goal-kr-prog">Done</div>
+          </div>
+          <div class="goal-kr">
+            <div class="goal-kr-check done">✓</div>
+            <div class="goal-kr-text">Build agent publish + review flow</div>
+            <div class="goal-kr-prog">Done</div>
+          </div>
+          <div class="goal-kr">
+            <div class="goal-kr-check done">✓</div>
+            <div class="goal-kr-text">Launch with 10 seed agents in marketplace</div>
+            <div class="goal-kr-prog">14 live</div>
+          </div>
+          <div class="goal-kr">
+            <div class="goal-kr-check"></div>
+            <div class="goal-kr-text">Integrate billing for premium agents</div>
+            <div class="goal-kr-prog">In dev</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TASKS / KANBAN ──────────────────────────── -->
+    <div class="os-pane" id="pane-tasks" style="padding:16px 20px;height:100%">
+      <div class="os-section-heading" style="margin-bottom:12px">
+        <div>
+          <div class="os-section-title">Sprint 7 — May 12–26, 2026</div>
+          <div class="os-section-sub">47 open tasks across 5 members</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost">Filter</button>
+          <button class="btn btn-teal">+ Add Task</button>
+        </div>
+      </div>
+      <div class="os-kanban">
+
+        <div class="os-col">
+          <div class="os-col-header">
+            <div class="os-col-title" style="color:var(--muted)">Backlog <span class="col-count">11</span></div>
+          </div>
+          <div class="os-col-body">
+            <div class="os-task-card">
+              <div class="task-tag tag-feature">Feature</div>
+              <div class="task-title">Add two-factor auth for enterprise accounts</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--purple)">N</div></div>
+                <div class="task-due">No date</div>
+              </div>
+            </div>
+            <div class="os-task-card">
+              <div class="task-tag tag-design">Design</div>
+              <div class="task-title">Redesign notification panel for mobile</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--blue-bg);color:var(--blue)">A</div></div>
+                <div class="task-due">Jun 5</div>
+              </div>
+            </div>
+            <div class="os-task-card">
+              <div class="task-tag tag-infra">Infra</div>
+              <div class="task-title">Set up Redis caching for session tokens</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--teal)">K</div></div>
+                <div class="task-due">Jun 8</div>
+              </div>
+            </div>
+            <div class="os-task-card">
+              <div class="task-tag tag-feature">Feature</div>
+              <div class="task-title">Org-wide analytics export (CSV/PDF)</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--coral)">D</div></div>
+                <div class="task-due">Jun 15</div>
+              </div>
+            </div>
+          </div>
+          <div class="os-col-add">+ Add task</div>
+        </div>
+
+        <div class="os-col">
+          <div class="os-col-header">
+            <div class="os-col-title" style="color:var(--blue)">In Progress <span class="col-count">8</span></div>
+          </div>
+          <div class="os-col-body">
+            <div class="os-task-card">
+              <div class="task-tag tag-feature">Feature</div>
+              <div class="task-title">Org space — Goals tab with OKR progress</div>
+              <div class="task-meta">
+                <div class="task-assignees">
+                  <div class="task-av" style="background:var(--purple)">N</div>
+                  <div class="task-av" style="background:var(--teal)">K</div>
+                </div>
+                <div class="task-due">May 22</div>
+              </div>
+            </div>
+            <div class="os-task-card">
+              <div class="task-tag tag-design">Design</div>
+              <div class="task-title">Create component library for agent cards</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--blue-bg);color:var(--blue)">A</div></div>
+                <div class="task-due">May 24</div>
+              </div>
+            </div>
+            <div class="os-task-card">
+              <div class="task-tag tag-infra">Infra</div>
+              <div class="task-title">Fix PostgreSQL connection pool poisoning</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--teal)">K</div></div>
+                <div class="task-due late">May 20 ⚠</div>
+              </div>
+            </div>
+            <div class="os-task-card">
+              <div class="task-tag tag-feature">Feature</div>
+              <div class="task-title">AI daily briefing for founders view</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--purple)">N</div></div>
+                <div class="task-due">May 26</div>
+              </div>
+            </div>
+          </div>
+          <div class="os-col-add">+ Add task</div>
+        </div>
+
+        <div class="os-col">
+          <div class="os-col-header">
+            <div class="os-col-title" style="color:var(--amber)">In Review <span class="col-count">6</span></div>
+          </div>
+          <div class="os-col-body">
+            <div class="os-task-card">
+              <div class="task-tag tag-feature">Feature</div>
+              <div class="task-title">Chat tab real-time messaging with WebSockets</div>
+              <div class="task-meta">
+                <div class="task-assignees">
+                  <div class="task-av" style="background:var(--teal)">K</div>
+                  <div class="task-av" style="background:var(--amber-bg)">T</div>
+                </div>
+                <div class="task-due">May 21</div>
+              </div>
+            </div>
+            <div class="os-task-card">
+              <div class="task-tag tag-bug">Bug</div>
+              <div class="task-title">Login session not persisting after Railway redeploy</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--purple)">N</div></div>
+                <div class="task-due">May 20</div>
+              </div>
+            </div>
+            <div class="os-task-card">
+              <div class="task-tag tag-design">Design</div>
+              <div class="task-title">Dark/light mode polish — teal2 contrast fixes</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--blue-bg);color:var(--blue)">A</div></div>
+                <div class="task-due">May 22</div>
+              </div>
+            </div>
+          </div>
+          <div class="os-col-add">+ Add task</div>
+        </div>
+
+        <div class="os-col">
+          <div class="os-col-header">
+            <div class="os-col-title" style="color:var(--green)">Done <span class="col-count">15</span></div>
+          </div>
+          <div class="os-col-body">
+            <div class="os-task-card" style="opacity:.65">
+              <div class="task-tag tag-feature">Feature</div>
+              <div class="task-title">Org setup card with create / join flow</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--purple)">N</div></div>
+                <div class="task-due" style="color:var(--green)">✓ Done</div>
+              </div>
+            </div>
+            <div class="os-task-card" style="opacity:.65">
+              <div class="task-tag tag-feature">Feature</div>
+              <div class="task-title">Smart notifications with priority scoring</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--teal)">K</div></div>
+                <div class="task-due" style="color:var(--green)">✓ Done</div>
+              </div>
+            </div>
+            <div class="os-task-card" style="opacity:.65">
+              <div class="task-tag tag-infra">Infra</div>
+              <div class="task-title">Migrate from SQLite to Railway PostgreSQL</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--teal)">K</div></div>
+                <div class="task-due" style="color:var(--green)">✓ Done</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="os-col">
+          <div class="os-col-header">
+            <div class="os-col-title" style="color:var(--coral)">Blocked <span class="col-count">3</span></div>
+          </div>
+          <div class="os-col-body">
+            <div class="os-task-card" style="border-color:#3D1810">
+              <div class="task-tag tag-bug">Blocker</div>
+              <div class="task-title">Stripe webhook integration failing in production</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--coral)">D</div></div>
+                <div class="task-due late">May 18 ⚠</div>
+              </div>
+            </div>
+            <div class="os-task-card" style="border-color:#3D1810">
+              <div class="task-tag tag-infra">Blocker</div>
+              <div class="task-title">Email service (SendGrid) rate limit hit</div>
+              <div class="task-meta">
+                <div class="task-assignees"><div class="task-av" style="background:var(--amber-bg)">T</div></div>
+                <div class="task-due late">May 19 ⚠</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── PROJECTS ────────────────────────────────── -->
+    <div class="os-pane" id="pane-projects">
+      <div class="os-section-heading">
+        <div>
+          <div class="os-section-title">Projects</div>
+          <div class="os-section-sub">6 active projects</div>
+        </div>
+        <button class="btn btn-teal">+ New Project</button>
+      </div>
+      <div class="os-proj-grid">
+        <div class="proj-card">
+          <div class="proj-cover" style="background:var(--teal2)">🚀</div>
+          <div class="proj-name">SIVARR Beta Launch</div>
+          <div class="proj-desc">Full product launch campaign — landing page, Product Hunt, social, email.</div>
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px"><span>Progress</span><span style="color:var(--fg)">72%</span></div>
+            <div class="progress-thin"><div class="progress-thin-fill" style="width:72%;background:var(--teal)"></div></div>
+          </div>
+          <div class="proj-footer">
+            <div class="proj-avatars">
+              <div class="proj-av" style="background:var(--purple)">N</div>
+              <div class="proj-av" style="background:var(--teal)">K</div>
+              <div class="proj-av" style="background:var(--coral)">D</div>
+            </div>
+            <span class="proj-status" style="background:var(--green-bg);color:var(--green)">On Track</span>
+          </div>
+        </div>
+        <div class="proj-card">
+          <div class="proj-cover" style="background:#1E1830">🤖</div>
+          <div class="proj-name">AI Agent Marketplace</div>
+          <div class="proj-desc">Build, list, and monetize AI agents. Internal tools + third-party marketplace.</div>
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px"><span>Progress</span><span style="color:var(--fg)">91%</span></div>
+            <div class="progress-thin"><div class="progress-thin-fill" style="width:91%;background:var(--blue)"></div></div>
+          </div>
+          <div class="proj-footer">
+            <div class="proj-avatars">
+              <div class="proj-av" style="background:var(--teal)">K</div>
+              <div class="proj-av" style="background:var(--purple)">N</div>
+            </div>
+            <span class="proj-status" style="background:var(--blue-bg);color:var(--blue)">Ahead</span>
+          </div>
+        </div>
+        <div class="proj-card">
+          <div class="proj-cover" style="background:#2D1810">📣</div>
+          <div class="proj-name">Marketing Push Q2</div>
+          <div class="proj-desc">Content, influencer, and paid acquisition strategy for Q2 2026.</div>
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px"><span>Progress</span><span style="color:var(--fg)">34%</span></div>
+            <div class="progress-thin"><div class="progress-thin-fill" style="width:34%;background:var(--coral)"></div></div>
+          </div>
+          <div class="proj-footer">
+            <div class="proj-avatars">
+              <div class="proj-av" style="background:var(--coral)">D</div>
+              <div class="proj-av" style="background:var(--blue-bg);color:var(--blue)">A</div>
+            </div>
+            <span class="proj-status" style="background:#2D1810;color:var(--coral)">At Risk</span>
+          </div>
+        </div>
+        <div class="proj-card">
+          <div class="proj-cover" style="background:#1A2A1A">💳</div>
+          <div class="proj-name">Billing & Monetization</div>
+          <div class="proj-desc">Stripe integration, pricing tiers, invoicing, and subscription management.</div>
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px"><span>Progress</span><span style="color:var(--fg)">55%</span></div>
+            <div class="progress-thin"><div class="progress-thin-fill" style="width:55%;background:var(--teal)"></div></div>
+          </div>
+          <div class="proj-footer">
+            <div class="proj-avatars">
+              <div class="proj-av" style="background:var(--purple)">N</div>
+              <div class="proj-av" style="background:var(--amber-bg)">T</div>
+            </div>
+            <span class="proj-status" style="background:var(--green-bg);color:var(--green)">On Track</span>
+          </div>
+        </div>
+        <div class="proj-card">
+          <div class="proj-cover" style="background:#0D1F3C">🔐</div>
+          <div class="proj-name">Auth & Security</div>
+          <div class="proj-desc">SSO, 2FA, session hardening, and compliance for enterprise customers.</div>
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px"><span>Progress</span><span style="color:var(--fg)">20%</span></div>
+            <div class="progress-thin"><div class="progress-thin-fill" style="width:20%;background:var(--purple-light)"></div></div>
+          </div>
+          <div class="proj-footer">
+            <div class="proj-avatars">
+              <div class="proj-av" style="background:var(--teal)">K</div>
+            </div>
+            <span class="proj-status" style="background:var(--bg3);color:var(--muted)">Planned</span>
+          </div>
+        </div>
+        <div class="proj-card" style="border-style:dashed;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;cursor:pointer">
+          <div style="font-size:2rem;margin-bottom:10px;opacity:.4">+</div>
+          <div style="font-size:13px;color:var(--muted)">Create new project</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DOCS ────────────────────────────────────── -->
+    <div class="os-pane" id="pane-docs">
+      <div class="os-section-heading">
+        <div>
+          <div class="os-section-title">Documents & Wiki</div>
+          <div class="os-section-sub">18 documents across 4 collections</div>
+        </div>
+        <button class="btn btn-teal">+ New Doc</button>
+      </div>
+      <div class="os-grid2" style="margin-bottom:16px">
+        <div class="os-card">
+          <div class="os-card-title">📁 Product</div>
+          <div class="doc-row">
+            <div class="doc-icon">📋</div>
+            <div class="doc-body">
+              <div class="doc-name">Product Roadmap 2026</div>
+              <div class="doc-meta">Updated 2 days ago · HNTR0X</div>
+            </div>
+            <span class="doc-badge" style="background:var(--teal2);color:var(--teal-light)">Pinned</span>
+          </div>
+          <div class="doc-row">
+            <div class="doc-icon">🎨</div>
+            <div class="doc-body">
+              <div class="doc-name">Design System v2</div>
+              <div class="doc-meta">Updated 5 days ago · Adaeze C.</div>
+            </div>
+          </div>
+          <div class="doc-row">
+            <div class="doc-icon">📊</div>
+            <div class="doc-body">
+              <div class="doc-name">User Research — Beta Cohort</div>
+              <div class="doc-meta">Updated 1 week ago · Dayo M.</div>
+            </div>
+          </div>
+        </div>
+        <div class="os-card">
+          <div class="os-card-title">📁 Engineering</div>
+          <div class="doc-row">
+            <div class="doc-icon">🔧</div>
+            <div class="doc-body">
+              <div class="doc-name">Architecture Overview</div>
+              <div class="doc-meta">Updated 3 days ago · Kemi A.</div>
+            </div>
+          </div>
+          <div class="doc-row">
+            <div class="doc-icon">🗄️</div>
+            <div class="doc-body">
+              <div class="doc-name">Database Schema v3</div>
+              <div class="doc-meta">Updated today · HNTR0X</div>
+            </div>
+            <span class="doc-badge" style="background:var(--green-bg);color:var(--green)">Latest</span>
+          </div>
+          <div class="doc-row">
+            <div class="doc-icon">🚀</div>
+            <div class="doc-body">
+              <div class="doc-name">Deploy Runbook</div>
+              <div class="doc-meta">Updated 4 days ago · Kemi A.</div>
+            </div>
+          </div>
+        </div>
+        <div class="os-card">
+          <div class="os-card-title">📁 Operations</div>
+          <div class="doc-row">
+            <div class="doc-icon">📜</div>
+            <div class="doc-body">
+              <div class="doc-name">Onboarding Guide</div>
+              <div class="doc-meta">Updated 1 week ago · Tolu F.</div>
+            </div>
+          </div>
+          <div class="doc-row">
+            <div class="doc-icon">📅</div>
+            <div class="doc-body">
+              <div class="doc-name">Sprint Retrospectives</div>
+              <div class="doc-meta">Updated 3 days ago · HNTR0X</div>
+            </div>
+          </div>
+        </div>
+        <div class="os-card">
+          <div class="os-card-title">📁 Sales & Growth</div>
+          <div class="doc-row">
+            <div class="doc-icon">💼</div>
+            <div class="doc-body">
+              <div class="doc-name">Pitch Deck v4</div>
+              <div class="doc-meta">Updated 1 week ago · Dayo M.</div>
+            </div>
+          </div>
+          <div class="doc-row">
+            <div class="doc-icon">📧</div>
+            <div class="doc-body">
+              <div class="doc-name">Cold Outreach Templates</div>
+              <div class="doc-meta">Updated 5 days ago · Dayo M.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MEMBERS ─────────────────────────────────── -->
+    <div class="os-pane" id="pane-members">
+      <div class="os-section-heading">
+        <div>
+          <div class="os-section-title">Team Members</div>
+          <div class="os-section-sub">5 members · 2 pending invites</div>
+        </div>
+        <button class="btn btn-teal">+ Invite Member</button>
+      </div>
+      <div class="os-member-row">
+        <div class="mem-avatar" style="background:linear-gradient(135deg,var(--teal),var(--purple))">N</div>
+        <div class="mem-info">
+          <div class="mem-name">HNTR0X (You)</div>
+          <div class="mem-handle">@hntr0x · djhunterd712@gmail.com</div>
+        </div>
+        <span class="mem-role role-founder">👑 Founder</span>
+        <div class="mem-tasks"><strong>12</strong>tasks this week</div>
+      </div>
+      <div class="os-member-row">
+        <div class="mem-avatar" style="background:var(--teal)">K</div>
+        <div class="mem-info">
+          <div class="mem-name">Kemi Adeyemi</div>
+          <div class="mem-handle">@kemi_a · kemi@hntrox.com</div>
+        </div>
+        <span class="mem-role role-lead">⚡ Lead Engineer</span>
+        <div class="mem-tasks"><strong>9</strong>tasks this week</div>
+      </div>
+      <div class="os-member-row">
+        <div class="mem-avatar" style="background:var(--coral)">D</div>
+        <div class="mem-info">
+          <div class="mem-name">Dayo Mustapha</div>
+          <div class="mem-handle">@dayo_m · dayo@hntrox.com</div>
+        </div>
+        <span class="mem-role role-lead">📈 Head of Sales</span>
+        <div class="mem-tasks"><strong>7</strong>tasks this week</div>
+      </div>
+      <div class="os-member-row">
+        <div class="mem-avatar" style="background:var(--blue-bg);color:var(--blue)">A</div>
+        <div class="mem-info">
+          <div class="mem-name">Adaeze Chioma</div>
+          <div class="mem-handle">@adaeze_c · adaeze@hntrox.com</div>
+        </div>
+        <span class="mem-role role-member">🎨 Product Designer</span>
+        <div class="mem-tasks"><strong>5</strong>tasks this week</div>
+      </div>
+      <div class="os-member-row">
+        <div class="mem-avatar" style="background:var(--amber-bg)">T</div>
+        <div class="mem-info">
+          <div class="mem-name">Tolu Fasanya</div>
+          <div class="mem-handle">@tolu_f · tolu@hntrox.com</div>
+        </div>
+        <span class="mem-role role-member">📣 Growth &amp; Marketing</span>
+        <div class="mem-tasks"><strong>6</strong>tasks this week</div>
+      </div>
+      <hr class="divider">
+      <div class="os-section-title" style="margin-bottom:10px;font-size:13px;color:var(--muted)">Pending Invites</div>
+      <div class="os-member-row" style="opacity:.6;border-style:dashed">
+        <div class="mem-avatar" style="background:var(--border2);color:var(--muted)">?</div>
+        <div class="mem-info">
+          <div class="mem-name">invite@venture.io</div>
+          <div class="mem-handle">Invited 3 days ago · Expires in 4 days</div>
+        </div>
+        <span class="mem-role role-viewer">Pending</span>
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px">Resend</button>
+      </div>
+    </div>
+
+    <!-- ── INSIGHTS ────────────────────────────────── -->
+    <div class="os-pane" id="pane-insights">
+      <div class="os-section-heading">
+        <div>
+          <div class="os-section-title">Insights & Analytics</div>
+          <div class="os-section-sub">Last 30 days · Sprint 7</div>
+        </div>
+        <button class="btn btn-ghost">Export CSV</button>
+      </div>
+      <div class="os-grid2" style="margin-bottom:16px">
+        <div class="os-card">
+          <div class="os-card-title">Task Velocity (last 4 sprints)</div>
+          <div class="chart-placeholder">
+            <div class="chart-bar" style="height:55%"></div>
+            <div class="chart-bar" style="height:70%"></div>
+            <div class="chart-bar" style="height:62%"></div>
+            <div class="chart-bar" style="height:83%;opacity:1"></div>
+            <div class="chart-bar purple" style="height:90%;opacity:.4"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:10px;color:var(--muted)">
+            <span>Sprint 4</span><span>Sprint 5</span><span>Sprint 6</span><span>Sprint 7</span><span>S8 fcst</span>
+          </div>
+        </div>
+        <div class="os-card">
+          <div class="os-card-title">Goal Progress by Team</div>
+          <div class="chart-placeholder">
+            <div class="chart-bar" style="height:72%"></div>
+            <div class="chart-bar coral" style="height:38%"></div>
+            <div class="chart-bar" style="height:91%;background:var(--blue)"></div>
+            <div class="chart-bar" style="height:55%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:10px;color:var(--muted)">
+            <span>Product</span><span>Sales</span><span>Eng</span><span>Ops</span>
+          </div>
+        </div>
+      </div>
+      <div class="os-card">
+        <div class="os-card-title">Team Performance</div>
+        <div class="insight-metric">
+          <div class="im-label"><div class="im-dot" style="background:var(--teal)"></div>Tasks completed (30d)</div>
+          <div><span class="im-val">128</span><span class="im-delta delta-up">↑ 14%</span></div>
+        </div>
+        <div class="insight-metric">
+          <div class="im-label"><div class="im-dot" style="background:var(--blue)"></div>Goals on track</div>
+          <div><span class="im-val">9 / 12</span><span class="im-delta delta-up">↑ 2</span></div>
+        </div>
+        <div class="insight-metric">
+          <div class="im-label"><div class="im-dot" style="background:var(--coral)"></div>Blockers this sprint</div>
+          <div><span class="im-val">3</span><span class="im-delta delta-dn">↑ 1</span></div>
+        </div>
+        <div class="insight-metric">
+          <div class="im-label"><div class="im-dot" style="background:var(--purple-light)"></div>Avg task cycle time</div>
+          <div><span class="im-val">2.8d</span><span class="im-delta delta-up">↓ 0.4d</span></div>
+        </div>
+        <div class="insight-metric">
+          <div class="im-label"><div class="im-dot" style="background:var(--amber)"></div>Docs created (30d)</div>
+          <div><span class="im-val">14</span><span class="im-delta delta-up">↑ 6</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CHAT ────────────────────────────────────── -->
+    <div class="os-pane" id="pane-chat" style="padding:0;height:100%">
+      <div class="chat-layout">
+        <div class="chat-sidebar">
+          <div class="chat-sidebar-title">Channels</div>
+          <div class="chat-channel on"><span class="chat-channel-hash">#</span> general</div>
+          <div class="chat-channel"><span class="chat-channel-hash">#</span> engineering<span class="chat-unread"></span></div>
+          <div class="chat-channel"><span class="chat-channel-hash">#</span> product</div>
+          <div class="chat-channel"><span class="chat-channel-hash">#</span> sales<span class="chat-unread"></span></div>
+          <div class="chat-channel"><span class="chat-channel-hash">#</span> design</div>
+          <div class="chat-channel"><span class="chat-channel-hash">#</span> random</div>
+          <div class="chat-sidebar-title" style="margin-top:12px">Direct</div>
+          <div class="chat-channel"><div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div> Kemi A.</div>
+          <div class="chat-channel"><div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div> Dayo M.</div>
+          <div class="chat-channel"><div style="width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0"></div> Adaeze C.</div>
+        </div>
+        <div class="chat-main">
+          <div class="chat-header">
+            <div style="font-size:16px">#</div>
+            <div>
+              <div class="chat-header-name">general</div>
+              <div class="chat-header-desc">5 members · Team-wide announcements and updates</div>
+            </div>
+          </div>
+          <div class="chat-messages">
+            <div class="chat-msg">
+              <div class="chat-msg-av" style="background:var(--teal)">K</div>
+              <div class="chat-msg-body">
+                <div class="chat-msg-meta"><span class="chat-msg-name">Kemi A.</span><span class="chat-msg-time">9:14 AM</span></div>
+                <div class="chat-msg-text">Morning team! Just pushed the fix for the connection pool issue. Can someone test org creation on staging before we deploy?</div>
+              </div>
+            </div>
+            <div class="chat-msg">
+              <div class="chat-msg-av" style="background:var(--purple)">N</div>
+              <div class="chat-msg-body">
+                <div class="chat-msg-meta"><span class="chat-msg-name">HNTR0X</span><span class="chat-msg-time">9:22 AM</span></div>
+                <div class="chat-msg-text">On it. Also checking the /api/org/debug endpoint — looks like the DB ping is back to healthy 🎉</div>
+              </div>
+            </div>
+            <div class="chat-msg">
+              <div class="chat-msg-av" style="background:var(--coral)">D</div>
+              <div class="chat-msg-body">
+                <div class="chat-msg-meta"><span class="chat-msg-name">Dayo M.</span><span class="chat-msg-time">9:35 AM</span></div>
+                <div class="chat-msg-text">Just got off a call with the Venture.io lead — they want a demo next Thursday. Can we have the org space fully polished by then?</div>
+              </div>
+            </div>
+            <div class="chat-msg">
+              <div class="chat-msg-av" style="background:var(--blue-bg);color:var(--blue)">A</div>
+              <div class="chat-msg-body">
+                <div class="chat-msg-meta"><span class="chat-msg-name">Adaeze C.</span><span class="chat-msg-time">9:41 AM</span></div>
+                <div class="chat-msg-text">I'll have the Figma handoff for the Insights tab ready by EOD today. The chart components just need the responsive breakpoints.</div>
+              </div>
+            </div>
+            <div class="chat-msg">
+              <div class="chat-msg-av" style="background:var(--amber-bg)">T</div>
+              <div class="chat-msg-body">
+                <div class="chat-msg-meta"><span class="chat-msg-name">Tolu F.</span><span class="chat-msg-time">10:05 AM</span></div>
+                <div class="chat-msg-text">Thursday works. I'll prep the demo script and make sure we have sample data loaded in the org space. Looks 🔥 btw Nonso</div>
+              </div>
+            </div>
+            <div class="chat-msg">
+              <div class="chat-msg-av" style="background:var(--purple)">N</div>
+              <div class="chat-msg-body">
+                <div class="chat-msg-meta"><span class="chat-msg-name">HNTR0X</span><span class="chat-msg-time">10:18 AM</span></div>
+                <div class="chat-msg-text">Thanks team. Org creation confirmed working on staging. Deploying to prod now. Let's ship 🚀</div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <div class="chat-input-box">
+              <input class="chat-input" placeholder="Message #general…" readonly>
+              <span style="font-size:18px;cursor:pointer;opacity:.5">📎</span>
+              <span style="font-size:18px;cursor:pointer;opacity:.5">😊</span>
+              <span style="font-size:18px;cursor:pointer;opacity:.5">⬆️</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FOUNDER ─────────────────────────────────── -->
+    <div class="os-pane" id="pane-founder">
+      <div class="os-section-heading">
+        <div>
+          <div class="os-section-title">Founder Dashboard</div>
+          <div class="os-section-sub">AI-powered view for HNTR0X · Updated 6 min ago</div>
+        </div>
+        <button class="btn btn-teal">↻ Refresh Briefing</button>
+      </div>
+
+      <div class="os-briefing-card">
+        <div class="brief-head">
+          <div class="brief-icon">🤖</div>
+          <div>
+            <div class="brief-title">Your AI Briefing — May 20, 2026</div>
+            <div class="brief-sub">SIVARR Intelligence · HNTROX Organization</div>
+          </div>
+        </div>
+        <div class="brief-body">
+          Good morning, Nonso. Here's what matters most today across your organization. Sprint 7 is at 83% with 6 days remaining — you're on pace to close it cleanly. The biggest risk is the 3 active blockers, particularly the Stripe webhook failure that's delaying your billing project and ARR goal.
+        </div>
+        <div class="brief-highlights">
+          <div class="brief-hi">
+            <div class="brief-hi-icon">🎯</div>
+            <div class="brief-hi-text"><strong>Revenue goal at risk (38%)</strong> — Dayo has 3 of 10 pilots converted. Venture.io demo Thursday is your best conversion lever. Consider pushing the 2-for-1 pilot offer.</div>
+          </div>
+          <div class="brief-hi">
+            <div class="brief-hi-icon">⚡</div>
+            <div class="brief-hi-text"><strong>DB fix ready to deploy</strong> — Kemi's connection pool fix is staged and tested. This unblocks org creation for all new users. High-priority deploy today.</div>
+          </div>
+          <div class="brief-hi">
+            <div class="brief-hi-icon">🚀</div>
+            <div class="brief-hi-text"><strong>Agent Marketplace at 91%</strong> — Ahead of schedule. Consider soft-launching to your beta waitlist this week to generate early traction before the public launch.</div>
+          </div>
+          <div class="brief-hi">
+            <div class="brief-hi-icon">👥</div>
+            <div class="brief-hi-text"><strong>1 pending invite</strong> — Venture.io contact hasn't accepted. Tolu can follow up directly before Thursday's demo to ensure access.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="os-section-heading" style="margin-top:4px">
+        <div class="os-section-title">Founder Tools</div>
+      </div>
+      <div class="founder-access-grid">
+        <div class="fa-card">
+          <div class="fa-icon">📊</div>
+          <div class="fa-title">Org Report</div>
+          <div class="fa-desc">Weekly progress PDF for board or investors</div>
+        </div>
+        <div class="fa-card">
+          <div class="fa-icon">💰</div>
+          <div class="fa-title">Revenue Tracker</div>
+          <div class="fa-desc">ARR, MRR, pipeline, and deal close dates</div>
+        </div>
+        <div class="fa-card">
+          <div class="fa-icon">🎯</div>
+          <div class="fa-title">OKR Editor</div>
+          <div class="fa-desc">Set, score, and cascade org-wide goals</div>
+        </div>
+        <div class="fa-card">
+          <div class="fa-icon">⚙️</div>
+          <div class="fa-title">Org Settings</div>
+          <div class="fa-desc">Members, roles, billing, integrations</div>
+        </div>
+        <div class="fa-card">
+          <div class="fa-icon">📣</div>
+          <div class="fa-title">Announcements</div>
+          <div class="fa-desc">Broadcast to the full organization</div>
+        </div>
+        <div class="fa-card">
+          <div class="fa-icon">🔒</div>
+          <div class="fa-title">Access Control</div>
+          <div class="fa-desc">Permissions, SSO, and audit logs</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /os-panes -->
+</main>
+</div><!-- /layout -->
+
+<script>
+const tabs = document.querySelectorAll('.os-tab');
+const panes = document.querySelectorAll('.os-pane');
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.remove('on'));
+    panes.forEach(p => p.classList.remove('on'));
+    tab.classList.add('on');
+    const pane = document.getElementById('pane-' + tab.dataset.pane);
+    if (pane) pane.classList.add('on');
+  });
+});
+</script>
+</body>
+</html>
