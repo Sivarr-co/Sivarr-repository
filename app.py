@@ -998,13 +998,24 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
+    import asyncio
     limiter._set_path(DATA_DIR / "rate_limits.json")
     if db.is_available():
-        ok = db.init_db()
+        # Railway starts the app and PostgreSQL simultaneously — retry a few times
+        # in case the DB isn't accepting connections yet at process start.
+        ok = False
+        for attempt in range(6):
+            ok = db.init_db()
+            if ok:
+                break
+            log.warning(f"DB init attempt {attempt + 1} failed — retrying in 3s…")
+            await asyncio.sleep(3)
         if ok:
             db.migrate_from_json(str(USERS_PATH), str(DATA_DIR))
             db.cleanup_db_sessions()
             log.info("Database ready")
+        else:
+            log.error("DB schema init failed after all retries — org features may be unavailable")
     else:
         log.info("Running on JSON file storage (no DATABASE_URL set)")
 
@@ -4156,6 +4167,7 @@ async def org_get(data: dict):
     sid, name = _resolve_token(data)
     if not db.is_available():
         raise HTTPException(503, "Database unavailable.")
+    db.init_db()  # idempotent — ensures tables exist if startup race occurred
     org = db.get_org_by_member(sid)
     if not org:
         return {"org": None}
@@ -4197,6 +4209,8 @@ async def org_create(data: dict, bg: BackgroundTasks):
     diag = db.db_test()
     if not diag.get("ping"):
         raise HTTPException(503, f"DB unavailable: {diag.get('error','unknown')}")
+    # Ensure schema exists — handles Railway startup race where DB wasn't ready at boot
+    db.init_db()
     existing = db.get_org_by_member(sid)
     if existing:
         raise HTTPException(409, "You already belong to an organization.")
