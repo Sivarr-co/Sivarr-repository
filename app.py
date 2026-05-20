@@ -4198,9 +4198,69 @@ async def org_get(data: dict):
 
 
 @app.get("/api/org/debug")
-async def org_debug():
-    """Diagnostic — returns DB connection state. Remove before public launch."""
-    return db.db_test()
+async def org_debug(token: str = ""):
+    """Full diagnostic: DB state, tables, schema, user row, org row."""
+    out = {}
+
+    # 1. Basic DB connectivity
+    out["db_test"] = db.db_test()
+
+    if not out["db_test"].get("ping"):
+        return out
+
+    conn = db._get_conn()
+    if not conn:
+        out["conn"] = "failed"
+        return out
+
+    try:
+        with conn.cursor() as cur:
+            # 2. Which tables exist in the public schema?
+            cur.execute("""
+                SELECT table_name FROM information_schema.tables
+                WHERE table_schema = 'public' ORDER BY table_name
+            """)
+            out["tables"] = [r[0] for r in cur.fetchall()]
+
+            # 3. Specifically check for org tables
+            org_tables = {"orgs", "org_members", "org_tasks", "org_projects",
+                          "org_docs", "org_messages", "org_goals", "org_founder"}
+            out["org_tables_present"] = [t for t in org_tables if t in out["tables"]]
+            out["org_tables_missing"] = [t for t in org_tables if t not in out["tables"]]
+
+        conn.rollback()
+
+        # 4. Try init_db and report result
+        try:
+            ok = db.init_db()
+            out["init_db_result"] = "success" if ok else "failed"
+        except Exception as e:
+            out["init_db_result"] = f"exception: {e}"
+
+        # 5. If token provided, check the user row and any existing org
+        if token:
+            entry = get_session_from_token(token)
+            if entry:
+                sid = entry["sid"]
+                out["session_sid"] = sid[:8] + "…"
+                with conn.cursor() as cur:
+                    cur.execute("SELECT sid, name, email FROM users WHERE sid=%s", (sid,))
+                    row = cur.fetchone()
+                    out["user_row_in_db"] = bool(row)
+                    if row:
+                        out["user_name"] = row[1]
+                conn.rollback()
+                org = db.get_org_by_member(sid)
+                out["existing_org"] = org["name"] if org else None
+            else:
+                out["session"] = "invalid or expired token"
+
+    except Exception as e:
+        out["error"] = str(e)
+    finally:
+        db._release(conn)
+
+    return out
 
 
 @app.post("/api/org/create")
