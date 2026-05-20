@@ -588,8 +588,14 @@ function _applyLoginData(r) {
 
   $('login-screen').style.display = 'none';
   $('dashboard').style.display    = 'block';
-  nav('home', null);
   document.body.classList.add('dashboard-active');
+  const _postCreate = sessionStorage.getItem('sivarr_post_create');
+  if (_postCreate) {
+    sessionStorage.removeItem('sivarr_post_create');
+    nav(_postCreate, null);
+  } else {
+    nav('home', null);
+  }
 
   const greet = $('welcome-greeting');
   if (greet) {
@@ -764,8 +770,10 @@ async function orgCreateSpace() {
   try {
     const r = await API('/api/org/create', { token, name });
     if (r.ok) {
-      toast(`${r.name} created!`);
-      await orgInit();
+      toast(`${r.name} workspace created! Loading…`);
+      // Reload so orgInit gets a clean state and finds the newly-created org
+      sessionStorage.setItem('sivarr_post_create', 'org');
+      setTimeout(() => location.reload(), 900);
     }
   } catch(e) { toast(e.message || 'Could not create space'); }
 }
@@ -7835,7 +7843,7 @@ async function orgInit() {
   const setup = $('org-setup-card');
   if (setup) setup.style.display = 'none';
   const content = $('org-main-content');
-  if (content) content.style.display = 'block';
+  if (content) content.style.cssText = 'display:flex;flex-direction:column;flex:1;overflow:hidden;';
 
   orgRenderOverview();
   orgRenderGoals();
@@ -7853,7 +7861,7 @@ function _orgShowSetup() {
   const setup = $('org-setup-card');
   if (setup) setup.style.display = 'flex';
   const content = $('org-main-content');
-  if (content) content.style.display = 'none';
+  if (content) content.style.cssText = 'display:none;';
 }
 
 function _orgMemberName(sid) {
