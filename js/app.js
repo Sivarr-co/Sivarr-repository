@@ -771,11 +771,19 @@ async function orgCreateSpace() {
     const r = await API('/api/org/create', { token, name });
     if (r.ok) {
       toast(`${r.name} workspace created! Loading…`);
-      // Reload so orgInit gets a clean state and finds the newly-created org
       sessionStorage.setItem('sivarr_post_create', 'org');
       setTimeout(() => location.reload(), 900);
     }
-  } catch(e) { toast(e.message || 'Could not create space'); }
+  } catch(e) {
+    if (e.status === 409) {
+      // Org already exists — just open it
+      toast('Loading your organization…');
+      sessionStorage.setItem('sivarr_post_create', 'org');
+      setTimeout(() => location.reload(), 600);
+      return;
+    }
+    toast(e.message || 'Could not create space');
+  }
 }
 
 async function resendVerificationEmail() {
@@ -7829,8 +7837,10 @@ async function orgInit() {
     ORG_GOALS    = r.goals    || [];
     ORG_FOUNDER  = r.founder  || {};
   } catch(e) {
-    if (e.status === 404 || e.status === 401 || e.status === 403) { _orgShowSetup(); return; }
-    toast('Could not load organization data.');
+    _orgShowSetup();
+    if (e.status !== 404 && e.status !== 401 && e.status !== 403) {
+      toast('Could not load organization — please refresh.');
+    }
     return;
   }
 

@@ -45,23 +45,44 @@ def _get_pool() -> pgpool.SimpleConnectionPool | None:
 
 
 def _get_conn():
+    global _pool
     p = _get_pool()
     if not p:
         return None
     try:
         conn = p.getconn()
-        # Verify connection is alive; reset pool on dead connections
-        if conn.closed:
-            try: p.putconn(conn, close=True)
-            except Exception: pass
-            global _pool
-            _pool = None
-            p2 = _get_pool()
-            return p2.getconn() if p2 else None
-        return conn
     except Exception as exc:
-        log.error(f"_get_conn failed: {exc}")
-        return None
+        log.error(f"_get_conn pool error: {exc} — resetting pool")
+        try: _pool.closeall()
+        except Exception: pass
+        _pool = None
+        p = _get_pool()
+        if not p:
+            return None
+        try:
+            conn = p.getconn()
+        except Exception as exc2:
+            log.error(f"_get_conn retry failed: {exc2}")
+            return None
+
+    # Verify the connection is actually alive with a lightweight ping
+    try:
+        conn.cursor().execute("SELECT 1")
+        conn.rollback()  # discard the implicit txn started by the ping
+    except Exception:
+        log.warning("_get_conn: stale connection detected — resetting pool")
+        try: p.putconn(conn, close=True)
+        except Exception: pass
+        _pool = None
+        p = _get_pool()
+        if not p:
+            return None
+        try:
+            return p.getconn()
+        except Exception as exc3:
+            log.error(f"_get_conn fresh pool failed: {exc3}")
+            return None
+    return conn
 
 
 def _release(conn):
@@ -69,9 +90,12 @@ def _release(conn):
     if p and conn:
         try:
             if not conn.closed:
-                conn.rollback()  # clear any aborted txn before returning to pool
+                conn.rollback()  # clear any open/aborted txn before returning
         except Exception:
-            pass
+            # Dead connection — remove from pool
+            try: p.putconn(conn, close=True)
+            except Exception: pass
+            return
         p.putconn(conn)
 
 
