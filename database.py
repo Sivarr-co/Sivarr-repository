@@ -67,6 +67,11 @@ def _get_conn():
 def _release(conn):
     p = _get_pool()
     if p and conn:
+        try:
+            if not conn.closed:
+                conn.rollback()  # clear any aborted txn before returning to pool
+        except Exception:
+            pass
         p.putconn(conn)
 
 

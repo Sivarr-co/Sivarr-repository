@@ -7835,7 +7835,7 @@ async function orgInit() {
   const setup = $('org-setup-card');
   if (setup) setup.style.display = 'none';
   const content = $('org-main-content');
-  if (content) content.style.display = '';
+  if (content) content.style.display = 'block';
 
   orgRenderOverview();
   orgRenderGoals();
