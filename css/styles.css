@@ -4287,6 +4287,16 @@ input, textarea, select { font-family: var(--font); }
 }
 .ag-empty-icon { font-size:2.4rem; margin-bottom:10px; }
 
+/* ── Launch / empty hero ─────────────────────────────────── */
+.ag-launch-hero {
+  text-align:center; padding:48px 24px 40px;
+  background:var(--card); border:1px dashed var(--border); border-radius:16px;
+  margin:4px 0 8px;
+}
+.ag-launch-icon { font-size:2.8rem; margin-bottom:14px; }
+.ag-launch-title { font-size:1.1rem; font-weight:700; color:var(--fg); margin-bottom:8px; }
+.ag-launch-desc { font-size:.84rem; color:var(--muted); max-width:360px; margin:0 auto 18px; line-height:1.55; }
+
 /* ── Success install toast ───────────────────────────────── */
 .ag-install-success {
   position:fixed; bottom:80px; left:50%; transform:translateX(-50%);

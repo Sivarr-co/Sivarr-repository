@@ -7821,7 +7821,7 @@ async function orgInit() {
     ORG_GOALS    = r.goals    || [];
     ORG_FOUNDER  = r.founder  || {};
   } catch(e) {
-    if (e.status === 404) { _orgShowSetup(); return; }
+    if (e.status === 404 || e.status === 401 || e.status === 403) { _orgShowSetup(); return; }
     toast('Could not load organization data.');
     return;
   }
@@ -10066,21 +10066,26 @@ async function agRenderMarketplace() {
       <!-- Featured banner -->
       ${await agFeaturedBannerHTML()}
 
-      <!-- Template grid -->
+      <!-- Template grid / launch hero -->
+      ${filtered.length ? `
       <div class="ag-section-hd">
         <div class="ag-section-title">🔥 Trending this week</div>
-        <span class="ag-section-link" onclick="agNav('directory');agRenderDirectory()">
-          All agents →
-        </span>
+        <span class="ag-section-link" onclick="agNav('directory');agRenderDirectory()">All agents →</span>
       </div>
       <div class="ag-grid" id="ag-grid">
-        ${filtered.length
-          ? filtered.map(t => agTemplateCardHTML(t)).join('')
-          : '<div class="ag-empty"><div class="ag-empty-icon">🔍</div><p>No templates found.</p></div>'}
-      </div>
+        ${filtered.map(t => agTemplateCardHTML(t)).join('')}
+      </div>` : `
+      <div class="ag-launch-hero">
+        <div class="ag-launch-icon">🚀</div>
+        <div class="ag-launch-title">Marketplace is warming up</div>
+        <div class="ag-launch-desc">Be among the first creators to publish templates on SIVARR and get in front of early users.</div>
+        <button class="ag-tb-btn ag-tb-btn--primary" style="margin-top:8px" onclick="agNav('apply');agRenderApply()">
+          <i class="ti ti-rocket"></i> Become a Creator
+        </button>
+      </div>`}
 
       <!-- Top agents section -->
-      <div class="ag-section-hd" style="margin-top:8px">
+      <div class="ag-section-hd" style="margin-top:${filtered.length ? 8 : 32}px">
         <div class="ag-section-title">🌟 Top agents</div>
         <span class="ag-section-link" onclick="agNav('directory');agRenderDirectory()">See all →</span>
       </div>
@@ -10096,7 +10101,10 @@ async function agRenderMarketplace() {
     const cont = $('ag-agents-preview');
     if (!cont) return;
     if (!_ag.agents.length) {
-      cont.innerHTML = '<p style="font-size:.8rem;color:var(--muted);padding:12px 0">No agents yet — be the first to apply!</p>';
+      cont.innerHTML = `<div class="ag-empty" style="padding:24px 20px">
+        <div class="ag-empty-icon">👋</div>
+        <p>No agents yet — <span style="color:var(--accent);cursor:pointer;font-weight:600" onclick="agNav('apply');agRenderApply()">be the first to join</span>.</p>
+      </div>`;
       return;
     }
     cont.innerHTML = _ag.agents.slice(0,5).map(a => agAgentRowHTML(a)).join('');
@@ -10598,7 +10606,14 @@ async function agRenderDirectory() {
       <div id="ag-dir-list">
         ${_ag.agents.length
           ? _ag.agents.map(a => agAgentRowHTML(a)).join('')
-          : '<div class="ag-empty"><div class="ag-empty-icon">🌐</div><p>No agents yet.<br>Be the first — <span style="color:var(--accent);cursor:pointer" onclick="agNav(\'apply\');agRenderApply()">apply here</span>.</p></div>'}
+          : `<div class="ag-launch-hero" style="margin-top:24px">
+              <div class="ag-launch-icon">🌐</div>
+              <div class="ag-launch-title">No agents yet</div>
+              <div class="ag-launch-desc">SIVARR Agents is in early access. Apply now and get prime visibility as one of the founding creators.</div>
+              <button class="ag-tb-btn ag-tb-btn--primary" style="margin-top:8px" onclick="agNav('apply');agRenderApply()">
+                <i class="ti ti-user-plus"></i> Apply to become an agent
+              </button>
+            </div>`}
       </div>
     </div>`;
 }

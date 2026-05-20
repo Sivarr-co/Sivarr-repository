@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import pathlib
+import traceback
 
 import psycopg2
 import psycopg2.extras
@@ -45,7 +46,22 @@ def _get_pool() -> pgpool.SimpleConnectionPool | None:
 
 def _get_conn():
     p = _get_pool()
-    return p.getconn() if p else None
+    if not p:
+        return None
+    try:
+        conn = p.getconn()
+        # Verify connection is alive; reset pool on dead connections
+        if conn.closed:
+            try: p.putconn(conn, close=True)
+            except Exception: pass
+            global _pool
+            _pool = None
+            p2 = _get_pool()
+            return p2.getconn() if p2 else None
+        return conn
+    except Exception as exc:
+        log.error(f"_get_conn failed: {exc}")
+        return None
 
 
 def _release(conn):
@@ -1726,7 +1742,9 @@ def create_org(owner_sid: str, name: str, org_id: str) -> bool:
         conn.commit()
         return True
     except Exception as exc:
-        log.error(f"create_org: {exc}"); conn.rollback(); return False
+        log.error(f"create_org: {exc}\n{traceback.format_exc()}")
+        conn.rollback()
+        return False
     finally:
         _release(conn)
 
