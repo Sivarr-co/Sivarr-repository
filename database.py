@@ -50,53 +50,42 @@ def _get_conn():
     if not p:
         return None
     try:
-        conn = p.getconn()
+        return p.getconn()
     except Exception as exc:
-        log.error(f"_get_conn pool error: {exc} — resetting pool")
-        try: _pool.closeall()
-        except Exception: pass
-        _pool = None
-        p = _get_pool()
-        if not p:
-            return None
-        try:
-            conn = p.getconn()
-        except Exception as exc2:
-            log.error(f"_get_conn retry failed: {exc2}")
-            return None
-
-    # Verify the connection is actually alive with a lightweight ping
-    try:
-        conn.cursor().execute("SELECT 1")
-        conn.rollback()  # discard the implicit txn started by the ping
-    except Exception:
-        log.warning("_get_conn: stale connection detected — resetting pool")
-        try: p.putconn(conn, close=True)
-        except Exception: pass
-        _pool = None
-        p = _get_pool()
-        if not p:
-            return None
-        try:
-            return p.getconn()
-        except Exception as exc3:
-            log.error(f"_get_conn fresh pool failed: {exc3}")
-            return None
-    return conn
+        log.error(f"_get_conn: {exc}")
+        return None
 
 
 def _release(conn):
     p = _get_pool()
-    if p and conn:
-        try:
-            if not conn.closed:
-                conn.rollback()  # clear any open/aborted txn before returning
-        except Exception:
-            # Dead connection — remove from pool
-            try: p.putconn(conn, close=True)
-            except Exception: pass
-            return
-        p.putconn(conn)
+    if not p or not conn:
+        return
+    try:
+        if not conn.closed:
+            conn.rollback()
+    except Exception:
+        try: p.putconn(conn, close=True)
+        except Exception: pass
+        return
+    p.putconn(conn)
+
+
+def db_test() -> dict:
+    """Return diagnostics: pool state + a live SELECT 1."""
+    result = {"pool": _pool is not None, "db_url_set": bool(_DATABASE_URL), "ping": False, "error": None}
+    conn = _get_conn()
+    if not conn:
+        result["error"] = "could not get connection from pool"
+        return result
+    try:
+        conn.cursor().execute("SELECT 1")
+        conn.rollback()
+        result["ping"] = True
+    except Exception as exc:
+        result["error"] = str(exc)
+    finally:
+        _release(conn)
+    return result
 
 
 # ── Schema ────────────────────────────────────────────────────────

@@ -4185,11 +4185,18 @@ async def org_get(data: dict):
     }
 
 
+@app.get("/api/org/debug")
+async def org_debug():
+    """Diagnostic — returns DB connection state. Remove before public launch."""
+    return db.db_test()
+
+
 @app.post("/api/org/create")
 async def org_create(data: dict, bg: BackgroundTasks):
     sid, uname = _resolve_token(data)
-    if not db.is_available():
-        raise HTTPException(503, "Database unavailable.")
+    diag = db.db_test()
+    if not diag.get("ping"):
+        raise HTTPException(503, f"DB unavailable: {diag.get('error','unknown')}")
     existing = db.get_org_by_member(sid)
     if existing:
         raise HTTPException(409, "You already belong to an organization.")
@@ -4199,7 +4206,7 @@ async def org_create(data: dict, bg: BackgroundTasks):
     org_id = uuid.uuid4().hex[:20]
     ok = db.create_org(sid, org_name, org_id)
     if not ok:
-        raise HTTPException(500, "Failed to create organization.")
+        raise HTTPException(500, "Failed to create organization. Check server logs.")
     log.info(f"Org created: {org_name} ({org_id}) by {sid}")
     return {"ok": True, "org_id": org_id, "name": org_name}
 
