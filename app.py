@@ -4163,6 +4163,8 @@ async def org_get(data: dict):
     tasks    = db.get_org_tasks(org["id"])
     projects = db.get_org_projects(org["id"])
     docs     = db.get_org_docs(org["id"])
+    goals    = db.get_org_goals(org["id"])
+    founder  = db.get_org_founder(org["id"])
     return {
         "org": {
             "id":          org["id"],
@@ -4178,6 +4180,8 @@ async def org_get(data: dict):
         "tasks":    tasks,
         "projects": projects,
         "docs":     docs,
+        "goals":    goals,
+        "founder":  founder,
     }
 
 
@@ -4413,6 +4417,174 @@ async def org_message_send(data: dict):
     ok = db.send_org_message(org["id"], channel, sid, uname, content)
     if not ok: raise HTTPException(500, "Failed to send message.")
     return {"ok": True}
+
+
+# ── Goals & OKRs ──────────────────────────────────────────────────────────────
+
+@app.post("/api/org/goals")
+async def org_goals_list(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    goals = db.get_org_goals(org["id"])
+    return {"goals": goals}
+
+
+@app.post("/api/org/goals/create")
+async def org_goal_create(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    title = sanitize_text(str(data.get("title", "")).strip(), 200)
+    if not title: raise HTTPException(400, "Goal title required.")
+    goal_id = f"og_{sid[:8]}_{int(__import__('time').time()*1000)}"
+    db.create_org_goal(
+        org_id=org["id"], goal_id=goal_id, title=title,
+        created_by=sid,
+        description=sanitize_text(str(data.get("description", "")), 500),
+        goal_type=sanitize_text(str(data.get("type", "okr")), 20),
+        owner_sid=sid,
+        due_date=data.get("due_date") or None,
+    )
+    return {"ok": True, "goal_id": goal_id}
+
+
+@app.post("/api/org/goals/update")
+async def org_goal_update(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    goal_id = str(data.get("goal_id", ""))
+    if not goal_id: raise HTTPException(400, "goal_id required.")
+    db.update_org_goal(
+        goal_id=goal_id,
+        title=sanitize_text(str(data["title"]), 200) if "title" in data else None,
+        description=sanitize_text(str(data["description"]), 500) if "description" in data else None,
+        status=data.get("status"),
+        progress=int(data["progress"]) if "progress" in data else None,
+        due_date=data.get("due_date"),
+    )
+    return {"ok": True}
+
+
+@app.post("/api/org/goals/delete")
+async def org_goal_delete(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    goal_id = str(data.get("goal_id", ""))
+    if not goal_id: raise HTTPException(400, "goal_id required.")
+    db.delete_org_goal(goal_id)
+    return {"ok": True}
+
+
+@app.post("/api/org/goals/kr/create")
+async def org_kr_create(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    goal_id = str(data.get("goal_id", ""))
+    title   = sanitize_text(str(data.get("title", "")).strip(), 200)
+    if not goal_id or not title: raise HTTPException(400, "goal_id and title required.")
+    kr_id = f"kr_{sid[:8]}_{int(__import__('time').time()*1000)}"
+    db.create_org_key_result(
+        kr_id=kr_id, goal_id=goal_id, org_id=org["id"], title=title,
+        target_value=float(data.get("target_value", 100)),
+        unit=sanitize_text(str(data.get("unit", "%")), 20),
+    )
+    return {"ok": True, "kr_id": kr_id}
+
+
+@app.post("/api/org/goals/kr/update")
+async def org_kr_update(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    kr_id = str(data.get("kr_id", ""))
+    if not kr_id: raise HTTPException(400, "kr_id required.")
+    db.update_org_key_result(
+        kr_id=kr_id,
+        current_value=float(data["current_value"]) if "current_value" in data else None,
+        status=data.get("status"),
+    )
+    return {"ok": True}
+
+
+# ── Founder Mode ──────────────────────────────────────────────────────────────
+
+@app.post("/api/org/founder/get")
+async def org_founder_get(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    founder = db.get_org_founder(org["id"])
+    return {"founder": founder}
+
+
+@app.post("/api/org/founder/save")
+async def org_founder_save(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    if org.get("member_role") not in ("owner", "admin"):
+        raise HTTPException(403, "Only owners and admins can edit founder data.")
+    db.save_org_founder(
+        org_id=org["id"],
+        burn_rate=float(data.get("burn_rate", 0)),
+        cash_balance=float(data.get("cash_balance", 0)),
+        mrr=float(data.get("mrr", 0)),
+        arr=float(data.get("arr", 0)),
+        funding_stage=sanitize_text(str(data.get("funding_stage", "pre-seed")), 50),
+        total_raised=float(data.get("total_raised", 0)),
+        investors=data.get("investors", []),
+        milestones=data.get("milestones", []),
+    )
+    return {"ok": True}
+
+
+# ── SIVA AI Org Briefing ───────────────────────────────────────────────────────
+
+@app.post("/api/org/ai/briefing")
+async def org_ai_briefing(data: dict):
+    sid, uname = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+
+    tasks    = db.get_org_tasks(org["id"])
+    members  = db.get_org_members(org["id"])
+    projects = db.get_org_projects(org["id"])
+    goals    = db.get_org_goals(org["id"])
+    founder  = db.get_org_founder(org["id"])
+
+    from datetime import date
+    today = date.today().isoformat()
+    open_tasks   = [t for t in tasks if t["status"] != "done"]
+    done_tasks   = [t for t in tasks if t["status"] == "done"]
+    overdue      = [t for t in open_tasks if t.get("due_date") and str(t["due_date"]) < today]
+    high_pri     = [t for t in open_tasks if t.get("priority") == "high"]
+    active_goals = [g for g in goals if g.get("status") == "active"]
+
+    context = f"""You are SIVARR, the AI operating intelligence for {org['name']}.
+Generate a concise executive briefing for {uname} (role: {org.get('member_role','member')}).
+
+Organization snapshot ({today}):
+- Members: {len(members)}
+- Open tasks: {len(open_tasks)} | Done: {len(done_tasks)} | Overdue: {len(overdue)} | High priority: {len(high_pri)}
+- Projects: {len(projects)} active
+- Goals: {len(active_goals)} active OKRs
+- MRR: ${founder.get('mrr', 0):,.0f} | Burn rate: ${founder.get('burn_rate', 0):,.0f}/mo | Runway: {round(founder['cash_balance']/founder['burn_rate']) if founder.get('burn_rate',0) > 0 and founder.get('cash_balance',0) > 0 else 'N/A'} months
+
+Top overdue tasks: {', '.join([t['title'] for t in overdue[:3]]) or 'None'}
+High priority: {', '.join([t['title'] for t in high_pri[:3]]) or 'None'}
+
+Write a 3–5 sentence executive briefing. Be direct and actionable. Highlight risks, wins, and the #1 priority today. No bullet points — flowing prose."""
+
+    sessions = get_sessions(sid)
+    briefing = gemini_ask(sessions.get("main", []), context)
+    return {"briefing": briefing}
 
 
 @app.post("/api/feedback")

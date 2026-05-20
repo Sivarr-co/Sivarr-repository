@@ -7792,6 +7792,8 @@ let ORG_MEMBERS  = [];
 let ORG_TASKS    = [];
 let ORG_PROJECTS = [];
 let ORG_DOCS     = [];
+let ORG_GOALS    = [];
+let ORG_FOUNDER  = {};
 
 const ORG_KANBAN_COLS = ['todo','inprogress','review','done'];
 const ORG_COL_LABELS  = { todo:'To Do', inprogress:'In Progress', review:'Review', done:'Done' };
@@ -7811,11 +7813,13 @@ async function orgInit() {
       _orgShowSetup();
       return;
     }
-    ORG      = r.org;
+    ORG          = r.org;
     ORG_MEMBERS  = r.members  || [];
     ORG_TASKS    = r.tasks    || [];
     ORG_PROJECTS = r.projects || [];
     ORG_DOCS     = r.docs     || [];
+    ORG_GOALS    = r.goals    || [];
+    ORG_FOUNDER  = r.founder  || {};
   } catch(e) {
     if (e.status === 404) { _orgShowSetup(); return; }
     toast('Could not load organization data.');
@@ -7834,12 +7838,15 @@ async function orgInit() {
   if (content) content.style.display = '';
 
   orgRenderOverview();
+  orgRenderGoals();
   orgRenderKanban();
   orgRenderProjects();
   orgRenderDocs();
   orgRenderMembers();
   orgRenderInsights();
   orgChatRender();
+  founderRender();
+  _founderTabVisibility();
 }
 
 function _orgShowSetup() {
@@ -7859,18 +7866,22 @@ async function _orgRefresh() {
   if (!token || !ORG) return;
   try {
     const r = await API('/api/org/get', { token });
-    ORG         = r.org;
+    ORG          = r.org;
     ORG_MEMBERS  = r.members  || [];
     ORG_TASKS    = r.tasks    || [];
     ORG_PROJECTS = r.projects || [];
     ORG_DOCS     = r.docs     || [];
+    ORG_GOALS    = r.goals    || [];
+    ORG_FOUNDER  = r.founder  || {};
   } catch(e) { return; }
   orgRenderOverview();
+  orgRenderGoals();
   orgRenderKanban();
   orgRenderProjects();
   orgRenderDocs();
   orgRenderMembers();
   orgRenderInsights();
+  founderRender();
 }
 
 function orgTab(tab, btn) {
@@ -7882,7 +7893,9 @@ function orgTab(tab, btn) {
   else {
     const b = $('os-tab-' + tab); if (b) b.classList.add('on');
   }
-  if (tab === 'chat') orgChatRender();
+  if (tab === 'chat')    orgChatRender();
+  if (tab === 'goals')   orgRenderGoals();
+  if (tab === 'founder') founderRender();
 }
 
 function orgRenderOverview() {
@@ -7901,6 +7914,22 @@ function orgRenderOverview() {
   if (ovEl) ovEl.style.color = overdue ? 'var(--coral)' : 'var(--muted)';
   const invEl = $('os-invite-lbl');
   if (invEl) invEl.textContent = ORG_MEMBERS.length <= 1 ? 'Just you — invite your team' : '';
+  const gcEl = $('os-goal-count');
+  if (gcEl) gcEl.textContent = ORG_GOALS.filter(g => g.status === 'active').length;
+
+  // Goals mini
+  const gm = $('os-goals-mini');
+  if (gm) {
+    const active = ORG_GOALS.filter(g => g.status === 'active').slice(0,3);
+    gm.innerHTML = active.length
+      ? active.map(g => `
+        <div class="os-task-card" onclick="orgTab('goals',null)">
+          <div class="os-task-title">${escHtml(g.title)}</div>
+          <div class="os-goal-bar-wrap"><div class="os-goal-bar-fill" style="width:${g.progress||0}%"></div></div>
+          <div class="os-task-meta"><span>${g.progress||0}%</span>${g.due_date?`<span>${g.due_date}</span>`:''}</div>
+        </div>`).join('')
+      : '<div class="os-empty">No active goals. <span class="os-card-link" onclick="orgTab(\'goals\',null)">Add one →</span></div>';
+  }
 
   // Priority tasks
   const pt = $('os-priority-tasks');
@@ -8065,6 +8094,300 @@ function orgRenderInsights() {
       </div>`;
     }
   }
+}
+
+// ══════════════════════════════════════════════════
+//  S3 — GOALS & OKRs
+// ══════════════════════════════════════════════════
+
+function orgRenderGoals() {
+  const list = $('os-goals-list');
+  if (!list) return;
+  if (!ORG_GOALS.length) {
+    list.innerHTML = '<div class="os-empty" style="padding:40px 0">No goals yet — create your first OKR to connect your team\'s work to strategy.</div>';
+    return;
+  }
+  const statusColor = { active:'var(--teal)', achieved:'var(--green)', at_risk:'var(--coral)', paused:'var(--muted)' };
+  list.innerHTML = ORG_GOALS.map(g => {
+    const krs = g.key_results || [];
+    const pct = g.progress || 0;
+    const sc  = statusColor[g.status] || 'var(--muted)';
+    return `
+    <div class="os-goal-card">
+      <div class="os-goal-head">
+        <div class="os-goal-dot" style="background:${sc}"></div>
+        <div class="os-goal-title">${escHtml(g.title)}</div>
+        <span class="os-goal-badge" style="background:${sc}22;color:${sc}">${escHtml(g.type||'okr')}</span>
+        <span class="os-goal-pct">${pct}%</span>
+        <button class="os-goal-menu" onclick="orgEditGoal('${g.id}')"><i class="ti ti-pencil"></i></button>
+        <button class="os-goal-menu" onclick="orgDeleteGoal('${g.id}')"><i class="ti ti-trash"></i></button>
+      </div>
+      <div class="os-goal-bar-wrap"><div class="os-goal-bar-fill" style="width:${pct}%"></div></div>
+      ${g.description ? `<div class="os-goal-desc">${escHtml(g.description)}</div>` : ''}
+      <div class="os-kr-list">
+        ${krs.map(kr => {
+          const kpct = kr.target_value > 0 ? Math.min(100, Math.round((kr.current_value/kr.target_value)*100)) : 0;
+          return `
+          <div class="os-kr-row">
+            <div class="os-kr-title">${escHtml(kr.title)}</div>
+            <div class="os-kr-progress">
+              <div class="os-kr-bar"><div class="os-kr-fill" style="width:${kpct}%"></div></div>
+              <span class="os-kr-val">${kr.current_value}/${kr.target_value}${escHtml(kr.unit)}</span>
+            </div>
+            <button class="os-goal-menu" onclick="orgUpdateKR('${kr.id}','${kr.current_value}','${kr.target_value}','${escHtml(kr.unit)}')"><i class="ti ti-edit"></i></button>
+          </div>`;
+        }).join('')}
+        <button class="os-kr-add" onclick="orgAddKR('${g.id}')"><i class="ti ti-plus"></i> Add key result</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function orgNewGoal() {
+  if (!ORG) return;
+  const d = await siModal.form('New Goal', [
+    { id:'title',    label:'Goal title',      placeholder:'e.g. Reach 100 paying customers', required:true },
+    { id:'type',     label:'Type',            type:'select', options:[{value:'okr',label:'OKR'},{value:'quarterly',label:'Quarterly'},{value:'annual',label:'Annual'},{value:'company',label:'Company Vision'}] },
+    { id:'due_date', label:'Target date',     type:'date' },
+    { id:'desc',     label:'Description',     placeholder:'What does success look like?' },
+  ], { confirmLabel:'Create Goal' });
+  if (!d || !d.title) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/goals/create', { token, title:d.title, type:d.type||'okr', due_date:d.due_date||null, description:d.desc||'' });
+    await _orgRefresh();
+    toast('Goal created');
+  } catch(e) { toast(e.message || 'Could not create goal'); }
+}
+
+async function orgEditGoal(goalId) {
+  const g = ORG_GOALS.find(x => x.id === goalId);
+  if (!g) return;
+  const d = await siModal.form('Edit Goal', [
+    { id:'title',    label:'Goal title',  required:true, default:g.title },
+    { id:'progress', label:'Progress %',  type:'number',  default:String(g.progress||0) },
+    { id:'status',   label:'Status',      type:'select', options:[{value:'active',label:'Active'},{value:'achieved',label:'Achieved'},{value:'at_risk',label:'At Risk'},{value:'paused',label:'Paused'}], default:g.status||'active' },
+    { id:'due_date', label:'Target date', type:'date',   default:g.due_date||'' },
+  ], { confirmLabel:'Save' });
+  if (!d || !d.title) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/goals/update', { token, goal_id:goalId, title:d.title, progress:parseInt(d.progress)||0, status:d.status, due_date:d.due_date||null });
+    await _orgRefresh();
+    toast('Goal updated');
+  } catch(e) { toast(e.message || 'Could not update goal'); }
+}
+
+async function orgDeleteGoal(goalId) {
+  if (!await siModal.confirm('Delete this goal and all its key results?', { danger:true })) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/goals/delete', { token, goal_id:goalId });
+    await _orgRefresh();
+    toast('Goal deleted');
+  } catch(e) { toast(e.message || 'Could not delete goal'); }
+}
+
+async function orgAddKR(goalId) {
+  const d = await siModal.form('Add Key Result', [
+    { id:'title',  label:'Key result',   placeholder:'e.g. Sign 50 beta users', required:true },
+    { id:'target', label:'Target value', type:'number', default:'100' },
+    { id:'unit',   label:'Unit',         placeholder:'%, users, $, etc.', default:'%' },
+  ], { confirmLabel:'Add' });
+  if (!d || !d.title) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/goals/kr/create', { token, goal_id:goalId, title:d.title, target_value:parseFloat(d.target)||100, unit:d.unit||'%' });
+    await _orgRefresh();
+    toast('Key result added');
+  } catch(e) { toast(e.message || 'Could not add key result'); }
+}
+
+async function orgUpdateKR(krId, current, target, unit) {
+  const d = await siModal.form('Update Key Result', [
+    { id:'current', label:`Current value (target: ${target}${unit})`, type:'number', default:String(current) },
+  ], { confirmLabel:'Update' });
+  if (!d) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/goals/kr/update', { token, kr_id:krId, current_value:parseFloat(d.current)||0 });
+    await _orgRefresh();
+    toast('Progress updated');
+  } catch(e) { toast(e.message || 'Could not update'); }
+}
+
+// ══════════════════════════════════════════════════
+//  S8 — SIVARR AI EXECUTIVE BRIEFING
+// ══════════════════════════════════════════════════
+
+async function orgGetBriefing() {
+  if (!ORG) return;
+  const btn  = $('os-briefing-btn');
+  const text = $('os-briefing-text');
+  if (btn)  { btn.textContent = 'Generating…'; btn.disabled = true; }
+  if (text) text.textContent = 'SIVARR is analysing your organisation…';
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await API('/api/org/ai/briefing', { token });
+    if (text) text.textContent = r.briefing || 'No briefing generated.';
+    if (btn)  { btn.textContent = 'Refresh →'; btn.disabled = false; }
+  } catch(e) {
+    if (text) text.textContent = 'Could not generate briefing — try again shortly.';
+    if (btn)  { btn.textContent = 'Generate →'; btn.disabled = false; }
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  S23 — FOUNDER MODE
+// ══════════════════════════════════════════════════
+
+function _founderTabVisibility() {
+  const tab = $('os-tab-founder');
+  if (!tab || !ORG) return;
+  const role = ORG.member_role || '';
+  tab.style.display = (role === 'owner' || role === 'admin') ? '' : 'none';
+}
+
+function founderRender() {
+  const f = ORG_FOUNDER || {};
+  const burn = parseFloat(f.burn_rate) || 0;
+  const cash = parseFloat(f.cash_balance) || 0;
+  const mrr  = parseFloat(f.mrr) || 0;
+  const raised = parseFloat(f.total_raised) || 0;
+  const runway = burn > 0 ? Math.round(cash / burn) : null;
+
+  const fmt = v => v >= 1000000 ? `$${(v/1000000).toFixed(1)}M` : v >= 1000 ? `$${(v/1000).toFixed(0)}K` : `$${v.toLocaleString()}`;
+
+  const setV = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  setV('fd-burn',   fmt(burn));
+  setV('fd-runway', runway !== null ? `${runway}` : '—');
+  setV('fd-mrr',    fmt(mrr));
+  setV('fd-raised', fmt(raised));
+  setV('fd-stage',  f.funding_stage || 'pre-seed');
+
+  // Populate inputs
+  const s = (id, v) => { const el = $(id); if (el) el.value = v || ''; };
+  s('fd-inp-stage',  f.funding_stage || 'pre-seed');
+  s('fd-inp-cash',   cash || '');
+  s('fd-inp-burn',   burn || '');
+  s('fd-inp-mrr',    mrr || '');
+  s('fd-inp-raised', raised || '');
+
+  // Milestones
+  const ml = $('fd-milestones-list');
+  const milestones = Array.isArray(f.milestones) ? f.milestones : [];
+  if (ml) {
+    ml.innerHTML = milestones.length
+      ? milestones.map((m, i) => `
+        <div class="os-task-card" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" ${m.done?'checked':''} onchange="founderToggleMilestone(${i})" style="accent-color:var(--teal)">
+          <span style="flex:1;${m.done?'text-decoration:line-through;color:var(--muted)':''}">${escHtml(m.text)}</span>
+          <button class="os-goal-menu" onclick="founderRemoveMilestone(${i})"><i class="ti ti-x"></i></button>
+        </div>`).join('')
+      : '<div class="os-empty">No milestones yet.</div>';
+  }
+
+  // Investors
+  const il = $('fd-investors-list');
+  const investors = Array.isArray(f.investors) ? f.investors : [];
+  if (il) {
+    const stages = { contacted:'var(--muted)', interested:'var(--amber)', committed:'var(--teal)', passed:'var(--coral)' };
+    il.innerHTML = investors.length
+      ? `<div class="fd-inv-grid">${investors.map((inv, i) => `
+        <div class="fd-inv-card">
+          <div class="fd-inv-av">${(inv.name||'?')[0].toUpperCase()}</div>
+          <div style="flex:1">
+            <div class="fd-inv-name">${escHtml(inv.name)}</div>
+            <div class="fd-inv-firm">${escHtml(inv.firm||'')}</div>
+          </div>
+          <span class="fd-inv-badge" style="background:${stages[inv.stage]||'var(--muted)'}22;color:${stages[inv.stage]||'var(--muted)'}">${escHtml(inv.stage||'contacted')}</span>
+          <button class="os-goal-menu" onclick="founderRemoveInvestor(${i})"><i class="ti ti-x"></i></button>
+        </div>`).join('')}</div>`
+      : '<div class="os-empty">No investors tracked yet.</div>';
+  }
+}
+
+async function founderSave() {
+  if (!ORG) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  const f = ORG_FOUNDER || {};
+  try {
+    await API('/api/org/founder/save', {
+      token,
+      funding_stage: $('fd-inp-stage')?.value || 'pre-seed',
+      cash_balance:  parseFloat($('fd-inp-cash')?.value) || 0,
+      burn_rate:     parseFloat($('fd-inp-burn')?.value) || 0,
+      mrr:           parseFloat($('fd-inp-mrr')?.value)  || 0,
+      total_raised:  parseFloat($('fd-inp-raised')?.value) || 0,
+      arr:           (parseFloat($('fd-inp-mrr')?.value) || 0) * 12,
+      investors:     Array.isArray(f.investors) ? f.investors : [],
+      milestones:    Array.isArray(f.milestones) ? f.milestones : [],
+    });
+    await _orgRefresh();
+    toast('Founder data saved');
+  } catch(e) { toast(e.message || 'Could not save'); }
+}
+
+async function founderAddMilestone() {
+  const text = await siModal.input('New Milestone', 'e.g. Launch beta, Reach 100 users', '', { confirmLabel:'Add' });
+  if (!text) return;
+  const f = ORG_FOUNDER || {};
+  const milestones = Array.isArray(f.milestones) ? [...f.milestones] : [];
+  milestones.push({ text, done: false });
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/founder/save', { token, ...f, milestones, arr: (f.mrr||0)*12 });
+    await _orgRefresh();
+  } catch(e) { toast(e.message || 'Could not save'); }
+}
+
+async function founderToggleMilestone(idx) {
+  const f = ORG_FOUNDER || {};
+  const milestones = Array.isArray(f.milestones) ? [...f.milestones] : [];
+  if (milestones[idx]) milestones[idx].done = !milestones[idx].done;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/founder/save', { token, ...f, milestones, arr: (f.mrr||0)*12 });
+    await _orgRefresh();
+  } catch(e) { toast(e.message || 'Could not save'); }
+}
+
+async function founderRemoveMilestone(idx) {
+  const f = ORG_FOUNDER || {};
+  const milestones = (Array.isArray(f.milestones) ? [...f.milestones] : []).filter((_,i) => i !== idx);
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/founder/save', { token, ...f, milestones, arr: (f.mrr||0)*12 });
+    await _orgRefresh();
+  } catch(e) { toast(e.message || 'Could not save'); }
+}
+
+async function founderAddInvestor() {
+  const d = await siModal.form('Add Investor', [
+    { id:'name',  label:'Name',        placeholder:'e.g. Adeola Bello', required:true },
+    { id:'firm',  label:'Firm',        placeholder:'e.g. Ventures Africa' },
+    { id:'stage', label:'Stage',       type:'select', options:[{value:'contacted',label:'Contacted'},{value:'interested',label:'Interested'},{value:'committed',label:'Committed'},{value:'passed',label:'Passed'}] },
+    { id:'note',  label:'Note',        placeholder:'Any context…' },
+  ], { confirmLabel:'Add Investor' });
+  if (!d || !d.name) return;
+  const f = ORG_FOUNDER || {};
+  const investors = Array.isArray(f.investors) ? [...f.investors] : [];
+  investors.push({ name:d.name, firm:d.firm||'', stage:d.stage||'contacted', note:d.note||'' });
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/founder/save', { token, ...f, investors, arr: (f.mrr||0)*12 });
+    await _orgRefresh();
+  } catch(e) { toast(e.message || 'Could not save'); }
+}
+
+async function founderRemoveInvestor(idx) {
+  const f = ORG_FOUNDER || {};
+  const investors = (Array.isArray(f.investors) ? [...f.investors] : []).filter((_,i) => i !== idx);
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/founder/save', { token, ...f, investors, arr: (f.mrr||0)*12 });
+    await _orgRefresh();
+  } catch(e) { toast(e.message || 'Could not save'); }
 }
 
 async function orgNewTask() {

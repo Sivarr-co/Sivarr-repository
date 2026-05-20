@@ -311,6 +311,48 @@ CREATE TABLE IF NOT EXISTS org_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_org_messages_org     ON org_messages(org_id);
 CREATE INDEX IF NOT EXISTS idx_org_messages_channel ON org_messages(org_id, channel);
+
+CREATE TABLE IF NOT EXISTS org_goals (
+    id           TEXT PRIMARY KEY,
+    org_id       TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    title        TEXT NOT NULL,
+    description  TEXT DEFAULT '',
+    type         TEXT DEFAULT 'okr',
+    status       TEXT DEFAULT 'active',
+    owner_sid    TEXT REFERENCES users(sid) ON DELETE SET NULL,
+    due_date     DATE,
+    progress     INTEGER DEFAULT 0,
+    created_by   TEXT REFERENCES users(sid) ON DELETE SET NULL,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_org_goals_org ON org_goals(org_id);
+
+CREATE TABLE IF NOT EXISTS org_key_results (
+    id            TEXT PRIMARY KEY,
+    goal_id       TEXT NOT NULL REFERENCES org_goals(id) ON DELETE CASCADE,
+    org_id        TEXT NOT NULL,
+    title         TEXT NOT NULL,
+    target_value  FLOAT DEFAULT 100,
+    current_value FLOAT DEFAULT 0,
+    unit          TEXT DEFAULT '%',
+    status        TEXT DEFAULT 'active',
+    created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_org_kr_goal ON org_key_results(goal_id);
+
+CREATE TABLE IF NOT EXISTS org_founder (
+    org_id        TEXT PRIMARY KEY REFERENCES orgs(id) ON DELETE CASCADE,
+    burn_rate     FLOAT DEFAULT 0,
+    cash_balance  FLOAT DEFAULT 0,
+    mrr           FLOAT DEFAULT 0,
+    arr           FLOAT DEFAULT 0,
+    funding_stage TEXT DEFAULT 'pre-seed',
+    total_raised  FLOAT DEFAULT 0,
+    investors     JSONB DEFAULT '[]',
+    milestones    JSONB DEFAULT '[]',
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 
@@ -1986,6 +2028,157 @@ def send_org_message(org_id: str, channel: str, author_sid: str, author_name: st
         return True
     except Exception as exc:
         log.error(f"send_org_message: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+# ── Goals & OKRs ──────────────────────────────────────────────────────────────
+
+def get_org_goals(org_id: str) -> list:
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM org_goals WHERE org_id=%s ORDER BY created_at ASC", (org_id,))
+            goals = [dict(r) for r in cur.fetchall()]
+            for g in goals:
+                cur.execute("SELECT * FROM org_key_results WHERE goal_id=%s ORDER BY created_at ASC", (g['id'],))
+                g['key_results'] = [dict(r) for r in cur.fetchall()]
+            return goals
+    except Exception as exc:
+        log.error(f"get_org_goals: {exc}"); return []
+    finally:
+        _release(conn)
+
+
+def create_org_goal(org_id: str, goal_id: str, title: str, created_by: str,
+                    description: str = "", goal_type: str = "okr",
+                    owner_sid: str = None, due_date: str = None) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO org_goals (id, org_id, title, description, type, owner_sid, due_date, created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                (goal_id, org_id, title, description, goal_type, owner_sid, due_date or None, created_by)
+            )
+        conn.commit(); return True
+    except Exception as exc:
+        log.error(f"create_org_goal: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def update_org_goal(goal_id: str, title: str = None, description: str = None,
+                    status: str = None, progress: int = None, due_date: str = None) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        fields, vals = [], []
+        if title is not None:       fields.append("title=%s");       vals.append(title)
+        if description is not None: fields.append("description=%s"); vals.append(description)
+        if status is not None:      fields.append("status=%s");      vals.append(status)
+        if progress is not None:    fields.append("progress=%s");    vals.append(progress)
+        if due_date is not None:    fields.append("due_date=%s");    vals.append(due_date or None)
+        if not fields: return True
+        fields.append("updated_at=NOW()")
+        vals.append(goal_id)
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE org_goals SET {','.join(fields)} WHERE id=%s", vals)
+        conn.commit(); return True
+    except Exception as exc:
+        log.error(f"update_org_goal: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def delete_org_goal(goal_id: str) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM org_goals WHERE id=%s", (goal_id,))
+        conn.commit(); return True
+    except Exception as exc:
+        log.error(f"delete_org_goal: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def create_org_key_result(kr_id: str, goal_id: str, org_id: str, title: str,
+                          target_value: float = 100, unit: str = "%") -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO org_key_results (id, goal_id, org_id, title, target_value, unit) VALUES (%s,%s,%s,%s,%s,%s)",
+                (kr_id, goal_id, org_id, title, target_value, unit)
+            )
+        conn.commit(); return True
+    except Exception as exc:
+        log.error(f"create_org_key_result: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def update_org_key_result(kr_id: str, current_value: float = None, status: str = None) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        fields, vals = [], []
+        if current_value is not None: fields.append("current_value=%s"); vals.append(current_value)
+        if status is not None:        fields.append("status=%s");        vals.append(status)
+        if not fields: return True
+        vals.append(kr_id)
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE org_key_results SET {','.join(fields)} WHERE id=%s", vals)
+        conn.commit(); return True
+    except Exception as exc:
+        log.error(f"update_org_key_result: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+# ── Founder Mode ──────────────────────────────────────────────────────────────
+
+def get_org_founder(org_id: str) -> dict:
+    conn = _get_conn()
+    if not conn: return {}
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM org_founder WHERE org_id=%s", (org_id,))
+            row = cur.fetchone()
+            return dict(row) if row else {}
+    except Exception as exc:
+        log.error(f"get_org_founder: {exc}"); return {}
+    finally:
+        _release(conn)
+
+
+def save_org_founder(org_id: str, burn_rate: float = 0, cash_balance: float = 0,
+                     mrr: float = 0, arr: float = 0, funding_stage: str = "pre-seed",
+                     total_raised: float = 0, investors: list = None,
+                     milestones: list = None) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO org_founder (org_id, burn_rate, cash_balance, mrr, arr, funding_stage, total_raised, investors, milestones)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (org_id) DO UPDATE SET
+                  burn_rate=%s, cash_balance=%s, mrr=%s, arr=%s,
+                  funding_stage=%s, total_raised=%s, investors=%s, milestones=%s, updated_at=NOW()
+            """, (
+                org_id, burn_rate, cash_balance, mrr, arr, funding_stage, total_raised,
+                json.dumps(investors or []), json.dumps(milestones or []),
+                burn_rate, cash_balance, mrr, arr, funding_stage, total_raised,
+                json.dumps(investors or []), json.dumps(milestones or [])
+            ))
+        conn.commit(); return True
+    except Exception as exc:
+        log.error(f"save_org_founder: {exc}"); conn.rollback(); return False
     finally:
         _release(conn)
 

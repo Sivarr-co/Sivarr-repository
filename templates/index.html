@@ -2328,22 +2328,34 @@ Sentry.onLoad(function() {
         <!-- Tab bar -->
         <div class="os-tabs" role="tablist">
           <button class="os-tab on" id="os-tab-overview" onclick="orgTab('overview',this)" role="tab"><i class="ti ti-layout-dashboard"></i>Overview</button>
+          <button class="os-tab" id="os-tab-goals"    onclick="orgTab('goals',this)"    role="tab"><i class="ti ti-target"></i>Goals</button>
           <button class="os-tab" id="os-tab-tasks"    onclick="orgTab('tasks',this)"    role="tab"><i class="ti ti-checkbox"></i>Tasks</button>
           <button class="os-tab" id="os-tab-projects" onclick="orgTab('projects',this)" role="tab"><i class="ti ti-folders"></i>Projects</button>
           <button class="os-tab" id="os-tab-docs"     onclick="orgTab('docs',this)"     role="tab"><i class="ti ti-file-text"></i>Docs</button>
           <button class="os-tab" id="os-tab-members"  onclick="orgTab('members',this)"  role="tab"><i class="ti ti-users"></i>Members</button>
           <button class="os-tab" id="os-tab-insights" onclick="orgTab('insights',this)" role="tab"><i class="ti ti-chart-bar"></i>Insights</button>
           <button class="os-tab" id="os-tab-chat"     onclick="orgTab('chat',this)"     role="tab"><i class="ti ti-message-circle"></i>Chat</button>
+          <button class="os-tab os-tab-founder" id="os-tab-founder" onclick="orgTab('founder',this)" role="tab"><i class="ti ti-rocket"></i>Founder</button>
         </div>
 
         <!-- ── OVERVIEW ── -->
         <div class="os-pane on" id="os-pane-overview">
           <div class="os-scroll">
+            <!-- SIVARR AI Briefing -->
+            <div class="os-card os-briefing-card">
+              <div class="os-card-head">
+                <span class="os-card-title"><i class="ti ti-sparkles" style="color:var(--teal)"></i>SIVARR Daily Briefing</span>
+                <button class="os-card-link" onclick="orgGetBriefing()" id="os-briefing-btn">Generate →</button>
+              </div>
+              <div id="os-briefing-text" class="os-briefing-text">Click "Generate" for your AI executive briefing.</div>
+            </div>
+            <!-- Stats row -->
             <div class="os-stat-row">
               <div class="os-stat"><div class="os-stat-lbl">Open tasks</div><div class="os-stat-val" id="os-open-tasks">0</div><div class="os-stat-sub" id="os-overdue-lbl"></div></div>
-              <div class="os-stat"><div class="os-stat-lbl">Completed this month</div><div class="os-stat-val" id="os-done-tasks">0</div><div class="os-stat-sub os-s">↑ tracked</div></div>
-              <div class="os-stat"><div class="os-stat-lbl">Active projects</div><div class="os-stat-val" id="os-proj-count">0</div><div class="os-stat-sub">tracked</div></div>
-              <div class="os-stat"><div class="os-stat-lbl">Team members</div><div class="os-stat-val" id="os-mem-count">1</div><div class="os-stat-sub" id="os-invite-lbl"></div></div>
+              <div class="os-stat"><div class="os-stat-lbl">Completed</div><div class="os-stat-val" id="os-done-tasks">0</div><div class="os-stat-sub">total done</div></div>
+              <div class="os-stat"><div class="os-stat-lbl">Projects</div><div class="os-stat-val" id="os-proj-count">0</div><div class="os-stat-sub">active</div></div>
+              <div class="os-stat"><div class="os-stat-lbl">Members</div><div class="os-stat-val" id="os-mem-count">1</div><div class="os-stat-sub" id="os-invite-lbl"></div></div>
+              <div class="os-stat"><div class="os-stat-lbl">Active Goals</div><div class="os-stat-val" id="os-goal-count">0</div><div class="os-stat-sub">OKRs</div></div>
             </div>
             <div class="os-grid2">
               <div class="os-card">
@@ -2351,8 +2363,8 @@ Sentry.onLoad(function() {
                 <div id="os-priority-tasks"><div class="os-empty">No tasks yet.</div></div>
               </div>
               <div class="os-card">
-                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-folders"></i>Projects</span><span class="os-card-link" onclick="orgTab('projects',null)">All →</span></div>
-                <div id="os-proj-progress"><div class="os-empty">No projects yet.</div></div>
+                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-target"></i>Top Goals</span><span class="os-card-link" onclick="orgTab('goals',null)">All →</span></div>
+                <div id="os-goals-mini"><div class="os-empty">No goals yet.</div></div>
               </div>
             </div>
             <div class="os-grid2">
@@ -2361,10 +2373,22 @@ Sentry.onLoad(function() {
                 <div id="os-team-mini"><div class="os-empty">No members yet.</div></div>
               </div>
               <div class="os-card">
-                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-activity"></i>Recent activity</span></div>
-                <div id="os-activity-feed"><div class="os-empty">No activity yet.</div></div>
+                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-folders"></i>Projects</span><span class="os-card-link" onclick="orgTab('projects',null)">All →</span></div>
+                <div id="os-proj-progress"><div class="os-empty">No projects yet.</div></div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- ── GOALS & OKRs ── -->
+        <div class="os-pane" id="os-pane-goals">
+          <div class="os-toolbar">
+            <span class="os-toolbar-title"><i class="ti ti-target"></i>Goals & OKRs</span>
+            <div style="flex:1"></div>
+            <button class="os-tool-btn os-tool-action" onclick="orgNewGoal()"><i class="ti ti-plus"></i>New Goal</button>
+          </div>
+          <div class="os-scroll">
+            <div id="os-goals-list"><div class="os-empty" style="padding:40px 0">No goals yet — create your first OKR.</div></div>
           </div>
         </div>
 
@@ -2450,6 +2474,59 @@ Sentry.onLoad(function() {
             <input class="os-chat-input" id="os-chat-input" placeholder="Message the team…"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();orgChatSend()}">
             <button class="os-chat-send" onclick="orgChatSend()"><i class="ti ti-send"></i></button>
+          </div>
+        </div>
+
+        <!-- ── FOUNDER MODE ── -->
+        <div class="os-pane" id="os-pane-founder">
+          <div class="os-toolbar">
+            <span class="os-toolbar-title"><i class="ti ti-rocket"></i>Founder Mode</span>
+            <div style="flex:1"></div>
+            <button class="os-tool-btn os-tool-action" onclick="founderSave()"><i class="ti ti-device-floppy"></i>Save</button>
+          </div>
+          <div class="os-scroll">
+            <!-- Runway snapshot -->
+            <div class="os-stat-row">
+              <div class="os-stat os-stat-green"><div class="os-stat-lbl">Monthly Burn</div><div class="os-stat-val" id="fd-burn">$0</div><div class="os-stat-sub">per month</div></div>
+              <div class="os-stat os-stat-teal"><div class="os-stat-lbl">Runway</div><div class="os-stat-val" id="fd-runway">—</div><div class="os-stat-sub">months left</div></div>
+              <div class="os-stat os-stat-blue"><div class="os-stat-lbl">MRR</div><div class="os-stat-val" id="fd-mrr">$0</div><div class="os-stat-sub">monthly revenue</div></div>
+              <div class="os-stat"><div class="os-stat-lbl">Total Raised</div><div class="os-stat-val" id="fd-raised">$0</div><div class="os-stat-sub" id="fd-stage">pre-seed</div></div>
+            </div>
+            <div class="os-grid2">
+              <!-- Financials editor -->
+              <div class="os-card">
+                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-cash"></i>Financials</span></div>
+                <div class="founder-form">
+                  <label>Funding Stage</label>
+                  <select id="fd-inp-stage" class="si-modal-input">
+                    <option value="pre-seed">Pre-seed</option>
+                    <option value="seed">Seed</option>
+                    <option value="series-a">Series A</option>
+                    <option value="series-b">Series B</option>
+                    <option value="bootstrapped">Bootstrapped</option>
+                    <option value="profitable">Profitable</option>
+                  </select>
+                  <label>Cash Balance ($)</label>
+                  <input id="fd-inp-cash" type="number" class="si-modal-input" placeholder="0" min="0">
+                  <label>Monthly Burn Rate ($)</label>
+                  <input id="fd-inp-burn" type="number" class="si-modal-input" placeholder="0" min="0">
+                  <label>MRR ($)</label>
+                  <input id="fd-inp-mrr" type="number" class="si-modal-input" placeholder="0" min="0">
+                  <label>Total Raised ($)</label>
+                  <input id="fd-inp-raised" type="number" class="si-modal-input" placeholder="0" min="0">
+                </div>
+              </div>
+              <!-- Milestones -->
+              <div class="os-card">
+                <div class="os-card-head"><span class="os-card-title"><i class="ti ti-flag"></i>Launch Milestones</span><button class="os-card-link" onclick="founderAddMilestone()">+ Add</button></div>
+                <div id="fd-milestones-list"><div class="os-empty">No milestones yet.</div></div>
+              </div>
+            </div>
+            <!-- Investors -->
+            <div class="os-card">
+              <div class="os-card-head"><span class="os-card-title"><i class="ti ti-briefcase"></i>Investor Pipeline</span><button class="os-card-link" onclick="founderAddInvestor()">+ Add</button></div>
+              <div id="fd-investors-list"><div class="os-empty">No investors tracked yet.</div></div>
+            </div>
           </div>
         </div>
 
@@ -3135,7 +3212,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260519d" defer></script>
+<script src="/js/app.js?v=20260520a" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
