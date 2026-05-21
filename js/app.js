@@ -8789,6 +8789,9 @@ async function _ocLoadChannels() {
       {id:'random',name:'random',desc:'Off-topic conversations'},
     ];
   }
+  // apply any locally-saved renames
+  const _ocSavedNames = JSON.parse(localStorage.getItem(`sivarr_oc_names_${ORG?.id||''}`) || '{}');
+  _OC_CHANNELS.forEach(ch => { if (_ocSavedNames[ch.id]) ch.name = _ocSavedNames[ch.id]; });
   _ocRenderSidebar();
 }
 
@@ -8802,7 +8805,7 @@ function _ocRenderSidebar() {
     chList.innerHTML = _OC_CHANNELS.map(ch => `
       <div class="oc-ch-item${ch.id === _OC_CHANNEL ? ' active' : ''}" onclick="ocSwitchChannel('${ch.id}')">
         <span class="oc-ch-hash">#</span>
-        <span style="flex:1">${esc(ch.name)}</span>
+        <span style="flex:1" title="Double-click to rename" ondblclick="event.stopPropagation();ocRenameChannel('${ch.id}',this)">${esc(ch.name)}</span>
         ${_OC_UNREAD[ch.id] ? '<div class="oc-ch-unread"></div>' : ''}
       </div>`).join('');
   }
@@ -8827,6 +8830,37 @@ function _ocRenderSidebar() {
 
 function _ocDmId(a, b) {
   return 'dm_' + [a.slice(0,8), b.slice(0,8)].sort().join('_');
+}
+
+function ocRenameChannel(chId, el) {
+  const ch = _OC_CHANNELS.find(c => c.id === chId);
+  if (!ch) return;
+  const oldName = ch.name;
+  const inp = document.createElement('input');
+  inp.className = 'oc-ch-rename';
+  inp.value = oldName;
+  el.replaceWith(inp);
+  inp.focus(); inp.select();
+  const commit = () => {
+    const n = (inp.value.trim().replace(/\s+/g, '-').toLowerCase()) || oldName;
+    ch.name = n;
+    const key = `sivarr_oc_names_${ORG?.id || ''}`;
+    const saved = JSON.parse(localStorage.getItem(key) || '{}');
+    saved[chId] = n;
+    localStorage.setItem(key, JSON.stringify(saved));
+    _ocRenderSidebar();
+    if (_OC_CHANNEL === chId) {
+      const nameEl = $('oc-ch-name');
+      const inputEl = $('os-chat-input');
+      if (nameEl) nameEl.textContent = n;
+      if (inputEl) inputEl.placeholder = `Message #${n}…`;
+    }
+  };
+  inp.onblur = commit;
+  inp.onkeydown = e => {
+    if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+    if (e.key === 'Escape') { inp.value = oldName; inp.blur(); }
+  };
 }
 
 function ocSwitchChannel(chId) {
