@@ -17,7 +17,7 @@ from psycopg2 import pool as pgpool
 
 log = logging.getLogger("sivarr")
 
-_DATABASE_URL = os.environ.get("DATABASE_URL", "")
+_DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 # Railway sometimes prepends the word "railway" to the URL value (e.g. "railwaypostgresql://...")
 # Strip it so psycopg2 receives a valid "postgresql://" URL.
 if _DATABASE_URL.startswith("railway") and "://" in _DATABASE_URL:
