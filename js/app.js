@@ -589,6 +589,7 @@ function _applyLoginData(r) {
   $('login-screen').style.display = 'none';
   $('dashboard').style.display    = 'block';
   document.body.classList.add('dashboard-active');
+  if (localStorage.getItem('sb_retracted') === '1') $('sidebar')?.classList.add('retracted');
   const _postCreate = sessionStorage.getItem('sivarr_post_create');
   if (_postCreate) {
     sessionStorage.removeItem('sivarr_post_create');
@@ -4387,6 +4388,31 @@ const MOB_SNAV_HEIGHTS = {
   ai: 4, academics: 2, planner: 4,
   assessments: 3, insights: 3, spaces: 2
 };
+
+// ── Sidebar toggle (desktop: retract/restore · mobile: open/close) ──
+function toggleSidebar() {
+  if (window.innerWidth <= 720) { toggleMobileSidebar(); return; }
+  const sb = $('sidebar');
+  if (!sb) return;
+  const retracted = sb.classList.toggle('retracted');
+  localStorage.setItem('sb_retracted', retracted ? '1' : '0');
+}
+
+// ── Fullscreen toggle ──────────────────────────────────────────
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => toast('Fullscreen not available'));
+  } else {
+    document.exitFullscreen();
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  const icon = $('fullscreen-icon');
+  if (!icon) return;
+  icon.className = document.fullscreenElement ? 'ti ti-minimize' : 'ti ti-maximize';
+  const btn = document.getElementById('fullscreen-btn');
+  if (btn) btn.title = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+});
 
 function toggleMobileSidebar() {
   const sidebar = $('sidebar');
