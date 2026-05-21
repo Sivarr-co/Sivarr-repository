@@ -1071,7 +1071,7 @@ function chatProactiveGreet() {
   localStorage.setItem(key, today);
 }
 
-function buildSivarrContext() {
+async function buildSivarrContext() {
   if (!S.sid) return '';
   const sid = S.sid;
   const today = new Date().toDateString();
@@ -1162,6 +1162,20 @@ function buildSivarrContext() {
     if (S.topics?.length) lines.push(`Study topics: ${S.topics.slice(0,6).join(', ')}`);
   } catch(_) {}
 
+  // ── Organization (fetched from server) ───────────────────
+  try {
+    const _tok = localStorage.getItem('sivarr_token') || '';
+    const snapRes = _tok ? await fetch(`/api/context/snapshot?token=${encodeURIComponent(_tok)}`) : null;
+    const snap = snapRes?.ok ? await snapRes.json() : null;
+    if (snap?.org) {
+      const o = snap.org;
+      lines.push(`Organization: ${o.name} (role: ${o.role}, members: ${o.members})`);
+      if (o.open_tasks?.length)   lines.push(`Org open tasks: ${o.open_tasks.join(' | ')}`);
+      if (o.overdue_tasks?.length) lines.push(`Org OVERDUE tasks: ${o.overdue_tasks.join(' | ')}`);
+      if (o.active_goals?.length)  lines.push(`Org active goals: ${o.active_goals.map(g => `${g.title} (${g.progress}%)`).join(' | ')}`);
+    }
+  } catch(_) {}
+
   if (lines.length <= 1) return ''; // only the header, no data yet
   return lines.join('\n');
 }
@@ -1203,12 +1217,13 @@ async function send(retryText = null) {
       '<span style="font-size:.8rem;color:var(--muted);padding:4px 0">Taking a bit longer…</span>';
   }, 8000);
 
-  // Always inject context: full snapshot on message 1, micro-context on 2+
+  // Always inject context: full snapshot on message 1 and every 8 messages, micro-context otherwise
   let context = '';
   if (!retryText) {
     _chatMsgCount++;
-    if (!_contextSent) {
-      context = buildSivarrContext();
+    const needFullContext = !_contextSent || (_chatMsgCount % 8 === 0);
+    if (needFullContext) {
+      context = await buildSivarrContext();
       _contextSent = true;
     } else {
       context = buildMicroContext();
@@ -1327,11 +1342,37 @@ function addMsg(role, text, uncertain = false, isError = false) {
       <div class="msg-bub md-body${errClass}">${rendered}</div>
       ${uncertain ? `<div class="uncertain">⚠️ Verify this with your lecturer</div>` : ''}
       ${isError  ? `<button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>` : ''}
-      ${role === 'sivarr' && !isError ? `<button class="action-btn" style="margin-top:5px;font-size:.68rem" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Download</button>` : ''}
+      ${role === 'sivarr' && !isError ? `<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+        <button class="action-btn" style="font-size:.68rem" onclick="chatSaveTask(this)">+ Task</button>
+        <button class="action-btn" style="font-size:.68rem" onclick="chatSaveNote(this)">+ Note</button>
+        <button class="action-btn" style="font-size:.68rem" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
+      </div>` : ''}
     </div>`;
   w.appendChild(d);
   scrollMsgs();
   return d;
+}
+
+async function chatSaveTask(btn) {
+  if (!S.sid) return;
+  const msgText = btn.closest('.msg').querySelector('.msg-bub').innerText.trim().slice(0, 200);
+  const title = await siModal.input('Save as Task', 'Task title:', msgText.split('\n')[0].slice(0, 100), { confirmLabel: 'Add Task' });
+  if (!title) return;
+  const tasks = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]');
+  tasks.push({ id: Date.now(), title, status: 'todo', done: false, created: Date.now(), source: 'ai' });
+  localStorage.setItem(`sivarr_tasks_${S.sid}`, JSON.stringify(tasks));
+  toast('Task added');
+}
+
+async function chatSaveNote(btn) {
+  if (!S.sid) return;
+  const msgText = btn.closest('.msg').querySelector('.msg-bub').innerText.trim().slice(0, 2000);
+  const title = await siModal.input('Save as Note', 'Note title:', '', { confirmLabel: 'Save Note' });
+  if (!title) return;
+  const notes = JSON.parse(localStorage.getItem(`sivarr_notes_${S.sid}`) || '[]');
+  notes.unshift({ id: Date.now(), title, content: msgText, created: new Date().toISOString(), source: 'ai' });
+  localStorage.setItem(`sivarr_notes_${S.sid}`, JSON.stringify(notes.slice(0, 100)));
+  toast('Note saved');
 }
 
 function addTyping() {

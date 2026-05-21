@@ -4263,6 +4263,49 @@ async def org_debug(token: str = ""):
     return out
 
 
+@app.get("/api/context/snapshot")
+async def context_snapshot(token: str = ""):
+    """Lightweight workspace snapshot for AI context injection."""
+    import datetime as _dt
+    token = sanitize_text(token, 100)
+    if not token:
+        raise HTTPException(401, "Token required.")
+    entry = get_session_from_token(token)
+    if not entry:
+        raise HTTPException(401, "Session expired.")
+    sid = entry["sid"]
+
+    snap: dict = {"org": None, "date": str(_dt.date.today())}
+
+    if db.is_available():
+        try:
+            org = db.get_org_by_member(sid)
+            if org:
+                members      = db.get_org_members(org["id"])
+                tasks        = db.get_org_tasks(org["id"])
+                goals        = db.get_org_goals(org["id"])
+                today_str    = str(_dt.date.today())
+                open_tasks   = [t for t in tasks if t.get("status") != "done"]
+                active_goals = [g for g in goals if g.get("status") == "active"]
+                overdue      = [t for t in open_tasks
+                                if t.get("due_date") and str(t["due_date"]) < today_str]
+                snap["org"] = {
+                    "name":          org["name"],
+                    "role":          org.get("member_role", "member"),
+                    "members":       len(members),
+                    "open_tasks":    [t["title"] for t in open_tasks[:6]],
+                    "overdue_tasks": [t["title"] for t in overdue[:3]],
+                    "active_goals":  [
+                        {"title": g["title"], "progress": g.get("progress", 0)}
+                        for g in active_goals[:4]
+                    ],
+                }
+        except Exception as e:
+            log.warning(f"context_snapshot org fetch failed: {e}")
+
+    return snap
+
+
 @app.post("/api/org/create")
 async def org_create(data: dict, bg: BackgroundTasks):
     sid, uname = _resolve_token(data)
