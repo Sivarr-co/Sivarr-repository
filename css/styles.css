@@ -3096,9 +3096,9 @@ input, textarea, select { font-family: var(--font); }
 }
 .oc-msg:hover { background:var(--bg2); padding-left:8px; padding-right:8px; margin:0 -8px; }
 .oc-msg-av {
-  width:42px; height:42px; border-radius:10px; flex-shrink:0;
+  width:65px; height:65px; border-radius:14px; flex-shrink:0;
   display:flex; align-items:center; justify-content:center;
-  font-size:.88rem; font-weight:700; color:#fff; margin-top:1px;
+  font-size:1.2rem; font-weight:700; color:#fff; margin-top:1px;
 }
 .oc-msg-body { flex:1; min-width:0; }
 .oc-msg-meta { display:flex; align-items:baseline; gap:9px; margin-bottom:3px; }
