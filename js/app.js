@@ -3711,7 +3711,7 @@ async function loadHome() {
   const goals   = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]');
   const habits  = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
   const jnl     = JSON.parse(localStorage.getItem(JNL_KEY()) || '[]');
-  const events  = JSON.parse(localStorage.getItem(`sivarr_events_${S.sid}`) || '[]');
+  const events  = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
   const notes   = JSON.parse(localStorage.getItem(`sivarr_notes_${S.sid}`) || '[]');
 
   const openTasks    = tasks.filter(t => !t.done);
@@ -3771,8 +3771,12 @@ async function loadHome() {
       const todayEvts = events
         .filter(e => (e.date || '').startsWith(today8601))
         .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-      if (todayEvts.length) {
-        sl.innerHTML = todayEvts.slice(0, 4).map(e => `
+      const shTasksToday = (getSHData().tasks || [])
+        .filter(t => t.date === today8601 && t.status !== 'done')
+        .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+      const schedItems = [
+        ...todayEvts.slice(0, 3).map(e => `
           <div class="sched-item">
             <div class="sched-time">${e.time || 'All day'}</div>
             <div class="sched-dot" style="background:var(--teal)"></div>
@@ -3780,7 +3784,19 @@ async function loadHome() {
               <div class="sched-name">${esc(e.title)}</div>
               ${e.desc ? `<div class="sched-sub">${esc(e.desc.slice(0,40))}</div>` : ''}
             </div>
-          </div>`).join('');
+          </div>`),
+        ...shTasksToday.slice(0, 3).map(t => `
+          <div class="sched-item" onclick="nav('flux',null)" style="cursor:pointer">
+            <div class="sched-time">${t.time || 'Task'}</div>
+            <div class="sched-dot" style="background:var(--amber3,#f59e0b)"></div>
+            <div class="sched-info">
+              <div class="sched-name">${esc(t.title)}</div>
+              ${t.type ? `<div class="sched-sub">${esc(t.type)}</div>` : ''}
+            </div>
+          </div>`),
+      ];
+      if (schedItems.length) {
+        sl.innerHTML = schedItems.slice(0, 5).join('');
       } else {
         sl.innerHTML = `<div class="sched-item"><div class="sched-time">—</div><div class="sched-dot" style="background:var(--text4)"></div><div class="sched-info"><div class="sched-name" style="color:var(--text4)">No events today</div><div class="sched-sub">Add some in Calendar →</div></div></div>`;
       }
@@ -3928,7 +3944,8 @@ function calRender() {
   const firstDay = new Date(CAL_YEAR, CAL_MONTH, 1).getDay();
   const daysInMonth = new Date(CAL_YEAR, CAL_MONTH + 1, 0).getDate();
   const today = new Date();
-  const events = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
+  const events   = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
+  const shTasks  = (getSHData().tasks || []).filter(t => t.date && t.status !== 'done');
 
   let cells = '';
   for (let i = 0; i < firstDay; i++) {
@@ -3938,10 +3955,14 @@ function calRender() {
   for (let d = 1; d <= daysInMonth; d++) {
     const isToday = d === today.getDate() && CAL_MONTH === today.getMonth() && CAL_YEAR === today.getFullYear();
     const dateStr = `${CAL_YEAR}-${String(CAL_MONTH+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const hasEv = events.some(e => e.date === dateStr);
+    const hasEv   = events.some(e => e.date === dateStr);
+    const hasTask = shTasks.some(t => t.date === dateStr);
     cells += `<div class="cal-cell${isToday?' today':''}" onclick="calSelectDay('${dateStr}',${d})">
       <div class="cal-num">${d}</div>
-      ${hasEv ? '<div class="cal-ev"></div>' : ''}
+      <div style="display:flex;gap:3px;justify-content:center;margin-top:2px">
+        ${hasEv   ? '<div class="cal-ev"></div>' : ''}
+        ${hasTask ? '<div class="cal-ev" style="background:var(--amber3,#f59e0b)"></div>' : ''}
+      </div>
     </div>`;
   }
   grid.innerHTML = headers + cells;
@@ -3951,16 +3972,12 @@ function calSelectDay(dateStr, d) {
   const lbl = $('cal-day-label');
   if (lbl) lbl.textContent = new Date(dateStr+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
 
-  const events = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]')
-    .filter(e => e.date === dateStr);
-  const list = $('cal-events-list');
+  const events  = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]').filter(e => e.date === dateStr);
+  const shTasks = (getSHData().tasks || []).filter(t => t.date === dateStr && t.status !== 'done');
+  const list    = $('cal-events-list');
   if (!list) return;
 
-  if (!events.length) {
-    list.innerHTML = `<div class="ev-row"><div class="ev-time">—</div><div class="ev-dot" style="background:var(--text4)"></div><div class="ev-info"><div class="ev-name">No events</div><div class="ev-sub">Click + Event to add one</div></div></div>`;
-    return;
-  }
-  list.innerHTML = events.map(e => `
+  const evHTML = events.map(e => `
     <div class="ev-row">
       <div class="ev-time">${esc(e.time||'All day')}</div>
       <div class="ev-dot" style="background:${e.color||'var(--teal)'}"></div>
@@ -3970,6 +3987,23 @@ function calSelectDay(dateStr, d) {
       </div>
       <button onclick="calDeleteEvent('${e.id}')" style="background:none;border:none;color:var(--text4);cursor:pointer;font-size:13px;padding:2px 6px" title="Delete">×</button>
     </div>`).join('');
+
+  const taskHTML = shTasks.map(t => `
+    <div class="ev-row">
+      <div class="ev-time">${esc(t.time||'Task')}</div>
+      <div class="ev-dot" style="background:var(--amber3,#f59e0b)"></div>
+      <div class="ev-info">
+        <div class="ev-name">${esc(t.title)}</div>
+        ${t.type ? `<div class="ev-sub">${esc(t.type)}</div>` : ''}
+      </div>
+      <span style="font-size:.7rem;color:var(--amber3,#f59e0b);padding:2px 6px">${t.priority||''}</span>
+    </div>`).join('');
+
+  if (!evHTML && !taskHTML) {
+    list.innerHTML = `<div class="ev-row"><div class="ev-time">—</div><div class="ev-dot" style="background:var(--text4)"></div><div class="ev-info"><div class="ev-name">No events</div><div class="ev-sub">Click + Event to add one</div></div></div>`;
+    return;
+  }
+  list.innerHTML = evHTML + taskHTML;
 }
 
 async function calAddEvent() {
@@ -9311,11 +9345,26 @@ function psRenderOverview() {
 
 // Tasks / Kanban
 async function psNewTask() {
-  const title = await siModal.input('New Task', 'What needs to be done?', '', { confirmLabel:'Add Task' });
-  if (!title) return;
+  const goals = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]').filter(g => !g.completed);
+  const goalOpts = [
+    { value: '', label: '— None' },
+    ...goals.map(g => ({ value: String(g.id), label: g.title })),
+  ];
+  const f = await siModal.form('New Task', [
+    { id:'title',    label:'What needs to be done?', placeholder:'e.g. Finish assignment', required:true },
+    { id:'due_date', label:'Due date (optional)',    type:'date' },
+    { id:'priority', label:'Priority', type:'select', default:'medium',
+      options:[{value:'high',label:'High'},{value:'medium',label:'Medium'},{value:'low',label:'Low'}] },
+    { id:'goalId',   label:'Link to goal (optional)', type:'select', default:'', options: goalOpts },
+  ], { confirmLabel:'Add Task' });
+  if (!f?.title) return;
   const d = psData();
   d.tasks = d.tasks || [];
-  d.tasks.push({ id: Date.now(), title, status:'todo', done:false, created: Date.now() });
+  d.tasks.push({
+    id: Date.now(), title: f.title, status:'todo', done:false, created: Date.now(),
+    due_date: f.due_date || null, priority: f.priority || 'medium',
+    goalId: f.goalId || null,
+  });
   psSave(d);
   psRenderKanban();
 }
@@ -9338,9 +9387,18 @@ function psRenderKanban() {
         <span class="os-col-count">${items.length}</span>
       </div>
       <div class="os-col-body">
-        ${items.map(t => `<div class="os-task-card" onclick="psMoveTask(${t.id})">
-          <span class="os-task-title">${t.title}</span>
-        </div>`).join('')}
+        ${items.map(t => {
+          const today8601 = new Date().toISOString().split('T')[0];
+          const overdue   = t.due_date && t.due_date < today8601 && !t.done;
+          const priColor  = t.priority === 'high' ? 'var(--red3,#f87171)' : t.priority === 'low' ? 'var(--green3,#34d399)' : 'var(--amber3,#f59e0b)';
+          return `<div class="os-task-card" onclick="psMoveTask(${t.id})">
+            <span class="os-task-title">${esc(t.title)}</span>
+            <div style="display:flex;gap:5px;align-items:center;margin-top:4px;flex-wrap:wrap">
+              ${t.priority ? `<span style="font-size:.65rem;color:${priColor}">${t.priority}</span>` : ''}
+              ${t.due_date ? `<span style="font-size:.65rem;color:${overdue?'var(--red3,#f87171)':'var(--text4)'}">${overdue?'⚠ ':''}${t.due_date}</span>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
         <button class="os-add-task-btn" onclick="psNewTask()"><i class="ti ti-plus"></i> Add task</button>
       </div>
     </div>`;
@@ -9354,7 +9412,21 @@ function psMoveTask(id) {
   const order = ['todo','inprogress','done'];
   const next = order[(order.indexOf(t.status) + 1) % order.length];
   t.status = next; t.done = next === 'done';
-  if (next === 'done') _recordActivity();
+  if (next === 'done') {
+    _recordActivity();
+    if (t.goalId && S.sid) {
+      try {
+        const goals = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]');
+        const g = goals.find(g => String(g.id) === String(t.goalId));
+        if (g && !g.completed) {
+          g.progress = Math.min(100, (g.progress || 0) + 10);
+          if (g.progress >= 100) g.completed = true;
+          localStorage.setItem(`sivarr_goals_${S.sid}`, JSON.stringify(goals));
+          toast(`Goal: ${g.title} — ${g.progress}%`);
+        }
+      } catch(_) {}
+    }
+  }
   psSave(d); psRenderKanban();
 }
 
