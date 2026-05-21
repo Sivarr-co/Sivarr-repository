@@ -19,7 +19,7 @@
 <meta property="og:type" content="website">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<link rel="stylesheet" href="/css/styles.css?v=20260521g">
+<link rel="stylesheet" href="/css/styles.css?v=20260521h">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -2361,7 +2361,10 @@ Sentry.onLoad(function() {
 
         <!-- Space hero -->
         <div class="os-hero">
-          <div class="os-hero-icon"><i class="ti ti-building"></i></div>
+          <div class="os-hero-icon" id="os-hero-icon" onclick="orgLogoEdit()" title="Change organization logo">
+            <i class="ti ti-building" id="os-hero-icon-placeholder"></i>
+            <div class="os-hero-icon-overlay"><i class="ti ti-camera"></i></div>
+          </div>
           <div class="os-hero-info">
             <div class="os-hero-name" id="os-space-name" onclick="spRename('org')" title="Click to rename">Organisation Hub</div>
             <div class="os-hero-meta">
@@ -3292,7 +3295,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260521g" defer></script>
+<script src="/js/app.js?v=20260521h" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

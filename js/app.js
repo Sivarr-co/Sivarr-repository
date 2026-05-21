@@ -8036,6 +8036,7 @@ async function orgInit() {
   if (nameEl) nameEl.textContent = ORG.name;
   const mcEl = $('os-member-count'); if (mcEl) mcEl.textContent = ORG_MEMBERS.length;
   const ocEl = $('os-online-count'); if (ocEl) ocEl.textContent = 1;
+  _orgRenderLogo();
 
   // Hide setup card, show org content
   const setup = $('org-setup-card');
@@ -8053,6 +8054,49 @@ async function orgInit() {
   orgChatRender();
   founderRender();
   _founderTabVisibility();
+}
+
+function _orgRenderLogo() {
+  const icon = $('os-hero-icon');
+  if (!icon || !ORG) return;
+  const key = `sivarr_org_logo_${ORG.id}`;
+  const saved = localStorage.getItem(key);
+  const placeholder = $('os-hero-icon-placeholder');
+  const existing = icon.querySelector('img');
+  if (saved) {
+    if (!existing) {
+      const img = document.createElement('img');
+      img.src = saved;
+      img.alt = ORG.name || 'Logo';
+      if (placeholder) placeholder.style.display = 'none';
+      icon.insertBefore(img, icon.firstChild);
+    } else {
+      existing.src = saved;
+      if (placeholder) placeholder.style.display = 'none';
+    }
+  } else {
+    if (existing) existing.remove();
+    if (placeholder) placeholder.style.display = '';
+  }
+}
+
+function orgLogoEdit() {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/*';
+  inp.onchange = () => {
+    const file = inp.files[0];
+    if (!file || !ORG) return;
+    if (file.size > 2 * 1024 * 1024) { toast('Image must be under 2 MB'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      localStorage.setItem(`sivarr_org_logo_${ORG.id}`, e.target.result);
+      _orgRenderLogo();
+      toast('Logo updated');
+    };
+    reader.readAsDataURL(file);
+  };
+  inp.click();
 }
 
 function _orgShowSetup() {

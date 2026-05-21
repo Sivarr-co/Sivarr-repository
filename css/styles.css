@@ -2763,11 +2763,22 @@ input, textarea, select { font-family: var(--font); }
   flex-shrink:0;
 }
 .os-hero-icon {
-  width:44px; height:44px; border-radius:12px;
+  width:52px; height:52px; border-radius:14px;
   background:var(--teal2); color:var(--teal);
   display:flex; align-items:center; justify-content:center;
   font-size:1.35rem; flex-shrink:0;
+  position:relative; cursor:pointer; overflow:hidden;
 }
+.os-hero-icon img {
+  width:100%; height:100%; object-fit:cover; border-radius:14px;
+}
+.os-hero-icon-overlay {
+  position:absolute; inset:0; background:rgba(0,0,0,.45);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:.7rem; opacity:0; transition:opacity .15s;
+  border-radius:14px; pointer-events:none;
+}
+.os-hero-icon:hover .os-hero-icon-overlay { opacity:1; }
 .os-hero-info { flex:1; min-width:0; }
 .os-hero-name { font-size:1.1rem; font-weight:700; color:var(--fg); }
 .os-hero-meta {
@@ -3080,20 +3091,20 @@ input, textarea, select { font-family: var(--font); }
   display:flex; flex-direction:column; gap:2px; min-height:0;
 }
 .oc-msg {
-  display:flex; gap:11px; padding:4px 0;
-  border-radius:6px; transition:background .1s;
+  display:flex; gap:14px; padding:6px 0;
+  border-radius:8px; transition:background .1s;
 }
-.oc-msg:hover { background:var(--bg2); padding-left:6px; padding-right:6px; margin:0 -6px; }
+.oc-msg:hover { background:var(--bg2); padding-left:8px; padding-right:8px; margin:0 -8px; }
 .oc-msg-av {
-  width:34px; height:34px; border-radius:8px; flex-shrink:0;
+  width:42px; height:42px; border-radius:10px; flex-shrink:0;
   display:flex; align-items:center; justify-content:center;
-  font-size:.78rem; font-weight:700; color:#fff; margin-top:1px;
+  font-size:.88rem; font-weight:700; color:#fff; margin-top:1px;
 }
 .oc-msg-body { flex:1; min-width:0; }
-.oc-msg-meta { display:flex; align-items:baseline; gap:8px; margin-bottom:2px; }
-.oc-msg-name { font-size:.82rem; font-weight:600; color:var(--fg); }
-.oc-msg-time { font-size:.68rem; color:var(--text4); }
-.oc-msg-text { font-size:.85rem; color:var(--text2); line-height:1.5; word-break:break-word; }
+.oc-msg-meta { display:flex; align-items:baseline; gap:9px; margin-bottom:3px; }
+.oc-msg-name { font-size:.9rem; font-weight:600; color:var(--fg); }
+.oc-msg-time { font-size:.72rem; color:var(--text4); }
+.oc-msg-text { font-size:.92rem; color:var(--text2); line-height:1.6; word-break:break-word; }
 .oc-msg-continued { padding-top:1px; }
 .oc-msg-continued .oc-msg-av { visibility:hidden; }
 .oc-msg-continued:hover .oc-msg-av { visibility:hidden; }
