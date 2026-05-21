@@ -18,7 +18,11 @@ from psycopg2 import pool as pgpool
 log = logging.getLogger("sivarr")
 
 _DATABASE_URL = os.environ.get("DATABASE_URL", "")
-# Supabase and some providers use postgres:// — SQLAlchemy / psycopg2 need postgresql://
+# Railway sometimes prepends the word "railway" to the URL value (e.g. "railwaypostgresql://...")
+# Strip it so psycopg2 receives a valid "postgresql://" URL.
+if _DATABASE_URL.startswith("railway") and "://" in _DATABASE_URL:
+    _DATABASE_URL = _DATABASE_URL[len("railway"):]
+# Supabase and some providers use postgres:// — psycopg2 needs postgresql://
 if _DATABASE_URL.startswith("postgres://"):
     _DATABASE_URL = _DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
