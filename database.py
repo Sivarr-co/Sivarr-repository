@@ -29,18 +29,31 @@ def is_available() -> bool:
     return bool(_DATABASE_URL)
 
 
+_pool_error: str = ""   # stores the last pool creation failure reason
+
+
 def _get_pool() -> pgpool.SimpleConnectionPool | None:
-    global _pool
+    global _pool, _pool_error
     if _pool is not None:
         return _pool
     if not _DATABASE_URL:
         return None
-    try:
-        _pool = pgpool.SimpleConnectionPool(1, 10, _DATABASE_URL)
-        log.info("DB connection pool ready")
-    except Exception as exc:
-        log.error(f"DB pool init failed: {exc}")
-        _pool = None
+    # Try plain URL first, then with sslmode=require (needed on some Railway configs)
+    sep = "&" if "?" in _DATABASE_URL else "?"
+    variants = [_DATABASE_URL]
+    if "sslmode=" not in _DATABASE_URL:
+        variants.append(_DATABASE_URL + sep + "sslmode=require")
+        variants.append(_DATABASE_URL + sep + "sslmode=disable")
+    for url in variants:
+        try:
+            _pool = pgpool.SimpleConnectionPool(1, 10, url, connect_timeout=10)
+            _pool_error = ""
+            log.info(f"DB connection pool ready (variant: {'plain' if url == _DATABASE_URL else url.split(sep)[-1]})")
+            return _pool
+        except Exception as exc:
+            _pool_error = str(exc)
+            log.error(f"DB pool init failed [{url.split(sep)[-1] if sep in url else 'plain'}]: {exc}")
+            _pool = None
     return _pool
 
 
@@ -72,10 +85,36 @@ def _release(conn):
 
 def db_test() -> dict:
     """Return diagnostics: pool state + a live SELECT 1."""
-    result = {"pool": _pool is not None, "db_url_set": bool(_DATABASE_URL), "ping": False, "error": None}
+    result = {
+        "pool": _pool is not None,
+        "db_url_set": bool(_DATABASE_URL),
+        "pool_error": _pool_error or None,
+        "ping": False,
+        "error": None,
+    }
+
+    # If pool is broken, try a raw direct connect to surface the real error
+    if not _pool and _DATABASE_URL:
+        sep = "&" if "?" in _DATABASE_URL else "?"
+        for label, url in [
+            ("plain", _DATABASE_URL),
+            ("sslmode=require", _DATABASE_URL + sep + "sslmode=require"),
+            ("sslmode=disable", _DATABASE_URL + sep + "sslmode=disable"),
+        ]:
+            try:
+                import psycopg2 as _pg
+                c = _pg.connect(url, connect_timeout=8)
+                c.cursor().execute("SELECT 1")
+                c.close()
+                result[f"direct_{label}"] = "OK"
+                result["error"] = f"direct connect works with {label} but pool failed"
+            except Exception as e:
+                result[f"direct_{label}"] = str(e)
+
     conn = _get_conn()
     if not conn:
-        result["error"] = "could not get connection from pool"
+        if not result["error"]:
+            result["error"] = result["pool_error"] or "could not get connection from pool"
         return result
     try:
         conn.cursor().execute("SELECT 1")
