@@ -1563,6 +1563,16 @@ input, textarea, select { font-family: var(--font); }
   border-radius:20px; padding:2px 10px; font-size:10px; font-weight:600;
 }
 .siva-brief-msg { font-size:.9rem; line-height:1.55; position:relative; opacity:.95; }
+.brief-pulse {
+  display:inline-block;
+  color:var(--text4);
+  font-size:.85rem;
+  animation: briefFade 1.4s ease-in-out infinite;
+}
+@keyframes briefFade {
+  0%,100% { opacity:.4; }
+  50%      { opacity:1; }
+}
 
 .siva-pills {
   display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;

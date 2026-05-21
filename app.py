@@ -4712,6 +4712,73 @@ Write a 3–5 sentence executive briefing. Be direct and actionable. Highlight r
     return {"briefing": briefing}
 
 
+@app.post("/api/home/brief")
+async def home_brief(data: dict):
+    """Generate a personalised AI morning brief for the Home dashboard."""
+    sid, uname = _resolve_token(data)
+    import datetime as _dt
+    first_name = uname.split()[0] if uname else "there"
+    today      = str(_dt.date.today())
+    hr         = _dt.datetime.now().hour
+    tod        = "morning" if hr < 12 else "afternoon" if hr < 17 else "evening"
+
+    # Personal data sent from the client
+    open_tasks    = int(data.get("open_tasks", 0))
+    overdue_tasks = int(data.get("overdue_tasks", 0))
+    top_goal      = sanitize_text(str(data.get("top_goal", "")), 80)
+    goal_pct      = int(data.get("goal_pct", 0))
+    streak        = int(data.get("streak", 0))
+    events_today  = int(data.get("events_today", 0))
+    journalled    = bool(data.get("journalled", False))
+    high_pri      = sanitize_text(str(data.get("high_priority_task", "")), 80)
+
+    # Org data (if user is in an org)
+    org_name      = ""
+    org_tasks     = 0
+    if db.is_available():
+        try:
+            org = db.get_org_by_member(sid)
+            if org:
+                org_name  = org["name"]
+                org_tasks = len([t for t in db.get_org_tasks(org["id"]) if t.get("status") != "done"])
+        except Exception:
+            pass
+
+    lines = [
+        f"Generate a 2-3 sentence {tod} brief for {first_name}. Today is {today}.",
+        "",
+        "Workspace data:",
+        f"- Open tasks: {open_tasks}" + (f" ({overdue_tasks} overdue)" if overdue_tasks else ""),
+    ]
+    if high_pri:
+        lines.append(f"- Highest priority: \"{high_pri}\"")
+    if top_goal:
+        lines.append(f"- Top goal: \"{top_goal}\" at {goal_pct}%")
+    if streak > 1:
+        lines.append(f"- Activity streak: {streak} days")
+    if events_today:
+        lines.append(f"- Events scheduled today: {events_today}")
+    if not journalled:
+        lines.append("- Has NOT journalled today")
+    if org_name:
+        lines.append(f"- Organisation: {org_name} ({org_tasks} open org tasks)")
+
+    lines += [
+        "",
+        "Rules:",
+        "1. Be warm and direct — like the smartest friend in the room.",
+        "2. Reference 1-2 real data points naturally, not as a list.",
+        "3. End with one sharp, specific action suggestion.",
+        "4. Max 3 sentences. No bullet points. No headers.",
+    ]
+
+    prompt  = "\n".join(lines)
+    brief   = gemini_once(prompt, temp=0.75, tokens=120)
+    if not brief:
+        brief = f"Good {tod}, {first_name}. Your workspace is ready — make today count."
+    return {"brief": brief, "date": today}
+
+
 @app.post("/api/feedback")
 async def submit_feedback(data: dict):
     token = sanitize_text(str(data.get("token", "")), 100)

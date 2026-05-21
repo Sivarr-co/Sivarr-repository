@@ -3718,23 +3718,16 @@ async function loadHome() {
   const activeGoals  = goals.filter(g => !g.completed);
   const streak       = _getActivityStreak();
 
-  // ── SIVA brief (real data, not random) ────────────────────────
+  // ── SIVA brief (AI-generated, cached per day) ─────────────────
   const briefMsg = $('home-brief-msg');
   if (briefMsg) {
-    const parts = [];
-    if (openTasks.length)  parts.push(`${openTasks.length} task${openTasks.length > 1 ? 's' : ''} open`);
-    if (activeGoals.length) {
-      const g = activeGoals[0];
-      parts.push(`**${g.title}** at ${g.progress || 0}%`);
-    }
-    const journaledToday = jnl.some(e => e.date === today8601);
-    if (!journaledToday && jnl.length) parts.push(`haven't journalled today`);
-    if (streak > 1) parts.push(`${streak}-day streak 🔥`);
-
-    if (parts.length) {
-      briefMsg.textContent = `${firstName}: ${parts.join(' · ')}. Make it count.`;
+    const briefKey = `sivarr_brief_${S.sid}_${today8601}`;
+    const cached   = localStorage.getItem(briefKey);
+    if (cached) {
+      briefMsg.innerHTML = renderMarkdown(cached);
     } else {
-      briefMsg.textContent = `Clean slate, ${firstName}. Set a goal, plan your week, or just ask me something.`;
+      briefMsg.innerHTML = `<span class="brief-pulse">Generating your brief…</span>`;
+      _fetchHomeBrief({ openTasks, activeGoals, habits, jnl, events, today8601, streak, briefKey, briefMsg });
     }
   }
 
@@ -3894,6 +3887,67 @@ async function loadHome() {
         </div>`).join('');
     }
   } catch(_) {}
+}
+
+async function _fetchHomeBrief({ openTasks, activeGoals, habits, jnl, events, today8601, streak, briefKey, briefMsg }) {
+  if (!S.sid) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+
+  const overdueTasks = openTasks.filter(t => t.due_date && t.due_date < today8601);
+  const topGoal      = activeGoals[0];
+  const highPri      = openTasks.find(t => t.priority === 'high');
+  const journalled   = jnl.some(e => (e.date || '') === today8601);
+  const eventsToday  = events.filter(e => (e.date || '').startsWith(today8601)).length;
+
+  try {
+    const r = await API('/api/home/brief', {
+      token,
+      open_tasks:          openTasks.length,
+      overdue_tasks:       overdueTasks.length,
+      top_goal:            topGoal?.title || '',
+      goal_pct:            topGoal?.progress || 0,
+      streak,
+      events_today:        eventsToday,
+      journalled,
+      high_priority_task:  highPri?.title || '',
+    });
+    if (r?.brief && briefMsg) {
+      briefMsg.innerHTML = renderMarkdown(r.brief);
+      localStorage.setItem(briefKey, r.brief);
+    }
+  } catch(_) {
+    if (briefMsg) {
+      const firstName = S.name.split(' ')[0];
+      briefMsg.textContent = openTasks.length
+        ? `${firstName}, you have ${openTasks.length} task${openTasks.length > 1 ? 's' : ''} open${overdueTasks.length ? ` (${overdueTasks.length} overdue)` : ''}. Make today count.`
+        : `Clean slate, ${firstName}. Set a goal or plan your week.`;
+    }
+  }
+}
+
+async function refreshHomeBrief() {
+  if (!S.sid) return;
+  const today8601 = new Date().toISOString().split('T')[0];
+  const briefKey  = `sivarr_brief_${S.sid}_${today8601}`;
+  localStorage.removeItem(briefKey);
+
+  const briefMsg = $('home-brief-msg');
+  if (briefMsg) briefMsg.innerHTML = `<span class="brief-pulse">Refreshing…</span>`;
+
+  const tasks  = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]');
+  const goals  = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`) || '[]');
+  const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
+  const jnl    = JSON.parse(localStorage.getItem(JNL_KEY()) || '[]');
+  const events = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
+
+  await _fetchHomeBrief({
+    openTasks:   tasks.filter(t => !t.done),
+    activeGoals: goals.filter(g => !g.completed),
+    habits, jnl, events, today8601,
+    streak: _getActivityStreak(),
+    briefKey, briefMsg,
+  });
 }
 
 function homeHabitToggle(idx) {

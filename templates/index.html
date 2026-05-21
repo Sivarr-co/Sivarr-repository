@@ -19,7 +19,7 @@
 <meta property="og:type" content="website">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<link rel="stylesheet" href="/css/styles.css?v=20260521b">
+<link rel="stylesheet" href="/css/styles.css?v=20260521d">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -1803,7 +1803,13 @@ Sentry.onLoad(function() {
                 <div class="siva-brief-name" id="home-greeting">Good morning</div>
                 <div style="font-size:.68rem;opacity:.7" id="home-sub">Here's your day at a glance</div>
               </div>
-              <span class="siva-brief-badge">SIVARR AI</span>
+              <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+                <button onclick="refreshHomeBrief()" title="Refresh brief"
+                  style="background:none;border:none;color:var(--teal);cursor:pointer;font-size:.85rem;padding:4px;line-height:1;opacity:.8">
+                  <i class="ti ti-refresh"></i>
+                </button>
+                <span class="siva-brief-badge">SIVARR AI</span>
+              </div>
             </div>
             <div class="siva-brief-msg" id="home-brief-msg">
               You have tasks due today. Your study streak is going strong — keep it up! Ready to make progress?
@@ -3216,7 +3222,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260521c" defer></script>
+<script src="/js/app.js?v=20260521d" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
