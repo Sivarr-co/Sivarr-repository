@@ -8099,7 +8099,8 @@ function orgTab(tab, btn) {
   else {
     const b = $('os-tab-' + tab); if (b) b.classList.add('on');
   }
-  if (tab === 'chat')    orgChatRender();
+  if (tab === 'chat')  { orgChatInit(); }
+  else               { _ocDisconnectSSE(); }
   if (tab === 'goals')   orgRenderGoals();
   if (tab === 'founder') founderRender();
 }
@@ -8751,6 +8752,212 @@ async function teamInvite() {
    PHASE 5 — TEAM CHAT
    ══════════════════════════════════════════════════ */
 
+// ── Org Chat state ────────────────────────────────────────────
+let _OC_CHANNEL  = 'general';
+let _OC_SSE      = null;       // EventSource
+let _OC_PRESENCE = null;       // setInterval
+let _OC_CHANNELS = [];         // [{id,name,desc}]
+let _OC_UNREAD   = {};         // {channelId: count}
+let _OC_ONLINE   = new Set();  // set of sids currently online
+
+// Avatar colour palette (seeded by name)
+const _OC_COLOURS = ['#0d9488','#7c3aed','#d97706','#2563eb','#dc2626','#059669','#db2777','#0891b2'];
+function _ocColour(name) {
+  let h = 0;
+  for (let i = 0; i < (name||'?').length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
+  return _OC_COLOURS[Math.abs(h) % _OC_COLOURS.length];
+}
+
+function orgChatInit() {
+  if (!ORG) return;
+  _ocLoadChannels();
+  _ocConnectSSE();
+  _ocStartPresence();
+  orgChatRender();
+}
+
+async function _ocLoadChannels() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/org/channels?token=${encodeURIComponent(token)}`);
+    if (!r.ok) return;
+    const data = await r.json();
+    _OC_CHANNELS = data.channels || [];
+  } catch(_) {
+    _OC_CHANNELS = [
+      {id:'general',name:'general',desc:'Team-wide announcements'},
+      {id:'random',name:'random',desc:'Off-topic conversations'},
+    ];
+  }
+  _ocRenderSidebar();
+}
+
+function _ocRenderSidebar() {
+  if (!ORG) return;
+  const wsName = $('oc-ws-name');
+  if (wsName) wsName.textContent = ORG.name || 'Workspace';
+
+  const chList = $('oc-channels');
+  if (chList) {
+    chList.innerHTML = _OC_CHANNELS.map(ch => `
+      <div class="oc-ch-item${ch.id === _OC_CHANNEL ? ' active' : ''}" onclick="ocSwitchChannel('${ch.id}')">
+        <span class="oc-ch-hash">#</span>
+        <span style="flex:1">${esc(ch.name)}</span>
+        ${_OC_UNREAD[ch.id] ? '<div class="oc-ch-unread"></div>' : ''}
+      </div>`).join('');
+  }
+
+  // DMs: show org members
+  const dmList = $('oc-dms');
+  if (dmList && ORG.members?.length) {
+    dmList.innerHTML = ORG.members
+      .filter(m => m.sid !== S.sid)
+      .slice(0, 8)
+      .map(m => {
+        const online = _OC_ONLINE.has(m.sid);
+        const dmId   = _ocDmId(S.sid, m.sid);
+        return `<div class="oc-dm-item${_OC_CHANNEL === dmId ? ' active' : ''}" onclick="ocSwitchChannel('${dmId}')">
+          <div class="oc-dm-av" style="background:${_ocColour(m.name)}">${(m.name||'?')[0].toUpperCase()}</div>
+          <span style="flex:1;font-size:.82rem">${esc(m.name)}</span>
+          <div class="oc-presence-dot ${online ? 'online' : 'offline'}"></div>
+        </div>`;
+      }).join('');
+  }
+}
+
+function _ocDmId(a, b) {
+  return 'dm_' + [a.slice(0,8), b.slice(0,8)].sort().join('_');
+}
+
+function ocSwitchChannel(chId) {
+  _OC_CHANNEL = chId;
+  delete _OC_UNREAD[chId];
+
+  // Update header
+  const ch = _OC_CHANNELS.find(c => c.id === chId);
+  const nameEl = $('oc-ch-name');
+  const descEl = $('oc-ch-desc');
+  const inputEl = $('os-chat-input');
+  if (nameEl) nameEl.textContent = ch ? ch.name : chId;
+  if (descEl) descEl.textContent = ch ? ch.desc : (chId.startsWith('dm_') ? 'Direct message' : '');
+  if (inputEl) inputEl.placeholder = `Message ${ch ? '#' + ch.name : chId}…`;
+
+  _ocRenderSidebar();
+  orgChatRender();
+}
+
+function _ocConnectSSE() {
+  if (_OC_SSE) { _OC_SSE.close(); _OC_SSE = null; }
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token || !ORG) return;
+
+  _OC_SSE = new EventSource(`/api/org/chat/stream?token=${encodeURIComponent(token)}`);
+  _OC_SSE.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.channel === _OC_CHANNEL) {
+        _ocAppendMsg(msg, true);
+      } else {
+        _OC_UNREAD[msg.channel] = (_OC_UNREAD[msg.channel] || 0) + 1;
+        _ocRenderSidebar();
+      }
+    } catch(_) {}
+  };
+  _OC_SSE.onerror = () => {
+    // auto-reconnect after 5s
+    setTimeout(() => { if (ORG && _OC_SSE) _ocConnectSSE(); }, 5000);
+  };
+}
+
+function _ocDisconnectSSE() {
+  if (_OC_SSE) { _OC_SSE.close(); _OC_SSE = null; }
+  if (_OC_PRESENCE) { clearInterval(_OC_PRESENCE); _OC_PRESENCE = null; }
+}
+
+function _ocStartPresence() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  const ping = () => {
+    if (!ORG || !token) return;
+    API('/api/org/presence', { token }).catch(() => {});
+    fetch(`/api/org/presence?token=${encodeURIComponent(token)}`)
+      .then(r => r.json())
+      .then(d => {
+        _OC_ONLINE = new Set((d.online || []).map(u => u.sid));
+        _ocRenderPresenceBar(d.online || []);
+        _ocRenderSidebar();
+      }).catch(() => {});
+  };
+  ping();
+  if (_OC_PRESENCE) clearInterval(_OC_PRESENCE);
+  _OC_PRESENCE = setInterval(ping, 30000);
+}
+
+function _ocRenderPresenceBar(online) {
+  const bar = $('oc-presence');
+  if (!bar) return;
+  if (!online.length) { bar.innerHTML = ''; return; }
+  bar.innerHTML = online.slice(0, 5).map(u => `
+    <div class="oc-presence-chip">
+      <div class="oc-presence-dot online"></div>
+      <span>${esc(u.name.split(' ')[0])}</span>
+    </div>`).join('') + (online.length > 5 ? `<span style="font-size:.68rem;color:var(--text4)">+${online.length - 5}</span>` : '');
+}
+
+async function orgChatRender() {
+  const box = $('os-chat-messages');
+  if (!box || !ORG) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await API('/api/org/messages', { token, channel: _OC_CHANNEL });
+    const msgs = r.messages || [];
+    if (!msgs.length) {
+      box.innerHTML = `<div class="oc-chat-empty">No messages in #${esc(_OC_CHANNEL)} yet.<br>Be the first to say something.</div>`;
+      return;
+    }
+    box.innerHTML = '';
+    let lastAuthor = null;
+    msgs.forEach(m => {
+      box.appendChild(_ocBuildMsg(m, m.author_sid === lastAuthor));
+      lastAuthor = m.author_sid;
+    });
+    box.scrollTop = box.scrollHeight;
+  } catch(_) {
+    box.innerHTML = '<div class="oc-chat-empty">Could not load messages.</div>';
+  }
+}
+
+function _ocBuildMsg(m, continued = false) {
+  const el  = document.createElement('div');
+  el.className = `oc-msg${continued ? ' oc-msg-continued' : ''}`;
+  const ts  = m.created_at ? new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+  const col = _ocColour(m.author_name);
+  el.innerHTML = `
+    <div class="oc-msg-av" style="background:${col}">${(m.author_name||'?')[0].toUpperCase()}</div>
+    <div class="oc-msg-body">
+      ${!continued ? `<div class="oc-msg-meta">
+        <span class="oc-msg-name">${esc(m.author_name)}</span>
+        <span class="oc-msg-time">${ts}</span>
+      </div>` : ''}
+      <div class="oc-msg-text">${esc(m.content)}</div>
+    </div>`;
+  return el;
+}
+
+function _ocAppendMsg(m, scroll = true) {
+  const box = $('os-chat-messages');
+  if (!box) return;
+  // Remove empty state
+  const empty = box.querySelector('.oc-chat-empty');
+  if (empty) empty.remove();
+  const lastMsg  = box.lastElementChild;
+  const lastSid  = lastMsg?.querySelector('.oc-msg-name') ? null : lastMsg?.dataset?.sid;
+  const continued = lastMsg?.dataset?.sid === m.author_sid;
+  const el = _ocBuildMsg(m, continued);
+  el.dataset.sid = m.author_sid;
+  box.appendChild(el);
+  if (scroll) box.scrollTop = box.scrollHeight;
+}
+
 async function orgChatSend() {
   if (!ORG) return;
   const inp = $('os-chat-input');
@@ -8759,38 +8966,42 @@ async function orgChatSend() {
   inp.value = '';
   const token = localStorage.getItem('sivarr_token') || '';
   try {
-    await API('/api/org/messages/send', { token, content: msg, channel: 'general' });
-    await orgChatRender();
+    await API('/api/org/messages/send', { token, content: msg, channel: _OC_CHANNEL });
+    // SSE will deliver the message back — no need to re-render
   } catch(e) { toast(e.message || 'Could not send message'); }
 }
 
-async function orgChatRender() {
-  const box = $('os-chat-messages');
-  if (!box || !ORG) return;
-  try {
-    const r = await API('/api/org/messages', { token: localStorage.getItem('sivarr_token') || '', channel: 'general' });
-    const msgs = r.messages || [];
-    if (!msgs.length) {
-      box.innerHTML = '<div class="os-chat-empty">No messages yet. Start the conversation!</div>';
-      return;
-    }
-    box.innerHTML = msgs.map(m => {
-      const me = m.author_sid === S.sid;
-      const ts = m.created_at ? new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
-      return `
-      <div class="os-chat-msg${me ? ' me' : ''}">
-        <div class="os-chat-av">${(m.author_name||'?').charAt(0).toUpperCase()}</div>
-        <div>
-          <div class="os-chat-meta">${escHtml(m.author_name)} · ${ts}</div>
-          <div class="os-chat-bubble">${escHtml(m.content)}</div>
-        </div>
-      </div>`;
-    }).join('');
-    box.scrollTop = box.scrollHeight;
-  } catch(e) { box.innerHTML = '<div class="os-chat-empty">Could not load messages.</div>'; }
+// ── Emoji picker ──────────────────────────────────────────────
+const _OC_EMOJIS = ['😀','😂','👍','❤️','🔥','🎉','✅','👀','😅','🙏','💯','🚀',
+  '😎','🤔','😬','🥳','💪','🙌','😭','🤣','😊','👏','⚡','🎯',
+  '📌','📎','🔧','💡','📝','🎓','🏆','⭐'];
+
+function ocEmojiToggle() {
+  const p = $('oc-emoji-picker');
+  if (!p) return;
+  if (p.style.display !== 'none') { p.style.display = 'none'; return; }
+  if (!p.children.length) {
+    p.innerHTML = _OC_EMOJIS.map(e =>
+      `<button class="oc-emoji-btn-item" onclick="ocInsertEmoji('${e}')">${e}</button>`
+    ).join('');
+  }
+  p.style.display = 'grid';
 }
 
-function orgChatInit() { orgChatRender(); }
+function ocInsertEmoji(em) {
+  const inp = $('os-chat-input');
+  if (inp) { inp.value += em; inp.focus(); }
+  const p = $('oc-emoji-picker');
+  if (p) p.style.display = 'none';
+}
+
+// Close emoji picker on outside click
+document.addEventListener('click', e => {
+  const p = $('oc-emoji-picker');
+  if (p && p.style.display !== 'none' && !e.target.closest('#oc-emoji-picker') && !e.target.closest('#oc-emoji-btn')) {
+    p.style.display = 'none';
+  }
+});
 
 /* ══════════════════════════════════════════════════
    PHASE 5 — PROJECTS

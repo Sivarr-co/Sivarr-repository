@@ -25,7 +25,7 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 
@@ -67,6 +67,35 @@ except ImportError:
     SENTRY_AVAILABLE = False
 
 import database as db
+import asyncio, json, time
+from collections import defaultdict
+
+# ── Real-time chat: in-memory SSE queues per org ──────────────
+_ORG_SSE: dict[str, list[asyncio.Queue]] = defaultdict(list)
+
+async def _sse_broadcast(org_id: str, payload: str):
+    dead = []
+    for q in list(_ORG_SSE.get(org_id, [])):
+        try:
+            q.put_nowait(payload)
+        except asyncio.QueueFull:
+            dead.append(q)
+    for q in dead:
+        try: _ORG_SSE[org_id].remove(q)
+        except ValueError: pass
+
+# ── Presence: last-seen per user per org (in-memory) ─────────
+_PRESENCE: dict[str, dict] = defaultdict(dict)  # org_id → {sid: {name, ts}}
+
+# ── Default org channels ──────────────────────────────────────
+DEFAULT_CHANNELS = [
+    {"id": "general",     "name": "general",     "desc": "Team-wide announcements"},
+    {"id": "engineering", "name": "engineering", "desc": "Engineering discussions"},
+    {"id": "product",     "name": "product",     "desc": "Product and design"},
+    {"id": "sales",       "name": "sales",       "desc": "Sales and growth"},
+    {"id": "design",      "name": "design",      "desc": "Design assets and feedback"},
+    {"id": "random",      "name": "random",      "desc": "Off-topic conversations"},
+]
 
 # ═══════════════════════════════════════════════════════════════
 #  LOGGING SETUP
@@ -4541,7 +4570,91 @@ async def org_message_send(data: dict):
     channel = sanitize_text(str(data.get("channel", "general")), 60)
     ok = db.send_org_message(org["id"], channel, sid, uname, content)
     if not ok: raise HTTPException(500, "Failed to send message.")
+    import datetime as _dt
+    msg_payload = json.dumps({
+        "channel":     channel,
+        "content":     content,
+        "author_sid":  sid,
+        "author_name": uname,
+        "created_at":  _dt.datetime.utcnow().isoformat(),
+    })
+    asyncio.create_task(_sse_broadcast(org["id"], msg_payload))
     return {"ok": True}
+
+
+@app.get("/api/org/chat/stream")
+async def org_chat_stream(token: str = "", request: Request = None):
+    """SSE endpoint — streams new messages to connected clients."""
+    token = sanitize_text(token, 100)
+    entry = get_session_from_token(token)
+    if not entry: raise HTTPException(401, "Invalid token.")
+    sid = entry["sid"]
+    if not db.is_available(): raise HTTPException(503, "DB unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
+    org_id = org["id"]
+
+    q: asyncio.Queue = asyncio.Queue(maxsize=50)
+    _ORG_SSE[org_id].append(q)
+
+    async def stream():
+        try:
+            while True:
+                if request and await request.is_disconnected():
+                    break
+                try:
+                    data = await asyncio.wait_for(q.get(), timeout=20)
+                    yield f"data: {data}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"
+        finally:
+            try: _ORG_SSE[org_id].remove(q)
+            except ValueError: pass
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control":    "no-cache",
+            "X-Accel-Buffering":"no",
+            "Connection":       "keep-alive",
+        },
+    )
+
+
+@app.get("/api/org/channels")
+async def org_channels(token: str = ""):
+    token = sanitize_text(token, 100)
+    entry = get_session_from_token(token)
+    if not entry: raise HTTPException(401, "Invalid token.")
+    return {"channels": DEFAULT_CHANNELS}
+
+
+@app.post("/api/org/presence")
+async def org_presence_ping(data: dict):
+    sid, uname = _resolve_token(data)
+    if not db.is_available(): raise HTTPException(503, "DB unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization.")
+    _PRESENCE[org["id"]][sid] = {"name": uname, "ts": time.time()}
+    return {"ok": True}
+
+
+@app.get("/api/org/presence")
+async def org_presence_list(token: str = ""):
+    token = sanitize_text(token, 100)
+    entry = get_session_from_token(token)
+    if not entry: raise HTTPException(401, "Invalid token.")
+    if not db.is_available(): return {"online": []}
+    org = db.get_org_by_member(entry["sid"])
+    if not org: return {"online": []}
+    cutoff = time.time() - 90
+    online = [
+        {"sid": s, "name": v["name"]}
+        for s, v in _PRESENCE.get(org["id"], {}).items()
+        if v["ts"] > cutoff
+    ]
+    return {"online": online}
 
 
 # ── Goals & OKRs ──────────────────────────────────────────────────────────────

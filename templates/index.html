@@ -19,7 +19,7 @@
 <meta property="og:type" content="website">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<link rel="stylesheet" href="/css/styles.css?v=20260521d">
+<link rel="stylesheet" href="/css/styles.css?v=20260521f">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -2521,13 +2521,39 @@ Sentry.onLoad(function() {
 
         <!-- ── CHAT ── -->
         <div class="os-pane os-pane-chat" id="os-pane-chat">
-          <div class="os-chat-messages" id="os-chat-messages">
-            <div class="os-chat-empty">No messages yet. Start the conversation 👋</div>
+          <!-- Channel sidebar -->
+          <div class="oc-sidebar">
+            <div class="oc-ws-name" id="oc-ws-name">Workspace</div>
+            <div class="oc-section-lbl">CHANNELS</div>
+            <div id="oc-channels"></div>
+            <div class="oc-section-lbl" style="margin-top:14px">DIRECT</div>
+            <div id="oc-dms"></div>
           </div>
-          <div class="os-chat-bar">
-            <input class="os-chat-input" id="os-chat-input" placeholder="Message the team…"
-              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();orgChatSend()}">
-            <button class="os-chat-send" onclick="orgChatSend()"><i class="ti ti-send"></i></button>
+          <!-- Main chat -->
+          <div class="oc-main">
+            <div class="oc-header">
+              <div>
+                <div class="oc-ch-name"><span style="opacity:.5">#</span> <span id="oc-ch-name">general</span></div>
+                <div class="oc-ch-desc" id="oc-ch-desc">Team-wide announcements</div>
+              </div>
+              <div class="oc-presence" id="oc-presence"></div>
+            </div>
+            <div class="oc-msgs" id="os-chat-messages"></div>
+            <!-- Emoji picker -->
+            <div class="oc-emoji-picker" id="oc-emoji-picker" style="display:none"></div>
+            <div class="oc-bar">
+              <button class="oc-bar-icon" title="Attach file" onclick="toast('Attachments coming soon')">
+                <i class="ti ti-paperclip"></i>
+              </button>
+              <input class="oc-input" id="os-chat-input" placeholder="Message #general…"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();orgChatSend()}">
+              <button class="oc-bar-icon" id="oc-emoji-btn" onclick="ocEmojiToggle()" title="Emoji">
+                <i class="ti ti-mood-smile"></i>
+              </button>
+              <button class="oc-send-btn" onclick="orgChatSend()">
+                <i class="ti ti-send"></i>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -3266,7 +3292,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260521e" defer></script>
+<script src="/js/app.js?v=20260521f" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
