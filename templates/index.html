@@ -424,8 +424,52 @@ Sentry.onLoad(function() {
             <i class="ti ti-template si-ic"></i>
             <span class="si-lb">Templates</span>
           </button>
+          <button class="si" data-panel="documenthub" onclick="sidebarNav(this)">
+            <i class="ti ti-folders si-ic"></i>
+            <span class="si-lb">Document Hub</span>
+          </button>
         </div>
 
+
+        <!-- Academic -->
+        <div class="sg" onclick="sbToggleSection('academic')">
+          <span class="sl">Academic</span>
+          <i class="ti ti-chevron-down sg-chev"></i>
+        </div>
+        <div class="sg-items" id="sgi-academic">
+          <button class="si" data-panel="quiz" onclick="sidebarNav(this)">
+            <i class="ti ti-pencil si-ic"></i>
+            <span class="si-lb">Quiz</span>
+          </button>
+          <button class="si" data-panel="courses" onclick="sidebarNav(this)">
+            <i class="ti ti-school si-ic"></i>
+            <span class="si-lb">Courses</span>
+          </button>
+          <button class="si" data-panel="studyplan" onclick="sidebarNav(this)">
+            <i class="ti ti-map si-ic"></i>
+            <span class="si-lb">Study Plan</span>
+          </button>
+          <button class="si" data-panel="pomodoro" onclick="sidebarNav(this)">
+            <i class="ti ti-clock si-ic"></i>
+            <span class="si-lb">Study Timer</span>
+          </button>
+          <button class="si" data-panel="lab" onclick="sidebarNav(this)">
+            <i class="ti ti-flask si-ic"></i>
+            <span class="si-lb">Study Deck</span>
+          </button>
+          <button class="si" data-panel="contenthub" onclick="sidebarNav(this)">
+            <i class="ti ti-layout-grid si-ic"></i>
+            <span class="si-lb">Content Hub</span>
+          </button>
+          <button class="si" data-panel="learninghub" onclick="sidebarNav(this)">
+            <i class="ti ti-brain si-ic"></i>
+            <span class="si-lb">Learning Hub</span>
+          </button>
+          <button class="si" data-panel="studygroups" onclick="sidebarNav(this)">
+            <i class="ti ti-users si-ic"></i>
+            <span class="si-lb">Study Groups</span>
+          </button>
+        </div>
 
         <!-- Grow -->
         <div class="sg" onclick="sbToggleSection('grow')">
@@ -3222,7 +3266,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260521d" defer></script>
+<script src="/js/app.js?v=20260521e" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

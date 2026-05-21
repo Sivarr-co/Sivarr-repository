@@ -3575,10 +3575,12 @@ function cmdSearch() {
   const capRow = $('cmd-capture-row');
   if (capRow) capRow.style.display = q.length > 1 ? 'flex' : 'none';
 
-  // Search docs (new editor)
-  const docs = JSON.parse(localStorage.getItem(`sivarr_docs_${S.sid}`) || '[]');
-  // Search old notes for backward compat
-  const notes = JSON.parse(localStorage.getItem(`sivarr_notes_${S.sid}`) || '[]');
+  // Search all content sources
+  const docs   = JSON.parse(localStorage.getItem(`sivarr_docs_${S.sid}`)    || '[]');
+  const notes  = JSON.parse(localStorage.getItem(`sivarr_notes_${S.sid}`)   || '[]');
+  const tasks  = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`)   || '[]');
+  const goals  = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`)   || '[]');
+  const jnl    = JSON.parse(localStorage.getItem(`sivarr_journal_${S.sid}`) || '[]');
 
   // Filter panels / actions
   let items = CMD_ITEMS.filter(item =>
@@ -3598,26 +3600,53 @@ function cmdSearch() {
   // Match old notes
   const matchedNotes = q
     ? notes.filter(n =>
-        (n.text || '').toLowerCase().includes(q) ||
+        (n.text || n.title || '').toLowerCase().includes(q) ||
         (n.tag  || '').toLowerCase().includes(q)
       ).slice(0, 3)
+    : [];
+
+  // Match tasks
+  const matchedTasks = q
+    ? tasks.filter(t => (t.title || '').toLowerCase().includes(q)).slice(0, 4)
+    : [];
+
+  // Match goals
+  const matchedGoals = q
+    ? goals.filter(g => (g.title || '').toLowerCase().includes(q)).slice(0, 3)
+    : [];
+
+  // Match journal entries
+  const matchedJournal = q
+    ? jnl.filter(e => (e.text || e.content || e.entry || '').toLowerCase().includes(q)).slice(0, 3)
     : [];
 
   CMD_VISIBLE = [
     ...items.map(i => ({ ...i, type: 'panel' })),
     ...matchedDocs.map(d => ({
-      icon: '📄',
-      label: (d.title || 'Untitled').slice(0, 50),
-      tag: 'Doc',
-      type: 'doc',
+      icon: '📄', label: (d.title || 'Untitled').slice(0, 50),
+      tag: 'Doc', type: 'doc',
       action: () => { nav('notes', null); setTimeout(() => docOpen(d.id), 150); }
     })),
     ...matchedNotes.map(n => ({
-      icon: '📓',
-      label: (n.text || '').split('\n')[0].slice(0, 50) || 'Note',
-      tag: 'Note',
-      type: 'note',
+      icon: '📓', label: ((n.text || n.title || '').split('\n')[0].slice(0, 50)) || 'Note',
+      tag: 'Note', type: 'note',
       action: () => nav('notes', null),
+    })),
+    ...matchedTasks.map(t => ({
+      icon: t.done ? '✅' : '☐',
+      label: (t.title || '').slice(0, 50),
+      tag: 'Task', type: 'task',
+      action: () => nav('flux', null),
+    })),
+    ...matchedGoals.map(g => ({
+      icon: '🎯', label: (g.title || '').slice(0, 50),
+      tag: 'Goal', type: 'goal',
+      action: () => nav('goals', null),
+    })),
+    ...matchedJournal.map(e => ({
+      icon: '✍️', label: ((e.text || e.content || e.entry || '').slice(0, 50)) || 'Journal entry',
+      tag: 'Journal', type: 'journal',
+      action: () => nav('journal', null),
     })),
   ];
 
@@ -3628,11 +3657,14 @@ function cmdSearch() {
     return;
   }
 
-  // Group by tag
+  // Group by type/tag
   const groups = {};
   CMD_VISIBLE.forEach((item, idx) => {
-    const g = item.type === 'doc'  ? 'Docs'
-            : item.type === 'note' ? 'Notes'
+    const g = item.type === 'doc'     ? 'Docs'
+            : item.type === 'note'    ? 'Notes'
+            : item.type === 'task'    ? 'Tasks'
+            : item.type === 'goal'    ? 'Goals'
+            : item.type === 'journal' ? 'Journal'
             : (item.tag || 'Actions');
     if (!groups[g]) groups[g] = [];
     groups[g].push({ ...item, _idx: idx });
@@ -4747,10 +4779,11 @@ const SB_SECTIONS = ['core','work','academic','grow','connect','org','spaces'];
 // Map panel name → sidebar section id
 const PANEL_SECTION_MAP = {
   chat:'core', home:'core', announcements:'core',
-  flux:'work', notes:'work', calendar:'work', templates:'work',
+  flux:'work', notes:'work', calendar:'work', templates:'work', documenthub:'work',
   courses:'academic', quiz:'academic', lab:'academic',
   studyplan:'academic', pomodoro:'academic', contenthub:'academic',
-  goals:'grow', habits:'grow', stats:'grow', journal:'grow',
+  learninghub:'academic', studygroups:'academic',
+  goals:'grow', habits:'grow', stats:'grow', journal:'grow', progress:'grow',
   community:'connect', library:'connect', opportunities:'connect', agents:'connect',
   team:'org', projects:'org', hr:'org', automations:'org', orgchat:'org', org:'org',
   personal:'spaces', academic:'spaces',
