@@ -143,6 +143,22 @@ PAYSTACK_AVAILABLE  = bool(PAYSTACK_SECRET_KEY)
 NAIRA_RATE          = int(os.environ.get("NAIRA_RATE", "1650"))  # USD→NGN
 PAYSTACK_API        = "https://api.paystack.co"
 
+# ── Google OAuth + Calendar ───────────────────────────────────
+GOOGLE_CLIENT_ID       = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET   = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_OAUTH_AVAILABLE = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+GOOGLE_AUTH_URL        = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL       = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL    = "https://www.googleapis.com/oauth2/v2/userinfo"
+GOOGLE_CAL_API         = "https://www.googleapis.com/calendar/v3"
+
+# ── SIVARR Subscription Plans ─────────────────────────────────
+SIVARR_PLANS = {
+    "pro_monthly":  {"name": "Pro",  "label": "Monthly", "amount_ngn": 2500,  "period": "monthly"},
+    "pro_yearly":   {"name": "Pro",  "label": "Yearly",  "amount_ngn": 25000, "period": "yearly"},
+    "team_monthly": {"name": "Team", "label": "Monthly", "amount_ngn": 8000,  "period": "monthly"},
+}
+
 # ── Sentry ────────────────────────────────────────────────────
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 
@@ -4916,6 +4932,386 @@ async def submit_feedback(data: dict):
     saved = db.save_feedback(sid, rating, text, page) if db.is_available() else False
     log.info(f"Feedback: sid={sid} rating={rating} page={page} saved_to_db={saved}")
     return {"ok": True}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GOOGLE OAUTH — Sign in with Google
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/auth/google")
+async def google_oauth_start():
+    """Redirect to Google consent screen for sign-in."""
+    if not GOOGLE_OAUTH_AVAILABLE:
+        return RedirectResponse("/?auth_error=google_not_configured")
+    from urllib.parse import urlencode
+    params = {
+        "client_id":     GOOGLE_CLIENT_ID,
+        "redirect_uri":  f"{BASE_URL}/auth/google/callback",
+        "response_type": "code",
+        "scope":         "openid email profile",
+        "access_type":   "online",
+        "prompt":        "select_account",
+    }
+    return RedirectResponse(f"{GOOGLE_AUTH_URL}?{urlencode(params)}")
+
+
+@app.get("/auth/google/callback")
+async def google_oauth_callback(code: str = "", error: str = ""):
+    """Exchange Google code, find/create user, issue SIVARR session token."""
+    if error or not code:
+        return RedirectResponse("/?auth_error=google_denied")
+    if not GOOGLE_OAUTH_AVAILABLE or not HTTPX_AVAILABLE:
+        return RedirectResponse("/?auth_error=google_not_configured")
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            tok = await client.post(GOOGLE_TOKEN_URL, data={
+                "code":          code,
+                "client_id":     GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uri":  f"{BASE_URL}/auth/google/callback",
+                "grant_type":    "authorization_code",
+            })
+            tokens = tok.json()
+            if "error" in tokens:
+                log.error(f"Google token exchange error: {tokens}")
+                return RedirectResponse("/?auth_error=google_token_failed")
+            info = await client.get(GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {tokens['access_token']}"})
+            profile = info.json()
+    except Exception as exc:
+        log.error(f"Google OAuth error: {exc}")
+        return RedirectResponse("/?auth_error=google_failed")
+
+    email     = (profile.get("email") or "").lower().strip()
+    name      = profile.get("name") or email.split("@")[0].title()
+    google_id = profile.get("id") or ""
+    if not email:
+        return RedirectResponse("/?auth_error=google_no_email")
+
+    users = load_users()
+    user  = next((u for u in users.values() if u.get("email","").lower() == email), None)
+    if not user and db.is_available():
+        user = db.get_user_by_email(email)
+
+    if not user:
+        sid  = uuid.uuid4().hex[:20]
+        user = {
+            "sid": sid, "name": name, "email": email, "phone": "",
+            "password": "", "created": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "role": "student", "google_id": google_id,
+        }
+        users[sid] = user
+        save_users(users)
+        if db.is_available() and not db.user_exists(sid):
+            try:
+                db.create_user(user)
+            except Exception as _e:
+                log.error(f"Google register DB error: {_e}")
+
+    sid = user["sid"]
+    p   = load_progress(sid)
+    p["google_id"] = google_id
+    save_progress(sid, p)
+
+    token = create_session_token(sid, user["name"], email)
+    log.info(f"Google OAuth login: {user['name']} ({email})")
+    return RedirectResponse(f"/?google_token={token}")
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GOOGLE CALENDAR INTEGRATION
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/auth/google/calendar")
+async def google_cal_connect(token: str = ""):
+    """Start OAuth flow for Google Calendar (offline, to get refresh token)."""
+    if not GOOGLE_OAUTH_AVAILABLE:
+        return RedirectResponse("/?gcal_error=not_configured")
+    from urllib.parse import urlencode
+    params = {
+        "client_id":     GOOGLE_CLIENT_ID,
+        "redirect_uri":  f"{BASE_URL}/auth/google/calendar/callback",
+        "response_type": "code",
+        "scope":         "https://www.googleapis.com/auth/calendar.events",
+        "access_type":   "offline",
+        "prompt":        "consent",
+        "state":         token,
+    }
+    return RedirectResponse(f"{GOOGLE_AUTH_URL}?{urlencode(params)}")
+
+
+@app.get("/auth/google/calendar/callback")
+async def google_cal_callback(code: str = "", state: str = "", error: str = ""):
+    """Store Google Calendar refresh token for the SIVARR user."""
+    if error or not code:
+        return RedirectResponse("/?gcal_error=denied")
+    if not GOOGLE_OAUTH_AVAILABLE or not HTTPX_AVAILABLE:
+        return RedirectResponse("/?gcal_error=not_configured")
+    sess = get_session_from_token(state)
+    if not sess:
+        return RedirectResponse("/?gcal_error=session_expired")
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            tok = await client.post(GOOGLE_TOKEN_URL, data={
+                "code":          code,
+                "client_id":     GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uri":  f"{BASE_URL}/auth/google/calendar/callback",
+                "grant_type":    "authorization_code",
+            })
+            tokens = tok.json()
+            if "error" in tokens:
+                return RedirectResponse("/?gcal_error=token_failed")
+    except Exception as exc:
+        log.error(f"Google Calendar OAuth error: {exc}")
+        return RedirectResponse("/?gcal_error=failed")
+
+    sid = sess["sid"]
+    p   = load_progress(sid)
+    p["google_cal_tokens"] = {
+        "access_token":  tokens.get("access_token",""),
+        "refresh_token": tokens.get("refresh_token",""),
+        "expiry":        time.time() + tokens.get("expires_in", 3600),
+    }
+    save_progress(sid, p)
+    log.info(f"Google Calendar connected: {sid}")
+    return RedirectResponse("/?gcal_connected=1")
+
+
+async def _gcal_access_token(sid: str) -> str | None:
+    """Return a valid Google Calendar access token, refreshing if needed."""
+    if not GOOGLE_OAUTH_AVAILABLE or not HTTPX_AVAILABLE:
+        return None
+    p    = load_progress(sid)
+    gcal = p.get("google_cal_tokens", {})
+    if not gcal.get("refresh_token"):
+        return None
+    if time.time() < gcal.get("expiry", 0) - 300:
+        return gcal["access_token"]
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(GOOGLE_TOKEN_URL, data={
+                "client_id":     GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "refresh_token": gcal["refresh_token"],
+                "grant_type":    "refresh_token",
+            })
+            data = resp.json()
+            if "access_token" not in data:
+                return None
+            gcal["access_token"] = data["access_token"]
+            gcal["expiry"]       = time.time() + data.get("expires_in", 3600)
+            p["google_cal_tokens"] = gcal
+            save_progress(sid, p)
+            return gcal["access_token"]
+    except Exception as exc:
+        log.error(f"Google Calendar token refresh error: {exc}")
+        return None
+
+
+@app.get("/api/integrations/gcal/status")
+async def gcal_status(token: str = ""):
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p    = load_progress(sess["sid"])
+    gcal = p.get("google_cal_tokens", {})
+    return {"connected": bool(gcal.get("refresh_token"))}
+
+
+@app.get("/api/integrations/gcal/events")
+async def gcal_events(token: str = "", time_min: str = "", time_max: str = ""):
+    """Fetch events from the user's primary Google Calendar."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    access = await _gcal_access_token(sess["sid"])
+    if not access:
+        raise HTTPException(403, "Google Calendar not connected.")
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            qp = {"singleEvents": "true", "orderBy": "startTime", "maxResults": "100"}
+            if time_min: qp["timeMin"] = time_min
+            if time_max: qp["timeMax"] = time_max
+            resp = await client.get(
+                f"{GOOGLE_CAL_API}/calendars/primary/events",
+                headers={"Authorization": f"Bearer {access}"},
+                params=qp,
+            )
+            data = resp.json()
+    except Exception as exc:
+        log.error(f"Google Calendar events error: {exc}")
+        raise HTTPException(502, "Google Calendar unreachable.")
+    events = []
+    for item in data.get("items", []):
+        s = item.get("start", {}); e = item.get("end", {})
+        events.append({
+            "id":      item.get("id",""),
+            "title":   item.get("summary","(No title)"),
+            "start":   s.get("dateTime") or s.get("date",""),
+            "end":     e.get("dateTime") or e.get("date",""),
+            "allDay":  "date" in s,
+            "source":  "google",
+            "color":   "#4285F4",
+            "htmlLink": item.get("htmlLink",""),
+        })
+    return {"events": events}
+
+
+@app.post("/api/integrations/gcal/push")
+async def gcal_push(data: dict):
+    """Push a SIVARR calendar event to the user's Google Calendar."""
+    sess = get_session_from_token(data.get("token",""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    access = await _gcal_access_token(sess["sid"])
+    if not access:
+        raise HTTPException(403, "Google Calendar not connected.")
+
+    title  = sanitize_text(str(data.get("title","Untitled")), 200)
+    start  = sanitize_text(str(data.get("start","")), 40)
+    end    = sanitize_text(str(data.get("end","") or data.get("start","")), 40)
+    all_day = bool(data.get("allDay", False))
+    desc   = sanitize_text(str(data.get("description","")), 1000)
+
+    if all_day:
+        body = {"summary": title, "description": desc,
+                "start": {"date": start[:10]}, "end": {"date": end[:10]}}
+    else:
+        if "T" not in start:
+            start = start + "T09:00:00"
+            end   = end   + "T10:00:00"
+        body = {"summary": title, "description": desc,
+                "start": {"dateTime": start, "timeZone": "UTC"},
+                "end":   {"dateTime": end,   "timeZone": "UTC"}}
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"{GOOGLE_CAL_API}/calendars/primary/events",
+                headers={"Authorization": f"Bearer {access}", "Content-Type": "application/json"},
+                json=body,
+            )
+            result = resp.json()
+    except Exception as exc:
+        log.error(f"Google Calendar push error: {exc}")
+        raise HTTPException(502, "Google Calendar unreachable.")
+    if "id" not in result:
+        raise HTTPException(400, result.get("error",{}).get("message","Push failed."))
+    return {"ok": True, "gcal_id": result["id"], "htmlLink": result.get("htmlLink","")}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  PAYSTACK SUBSCRIPTION BILLING
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/billing/plans")
+async def billing_plans():
+    return {
+        "plans": SIVARR_PLANS,
+        "paystack_pk": PAYSTACK_PUBLIC_KEY,
+        "paystack_available": PAYSTACK_AVAILABLE,
+    }
+
+
+@app.post("/api/billing/subscribe")
+async def billing_subscribe(data: dict):
+    """Initialize a Paystack transaction for a SIVARR subscription plan."""
+    sess = get_session_from_token(data.get("token",""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not PAYSTACK_AVAILABLE or not HTTPX_AVAILABLE:
+        raise HTTPException(503, "Paystack not configured.")
+    plan_id = sanitize_text(str(data.get("plan","")), 30)
+    plan    = SIVARR_PLANS.get(plan_id)
+    if not plan:
+        raise HTTPException(400, "Invalid plan.")
+    sid   = sess["sid"]
+    email = sess.get("email","")
+    if not email:
+        email = load_progress(sid).get("email","")
+    reference = f"sivbill_{uuid.uuid4().hex[:16]}"
+    payload = {
+        "email":        email or f"user_{sid}@sivarr.app",
+        "amount":       plan["amount_ngn"] * 100,
+        "currency":     "NGN",
+        "reference":    reference,
+        "callback_url": f"{BASE_URL}/?billing=success&plan={plan_id}&ref={reference}",
+        "metadata": {
+            "sivarr_sid": sid, "plan_id": plan_id,
+            "plan_name": plan["name"], "period": plan["period"],
+        },
+    }
+    headers = {"Authorization": f"Bearer {PAYSTACK_SECRET_KEY}", "Content-Type": "application/json"}
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(f"{PAYSTACK_API}/transaction/initialize",
+                                     json=payload, headers=headers)
+        result = resp.json()
+    except Exception as exc:
+        log.error(f"Billing subscribe error: {exc}")
+        raise HTTPException(502, "Paystack API unreachable.")
+    if not result.get("status"):
+        raise HTTPException(400, result.get("message","Paystack error."))
+    return {
+        "authorization_url": result["data"]["authorization_url"],
+        "reference": reference, "plan_id": plan_id, "amount_ngn": plan["amount_ngn"],
+    }
+
+
+@app.get("/api/billing/verify/{reference}")
+async def billing_verify(reference: str, token: str = ""):
+    """Verify a billing payment and activate the user's subscription."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not PAYSTACK_AVAILABLE or not HTTPX_AVAILABLE:
+        raise HTTPException(503, "Paystack not configured.")
+    reference = sanitize_text(reference, 80)
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(f"{PAYSTACK_API}/transaction/verify/{reference}",
+                headers={"Authorization": f"Bearer {PAYSTACK_SECRET_KEY}"})
+        result = resp.json()
+    except Exception as exc:
+        log.error(f"Billing verify error: {exc}")
+        raise HTTPException(502, "Paystack API unreachable.")
+    if not result.get("status") or result["data"]["status"] != "success":
+        raise HTTPException(400, "Payment not confirmed.")
+    tx      = result["data"]
+    meta    = tx.get("metadata", {})
+    sid     = meta.get("sivarr_sid", sess["sid"])
+    plan_id = meta.get("plan_id","")
+    plan    = SIVARR_PLANS.get(plan_id, {})
+    now     = datetime.datetime.utcnow()
+    expires = (now + datetime.timedelta(days=365 if plan.get("period")=="yearly" else 30)).strftime("%Y-%m-%d")
+    p = load_progress(sid)
+    p["subscription"] = {
+        "plan": plan_id, "name": plan.get("name","Pro"), "status": "active",
+        "expires": expires, "reference": reference,
+        "activated": now.strftime("%Y-%m-%d"),
+    }
+    save_progress(sid, p)
+    log.info(f"Billing: {sid} → {plan_id} expires {expires}")
+    return {"ok": True, "plan": plan_id, "name": plan.get("name","Pro"), "expires": expires}
+
+
+@app.get("/api/billing/status")
+async def billing_status(token: str = ""):
+    """Return the current user's active subscription plan."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p   = load_progress(sess["sid"])
+    sub = p.get("subscription", {})
+    if not sub:
+        return {"plan": "free", "name": "Free", "status": "active"}
+    if sub.get("expires"):
+        try:
+            if datetime.datetime.utcnow() > datetime.datetime.strptime(sub["expires"], "%Y-%m-%d"):
+                return {"plan": "free", "name": "Free", "status": "expired", "expired_at": sub["expires"]}
+        except ValueError:
+            pass
+    return sub
 
 
 @app.get("/health")

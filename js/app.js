@@ -631,6 +631,9 @@ function _applyLoginData(r) {
   if (!r.returning) setTimeout(() => siObMaybeStart(), 600);
   // Accept any pending org invite from URL
   setTimeout(_acceptPendingOrgInvite, 800);
+  // Load integration statuses
+  setTimeout(gcalCheckStatus, 1000);
+  setTimeout(billingLoadStatus, 1200);
 }
 
 async function restoreSession(token) {
@@ -718,12 +721,178 @@ async function submitResetPassword() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+//  GOOGLE CALENDAR INTEGRATION
+// ─────────────────────────────────────────────────────────────
+
+let _GCAL_CONNECTED  = false;
+let _GCAL_EVENTS     = [];
+
+async function gcalCheckStatus() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try {
+    const r = await fetch(`/api/integrations/gcal/status?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _GCAL_CONNECTED = d.connected;
+    const btn   = $('gcal-connect-btn');
+    const label = $('gcal-btn-label');
+    if (btn && label) {
+      if (_GCAL_CONNECTED) {
+        label.textContent = 'Google Connected';
+        btn.style.borderColor = 'var(--teal)';
+        btn.style.color       = 'var(--teal)';
+        btn.onclick = gcalLoadEvents;
+      } else {
+        label.textContent = 'Connect Google';
+        btn.style.borderColor = '';
+        btn.style.color       = '';
+        btn.onclick = gcalConnect;
+      }
+    }
+    if (_GCAL_CONNECTED) gcalLoadEvents();
+  } catch(_) {}
+}
+
+function gcalConnect() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) { toast('Sign in first.'); return; }
+  window.location.href = `/auth/google/calendar?token=${encodeURIComponent(token)}`;
+}
+
+async function gcalLoadEvents() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token || !_GCAL_CONNECTED) return;
+  const now     = new Date();
+  const start   = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const end     = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
+  try {
+    const r = await fetch(`/api/integrations/gcal/events?token=${encodeURIComponent(token)}&time_min=${encodeURIComponent(start)}&time_max=${encodeURIComponent(end)}`);
+    const d = await r.json();
+    _GCAL_EVENTS = d.events || [];
+    if (typeof renderCal === 'function') renderCal();
+  } catch(_) {}
+}
+
+async function gcalPushEvent(ev) {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token || !_GCAL_CONNECTED) { toast('Connect Google Calendar first.'); return; }
+  try {
+    await API('/api/integrations/gcal/push', {
+      token, title: ev.title, start: ev.start, end: ev.end || ev.start,
+      allDay: !!ev.allDay, description: ev.description || '',
+    });
+    toast('Event pushed to Google Calendar!');
+  } catch(e) {
+    toast(e.message || 'Push to Google Calendar failed.');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PAYSTACK SUBSCRIPTION BILLING
+// ─────────────────────────────────────────────────────────────
+
+let _BILLING_STATUS = null;
+
+async function billingLoadStatus() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try {
+    const r = await fetch(`/api/billing/status?token=${encodeURIComponent(token)}`);
+    _BILLING_STATUS = await r.json();
+    _billingRenderBadge();
+  } catch(_) {}
+}
+
+function _billingRenderBadge() {
+  const el = $('billing-plan-badge');
+  if (!el || !_BILLING_STATUS) return;
+  const plan = _BILLING_STATUS.name || 'Free';
+  el.textContent = plan;
+  el.style.background = plan === 'Free' ? 'var(--bg3)' : 'var(--teal2)';
+  el.style.color       = plan === 'Free' ? 'var(--muted)' : 'var(--teal)';
+}
+
+async function showPricing() {
+  const modal = $('pricing-modal');
+  if (!modal) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  let planData = { plans: {}, paystack_available: false };
+  try {
+    const r = await fetch('/api/billing/plans');
+    planData = await r.json();
+  } catch(_) {}
+
+  const cards = $('pricing-cards');
+  if (cards) {
+    const plans = [
+      { id: 'free',        name: 'Free',  price: '₦0',     per: '/forever', perks: ['AI chat (20/day)', 'Tasks & Goals', 'Calendar', 'Personal journal'], cta: 'Current plan', free: true },
+      { id: 'pro_monthly', name: 'Pro',   price: '₦2,500', per: '/month',   perks: ['Everything in Free', 'Unlimited AI', 'Org space access', 'Priority support'], featured: true },
+      { id: 'team_monthly',name: 'Team',  price: '₦8,000', per: '/month',   perks: ['Everything in Pro', 'Full org suite', 'Analytics', 'Custom branding'] },
+    ];
+    cards.innerHTML = plans.map(p => `
+      <div class="pricing-card${p.featured ? ' featured' : ''}">
+        <div class="pricing-name">${esc(p.name)}</div>
+        <div class="pricing-price">${p.price}<span>${p.per}</span></div>
+        <ul class="pricing-perks">${p.perks.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+        ${p.free
+          ? `<button class="pricing-btn free-btn" disabled>${esc(p.cta)}</button>`
+          : planData.paystack_available
+            ? `<button class="pricing-btn" onclick="billingSubscribe('${p.id}')">Get ${esc(p.name)}</button>`
+            : `<button class="pricing-btn free-btn" disabled>Payments coming soon</button>`
+        }
+      </div>`).join('');
+  }
+  modal.style.display = 'flex';
+}
+
+function closePricing() {
+  const modal = $('pricing-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function billingSubscribe(planId) {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) { toast('Sign in to subscribe.'); return; }
+  try {
+    const r = await API('/api/billing/subscribe', { token, plan: planId });
+    if (r.authorization_url) {
+      toast('Redirecting to Paystack…');
+      window.location.href = r.authorization_url;
+    }
+  } catch(e) {
+    toast(e.message || 'Could not start payment. Please try again.');
+  }
+}
+
+async function billingVerify(reference, planId) {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token || !reference) return;
+  try {
+    const r = await fetch(`/api/billing/verify/${encodeURIComponent(reference)}?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    if (d.ok) {
+      toast(`You're now on the ${d.name} plan! 🎉`);
+      await billingLoadStatus();
+    }
+  } catch(_) {
+    toast('Payment verification failed — contact support if funds were deducted.');
+  }
+}
+
 function checkAuthParams() {
-  const params   = new URLSearchParams(window.location.search);
-  const reset    = params.get('reset');
-  const verify   = params.get('verify');
-  const verified = params.get('verified');
+  const params    = new URLSearchParams(window.location.search);
+  const reset     = params.get('reset');
+  const verify    = params.get('verify');
+  const verified  = params.get('verified');
   const orgInvite = params.get('org_invite');
+  const googleTok = params.get('google_token');
+  const authErr   = params.get('auth_error');
+  const gcalConn  = params.get('gcal_connected');
+  const gcalErr   = params.get('gcal_error');
+  const billing   = params.get('billing');
+  const billingRef = params.get('ref');
+  const billingPlan = params.get('plan');
 
   if (reset) {
     history.replaceState(null, '', '/');
@@ -744,6 +913,48 @@ function checkAuthParams() {
   if (orgInvite) {
     history.replaceState(null, '', '/');
     sessionStorage.setItem('pending_org_invite', orgInvite);
+  }
+
+  // Google OAuth callback
+  if (googleTok) {
+    history.replaceState(null, '', '/');
+    localStorage.setItem('sivarr_token', googleTok);
+    sessionStorage.setItem('google_login_pending', googleTok);
+    return;
+  }
+  if (authErr) {
+    history.replaceState(null, '', '/');
+    const msgs = {
+      google_not_configured: 'Google sign-in is not configured yet.',
+      google_denied: 'Google sign-in was cancelled.',
+      google_token_failed: 'Google token exchange failed. Please try again.',
+      google_failed: 'Google sign-in failed. Please try again.',
+      google_no_email: 'Could not retrieve email from Google. Please use email/password.',
+    };
+    toast(msgs[authErr] || 'Authentication error. Please try again.');
+  }
+
+  // Google Calendar callback
+  if (gcalConn === '1') {
+    history.replaceState(null, '', '/');
+    sessionStorage.setItem('gcal_just_connected', '1');
+  }
+  if (gcalErr) {
+    history.replaceState(null, '', '/');
+    const msgs = {
+      not_configured: 'Google Calendar integration not configured.',
+      denied: 'Google Calendar access was denied.',
+      session_expired: 'Session expired — please sign in again.',
+      token_failed: 'Google Calendar token exchange failed.',
+    };
+    toast(msgs[gcalErr] || 'Google Calendar connection failed.');
+  }
+
+  // Paystack billing callback
+  if (billing === 'success' && billingRef) {
+    history.replaceState(null, '', '/');
+    sessionStorage.setItem('billing_verify_ref', billingRef);
+    sessionStorage.setItem('billing_verify_plan', billingPlan || '');
   }
 }
 
@@ -806,6 +1017,24 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Handle ?reset= / ?verify= / ?verified= URL params before anything else
   checkAuthParams();
 
+  // Google OAuth — token returned from /auth/google/callback
+  const googlePending = sessionStorage.getItem('google_login_pending');
+  if (googlePending) {
+    sessionStorage.removeItem('google_login_pending');
+    const btn = $('login-btn');
+    if (btn) { btn.textContent = 'Signing in with Google…'; btn.disabled = true; }
+    const ok = await restoreSession(googlePending);
+    if (ok) {
+      toast('Signed in with Google!');
+      // Check for pending post-login tasks
+      _postLoginIntegrations();
+      return;
+    }
+    toast('Google sign-in failed — please try again.');
+    if (btn) { btn.textContent = 'Sign In'; btn.disabled = false; }
+    return;
+  }
+
   const saved = getSavedSession();
   if (!saved) return;
 
@@ -815,15 +1044,34 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Token restore — no password required
   if (saved.token) {
     const ok = await restoreSession(saved.token);
-    if (ok) return;
-    // Session was stored but is now expired/invalid — tell the user
+    if (ok) {
+      _postLoginIntegrations();
+      return;
+    }
     toast('Your session expired — please sign in again.');
   }
 
   // Fallback: pre-fill email and show login form for expired/invalid tokens
   if (saved.email && $('lm')) $('lm').value = saved.email;
-  if (btn) { btn.textContent = 'Sign in'; btn.disabled = false; }
+  if (btn) { btn.textContent = 'Sign In'; btn.disabled = false; }
 });
+
+function _postLoginIntegrations() {
+  // Google Calendar just connected
+  if (sessionStorage.getItem('gcal_just_connected')) {
+    sessionStorage.removeItem('gcal_just_connected');
+    toast('Google Calendar connected!');
+    gcalCheckStatus();
+  }
+  // Billing payment just returned
+  const bilRef  = sessionStorage.getItem('billing_verify_ref');
+  const bilPlan = sessionStorage.getItem('billing_verify_plan');
+  if (bilRef) {
+    sessionStorage.removeItem('billing_verify_ref');
+    sessionStorage.removeItem('billing_verify_plan');
+    billingVerify(bilRef, bilPlan);
+  }
+}
 
 ['ln','lm'].forEach((id,i) => {
   const el = $(id);

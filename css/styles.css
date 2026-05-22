@@ -718,6 +718,42 @@ input, textarea, select { font-family: var(--font); }
   text-align: center; font-size: .74rem; color: var(--text4);
   margin-top: 1rem; line-height: 1.5;
 }
+.auth-or {
+  display:flex; align-items:center; gap:10px; margin:14px 0 10px;
+  color:var(--text4); font-size:.74rem;
+}
+.auth-or::before, .auth-or::after {
+  content:''; flex:1; height:1px; background:var(--border);
+}
+.btn-google {
+  display:flex; align-items:center; justify-content:center; gap:10px; width:100%;
+  padding:10px; border:1.5px solid var(--border); border-radius:var(--radius);
+  background:var(--bg); color:var(--fg); font-family:var(--font); font-size:.86rem;
+  font-weight:600; cursor:pointer; text-decoration:none; transition:background .15s;
+}
+.btn-google:hover { background:var(--bg2); }
+
+/* Pricing cards */
+.pricing-card {
+  border:1.5px solid var(--border); border-radius:12px; padding:20px 16px 16px;
+  display:flex; flex-direction:column; gap:10px; background:var(--bg2);
+  transition:border-color .15s, box-shadow .15s;
+}
+.pricing-card:hover { border-color:var(--teal); box-shadow:0 0 0 3px var(--teal2); }
+.pricing-card.featured { border-color:var(--teal); background:var(--teal2); }
+.pricing-name  { font-size:.78rem; font-weight:700; color:var(--teal); text-transform:uppercase; letter-spacing:.06em; }
+.pricing-price { font-size:1.5rem; font-weight:800; color:var(--fg); line-height:1; }
+.pricing-price span { font-size:.76rem; font-weight:400; color:var(--muted); }
+.pricing-perks { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:5px; }
+.pricing-perks li { font-size:.78rem; color:var(--text3); display:flex; gap:6px; align-items:center; }
+.pricing-perks li::before { content:'✓'; color:var(--teal); font-weight:700; flex-shrink:0; }
+.pricing-btn {
+  margin-top:auto; padding:9px; background:var(--teal); color:#fff;
+  border:none; border-radius:8px; font-family:var(--font); font-size:.82rem;
+  font-weight:700; cursor:pointer; transition:opacity .15s;
+}
+.pricing-btn:hover { opacity:.88; }
+.pricing-btn.free-btn { background:var(--bg3); color:var(--fg); }
 
 /* Dark mode adjustments */
 [data-theme="dark"] .login-left {
