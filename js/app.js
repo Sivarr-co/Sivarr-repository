@@ -632,9 +632,11 @@ function _applyLoginData(r) {
   // Accept any pending org invite from URL
   setTimeout(_acceptPendingOrgInvite, 800);
   // Load integration statuses
-  setTimeout(gcalCheckStatus,    1000);
-  setTimeout(githubCheckStatus,  1100);
-  setTimeout(billingLoadStatus,  1200);
+  setTimeout(gcalCheckStatus,           1000);
+  setTimeout(githubCheckStatus,         1100);
+  setTimeout(billingLoadStatus,         1200);
+  setTimeout(monoCheckStatus,           1400);
+  setTimeout(_sendTaskReminderIfNeeded, 3000);
 }
 
 async function restoreSession(token) {
@@ -876,6 +878,26 @@ function integrationsRender() {
       action: () => showPricing(),
       actionLabel: (_BILLING_STATUS?.plan || 'free') !== 'free' ? 'Manage' : 'Upgrade',
     },
+    {
+      id: 'flutterwave',
+      name: 'Flutterwave',
+      logo: '🦋',
+      bg: '#F5A623',
+      connected: (_BILLING_STATUS?.gateway === 'flutterwave'),
+      statusText: _BILLING_STATUS?.gateway === 'flutterwave' ? `${_BILLING_STATUS.name} via Flutterwave` : 'Pay with card/bank/USSD',
+      action: () => showPricing(),
+      actionLabel: 'Upgrade',
+    },
+    {
+      id: 'mono',
+      name: 'Mono',
+      logo: '🏦',
+      bg: '#000',
+      connected: _MONO_CONNECTED,
+      statusText: _MONO_CONNECTED ? 'Bank account linked' : 'African open banking',
+      action: () => monoConnect(),
+      actionLabel: _MONO_CONNECTED ? 'Connected' : 'Connect',
+    },
   ];
 
   grid.innerHTML = integrations.map(i => `
@@ -1018,7 +1040,10 @@ async function showPricing() {
           ? `<button class="pricing-btn free-btn" disabled>Current plan</button>`
           : p.free
             ? `<button class="pricing-btn free-btn" disabled>Free</button>`
-            : `<button class="pricing-btn" onclick="billingSubscribe('${p.id}')">Get ${esc(p.name)} →</button>`
+            : `<div style="display:flex;flex-direction:column;gap:6px">
+                <button class="pricing-btn" onclick="billingSubscribe('${p.id}')">Paystack →</button>
+                <button class="pricing-btn" style="background:var(--amber,#F5A623);border-color:var(--amber,#F5A623)" onclick="flutterwaveSubscribe('${p.id}')">Flutterwave →</button>
+               </div>`
         }
       </div>`;
     }).join('');
@@ -1153,6 +1178,15 @@ function checkAuthParams() {
     sessionStorage.setItem('billing_verify_ref', billingRef);
     sessionStorage.setItem('billing_verify_plan', billingPlan || '');
   }
+
+  // Flutterwave billing callback
+  const flwBilling = params.get('flw_billing');
+  const flwRef     = params.get('ref') || params.get('tx_ref') || '';
+  if (flwBilling === 'success' && flwRef) {
+    history.replaceState(null, '', '/');
+    sessionStorage.setItem('flw_verify_ref', flwRef);
+    sessionStorage.setItem('flw_verify_plan', sessionStorage.getItem('flw_billing_plan') || '');
+  }
 }
 
 async function _acceptPendingOrgInvite() {
@@ -1266,13 +1300,23 @@ function _postLoginIntegrations() {
     toast('GitHub connected!');
     githubCheckStatus();
   }
-  // Billing payment just returned
+  // Paystack billing just returned
   const bilRef  = sessionStorage.getItem('billing_verify_ref');
   const bilPlan = sessionStorage.getItem('billing_verify_plan');
   if (bilRef) {
     sessionStorage.removeItem('billing_verify_ref');
     sessionStorage.removeItem('billing_verify_plan');
     billingVerify(bilRef, bilPlan);
+  }
+
+  // Flutterwave billing just returned
+  const flwRef  = sessionStorage.getItem('flw_verify_ref');
+  const flwPlan = sessionStorage.getItem('flw_verify_plan');
+  if (flwRef) {
+    sessionStorage.removeItem('flw_verify_ref');
+    sessionStorage.removeItem('flw_verify_plan');
+    sessionStorage.removeItem('flw_billing_plan');
+    flutterwaveVerify(flwRef, flwPlan);
   }
 }
 
@@ -5285,6 +5329,7 @@ function nav(name, btn) {
   if (p) p.classList.add('active');
   if (btn) btn.classList.add('active');
   const mob = document.getElementById(`mn-${name}`); if (mob) mob.classList.add('active');
+  _updateMobileNav(name);
   syncSnavFromPanel(name);
 
   // ── Paywall guards ──
@@ -8603,8 +8648,14 @@ function orgTab(tab, btn) {
   }
   if (tab === 'chat')  { orgChatInit(); }
   else               { _ocDisconnectSSE(); }
-  if (tab === 'goals')   orgRenderGoals();
-  if (tab === 'founder') founderRender();
+  if (tab === 'goals')    orgRenderGoals();
+  if (tab === 'founder')  founderRender();
+  if (tab === 'announce') {
+    annLoad();
+    const wrap = $('ann-compose-wrap');
+    if (wrap) wrap.style.display = _orgIsAdmin() ? 'flex' : 'none';
+  }
+  if (tab === 'analytics') orgAnalyticsLoad();
 }
 
 function orgRenderOverview() {
@@ -9391,6 +9442,11 @@ function _ocConnectSSE() {
   _OC_SSE.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
+      if (msg.type === 'announcement') {
+        // Real-time announcement — prepend to feed if visible
+        if (_ANN_LIST !== undefined) { _ANN_LIST.unshift(msg.ann); annRender(); }
+        return;
+      }
       if (msg.channel === _OC_CHANNEL) {
         _ocAppendMsg(msg, true);
       } else {
@@ -12428,7 +12484,7 @@ function siObFinish() {
 function siObRender() {
   const box = $('si-onboard-box');
   if (!box) return;
-  const dots = [1,2,3,4].map(i =>
+  const dots = [1,2,3,4,5].map(i =>
     `<div class="si-ob-dot${_siObStep===i?' active':''}"></div>`).join('');
 
   let content = '';
@@ -12491,6 +12547,34 @@ function siObRender() {
         ? 'Open <strong>Spaces</strong> and create your first workspace.'
         : 'Check out <strong>Habits</strong> and add your first daily habit.';
     content = `
+      <div class="si-ob-emoji">🔗</div>
+      <div class="si-ob-title">Connect your tools</div>
+      <div class="si-ob-sub">Link your favourite apps to supercharge your workspace.</div>
+      <div class="si-ob-int-grid">
+        <button class="si-ob-int-btn ${_GCAL_CONNECTED?'done':''}" onclick="gcalConnect()">
+          <span class="si-ob-int-icon">📅</span>
+          <span class="si-ob-int-label">Google Calendar</span>
+        </button>
+        <button class="si-ob-int-btn ${_GITHUB_CONNECTED?'done':''}" onclick="githubConnect()">
+          <span class="si-ob-int-icon">🐙</span>
+          <span class="si-ob-int-label">GitHub</span>
+        </button>
+        <button class="si-ob-int-btn ${_MONO_CONNECTED?'done':''}" onclick="monoConnect()">
+          <span class="si-ob-int-icon">🏦</span>
+          <span class="si-ob-int-label">Mono Bank</span>
+        </button>
+      </div>
+      <div class="si-ob-actions">
+        <button class="si-ob-btn-sec" onclick="siObPrev()">← Back</button>
+        <button class="si-ob-btn-pri" onclick="siObNext()">Finish →</button>
+      </div>`;
+  } else if (_siObStep === 5) {
+    const firstStep = _siObRole === 'student'
+      ? 'Head to the <strong>Chat</strong> panel and ask your AI tutor anything.'
+      : _siObRole === 'professional'
+        ? 'Open <strong>Spaces</strong> and create your first workspace.'
+        : 'Check out <strong>Habits</strong> and add your first daily habit.';
+    content = `
       <div class="si-ob-emoji">🎉</div>
       <div class="si-ob-title">You're all set!</div>
       <div class="si-ob-sub">
@@ -12515,7 +12599,7 @@ function siObSelectRole(role, el) {
 }
 
 function siObNext() {
-  if (_siObStep < 4) { _siObStep++; siObRender(); }
+  if (_siObStep < _OB_TOTAL_STEPS) { _siObStep++; siObRender(); }
   else siObFinish();
 }
 
@@ -12667,6 +12751,383 @@ function openFeedback() {
 function closeFeedback() {
   const modal = $('feedback-modal'); if (modal) modal.style.display = 'none';
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  FLUTTERWAVE BILLING
+// ═══════════════════════════════════════════════════════════════
+
+async function flutterwaveSubscribe(planId) {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) { toast('Sign in to subscribe.'); return; }
+  try {
+    const r = await API('/api/billing/flutterwave/subscribe', { token, plan_id: planId });
+    if (r.payment_url) {
+      sessionStorage.setItem('flw_billing_plan', planId);
+      window.location.href = r.payment_url;
+    }
+  } catch(e) {
+    toast(e.message || 'Flutterwave payment failed. Try Paystack instead.');
+  }
+}
+
+async function flutterwaveVerify(ref, planId) {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try {
+    const r = await fetch(`/api/billing/flutterwave/verify/${encodeURIComponent(ref)}?token=${encodeURIComponent(token)}&plan_id=${encodeURIComponent(planId || '')}`);
+    const d = await r.json();
+    if (d.ok) {
+      _BILLING_STATUS = d.plan;
+      _billingRenderBadge();
+      _billingRenderSidebar();
+      integrationsRender();
+      toast('Payment confirmed! Your plan is now active.');
+    }
+  } catch(e) {
+    toast('Could not verify payment — please contact support.');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MONO OPEN BANKING INTEGRATION
+// ═══════════════════════════════════════════════════════════════
+
+let _MONO_CONNECTED   = false;
+let _MONO_ACCOUNT     = null;
+let _MONO_PUBLIC_KEY  = '';
+
+async function monoCheckStatus() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try {
+    const r = await fetch(`/api/integrations/mono/status?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _MONO_CONNECTED = d.connected;
+    integrationsRender();
+    if (_MONO_CONNECTED) monoLoadAccount();
+  } catch(_) {}
+}
+
+async function monoLoadAccount() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token || !_MONO_CONNECTED) return;
+  try {
+    const r = await fetch(`/api/integrations/mono/account?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _MONO_ACCOUNT = d;
+    monoRender();
+  } catch(_) {}
+}
+
+function monoConnect() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) { toast('Sign in first.'); return; }
+  if (!_MONO_PUBLIC_KEY) {
+    fetch(`/api/integrations/mono/status?token=${encodeURIComponent(token)}`)
+      .then(r => r.json())
+      .then(d => {
+        _MONO_PUBLIC_KEY = d.public_key || '';
+        _monoOpenWidget(token);
+      })
+      .catch(() => _monoOpenWidget(token));
+    return;
+  }
+  _monoOpenWidget(token);
+}
+
+function _monoOpenWidget(token) {
+  if (typeof MonoConnect === 'undefined') {
+    toast('Mono Connect widget not loaded. Check your Mono public key.');
+    return;
+  }
+  const mono = new MonoConnect({
+    key: _MONO_PUBLIC_KEY,
+    onSuccess: async ({ code }) => {
+      try {
+        const r = await API('/api/integrations/mono/auth', { token, code });
+        if (r.ok) {
+          _MONO_CONNECTED = true;
+          toast('Bank account connected via Mono!');
+          monoLoadAccount();
+          integrationsRender();
+        }
+      } catch(e) {
+        toast(e.message || 'Mono auth failed.');
+      }
+    },
+    onClose: () => {},
+  });
+  mono.open();
+}
+
+function monoRender() {
+  const container = $('mono-account-container');
+  if (!container) return;
+  if (!_MONO_CONNECTED || !_MONO_ACCOUNT) {
+    container.innerHTML = `
+      <div class="mono-connect-card">
+        <div class="mono-logo">M</div>
+        <div class="mono-connect-title">Connect your bank</div>
+        <div class="mono-connect-desc">Link your African bank account via Mono to view your balance and transactions inside SIVARR.</div>
+        <button class="mono-connect-btn" onclick="monoConnect()"><span style="font-weight:900">M</span> Connect Bank</button>
+      </div>`;
+    return;
+  }
+  const acc  = _MONO_ACCOUNT?.account?.data || _MONO_ACCOUNT?.account || {};
+  const txns = _MONO_ACCOUNT?.transactions || [];
+  const balance = acc.balance ? `₦${(acc.balance / 100).toLocaleString()}` : '—';
+  container.innerHTML = `
+    <div class="mono-account-card">
+      <div class="mono-acc-head">
+        <div class="mono-acc-icon">M</div>
+        <div>
+          <div class="mono-acc-name">${esc(acc.name || 'Account')}</div>
+          <div class="mono-acc-bank">${esc(acc.institution?.name || '')} · ${esc(acc.accountNumber || '')}</div>
+        </div>
+      </div>
+      <div class="mono-bal-row"><div class="mono-bal-label">Available Balance</div><div class="mono-bal-val">${balance}</div></div>
+    </div>
+    <div style="font-size:.82rem;font-weight:700;color:var(--fg);margin:12px 0 6px">Recent Transactions</div>
+    <div class="mono-txn-list">
+      ${txns.slice(0,10).map(t => {
+        const amt = t.amount ? `₦${(t.amount/100).toLocaleString()}` : '';
+        const cls = t.type === 'credit' ? 'credit' : 'debit';
+        const sign = t.type === 'credit' ? '+' : '-';
+        return `<div class="mono-txn-row">
+          <div class="mono-txn-narration">${esc(t.narration || t.description || 'Transaction')}</div>
+          <div class="mono-txn-date">${t.date ? t.date.slice(0,10) : ''}</div>
+          <div class="mono-txn-amount ${cls}">${sign}${amt}</div>
+        </div>`;
+      }).join('') || '<div class="sp-empty">No transactions yet.</div>'}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ORG ANNOUNCEMENTS
+// ═══════════════════════════════════════════════════════════════
+
+let _ANN_LIST = [];
+
+async function annLoad() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try {
+    const r = await fetch(`/api/org/announcements?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _ANN_LIST = d.announcements || [];
+    annRender();
+  } catch(_) {}
+}
+
+function annRender() {
+  const feed = $('ann-feed');
+  if (!feed) return;
+  if (!_ANN_LIST.length) {
+    feed.innerHTML = `<div class="os-empty" style="padding:40px 0;text-align:center;color:var(--muted)"><i class="ti ti-speakerphone" style="font-size:2rem;display:block;margin-bottom:8px"></i>No announcements yet.</div>`;
+    return;
+  }
+  feed.innerHTML = _ANN_LIST.map(a => `
+    <div class="ann-card ${a.pinned ? 'pinned' : ''}">
+      <div class="ann-card-head">
+        ${a.pinned ? '<span class="ann-pin-badge">Pinned</span>' : ''}
+        <div class="ann-card-title">${esc(a.title)}</div>
+        ${_orgIsAdmin() ? `<button class="ann-del-btn" onclick="annDelete('${esc(a.id)}')"><i class="ti ti-trash"></i></button>` : ''}
+      </div>
+      <div class="ann-card-body">${esc(a.body)}</div>
+      <div class="ann-card-meta">By ${esc(a.author_name)} · ${_fmtTs(a.created_at)}</div>
+    </div>`).join('');
+}
+
+function _orgIsAdmin() {
+  const role = (typeof ORG !== 'undefined' && ORG) ? (ORG_MEMBERS.find(m => m.sid === S.sid)?.role || '') : '';
+  return role === 'owner' || role === 'admin';
+}
+
+function _fmtTs(ts) {
+  try {
+    return new Date(ts).toLocaleString('en-NG', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  } catch(_) { return ts || ''; }
+}
+
+async function annPost() {
+  const title  = $('ann-title-input')?.value.trim() || '';
+  const body   = $('ann-body-input')?.value.trim() || '';
+  const pinned = $('ann-pin-chk')?.checked || false;
+  if (!title) { toast('Enter a title.'); return; }
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await API('/api/org/announce', { token, title, body, pinned });
+    $('ann-title-input').value = '';
+    $('ann-body-input').value  = '';
+    if ($('ann-pin-chk')) $('ann-pin-chk').checked = false;
+    toast('Announcement posted!');
+    annLoad();
+  } catch(e) {
+    toast(e.message || 'Failed to post announcement.');
+  }
+}
+
+async function annDelete(annId) {
+  const ok = await siModal.confirm('Delete this announcement?', { danger: true });
+  if (!ok) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await fetch(`/api/org/announce/${encodeURIComponent(annId)}?token=${encodeURIComponent(token)}`, { method:'DELETE' });
+    toast('Deleted.');
+    annLoad();
+  } catch(e) {
+    toast('Delete failed.');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ORG ANALYTICS DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+
+async function orgAnalyticsLoad() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try {
+    const r = await fetch(`/api/org/analytics?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    orgAnalyticsRender(d);
+  } catch(_) {
+    toast('Could not load analytics.');
+  }
+}
+
+function orgAnalyticsRender(d) {
+  const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+  set('an-members',    d.members ?? '—');
+  set('an-completion', d.completion_rate != null ? d.completion_rate + '%' : '—');
+  set('an-tasks-total', d.tasks_total ?? '—');
+  set('an-tasks-done',  d.tasks_done ?? '—');
+  set('an-messages',   d.messages ?? '—');
+  set('an-docs',       d.docs ?? '—');
+
+  // Message trend bar chart
+  const chart = $('an-msg-chart');
+  if (chart) {
+    const trend = d.msg_trend || [];
+    if (!trend.length) {
+      chart.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:10px">No message data yet.</div>';
+    } else {
+      const max = Math.max(...trend.map(t => t.cnt), 1);
+      chart.innerHTML = trend.map(t => `
+        <div class="an-bar-col">
+          <div class="an-bar-fill" style="height:${Math.round((t.cnt / max) * 85)}px"></div>
+          <div class="an-bar-lbl">${(t.day || '').slice(5)}</div>
+        </div>`).join('');
+    }
+  }
+
+  // Status breakdown
+  const statusGrid = $('an-status-grid');
+  if (statusGrid && d.status_breakdown) {
+    const total = Object.values(d.status_breakdown).reduce((a, b) => a + b, 0) || 1;
+    const statuses = [
+      { key: 'todo',    label: 'To Do',      cls: 'todo' },
+      { key: 'in_progress', label: 'In Progress', cls: 'inprog' },
+      { key: 'done',    label: 'Done',        cls: 'done' },
+      { key: 'blocked', label: 'Blocked',     cls: 'blocked' },
+    ];
+    statusGrid.innerHTML = statuses.map(s => {
+      const cnt = d.status_breakdown[s.key] || 0;
+      const pct = Math.round((cnt / total) * 100);
+      return `<div class="an-status-row">
+        <div class="an-status-label">${s.label}</div>
+        <div class="an-status-bar-wrap"><div class="an-status-bar-fill ${s.cls}" style="width:${pct}%"></div></div>
+        <div class="an-status-count">${cnt}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  EMAIL TASK REMINDER (triggered on login if tasks due soon)
+// ═══════════════════════════════════════════════════════════════
+
+async function _sendTaskReminderIfNeeded() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token || !S.sid) return;
+  const today    = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  try {
+    const tasks = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]')
+      .filter(t => !t.done && t.date && (t.date === today || t.date === tomorrow))
+      .slice(0, 5)
+      .map(t => ({ title: t.title, due: t.date === today ? 'today' : 'tomorrow' }));
+    if (!tasks.length) return;
+    await API('/api/notify/tasks', { token, tasks });
+  } catch(_) {}
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MOBILE BOTTOM NAV — update active state
+// ═══════════════════════════════════════════════════════════════
+
+function _updateMobileNav(panelName) {
+  const map = { home:'home', siva:'siva', tasks:'tasks', docs:'docs', org:'org' };
+  document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
+  for (const [key, val] of Object.entries(map)) {
+    if (val === panelName || panelName === val) {
+      const btn = $('mob-' + key);
+      if (btn) btn.classList.add('active');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DOC EDITOR ENHANCEMENTS
+// ═══════════════════════════════════════════════════════════════
+
+function dhFontSize(size) {
+  if (!size) return;
+  document.execCommand('fontSize', false, '7');
+  document.querySelectorAll('#dh-editor font[size="7"]').forEach(el => {
+    el.removeAttribute('size');
+    el.style.fontSize = size;
+  });
+  $('dh-editor')?.focus();
+}
+
+let _dhSavedRange = null;
+
+function dhInsertLink() {
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0) _dhSavedRange = sel.getRangeAt(0).cloneRange();
+  const txt = sel?.toString().trim() || '';
+  const input = $('dh-link-text');
+  if (input && txt) input.value = txt;
+  const modal = $('dh-link-modal');
+  if (modal) modal.style.display = 'flex';
+  setTimeout(() => ($('dh-link-url') || $('dh-link-text'))?.focus(), 50);
+}
+
+function dhConfirmLink() {
+  const text = $('dh-link-text')?.value.trim() || '';
+  let   url  = $('dh-link-url')?.value.trim()  || '';
+  if (!url) { toast('Enter a URL.'); return; }
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  const modal = $('dh-link-modal');
+  if (modal) modal.style.display = 'none';
+  $('dh-editor')?.focus();
+  const sel = window.getSelection();
+  if (_dhSavedRange) {
+    sel.removeAllRanges();
+    sel.addRange(_dhSavedRange);
+  }
+  const link = `<a href="${url}" target="_blank" rel="noopener">${text || url}</a>`;
+  document.execCommand('insertHTML', false, link);
+  _dhSavedRange = null;
+  dhAutoSave();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ONBOARDING — Step 5 (connect integration) + nav updates
+// ═══════════════════════════════════════════════════════════════
+
+const _OB_TOTAL_STEPS = 5;
 
 function fbSetRating(v) {
   _fbRating = v;

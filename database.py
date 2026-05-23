@@ -430,6 +430,18 @@ CREATE TABLE IF NOT EXISTS org_founder (
     milestones    JSONB DEFAULT '[]',
     updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS org_announcements (
+    id           TEXT PRIMARY KEY,
+    org_id       TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    title        TEXT NOT NULL,
+    body         TEXT NOT NULL DEFAULT '',
+    author_sid   TEXT REFERENCES users(sid) ON DELETE SET NULL,
+    author_name  TEXT NOT NULL DEFAULT '',
+    pinned       BOOLEAN DEFAULT FALSE,
+    created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_org_ann_org ON org_announcements(org_id);
 """
 
 
@@ -2266,6 +2278,105 @@ def save_org_founder(org_id: str, burn_rate: float = 0, cash_balance: float = 0,
         conn.commit(); return True
     except Exception as exc:
         log.error(f"save_org_founder: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+# ── Announcements ────────────────────────────────────────────────────────────
+
+def create_org_announcement(org_id: str, ann_id: str, title: str, body: str,
+                             author_sid: str, author_name: str, pinned: bool = False) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO org_announcements (id, org_id, title, body, author_sid, author_name, pinned) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                (ann_id, org_id, title, body, author_sid, author_name, pinned)
+            )
+        conn.commit(); return True
+    except Exception as exc:
+        log.error(f"create_org_announcement: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def get_org_announcements(org_id: str, limit: int = 50) -> list:
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM org_announcements WHERE org_id=%s ORDER BY pinned DESC, created_at DESC LIMIT %s",
+                (org_id, limit)
+            )
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_org_announcements: {exc}"); return []
+    finally:
+        _release(conn)
+
+
+def delete_org_announcement(ann_id: str) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM org_announcements WHERE id=%s", (ann_id,))
+        conn.commit(); return True
+    except Exception as exc:
+        log.error(f"delete_org_announcement: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+# ── Analytics ────────────────────────────────────────────────────────────────
+
+def get_org_analytics(org_id: str) -> dict:
+    conn = _get_conn()
+    if not conn: return {}
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT COUNT(*) AS cnt FROM org_members WHERE org_id=%s", (org_id,))
+            members = cur.fetchone()['cnt']
+
+            cur.execute("SELECT COUNT(*) AS cnt FROM org_tasks WHERE org_id=%s", (org_id,))
+            tasks_total = cur.fetchone()['cnt']
+
+            cur.execute("SELECT COUNT(*) AS cnt FROM org_tasks WHERE org_id=%s AND status='done'", (org_id,))
+            tasks_done = cur.fetchone()['cnt']
+
+            cur.execute("SELECT COUNT(*) AS cnt FROM org_messages WHERE org_id=%s", (org_id,))
+            messages = cur.fetchone()['cnt']
+
+            cur.execute("SELECT COUNT(*) AS cnt FROM org_docs WHERE org_id=%s", (org_id,))
+            docs = cur.fetchone()['cnt']
+
+            cur.execute(
+                "SELECT status, COUNT(*) AS cnt FROM org_tasks WHERE org_id=%s GROUP BY status",
+                (org_id,)
+            )
+            status_breakdown = {r['status']: r['cnt'] for r in cur.fetchall()}
+
+            cur.execute(
+                "SELECT DATE(created_at) AS day, COUNT(*) AS cnt FROM org_messages WHERE org_id=%s AND created_at > NOW() - INTERVAL '7 days' GROUP BY day ORDER BY day",
+                (org_id,)
+            )
+            msg_trend = [dict(r) for r in cur.fetchall()]
+
+        completion_rate = round((tasks_done / tasks_total * 100) if tasks_total else 0, 1)
+        return {
+            "members": members,
+            "tasks_total": tasks_total,
+            "tasks_done": tasks_done,
+            "completion_rate": completion_rate,
+            "messages": messages,
+            "docs": docs,
+            "status_breakdown": status_breakdown,
+            "msg_trend": msg_trend,
+        }
+    except Exception as exc:
+        log.error(f"get_org_analytics: {exc}"); return {}
     finally:
         _release(conn)
 

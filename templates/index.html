@@ -19,7 +19,7 @@
 <meta property="og:type" content="website">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<link rel="stylesheet" href="/css/styles.css?v=20260522c">
+<link rel="stylesheet" href="/css/styles.css?v=20260523a">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -1646,7 +1646,30 @@ Sentry.onLoad(function() {
             <button class="dh-tool-btn" onclick="dhBlock('blockquote')" title="Quote">❝</button>
             <button class="dh-tool-btn" onclick="dhInsertCode()" title="Code">&lt;/&gt;</button>
             <div class="dh-sep"></div>
+            <div class="dh-sep"></div>
+            <select class="dh-font-size-select" onchange="dhFontSize(this.value)" title="Font size">
+              <option value="">Size</option>
+              <option value="12px">12</option>
+              <option value="14px">14</option>
+              <option value="16px">16</option>
+              <option value="18px">18</option>
+              <option value="20px">20</option>
+              <option value="24px">24</option>
+            </select>
+            <button class="dh-tool-btn" onclick="dhInsertLink()" title="Insert link" style="width:auto;padding:0 7px"><i class="ti ti-link"></i></button>
             <button class="dh-tool-btn" onclick="dhAISuggest()" title="AI Suggest" style="color:var(--accent);width:auto;padding:0 6px">✨ AI</button>
+          </div>
+          <!-- Link insertion modal (hidden) -->
+          <div class="dh-link-modal" id="dh-link-modal" style="display:none">
+            <div class="dh-link-modal-box">
+              <div class="dh-link-modal-title">Insert Link</div>
+              <input class="dh-link-input" id="dh-link-text" placeholder="Display text">
+              <input class="dh-link-input" id="dh-link-url" placeholder="https://…">
+              <div class="dh-link-footer">
+                <button class="dh-link-cancel" onclick="document.getElementById('dh-link-modal').style.display='none'">Cancel</button>
+                <button class="dh-link-insert" onclick="dhConfirmLink()">Insert</button>
+              </div>
+            </div>
           </div>
           <!-- Editor area -->
           <div class="dh-editor" id="dh-editor" contenteditable="true"
@@ -2434,6 +2457,8 @@ Sentry.onLoad(function() {
           <button class="os-tab" id="os-tab-members"  onclick="orgTab('members',this)"  role="tab"><i class="ti ti-users"></i>Members</button>
           <button class="os-tab" id="os-tab-insights" onclick="orgTab('insights',this)" role="tab"><i class="ti ti-chart-bar"></i>Insights</button>
           <button class="os-tab" id="os-tab-chat"     onclick="orgTab('chat',this)"     role="tab"><i class="ti ti-message-circle"></i>Chat</button>
+          <button class="os-tab" id="os-tab-announce"  onclick="orgTab('announce',this)"  role="tab"><i class="ti ti-speakerphone"></i>Announce</button>
+          <button class="os-tab" id="os-tab-analytics" onclick="orgTab('analytics',this)" role="tab"><i class="ti ti-chart-pie"></i>Analytics</button>
           <button class="os-tab os-tab-founder" id="os-tab-founder" onclick="orgTab('founder',this)" role="tab"><i class="ti ti-rocket"></i>Founder</button>
         </div>
 
@@ -2598,6 +2623,57 @@ Sentry.onLoad(function() {
               <button class="oc-send-btn" onclick="orgChatSend()">
                 <i class="ti ti-send"></i>
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── ANNOUNCEMENTS ── -->
+        <div class="os-pane" id="os-pane-announce" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+          <!-- Compose (admin only) -->
+          <div class="ann-compose-bar" id="ann-compose-wrap" style="display:none">
+            <div class="ann-compose-box">
+              <input  class="ann-title-input" id="ann-title-input" placeholder="Announcement title…" maxlength="200">
+              <textarea class="ann-body-input" id="ann-body-input" placeholder="Write your message…" rows="2" maxlength="2000"></textarea>
+              <div class="ann-compose-footer">
+                <button class="ann-post-btn" onclick="annPost()"><i class="ti ti-send"></i> Post</button>
+                <label class="ann-pin-toggle">
+                  <input type="checkbox" id="ann-pin-chk" style="margin-right:4px"> Pin to top
+                </label>
+              </div>
+            </div>
+          </div>
+          <!-- Feed -->
+          <div class="ann-feed" id="ann-feed">
+            <div class="os-empty" style="padding:40px 0;text-align:center;color:var(--muted)">
+              <i class="ti ti-speakerphone" style="font-size:2rem;display:block;margin-bottom:8px"></i>
+              No announcements yet.
+            </div>
+          </div>
+        </div>
+
+        <!-- ── ANALYTICS ── -->
+        <div class="os-pane" id="os-pane-analytics">
+          <div class="os-scroll">
+            <div class="analytics-grid" id="an-stat-grid">
+              <div class="an-stat-card"><div class="an-stat-val" id="an-members">—</div><div class="an-stat-lbl">Members</div></div>
+              <div class="an-stat-card an-stat-teal"><div class="an-stat-val" id="an-completion">—</div><div class="an-stat-lbl">Task Completion</div></div>
+              <div class="an-stat-card"><div class="an-stat-val" id="an-tasks-total">—</div><div class="an-stat-lbl">Total Tasks</div></div>
+              <div class="an-stat-card"><div class="an-stat-val" id="an-tasks-done">—</div><div class="an-stat-lbl">Done</div></div>
+              <div class="an-stat-card"><div class="an-stat-val" id="an-messages">—</div><div class="an-stat-lbl">Messages</div></div>
+              <div class="an-stat-card"><div class="an-stat-val" id="an-docs">—</div><div class="an-stat-lbl">Docs</div></div>
+            </div>
+            <!-- Message trend chart -->
+            <div class="an-chart-card">
+              <div class="an-chart-title">Messages — last 7 days</div>
+              <div class="an-bar-chart" id="an-msg-chart"></div>
+            </div>
+            <!-- Task status breakdown -->
+            <div class="an-chart-card">
+              <div class="an-chart-title">Task Status Breakdown</div>
+              <div class="an-status-grid" id="an-status-grid"></div>
+            </div>
+            <div style="text-align:center;margin-top:10px">
+              <button class="os-tool-btn" onclick="orgAnalyticsLoad()"><i class="ti ti-refresh"></i> Refresh</button>
             </div>
           </div>
         </div>
@@ -3337,7 +3413,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260522c" defer></script>
+<script src="/js/app.js?v=20260523a" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
@@ -3614,9 +3690,20 @@ Sentry.onLoad(function() {
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px" id="pricing-cards">
       <!-- rendered by JS -->
     </div>
-    <p style="font-size:.72rem;color:var(--muted);text-align:center;margin-top:16px">Payments via Paystack · NGN · Cancel anytime</p>
+    <p style="font-size:.72rem;color:var(--muted);text-align:center;margin-top:16px">Payments via Paystack &amp; Flutterwave · NGN · Cancel anytime</p>
   </div>
 </div>
+
+<!-- ── Mobile Bottom Navigation ─────────────────────────── -->
+<nav class="mobile-nav" id="mobile-nav">
+  <div class="mobile-nav-inner">
+    <button class="mob-nav-btn" id="mob-home" onclick="nav('home')"><i class="ti ti-home"></i><span>Home</span></button>
+    <button class="mob-nav-btn" id="mob-siva" onclick="nav('siva')"><i class="ti ti-sparkles"></i><span>SIVA</span></button>
+    <button class="mob-nav-btn" id="mob-tasks" onclick="nav('tasks')"><i class="ti ti-checkbox"></i><span>Tasks</span></button>
+    <button class="mob-nav-btn" id="mob-docs"  onclick="nav('docs')"><i class="ti ti-file-text"></i><span>Docs</span></button>
+    <button class="mob-nav-btn" id="mob-org"   onclick="nav('org')"><i class="ti ti-building"></i><span>Org</span></button>
+  </div>
+</nav>
 
 </body>
 </html>

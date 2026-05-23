@@ -143,6 +143,18 @@ PAYSTACK_AVAILABLE  = bool(PAYSTACK_SECRET_KEY)
 NAIRA_RATE          = int(os.environ.get("NAIRA_RATE", "1650"))  # USD→NGN
 PAYSTACK_API        = "https://api.paystack.co"
 
+# ── Flutterwave (NGN/GHS/KES payments) ───────────────────────
+FLUTTERWAVE_SECRET_KEY  = os.environ.get("FLUTTERWAVE_SECRET_KEY", "")
+FLUTTERWAVE_PUBLIC_KEY  = os.environ.get("FLUTTERWAVE_PUBLIC_KEY", "")
+FLUTTERWAVE_AVAILABLE   = bool(FLUTTERWAVE_SECRET_KEY)
+FLUTTERWAVE_API         = "https://api.flutterwave.com/v3"
+
+# ── Mono (African open banking) ──────────────────────────────
+MONO_SECRET_KEY   = os.environ.get("MONO_SECRET_KEY", "")
+MONO_PUBLIC_KEY   = os.environ.get("MONO_PUBLIC_KEY", "")
+MONO_AVAILABLE    = bool(MONO_SECRET_KEY)
+MONO_API          = "https://api.withmono.com"
+
 # ── Google OAuth + Calendar ───────────────────────────────────
 GOOGLE_CLIENT_ID       = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET   = os.environ.get("GOOGLE_CLIENT_SECRET", "")
@@ -700,6 +712,60 @@ def _email_welcome_html(name: str) -> str:
   <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">
     SIVARR · Your productivity OS
   </p>
+</body></html>"""
+
+
+def _email_task_reminder_html(name: str, tasks: list) -> str:
+    rows = "".join(
+        f'<li style="margin-bottom:8px;color:#333">{t["title"]}'
+        f'<span style="color:#888;font-size:.8rem"> — due {t.get("due","today")}</span></li>'
+        for t in tasks[:5]
+    )
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
+  <div style="margin-bottom:28px">
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+  </div>
+  <h2 style="margin:0 0 10px;font-size:1.4rem">Tasks due soon, {name}</h2>
+  <p style="color:#555;line-height:1.6;margin:0 0 16px">
+    You have <strong>{len(tasks)}</strong> task(s) due today or tomorrow:
+  </p>
+  <ul style="padding-left:20px;margin:0 0 28px;line-height:1.8">{rows}</ul>
+  <a href="{BASE_URL}"
+     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+            border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
+    Open Tasks
+  </a>
+  <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+</body></html>"""
+
+
+def _email_billing_receipt_html(name: str, plan: str, amount: str, ref: str) -> str:
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
+  <div style="margin-bottom:28px">
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+  </div>
+  <h2 style="margin:0 0 10px;font-size:1.4rem">Payment confirmed</h2>
+  <p style="color:#555;line-height:1.6;margin:0 0 8px">Hi {name}, your payment was successful.</p>
+  <table style="width:100%;border-collapse:collapse;margin:16px 0 28px">
+    <tr><td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Plan</td>
+        <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600">{plan}</td></tr>
+    <tr><td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Amount</td>
+        <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600">{amount}</td></tr>
+    <tr><td style="padding:10px 0;color:#888">Reference</td>
+        <td style="padding:10px 0;font-size:.78rem;color:#555">{ref}</td></tr>
+  </table>
+  <a href="{BASE_URL}"
+     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+            border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
+    Open Sivarr
+  </a>
+  <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
 </body></html>"""
 
 
@@ -5468,6 +5534,307 @@ async def github_activity(token: str = "", repo: str = ""):
                      "author": pr["user"]["login"], "created": pr["created_at"],
                      "url": pr["html_url"]} for pr in (prs if isinstance(prs, list) else [])],
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+#  FLUTTERWAVE BILLING
+# ═══════════════════════════════════════════════════════════════
+
+@app.post("/api/billing/flutterwave/subscribe")
+async def flutterwave_subscribe(data: dict):
+    """Initialize a Flutterwave payment for a SIVARR plan."""
+    token = data.get("token","")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not FLUTTERWAVE_AVAILABLE or not HTTPX_AVAILABLE:
+        raise HTTPException(503, "Flutterwave not configured.")
+    plan_id = sanitize_text(data.get("plan_id",""), 40)
+    plan    = SIVARR_PLANS.get(plan_id)
+    if not plan:
+        raise HTTPException(400, "Invalid plan.")
+    sid = sess["sid"]
+    p   = load_progress(sid)
+    email = p.get("email","")
+    name  = p.get("name","User")
+    ref   = f"FLW-SIVARR-{sid[:8].upper()}-{int(time.time())}"
+    amount_ngn = plan["amount_ngn"]
+    payload = {
+        "tx_ref":       ref,
+        "amount":       str(amount_ngn),
+        "currency":     "NGN",
+        "redirect_url": f"{BASE_URL}/?flw_billing=success&ref={ref}&plan={plan_id}",
+        "customer":     {"email": email, "name": name},
+        "customizations": {
+            "title":       f"SIVARR {plan['name']} Plan",
+            "description": f"{plan['label']} subscription",
+            "logo":        f"{BASE_URL}/static/logo.png",
+        },
+        "meta": {"plan_id": plan_id, "sid": sid},
+    }
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                f"{FLUTTERWAVE_API}/payments",
+                json=payload,
+                headers={"Authorization": f"Bearer {FLUTTERWAVE_SECRET_KEY}",
+                         "Content-Type": "application/json"},
+            )
+            result = r.json()
+    except Exception as exc:
+        log.error(f"Flutterwave init error: {exc}")
+        raise HTTPException(502, "Flutterwave unreachable.")
+    if result.get("status") != "success":
+        raise HTTPException(400, result.get("message","Payment init failed"))
+    return {
+        "payment_url": result["data"]["link"],
+        "reference":   ref,
+        "amount_ngn":  amount_ngn,
+        "plan":        plan,
+    }
+
+
+@app.get("/api/billing/flutterwave/verify/{reference}")
+async def flutterwave_verify(reference: str, token: str = "", plan_id: str = ""):
+    """Verify Flutterwave payment and activate subscription."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not FLUTTERWAVE_AVAILABLE or not HTTPX_AVAILABLE:
+        raise HTTPException(503, "Flutterwave not configured.")
+    reference = sanitize_text(reference, 80)
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(
+                f"{FLUTTERWAVE_API}/transactions/verify_by_reference",
+                params={"tx_ref": reference},
+                headers={"Authorization": f"Bearer {FLUTTERWAVE_SECRET_KEY}"},
+            )
+            result = r.json()
+    except Exception as exc:
+        log.error(f"Flutterwave verify error: {exc}")
+        raise HTTPException(502, "Flutterwave unreachable.")
+    if result.get("status") != "success" or result["data"]["status"] != "successful":
+        raise HTTPException(400, "Payment not completed.")
+    data = result["data"]
+    plan_id = plan_id or data.get("meta",{}).get("plan_id","pro_monthly")
+    plan    = SIVARR_PLANS.get(plan_id, SIVARR_PLANS["pro_monthly"])
+    sid = sess["sid"]
+    p   = load_progress(sid)
+    expires = (datetime.datetime.utcnow() + datetime.timedelta(
+        days=365 if plan.get("period") == "yearly" else 32
+    )).strftime("%Y-%m-%d")
+    p["subscription"] = {
+        "plan":    plan_id,
+        "name":    plan["name"],
+        "status":  "active",
+        "expires": expires,
+        "gateway": "flutterwave",
+        "ref":     reference,
+    }
+    save_progress(sid, p)
+    email = p.get("email","")
+    name  = p.get("name","User")
+    if email:
+        send_email(email, f"SIVARR {plan['name']} — Payment Confirmed",
+                   _email_billing_receipt_html(name, plan["name"],
+                       f"₦{plan['amount_ngn']:,}", reference))
+    return {"ok": True, "plan": p["subscription"]}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  MONO INTEGRATION (Open Banking)
+# ═══════════════════════════════════════════════════════════════
+
+@app.post("/api/integrations/mono/auth")
+async def mono_auth(data: dict):
+    """Exchange a Mono Connect code for an account_id and fetch account details."""
+    token = data.get("token","")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not MONO_AVAILABLE or not HTTPX_AVAILABLE:
+        raise HTTPException(503, "Mono not configured.")
+    code = sanitize_text(data.get("code",""), 80)
+    if not code:
+        raise HTTPException(400, "code required.")
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                f"{MONO_API}/v2/accounts/auth",
+                json={"code": code},
+                headers={"mono-sec-key": MONO_SECRET_KEY, "Content-Type": "application/json"},
+            )
+            result = r.json()
+    except Exception as exc:
+        log.error(f"Mono auth error: {exc}")
+        raise HTTPException(502, "Mono unreachable.")
+    if r.status_code != 200:
+        raise HTTPException(400, result.get("message","Mono auth failed"))
+    account_id = result.get("id") or result.get("account_id","")
+    sid = sess["sid"]
+    p   = load_progress(sid)
+    p["mono_account_id"] = account_id
+    save_progress(sid, p)
+    return {"ok": True, "account_id": account_id}
+
+
+@app.get("/api/integrations/mono/account")
+async def mono_account(token: str = ""):
+    """Get Mono account details and recent transactions."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not MONO_AVAILABLE or not HTTPX_AVAILABLE:
+        raise HTTPException(503, "Mono not configured.")
+    sid = sess["sid"]
+    p   = load_progress(sid)
+    account_id = p.get("mono_account_id","")
+    if not account_id:
+        raise HTTPException(403, "Mono not connected.")
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            acc_r, txn_r = await asyncio.gather(
+                client.get(f"{MONO_API}/v2/accounts/{account_id}",
+                    headers={"mono-sec-key": MONO_SECRET_KEY}),
+                client.get(f"{MONO_API}/v2/accounts/{account_id}/transactions",
+                    headers={"mono-sec-key": MONO_SECRET_KEY},
+                    params={"limit": "20", "period": "last3months"}),
+            )
+            account      = acc_r.json() if acc_r.status_code == 200 else {}
+            transactions = txn_r.json() if txn_r.status_code == 200 else {}
+    except Exception as exc:
+        log.error(f"Mono account fetch error: {exc}")
+        raise HTTPException(502, "Mono unreachable.")
+    return {
+        "account":      account,
+        "transactions": transactions.get("data",[]) if isinstance(transactions, dict) else [],
+    }
+
+
+@app.get("/api/integrations/mono/status")
+async def mono_status(token: str = ""):
+    """Return whether this user has connected a Mono bank account."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p = load_progress(sess["sid"])
+    return {"connected": bool(p.get("mono_account_id",""))}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  ORG ANNOUNCEMENTS
+# ═══════════════════════════════════════════════════════════════
+
+@app.post("/api/org/announce")
+async def org_announce(data: dict):
+    """Post a new org-wide announcement (admin/owner only)."""
+    token = data.get("token","")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    p   = load_progress(sid)
+    org_id = p.get("org_id","")
+    if not org_id:
+        raise HTTPException(403, "Not in an organisation.")
+    role = p.get("org_role","member")
+    if role not in ("owner","admin"):
+        raise HTTPException(403, "Only admins can post announcements.")
+    title  = sanitize_text(data.get("title",""), 200)
+    body   = sanitize_text(data.get("body",""), 2000)
+    pinned = bool(data.get("pinned", False))
+    if not title:
+        raise HTTPException(400, "title required.")
+    ann_id = str(uuid.uuid4())
+    ok = db.create_org_announcement(org_id, ann_id, title, body, sid, p.get("name",""), pinned)
+    if not ok:
+        raise HTTPException(500, "Failed to save announcement.")
+    ann = {"id": ann_id, "org_id": org_id, "title": title, "body": body,
+           "author_sid": sid, "author_name": p.get("name",""),
+           "pinned": pinned, "created_at": datetime.datetime.utcnow().isoformat()}
+    await _sse_broadcast(org_id, json.dumps({"type": "announcement", "ann": ann}))
+    return {"ok": True, "ann": ann}
+
+
+@app.get("/api/org/announcements")
+async def org_announcements_list(token: str = ""):
+    """List org announcements for the current user's org."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p      = load_progress(sess["sid"])
+    org_id = p.get("org_id","")
+    if not org_id:
+        raise HTTPException(403, "Not in an organisation.")
+    return {"announcements": db.get_org_announcements(org_id)}
+
+
+@app.delete("/api/org/announce/{ann_id}")
+async def org_announce_delete(ann_id: str, token: str = ""):
+    """Delete an announcement (admin/owner only)."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p    = load_progress(sess["sid"])
+    role = p.get("org_role","member")
+    if role not in ("owner","admin"):
+        raise HTTPException(403, "Only admins can delete announcements.")
+    db.delete_org_announcement(ann_id)
+    return {"ok": True}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  ORG ANALYTICS
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/org/analytics")
+async def org_analytics(token: str = ""):
+    """Return analytics for the current user's org."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p      = load_progress(sess["sid"])
+    org_id = p.get("org_id","")
+    if not org_id:
+        raise HTTPException(403, "Not in an organisation.")
+    data = db.get_org_analytics(org_id)
+    if not data:
+        return {"members": 0, "tasks_total": 0, "tasks_done": 0,
+                "completion_rate": 0, "messages": 0, "docs": 0,
+                "status_breakdown": {}, "msg_trend": []}
+    return data
+
+
+# ═══════════════════════════════════════════════════════════════
+#  EMAIL NOTIFICATIONS (Task reminders)
+# ═══════════════════════════════════════════════════════════════
+
+@app.post("/api/notify/tasks")
+async def notify_tasks(data: dict):
+    """Send a task due-soon reminder email. Max once per day per user."""
+    token = data.get("token","")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid  = sess["sid"]
+    p    = load_progress(sid)
+    today = datetime.date.today().isoformat()
+    if p.get("last_reminder_date") == today:
+        return {"ok": False, "reason": "already_sent_today"}
+    tasks = data.get("tasks", [])
+    if not tasks:
+        return {"ok": False, "reason": "no_tasks"}
+    email = p.get("email","")
+    name  = p.get("name","User")
+    if not email:
+        raise HTTPException(400, "No email on account.")
+    ok, detail = send_email(email, f"Tasks due soon — Sivarr",
+                            _email_task_reminder_html(name, tasks[:5]))
+    if ok:
+        p["last_reminder_date"] = today
+        save_progress(sid, p)
+    return {"ok": ok, "detail": detail}
 
 
 @app.get("/health")
