@@ -19,7 +19,7 @@
 <meta property="og:type" content="website">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<link rel="stylesheet" href="/css/styles.css?v=20260522a">
+<link rel="stylesheet" href="/css/styles.css?v=20260522b">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -374,6 +374,14 @@ Sentry.onLoad(function() {
 
           <div class="pd-divider"></div>
 
+          <button class="pd-item" onclick="showPricing();closeProfile()">
+            <i class="ti ti-rocket pd-icon"></i>
+            Upgrade Plan
+            <span id="billing-plan-badge" style="margin-left:auto;font-size:.68rem;padding:2px 7px;border-radius:10px;background:var(--bg3);color:var(--muted);font-weight:700">Free</span>
+          </button>
+
+          <div class="pd-divider"></div>
+
           <button class="pd-item danger" onclick="logout()">
             <i class="ti ti-logout pd-icon"></i> Sign out
           </button>
@@ -552,6 +560,14 @@ Sentry.onLoad(function() {
 
       <!-- Sidebar footer -->
       <div class="sb-foot">
+        <!-- Upgrade / plan chip -->
+        <button class="sb-upgrade-btn" id="sb-upgrade-btn" onclick="showPricing()">
+          <div>
+            <div class="sb-upgrade-plan" id="sb-plan-label">Free Plan</div>
+            <div class="sb-upgrade-label" id="sb-upgrade-label">Upgrade SIVARR</div>
+          </div>
+          <i class="ti ti-chevron-right sb-upgrade-caret"></i>
+        </button>
         <div class="user-row">
           <div class="u-av" id="snav-av">?</div>
           <div class="u-info">
@@ -2294,6 +2310,14 @@ Sentry.onLoad(function() {
       <!-- ── Library Panel ── -->
       <div class="panel" id="panel-library">
         <div class="library-wrap">
+          <div style="margin-bottom:24px">
+            <h2 style="font-size:1.1rem;font-weight:800;letter-spacing:-.02em;margin-bottom:4px">Integrations</h2>
+            <p style="font-size:.78rem;color:var(--text3);margin-bottom:14px">Connect your tools to SIVARR.</p>
+            <div class="int-grid" id="integrations-grid">
+              <!-- rendered by integrationsRender() in JS -->
+            </div>
+          </div>
+
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
             <div>
               <h2 style="font-size:1.1rem;font-weight:800;letter-spacing:-.02em">Library</h2>
@@ -3313,7 +3337,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260522a" defer></script>
+<script src="/js/app.js?v=20260522b" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

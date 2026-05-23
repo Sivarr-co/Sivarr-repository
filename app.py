@@ -152,6 +152,14 @@ GOOGLE_TOKEN_URL       = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL    = "https://www.googleapis.com/oauth2/v2/userinfo"
 GOOGLE_CAL_API         = "https://www.googleapis.com/calendar/v3"
 
+# ── GitHub OAuth ──────────────────────────────────────────────
+GITHUB_CLIENT_ID       = os.environ.get("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET   = os.environ.get("GITHUB_CLIENT_SECRET", "")
+GITHUB_OAUTH_AVAILABLE = bool(GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET)
+GITHUB_AUTH_URL        = "https://github.com/login/oauth/authorize"
+GITHUB_TOKEN_URL       = "https://github.com/login/oauth/access_token"
+GITHUB_API             = "https://api.github.com"
+
 # ── SIVARR Subscription Plans ─────────────────────────────────
 SIVARR_PLANS = {
     "pro_monthly":  {"name": "Pro",  "label": "Monthly", "amount_ngn": 2500,  "period": "monthly"},
@@ -5312,6 +5320,154 @@ async def billing_status(token: str = ""):
         except ValueError:
             pass
     return sub
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GITHUB INTEGRATION
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/auth/github")
+async def github_oauth_start(token: str = ""):
+    """Redirect to GitHub OAuth consent screen."""
+    if not GITHUB_OAUTH_AVAILABLE:
+        return RedirectResponse("/?github_error=not_configured")
+    from urllib.parse import urlencode
+    params = {
+        "client_id":   GITHUB_CLIENT_ID,
+        "redirect_uri": f"{BASE_URL}/auth/github/callback",
+        "scope":       "read:user user:email repo",
+        "state":       token,
+    }
+    return RedirectResponse(f"{GITHUB_AUTH_URL}?{urlencode(params)}")
+
+
+@app.get("/auth/github/callback")
+async def github_oauth_callback(code: str = "", state: str = "", error: str = ""):
+    """Exchange GitHub code, store access token, redirect back to app."""
+    if error or not code:
+        return RedirectResponse("/?github_error=denied")
+    if not GITHUB_OAUTH_AVAILABLE or not HTTPX_AVAILABLE:
+        return RedirectResponse("/?github_error=not_configured")
+
+    sivarr_token = state
+    sess = get_session_from_token(sivarr_token)
+    if not sess:
+        return RedirectResponse("/?github_error=session_expired")
+
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            tok = await client.post(GITHUB_TOKEN_URL,
+                headers={"Accept": "application/json"},
+                data={
+                    "client_id":     GITHUB_CLIENT_ID,
+                    "client_secret": GITHUB_CLIENT_SECRET,
+                    "code":          code,
+                    "redirect_uri":  f"{BASE_URL}/auth/github/callback",
+                })
+            tokens = tok.json()
+            if "error" in tokens or "access_token" not in tokens:
+                log.error(f"GitHub token error: {tokens}")
+                return RedirectResponse("/?github_error=token_failed")
+
+            info = await client.get(f"{GITHUB_API}/user",
+                headers={"Authorization": f"Bearer {tokens['access_token']}", "Accept": "application/json"})
+            profile = info.json()
+    except Exception as exc:
+        log.error(f"GitHub OAuth error: {exc}")
+        return RedirectResponse("/?github_error=failed")
+
+    sid = sess["sid"]
+    p   = load_progress(sid)
+    p["github_token"]    = tokens["access_token"]
+    p["github_username"] = profile.get("login","")
+    p["github_name"]     = profile.get("name","")
+    p["github_avatar"]   = profile.get("avatar_url","")
+    save_progress(sid, p)
+    log.info(f"GitHub connected: {sid} → @{profile.get('login','')}")
+    return RedirectResponse("/?github_connected=1")
+
+
+@app.get("/api/integrations/github/status")
+async def github_status(token: str = ""):
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p = load_progress(sess["sid"])
+    return {
+        "connected": bool(p.get("github_token")),
+        "username":  p.get("github_username",""),
+        "avatar":    p.get("github_avatar",""),
+    }
+
+
+@app.get("/api/integrations/github/repos")
+async def github_repos(token: str = ""):
+    """List the authenticated user's GitHub repos."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not HTTPX_AVAILABLE:
+        raise HTTPException(503, "HTTP client unavailable.")
+    p = load_progress(sess["sid"])
+    gh_token = p.get("github_token","")
+    if not gh_token:
+        raise HTTPException(403, "GitHub not connected.")
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(f"{GITHUB_API}/user/repos",
+                headers={"Authorization": f"Bearer {gh_token}", "Accept": "application/json"},
+                params={"sort": "pushed", "per_page": "30", "type": "owner"})
+            data = resp.json()
+    except Exception as exc:
+        log.error(f"GitHub repos error: {exc}")
+        raise HTTPException(502, "GitHub API unreachable.")
+    if isinstance(data, dict) and "message" in data:
+        raise HTTPException(403, data["message"])
+    repos = [{"id": r["id"], "name": r["name"], "full_name": r["full_name"],
+              "description": r.get("description","") or "",
+              "private": r["private"], "language": r.get("language",""),
+              "stars": r["stargazers_count"], "pushed": r["pushed_at"],
+              "url": r["html_url"]} for r in (data or [])]
+    return {"repos": repos}
+
+
+@app.get("/api/integrations/github/activity")
+async def github_activity(token: str = "", repo: str = ""):
+    """Get recent commits + open PRs for a repo (owner/name format)."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not HTTPX_AVAILABLE:
+        raise HTTPException(503, "HTTP client unavailable.")
+    repo = sanitize_text(repo, 120)
+    if not repo or "/" not in repo:
+        raise HTTPException(400, "repo must be owner/name format.")
+    p = load_progress(sess["sid"])
+    gh_token = p.get("github_token","")
+    if not gh_token:
+        raise HTTPException(403, "GitHub not connected.")
+    headers = {"Authorization": f"Bearer {gh_token}", "Accept": "application/json"}
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            commits_r, prs_r = await asyncio.gather(
+                client.get(f"{GITHUB_API}/repos/{repo}/commits",
+                    headers=headers, params={"per_page": "10"}),
+                client.get(f"{GITHUB_API}/repos/{repo}/pulls",
+                    headers=headers, params={"state": "open", "per_page": "10"}),
+            )
+            commits = commits_r.json() if commits_r.status_code == 200 else []
+            prs     = prs_r.json()     if prs_r.status_code == 200 else []
+    except Exception as exc:
+        log.error(f"GitHub activity error: {exc}")
+        raise HTTPException(502, "GitHub API unreachable.")
+    return {
+        "commits": [{"sha": c["sha"][:7], "message": c["commit"]["message"].split("\n")[0][:80],
+                     "author": c["commit"]["author"]["name"], "date": c["commit"]["author"]["date"],
+                     "url": c["html_url"]} for c in (commits if isinstance(commits, list) else [])],
+        "prs":     [{"number": pr["number"], "title": pr["title"][:80],
+                     "author": pr["user"]["login"], "created": pr["created_at"],
+                     "url": pr["html_url"]} for pr in (prs if isinstance(prs, list) else [])],
+    }
 
 
 @app.get("/health")

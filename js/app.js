@@ -632,8 +632,9 @@ function _applyLoginData(r) {
   // Accept any pending org invite from URL
   setTimeout(_acceptPendingOrgInvite, 800);
   // Load integration statuses
-  setTimeout(gcalCheckStatus, 1000);
-  setTimeout(billingLoadStatus, 1200);
+  setTimeout(gcalCheckStatus,    1000);
+  setTimeout(githubCheckStatus,  1100);
+  setTimeout(billingLoadStatus,  1200);
 }
 
 async function restoreSession(token) {
@@ -722,6 +723,176 @@ async function submitResetPassword() {
 }
 
 // ─────────────────────────────────────────────────────────────
+//  PAYWALL / PLAN ACCESS SYSTEM
+// ─────────────────────────────────────────────────────────────
+
+const _PLAN_LEVELS = { free: 0, 'Free': 0, pro: 1, 'Pro': 1, team: 2, 'Team': 2 };
+
+function _planLevel(name) {
+  return _PLAN_LEVELS[(name || 'free')] ?? 0;
+}
+
+function _hasPlan(required) {
+  const current = _planLevel(_BILLING_STATUS?.name || 'free');
+  return current >= _planLevel(required);
+}
+
+const _PAYWALL_CFG = {
+  org:      { plan: 'Pro', icon: 'ti-building', title: 'Organization Space', desc: 'Collaborate with your team, manage projects, and chat in real-time.', perks: ['Real-time org chat', 'Project kanban', 'Team goals & docs', 'Member management'] },
+  orgchat:  { plan: 'Pro', icon: 'ti-messages', title: 'Org Chat', desc: 'Real-time team messaging with channels and direct messages.', perks: ['Slack-style channels', 'Direct messages', 'Presence indicators', 'Emoji reactions'] },
+  team:     { plan: 'Pro', icon: 'ti-users', title: 'Team Space', desc: 'Manage your team, roles, and workload in one place.', perks: ['Team members', 'Role management', 'Workload view', 'Activity feed'] },
+  projects: { plan: 'Pro', icon: 'ti-layout-kanban', title: 'Projects', desc: 'Build and track projects with kanban boards and milestones.', perks: ['Kanban boards', 'Milestones', 'GitHub linking', 'Progress tracking'] },
+  founder:  { plan: 'Team', icon: 'ti-rocket', title: 'Founder Mode', desc: 'Strategic tools for building your company — metrics, pipeline, and vision.', perks: ['Company metrics', 'Fundraising pipeline', 'Team builder', 'Vision board'] },
+};
+
+function _showPaywall(panelName) {
+  const cfg = _PAYWALL_CFG[panelName];
+  if (!cfg) return;
+  const panel = document.getElementById(`panel-${panelName}`);
+  if (!panel) return;
+  panel.querySelector('.paywall-overlay')?.remove();
+  const el = document.createElement('div');
+  el.className = 'paywall-overlay';
+  el.innerHTML = `
+    <div class="paywall-card">
+      <div class="paywall-icon"><i class="ti ${cfg.icon}"></i></div>
+      <h3>${esc(cfg.title)}</h3>
+      <p>${esc(cfg.desc)}</p>
+      <ul class="paywall-perks">${cfg.perks.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+      <button class="paywall-btn" onclick="showPricing()">Upgrade to ${esc(cfg.plan)} →</button>
+    </div>`;
+  panel.style.position = 'relative';
+  panel.appendChild(el);
+}
+
+function _removePaywall(panelName) {
+  document.getElementById(`panel-${panelName}`)?.querySelector('.paywall-overlay')?.remove();
+}
+
+// Wire upgrade button in sidebar after billing loads
+function _billingRenderSidebar() {
+  const planName  = _BILLING_STATUS?.name || 'Free';
+  const isPaid    = _planLevel(planName) > 0;
+  const btn       = $('sb-upgrade-btn');
+  const planLabel = $('sb-plan-label');
+  const upLabel   = $('sb-upgrade-label');
+  if (planLabel) planLabel.textContent = isPaid ? `${planName} Plan` : 'Free Plan';
+  if (upLabel)   upLabel.textContent   = isPaid ? 'Manage subscription' : 'Upgrade SIVARR';
+  if (btn) btn.style.borderColor = isPaid ? 'var(--teal)' : 'var(--border)';
+}
+
+// ─────────────────────────────────────────────────────────────
+//  GITHUB INTEGRATION
+// ─────────────────────────────────────────────────────────────
+
+let _GITHUB_CONNECTED = false;
+let _GITHUB_USERNAME  = '';
+
+async function githubCheckStatus() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try {
+    const r = await fetch(`/api/integrations/github/status?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _GITHUB_CONNECTED = d.connected;
+    _GITHUB_USERNAME  = d.username || '';
+    integrationsRender();
+  } catch(_) {}
+}
+
+function githubConnect() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) { toast('Sign in first.'); return; }
+  window.location.href = `/auth/github?token=${encodeURIComponent(token)}`;
+}
+
+async function githubLoadRepos() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token || !_GITHUB_CONNECTED) return [];
+  try {
+    const r = await fetch(`/api/integrations/github/repos?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    return d.repos || [];
+  } catch(_) { return []; }
+}
+
+async function githubLoadActivity(repoFullName) {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token || !_GITHUB_CONNECTED) return null;
+  try {
+    const r = await fetch(`/api/integrations/github/activity?token=${encodeURIComponent(token)}&repo=${encodeURIComponent(repoFullName)}`);
+    return await r.json();
+  } catch(_) { return null; }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  INTEGRATIONS PAGE (Library panel)
+// ─────────────────────────────────────────────────────────────
+
+function integrationsRender() {
+  const grid = $('integrations-grid');
+  if (!grid) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  const integrations = [
+    {
+      id: 'google',
+      name: 'Google OAuth',
+      logo: `<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.2l6.8-6.8C35.8 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.3 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.5-4.1 7-10.2 7-17.1z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.6L2.6 13.3A24 24 0 0 0 0 24c0 3.8.9 7.4 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.6-5.9c-2 1.4-4.7 2.2-7.6 2.2-6.3 0-11.6-3.8-13.5-9.2l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>`,
+      bg: '#fff',
+      connected: true,
+      statusText: 'Sign-in active',
+      action: null,
+      actionLabel: 'Connected',
+    },
+    {
+      id: 'gcal',
+      name: 'Google Calendar',
+      logo: `<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.2l6.8-6.8C35.8 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.3 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.5-4.1 7-10.2 7-17.1z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.6L2.6 13.3A24 24 0 0 0 0 24c0 3.8.9 7.4 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.6-5.9c-2 1.4-4.7 2.2-7.6 2.2-6.3 0-11.6-3.8-13.5-9.2l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>`,
+      bg: '#fff',
+      connected: _GCAL_CONNECTED,
+      statusText: _GCAL_CONNECTED ? 'Syncing events' : 'Not connected',
+      action: () => gcalConnect(),
+      actionLabel: _GCAL_CONNECTED ? 'Connected' : 'Connect',
+    },
+    {
+      id: 'github',
+      name: 'GitHub',
+      logo: `<svg width="20" height="20" viewBox="0 0 98 96" fill="currentColor"><path d="M48.9 0C21.8 0 0 22 0 49.2c0 21.8 14 40.3 33.5 46.8 2.5.5 3.4-1 3.4-2.3v-8c-13.7 3-16.6-6.7-16.6-6.7-2.2-5.7-5.5-7.2-5.5-7.2-4.5-3 .3-3 .3-3 5 .4 7.6 5.1 7.6 5.1 4.4 7.6 11.6 5.4 14.4 4.1.4-3.2 1.7-5.4 3.1-6.6-11-1.2-22.5-5.5-22.5-24.5 0-5.4 1.9-9.8 5.1-13.3-.5-1.3-2.2-6.3.5-13.1 0 0 4.1-1.3 13.4 5 3.9-1.1 8-1.6 12.2-1.6 4.1 0 8.3.5 12.2 1.6 9.3-6.3 13.4-5 13.4-5 2.7 6.8 1 11.8.5 13.1 3.1 3.5 5 7.9 5 13.3 0 19-11.6 23.3-22.6 24.5 1.8 1.5 3.4 4.5 3.4 9.2v13.6c0 1.3.8 2.8 3.4 2.3C84 89.4 98 70.9 98 49.2 97.9 22 76 0 48.9 0z"/></svg>`,
+      bg: '#24292e',
+      connected: _GITHUB_CONNECTED,
+      statusText: _GITHUB_CONNECTED ? `@${_GITHUB_USERNAME}` : 'Not connected',
+      action: () => githubConnect(),
+      actionLabel: _GITHUB_CONNECTED ? 'Connected' : 'Connect',
+    },
+    {
+      id: 'paystack',
+      name: 'Paystack',
+      logo: '💳',
+      bg: '#00C3F7',
+      connected: (_BILLING_STATUS?.plan || 'free') !== 'free',
+      statusText: _BILLING_STATUS?.plan === 'free' || !_BILLING_STATUS ? 'Free plan' : `${_BILLING_STATUS.name} — expires ${_BILLING_STATUS.expires || ''}`,
+      action: () => showPricing(),
+      actionLabel: (_BILLING_STATUS?.plan || 'free') !== 'free' ? 'Manage' : 'Upgrade',
+    },
+  ];
+
+  grid.innerHTML = integrations.map(i => `
+    <div class="int-card ${i.connected ? 'connected' : ''}">
+      <div class="int-header">
+        <div class="int-logo" style="background:${i.bg};color:${i.bg==='#fff'?'#000':'#fff'}">${i.logo}</div>
+        <div>
+          <div class="int-name">${esc(i.name)}</div>
+          <div class="int-status ${i.connected ? 'ok' : ''}">${esc(i.statusText)}</div>
+        </div>
+      </div>
+      ${i.action
+        ? `<button class="int-btn ${i.connected ? 'connected-btn' : ''}" onclick="(${i.action.toString()})()">${i.connected ? '✓ ' : ''}${esc(i.actionLabel)}</button>`
+        : `<button class="int-btn connected-btn" disabled>✓ ${esc(i.actionLabel)}</button>`
+      }
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
 //  GOOGLE CALENDAR INTEGRATION
 // ─────────────────────────────────────────────────────────────
 
@@ -801,6 +972,8 @@ async function billingLoadStatus() {
     const r = await fetch(`/api/billing/status?token=${encodeURIComponent(token)}`);
     _BILLING_STATUS = await r.json();
     _billingRenderBadge();
+    _billingRenderSidebar();
+    integrationsRender();
   } catch(_) {}
 }
 
@@ -888,9 +1061,11 @@ function checkAuthParams() {
   const orgInvite = params.get('org_invite');
   const googleTok = params.get('google_token');
   const authErr   = params.get('auth_error');
-  const gcalConn  = params.get('gcal_connected');
-  const gcalErr   = params.get('gcal_error');
-  const billing   = params.get('billing');
+  const gcalConn   = params.get('gcal_connected');
+  const gcalErr    = params.get('gcal_error');
+  const githubConn = params.get('github_connected');
+  const githubErr  = params.get('github_error');
+  const billing    = params.get('billing');
   const billingRef = params.get('ref');
   const billingPlan = params.get('plan');
 
@@ -948,6 +1123,22 @@ function checkAuthParams() {
       token_failed: 'Google Calendar token exchange failed.',
     };
     toast(msgs[gcalErr] || 'Google Calendar connection failed.');
+  }
+
+  // GitHub callback
+  if (githubConn === '1') {
+    history.replaceState(null, '', '/');
+    sessionStorage.setItem('github_just_connected', '1');
+  }
+  if (githubErr) {
+    history.replaceState(null, '', '/');
+    const msgs = {
+      not_configured: 'GitHub integration not configured.',
+      denied: 'GitHub access was denied.',
+      session_expired: 'Session expired — sign in again.',
+      token_failed: 'GitHub token exchange failed.',
+    };
+    toast(msgs[githubErr] || 'GitHub connection failed.');
   }
 
   // Paystack billing callback
@@ -1062,6 +1253,12 @@ function _postLoginIntegrations() {
     sessionStorage.removeItem('gcal_just_connected');
     toast('Google Calendar connected!');
     gcalCheckStatus();
+  }
+  // GitHub just connected
+  if (sessionStorage.getItem('github_just_connected')) {
+    sessionStorage.removeItem('github_just_connected');
+    toast('GitHub connected!');
+    githubCheckStatus();
   }
   // Billing payment just returned
   const bilRef  = sessionStorage.getItem('billing_verify_ref');
@@ -5084,6 +5281,13 @@ function nav(name, btn) {
   const mob = document.getElementById(`mn-${name}`); if (mob) mob.classList.add('active');
   syncSnavFromPanel(name);
 
+  // ── Paywall guards ──
+  const _GUARDED = { org: 'Pro', orgchat: 'Pro', team: 'Pro', projects: 'Pro', founder: 'Team' };
+  if (_GUARDED[name]) {
+    if (!_hasPlan(_GUARDED[name])) { _showPaywall(name); return; }
+    _removePaywall(name);
+  }
+
   if (name === 'chat')      { chatCounterInit(); setTimeout(chatProactiveGreet, 400); return; }
   if (name === 'home')      { loadHome(); return; }
   if (name === 'notes')     { docInit(); return; }
@@ -5092,7 +5296,7 @@ function nav(name, btn) {
   if (name === 'habits')    { habitInit(); return; }
   if (name === 'journal')   { journalInit(); return; }
   if (name === 'community') return;
-  if (name === 'library')   return;
+  if (name === 'library')   { integrationsRender(); return; }
   if (name === 'stats')         loadStats();
   if (name === 'more')          syncMore();
   if (name === 'leaderboard')   loadLeaderboard();
