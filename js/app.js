@@ -733,6 +733,8 @@ function _planLevel(name) {
 }
 
 function _hasPlan(required) {
+  // Dev bypass: localStorage.setItem('sivarr_dev','1') in console to unlock everything
+  if (localStorage.getItem('sivarr_dev') === '1') return true;
   const current = _planLevel(_BILLING_STATUS?.name || 'free');
   return current >= _planLevel(required);
 }
@@ -989,6 +991,7 @@ function _billingRenderBadge() {
 async function showPricing() {
   const modal = $('pricing-modal');
   if (!modal) return;
+  modal.style.display = 'flex';
   const token = localStorage.getItem('sivarr_token') || '';
   let planData = { plans: {}, paystack_available: false };
   try {
@@ -998,25 +1001,28 @@ async function showPricing() {
 
   const cards = $('pricing-cards');
   if (cards) {
+    const currentPlan = _BILLING_STATUS?.name?.toLowerCase() || 'free';
     const plans = [
       { id: 'free',        name: 'Free',  price: '₦0',     per: '/forever', perks: ['AI chat (20/day)', 'Tasks & Goals', 'Calendar', 'Personal journal'], cta: 'Current plan', free: true },
       { id: 'pro_monthly', name: 'Pro',   price: '₦2,500', per: '/month',   perks: ['Everything in Free', 'Unlimited AI', 'Org space access', 'Priority support'], featured: true },
       { id: 'team_monthly',name: 'Team',  price: '₦8,000', per: '/month',   perks: ['Everything in Pro', 'Full org suite', 'Analytics', 'Custom branding'] },
     ];
-    cards.innerHTML = plans.map(p => `
+    cards.innerHTML = plans.map(p => {
+      const isCurrent = currentPlan === p.name.toLowerCase() || (p.free && currentPlan === 'free');
+      return `
       <div class="pricing-card${p.featured ? ' featured' : ''}">
         <div class="pricing-name">${esc(p.name)}</div>
         <div class="pricing-price">${p.price}<span>${p.per}</span></div>
         <ul class="pricing-perks">${p.perks.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
-        ${p.free
-          ? `<button class="pricing-btn free-btn" disabled>${esc(p.cta)}</button>`
-          : planData.paystack_available
-            ? `<button class="pricing-btn" onclick="billingSubscribe('${p.id}')">Get ${esc(p.name)}</button>`
-            : `<button class="pricing-btn free-btn" disabled>Payments coming soon</button>`
+        ${isCurrent
+          ? `<button class="pricing-btn free-btn" disabled>Current plan</button>`
+          : p.free
+            ? `<button class="pricing-btn free-btn" disabled>Free</button>`
+            : `<button class="pricing-btn" onclick="billingSubscribe('${p.id}')">Get ${esc(p.name)} →</button>`
         }
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
-  modal.style.display = 'flex';
 }
 
 function closePricing() {
