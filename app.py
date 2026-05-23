@@ -134,6 +134,7 @@ LECTURER_PASSWORD  = os.environ.get("LECTURER_PASSWORD", "sivarr_lecturer_2024")
 BASE_URL           = os.environ.get("BASE_URL", "https://sivarr.up.railway.app")
 RESEND_API_KEY     = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM        = os.environ.get("RESEND_FROM_EMAIL", "Sivarr <noreply@sivarr.app>")
+RESEND_REPLY_TO    = os.environ.get("RESEND_REPLY_TO", "Connectsivarr@gmail.com")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
 # ── Paystack (NGN payments) ───────────────────────────────────
@@ -591,10 +592,11 @@ def send_email(to: str, subject: str, html_body: str) -> tuple[bool, str]:
     try:
         _resend.api_key = RESEND_API_KEY
         _resend.Emails.send({
-            "from":    RESEND_FROM,
-            "to":      [to],
-            "subject": subject,
-            "html":    html_body,
+            "from":     RESEND_FROM,
+            "to":       [to],
+            "reply_to": [RESEND_REPLY_TO],
+            "subject":  subject,
+            "html":     html_body,
         })
         log.info(f"Email sent: '{subject}' → {to}")
         return True, "ok"
