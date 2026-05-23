@@ -4988,10 +4988,10 @@ input, textarea, select { font-family: var(--font); }
   .oc-ch-item.active { background: var(--teal2); color: var(--teal); }
 }
 
-/* Doc editor on mobile */
+/* Doc editor on mobile — horizontal scroll, not wrap */
 @media (max-width: 640px) {
-  .dh-toolbar { flex-wrap: wrap; gap: 2px !important; }
-  .dh-tb-btn  { padding: 4px 7px !important; font-size: .72rem !important; }
+  .dh-toolbar { flex-wrap: nowrap !important; overflow-x: auto !important; }
+  .dh-tool-btn, .dh-tb-btn { flex-shrink: 0; min-height: 36px; }
 }
 
 /* Onboarding on mobile */
@@ -5052,4 +5052,202 @@ input, textarea, select { font-family: var(--font); }
 .dh-link-insert {
   padding: 7px 18px; border-radius: 8px; border: none;
   background: var(--teal); color: #fff; font-size: .82rem; font-weight: 700; cursor: pointer;
+}
+
+/* Doc hub toolbar — base styles (no base CSS existed) */
+.dh-toolbar {
+  display: flex; align-items: center; gap: 3px; padding: 6px 12px;
+  border-bottom: 1px solid var(--border); background: var(--bg2);
+  flex-shrink: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.dh-toolbar::-webkit-scrollbar { display: none; }
+.dh-tool-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 30px; height: 30px; border-radius: 6px; border: none;
+  background: transparent; color: var(--text3); font-family: var(--font);
+  font-size: .82rem; cursor: pointer; transition: background .12s, color .12s;
+  flex-shrink: 0;
+}
+.dh-tool-btn:hover { background: var(--bg3); color: var(--fg); }
+.dh-sep {
+  width: 1px; height: 18px; background: var(--border);
+  margin: 0 3px; flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE FULL POLISH
+   All 12 issues addressed systematically.
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 720px) {
+
+  /* ── 1. Layout — account for topbar + bottom nav height ────── */
+  .layout {
+    /* CSS custom property so panels can reference it */
+    --mob-nav-h: 60px;
+  }
+  /* The main area must shrink by bottom nav height on mobile */
+  .main {
+    padding-bottom: var(--mob-nav-h) !important;
+  }
+  /* Sidebar must stop above bottom nav so upgrade btn is reachable */
+  .sidebar {
+    bottom: var(--mob-nav-h) !important;
+  }
+
+  /* ── 2. Chat bar — lift above bottom nav ─────────────────────
+     The panel-chat uses flex column; chat-bar is the last child.
+     Adding padding-bottom here gives breathing room above the nav. */
+  .chat-bar {
+    margin-bottom: 0 !important;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+  }
+  /* Org chat input bar */
+  .oc-bar {
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+  }
+
+  /* ── 3. Org tabs — all 9 tabs scrollable without wrapping ─── */
+  .os-tabs {
+    padding: 0 8px !important;
+    gap: 0 !important;
+  }
+  .os-tab {
+    padding: 10px 10px !important;
+    font-size: .75rem !important;
+    min-height: 44px;
+  }
+
+  /* ── 4. Touch targets — min 44×44 px for all tappable things ─ */
+  .nav-btn { min-height: 44px; }
+  .tb-icon-btn,
+  .chat-icon-btn,
+  .chat-send-btn,
+  .si-modal-close,
+  .os-card-link,
+  .os-tool-btn { min-height: 44px; min-width: 44px; }
+  .mob-nav-btn { min-height: 52px; }
+
+  /* ── 5. Personal & academic space tabs ───────────────────────
+     Already have overflow-x:auto but need tab padding tightened */
+  .sp-tab { padding: 10px 10px !important; font-size: .76rem !important; min-height: 44px; }
+
+  /* ── 6. Home dashboard grid — single column ──────────────────  */
+  .home-grid { grid-template-columns: 1fr !important; }
+
+  /* ── 7. Doc editor toolbar — horizontal scroll not wrap ──────
+     Override the earlier "flex-wrap:wrap" which creates 3 rows */
+  .dh-toolbar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+  .dh-tool-btn { min-height: 38px; }
+
+  /* ── 8. Profile dropdown — prevent off-screen right ─────────
+     On small phones right:0 can still overflow; clamp to viewport */
+  .profile-dropdown {
+    right: 0 !important;
+    left: auto !important;
+    max-width: calc(100vw - 16px);
+  }
+
+  /* ── 9. Library / integrations grids ─────────────────────────
+     3-column int-grid is too cramped; collapse to 2 then 1 */
+  .int-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .lib-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* ── 10. Topbar — tighten on small screens ───────────────────
+     The right action icons remain, search hidden (done already) */
+  .tb-brand { gap: 6px; }
+  .tb-name  { font-size: 13px; }
+
+  /* ── 11. Org chat mobile — horizontal channel bar (override) ─
+     Already set in earlier media query, adding height fix */
+  .oc-sidebar { min-height: 48px !important; max-height: 48px !important; }
+  .oc-main    { flex: 1; min-height: 0; }
+
+  /* ── 12. Analytics grid — 2 columns on tablet ───────────────── */
+  .analytics-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* ── iOS font-size zoom fix — must be at least 16px on input focus ─
+   Scoped to mobile only so desktop keeps smaller, nicer type.       */
+@media (max-width: 720px) {
+  input:not([type=range]):not([type=checkbox]):not([type=radio]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+  /* But keep placeholder styling readable */
+  input::placeholder,
+  textarea::placeholder { font-size: 14px !important; }
+}
+
+@media (max-width: 480px) {
+  /* ── Bottom nav — safe area aware height ────────────────────── */
+  .mobile-nav {
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+  }
+  .layout { --mob-nav-h: calc(60px + env(safe-area-inset-bottom, 0px)); }
+
+  /* ── Modals as bottom sheets ─────────────────────────────────
+     On small phones, center modals feel cramped.
+     Slide up from bottom instead — more thumb-friendly.          */
+  .si-modal-bg {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .si-modal {
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 88vh !important;
+    max-width: 100% !important;
+    animation: si-modal-mob-in .22s cubic-bezier(.34,1.1,.64,1) !important;
+  }
+  @keyframes si-modal-mob-in {
+    from { transform: translateY(40px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .si-modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .si-modal-box {
+    border-radius: 20px 20px 0 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  /* Pricing modal — full-width bottom sheet */
+  #pricing-modal.si-modal-bg .si-modal {
+    padding: 24px 16px 32px !important;
+  }
+
+  /* ── Integrations / library — single column ────────────────── */
+  .int-grid { grid-template-columns: 1fr !important; }
+  .lib-grid { grid-template-columns: 1fr !important; }
+
+  /* ── Analytics — 2×3 grid on phone ─────────────────────────── */
+  .analytics-grid { grid-template-columns: 1fr 1fr !important; }
+
+  /* ── Org space ───────────────────────────────────────────────── */
+  .os-hero { padding: 10px 12px !important; gap: 10px; }
+  .os-stat { padding: 10px 12px !important; }
+  .os-stat-row { grid-template-columns: repeat(2, 1fr) !important; }
+  .os-scroll { padding: 12px !important; }
+  .os-card { padding: 12px !important; }
+  .os-grid2 { grid-template-columns: 1fr !important; }
+
+  /* ── Topbar — show logo icon only, hide name text ───────────── */
+  .tb-name { display: none; }
+
+  /* ── Content padding ─────────────────────────────────────────── */
+  .content { padding: 12px !important; }
+  .view-head { padding: 0 12px !important; }
+
+  /* ── Cards & grids ───────────────────────────────────────────── */
+  .stat-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+  .h-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* ── Onboarding ──────────────────────────────────────────────── */
+  .si-ob-actions { flex-direction: column; gap: 8px; }
+  .si-ob-btn-pri { width: 100%; text-align: center; }
 }

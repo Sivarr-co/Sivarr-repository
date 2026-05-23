@@ -13066,15 +13066,25 @@ async function _sendTaskReminderIfNeeded() {
 //  MOBILE BOTTOM NAV — update active state
 // ═══════════════════════════════════════════════════════════════
 
+// Maps every panel name → which bottom nav button lights up
+const _MOB_NAV_MAP = {
+  home:      'home',
+  chat:      'siva',   siva: 'siva',
+  tasks:     'tasks',  flux: 'tasks',  goals: 'tasks',
+  notes:     'docs',   documenthub: 'docs', templates: 'docs',
+  org:       'org',    team: 'org', orgchat: 'org', projects: 'org',
+              hr: 'org', automations: 'org', founder: 'org',
+};
+
 function _updateMobileNav(panelName) {
-  const map = { home:'home', siva:'siva', tasks:'tasks', docs:'docs', org:'org' };
   document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
-  for (const [key, val] of Object.entries(map)) {
-    if (val === panelName || panelName === val) {
-      const btn = $('mob-' + key);
-      if (btn) btn.classList.add('active');
-    }
+  const target = _MOB_NAV_MAP[panelName];
+  if (target) {
+    const btn = $('mob-' + target);
+    if (btn) btn.classList.add('active');
   }
+  // Close mobile sidebar whenever a panel is navigated to
+  if (window.innerWidth <= 720) closeMobileSidebar();
 }
 
 // ═══════════════════════════════════════════════════════════════
