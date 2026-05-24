@@ -389,6 +389,12 @@ async function doLogin(prefillEmail) {
   } catch(e) {
     const status = e.status || 0;
     const detail = e.message || '';
+    if (status === 403 && detail === 'email_not_verified') {
+      if (err) err.textContent = `Your email isn't verified yet. A new link has been sent to ${email} — check your inbox and click the link, then try signing in again.`;
+      if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; }
+      clearSession();
+      return;
+    }
     const text = status === 409 ? detail :
                  status === 401 ? detail :
                  status === 400 ? detail :
@@ -2031,7 +2037,8 @@ async function getSuggestions() {
 // ═══════════════════════════ WRONG ANSWERS ══════════════════════
 async function loadWrong() {
   try {
-    const r = await fetch(`/api/wrong?sid=${S.sid}`);
+    const _wt = localStorage.getItem('sivarr_token') || '';
+    const r = await fetch(`/api/wrong?sid=${S.sid}&token=${encodeURIComponent(_wt)}`);
     const d = await r.json();
     S.wrongAnswers = d.wrong;
     const wc   = $('wc');   if (wc)   wc.textContent   = d.wrong.length;
@@ -2060,7 +2067,8 @@ async function clearWrong(idx) {
 
 // ═══════════════════════════ STATS ══════════════════════════════
 async function loadStats() {
-  const r = await fetch(`/api/progress?sid=${S.sid}`);
+  const _st = localStorage.getItem('sivarr_token') || '';
+  const r = await fetch(`/api/progress?sid=${S.sid}&token=${encodeURIComponent(_st)}`);
   const d = await r.json();
 
   // Build sparkline SVG
@@ -2194,7 +2202,8 @@ async function loadStats() {
   }
 
 async function loadProgress() {
-  const r = await fetch(`/api/progress?sid=${S.sid}`);
+  const _pt = localStorage.getItem('sivarr_token') || '';
+  const r = await fetch(`/api/progress?sid=${S.sid}&token=${encodeURIComponent(_pt)}`);
   const d = await r.json();
   const pw = $('pw'); if (!pw) return;
 
@@ -5539,7 +5548,8 @@ function renderTopics(topics, weak) {
 }
 
 async function refreshTopics() {
-  const r = await fetch(`/api/progress?sid=${S.sid}`);
+  const _rt = localStorage.getItem('sivarr_token') || '';
+  const r = await fetch(`/api/progress?sid=${S.sid}&token=${encodeURIComponent(_rt)}`);
   const d = await r.json();
   S.topics = Object.keys(d.topics); S.weak = d.weak;
   renderTopics(S.topics, S.weak);
@@ -6162,8 +6172,8 @@ function renderMarkdown(text) {
     // Code blocks first (before escaping)
     .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
       `<pre style="background:var(--border);border-radius:8px;padding:.75rem;overflow-x:auto;margin:.4rem 0;font-size:.82rem"><code>${esc(code.trim())}</code></pre>`)
-    // Inline code
-    .replace(/`([^`]+)`/g, '<code style="background:var(--border);border-radius:4px;padding:1px 6px;font-size:.85em">$1</code>')
+    // Inline code — escape content before inserting to prevent XSS
+    .replace(/`([^`]+)`/g, (_, c) => `<code style="background:var(--border);border-radius:4px;padding:1px 6px;font-size:.85em">${esc(c)}</code>`)
     // Escape remaining HTML
     .replace(/&(?!amp;|lt;|gt;|quot;)/g, '&amp;')
     .replace(/<(?!pre|\/pre|code|\/code)/g, '&lt;')
@@ -6186,8 +6196,10 @@ function renderMarkdown(text) {
     // Line breaks
     .replace(/\n{2,}/g, '<br><br>')
     .replace(/\n/g, '<br>');
-  return h;
-  }
+  return typeof DOMPurify !== 'undefined'
+    ? DOMPurify.sanitize(h, { FORCE_BODY: true })
+    : h;
+}
 
 async function runStudyHaven(input) {
   const file = input.files[0];

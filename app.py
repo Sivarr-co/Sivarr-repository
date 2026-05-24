@@ -129,8 +129,14 @@ LOG_DIR     = _BASE / "logs"
 for d in [DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
-ADMIN_PASSWORD     = os.environ.get("ADMIN_PASSWORD", "sivarr_admin_2024")
-LECTURER_PASSWORD  = os.environ.get("LECTURER_PASSWORD", "sivarr_lecturer_2024")
+ADMIN_PASSWORD     = os.environ.get("ADMIN_PASSWORD", "")
+LECTURER_PASSWORD  = os.environ.get("LECTURER_PASSWORD", "")
+if not ADMIN_PASSWORD:
+    import sys
+    print("CRITICAL: ADMIN_PASSWORD env var is not set. Admin login is disabled.", file=sys.stderr)
+if not LECTURER_PASSWORD:
+    import sys
+    print("CRITICAL: LECTURER_PASSWORD env var is not set. Lecturer login is disabled.", file=sys.stderr)
 BASE_URL           = os.environ.get("BASE_URL", "https://sivarr.up.railway.app")
 RESEND_API_KEY     = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM        = os.environ.get("RESEND_FROM_EMAIL", "Sivarr <noreply@sivarr.app>")
@@ -531,10 +537,88 @@ API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 
 _model_name = None
 _chat_sessions: dict = {}          # sid → {chat, math, last_used}
-_session_tokens: dict = {}         # token → {sid, name, email, expires}
+_session_tokens:    dict = {}   # token → {sid, name, email, expires}
+_admin_sessions:    dict = {}   # token → expiry datetime  (2-hour window)
+_lecturer_sessions: dict = {}   # token → expiry datetime  (2-hour window)
+_failed_logins:     dict = {}   # email → {count, locked_until}
+
+LOGIN_LOCK_ATTEMPTS = 10
+LOGIN_LOCK_MINUTES  = 15
+
+
+def _check_account_lockout(email: str) -> None:
+    """Raise 429 if the account is currently locked out."""
+    rec = _failed_logins.get(email)
+    if not rec:
+        return
+    locked_until = rec.get("locked_until")
+    if locked_until and datetime.datetime.utcnow() < locked_until:
+        secs_left = int((locked_until - datetime.datetime.utcnow()).total_seconds())
+        mins_left = max(1, (secs_left + 59) // 60)
+        raise HTTPException(429, f"Account locked after too many failed attempts. Try again in {mins_left} minute(s).")
+    if locked_until:
+        _failed_logins.pop(email, None)
+
+
+def _record_failed_login(email: str) -> None:
+    rec = _failed_logins.setdefault(email, {"count": 0, "locked_until": None})
+    rec["count"] += 1
+    if rec["count"] >= LOGIN_LOCK_ATTEMPTS:
+        rec["locked_until"] = datetime.datetime.utcnow() + datetime.timedelta(minutes=LOGIN_LOCK_MINUTES)
+        log.warning(f"Account locked after {LOGIN_LOCK_ATTEMPTS} failed attempts: {email}")
+
+
+def _clear_failed_login(email: str) -> None:
+    _failed_logins.pop(email, None)
 
 SESSION_TTL_DAYS  = 30             # auth token lifetime
 CHAT_SESSION_TTL  = 4 * 3600      # evict idle AI sessions after 4 hours
+_PRIV_SESSION_TTL = datetime.timedelta(hours=2)
+
+
+def _cleanup_priv_sessions(store: dict) -> None:
+    now   = datetime.datetime.utcnow()
+    stale = [t for t, exp in store.items() if exp <= now]
+    for t in stale:
+        del store[t]
+
+
+def _create_admin_session() -> str:
+    _cleanup_priv_sessions(_admin_sessions)
+    token = "adm_" + secrets.token_urlsafe(32)
+    _admin_sessions[token] = datetime.datetime.utcnow() + _PRIV_SESSION_TTL
+    return token
+
+
+def _is_valid_admin_session(token: str) -> bool:
+    if not token:
+        return False
+    expiry = _admin_sessions.get(token)
+    if not expiry:
+        return False
+    if datetime.datetime.utcnow() > expiry:
+        del _admin_sessions[token]
+        return False
+    return True
+
+
+def _create_lecturer_session() -> str:
+    _cleanup_priv_sessions(_lecturer_sessions)
+    token = "lec_" + secrets.token_urlsafe(32)
+    _lecturer_sessions[token] = datetime.datetime.utcnow() + _PRIV_SESSION_TTL
+    return token
+
+
+def _is_valid_lecturer_session(token: str) -> bool:
+    if not token:
+        return False
+    expiry = _lecturer_sessions.get(token)
+    if not expiry:
+        return False
+    if datetime.datetime.utcnow() > expiry:
+        del _lecturer_sessions[token]
+        return False
+    return True
 
 
 def _evict_stale_chat_sessions():
@@ -689,31 +773,110 @@ def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role
 
 
 def _email_welcome_html(name: str) -> str:
+    url = "https://sivarr-repository-production.up.railway.app/"
+    first = name.split()[0] if name else name
     return f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"></head>
-<body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
-  <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
-  </div>
-  <h2 style="margin:0 0 10px;font-size:1.4rem">You're in, {name}.</h2>
-  <p style="color:#555;line-height:1.6;margin:0 0 20px">
-    Your Sivarr workspace is ready. Here's what you can do right now:
-  </p>
-  <ul style="color:#555;line-height:2;margin:0 0 28px;padding-left:20px">
-    <li>Chat with your AI assistant</li>
-    <li>Write in your journal</li>
-    <li>Set goals and track progress</li>
-    <li>Create notes and study docs</li>
-  </ul>
-  <a href="https://sivarr.up.railway.app"
-     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
-            border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
-    Open Sivarr →
-  </a>
-  <hr style="border:none;border-top:1px solid #eee;margin:32px 0">
-  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">
-    SIVARR · Your productivity OS
-  </p>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#f9f9f9;font-family:system-ui,-apple-system,sans-serif">
+  <!-- Preheader (hidden preview text) -->
+  <span style="display:none;max-height:0;overflow:hidden;mso-hide:all">Your workspace is waiting for you.</span>
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;padding:40px 0">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px 48px;max-width:520px;width:100%">
+
+        <!-- Logo -->
+        <tr><td style="padding-bottom:32px">
+          <span style="font-size:1.4rem;font-weight:900;color:#0D7A5F;letter-spacing:-.04em">SIVARR</span>
+        </td></tr>
+
+        <!-- Greeting -->
+        <tr><td style="font-size:1rem;color:#1a1a1a;padding-bottom:16px;line-height:1.6">
+          Hello {first},
+        </td></tr>
+
+        <!-- Opening line -->
+        <tr><td style="font-size:1rem;color:#1a1a1a;padding-bottom:28px;line-height:1.6">
+          You now have access to your SIVARR workspace.
+        </td></tr>
+
+        <!-- CTA Button 1 -->
+        <tr><td style="padding-bottom:20px">
+          <a href="{url}" style="display:inline-block;color:#C0392B;font-weight:800;font-size:.95rem;text-decoration:none;letter-spacing:.04em">
+            OPEN MY SIVARR WORKSPACE
+          </a>
+        </td></tr>
+
+        <!-- Sub-caption -->
+        <tr><td style="font-size:.92rem;color:#555;font-style:italic;padding-bottom:28px;line-height:1.6">
+          Click the link above to get started.
+        </td></tr>
+
+        <!-- Body copy -->
+        <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:12px;line-height:1.6">
+          Once you do, you will find that you can;
+        </td></tr>
+
+        <!-- Feature list -->
+        <tr><td style="padding-bottom:28px">
+          <ul style="margin:0;padding-left:24px;color:#1a1a1a;font-size:.95rem;line-height:2">
+            <li>Ask questions and have a personalized chat with your AI assistant.</li>
+            <li>Process your emotions through daily logs in your personal journal.</li>
+            <li>Set daily, weekly, monthly and yearly goals and track your progress.</li>
+            <li>Study faster by creating notes and study materials.</li>
+          </ul>
+        </td></tr>
+
+        <!-- And more -->
+        <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:12px;line-height:1.6">
+          And what&rsquo;s more?
+        </td></tr>
+        <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:12px;line-height:1.6">
+          You get to use <strong>multiple</strong> tools in <strong>one</strong> platform.
+        </td></tr>
+        <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:12px;line-height:1.6">
+          Your entire workflow, from idea to execution will now exist in one central system.
+        </td></tr>
+        <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:12px;line-height:1.6">
+          To make sure you have the best experience&hellip;
+        </td></tr>
+        <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:28px;line-height:1.6">
+          We will be sending tips and guides to help you get the most out of every feature.
+        </td></tr>
+
+        <!-- Repeat link -->
+        <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:12px;line-height:1.6">
+          Here&rsquo;s your access link again;
+        </td></tr>
+
+        <!-- CTA Button 2 -->
+        <tr><td style="padding-bottom:28px">
+          <a href="{url}" style="display:inline-block;color:#C0392B;font-weight:800;font-size:.95rem;text-decoration:none;letter-spacing:.04em">
+            OPEN MY SIVARR WORKSPACE
+          </a>
+        </td></tr>
+
+        <!-- Closing -->
+        <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:20px;line-height:1.6">
+          We can&rsquo;t wait to see what you do with SIVARR !
+        </td></tr>
+        <tr><td style="font-size:.92rem;color:#555;font-style:italic;padding-bottom:28px;line-height:1.8">
+          See you Inside,<br>SIVARR Team
+        </td></tr>
+
+        <tr><td style="font-size:.88rem;color:#1a1a1a;padding-bottom:32px;line-height:1.6">
+          PS; If you run into any issue, simply reply to this email and our team will help you out.
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="border-top:1px solid #eee;padding-top:20px">
+          <p style="margin:0;font-size:.72rem;color:#bbb;text-align:center">SIVARR &middot; Your productivity OS</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
 </body></html>"""
 
 
@@ -1109,11 +1272,17 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/css",    StaticFiles(directory="css"),    name="css")
 app.mount("/js",     StaticFiles(directory="js"),     name="js")
 
+_cors_origins = list({o.strip() for o in [
+    BASE_URL.rstrip("/"),
+    "https://sivarr.up.railway.app",
+    "https://sivarr.app",
+] if o.strip()})
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+    allow_credentials=False,
 )
 
 
@@ -1264,6 +1433,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
     check_rate_limit(key, RATE_LIMIT_LOGIN, "login")
 
     email = req.email  # already normalised by validator
+    _check_account_lockout(email)   # raise 429 early if account is locked
     users = load_users()
 
     # ── REGISTER ──────────────────────────────────────────────
@@ -1320,7 +1490,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
                     "Verify your Sivarr email",
                     _email_verify_html(verify_url, user['name']))
         bg.add_task(send_email, email,
-                    "Welcome to Sivarr",
+                    "Welcome to SIVARR AI",
                     _email_welcome_html(user['name']))
 
     # ── LOGIN ──────────────────────────────────────────────────
@@ -1340,9 +1510,20 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
         if not req.password:
             raise HTTPException(401, "Password required.")
         if not bcrypt.checkpw(req.password.encode(), stored.encode()):
+            _record_failed_login(email)
             raise HTTPException(401, "Incorrect password.")
 
+        _clear_failed_login(email)   # reset counter on correct password
         sid = user["sid"]
+
+        # Block login until email is confirmed (only enforced when DB is reachable).
+        # Auto-resend the link so the user has something actionable.
+        if db.is_available() and not db.is_email_verified(sid):
+            verify_token = db.create_email_verify_token(sid, email)
+            verify_url   = f"{BASE_URL}/?verify={verify_token}"
+            bg.add_task(send_email, email, "Verify your Sivarr email",
+                        _email_verify_html(verify_url, user.get("name", "")))
+            raise HTTPException(403, "email_not_verified")
 
     p = load_progress(sid)
     p["sessions"] = p.get("sessions", 0) + 1
@@ -1429,10 +1610,12 @@ async def logout(data: dict):
     return {"ok": True}
 
 
-@app.get("/api/admin/test-email")
-async def test_email(to: str = "", key: str = ""):
-    """Quick diagnostic — call with ?to=your@email.com&key=ADMIN_PASSWORD"""
-    if key != ADMIN_PASSWORD:
+@app.post("/api/admin/test-email")
+async def test_email(data: dict):
+    """Email diagnostic. Send POST {\"to\": \"email\", \"key\": \"ADMIN_PASSWORD\"}"""
+    key = sanitize_text(str(data.get("key", "")), 200)
+    to  = sanitize_text(str(data.get("to", "")), 200)
+    if not ADMIN_PASSWORD or not hmac.compare_digest(key, ADMIN_PASSWORD):
         raise HTTPException(403, "Wrong key.")
     target = to or "djhunterd712@gmail.com"
     ok, detail = send_email(
@@ -1477,8 +1660,8 @@ async def reset_password(data: dict):
     password = str(data.get("password", ""))
     if not token or not password:
         raise HTTPException(400, "Token and new password required.")
-    if len(password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters.")
+    if len(password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters.")
     rec = db.get_reset_token(token)
     if not rec:
         raise HTTPException(400, "Reset link is invalid or has expired.")
@@ -1755,8 +1938,11 @@ async def quiz_complete(data: dict):
 
 
 @app.get("/api/progress")
-async def progress(sid: str):
-    sid     = sanitize_text(sid, 100)
+async def progress(sid: str, token: str = ""):
+    sid   = sanitize_text(sid, 100)
+    entry = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not entry or entry.get("sid") != sid:
+        raise HTTPException(401, "Invalid or missing session token.")
     p       = load_progress(sid)
     quizzes = p.get("quizzes", [])
     avg     = (sum(q["score"] for q in quizzes) / len(quizzes) * 100) if quizzes else 0
@@ -1841,9 +2027,12 @@ async def set_difficulty(req: DifficultyRequest):
 
 
 @app.get("/api/wrong")
-async def get_wrong(sid: str):
-    sid = validate_sid(sid)
-    p   = load_progress(sid)
+async def get_wrong(sid: str, token: str = ""):
+    sid   = validate_sid(sid)
+    entry = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not entry or entry.get("sid") != sid:
+        raise HTTPException(401, "Invalid or missing session token.")
+    p = load_progress(sid)
     return {"wrong": p.get("wrong_answers",[])}
 
 
@@ -1987,16 +2176,13 @@ async def admin_login(req: AdminLoginRequest, request: Request):
         log.warning(f"Failed admin login attempt from {key}")
         raise HTTPException(401, "Invalid password")
     log.info(f"Admin login successful from {key}")
-    # Generate cryptographic token — HMAC of password + secret
-    token = "admin_" + hmac.new(
-        ADMIN_PASSWORD.encode(), b"sivarr_admin", hashlib.sha256
-    ).hexdigest()[:16]
+    token = _create_admin_session()
     return {"ok": True, "token": token}
 
 
 @app.get("/api/admin/students")
 async def admin_students(token: str):
-    if not hmac.compare_digest(token, _expected_admin_token()):
+    if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     students = get_all_students()
     total_q  = sum(s["questions"] for s in students)
@@ -2048,7 +2234,7 @@ def get_all_students_full():
 
 @app.get("/api/admin/overview")
 async def admin_overview(token: str):
-    if not hmac.compare_digest(token, _expected_admin_token()):
+    if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     students = get_all_students_full()
     total_q  = sum(s["questions"] for s in students)
@@ -2099,14 +2285,14 @@ async def admin_overview(token: str):
 
 @app.get("/api/admin/users-full")
 async def admin_users_full(token: str):
-    if not hmac.compare_digest(token, _expected_admin_token()):
+    if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     return {"users": get_all_students_full()}
 
 
 @app.get("/api/admin/sessions-list")
 async def admin_sessions_list(token: str):
-    if not hmac.compare_digest(token, _expected_admin_token()):
+    if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     # Prefer DB list; fall back to in-memory
     if db.is_available():
@@ -2131,7 +2317,7 @@ async def admin_sessions_list(token: str):
 
 @app.get("/api/admin/spaces-list")
 async def admin_spaces_list(token: str):
-    if not hmac.compare_digest(token, _expected_admin_token()):
+    if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     spaces = db.get_all_spaces_admin() if db.is_available() else []
     return {"spaces": spaces, "count": len(spaces)}
@@ -2140,7 +2326,7 @@ async def admin_spaces_list(token: str):
 @app.post("/api/admin/user-delete")
 async def admin_user_delete(data: dict):
     token = str(data.get("token", ""))
-    if not hmac.compare_digest(token, _expected_admin_token()):
+    if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     sid = sanitize_text(str(data.get("sid", "")), 60)
     if not sid:
@@ -2167,7 +2353,7 @@ async def admin_user_delete(data: dict):
 @app.post("/api/admin/session-kill")
 async def admin_session_kill(data: dict):
     token = str(data.get("token", ""))
-    if not hmac.compare_digest(token, _expected_admin_token()):
+    if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     target = str(data.get("target_token", ""))
     if not target:
@@ -2178,7 +2364,7 @@ async def admin_session_kill(data: dict):
 
 @app.get("/api/admin/announcements-list")
 async def admin_announcements_list(token: str):
-    if not hmac.compare_digest(token, _expected_admin_token()):
+    if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     data = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
     return {"announcements": data}
@@ -2187,7 +2373,7 @@ async def admin_announcements_list(token: str):
 @app.post("/api/admin/announcement-create")
 async def admin_announcement_create(data: dict):
     token = str(data.get("token", ""))
-    if not hmac.compare_digest(token, _expected_admin_token()):
+    if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     text = sanitize_text(str(data.get("text", "")), 500)
     atype = str(data.get("type", "info"))
@@ -2209,7 +2395,7 @@ async def admin_announcement_create(data: dict):
 @app.post("/api/admin/announcement-delete")
 async def admin_announcement_delete(data: dict):
     token = str(data.get("token", ""))
-    if not hmac.compare_digest(token, _expected_admin_token()):
+    if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     idx  = int(data.get("index", -1))
     anns = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
@@ -2222,7 +2408,7 @@ async def admin_announcement_delete(data: dict):
 @app.post("/api/admin/cleanup-sessions")
 async def admin_cleanup_sessions(data: dict):
     token = str(data.get("token", ""))
-    if not hmac.compare_digest(token, _expected_admin_token()):
+    if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     count = db.cleanup_db_sessions() if db.is_available() else 0
     cleanup_expired_tokens()
@@ -2243,20 +2429,9 @@ class LecturerLoginRequest(BaseModel):
     password: str
 
 
-def _expected_lecturer_token() -> str:
-    return "lecturer_" + hmac.new(
-        LECTURER_PASSWORD.encode(), b"sivarr_lecturer", hashlib.sha256
-    ).hexdigest()[:16]
-
-def _expected_admin_token() -> str:
-    return "admin_" + hmac.new(
-        ADMIN_PASSWORD.encode(), b"sivarr_admin", hashlib.sha256
-    ).hexdigest()[:16]
-
 def verify_lecturer(token: str):
-    """Verify lecturer token using constant-time comparison."""
-    expected = _expected_lecturer_token()
-    if not hmac.compare_digest(token, expected):
+    """Verify that the caller holds a valid, unexpired lecturer session."""
+    if not _is_valid_lecturer_session(token):
         raise HTTPException(401, "Unauthorized")
 
 
@@ -2268,10 +2443,7 @@ async def lecturer_login(req: LecturerLoginRequest, request: Request):
         log.warning(f"Failed lecturer login: {req.name}")
         raise HTTPException(401, "Invalid password")
     log.info(f"Lecturer login: {req.name}")
-    # Generate cryptographic token — HMAC of password + secret
-    token = "lecturer_" + hmac.new(
-        LECTURER_PASSWORD.encode(), b"sivarr_lecturer", hashlib.sha256
-    ).hexdigest()[:16]
+    token = _create_lecturer_session()
     return {"ok": True, "token": token}
 
 
@@ -2720,6 +2892,9 @@ async def submit_assignment(req: SubmitAssignmentRequest):
     classes = load_classes()
     if req.code not in classes:
         raise HTTPException(404, "Class not found")
+    cls = classes[req.code]
+    if req.sid not in cls.get("students", []):
+        raise HTTPException(403, "You are not enrolled in this class.")
     p    = load_progress(req.sid)
     name = p.get("name", "Unknown")
     for a in classes[req.code].get("assignments", []):
@@ -3981,7 +4156,7 @@ async def ag_stripe_webhook(request: Request):
 
 @app.post("/api/admin/agents/{agent_id}/verify")
 async def ag_admin_verify(agent_id: str, data: dict):
-    if not hmac.compare_digest(str(data.get("token","")), _expected_admin_token()):
+    if not _is_valid_admin_session(str(data.get("token",""))):
         raise HTTPException(401, "Unauthorized")
     agent_id = sanitize_text(agent_id, 60)
     if db.is_available():
@@ -3991,7 +4166,7 @@ async def ag_admin_verify(agent_id: str, data: dict):
 
 @app.post("/api/admin/agents/{agent_id}/suspend")
 async def ag_admin_suspend(agent_id: str, data: dict):
-    if not hmac.compare_digest(str(data.get("token","")), _expected_admin_token()):
+    if not _is_valid_admin_session(str(data.get("token",""))):
         raise HTTPException(401, "Unauthorized")
     agent_id = sanitize_text(agent_id, 60)
     if db.is_available():
@@ -4001,7 +4176,7 @@ async def ag_admin_suspend(agent_id: str, data: dict):
 
 @app.post("/api/admin/templates/{template_id}/approve")
 async def ag_admin_approve_template(template_id: str, data: dict):
-    if not hmac.compare_digest(str(data.get("token","")), _expected_admin_token()):
+    if not _is_valid_admin_session(str(data.get("token",""))):
         raise HTTPException(401, "Unauthorized")
     template_id = sanitize_text(template_id, 60)
     if db.is_available():
@@ -4195,7 +4370,8 @@ async def paystack_verify(reference: str, token: str = ""):
 
     meta        = tx.get("metadata", {})
     template_id = meta.get("template_id","") or sanitize_text(str(tx.get("template_id","")),60)
-    buyer_sid   = meta.get("buyer_sid","") or sid or ""
+    # Never trust client-supplied buyer_sid from metadata; use only the authenticated session.
+    buyer_sid   = sid or ""
     agent_id    = meta.get("agent_id","")
     amount_kobo = int(tx.get("amount", 0))
     price_ngn   = amount_kobo / 100
@@ -4320,7 +4496,9 @@ async def org_get(data: dict):
 
 @app.get("/api/org/debug")
 async def org_debug(token: str = ""):
-    """Full diagnostic: DB state, tables, schema, user row, org row."""
+    """Full diagnostic: DB state, tables, schema, user row, org row. Requires admin token."""
+    if not _is_valid_admin_session(sanitize_text(token, 200)):
+        raise HTTPException(401, "Unauthorized")
     out = {}
 
     # 1. Basic DB connectivity
@@ -4541,11 +4719,13 @@ async def org_task_create(data: dict):
 async def org_task_update(data: dict):
     sid, _ = _resolve_token(data)
     if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
     task_id = sanitize_text(str(data.get("task_id", "")), 40)
     if not task_id: raise HTTPException(400, "task_id required.")
     allowed = {"title", "description", "status", "priority", "assignee_sid", "project_id", "due_date"}
     updates = {k: sanitize_text(str(v), 2000) for k, v in data.items() if k in allowed}
-    db.update_org_task(task_id, updates)
+    db.update_org_task(task_id, updates, org["id"])
     return {"ok": True}
 
 
@@ -4553,9 +4733,11 @@ async def org_task_update(data: dict):
 async def org_task_delete(data: dict):
     sid, _ = _resolve_token(data)
     if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
     task_id = sanitize_text(str(data.get("task_id", "")), 40)
     if not task_id: raise HTTPException(400, "task_id required.")
-    db.delete_org_task(task_id)
+    db.delete_org_task(task_id, org["id"])
     return {"ok": True}
 
 
@@ -4588,11 +4770,13 @@ async def org_project_create(data: dict):
 async def org_project_update(data: dict):
     sid, _ = _resolve_token(data)
     if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
     project_id = sanitize_text(str(data.get("project_id", "")), 40)
     if not project_id: raise HTTPException(400, "project_id required.")
     allowed = {"name", "description", "status", "color"}
     updates = {k: sanitize_text(str(v), 500) for k, v in data.items() if k in allowed}
-    db.update_org_project(project_id, updates)
+    db.update_org_project(project_id, updates, org["id"])
     return {"ok": True}
 
 
@@ -4634,9 +4818,11 @@ async def org_doc_get(data: dict):
 async def org_doc_delete(data: dict):
     sid, _ = _resolve_token(data)
     if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
     doc_id = sanitize_text(str(data.get("doc_id", "")), 40)
     if not doc_id: raise HTTPException(400, "doc_id required.")
-    db.delete_org_doc(doc_id)
+    db.delete_org_doc(doc_id, org["id"])
     return {"ok": True}
 
 
@@ -4785,10 +4971,12 @@ async def org_goal_create(data: dict):
 async def org_goal_update(data: dict):
     sid, _ = _resolve_token(data)
     if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
     goal_id = str(data.get("goal_id", ""))
     if not goal_id: raise HTTPException(400, "goal_id required.")
     db.update_org_goal(
-        goal_id=goal_id,
+        goal_id=goal_id, org_id=org["id"],
         title=sanitize_text(str(data["title"]), 200) if "title" in data else None,
         description=sanitize_text(str(data["description"]), 500) if "description" in data else None,
         status=data.get("status"),
@@ -4802,9 +4990,11 @@ async def org_goal_update(data: dict):
 async def org_goal_delete(data: dict):
     sid, _ = _resolve_token(data)
     if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
     goal_id = str(data.get("goal_id", ""))
     if not goal_id: raise HTTPException(400, "goal_id required.")
-    db.delete_org_goal(goal_id)
+    db.delete_org_goal(goal_id, org["id"])
     return {"ok": True}
 
 
@@ -4830,10 +5020,12 @@ async def org_kr_create(data: dict):
 async def org_kr_update(data: dict):
     sid, _ = _resolve_token(data)
     if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org: raise HTTPException(404, "No organization found.")
     kr_id = str(data.get("kr_id", ""))
     if not kr_id: raise HTTPException(400, "kr_id required.")
     db.update_org_key_result(
-        kr_id=kr_id,
+        kr_id=kr_id, org_id=org["id"],
         current_value=float(data["current_value"]) if "current_value" in data else None,
         status=data.get("status"),
     )
@@ -5736,13 +5928,14 @@ async def org_announce(data: dict):
     if not sess:
         raise HTTPException(401, "Invalid session.")
     sid = sess["sid"]
-    p   = load_progress(sid)
-    org_id = p.get("org_id","")
-    if not org_id:
+    org = db.get_org_by_member(sid)
+    if not org:
         raise HTTPException(403, "Not in an organisation.")
-    role = p.get("org_role","member")
+    org_id = org["id"]
+    role   = org.get("member_role", "member")
     if role not in ("owner","admin"):
         raise HTTPException(403, "Only admins can post announcements.")
+    p = load_progress(sid)
     title  = sanitize_text(data.get("title",""), 200)
     body   = sanitize_text(data.get("body",""), 2000)
     pinned = bool(data.get("pinned", False))
@@ -5765,11 +5958,10 @@ async def org_announcements_list(token: str = ""):
     sess = get_session_from_token(token)
     if not sess:
         raise HTTPException(401, "Invalid session.")
-    p      = load_progress(sess["sid"])
-    org_id = p.get("org_id","")
-    if not org_id:
+    org = db.get_org_by_member(sess["sid"])
+    if not org:
         raise HTTPException(403, "Not in an organisation.")
-    return {"announcements": db.get_org_announcements(org_id)}
+    return {"announcements": db.get_org_announcements(org["id"])}
 
 
 @app.delete("/api/org/announce/{ann_id}")
@@ -5778,8 +5970,10 @@ async def org_announce_delete(ann_id: str, token: str = ""):
     sess = get_session_from_token(token)
     if not sess:
         raise HTTPException(401, "Invalid session.")
-    p    = load_progress(sess["sid"])
-    role = p.get("org_role","member")
+    org = db.get_org_by_member(sess["sid"])
+    if not org:
+        raise HTTPException(403, "Not in an organisation.")
+    role = org.get("member_role", "member")
     if role not in ("owner","admin"):
         raise HTTPException(403, "Only admins can delete announcements.")
     db.delete_org_announcement(ann_id)
@@ -5796,11 +5990,10 @@ async def org_analytics(token: str = ""):
     sess = get_session_from_token(token)
     if not sess:
         raise HTTPException(401, "Invalid session.")
-    p      = load_progress(sess["sid"])
-    org_id = p.get("org_id","")
-    if not org_id:
+    org = db.get_org_by_member(sess["sid"])
+    if not org:
         raise HTTPException(403, "Not in an organisation.")
-    data = db.get_org_analytics(org_id)
+    data = db.get_org_analytics(org["id"])
     if not data:
         return {"members": 0, "tasks_total": 0, "tasks_done": 0,
                 "completion_rate": 0, "messages": 0, "docs": 0,

@@ -1969,7 +1969,7 @@ def create_org_task(org_id: str, task_id: str, title: str, created_by: str,
         _release(conn)
 
 
-def update_org_task(task_id: str, updates: dict) -> bool:
+def update_org_task(task_id: str, updates: dict, org_id: str) -> bool:
     conn = _get_conn()
     if not conn: return False
     allowed = {"title", "description", "status", "priority", "assignee_sid", "project_id", "due_date"}
@@ -1978,7 +1978,8 @@ def update_org_task(task_id: str, updates: dict) -> bool:
     try:
         with conn.cursor() as cur:
             cols = ", ".join(f"{k}=%s" for k in sets)
-            cur.execute(f"UPDATE org_tasks SET {cols}, updated_at=NOW() WHERE id=%s", (*sets.values(), task_id))
+            cur.execute(f"UPDATE org_tasks SET {cols}, updated_at=NOW() WHERE id=%s AND org_id=%s",
+                        (*sets.values(), task_id, org_id))
         conn.commit()
         return True
     except Exception as exc:
@@ -1987,12 +1988,12 @@ def update_org_task(task_id: str, updates: dict) -> bool:
         _release(conn)
 
 
-def delete_org_task(task_id: str) -> bool:
+def delete_org_task(task_id: str, org_id: str) -> bool:
     conn = _get_conn()
     if not conn: return False
     try:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM org_tasks WHERE id=%s", (task_id,))
+            cur.execute("DELETE FROM org_tasks WHERE id=%s AND org_id=%s", (task_id, org_id))
         conn.commit()
         return True
     except Exception as exc:
@@ -2032,7 +2033,7 @@ def create_org_project(org_id: str, project_id: str, name: str, created_by: str,
         _release(conn)
 
 
-def update_org_project(project_id: str, updates: dict) -> bool:
+def update_org_project(project_id: str, updates: dict, org_id: str) -> bool:
     conn = _get_conn()
     if not conn: return False
     allowed = {"name", "description", "status", "color"}
@@ -2041,7 +2042,8 @@ def update_org_project(project_id: str, updates: dict) -> bool:
     try:
         with conn.cursor() as cur:
             cols = ", ".join(f"{k}=%s" for k in sets)
-            cur.execute(f"UPDATE org_projects SET {cols}, updated_at=NOW() WHERE id=%s", (*sets.values(), project_id))
+            cur.execute(f"UPDATE org_projects SET {cols}, updated_at=NOW() WHERE id=%s AND org_id=%s",
+                        (*sets.values(), project_id, org_id))
         conn.commit()
         return True
     except Exception as exc:
@@ -2095,12 +2097,12 @@ def get_org_doc(doc_id: str) -> dict | None:
         _release(conn)
 
 
-def delete_org_doc(doc_id: str) -> bool:
+def delete_org_doc(doc_id: str, org_id: str) -> bool:
     conn = _get_conn()
     if not conn: return False
     try:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM org_docs WHERE id=%s", (doc_id,))
+            cur.execute("DELETE FROM org_docs WHERE id=%s AND org_id=%s", (doc_id, org_id))
         conn.commit()
         return True
     except Exception as exc:
@@ -2179,7 +2181,7 @@ def create_org_goal(org_id: str, goal_id: str, title: str, created_by: str,
         _release(conn)
 
 
-def update_org_goal(goal_id: str, title: str = None, description: str = None,
+def update_org_goal(goal_id: str, org_id: str, title: str = None, description: str = None,
                     status: str = None, progress: int = None, due_date: str = None) -> bool:
     conn = _get_conn()
     if not conn: return False
@@ -2192,9 +2194,9 @@ def update_org_goal(goal_id: str, title: str = None, description: str = None,
         if due_date is not None:    fields.append("due_date=%s");    vals.append(due_date or None)
         if not fields: return True
         fields.append("updated_at=NOW()")
-        vals.append(goal_id)
+        vals.extend([goal_id, org_id])
         with conn.cursor() as cur:
-            cur.execute(f"UPDATE org_goals SET {','.join(fields)} WHERE id=%s", vals)
+            cur.execute(f"UPDATE org_goals SET {','.join(fields)} WHERE id=%s AND org_id=%s", vals)
         conn.commit(); return True
     except Exception as exc:
         log.error(f"update_org_goal: {exc}"); conn.rollback(); return False
@@ -2202,12 +2204,12 @@ def update_org_goal(goal_id: str, title: str = None, description: str = None,
         _release(conn)
 
 
-def delete_org_goal(goal_id: str) -> bool:
+def delete_org_goal(goal_id: str, org_id: str) -> bool:
     conn = _get_conn()
     if not conn: return False
     try:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM org_goals WHERE id=%s", (goal_id,))
+            cur.execute("DELETE FROM org_goals WHERE id=%s AND org_id=%s", (goal_id, org_id))
         conn.commit(); return True
     except Exception as exc:
         log.error(f"delete_org_goal: {exc}"); conn.rollback(); return False
@@ -2232,7 +2234,7 @@ def create_org_key_result(kr_id: str, goal_id: str, org_id: str, title: str,
         _release(conn)
 
 
-def update_org_key_result(kr_id: str, current_value: float = None, status: str = None) -> bool:
+def update_org_key_result(kr_id: str, org_id: str, current_value: float = None, status: str = None) -> bool:
     conn = _get_conn()
     if not conn: return False
     try:
@@ -2240,9 +2242,9 @@ def update_org_key_result(kr_id: str, current_value: float = None, status: str =
         if current_value is not None: fields.append("current_value=%s"); vals.append(current_value)
         if status is not None:        fields.append("status=%s");        vals.append(status)
         if not fields: return True
-        vals.append(kr_id)
+        vals.extend([kr_id, org_id])
         with conn.cursor() as cur:
-            cur.execute(f"UPDATE org_key_results SET {','.join(fields)} WHERE id=%s", vals)
+            cur.execute(f"UPDATE org_key_results SET {','.join(fields)} WHERE id=%s AND org_id=%s", vals)
         conn.commit(); return True
     except Exception as exc:
         log.error(f"update_org_key_result: {exc}"); conn.rollback(); return False
