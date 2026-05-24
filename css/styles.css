@@ -3259,7 +3259,11 @@ input, textarea, select { font-family: var(--font); }
 }
 @media (max-width:600px) {
   .os-hero { padding:14px 16px 10px; gap:10px; }
-  .os-hero-actions { display:none; }
+  .os-hero-actions { display:flex !important; gap:6px; flex-shrink:0; }
+  /* Icon-only on small screens — hide text labels, keep icons */
+  .os-hero-actions .btn-lbl { display:none; }
+  .os-hero-actions .os-btn-ghost,
+  .os-hero-actions .os-btn-primary { padding:7px 9px; }
   .os-scroll { padding:14px 16px; }
   .os-toolbar { padding:10px 14px; }
   .os-stat-row { grid-template-columns:repeat(2,1fr); }
@@ -3807,7 +3811,11 @@ input, textarea, select { font-family: var(--font); }
 }
 @media (max-width:600px) {
   .sp-hero { padding: 12px 14px 10px; gap: 10px; }
-  .sp-hero-actions { display: none; }
+  .sp-hero-actions { display: flex !important; gap: 6px; flex-shrink: 0; }
+  /* Icon-only on small screens — hide text labels, keep icons */
+  .sp-hero-actions .btn-lbl { display: none; }
+  .sp-hero-actions .sp-btn-ghost,
+  .sp-hero-actions .sp-btn-primary { padding: 7px 9px; }
   .sp-scroll { padding: 12px 14px; }
   .sp-toolbar { padding: 8px 12px; }
   .sp-stat-row { grid-template-columns: repeat(2,1fr); }
@@ -5135,13 +5143,15 @@ input, textarea, select { font-family: var(--font); }
   /* ── 6. Home dashboard grid — single column ──────────────────  */
   .home-grid { grid-template-columns: 1fr !important; }
 
-  /* ── 7. Doc editor toolbar — horizontal scroll not wrap ──────
-     Override the earlier "flex-wrap:wrap" which creates 3 rows */
-  .dh-toolbar {
+  /* ── 7. Doc editor toolbars — horizontal scroll not wrap ─────
+     Override "flex-wrap:wrap" which creates 3 rows on small screens */
+  .dh-toolbar,
+  .doc-toolbar {
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
   }
-  .dh-tool-btn { min-height: 38px; }
+  .dh-tool-btn,
+  .doc-tb-btn { min-height: 38px; }
 
   /* ── 8. Profile dropdown — prevent off-screen right ─────────
      On small phones right:0 can still overflow; clamp to viewport */

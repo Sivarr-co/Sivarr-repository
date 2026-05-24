@@ -19,7 +19,7 @@
 <meta property="og:type" content="website">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<link rel="stylesheet" href="/css/styles.css?v=20260523b">
+<link rel="stylesheet" href="/css/styles.css?v=20260524a">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -2441,8 +2441,8 @@ Sentry.onLoad(function() {
             </div>
           </div>
           <div class="os-hero-actions">
-            <button class="os-btn-ghost" onclick="teamInvite()"><i class="ti ti-user-plus"></i> Invite</button>
-            <button class="os-btn-primary" onclick="orgNewTask()"><i class="ti ti-plus"></i> New task</button>
+            <button class="os-btn-ghost" onclick="teamInvite()"><i class="ti ti-user-plus"></i><span class="btn-lbl"> Invite</span></button>
+            <button class="os-btn-primary" onclick="orgNewTask()"><i class="ti ti-plus"></i><span class="btn-lbl"> New task</span></button>
             <button class="os-btn-icon" onclick="orgMoreMenu()"><i class="ti ti-dots"></i></button>
           </div>
         </div>
@@ -2746,8 +2746,8 @@ Sentry.onLoad(function() {
             <div class="sp-hero-meta">Private workspace · <span id="ps-streak">0</span>-day streak 🔥</div>
           </div>
           <div class="sp-hero-actions">
-            <button class="sp-btn-ghost" onclick="spRenameByType('personal')"><i class="ti ti-pencil"></i> Rename</button>
-            <button class="sp-btn-primary sp-btn-blue" onclick="psNewTask()"><i class="ti ti-plus"></i> New task</button>
+            <button class="sp-btn-ghost" onclick="spRenameByType('personal')"><i class="ti ti-pencil"></i><span class="btn-lbl"> Rename</span></button>
+            <button class="sp-btn-primary sp-btn-blue" onclick="psNewTask()"><i class="ti ti-plus"></i><span class="btn-lbl"> New task</span></button>
           </div>
         </div>
 
@@ -2896,8 +2896,8 @@ Sentry.onLoad(function() {
             <div class="sp-hero-meta"><span id="ac-course-count">0</span> active courses · Exam in <span id="ac-exam-days">—</span> days</div>
           </div>
           <div class="sp-hero-actions">
-            <button class="sp-btn-ghost" onclick="spRenameByType('academic')"><i class="ti ti-pencil"></i> Rename</button>
-            <button class="sp-btn-primary sp-btn-amber" onclick="acAddCourse()"><i class="ti ti-plus"></i> Add course</button>
+            <button class="sp-btn-ghost" onclick="spRenameByType('academic')"><i class="ti ti-pencil"></i><span class="btn-lbl"> Rename</span></button>
+            <button class="sp-btn-primary sp-btn-amber" onclick="acAddCourse()"><i class="ti ti-plus"></i><span class="btn-lbl"> Add course</span></button>
           </div>
         </div>
 
@@ -3413,7 +3413,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260523b" defer></script>
+<script src="/js/app.js?v=20260524a" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
@@ -3698,9 +3698,9 @@ Sentry.onLoad(function() {
 <nav class="mobile-nav" id="mobile-nav">
   <div class="mobile-nav-inner">
     <button class="mob-nav-btn" id="mob-home" onclick="nav('home')"><i class="ti ti-home"></i><span>Home</span></button>
-    <button class="mob-nav-btn" id="mob-siva" onclick="nav('siva')"><i class="ti ti-sparkles"></i><span>SIVA</span></button>
-    <button class="mob-nav-btn" id="mob-tasks" onclick="nav('tasks')"><i class="ti ti-checkbox"></i><span>Tasks</span></button>
-    <button class="mob-nav-btn" id="mob-docs"  onclick="nav('docs')"><i class="ti ti-file-text"></i><span>Docs</span></button>
+    <button class="mob-nav-btn" id="mob-siva" onclick="nav('chat')"><i class="ti ti-sparkles"></i><span>SIVA</span></button>
+    <button class="mob-nav-btn" id="mob-tasks" onclick="nav('flux')"><i class="ti ti-checkbox"></i><span>Tasks</span></button>
+    <button class="mob-nav-btn" id="mob-docs"  onclick="nav('documenthub')"><i class="ti ti-file-text"></i><span>Docs</span></button>
     <button class="mob-nav-btn" id="mob-org"   onclick="nav('org')"><i class="ti ti-building"></i><span>Org</span></button>
   </div>
 </nav>
