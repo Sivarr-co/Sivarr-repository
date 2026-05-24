@@ -8655,7 +8655,8 @@ function orgTab(tab, btn) {
     const wrap = $('ann-compose-wrap');
     if (wrap) wrap.style.display = _orgIsAdmin() ? 'flex' : 'none';
   }
-  if (tab === 'analytics') orgAnalyticsLoad();
+  if (tab === 'analytics')  orgAnalyticsLoad();
+  if (tab === 'financials') psFinancialsLoad();
 }
 
 function orgRenderOverview() {
@@ -13162,4 +13163,424 @@ async function submitFeedback() {
   } catch(e) {
     if (ferr) { ferr.textContent = e.message || 'Failed to send — try again.'; ferr.style.display = 'block'; }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PAYSTACK FINANCIAL DASHBOARD  — ps* functions
+// ═══════════════════════════════════════════════════════════════
+
+const _PS_TABS = ['overview','transactions','balance','settlements','customers','refunds','analytics','connect'];
+let _psConnected = false;
+let _psTxnPage   = 1;
+let _psTxnTotal  = 0;
+
+function psGoTab(name, btn) {
+  _PS_TABS.forEach(t => {
+    const tb = $('ps-tab-' + t), pn = $('ps-pane-' + t);
+    if (tb) tb.classList.remove('on');
+    if (pn) { pn.style.display = 'none'; pn.classList.remove('on'); }
+  });
+  const at = $('ps-tab-' + name), ap = $('ps-pane-' + name);
+  if (at) at.classList.add('on');
+  if (ap) { ap.style.display = 'flex'; ap.classList.add('on'); }
+  if (btn) { document.querySelectorAll('.ps-tab').forEach(b => b.classList.remove('on')); btn.classList.add('on'); }
+
+  if (name === 'overview')     psLoadOverview();
+  if (name === 'transactions') { _psTxnPage = 1; psLoadTransactions(); }
+  if (name === 'balance')      psLoadBalance();
+  if (name === 'settlements')  psLoadSettlements();
+  if (name === 'customers')    psLoadCustomers();
+  if (name === 'refunds')      psLoadRefunds();
+  if (name === 'analytics')    psLoadAnalytics();
+  if (name === 'connect')      psCheckConnectStatus();
+}
+
+async function psFinancialsLoad() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try {
+    const r = await fetch(`/api/org/paystack/status?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _psConnected = !!d.connected;
+  } catch(e) { _psConnected = false; }
+
+  if (!_psConnected) {
+    psGoTab('connect', null);
+    const btn = $('ps-tab-connect'); if (btn) btn.classList.add('on');
+  } else {
+    psGoTab('overview', null);
+    const btn = $('ps-tab-overview'); if (btn) btn.classList.add('on');
+  }
+}
+
+function _psLoading(section, on) {
+  const ld = $('ps-loading-' + section);
+  const ct = $('ps-' + section + '-content') || $('ps-' + section + '-table') || null;
+  if (ld) ld.style.display = on ? 'flex' : 'none';
+  if (ct) ct.style.display = on ? 'none' : 'block';
+}
+
+function _psNgn(kobo) {
+  return '₦' + Number(kobo / 100).toLocaleString('en-NG', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+}
+
+function _psDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+}
+
+function _psBadge(status) {
+  const map = { success:'ps-badge-s', failed:'ps-badge-f', pending:'ps-badge-w',
+                settled:'ps-badge-s', processing:'ps-badge-w', processed:'ps-badge-s',
+                reversed:'ps-badge-n', abandoned:'ps-badge-n', active:'ps-badge-s',
+                refunded:'ps-badge-n', awaiting:'ps-badge-a' };
+  const cls = map[status?.toLowerCase()] || 'ps-badge-n';
+  return `<span class="ps-badge ${cls}">${status || '—'}</span>`;
+}
+
+async function psLoadOverview() {
+  if (!_psConnected) return;
+  _psLoading('overview', true);
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/org/paystack/overview?token=${encodeURIComponent(token)}`);
+    if (!r.ok) { _psShowNotConnected(); return; }
+    const d = await r.json();
+    _psLoading('overview', false);
+    const oc = $('ps-overview-content'); if (oc) oc.style.display = 'block';
+
+    const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+    set('ps-vol',          _psNgn(d.volume || 0));
+    set('ps-txn-count',    (d.txn_count || 0).toLocaleString());
+    set('ps-success-rate', `${d.success_rate || 0}% success rate`);
+    set('ps-avail-bal',    _psNgn(d.available_bal || 0));
+    set('ps-pending-stl',  _psNgn(d.pending_stl_amt || 0));
+    set('ps-pending-date', d.pending_stl_date ? 'T+1 · ' + _psDate(d.pending_stl_date) : '');
+
+    // Channels
+    const chEl = $('ps-channels');
+    if (chEl) {
+      const ch = d.channels || {};
+      const total = Object.values(ch).reduce((a, b) => a + b, 0) || 1;
+      const colors = { card:'var(--teal)', bank:'var(--blue)', ussd:'var(--amber3)', mobile_money:'var(--purple)' };
+      const labels = { card:'Card payments', bank:'Bank transfer', ussd:'USSD', mobile_money:'Mobile money' };
+      chEl.innerHTML = Object.entries(ch).map(([k, v]) => {
+        const pct = Math.round(v / total * 100);
+        return `<div class="ps-ch-row">
+          <div class="ps-ch-label"><span>${labels[k] || k}</span><span class="ps-ch-val" style="color:${colors[k]||'var(--teal)'}">${pct}%</span></div>
+          <div class="ps-ch-bar-bg"><div class="ps-ch-bar-fill" style="width:${pct}%;background:${colors[k]||'var(--teal)'}"></div></div>
+        </div>`;
+      }).join('') || '<div style="color:var(--text4);font-size:.8rem">No channel data yet.</div>';
+    }
+
+    // AI insights
+    const ins = $('ps-ai-insights');
+    if (ins) {
+      const sr = d.success_rate || 0;
+      const vol = _psNgn(d.volume || 0);
+      ins.innerHTML = `
+        <div class="ps-insight ps-insight-g"><i class="ti ti-trending-up" style="color:var(--teal);margin-right:5px"></i>
+          Total volume of <strong>${vol}</strong> across ${(d.success_count||0)} successful transactions this period.
+        </div>
+        <div class="ps-insight ${sr < 90 ? 'ps-insight-a' : 'ps-insight-g'}"><i class="ti ti-${sr < 90 ? 'alert-triangle' : 'circle-check'}" style="color:var(--${sr < 90 ? 'amber3' : 'teal'});margin-right:5px"></i>
+          <strong>${sr}% success rate</strong> — ${sr < 90 ? 'above the 5% failure threshold. Review failed transactions for decline patterns.' : 'excellent, below the 5% industry failure threshold.'}.
+        </div>
+        <div class="ps-insight ps-insight-b"><i class="ti ti-building-bank" style="color:var(--blue);margin-right:5px"></i>
+          Available balance: <strong>${_psNgn(d.available_bal||0)}</strong>. ${d.pending_stl_amt ? `Settlement of ${_psNgn(d.pending_stl_amt)} expected ${d.pending_stl_date ? 'on ' + _psDate(d.pending_stl_date) : 'soon'}.` : 'No pending settlements.'}
+        </div>`;
+    }
+
+    // Recent transactions
+    const rt = $('ps-recent-txns');
+    if (rt && d.recent_txns) {
+      rt.innerHTML = `<div class="ps-th-row" style="grid-template-columns:1fr 90px 110px 80px 80px">
+          <span>Customer</span><span>Amount</span><span>Channel</span><span>Date</span><span>Status</span>
+        </div>` +
+        d.recent_txns.map(t => `<div class="ps-tr" style="grid-template-columns:1fr 90px 110px 80px 80px">
+          <div><div class="ps-cust-name">${t.customer_name || t.customer || '—'}</div><div class="ps-cust-email">${t.customer}</div></div>
+          <span class="ps-amount ${t.status==='success'?'ps-amount-g':'ps-amount-r'}">${_psNgn(t.amount)}</span>
+          <span style="color:var(--text3);font-size:.78rem">${_psChan(t)}</span>
+          <span style="color:var(--text4);font-size:.78rem">${_psDate(t.paid_at)}</span>
+          ${_psBadge(t.status)}
+        </div>`).join('');
+    }
+  } catch(e) { _psLoading('overview', false); toast('Could not load financial data.'); }
+}
+
+function _psChan(t) {
+  let s = (t.channel || '').replace('_', ' ');
+  if (t.card_type) s += ` · ${t.card_type}`;
+  if (t.last4)     s += ` ···${t.last4}`;
+  return s || '—';
+}
+
+let _psTxnData = [];
+async function psLoadTransactions() {
+  if (!_psConnected) return;
+  _psLoading('transactions', true);
+  const el = $('ps-txn-table'); if (el) el.innerHTML = '';
+  const foot = $('ps-txn-footer'); if (foot) foot.style.display = 'none';
+  const token = localStorage.getItem('sivarr_token') || '';
+  const status  = $('ps-txn-status')?.value  || '';
+  const channel = $('ps-txn-channel')?.value || '';
+  _psTxnPage = 1;
+  try {
+    const r = await fetch(`/api/org/paystack/transactions?token=${encodeURIComponent(token)}&page=1&perPage=20&status=${status}&channel=${channel}`);
+    const d = await r.json();
+    _psTxnData = d.transactions || [];
+    _psTxnTotal = d.total || 0;
+    _psLoading('transactions', false);
+    _psRenderTxnTable(_psTxnData);
+    const shown = $('ps-txn-shown'); if (shown) shown.textContent = _psTxnData.length;
+    const tot   = $('ps-txn-total'); if (tot)   tot.textContent   = _psTxnTotal;
+    if (foot && _psTxnTotal > _psTxnData.length) foot.style.display = 'flex';
+  } catch(e) { _psLoading('transactions', false); }
+}
+
+async function psLoadMoreTxns() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  const status  = $('ps-txn-status')?.value  || '';
+  const channel = $('ps-txn-channel')?.value || '';
+  _psTxnPage++;
+  try {
+    const r = await fetch(`/api/org/paystack/transactions?token=${encodeURIComponent(token)}&page=${_psTxnPage}&perPage=20&status=${status}&channel=${channel}`);
+    const d = await r.json();
+    _psTxnData = [..._psTxnData, ...(d.transactions || [])];
+    _psRenderTxnTable(_psTxnData);
+    const shown = $('ps-txn-shown'); if (shown) shown.textContent = _psTxnData.length;
+    if (_psTxnData.length >= _psTxnTotal) { const foot = $('ps-txn-footer'); if (foot) foot.style.display = 'none'; }
+  } catch(e) {}
+}
+
+function _psRenderTxnTable(txns) {
+  const el = $('ps-txn-table'); if (!el) return;
+  el.innerHTML = `<div class="ps-th-row" style="grid-template-columns:130px 1fr 90px 110px 70px 90px 80px">
+      <span>Reference</span><span>Customer</span><span>Amount</span><span>Channel</span><span>Fees</span><span>Date</span><span>Status</span>
+    </div>` + txns.map(t => `<div class="ps-tr" style="grid-template-columns:130px 1fr 90px 110px 70px 90px 80px">
+      <span class="ps-ref">${t.reference}</span>
+      <div><div class="ps-cust-name">${t.customer_name || t.customer || '—'}</div><div class="ps-cust-email">${t.customer}</div></div>
+      <span class="ps-amount ${t.status==='success'?'ps-amount-g':'ps-amount-r'}">${_psNgn(t.amount)}</span>
+      <span style="color:var(--text3);font-size:.78rem">${_psChan(t)}</span>
+      <span style="color:var(--text4);font-size:.78rem">${t.fees ? _psNgn(t.fees) : '—'}</span>
+      <span style="color:var(--text4);font-size:.78rem">${_psDate(t.paid_at)}</span>
+      ${_psBadge(t.status)}
+    </div>`).join('') || '<div style="padding:24px;color:var(--text4);text-align:center;font-size:.82rem">No transactions found.</div>';
+}
+
+async function psLoadBalance() {
+  if (!_psConnected) return;
+  _psLoading('balance', true);
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/org/paystack/balance?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _psLoading('balance', false);
+    const ct = $('ps-balance-content'); if (ct) ct.style.display = 'block';
+    const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+    set('ps-bal-avail',    _psNgn(d.available || 0));
+    set('ps-bal-pending',  '—');
+    set('ps-bal-currency', d.currency || 'NGN');
+    const hist = $('ps-bal-history');
+    if (hist && d.history) {
+      hist.innerHTML = `<div class="ps-th-row" style="grid-template-columns:90px 1fr 110px 100px">
+          <span>Date</span><span>Activity</span><span>Type</span><span>Change</span>
+        </div>` + d.history.map(h => `<div class="ps-tr" style="grid-template-columns:90px 1fr 110px 100px">
+          <span style="color:var(--text4);font-size:.78rem">${_psDate(h.date)}</span>
+          <span style="font-weight:500">${h.desc}</span>
+          ${_psBadge('success')}
+          <span class="ps-amount ${h.change >= 0 ? 'ps-amount-g' : 'ps-amount-r'}">${h.change >= 0 ? '+' : ''}${_psNgn(Math.abs(h.change))}</span>
+        </div>`).join('') || '<div style="padding:16px;color:var(--text4);font-size:.8rem">No history yet.</div>';
+    }
+  } catch(e) { _psLoading('balance', false); }
+}
+
+async function psLoadSettlements() {
+  if (!_psConnected) return;
+  _psLoading('settlements', true);
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/org/paystack/settlements?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _psLoading('settlements', false);
+    const ct = $('ps-settlements-content'); if (ct) ct.style.display = 'block';
+    const el = $('ps-stl-table'); if (!el) return;
+    const rows = d.settlements || [];
+    el.innerHTML = `<div class="ps-th-row" style="grid-template-columns:90px 130px 1fr 110px 80px">
+        <span>Date</span><span>Settlement ID</span><span>Transactions</span><span>Amount</span><span>Status</span>
+      </div>` + rows.map(s => `<div class="ps-tr" style="grid-template-columns:90px 130px 1fr 110px 80px">
+        <span style="color:var(--text4);font-size:.78rem">${_psDate(s.settlement_date)}</span>
+        <span class="ps-ref">${String(s.id).slice(0, 14)}</span>
+        <span style="color:var(--text3);font-size:.78rem">${s.txn_count} transactions</span>
+        <span class="ps-amount ${s.status==='settled'?'ps-amount-g':'ps-amber'}">${_psNgn(s.total_amount||0)}</span>
+        ${_psBadge(s.status)}
+      </div>`).join('') || '<div style="padding:20px;color:var(--text4);font-size:.8rem;text-align:center">No settlements yet.</div>';
+  } catch(e) { _psLoading('settlements', false); }
+}
+
+async function psLoadCustomers() {
+  if (!_psConnected) return;
+  _psLoading('customers', true);
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/org/paystack/customers?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _psLoading('customers', false);
+    const ct = $('ps-customers-content'); if (ct) ct.style.display = 'block';
+    const el = $('ps-cust-table'); if (!el) return;
+    const rows = d.customers || [];
+    el.innerHTML = `<div class="ps-th-row" style="grid-template-columns:1fr 110px 70px 90px">
+        <span>Customer</span><span>Total spend</span><span>Txns</span><span>Since</span>
+      </div>` + rows.map(c => `<div class="ps-tr" style="grid-template-columns:1fr 110px 70px 90px">
+        <div><div class="ps-cust-name">${c.name || c.email}</div><div class="ps-cust-email">${c.email}</div></div>
+        <span class="ps-amount ps-amount-g">${_psNgn(c.total_spend||0)}</span>
+        <span style="color:var(--text3)">${c.txn_count||0}</span>
+        <span style="color:var(--text4);font-size:.78rem">${_psDate(c.created_at)}</span>
+      </div>`).join('') || '<div style="padding:20px;color:var(--text4);font-size:.8rem;text-align:center">No customers yet.</div>';
+  } catch(e) { _psLoading('customers', false); }
+}
+
+async function psLoadRefunds() {
+  if (!_psConnected) return;
+  _psLoading('refunds', true);
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/org/paystack/refunds?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _psLoading('refunds', false);
+    const ct = $('ps-refunds-content'); if (ct) ct.style.display = 'block';
+    const rl = $('ps-refund-list'), dl = $('ps-dispute-list');
+    if (rl) rl.innerHTML = (d.refunds || []).map(r => `
+      <div class="ps-tr" style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1"><div class="ps-cust-name">${r.customer || r.transaction}</div><div class="ps-cust-email">${r.transaction}</div></div>
+        <span class="ps-amount ps-amount-r">${_psNgn(r.amount)}</span>
+        ${_psBadge(r.status)}
+      </div>`).join('') || '<div style="padding:16px;color:var(--text4);font-size:.8rem">No refunds yet.</div>';
+    if (dl) dl.innerHTML = (d.disputes || []).map(dsp => `
+      <div style="border:1px solid var(--amber2);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--amber2)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+          <span class="ps-cust-name">${dsp.reference || dsp.id} · ${_psNgn(dsp.amount)}</span>
+          ${_psBadge(dsp.status)}
+        </div>
+        <div style="font-size:.78rem;color:var(--text3);line-height:1.5">${dsp.message || 'Dispute filed.'}</div>
+      </div>`).join('') || '<div style="padding:16px;color:var(--text4);font-size:.8rem">No disputes.</div>';
+  } catch(e) { _psLoading('refunds', false); }
+}
+
+async function psLoadAnalytics() {
+  if (!_psConnected) return;
+  _psLoading('analytics', true);
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/org/paystack/analytics?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _psLoading('analytics', false);
+    const ct = $('ps-analytics-content'); if (ct) ct.style.display = 'block';
+
+    // Rates
+    const ratesEl = $('ps-an-rates');
+    if (ratesEl) {
+      const sr = d.success_rate || 0, fr = 100 - sr;
+      ratesEl.innerHTML = `
+        <div class="ps-rate-row"><div class="ps-rate-label"><span>Successful</span><span class="ps-rate-val" style="color:var(--teal)">${sr}%</span></div><div class="ps-rate-bg"><div class="ps-rate-fill" style="width:${sr}%;background:var(--teal)"></div></div></div>
+        <div class="ps-rate-row"><div class="ps-rate-label"><span>Failed</span><span class="ps-rate-val" style="color:var(--red3)">${fr.toFixed(1)}%</span></div><div class="ps-rate-bg"><div class="ps-rate-fill" style="width:${fr}%;background:var(--red3)"></div></div></div>`;
+    }
+
+    // Weekday
+    const wdEl = $('ps-an-weekday');
+    if (wdEl && d.by_weekday) {
+      const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const max = Math.max(...Object.values(d.by_weekday), 1);
+      wdEl.innerHTML = days.map(day => {
+        const v = d.by_weekday[day] || 0;
+        const pct = Math.round(v / max * 100);
+        return `<div class="ps-wd-row">
+          <span class="ps-wd-lbl">${day}</span>
+          <div class="ps-wd-bar-bg"><div class="ps-wd-bar-fill" style="width:${pct}%;opacity:${0.4 + pct/160}"></div></div>
+          <span class="ps-wd-val">${v ? _psNgn(v) : '—'}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // Daily bar chart
+    const dayEl = $('ps-an-daily');
+    if (dayEl && d.by_day) {
+      const entries = Object.entries(d.by_day);
+      const max = Math.max(...entries.map(([,v]) => v), 1);
+      dayEl.innerHTML = entries.map(([day, v]) => {
+        const pct = Math.round(v / max * 100);
+        return `<div class="ps-bar-wrap"><div class="ps-bar" style="height:${Math.max(pct,4)}%"></div><div class="ps-bar-lbl">${day.slice(5)}</div></div>`;
+      }).join('');
+    }
+
+    // AI summary
+    const aiEl = $('ps-an-ai');
+    if (aiEl) {
+      const sr = d.success_rate || 0;
+      const wd = d.by_weekday || {};
+      const topDay = Object.entries(wd).sort((a,b) => b[1]-a[1])[0];
+      aiEl.innerHTML = `
+        <div class="ps-insight ps-insight-g">
+          ${topDay ? `<strong>Peak day:</strong> ${topDay[0]} generates ${_psNgn(topDay[1])} on average. Schedule billing reminders and promotions on ${topDay[0]}s for maximum conversion.` : 'Collect more transactions to see peak day analytics.'}
+        </div>
+        <div class="ps-insight ${sr < 90 ? 'ps-insight-a' : 'ps-insight-g'}">
+          <strong>Success rate: ${sr}%</strong> — ${sr < 90 ? 'above the 5% industry failure threshold. Consider adding bank transfer as a fallback for card declines.' : 'excellent performance, within industry benchmarks.'}
+        </div>
+        <div class="ps-insight ps-insight-b">
+          <strong>Paystack fees:</strong> ${_psNgn(d.total_fees || 0)} paid across all transactions. Optimise by encouraging bank transfers (lower fee per transaction).
+        </div>`;
+    }
+  } catch(e) { _psLoading('analytics', false); }
+}
+
+async function psCheckConnectStatus() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/org/paystack/status?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _psConnected = !!d.connected;
+  } catch(e) {}
+  const info = $('ps-connected-info'), form = $('ps-connect-form');
+  if (_psConnected) {
+    if (info) info.style.display = 'flex';
+    if (form) form.style.display = 'none';
+  } else {
+    if (info) info.style.display = 'none';
+    if (form) form.style.display = 'block';
+  }
+}
+
+async function psConnect() {
+  const key = $('ps-key-input')?.value.trim() || '';
+  const err = $('ps-connect-err');
+  if (!key) { if (err) { err.textContent = 'Enter your Paystack secret key.'; err.style.display = 'block'; } return; }
+  if (!key.startsWith('sk_live_') && !key.startsWith('sk_test_')) {
+    if (err) { err.textContent = 'Key must start with sk_live_ or sk_test_'; err.style.display = 'block'; } return;
+  }
+  if (err) err.style.display = 'none';
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await API('/api/org/paystack/connect', { token, secret_key: key });
+    _psConnected = true;
+    toast('Paystack connected!');
+    psFinancialsLoad();
+  } catch(e) {
+    if (err) { err.textContent = e.message || 'Could not connect. Check your key.'; err.style.display = 'block'; }
+  }
+}
+
+async function psDisconnect() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    await fetch(`/api/org/paystack/disconnect?token=${encodeURIComponent(token)}`, { method: 'DELETE' });
+    _psConnected = false;
+    toast('Paystack disconnected.');
+    psGoTab('connect', null);
+    const btn = $('ps-tab-connect'); if (btn) { document.querySelectorAll('.ps-tab').forEach(b => b.classList.remove('on')); btn.classList.add('on'); }
+    psCheckConnectStatus();
+  } catch(e) { toast('Failed to disconnect.'); }
+}
+
+function _psShowNotConnected() {
+  _psConnected = false;
+  psGoTab('connect', null);
 }

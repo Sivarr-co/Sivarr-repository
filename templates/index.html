@@ -19,7 +19,7 @@
 <meta property="og:type" content="website">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<link rel="stylesheet" href="/css/styles.css?v=20260524a">
+<link rel="stylesheet" href="/css/styles.css?v=20260524b">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -2460,6 +2460,7 @@ Sentry.onLoad(function() {
           <button class="os-tab" id="os-tab-announce"  onclick="orgTab('announce',this)"  role="tab"><i class="ti ti-speakerphone"></i>Announce</button>
           <button class="os-tab" id="os-tab-analytics" onclick="orgTab('analytics',this)" role="tab"><i class="ti ti-chart-pie"></i>Analytics</button>
           <button class="os-tab os-tab-founder" id="os-tab-founder" onclick="orgTab('founder',this)" role="tab"><i class="ti ti-rocket"></i>Founder</button>
+          <button class="os-tab" id="os-tab-financials" onclick="orgTab('financials',this)" role="tab"><i class="ti ti-chart-bar"></i>Financials</button>
         </div>
 
         <!-- ── OVERVIEW ── -->
@@ -2730,6 +2731,203 @@ Sentry.onLoad(function() {
             </div>
           </div>
         </div>
+
+        <!-- ── PAYSTACK FINANCIALS ── -->
+        <div class="os-pane" id="os-pane-financials" style="flex-direction:column;height:100%;overflow:hidden;">
+
+          <!-- Inner tab bar -->
+          <div class="ps-tab-bar">
+            <button class="ps-tab on" id="ps-tab-overview"     onclick="psGoTab('overview',this)"><i class="ti ti-layout-dashboard"></i>Overview</button>
+            <button class="ps-tab" id="ps-tab-transactions"    onclick="psGoTab('transactions',this)"><i class="ti ti-arrows-right-left"></i>Transactions</button>
+            <button class="ps-tab" id="ps-tab-balance"         onclick="psGoTab('balance',this)"><i class="ti ti-wallet"></i>Balance</button>
+            <button class="ps-tab" id="ps-tab-settlements"     onclick="psGoTab('settlements',this)"><i class="ti ti-building-bank"></i>Settlements</button>
+            <button class="ps-tab" id="ps-tab-customers"       onclick="psGoTab('customers',this)"><i class="ti ti-users"></i>Customers</button>
+            <button class="ps-tab" id="ps-tab-refunds"         onclick="psGoTab('refunds',this)"><i class="ti ti-refresh"></i>Refunds & Disputes</button>
+            <button class="ps-tab" id="ps-tab-analytics"       onclick="psGoTab('analytics',this)"><i class="ti ti-chart-line"></i>Analytics</button>
+            <button class="ps-tab" id="ps-tab-connect"         onclick="psGoTab('connect',this)"><i class="ti ti-plug"></i>Connect</button>
+          </div>
+
+          <!-- ── OVERVIEW ── -->
+          <div class="ps-pane on" id="ps-pane-overview">
+            <div class="os-scroll">
+              <div id="ps-loading-overview" class="ps-loading"><i class="ti ti-loader-2 ps-spin"></i> Loading financial data…</div>
+              <div id="ps-overview-content" style="display:none">
+                <div class="ps-stat-row" id="ps-stat-row">
+                  <div class="ps-stat"><div class="ps-stat-lbl">Total Volume</div><div class="ps-stat-val" id="ps-vol">—</div><div class="ps-stat-sub" id="ps-vol-sub"></div></div>
+                  <div class="ps-stat"><div class="ps-stat-lbl">Transactions</div><div class="ps-stat-val" id="ps-txn-count">—</div><div class="ps-stat-sub" id="ps-success-rate"></div></div>
+                  <div class="ps-stat ps-stat-green"><div class="ps-stat-lbl">Available Balance</div><div class="ps-stat-val ps-green" id="ps-avail-bal">—</div><div class="ps-stat-sub">After fees &amp; refunds</div></div>
+                  <div class="ps-stat"><div class="ps-stat-lbl">Pending Settlement</div><div class="ps-stat-val" id="ps-pending-stl">—</div><div class="ps-stat-sub ps-amber" id="ps-pending-date"></div></div>
+                </div>
+                <div class="ps-grid2">
+                  <div class="os-card">
+                    <div class="os-card-head"><span class="os-card-title"><i class="ti ti-chart-pie"></i>Payment channels</span></div>
+                    <div id="ps-channels"></div>
+                  </div>
+                  <div class="os-card">
+                    <div class="os-card-head"><span class="os-card-title"><i class="ti ti-sparkles" style="color:var(--teal)"></i>Sivarr AI Insights</span></div>
+                    <div id="ps-ai-insights" class="ps-insights-wrap"></div>
+                  </div>
+                </div>
+                <div class="os-card">
+                  <div class="os-card-head"><span class="os-card-title"><i class="ti ti-arrows-right-left"></i>Recent transactions</span><button class="os-card-link" onclick="psGoTab('transactions',null)">View all →</button></div>
+                  <div class="ps-table-wrap"><div id="ps-recent-txns"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── TRANSACTIONS ── -->
+          <div class="ps-pane" id="ps-pane-transactions" style="flex-direction:column;overflow:hidden;">
+            <div class="ps-filter-bar">
+              <select class="ps-select" id="ps-txn-status" onchange="psLoadTransactions()">
+                <option value="">All statuses</option>
+                <option value="success">Success</option>
+                <option value="failed">Failed</option>
+                <option value="abandoned">Abandoned</option>
+              </select>
+              <select class="ps-select" id="ps-txn-channel" onchange="psLoadTransactions()">
+                <option value="">All channels</option>
+                <option value="card">Card</option>
+                <option value="bank">Bank transfer</option>
+                <option value="ussd">USSD</option>
+                <option value="mobile_money">Mobile money</option>
+              </select>
+              <button class="os-btn-ghost" onclick="psLoadTransactions()"><i class="ti ti-refresh"></i></button>
+            </div>
+            <div style="flex:1;overflow-y:auto;">
+              <div id="ps-loading-transactions" class="ps-loading"><i class="ti ti-loader-2 ps-spin"></i> Loading…</div>
+              <div id="ps-txn-table"></div>
+              <div id="ps-txn-footer" style="display:none;padding:10px 20px;font-size:.78rem;color:var(--muted)">
+                Showing <span id="ps-txn-shown">0</span> of <span id="ps-txn-total">0</span>
+                <button class="os-btn-ghost" style="margin-left:8px;font-size:.75rem" onclick="psLoadMoreTxns()">Load more</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── BALANCE ── -->
+          <div class="ps-pane" id="ps-pane-balance">
+            <div class="os-scroll">
+              <div id="ps-loading-balance" class="ps-loading"><i class="ti ti-loader-2 ps-spin"></i> Loading…</div>
+              <div id="ps-balance-content" style="display:none">
+                <div class="ps-stat-row ps-stat-row-3">
+                  <div class="ps-stat ps-stat-green"><div class="ps-stat-lbl">Available Balance</div><div class="ps-stat-val ps-green" id="ps-bal-avail">—</div><div class="ps-stat-sub">Ready to transfer</div></div>
+                  <div class="ps-stat"><div class="ps-stat-lbl">Pending Settlement</div><div class="ps-stat-val ps-amber" id="ps-bal-pending">—</div><div class="ps-stat-sub ps-amber">T+1 · Arrives tomorrow</div></div>
+                  <div class="ps-stat"><div class="ps-stat-lbl">Currency</div><div class="ps-stat-val" id="ps-bal-currency">NGN</div><div class="ps-stat-sub">Payment currency</div></div>
+                </div>
+                <div class="os-card">
+                  <div class="os-card-head"><span class="os-card-title"><i class="ti ti-history"></i>Balance history</span></div>
+                  <div id="ps-bal-history"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── SETTLEMENTS ── -->
+          <div class="ps-pane" id="ps-pane-settlements">
+            <div class="os-scroll">
+              <div id="ps-loading-settlements" class="ps-loading"><i class="ti ti-loader-2 ps-spin"></i> Loading…</div>
+              <div id="ps-settlements-content" style="display:none">
+                <div class="os-card">
+                  <div class="os-card-head"><span class="os-card-title"><i class="ti ti-building-bank"></i>Settlement history</span></div>
+                  <div id="ps-stl-table"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── CUSTOMERS ── -->
+          <div class="ps-pane" id="ps-pane-customers">
+            <div class="os-scroll">
+              <div id="ps-loading-customers" class="ps-loading"><i class="ti ti-loader-2 ps-spin"></i> Loading…</div>
+              <div id="ps-customers-content" style="display:none">
+                <div class="os-card">
+                  <div class="os-card-head"><span class="os-card-title"><i class="ti ti-users"></i>Customers</span></div>
+                  <div id="ps-cust-table"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── REFUNDS & DISPUTES ── -->
+          <div class="ps-pane" id="ps-pane-refunds">
+            <div class="os-scroll">
+              <div id="ps-loading-refunds" class="ps-loading"><i class="ti ti-loader-2 ps-spin"></i> Loading…</div>
+              <div id="ps-refunds-content" style="display:none">
+                <div class="ps-grid2">
+                  <div class="os-card">
+                    <div class="os-card-head"><span class="os-card-title"><i class="ti ti-refresh"></i>Refunds</span></div>
+                    <div id="ps-refund-list"></div>
+                  </div>
+                  <div class="os-card">
+                    <div class="os-card-head"><span class="os-card-title"><i class="ti ti-alert-triangle" style="color:var(--amber3)"></i>Disputes</span></div>
+                    <div id="ps-dispute-list"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── ANALYTICS ── -->
+          <div class="ps-pane" id="ps-pane-analytics">
+            <div class="os-scroll">
+              <div id="ps-loading-analytics" class="ps-loading"><i class="ti ti-loader-2 ps-spin"></i> Loading…</div>
+              <div id="ps-analytics-content" style="display:none">
+                <div class="ps-grid2">
+                  <div class="os-card">
+                    <div class="os-card-head"><span class="os-card-title">Success vs failure rate</span></div>
+                    <div id="ps-an-rates"></div>
+                  </div>
+                  <div class="os-card">
+                    <div class="os-card-head"><span class="os-card-title">Revenue by day of week</span></div>
+                    <div id="ps-an-weekday"></div>
+                  </div>
+                </div>
+                <div class="os-card">
+                  <div class="os-card-head"><span class="os-card-title">Daily volume (last 14 days)</span></div>
+                  <div class="ps-bar-chart" id="ps-an-daily"></div>
+                </div>
+                <div class="os-card" style="margin-top:12px;">
+                  <div class="os-card-head"><span class="os-card-title"><i class="ti ti-sparkles" style="color:var(--teal)"></i>Sivarr AI analytics summary</span></div>
+                  <div id="ps-an-ai"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── CONNECT ── -->
+          <div class="ps-pane" id="ps-pane-connect" style="align-items:center;justify-content:center;padding:24px">
+            <div class="ps-connect-card">
+              <div class="ps-connect-icon">P</div>
+              <div class="ps-connect-title">Connect Paystack</div>
+              <div class="ps-connect-sub">Link your Paystack account to view live transactions, balances, settlements, refunds and AI-powered analytics directly inside your Organisation Space.</div>
+              <div id="ps-connected-info" style="display:none" class="ps-connected-box">
+                <i class="ti ti-circle-check" style="color:var(--green3);font-size:1.1rem"></i>
+                <span>Paystack connected</span>
+                <button class="os-btn-ghost" style="margin-left:auto;font-size:.75rem;color:var(--red3)" onclick="psDisconnect()"><i class="ti ti-unlink"></i> Disconnect</button>
+              </div>
+              <div id="ps-connect-form" style="width:100%">
+                <div class="ps-key-perms">
+                  <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">What Sivarr reads (read-only)</div>
+                  <div class="ps-perm-row"><i class="ti ti-check" style="color:var(--green3)"></i>Transaction history</div>
+                  <div class="ps-perm-row"><i class="ti ti-check" style="color:var(--green3)"></i>Balance &amp; ledger data</div>
+                  <div class="ps-perm-row"><i class="ti ti-check" style="color:var(--green3)"></i>Settlement reports</div>
+                  <div class="ps-perm-row"><i class="ti ti-check" style="color:var(--green3)"></i>Customers &amp; refunds</div>
+                  <div class="ps-perm-row"><i class="ti ti-x" style="color:var(--red3)"></i>We never initiate payments or transfers</div>
+                </div>
+                <div style="margin-bottom:8px;">
+                  <div style="font-size:.78rem;color:var(--text3);margin-bottom:5px;">Paystack secret key</div>
+                  <input type="password" id="ps-key-input" class="si-modal-input" placeholder="sk_live_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" style="width:100%">
+                </div>
+                <div id="ps-connect-err" class="ps-err" style="display:none"></div>
+                <button class="os-btn-primary" style="width:100%;justify-content:center;padding:10px" onclick="psConnect()">
+                  <i class="ti ti-plug"></i> Connect Paystack →
+                </button>
+                <div style="font-size:.7rem;color:var(--text4);margin-top:8px;text-align:center;">Your key is stored encrypted and never logged or shared.</div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /os-pane-financials -->
 
         </div><!-- /org-main-content -->
       </div><!-- /panel-org -->
@@ -3413,7 +3611,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260524a" defer></script>
+<script src="/js/app.js?v=20260524b" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

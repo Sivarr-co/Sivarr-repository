@@ -442,6 +442,17 @@ CREATE TABLE IF NOT EXISTS org_announcements (
     created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_org_ann_org ON org_announcements(org_id);
+
+CREATE TABLE IF NOT EXISTS org_integrations (
+    org_id      TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    provider    TEXT NOT NULL,
+    secret_key  TEXT NOT NULL DEFAULT '',
+    public_key  TEXT NOT NULL DEFAULT '',
+    meta        JSONB DEFAULT '{}',
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (org_id, provider)
+);
 """
 
 
@@ -2377,6 +2388,65 @@ def get_org_analytics(org_id: str) -> dict:
         }
     except Exception as exc:
         log.error(f"get_org_analytics: {exc}"); return {}
+    finally:
+        _release(conn)
+
+
+# ── Org Integrations (Paystack, Mono, etc.) ──────────────────────────────────
+
+def save_org_integration(org_id: str, provider: str, secret_key: str,
+                          public_key: str = "", meta: dict | None = None) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO org_integrations (org_id, provider, secret_key, public_key, meta, updated_at)
+                VALUES (%s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (org_id, provider) DO UPDATE
+                SET secret_key = EXCLUDED.secret_key,
+                    public_key = EXCLUDED.public_key,
+                    meta = EXCLUDED.meta,
+                    updated_at = NOW()
+            """, (org_id, provider, secret_key, public_key, json.dumps(meta or {})))
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"save_org_integration: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def get_org_integration(org_id: str, provider: str) -> dict | None:
+    conn = _get_conn()
+    if not conn: return None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM org_integrations WHERE org_id=%s AND provider=%s",
+                (org_id, provider)
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+    except Exception as exc:
+        log.error(f"get_org_integration: {exc}"); return None
+    finally:
+        _release(conn)
+
+
+def delete_org_integration(org_id: str, provider: str) -> bool:
+    conn = _get_conn()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM org_integrations WHERE org_id=%s AND provider=%s",
+                (org_id, provider)
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"delete_org_integration: {exc}"); conn.rollback(); return False
     finally:
         _release(conn)
 

@@ -5809,6 +5809,330 @@ async def org_analytics(token: str = ""):
 
 
 # ═══════════════════════════════════════════════════════════════
+#  ORG PAYSTACK FINANCIAL DASHBOARD
+# ═══════════════════════════════════════════════════════════════
+
+async def _ps_call(secret_key: str, path: str, params: dict | None = None) -> dict:
+    """Proxy a GET request to the Paystack API with the given secret key."""
+    headers = {"Authorization": f"Bearer {secret_key}"}
+    url = f"{PAYSTACK_API}{path}"
+    async with _httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(url, headers=headers, params=params or {})
+    return resp.json()
+
+
+def _org_check(token: str) -> tuple[dict, str]:
+    """Validate token and return (session, org_id). Raises HTTPException on failure."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p = load_progress(sess["sid"])
+    org_id = p.get("org_id", "")
+    if not org_id:
+        raise HTTPException(403, "Not in an organisation.")
+    return sess, org_id
+
+
+def _org_admin_check(token: str) -> tuple[dict, str]:
+    """Like _org_check but also verifies admin/owner role."""
+    sess, org_id = _org_check(token)
+    row = db.get_org_integration(org_id, "_role_check")  # not used; check via members
+    # Check role via org_members
+    conn = db._get_conn()
+    if conn:
+        try:
+            with conn.cursor(cursor_factory=__import__('psycopg2').extras.RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT role FROM org_members WHERE org_id=%s AND user_sid=%s",
+                    (org_id, sess["sid"])
+                )
+                row = cur.fetchone()
+        finally:
+            db._release(conn)
+    else:
+        row = None
+
+    # Also allow owner check via orgs table
+    org = db.get_org(org_id) if hasattr(db, 'get_org') else None
+    is_owner = org and org.get("owner_sid") == sess["sid"]
+    is_admin = row and row["role"] in ("admin", "owner")
+    if not (is_owner or is_admin):
+        raise HTTPException(403, "Admin access required.")
+    return sess, org_id
+
+
+@app.post("/api/org/paystack/connect")
+async def ps_connect(data: dict):
+    """Save org Paystack secret key (admin/owner only)."""
+    token      = data.get("token", "")
+    secret_key = data.get("secret_key", "").strip()
+    if not secret_key:
+        raise HTTPException(400, "secret_key required.")
+    if not (secret_key.startswith("sk_live_") or secret_key.startswith("sk_test_")):
+        raise HTTPException(400, "Invalid Paystack key format.")
+    sess, org_id = _org_check(token)
+    # Verify key works before saving
+    try:
+        result = await _ps_call(secret_key, "/balance")
+        if not result.get("status"):
+            raise HTTPException(400, "Paystack rejected this key. Check it and try again.")
+    except _httpx.HTTPError:
+        raise HTTPException(502, "Could not reach Paystack to verify key.")
+    db.save_org_integration(org_id, "paystack", secret_key)
+    return {"ok": True}
+
+
+@app.delete("/api/org/paystack/disconnect")
+async def ps_disconnect(token: str = ""):
+    sess, org_id = _org_check(token)
+    db.delete_org_integration(org_id, "paystack")
+    return {"ok": True}
+
+
+@app.get("/api/org/paystack/status")
+async def ps_status(token: str = ""):
+    sess, org_id = _org_check(token)
+    row = db.get_org_integration(org_id, "paystack")
+    return {"connected": bool(row and row.get("secret_key"))}
+
+
+def _ps_key_for_org(org_id: str) -> str:
+    row = db.get_org_integration(org_id, "paystack")
+    if not row or not row.get("secret_key"):
+        raise HTTPException(402, "Paystack not connected. Go to Org → Financials → Connect.")
+    return row["secret_key"]
+
+
+@app.get("/api/org/paystack/overview")
+async def ps_overview(token: str = ""):
+    sess, org_id = _org_check(token)
+    key = _ps_key_for_org(org_id)
+    # Fetch in parallel
+    import asyncio
+    txn_task = _ps_call(key, "/transaction", {"perPage": 50, "page": 1})
+    bal_task  = _ps_call(key, "/balance")
+    stl_task  = _ps_call(key, "/settlement", {"perPage": 5})
+    txns_r, bal_r, stl_r = await asyncio.gather(txn_task, bal_task, stl_task, return_exceptions=True)
+
+    txns   = txns_r.get("data", []) if isinstance(txns_r, dict) else []
+    total  = txns_r.get("meta", {}).get("total", len(txns)) if isinstance(txns_r, dict) else 0
+    bal    = bal_r.get("data", [{}])[0] if isinstance(bal_r, dict) else {}
+    stl    = stl_r.get("data", []) if isinstance(stl_r, dict) else []
+
+    success = [t for t in txns if t.get("status") == "success"]
+    failed  = [t for t in txns if t.get("status") == "failed"]
+    volume  = sum(t.get("amount", 0) for t in success)
+    channels: dict = {}
+    for t in success:
+        ch = t.get("channel", "other")
+        channels[ch] = channels.get(ch, 0) + 1
+
+    pending_stl = next((s.get("settlement_date") for s in stl if s.get("status") == "pending"), None)
+    pending_amt = next((s.get("total_amount", 0) for s in stl if s.get("status") == "pending"), 0)
+
+    recent = []
+    for t in txns[:8]:
+        recent.append({
+            "reference": t.get("reference", ""),
+            "customer":  t.get("customer", {}).get("email", ""),
+            "amount":    t.get("amount", 0),
+            "channel":   t.get("channel", ""),
+            "status":    t.get("status", ""),
+            "paid_at":   t.get("paid_at") or t.get("created_at", ""),
+            "card_type": t.get("authorization", {}).get("card_type", ""),
+            "last4":     t.get("authorization", {}).get("last4", ""),
+        })
+
+    return {
+        "volume":          volume,
+        "txn_count":       total,
+        "success_count":   len(success),
+        "fail_count":      len(failed),
+        "success_rate":    round(len(success) / len(txns) * 100, 1) if txns else 0,
+        "available_bal":   bal.get("balance", 0),
+        "currency":        bal.get("currency", "NGN"),
+        "pending_stl_amt": pending_amt,
+        "pending_stl_date":pending_stl,
+        "channels":        channels,
+        "recent_txns":     recent,
+    }
+
+
+@app.get("/api/org/paystack/transactions")
+async def ps_transactions(token: str = "", page: int = 1, perPage: int = 20,
+                           status: str = "", channel: str = ""):
+    sess, org_id = _org_check(token)
+    key = _ps_key_for_org(org_id)
+    params: dict = {"perPage": perPage, "page": page}
+    if status:  params["status"]  = status
+    if channel: params["channel"] = channel
+    r = await _ps_call(key, "/transaction", params)
+    txns = r.get("data", [])
+    meta = r.get("meta", {})
+    rows = []
+    for t in txns:
+        rows.append({
+            "reference": t.get("reference", ""),
+            "customer":  t.get("customer", {}).get("email", ""),
+            "customer_name": (t.get("customer", {}).get("first_name", "") + " " +
+                              t.get("customer", {}).get("last_name", "")).strip(),
+            "amount":    t.get("amount", 0),
+            "channel":   t.get("channel", ""),
+            "card_type": t.get("authorization", {}).get("card_type", ""),
+            "last4":     t.get("authorization", {}).get("last4", ""),
+            "fees":      t.get("fees", 0),
+            "status":    t.get("status", ""),
+            "paid_at":   t.get("paid_at") or t.get("created_at", ""),
+        })
+    return {"transactions": rows, "total": meta.get("total", len(rows)),
+            "page": page, "perPage": perPage}
+
+
+@app.get("/api/org/paystack/balance")
+async def ps_balance(token: str = ""):
+    sess, org_id = _org_check(token)
+    key = _ps_key_for_org(org_id)
+    import asyncio
+    bal_r, txn_r = await asyncio.gather(
+        _ps_call(key, "/balance"),
+        _ps_call(key, "/transaction", {"perPage": 10, "page": 1}),
+        return_exceptions=True
+    )
+    bal   = bal_r.get("data", [{}])[0] if isinstance(bal_r, dict) else {}
+    txns  = txn_r.get("data", []) if isinstance(txn_r, dict) else []
+    history = []
+    for t in txns:
+        if t.get("status") == "success":
+            history.append({
+                "date":    (t.get("paid_at") or t.get("created_at", ""))[:10],
+                "desc":    f"Payment from {t.get('customer',{}).get('email','')}",
+                "type":    "transaction",
+                "change":  t.get("amount", 0) - t.get("fees", 0),
+            })
+    return {
+        "available": bal.get("balance", 0),
+        "currency":  bal.get("currency", "NGN"),
+        "history":   history,
+    }
+
+
+@app.get("/api/org/paystack/settlements")
+async def ps_settlements(token: str = "", page: int = 1):
+    sess, org_id = _org_check(token)
+    key = _ps_key_for_org(org_id)
+    r = await _ps_call(key, "/settlement", {"perPage": 20, "page": page})
+    rows = []
+    for s in r.get("data", []):
+        rows.append({
+            "id":         s.get("id", ""),
+            "settled_by": s.get("settled_by", ""),
+            "status":     s.get("status", ""),
+            "total_amount": s.get("total_amount", 0),
+            "total_fees":   s.get("total_fees", 0),
+            "txn_count":    s.get("total_transactions", 0),
+            "settlement_date": s.get("settlement_date", ""),
+            "bank_name":   s.get("bank_name", ""),
+            "account_number": s.get("account_number", ""),
+        })
+    return {"settlements": rows, "total": r.get("meta", {}).get("total", len(rows))}
+
+
+@app.get("/api/org/paystack/customers")
+async def ps_customers(token: str = "", page: int = 1):
+    sess, org_id = _org_check(token)
+    key = _ps_key_for_org(org_id)
+    r = await _ps_call(key, "/customer", {"perPage": 20, "page": page})
+    rows = []
+    for c in r.get("data", []):
+        rows.append({
+            "id":          c.get("id", ""),
+            "email":       c.get("email", ""),
+            "name":        (c.get("first_name", "") + " " + c.get("last_name", "")).strip(),
+            "phone":       c.get("phone", ""),
+            "txn_count":   c.get("transactions", {}).get("total", 0) if isinstance(c.get("transactions"), dict) else 0,
+            "total_spend": c.get("transactions", {}).get("total_volume", 0) if isinstance(c.get("transactions"), dict) else 0,
+            "created_at":  c.get("createdAt", "")[:10],
+        })
+    return {"customers": rows, "total": r.get("meta", {}).get("total", len(rows))}
+
+
+@app.get("/api/org/paystack/refunds")
+async def ps_refunds(token: str = ""):
+    sess, org_id = _org_check(token)
+    key = _ps_key_for_org(org_id)
+    import asyncio
+    ref_r, dis_r = await asyncio.gather(
+        _ps_call(key, "/refund", {"perPage": 20}),
+        _ps_call(key, "/dispute", {"perPage": 20}),
+        return_exceptions=True
+    )
+    refunds = []
+    for r in (ref_r.get("data", []) if isinstance(ref_r, dict) else []):
+        refunds.append({
+            "id":         r.get("id", ""),
+            "transaction":r.get("transaction", ""),
+            "customer":   r.get("customer_note", ""),
+            "amount":     r.get("amount", 0),
+            "status":     r.get("status", ""),
+            "created_at": r.get("createdAt", "")[:10],
+        })
+    disputes = []
+    for d in (dis_r.get("data", []) if isinstance(dis_r, dict) else []):
+        disputes.append({
+            "id":          d.get("id", ""),
+            "reference":   d.get("transaction", {}).get("reference", "") if isinstance(d.get("transaction"), dict) else "",
+            "amount":      d.get("transaction", {}).get("amount", 0) if isinstance(d.get("transaction"), dict) else 0,
+            "status":      d.get("status", ""),
+            "message":     d.get("resolution", "") or d.get("refund_note", ""),
+            "created_at":  d.get("createdAt", "")[:10],
+        })
+    return {"refunds": refunds, "disputes": disputes}
+
+
+@app.get("/api/org/paystack/analytics")
+async def ps_analytics(token: str = ""):
+    sess, org_id = _org_check(token)
+    key = _ps_key_for_org(org_id)
+    r = await _ps_call(key, "/transaction", {"perPage": 100, "page": 1})
+    txns = r.get("data", [])
+
+    from collections import defaultdict
+    by_day   = defaultdict(int)
+    by_weekday = defaultdict(int)
+    total_fees = 0
+    success = failed = 0
+
+    for t in txns:
+        st  = t.get("status", "")
+        amt = t.get("amount", 0)
+        fee = t.get("fees", 0) or 0
+        paid = (t.get("paid_at") or t.get("created_at") or "")[:10]
+        if st == "success":
+            success += 1
+            total_fees += fee
+            if paid:
+                by_day[paid] += amt
+                try:
+                    import datetime
+                    wd = datetime.date.fromisoformat(paid).strftime("%a")
+                    by_weekday[wd] += amt
+                except Exception:
+                    pass
+        elif st == "failed":
+            failed += 1
+
+    total = success + failed
+    return {
+        "success": success,
+        "failed":  failed,
+        "success_rate": round(success / total * 100, 1) if total else 0,
+        "total_fees":   total_fees,
+        "by_day":  dict(sorted(by_day.items())[-14:]),
+        "by_weekday": dict(by_weekday),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 #  EMAIL NOTIFICATIONS (Task reminders)
 # ═══════════════════════════════════════════════════════════════
 
