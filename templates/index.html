@@ -19,7 +19,7 @@
 <meta property="og:type" content="website">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<link rel="stylesheet" href="/css/styles.css?v=20260524d">
+<link rel="stylesheet" href="/css/styles.css?v=20260524e">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -1575,8 +1575,12 @@ Sentry.onLoad(function() {
               <h2 style="font-family:var(--font);font-size:1.2rem;font-weight:800;letter-spacing:-.02em">📄 Document Hub</h2>
               <p style="font-size:.78rem;color:var(--muted);margin-top:2px">Write, format and save rich notes.</p>
             </div>
-            <button onclick="dhNewDoc()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:9px;padding:7px 14px;color:#fff;font-family:var(--font);font-size:.75rem;font-weight:700;cursor:pointer">+ New Doc</button>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button onclick="dhTriggerUpload()" style="background:var(--surface2,var(--surface));border:1px solid var(--border);border-radius:9px;padding:7px 14px;color:var(--text);font-family:var(--font);font-size:.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px"><i class="ti ti-upload"></i><span class="btn-lbl">Upload</span></button>
+              <button onclick="dhNewDoc()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:9px;padding:7px 14px;color:#fff;font-family:var(--font);font-size:.75rem;font-weight:700;cursor:pointer">+ New Doc</button>
+            </div>
           </div>
+          <input type="file" id="dh-upload-input" multiple accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.gif,.svg" style="display:none" onchange="dhHandleUpload(this)">
           <div id="dh-docs-list">
             <div style="text-align:center;padding:3rem 1rem;color:var(--muted)">
               <div style="font-size:2rem;margin-bottom:.5rem">📄</div>
@@ -3574,7 +3578,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260524d" defer></script>
+<script src="/js/app.js?v=20260524e" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

@@ -2509,24 +2509,99 @@ function dhInit() {
   dhRenderList();
 }
 
+function dhTriggerUpload() { $('dh-upload-input').click(); }
+
+function dhHandleUpload(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  let done = 0;
+  const finish = () => { done++; if (done === files.length) { input.value = ''; dhRenderList(); toast(`${files.length === 1 ? `"${files[0].name}" uploaded` : `${files.length} files uploaded`} ✓`); } };
+  files.forEach(file => {
+    if (file.size > 8 * 1024 * 1024) { toast(`"${file.name}" exceeds 8 MB limit — skipped.`); finish(); return; }
+    const isText = /^text\/|\.md$|\.txt$/i.test(file.type + file.name);
+    const reader = new FileReader();
+    reader.onerror = () => { toast(`Failed to read "${file.name}"`); finish(); };
+    reader.onload = () => {
+      const doc = { id: Date.now().toString(36)+Math.random().toString(36).slice(2,5), title: file.name,
+        content: isText ? reader.result : '', updated: Date.now(),
+        kind: isText ? 'doc' : 'file', fileType: file.type || 'application/octet-stream',
+        fileName: file.name, fileSize: file.size, fileData: isText ? null : reader.result };
+      const docs = dhLoadDocs(); docs.push(doc); dhSaveDocs(docs); finish();
+    };
+    isText ? reader.readAsText(file) : reader.readAsDataURL(file);
+  });
+}
+
+function _dhFileIcon(mimeType, fileName) {
+  if (mimeType?.startsWith('image/')) return '🖼️';
+  if (mimeType === 'application/pdf' || /\.pdf$/i.test(fileName)) return '📕';
+  if (mimeType?.includes('word') || /\.docx?$/i.test(fileName)) return '📘';
+  if (mimeType?.startsWith('text/') || /\.(txt|md)$/i.test(fileName)) return '📝';
+  return '📎';
+}
+function _dhFileLabel(mimeType, fileName) {
+  if (mimeType?.startsWith('image/')) return 'Image';
+  if (mimeType === 'application/pdf' || /\.pdf$/i.test(fileName)) return 'PDF';
+  if (mimeType?.includes('officedocument') || /\.docx$/i.test(fileName)) return 'DOCX';
+  if (mimeType?.includes('msword') || /\.doc$/i.test(fileName)) return 'DOC';
+  if (/\.md$/i.test(fileName)) return 'Markdown';
+  if (mimeType?.startsWith('text/') || /\.txt$/i.test(fileName)) return 'Text';
+  return 'File';
+}
+function _dhFileSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes/1024).toFixed(1)} KB`;
+  return `${(bytes/1048576).toFixed(1)} MB`;
+}
+
+function dhOpenFile(id) {
+  const doc = dhLoadDocs().find(d => d.id === id);
+  if (!doc) return;
+  if (doc.kind !== 'file') { dhOpenDoc(id); return; }
+  if (doc.fileType?.startsWith('image/')) { _dhImageLightbox(doc); return; }
+  if (doc.fileData) {
+    const a = document.createElement('a');
+    a.href = doc.fileData; a.download = doc.fileName || doc.title; a.click(); return;
+  }
+  toast('Cannot open this file type.');
+}
+
+function _dhImageLightbox(doc) {
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.87);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:1rem';
+  ov.onclick = () => ov.remove();
+  const img = document.createElement('img');
+  img.src = doc.fileData; img.style.cssText = 'max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5)';
+  ov.appendChild(img); document.body.appendChild(ov);
+}
+
 function dhRenderList() {
   const docs = dhLoadDocs();
   const el   = $('dh-docs-list'); if (!el) return;
   if (!docs.length) {
     el.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:var(--muted)">
       <div style="font-size:2rem;margin-bottom:.5rem">📄</div>
-      <div style="font-size:.85rem">No documents yet.<br>Create your first rich note.</div>
+      <div style="font-size:.85rem">No documents yet.<br>Create your first rich note or upload a file.</div>
     </div>`; return;
   }
-  el.innerHTML = docs.sort((a,b)=>b.updated-a.updated).map(d=>`
-    <div class="dh-doc-item" onclick="dhOpenDoc('${d.id}')">
-      <div style="font-size:1.1rem">📄</div>
+  el.innerHTML = docs.sort((a,b)=>b.updated-a.updated).map(d => {
+    const isFile = d.kind === 'file';
+    const icon   = isFile ? _dhFileIcon(d.fileType, d.fileName) : '📄';
+    const sub    = isFile
+      ? `${_dhFileLabel(d.fileType, d.fileName)} · ${_dhFileSize(d.fileSize)}`
+      : new Date(d.updated).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+    const click  = isFile ? `dhOpenFile('${d.id}')` : `dhOpenDoc('${d.id}')`;
+    return `
+    <div class="dh-doc-item" onclick="${click}">
+      <div style="font-size:1.1rem">${icon}</div>
       <div style="flex:1;overflow:hidden">
         <div class="dh-doc-title">${esc(d.title||'Untitled')}</div>
-        <div class="dh-doc-date">${new Date(d.updated).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+        <div class="dh-doc-date">${sub}</div>
       </div>
       <button onclick="event.stopPropagation();dhDeleteDoc('${d.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem;padding:4px;transition:color .15s" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">🗑</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function dhNewDoc() {
