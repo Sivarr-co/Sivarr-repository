@@ -19,7 +19,7 @@
 <meta property="og:type" content="website">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<link rel="stylesheet" href="/css/styles.css?v=20260524b">
+<link rel="stylesheet" href="/css/styles.css?v=20260524c">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -420,6 +420,10 @@ Sentry.onLoad(function() {
             <i class="ti ti-inbox si-ic"></i>
             <span class="si-lb">Inbox</span>
           </button>
+          <button class="si" data-panel="quiz" onclick="sidebarNav(this)">
+            <i class="ti ti-pencil si-ic"></i>
+            <span class="si-lb">Quiz</span>
+          </button>
         </div>
 
         <!-- Work -->
@@ -440,26 +444,9 @@ Sentry.onLoad(function() {
             <i class="ti ti-calendar si-ic"></i>
             <span class="si-lb">Calendar</span>
           </button>
-          <button class="si" data-panel="templates" onclick="sidebarNav(this)">
-            <i class="ti ti-template si-ic"></i>
-            <span class="si-lb">Templates</span>
-          </button>
           <button class="si" data-panel="documenthub" onclick="sidebarNav(this)">
             <i class="ti ti-folders si-ic"></i>
             <span class="si-lb">Document Hub</span>
-          </button>
-        </div>
-
-
-        <!-- Academic -->
-        <div class="sg" onclick="sbToggleSection('academic')">
-          <span class="sl">Academic</span>
-          <i class="ti ti-chevron-down sg-chev"></i>
-        </div>
-        <div class="sg-items" id="sgi-academic">
-          <button class="si" data-panel="quiz" onclick="sidebarNav(this)">
-            <i class="ti ti-pencil si-ic"></i>
-            <span class="si-lb">Quiz</span>
           </button>
           <button class="si" data-panel="courses" onclick="sidebarNav(this)">
             <i class="ti ti-school si-ic"></i>
@@ -476,18 +463,6 @@ Sentry.onLoad(function() {
           <button class="si" data-panel="lab" onclick="sidebarNav(this)">
             <i class="ti ti-flask si-ic"></i>
             <span class="si-lb">Study Deck</span>
-          </button>
-          <button class="si" data-panel="contenthub" onclick="sidebarNav(this)">
-            <i class="ti ti-layout-grid si-ic"></i>
-            <span class="si-lb">Content Hub</span>
-          </button>
-          <button class="si" data-panel="learninghub" onclick="sidebarNav(this)">
-            <i class="ti ti-brain si-ic"></i>
-            <span class="si-lb">Learning Hub</span>
-          </button>
-          <button class="si" data-panel="studygroups" onclick="sidebarNav(this)">
-            <i class="ti ti-users si-ic"></i>
-            <span class="si-lb">Study Groups</span>
           </button>
         </div>
 
@@ -524,6 +499,10 @@ Sentry.onLoad(function() {
           <button class="si" data-panel="community" onclick="sidebarNav(this)">
             <i class="ti ti-users si-ic"></i>
             <span class="si-lb">Community</span>
+          </button>
+          <button class="si" data-panel="studygroups" onclick="sidebarNav(this)">
+            <i class="ti ti-users-group si-ic"></i>
+            <span class="si-lb">Study Groups</span>
           </button>
           <button class="si" data-panel="opportunities" onclick="sidebarNav(this)">
             <i class="ti ti-briefcase si-ic"></i>
@@ -3611,7 +3590,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260524b" defer></script>
+<script src="/js/app.js?v=20260524c" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
