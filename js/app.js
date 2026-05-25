@@ -1082,11 +1082,23 @@ async function billingVerify(reference, planId) {
     const r = await fetch(`/api/billing/verify/${encodeURIComponent(reference)}?token=${encodeURIComponent(token)}`);
     const d = await r.json();
     if (d.ok) {
-      toast(`You're now on the ${d.name} plan! 🎉`);
       await billingLoadStatus();
+      _unlockAfterPayment(d.name || planId || 'Pro');
     }
   } catch(_) {
     toast('Payment verification failed — contact support if funds were deducted.');
+  }
+}
+
+function _unlockAfterPayment(planName) {
+  const level = _planLevel(planName);
+  const GUARDED = { org: 'Pro', orgchat: 'Pro', team: 'Pro', projects: 'Pro', founder: 'Team' };
+  for (const [panel, required] of Object.entries(GUARDED)) {
+    if (level >= _planLevel(required)) _removePaywall(panel);
+  }
+  if (level >= _planLevel('Pro')) {
+    toast(`🎉 You're on the ${planName} plan! Org Space is now unlocked.`);
+    setTimeout(() => nav('org'), 800);
   }
 }
 
@@ -12865,11 +12877,8 @@ async function flutterwaveVerify(ref, planId) {
     const r = await fetch(`/api/billing/flutterwave/verify/${encodeURIComponent(ref)}?token=${encodeURIComponent(token)}&plan_id=${encodeURIComponent(planId || '')}`);
     const d = await r.json();
     if (d.ok) {
-      _BILLING_STATUS = d.plan;
-      _billingRenderBadge();
-      _billingRenderSidebar();
-      integrationsRender();
-      toast('Payment confirmed! Your plan is now active.');
+      await billingLoadStatus();
+      _unlockAfterPayment(d.name || planId || 'Pro');
     }
   } catch(e) {
     toast('Could not verify payment — please contact support.');
