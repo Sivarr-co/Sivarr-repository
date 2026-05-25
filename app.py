@@ -1414,6 +1414,18 @@ async def index():
     html = html.replace('<meta charset="UTF-8">', f'<meta charset="UTF-8">\n{inject}', 1)
     return html
 
+@app.get("/billing/callback")
+async def billing_callback(reference: str = "", trxref: str = "", plan: str = ""):
+    """Paystack billing redirect — forward to SPA with billing params."""
+    ref = reference or trxref
+    if not ref:
+        return RedirectResponse(url="/", status_code=302)
+    return RedirectResponse(
+        url=f"/?billing=success&ref={ref}&plan={plan}",
+        status_code=302,
+    )
+
+
 @app.get("/sw.js")
 async def service_worker():
     return Response(
@@ -5503,7 +5515,7 @@ async def billing_subscribe(data: dict):
         "amount":       plan["amount_ngn"] * 100,
         "currency":     "NGN",
         "reference":    reference,
-        "callback_url": f"{BASE_URL}/?billing=success&plan={plan_id}&ref={reference}",
+        "callback_url": f"{BASE_URL.rstrip('/')}/billing/callback",
         "metadata": {
             "sivarr_sid": sid, "plan_id": plan_id,
             "plan_name": plan["name"], "period": plan["period"],
