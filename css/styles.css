@@ -599,49 +599,52 @@ input, textarea, select { font-family: var(--font); }
 
 /* Left branding panel */
 .login-left {
-  width: 44%;
+  width: 46%;
   flex-shrink: 0;
-  background: linear-gradient(145deg, #074d3b 0%, #0D7A5F 55%, #12a07c 100%);
+  background: linear-gradient(145deg, #063d30 0%, #0D7A5F 55%, #14a882 100%);
   display: flex; align-items: center; justify-content: center;
-  padding: 3.5rem;
+  padding: 4rem;
   position: relative; overflow: hidden;
 }
 .ll-content { position: relative; z-index: 2; }
 .ll-logo {
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 2.5rem;
+  display: flex; align-items: center; gap: 13px;
+  margin-bottom: 2.75rem;
 }
 .ll-logo img {
-  width: 38px; height: 38px; object-fit: contain;
+  width: 42px; height: 42px; object-fit: contain;
   filter: brightness(0) invert(1);
 }
 .ll-logo span {
-  font-size: 1.5rem; font-weight: 800;
-  color: #fff; letter-spacing: -.04em;
+  font-family: 'Syne', var(--font);
+  font-size: 1.65rem; font-weight: 800;
+  color: #fff; letter-spacing: -.03em;
 }
 .ll-tag {
-  display: inline-block;
-  background: rgba(255,255,255,.15); color: rgba(255,255,255,.9);
-  font-size: 10px; font-weight: 700; letter-spacing: .1em;
-  text-transform: uppercase; border-radius: 20px;
-  padding: 4px 12px; margin-bottom: 1.75rem;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(255,255,255,.13); color: rgba(255,255,255,.95);
+  font-size: 11px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; border-radius: 99px;
+  border: 1px solid rgba(255,255,255,.2);
+  padding: 5px 14px; margin-bottom: 1.5rem;
 }
 .ll-headline {
-  font-size: 2.4rem; font-weight: 800; color: #fff;
-  line-height: 1.15; letter-spacing: -.04em; margin-bottom: 2.25rem;
+  font-family: 'Syne', var(--font);
+  font-size: 3rem; font-weight: 800; color: #fff;
+  line-height: 1.1; letter-spacing: -.03em; margin-bottom: 2.5rem;
 }
-.ll-features { display: flex; flex-direction: column; gap: 1rem; }
+.ll-features { display: flex; flex-direction: column; gap: 1.1rem; }
 .ll-feat {
-  display: flex; align-items: center; gap: 12px;
-  color: rgba(255,255,255,.8); font-size: .9rem; font-weight: 400;
+  display: flex; align-items: center; gap: 13px;
+  color: rgba(255,255,255,.85); font-size: 1rem; font-weight: 400;
 }
-.ll-feat i { font-size: 1.1rem; color: rgba(255,255,255,.65); flex-shrink: 0; }
+.ll-feat i { font-size: 1.2rem; color: rgba(255,255,255,.7); flex-shrink: 0; }
 .ll-orb {
   position: absolute; border-radius: 50%;
   background: rgba(255,255,255,.07); pointer-events: none;
 }
-.ll-orb1 { width: 440px; height: 440px; top: -160px; right: -180px; }
-.ll-orb2 { width: 280px; height: 280px; bottom: -100px; left: -80px; }
+.ll-orb1 { width: 500px; height: 500px; top: -180px; right: -200px; }
+.ll-orb2 { width: 300px; height: 300px; bottom: -110px; left: -90px; }
 
 /* Right form panel */
 .login-right {
@@ -649,7 +652,7 @@ input, textarea, select { font-family: var(--font); }
   padding: 2.5rem 2rem; overflow-y: auto; background: var(--bg);
 }
 .login-card {
-  width: 100%; max-width: 400px;
+  width: 100%; max-width: 420px;
   animation: fadeUp .4s ease;
 }
 
@@ -658,40 +661,44 @@ input, textarea, select { font-family: var(--font); }
   display: none; align-items: center; gap: 9px; margin-bottom: 2rem;
 }
 .lc-logo-sm {
-  width: 32px; height: 32px; border-radius: 8px;
+  width: 34px; height: 34px; border-radius: 9px;
   background: var(--teal);
   display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
-.lc-logo-sm img { width: 20px; height: 20px; object-fit: contain; filter: brightness(0) invert(1); }
-.lc-brand-mob span { font-size: 1.1rem; font-weight: 800; color: var(--text1); letter-spacing: -.03em; }
+.lc-logo-sm img { width: 22px; height: 22px; object-fit: contain; filter: brightness(0) invert(1); }
+.lc-brand-mob span {
+  font-family: 'Syne', var(--font);
+  font-size: 1.2rem; font-weight: 800; color: var(--text1); letter-spacing: -.03em;
+}
 
 /* Heading */
 .login-card h1 {
-  font-size: 1.75rem; font-weight: 800; color: var(--text1);
-  letter-spacing: -.04em; margin-bottom: .4rem;
+  font-family: 'Syne', var(--font);
+  font-size: 2.1rem; font-weight: 800; color: var(--text1);
+  letter-spacing: -.03em; margin-bottom: .5rem;
 }
 .login-card > p {
-  color: var(--text3); font-size: .9rem; margin-bottom: 1.75rem;
+  color: var(--text3); font-size: 1rem; margin-bottom: 1.85rem;
 }
 
 /* Auth tabs — underline style */
 .auth-tabs {
-  display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1.75rem;
+  display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1.85rem;
 }
 .auth-tab {
-  flex: 1; padding: 9px 0; background: none; border: none;
+  flex: 1; padding: 10px 0; background: none; border: none;
   border-bottom: 2px solid transparent; margin-bottom: -1px;
-  font-size: .9rem; font-weight: 600; color: var(--text3);
+  font-size: .95rem; font-weight: 600; color: var(--text3);
   cursor: pointer; transition: var(--transition); font-family: var(--font);
 }
 .auth-tab:hover { color: var(--text1); }
 .auth-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
 
 /* Field */
-.field { margin-bottom: 1rem; }
+.field { margin-bottom: 1.1rem; }
 .field label {
-  display: block; font-size: .72rem; font-weight: 600;
-  color: var(--text3); margin-bottom: 6px;
+  display: block; font-size: .78rem; font-weight: 600;
+  color: var(--text3); margin-bottom: 7px;
   text-transform: uppercase; letter-spacing: .06em;
 }
 
@@ -707,19 +714,19 @@ input, textarea, select { font-family: var(--font); }
   box-shadow: 0 0 0 3px rgba(13,122,95,.1);
 }
 .field-ic > i.ti {
-  font-size: 16px; color: var(--text4);
-  padding: 0 0 0 13px; flex-shrink: 0;
+  font-size: 17px; color: var(--text4);
+  padding: 0 0 0 14px; flex-shrink: 0;
 }
 .field-ic input {
   flex: 1; border: none; background: transparent;
-  padding: 11px 13px; color: var(--text1);
-  font-size: .9rem; outline: none; font-family: var(--font);
+  padding: 12px 14px; color: var(--text1);
+  font-size: .95rem; outline: none; font-family: var(--font);
 }
 .field-ic input::placeholder { color: var(--text4); }
 .field-eye {
-  background: none; border: none; padding: 0 13px;
+  background: none; border: none; padding: 0 14px;
   color: var(--text4); cursor: pointer;
-  font-size: 16px; display: flex; align-items: center;
+  font-size: 17px; display: flex; align-items: center;
   transition: color .15s; flex-shrink: 0;
 }
 .field-eye:hover { color: var(--text2); }
@@ -727,8 +734,8 @@ input, textarea, select { font-family: var(--font); }
 /* Old plain input fallback */
 .field input:not([class]) {
   width: 100%; background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 10px 13px;
-  color: var(--text1); font-size: .9rem; outline: none;
+  border-radius: var(--radius); padding: 12px 14px;
+  color: var(--text1); font-size: .95rem; outline: none;
   transition: var(--transition);
 }
 .field input:not([class]):focus { border-color: var(--teal); }
@@ -736,15 +743,15 @@ input, textarea, select { font-family: var(--font); }
 
 /* Error */
 .login-err {
-  font-size: .8rem; color: var(--red);
+  font-size: .84rem; color: var(--red);
   min-height: 18px; margin-bottom: 10px; text-align: center;
 }
 
 /* Submit button */
 .btn-login {
   width: 100%; background: var(--teal); color: #fff;
-  border: none; border-radius: var(--radius); padding: 13px;
-  font-size: .95rem; font-weight: 700; cursor: pointer;
+  border: none; border-radius: var(--radius); padding: 14px;
+  font-size: 1rem; font-weight: 700; cursor: pointer;
   font-family: var(--font); letter-spacing: -.01em;
   transition: opacity .2s, transform .1s;
 }
@@ -777,20 +784,20 @@ input, textarea, select { font-family: var(--font); }
 
 /* Footer note */
 .login-note {
-  text-align: center; font-size: .74rem; color: var(--text4);
-  margin-top: 1rem; line-height: 1.5;
+  text-align: center; font-size: .8rem; color: var(--text4);
+  margin-top: 1.1rem; line-height: 1.5;
 }
 .auth-or {
-  display:flex; align-items:center; gap:10px; margin:14px 0 10px;
-  color:var(--text4); font-size:.74rem;
+  display:flex; align-items:center; gap:10px; margin:16px 0 12px;
+  color:var(--text4); font-size:.8rem;
 }
 .auth-or::before, .auth-or::after {
   content:''; flex:1; height:1px; background:var(--border);
 }
 .btn-google {
   display:flex; align-items:center; justify-content:center; gap:10px; width:100%;
-  padding:10px; border:1.5px solid var(--border); border-radius:var(--radius);
-  background:var(--bg); color:var(--fg); font-family:var(--font); font-size:.86rem;
+  padding:11px; border:1.5px solid var(--border); border-radius:var(--radius);
+  background:var(--bg); color:var(--fg); font-family:var(--font); font-size:.92rem;
   font-weight:600; cursor:pointer; text-decoration:none; transition:background .15s;
 }
 .btn-google:hover { background:var(--bg2); }
@@ -828,7 +835,7 @@ input, textarea, select { font-family: var(--font); }
   .login-left   { display: none; }
   .login-right  { width: 100%; padding: 2rem 1.25rem; }
   .lc-brand-mob { display: flex; }
-  .login-card h1 { font-size: 1.5rem; }
+  .login-card h1 { font-size: 1.65rem; }
 }
 
 /* ── PROFILE DROPDOWN ──────────────────────────────────────── */

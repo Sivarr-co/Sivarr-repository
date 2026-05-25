@@ -5066,7 +5066,7 @@ async def org_founder_save(data: dict):
     return {"ok": True}
 
 
-# ── SIVA AI Org Briefing ───────────────────────────────────────────────────────
+# ── SIVARR AI Org Briefing ───────────────────────────────────────────────────────
 
 @app.post("/api/org/ai/briefing")
 async def org_ai_briefing(data: dict):

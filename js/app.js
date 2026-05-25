@@ -4329,7 +4329,7 @@ async function loadHome() {
   const activeGoals  = goals.filter(g => !g.completed);
   const streak       = _getActivityStreak();
 
-  // ── SIVA brief (AI-generated, cached per day) ─────────────────
+  // ── SIVARR brief (AI-generated, cached per day) ─────────────────
   const briefMsg = $('home-brief-msg');
   if (briefMsg) {
     const briefKey = `sivarr_brief_${S.sid}_${today8601}`;
@@ -8106,7 +8106,7 @@ function qcCapture(type) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// FEATURE 2 — DAILY SIVA BRIEF
+// FEATURE 2 — DAILY SIVARR BRIEF
 // ═══════════════════════════════════════════════════════════════
 
 function briefCheck() {
@@ -8135,7 +8135,7 @@ function briefBuild() {
   const dateEl = $('brief-date-line');
   if (dateEl) dateEl.textContent = day;
 
-  // Build SIVA message
+  // Build SIVARR message
   let msg = `Here's your day at a glance, ${firstName}. `;
   const tasks      = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]').filter(t => !t.done);
   const habits     = JSON.parse(localStorage.getItem(`sivarr_habits_${S.sid}`) || '[]');

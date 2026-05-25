@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIVARR — Security Architecture & Developer Guide</title>
+<style>
+  /* ── Print / PDF layout ── */
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  @media print {
+    .no-print { display: none !important; }
+    section   { page-break-inside: avoid; }
+    h2        { page-break-after: avoid; }
+    .page-break { page-break-before: always; }
+  }
+
+  /* ── Base ── */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 13px; line-height: 1.65; color: #1a1a1a;
+    background: #fff; max-width: 780px; margin: 0 auto; padding: 32px 24px;
+  }
+
+  /* ── Cover ── */
+  .cover {
+    text-align: center; padding: 60px 0 48px;
+    border-bottom: 3px solid #0D7A5F; margin-bottom: 40px;
+  }
+  .cover .logo {
+    font-size: 2.6rem; font-weight: 900; color: #0D7A5F;
+    letter-spacing: -.05em; margin-bottom: 6px;
+  }
+  .cover .subtitle {
+    font-size: 1.05rem; font-weight: 600; color: #444; margin-bottom: 4px;
+  }
+  .cover .meta { font-size: .8rem; color: #888; }
+  .cover .version {
+    display: inline-block; margin-top: 18px; background: #0D7A5F;
+    color: #fff; padding: 4px 16px; border-radius: 20px;
+    font-size: .75rem; font-weight: 700; letter-spacing: .06em;
+  }
+
+  /* ── TOC ── */
+  .toc { background: #f7faf9; border-left: 4px solid #0D7A5F;
+         padding: 18px 22px; border-radius: 0 8px 8px 0; margin-bottom: 36px; }
+  .toc h3 { font-size: .85rem; text-transform: uppercase; letter-spacing: .08em;
+             color: #0D7A5F; margin-bottom: 10px; }
+  .toc ol { padding-left: 18px; }
+  .toc li { margin-bottom: 3px; font-size: .82rem; color: #333; }
+
+  /* ── Section headings ── */
+  h1 { font-size: 1.5rem; font-weight: 800; color: #0D7A5F;
+       border-bottom: 2px solid #0D7A5F; padding-bottom: 6px; margin-bottom: 18px; }
+  h2 { font-size: 1.05rem; font-weight: 700; color: #0D7A5F;
+       margin: 28px 0 10px; }
+  h3 { font-size: .9rem; font-weight: 700; color: #1a1a1a; margin: 18px 0 6px; }
+  p  { margin-bottom: 10px; }
+  ul, ol { padding-left: 20px; margin-bottom: 10px; }
+  li { margin-bottom: 4px; }
+  section { margin-bottom: 32px; }
+
+  /* ── Code / inline code ── */
+  code {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: .82rem; background: #f0f4f2; border: 1px solid #d5e8df;
+    border-radius: 4px; padding: 1px 5px; color: #0a5940;
+  }
+  pre {
+    background: #0f1f1a; color: #a8ffd4; border-radius: 8px;
+    padding: 14px 16px; font-size: .78rem; overflow-x: auto;
+    line-height: 1.55; margin: 10px 0 14px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    border-left: 4px solid #0D7A5F;
+  }
+  pre .c  { color: #4ade80; }   /* green — OK */
+  pre .r  { color: #f87171; }   /* red — bad/old */
+  pre .y  { color: #fbbf24; }   /* yellow — warning */
+
+  /* ── Callout boxes ── */
+  .callout {
+    border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: .83rem;
+  }
+  .callout.green  { background: #f0faf5; border-left: 4px solid #0D7A5F; }
+  .callout.red    { background: #fff5f5; border-left: 4px solid #e53e3e; }
+  .callout.yellow { background: #fffbeb; border-left: 4px solid #d97706; }
+  .callout.blue   { background: #eff6ff; border-left: 4px solid #3b82f6; }
+  .callout strong { display: block; margin-bottom: 4px; font-size: .82rem;
+                    text-transform: uppercase; letter-spacing: .05em; }
+
+  /* ── Severity badges ── */
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 12px;
+    font-size: .7rem; font-weight: 700; letter-spacing: .04em;
+    vertical-align: middle; margin-left: 6px;
+  }
+  .badge.high   { background: #fee2e2; color: #b91c1c; }
+  .badge.medium { background: #fef3c7; color: #92400e; }
+  .badge.low    { background: #e0f2fe; color: #075985; }
+  .badge.fixed  { background: #dcfce7; color: #166534; }
+  .badge.info   { background: #f3e8ff; color: #6b21a8; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: .8rem; }
+  th { background: #0D7A5F; color: #fff; padding: 7px 10px; text-align: left; font-size: .75rem; }
+  td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  tr:nth-child(even) td { background: #f9fafb; }
+
+  /* ── Checklist ── */
+  .checklist li { list-style: none; padding-left: 0; margin-bottom: 6px; }
+  .checklist li::before { content: "☐ "; color: #0D7A5F; font-weight: 700; }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center; font-size: .72rem; color: #aaa;
+    border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 48px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ COVER ═══════════════ -->
+<div class="cover">
+  <div class="logo">SIVARR</div>
+  <div class="subtitle">Security Architecture &amp; Developer Guide</div>
+  <div class="meta">Confidential — Internal Use Only &nbsp;·&nbsp; Last updated: 25 May 2026</div>
+  <div class="version">v1.0 — Post-Hardening Edition</div>
+</div>
+
+<!-- ═══════════════ TABLE OF CONTENTS ═══════════════ -->
+<div class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li>Security Architecture Overview</li>
+    <li>Authentication System</li>
+    <li>Session Management</li>
+    <li>Admin &amp; Lecturer Sessions</li>
+    <li>Email Verification Gate</li>
+    <li>Account Lockout</li>
+    <li>Authorization &amp; Ownership Checks</li>
+    <li>Input Validation &amp; Sanitization</li>
+    <li>XSS Protection (DOMPurify)</li>
+    <li>CORS Policy</li>
+    <li>Rate Limiting</li>
+    <li>Paystack Payment Security</li>
+    <li>File Upload Security</li>
+    <li>Password Policies</li>
+    <li>Known Remaining Items</li>
+    <li>Checklist for Future Features</li>
+    <li>Environment Variables Reference</li>
+  </ol>
+</div>
+
+<!-- ═══════════════ 1. OVERVIEW ═══════════════ -->
+<section>
+<h1>1. Security Architecture Overview</h1>
+<p>SIVARR is a FastAPI (Python) backend + Vanilla JS/HTML/CSS frontend hosted on Railway with a PostgreSQL database. The security model operates on four layers:</p>
+
+<table>
+  <tr><th>Layer</th><th>Mechanism</th><th>Where</th></tr>
+  <tr><td><strong>Transport</strong></td><td>HTTPS enforced by Railway TLS termination</td><td>Infrastructure</td></tr>
+  <tr><td><strong>Authentication</strong></td><td>bcrypt passwords + random session tokens (DB-backed)</td><td><code>app.py</code></td></tr>
+  <tr><td><strong>Authorization</strong></td><td>Org ownership checked on every mutation</td><td><code>app.py</code> + <code>database.py</code></td></tr>
+  <tr><td><strong>Output Safety</strong></td><td>DOMPurify on all AI-generated HTML; <code>esc()</code> on user data</td><td><code>app.js</code></td></tr>
+</table>
+
+<div class="callout green">
+  <strong>Core principle</strong>
+  Every piece of user-supplied data is treated as untrusted until explicitly validated. Org resources are scoped with <code>AND org_id = %s</code> at the SQL level. Token verification is always constant-time.
+</div>
+</section>
+
+<!-- ═══════════════ 2. AUTHENTICATION ═══════════════ -->
+<section>
+<h1>2. Authentication System</h1>
+
+<h2>User Registration &amp; Login — <code>/api/login</code></h2>
+<p>A single endpoint handles both actions via <code>req.action = "register" | "login"</code>.</p>
+
+<h3>Password hashing</h3>
+<p>All passwords are hashed using <strong>bcrypt</strong> with a randomly generated salt before storage. Plain-text passwords are never written to disk or database.</p>
+<pre>
+<span class="c"># ✓ Correct — always do this</span>
+hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+<span class="r"># ✗ Never store plain text</span>
+user["password"] = password
+</pre>
+
+<h3>Adding a new login provider</h3>
+<p>If you add OAuth (Google, GitHub, etc.), follow this pattern:</p>
+<ul>
+  <li>Generate or look up a user record by email — never trust the OAuth token's sub-claim without verifying the audience.</li>
+  <li>Issue a <strong>Sivarr</strong> session token (via <code>create_session_token</code>) after OAuth verification. Do not use the OAuth access token as a Sivarr session.</li>
+  <li>Store the OAuth refresh token encrypted at rest (see Section 15 — Known Remaining Items).</li>
+</ul>
+
+<h3>Validation rules enforced</h3>
+<ul>
+  <li>Name: 2–80 characters, letters/spaces/hyphens/apostrophes only</li>
+  <li>Password: minimum 8 characters (both registration and reset)</li>
+  <li>Email: validated by Pydantic validator, lowercased, deduplicated</li>
+  <li>Passwords confirmed on registration (<code>confirm_password</code> field)</li>
+</ul>
+</section>
+
+<!-- ═══════════════ 3. SESSION MANAGEMENT ═══════════════ -->
+<section class="page-break">
+<h1>3. Session Management</h1>
+
+<h3>How tokens work</h3>
+<p>On successful login, a <strong>32-byte URL-safe random token</strong> is generated via <code>secrets.token_urlsafe(32)</code>. It is stored in:</p>
+<ol>
+  <li>An in-memory dict <code>_session_tokens</code> (fast path)</li>
+  <li>The PostgreSQL <code>sessions</code> table (persistence across restarts)</li>
+</ol>
+<p>The token is returned to the browser and stored in <code>localStorage</code> as <code>sivarr_token</code>. Every subsequent API call includes it in the POST body as <code>"token": "..."</code>.</p>
+
+<table>
+  <tr><th>Property</th><th>Value</th></tr>
+  <tr><td>Token entropy</td><td>256 bits (32 bytes)</td></tr>
+  <tr><td>Lifetime</td><td>30 days (<code>SESSION_TTL_DAYS</code>)</td></tr>
+  <tr><td>Storage (server)</td><td>In-memory dict + PostgreSQL <code>sessions</code> table</td></tr>
+  <tr><td>Storage (client)</td><td><code>localStorage</code> (not HttpOnly cookie — see Section 15)</td></tr>
+  <tr><td>Cleanup</td><td><code>cleanup_expired_tokens()</code> runs on every login</td></tr>
+</table>
+
+<h3>Validating a token in a new endpoint</h3>
+<pre>
+<span class="c"># Pattern used throughout app.py</span>
+entry = get_session_from_token(sanitize_text(token, 100))
+if not entry:
+    raise HTTPException(401, "Session expired. Please sign in again.")
+sid = entry["sid"]
+</pre>
+
+<div class="callout yellow">
+  <strong>Important</strong>
+  Always sanitize the token string with <code>sanitize_text(token, 100)</code> before passing it to <code>get_session_from_token()</code>. Never call it with raw user input.
+</div>
+
+<h3>Revoking a session (logout)</h3>
+<pre>
+delete_session_token(token)   <span class="c"># removes from memory + DB</span>
+</pre>
+</section>
+
+<!-- ═══════════════ 4. ADMIN & LECTURER SESSIONS ═══════════════ -->
+<section>
+<h1>4. Admin &amp; Lecturer Sessions</h1>
+<p>Admin and lecturer portals use <strong>separate short-lived sessions</strong> independent of the user session system.</p>
+
+<table>
+  <tr><th>Property</th><th>Value</th></tr>
+  <tr><td>Token prefix</td><td><code>adm_</code> (admin), <code>lec_</code> (lecturer)</td></tr>
+  <tr><td>Entropy</td><td>256 bits</td></tr>
+  <tr><td>Lifetime</td><td>2 hours (<code>_PRIV_SESSION_TTL</code>)</td></tr>
+  <tr><td>Storage</td><td>In-memory only (<code>_admin_sessions</code>, <code>_lecturer_sessions</code>)</td></tr>
+  <tr><td>Validation</td><td><code>_is_valid_admin_session(token)</code> / <code>_is_valid_lecturer_session(token)</code></td></tr>
+</table>
+
+<h3>Protecting a new admin endpoint</h3>
+<pre>
+@app.get("/api/admin/my-new-endpoint")
+async def my_endpoint(token: str):
+    if not _is_valid_admin_session(token):
+        raise HTTPException(401, "Unauthorized")
+    <span class="c"># ... your logic here</span>
+</pre>
+
+<h3>Protecting a new lecturer endpoint</h3>
+<pre>
+@app.post("/api/lecturer/my-endpoint")
+async def my_endpoint(data: dict):
+    verify_lecturer(data.get("token", ""))   <span class="c"># raises 401 if invalid/expired</span>
+    <span class="c"># ... your logic here</span>
+</pre>
+
+<div class="callout red">
+  <strong>Never do this</strong>
+  Do not recreate HMAC-derived tokens. The old pattern <code>"admin_" + hmac(password)[:16]</code> was permanently valid if leaked. All admin/lecturer checks now use the session functions above.
+</div>
+
+<h3>Session expiry notice</h3>
+<p>Admin and lecturer sessions expire after 2 hours. The admin dashboard JavaScript should check for <code>401</code> responses and redirect to the login page when the session expires.</p>
+</section>
+
+<!-- ═══════════════ 5. EMAIL VERIFICATION ═══════════════ -->
+<section class="page-break">
+<h1>5. Email Verification Gate</h1>
+<p>New users receive a verification email on registration. <strong>Login is blocked until the email is verified.</strong></p>
+
+<h3>Flow</h3>
+<ol>
+  <li>User registers → verification email sent in background via Resend.</li>
+  <li>User tries to log in with unverified email → backend sends a <em>fresh</em> verification link automatically and returns <code>403 "email_not_verified"</code>.</li>
+  <li>Frontend shows: <em>"Your email isn't verified yet. A new link has been sent — check your inbox."</em></li>
+  <li>User clicks the link → <code>/api/auth/verify-email/{token}</code> → marks email verified in DB → redirects to <code>/?verified=1</code>.</li>
+  <li>User logs in successfully.</li>
+</ol>
+
+<h3>Adding a new email-sending action</h3>
+<p>Use the <code>send_email(to, subject, html_body)</code> helper. Always wrap it in <code>bg.add_task()</code> so it doesn't block the HTTP response.</p>
+<pre>
+@app.post("/api/some-action")
+async def some_action(data: dict, bg: BackgroundTasks):
+    <span class="c"># ... logic ...</span>
+    bg.add_task(send_email, user_email, "Subject", html_body)
+    return {"ok": True}
+</pre>
+
+<h3>DB functions</h3>
+<ul>
+  <li><code>db.create_email_verify_token(sid, email)</code> — create a one-time token</li>
+  <li><code>db.mark_email_verified(sid)</code> — mark verified</li>
+  <li><code>db.is_email_verified(sid)</code> — returns bool; always check <code>db.is_available()</code> first</li>
+</ul>
+
+<div class="callout blue">
+  <strong>Note — DB unavailability</strong>
+  The verification gate is only enforced when the database is reachable. If <code>db.is_available()</code> returns <code>False</code>, login proceeds without the check. This prevents a DB outage from locking all users out.
+</div>
+</section>
+
+<!-- ═══════════════ 6. ACCOUNT LOCKOUT ═══════════════ -->
+<section>
+<h1>6. Account Lockout</h1>
+<p>After <strong>10 consecutive failed password attempts</strong> for a given email address, the account is locked for <strong>15 minutes</strong>.</p>
+
+<table>
+  <tr><th>Setting</th><th>Variable</th><th>Default</th></tr>
+  <tr><td>Max attempts before lock</td><td><code>LOGIN_LOCK_ATTEMPTS</code></td><td>10</td></tr>
+  <tr><td>Lock duration</td><td><code>LOGIN_LOCK_MINUTES</code></td><td>15 minutes</td></tr>
+  <tr><td>Storage</td><td><code>_failed_logins</code> dict</td><td>In-memory</td></tr>
+</table>
+
+<div class="callout yellow">
+  <strong>Restart caveat</strong>
+  Because <code>_failed_logins</code> is in-memory, a Railway redeploy resets all counters. If persistence across restarts is required, migrate the failed-login counter to the PostgreSQL <code>users</code> table with a <code>failed_attempts</code> column and a <code>locked_until</code> timestamp.
+</div>
+
+<h3>How it interacts with rate limiting</h3>
+<p>Two independent controls protect the login endpoint:</p>
+<ul>
+  <li><strong>IP rate limit</strong> (<code>check_rate_limit</code>) — limits requests per IP regardless of account</li>
+  <li><strong>Account lockout</strong> (<code>_check_account_lockout</code>) — limits attempts per email regardless of IP</li>
+</ul>
+<p>Both must pass before the password is checked. This blocks both single-IP brute force and distributed attacks across many IPs targeting one account.</p>
+</section>
+
+<!-- ═══════════════ 7. AUTHORIZATION ═══════════════ -->
+<section class="page-break">
+<h1>7. Authorization &amp; Ownership Checks</h1>
+<p>Every endpoint that reads or mutates org data follows this pattern:</p>
+
+<pre>
+sid, _ = _resolve_token(data)                   <span class="c"># 1. authenticate</span>
+org = db.get_org_by_member(sid)                 <span class="c"># 2. look up caller's org</span>
+if not org: raise HTTPException(404, "No org") <span class="c"># 3. confirm membership</span>
+
+<span class="c"># 4. pass org_id into the DB query — enforced at SQL level</span>
+db.update_org_task(task_id, updates, org["id"])
+</pre>
+
+<h3>SQL ownership enforcement</h3>
+<p>All org mutation functions in <code>database.py</code> include <code>AND org_id = %s</code> in the WHERE clause so that even if a bug slips through the application layer, the database rejects cross-org modifications:</p>
+<pre>
+UPDATE org_tasks SET ... WHERE id = %s <span class="c">AND org_id = %s</span>
+DELETE FROM org_docs  WHERE id = %s <span class="c">AND org_id = %s</span>
+</pre>
+
+<h3>Adding a new org resource endpoint</h3>
+<p>Use this template — do not skip any step:</p>
+<pre>
+@app.post("/api/org/myresource/update")
+async def my_resource_update(data: dict):
+    sid, _ = _resolve_token(data)                        <span class="c"># auth</span>
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)                      <span class="c"># ownership</span>
+    if not org:
+        raise HTTPException(404, "No organization found.")
+    resource_id = sanitize_text(str(data.get("id", "")), 40)
+    if not resource_id:
+        raise HTTPException(400, "id required.")
+    db.update_my_resource(resource_id, updates, org["id"]) <span class="c"># scoped query</span>
+    return {"ok": True}
+</pre>
+
+<h3>Role-based actions (owner/admin only)</h3>
+<pre>
+org = db.get_org_by_member(sid)
+role = org.get("member_role", "member")   <span class="c"># from DB, not from client</span>
+if role not in ("owner", "admin"):
+    raise HTTPException(403, "Admins only.")
+</pre>
+
+<div class="callout red">
+  <strong>Never do this</strong>
+  Do not read <code>org_id</code> or <code>org_role</code> from the user's progress file (<code>load_progress(sid)</code>). That file is user-writable. Always derive org identity from <code>db.get_org_by_member(sid)</code>.
+</div>
+</section>
+
+<!-- ═══════════════ 8. INPUT VALIDATION ═══════════════ -->
+<section>
+<h1>8. Input Validation &amp; Sanitization</h1>
+
+<h3>sanitize_text(value, max_len)</h3>
+<p>All text inputs from the client must pass through <code>sanitize_text()</code> before use. It strips null bytes, control characters, and truncates to the specified max length.</p>
+<pre>
+title   = sanitize_text(str(data.get("title", "")), 200)
+content = sanitize_text(str(data.get("content", "")), 50000)
+</pre>
+
+<h3>SQL injection prevention</h3>
+<p>All database queries use parameterized statements with <code>psycopg2</code>. Never build SQL strings by concatenating user input.</p>
+<pre>
+<span class="c"># ✓ Safe — parameterized</span>
+cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+
+<span class="r"># ✗ Never do this</span>
+cur.execute(f"SELECT * FROM users WHERE email = '{email}'")
+</pre>
+
+<h3>Dynamic SET clauses (update functions)</h3>
+<p>When building dynamic UPDATE queries (e.g. <code>update_org_task</code>), column names come from an explicit allowlist, never from user input directly:</p>
+<pre>
+allowed = {"title", "description", "status", "priority"}
+sets = {k: v for k, v in data.items() if k in allowed}
+cols = ", ".join(f"{k}=%s" for k in sets)   <span class="c"># column name is our constant</span>
+cur.execute(f"UPDATE ... SET {cols} WHERE id=%s AND org_id=%s", ...)
+</pre>
+
+<h3>Pydantic models for structured requests</h3>
+<p>Request bodies that use Pydantic <code>BaseModel</code> are validated automatically. For endpoints that accept a raw <code>dict</code>, manually sanitize every field you use.</p>
+</section>
+
+<!-- ═══════════════ 9. XSS PROTECTION ═══════════════ -->
+<section class="page-break">
+<h1>9. XSS Protection</h1>
+
+<h3>Backend — template rendering</h3>
+<p>All user-facing HTML email templates use f-strings with direct variable insertion. Any field that comes from user input must be passed through Python's <code>html.escape()</code> before inserting into email HTML.</p>
+
+<h3>Frontend — esc() function</h3>
+<p>The <code>esc(str)</code> helper in <code>app.js</code> HTML-escapes all user-supplied data before inserting it via <code>innerHTML</code>:</p>
+<pre>
+<span class="c">// ✓ Safe</span>
+el.innerHTML = `&lt;div&gt;${esc(user.name)}&lt;/div&gt;`;
+
+<span class="r">// ✗ Never for user data</span>
+el.innerHTML = `&lt;div&gt;${user.name}&lt;/div&gt;`;
+</pre>
+
+<h3>AI-generated content — DOMPurify</h3>
+<p>AI responses (Gemini) are passed through <code>renderMarkdown()</code> which produces HTML. The output is then sanitized by <strong>DOMPurify</strong> before assignment to <code>innerHTML</code>:</p>
+<pre>
+function renderMarkdown(text) {
+  let h = text
+    .replace(/```...```/g, ...)       <span class="c">// code blocks — esc() applied</span>
+    .replace(/`([^`]+)`/g, (_, c) =>  <span class="c">// inline code — esc() applied</span>
+      `&lt;code&gt;${esc(c)}&lt;/code&gt;`)
+    ...
+  return typeof DOMPurify !== 'undefined'
+    ? DOMPurify.sanitize(h, { FORCE_BODY: true })  <span class="c">// final safety net</span>
+    : h;
+}
+</pre>
+
+<h3>Rules for new UI features</h3>
+<ul>
+  <li>Use <code>textContent</code> by default. Only use <code>innerHTML</code> when rendering rich content.</li>
+  <li>If using <code>innerHTML</code> with any server-originated data, wrap with <code>DOMPurify.sanitize()</code>.</li>
+  <li>If using <code>innerHTML</code> with user-typed input, always run through <code>esc()</code>.</li>
+  <li>Never use <code>eval()</code>, <code>Function()</code>, or <code>document.write()</code>.</li>
+</ul>
+</section>
+
+<!-- ═══════════════ 10. CORS ═══════════════ -->
+<section>
+<h1>10. CORS Policy</h1>
+<p>CORS is locked to an explicit list of allowed origins. Wildcard <code>*</code> was removed.</p>
+
+<pre>
+_cors_origins = list({o.strip() for o in [
+    BASE_URL.rstrip("/"),
+    "https://sivarr-repository-production.up.railway.app",
+    "https://sivarr.app",
+] if o.strip()})
+
+app.add_middleware(CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+    allow_credentials=False,
+)
+</pre>
+
+<h3>Adding a new domain</h3>
+<p>If SIVARR gets a custom domain or a staging environment, add it to <code>_cors_origins</code> in <code>app.py</code>. Never add <code>"*"</code>.</p>
+
+<div class="callout yellow">
+  <strong>Local development</strong>
+  For local testing add <code>"http://localhost:8000"</code> to <code>_cors_origins</code> during development, then remove it before deploying to production.
+</div>
+</section>
+
+<!-- ═══════════════ 11. RATE LIMITING ═══════════════ -->
+<section class="page-break">
+<h1>11. Rate Limiting</h1>
+
+<table>
+  <tr><th>Endpoint group</th><th>Variable</th><th>Default limit</th></tr>
+  <tr><td>Login / Register</td><td><code>RATE_LIMIT_LOGIN</code></td><td>10 / window</td></tr>
+  <tr><td>AI Chat</td><td><code>RATE_LIMIT_CHAT</code></td><td>Env-configured</td></tr>
+  <tr><td>Quiz generation</td><td><code>RATE_LIMIT_QUIZ</code></td><td>Env-configured</td></tr>
+  <tr><td>Admin login</td><td>Hardcoded</td><td>5 / window</td></tr>
+  <tr><td>Lecturer login</td><td>Hardcoded</td><td>5 / window</td></tr>
+  <tr><td>Suggestions</td><td>Hardcoded</td><td>5 / window</td></tr>
+</table>
+
+<h3>Using rate limiting in a new endpoint</h3>
+<pre>
+@app.post("/api/my-endpoint")
+async def my_endpoint(data: dict, request: Request):
+    key = get_client_key(request, data.get("sid", ""))
+    check_rate_limit(key, 20, "my_endpoint")   <span class="c"># 20 req / window per client</span>
+    <span class="c"># ... logic</span>
+</pre>
+
+<p>Rate limits can be tuned via environment variables. Set <code>RATE_LIMIT_LOGIN</code>, <code>RATE_LIMIT_CHAT</code>, <code>RATE_LIMIT_QUIZ</code> on Railway to override defaults.</p>
+</section>
+
+<!-- ═══════════════ 12. PAYSTACK SECURITY ═══════════════ -->
+<section>
+<h1>12. Paystack Payment Security</h1>
+
+<h3>Webhook verification</h3>
+<p>The Paystack webhook at <code>/api/webhooks/paystack</code> verifies every incoming request using HMAC-SHA512 with the <code>PAYSTACK_WEBHOOK_SECRET</code>. Never process a webhook event without this check.</p>
+
+<h3>Secret key storage</h3>
+<p>Org-level Paystack keys are stored in the <code>org_integrations</code> table. The secret key is:</p>
+<ul>
+  <li>Validated against the live Paystack API before being saved</li>
+  <li>Never returned to the browser in any response</li>
+  <li>Accessed only by server-side proxy endpoints</li>
+</ul>
+
+<h3>Payment verification rule</h3>
+<p>When verifying a Paystack transaction, only the <strong>authenticated session's SID</strong> is used as the buyer identity. The <code>metadata.buyer_sid</code> field (which comes from the client) is ignored:</p>
+<pre>
+<span class="r"># ✗ Old — trusted client-controlled metadata</span>
+buyer_sid = meta.get("buyer_sid", "") or sid or ""
+
+<span class="c"># ✓ New — only the authenticated session</span>
+buyer_sid = sid or ""
+</pre>
+
+<h3>Adding a new payment flow</h3>
+<ul>
+  <li>Always initialize payments server-side and embed <code>buyer_sid = sid</code> (from the authenticated session) in metadata.</li>
+  <li>Always verify the transaction status with the Paystack API server-side before granting access.</li>
+  <li>Use idempotency: check <code>db.check_payment_reference(reference)</code> before processing to prevent double-grants.</li>
+</ul>
+</section>
+
+<!-- ═══════════════ 13. FILE UPLOAD SECURITY ═══════════════ -->
+<section class="page-break">
+<h1>13. File Upload Security</h1>
+
+<p>The current upload endpoint (<code>/api/upload</code>) accepts <code>.txt</code>, <code>.pdf</code>, and <code>.md</code> files. Validation is extension-based.</p>
+
+<div class="callout yellow">
+  <strong>Known gap</strong>
+  MIME type and magic-byte validation is not yet implemented. A file can be renamed to bypass the extension check. For the current code paths (text decode + pypdf parse), the practical risk is low, but this should be hardened if uploads are ever served back to other users.
+</div>
+
+<h3>Rules for any new upload endpoint</h3>
+<ul>
+  <li>Validate both the file extension <em>and</em> the <code>Content-Type</code> header.</li>
+  <li>Read the first 8 bytes of the file and check magic bytes (e.g. PDF starts with <code>%PDF-</code>).</li>
+  <li>Never execute or serve uploaded files from the same origin without content-type sniffing disabled.</li>
+  <li>Store uploaded files outside the web root, or use Railway volumes / cloud object storage.</li>
+  <li>Enforce a file size limit before reading content into memory.</li>
+</ul>
+
+<pre>
+<span class="c"># Example magic-byte check for PDF</span>
+content = await file.read(8)
+if not content.startswith(b"%PDF-"):
+    raise HTTPException(400, "Invalid PDF file.")
+</pre>
+</section>
+
+<!-- ═══════════════ 14. PASSWORD POLICIES ═══════════════ -->
+<section>
+<h1>14. Password Policies</h1>
+
+<table>
+  <tr><th>Rule</th><th>Registration</th><th>Password Reset</th></tr>
+  <tr><td>Minimum length</td><td>8 characters</td><td>8 characters</td></tr>
+  <tr><td>Confirmation required</td><td>Yes</td><td>No</td></tr>
+  <tr><td>Algorithm</td><td>bcrypt</td><td>bcrypt</td></tr>
+  <tr><td>Reset token expiry</td><td>—</td><td>DB-controlled</td></tr>
+</table>
+
+<h3>Reset flow</h3>
+<ol>
+  <li><code>POST /api/auth/forgot-password</code> — sends a reset link to the email on file.</li>
+  <li>User clicks link → <code>POST /api/auth/reset-password</code> with token + new password.</li>
+  <li>Token is single-use: <code>db.mark_reset_token_used(token)</code> is called immediately after use.</li>
+</ol>
+
+<div class="callout blue">
+  <strong>Future hardening</strong>
+  Consider adding a complexity requirement (at least one number + one symbol). The current 8-character minimum is a baseline. You can add a <code>_validate_password_strength(password)</code> helper and call it from both the registration and reset endpoints.
+</div>
+</section>
+
+<!-- ═══════════════ 15. KNOWN REMAINING ITEMS ═══════════════ -->
+<section class="page-break">
+<h1>15. Known Remaining Items</h1>
+<p>These issues are documented and understood. They are not actively exploitable under current usage patterns but should be addressed as the platform grows.</p>
+
+<table>
+  <tr><th>ID</th><th>Issue</th><th>Severity</th><th>Recommended Fix</th></tr>
+  <tr>
+    <td>R-1</td>
+    <td>Session token in <code>localStorage</code> (not HttpOnly cookie). Vulnerable if XSS is introduced.</td>
+    <td><span class="badge medium">Medium</span></td>
+    <td>Migrate to <code>HttpOnly; Secure; SameSite=Strict</code> cookie. Requires backend cookie-setting and frontend removal of <code>localStorage</code> token reads.</td>
+  </tr>
+  <tr>
+    <td>R-2</td>
+    <td>GitHub OAuth token stored unencrypted in user progress JSON.</td>
+    <td><span class="badge medium">Medium</span></td>
+    <td>Encrypt with <code>cryptography.fernet</code> before writing to DB. Decrypt only when making API calls.</td>
+  </tr>
+  <tr>
+    <td>R-3</td>
+    <td>Google Calendar OAuth uses session bearer token as the OAuth <code>state</code> parameter, leaking it into server logs.</td>
+    <td><span class="badge medium">Medium</span></td>
+    <td>Generate a short-lived opaque CSRF token for <code>state</code>; look up the session at callback time using the CSRF token.</td>
+  </tr>
+  <tr>
+    <td>R-4</td>
+    <td>Account lockout counter is in-memory only — resets on Railway redeploy.</td>
+    <td><span class="badge low">Low</span></td>
+    <td>Persist to DB: add <code>failed_attempts INT DEFAULT 0</code> and <code>locked_until TIMESTAMPTZ</code> columns to <code>users</code> table.</td>
+  </tr>
+  <tr>
+    <td>R-5</td>
+    <td>File uploads validated by extension only, not magic bytes.</td>
+    <td><span class="badge low">Low</span></td>
+    <td>Add magic-byte check as shown in Section 13.</td>
+  </tr>
+  <tr>
+    <td>R-6</td>
+    <td>Deterministic exam question shuffle (seed from known values — student can predict order).</td>
+    <td><span class="badge low">Low</span></td>
+    <td>Generate a random seed at exam-start time; store in the exam session record.</td>
+  </tr>
+  <tr>
+    <td>R-7</td>
+    <td>Sentry DSN exposed in page config response to unauthenticated requests.</td>
+    <td><span class="badge low">Low</span></td>
+    <td>Remove DSN from <code>SIVARR_CONFIG</code> JavaScript injection. Sentry is already initialized via Loader Script in <code>&lt;head&gt;</code>.</td>
+  </tr>
+</table>
+</section>
+
+<!-- ═══════════════ 16. CHECKLIST ═══════════════ -->
+<section>
+<h1>16. Security Checklist for Future Features</h1>
+<p>Run through this checklist every time you add a new API endpoint or frontend feature.</p>
+
+<h2>New backend endpoint</h2>
+<ul class="checklist">
+  <li>Validate session token with <code>get_session_from_token()</code> or <code>_resolve_token(data)</code></li>
+  <li>If org-scoped: call <code>db.get_org_by_member(sid)</code> and pass <code>org["id"]</code> to all DB calls</li>
+  <li>Sanitize every user-supplied string with <code>sanitize_text(value, max_len)</code></li>
+  <li>All DB queries use parameterized <code>%s</code> placeholders — no f-string SQL</li>
+  <li>Dynamic column names come from an explicit allowlist, not from user input</li>
+  <li>Rate-limit with <code>check_rate_limit(key, limit, "endpoint_name")</code></li>
+  <li>Admin-only actions check <code>_is_valid_admin_session(token)</code></li>
+  <li>Org admin-only actions check role from DB: <code>org.get("member_role")</code></li>
+  <li>Payment actions use authenticated <code>sid</code>, not metadata from client</li>
+  <li>File uploads: validate extension + Content-Type + magic bytes</li>
+  <li>Emails sent via <code>bg.add_task(send_email, ...)</code>, never blocking</li>
+</ul>
+
+<h2>New frontend feature</h2>
+<ul class="checklist">
+  <li>User-supplied strings inserted via <code>esc(value)</code> before <code>innerHTML</code></li>
+  <li>AI-generated HTML run through <code>renderMarkdown()</code> which calls DOMPurify</li>
+  <li>No <code>eval()</code>, <code>Function()</code>, or <code>document.write()</code> usage</li>
+  <li>Sensitive tokens not logged to the console</li>
+  <li>API errors handled gracefully — error messages shown via <code>err.textContent</code>, not <code>innerHTML</code></li>
+  <li>New fetch calls to <code>/api/progress</code> or <code>/api/wrong</code> include <code>&amp;token=...</code> param</li>
+</ul>
+
+<h2>New payment integration</h2>
+<ul class="checklist">
+  <li>Webhook signatures verified with HMAC before processing</li>
+  <li>Secret keys stored in <code>org_integrations</code> table — never returned to browser</li>
+  <li>Buyer identity taken from authenticated session, not client metadata</li>
+  <li>Idempotency check before granting access (reference de-duplication)</li>
+</ul>
+
+<h2>New OAuth integration</h2>
+<ul class="checklist">
+  <li>OAuth state parameter is an opaque CSRF token — not the Sivarr session token</li>
+  <li>Access tokens stored encrypted at rest</li>
+  <li>Sivarr session issued separately after OAuth verification completes</li>
+</ul>
+</section>
+
+<!-- ═══════════════ 17. ENV VARS REFERENCE ═══════════════ -->
+<section class="page-break">
+<h1>17. Environment Variables Reference</h1>
+<p>All secrets and configurable security values are set via Railway environment variables. Never commit these to the repository.</p>
+
+<table>
+  <tr><th>Variable</th><th>Purpose</th><th>Required</th></tr>
+  <tr><td><code>ADMIN_PASSWORD</code></td><td>Password for admin portal. No fallback — must be set.</td><td>Yes</td></tr>
+  <tr><td><code>LECTURER_PASSWORD</code></td><td>Password for lecturer portal. No fallback — must be set.</td><td>Yes</td></tr>
+  <tr><td><code>BASE_URL</code></td><td>Production URL used in email links and CORS. Default: Railway URL.</td><td>Yes</td></tr>
+  <tr><td><code>RESEND_API_KEY</code></td><td>Resend transactional email key. Email features disabled without it.</td><td>Yes</td></tr>
+  <tr><td><code>DATABASE_URL</code></td><td>PostgreSQL connection string (set automatically by Railway).</td><td>Yes</td></tr>
+  <tr><td><code>GEMINI_API_KEY</code></td><td>Google Gemini AI key. AI features disabled without it.</td><td>Yes</td></tr>
+  <tr><td><code>PAYSTACK_SECRET_KEY</code></td><td>Global Paystack secret key for template sales.</td><td>If using payments</td></tr>
+  <tr><td><code>PAYSTACK_WEBHOOK_SECRET</code></td><td>Paystack webhook HMAC secret.</td><td>If using payments</td></tr>
+  <tr><td><code>STRIPE_SECRET_KEY</code></td><td>Stripe secret key.</td><td>If using Stripe</td></tr>
+  <tr><td><code>STRIPE_WEBHOOK_SECRET</code></td><td>Stripe webhook signing secret.</td><td>If using Stripe</td></tr>
+  <tr><td><code>RATE_LIMIT_LOGIN</code></td><td>Max login attempts per window per IP. Default: 10.</td><td>No</td></tr>
+  <tr><td><code>RATE_LIMIT_CHAT</code></td><td>Max AI chat requests per window. Default: configured.</td><td>No</td></tr>
+  <tr><td><code>SENTRY_DSN</code></td><td>Sentry error monitoring DSN.</td><td>No</td></tr>
+</table>
+
+<div class="callout red">
+  <strong>Critical — set before first deploy</strong>
+  If <code>ADMIN_PASSWORD</code> or <code>LECTURER_PASSWORD</code> are missing, the app starts but admin and lecturer logins are permanently disabled until the variables are added and the service is redeployed. The app logs a <code>CRITICAL</code> warning to stderr on startup.
+</div>
+</section>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<hr>
+<div class="footer">
+  SIVARR Security Architecture &amp; Developer Guide &nbsp;·&nbsp; v1.0 &nbsp;·&nbsp; 25 May 2026<br>
+  Confidential — Internal Use Only &nbsp;·&nbsp; Do not share outside the SIVARR team
+</div>
+
+</body>
+</html>
