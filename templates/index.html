@@ -20,7 +20,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260525b">
+<link rel="stylesheet" href="/css/styles.css?v=20260601e">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -170,15 +170,15 @@ Sentry.onLoad(function() {
       <button class="btn-login" id="login-btn" onclick="doLogin()">Sign In</button>
 
       <!-- Google OAuth -->
-      <div class="auth-or"><span>or</span></div>
-      <a class="btn-google" href="/auth/google">
+      <div class="auth-or" id="google-or"><span>or</span></div>
+      <a class="btn-google" id="btn-google" href="/auth/google" onclick="googleSignInStart(event)">
         <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
           <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.2l6.8-6.8C35.8 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.3 17.7 9.5 24 9.5z"/>
           <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.5-4.1 7-10.2 7-17.1z"/>
           <path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.6L2.6 13.3A24 24 0 0 0 0 24c0 3.8.9 7.4 2.6 10.7l7.9-6.1z"/>
           <path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.6-5.9c-2 1.4-4.7 2.2-7.6 2.2-6.3 0-11.6-3.8-13.5-9.2l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/>
         </svg>
-        Continue with Google
+        <span id="google-btn-text">Continue with Google</span>
       </a>
 
       <p class="login-note">
@@ -556,18 +556,41 @@ Sentry.onLoad(function() {
 
       <!-- Chat -->
       <div class="panel active" id="panel-chat">
+
+        <!-- Chat header -->
+        <div class="chat-header">
+          <div class="chat-header-av">
+            <img src="/static/sivarrai.png" alt="SIVARR AI">
+          </div>
+          <div class="chat-header-info">
+            <div class="chat-header-name">SIVARR AI</div>
+            <div class="chat-header-status">
+              <div class="chat-status-dot" id="chat-status-dot"></div>
+              <span id="chat-status-text">Online · Ready</span>
+            </div>
+          </div>
+          <div class="chat-header-actions">
+            <button class="chat-hdr-btn" onclick="chatClearConfirm()" title="Clear chat">
+              <i class="ti ti-trash"></i>
+            </button>
+            <button class="chat-hdr-btn" onclick="chatExport()" title="Export chat">
+              <i class="ti ti-download"></i>
+            </button>
+          </div>
+        </div>
+
         <div class="chat-msgs" id="msgs">
           <!-- Welcome screen -->
           <div id="chat-welcome">
 
-            <!-- Logo orb -->
+            <!-- Animated orb -->
             <div class="chat-welcome-orb">
               <img src="/static/sivarrai.png" alt="SIVARR">
             </div>
 
             <!-- Greeting -->
             <h1 class="chat-welcome-heading" id="welcome-greeting">Good morning</h1>
-            <p class="chat-welcome-sub">What are we working on?</p>
+            <p class="chat-welcome-sub">Your intelligent workspace assistant — ask me anything.</p>
 
             <!-- 2×2 prompt cards -->
             <div class="chat-prompt-grid">
@@ -593,7 +616,7 @@ Sentry.onLoad(function() {
               </button>
             </div>
 
-            <p class="chat-welcome-hint">Ask me anything — I'm here 24/7</p>
+            <p class="chat-welcome-hint">I'm here 24/7 — messages, tasks, plans, writing</p>
           </div>
         </div>
 
@@ -1481,6 +1504,20 @@ Sentry.onLoad(function() {
                 <span class="st-label">Current plan</span>
                 <span class="st-plan-badge st-plan-free" id="st-plan-badge">✦ Free</span>
               </div>
+              <div id="st-plan-meta" style="display:none">
+                <div class="st-row" id="st-plan-row-expires">
+                  <span class="st-label">Renews / Expires</span>
+                  <span id="st-plan-expires" style="font-size:.78rem;font-weight:600;color:var(--accent)"></span>
+                </div>
+                <div class="st-row" id="st-plan-row-gateway">
+                  <span class="st-label">Payment via</span>
+                  <span id="st-plan-gateway" style="font-size:.78rem;color:var(--muted)"></span>
+                </div>
+                <div class="st-row" id="st-plan-row-status">
+                  <span class="st-label">Status</span>
+                  <span id="st-plan-status" style="font-size:.78rem;font-weight:600"></span>
+                </div>
+              </div>
               <div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:3px">
                   <span class="st-label">AI Messages today</span>
@@ -1495,10 +1532,19 @@ Sentry.onLoad(function() {
                 </div>
                 <div class="st-usage-bar"><div class="st-usage-fill" id="st-usage-quiz-bar" style="width:0%"></div></div>
               </div>
-              <button onclick="toast('Pro plan coming soon! 🚀')" style="width:100%;background:linear-gradient(135deg,#f59e0b,#f472b6);border:none;border-radius:9px;padding:9px;color:#fff;font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer;transition:opacity .2s"
+              <button id="st-plan-cta" onclick="showPricing()" style="width:100%;background:linear-gradient(135deg,#f59e0b,#f472b6);border:none;border-radius:9px;padding:9px;color:#fff;font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer;transition:opacity .2s"
                 onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
                 ⚡ Upgrade to Pro
               </button>
+              <button id="st-plan-cancel" onclick="billingCancelConfirm()" style="display:none;width:100%;background:transparent;border:1px solid var(--border);border-radius:9px;padding:9px;color:var(--muted);font-family:var(--font);font-size:.82rem;font-weight:600;cursor:pointer;margin-top:6px;transition:color .2s"
+                onmouseover="this.style.color='var(--red,#ef4444)'" onmouseout="this.style.color='var(--muted)'">
+                Cancel subscription
+              </button>
+              <!-- Billing history -->
+              <div id="st-billing-history" style="display:none;margin-top:14px">
+                <div class="st-label" style="margin-bottom:8px">Payment history</div>
+                <div id="st-billing-history-list"></div>
+              </div>
             </div>
           </div>
 
@@ -1897,6 +1943,12 @@ Sentry.onLoad(function() {
             <button class="siva-pill" onclick="nav('journal',null)">
               <i class="ti ti-writing"></i> Journal
             </button>
+            <button class="siva-pill" onclick="aiTaskExtractor()" title="Paste text, AI extracts your tasks">
+              <i class="ti ti-wand"></i> Extract Tasks
+            </button>
+            <button class="siva-pill" onclick="aiWriteAssist()" title="AI writing assistant">
+              <i class="ti ti-edit"></i> Write AI
+            </button>
           </div>
 
           <!-- 4 Stat cards -->
@@ -2255,46 +2307,45 @@ Sentry.onLoad(function() {
       <!-- ── Community Panel ── -->
       <div class="panel" id="panel-community">
         <div class="community-wrap">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
             <div>
               <h2 style="font-size:1.1rem;font-weight:800;letter-spacing:-.02em">Community</h2>
               <p style="font-size:.78rem;color:var(--text3);margin-top:2px">Connect with peers, share knowledge.</p>
             </div>
-            <button onclick="communityPost()" style="background:var(--teal);color:#fff;border:none;border-radius:var(--radius);padding:7px 14px;font-family:var(--font);font-size:.78rem;font-weight:700;cursor:pointer">+ Post</button>
-          </div>
-
-          <!-- Filter tabs -->
-          <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-            <button class="siva-pill sp-add" id="comm-tab-all" onclick="commFilter('all',this)">All Posts</button>
-            <button class="siva-pill" id="comm-tab-study" onclick="commFilter('study',this)">📚 Study</button>
-            <button class="siva-pill" id="comm-tab-career" onclick="commFilter('career',this)">🎯 Career</button>
-            <button class="siva-pill" id="comm-tab-qa" onclick="commFilter('qa',this)">💡 Q&amp;A</button>
-          </div>
-
-          <!-- Feed -->
-          <div id="community-feed">
-            <div class="feed-card">
-              <div class="feed-hd">
-                <div class="feed-av">A</div>
-                <div style="flex:1">
-                  <div class="feed-name">SIVARR Community</div>
-                  <div class="feed-time">Just now</div>
-                </div>
-                <span class="feat-badge">Featured</span>
-              </div>
-              <div class="feed-body">
-                Welcome to the SIVARR Community! Share your study tips, ask questions, and help each other grow. This is your space to connect with fellow students and learners.
-              </div>
-              <div class="feed-tags">
-                <span class="feed-tag">Welcome</span>
-                <span class="feed-tag">Study</span>
-              </div>
-              <div class="feed-actions">
-                <button class="feed-action-btn"><i class="ti ti-heart"></i> 12</button>
-                <button class="feed-action-btn"><i class="ti ti-message"></i> 3</button>
-                <button class="feed-action-btn"><i class="ti ti-share"></i> Share</button>
-              </div>
+            <div style="display:flex;gap:8px" id="comm-actions">
+              <button onclick="communityPost()" style="background:var(--teal);color:#fff;border:none;border-radius:var(--radius);padding:7px 14px;font-family:var(--font);font-size:.78rem;font-weight:700;cursor:pointer">+ Post</button>
+              <button onclick="oppSubmit()" id="comm-opp-btn" style="display:none;background:var(--accent2,#7c3aed);color:#fff;border:none;border-radius:var(--radius);padding:7px 14px;font-family:var(--font);font-size:.78rem;font-weight:700;cursor:pointer">+ Add</button>
             </div>
+          </div>
+
+          <!-- Top-level tabs: Feed / Opportunities -->
+          <div style="display:flex;gap:2px;margin-bottom:14px;background:var(--bg3);border-radius:10px;padding:3px">
+            <button class="comm-mode-btn active" id="comm-mode-feed" onclick="commSetMode('feed',this)" style="flex:1;border:none;background:var(--card);border-radius:8px;padding:7px;font-family:var(--font);font-size:.8rem;font-weight:700;cursor:pointer;color:var(--text1);box-shadow:0 1px 3px #0002">Feed</button>
+            <button class="comm-mode-btn" id="comm-mode-opp" onclick="commSetMode('opp',this)" style="flex:1;border:none;background:transparent;border-radius:8px;padding:7px;font-family:var(--font);font-size:.8rem;font-weight:600;cursor:pointer;color:var(--muted)">🎯 Opportunities</button>
+          </div>
+
+          <!-- Feed view -->
+          <div id="comm-view-feed">
+            <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+              <button class="siva-pill sp-add" id="comm-tab-all" onclick="commFilter('all',this)">All</button>
+              <button class="siva-pill" id="comm-tab-study" onclick="commFilter('study',this)">📚 Study</button>
+              <button class="siva-pill" id="comm-tab-career" onclick="commFilter('career',this)">🎯 Career</button>
+              <button class="siva-pill" id="comm-tab-qa" onclick="commFilter('qa',this)">💡 Q&amp;A</button>
+              <button class="siva-pill" id="comm-tab-general" onclick="commFilter('general',this)">💬 General</button>
+            </div>
+            <div id="community-feed"><div class="feed-empty" style="text-align:center;padding:40px 20px;color:var(--muted)">Loading posts…</div></div>
+          </div>
+
+          <!-- Opportunities view -->
+          <div id="comm-view-opp" style="display:none">
+            <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+              <button class="siva-pill sp-add" id="opp-tab-all" onclick="oppFilter('all',this)">All</button>
+              <button class="siva-pill" id="opp-tab-job" onclick="oppFilter('job',this)">💼 Jobs</button>
+              <button class="siva-pill" id="opp-tab-internship" onclick="oppFilter('internship',this)">🏢 Internships</button>
+              <button class="siva-pill" id="opp-tab-scholarship" onclick="oppFilter('scholarship',this)">🎓 Scholarships</button>
+              <button class="siva-pill" id="opp-tab-grant" onclick="oppFilter('grant',this)">💰 Grants</button>
+            </div>
+            <div id="opp-feed"><div class="feed-empty" style="text-align:center;padding:40px 20px;color:var(--muted)">Loading opportunities…</div></div>
           </div>
         </div>
       </div>
@@ -3580,7 +3631,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260525b" defer></script>
+<script src="/js/app.js?v=20260601e" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

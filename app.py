@@ -193,11 +193,13 @@ SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 PLAUSIBLE_DOMAIN = os.environ.get("PLAUSIBLE_DOMAIN", "")
 
 # ── Shared file paths (defined early so all functions can use them) ──
-ANN_PATH    = DATA_DIR / "announcements.json"
-TOPICS_PATH = DATA_DIR / "class_topics.json"
-EXAMS_PATH  = DATA_DIR / "exams.json"
-CLASSES_PATH = DATA_DIR / "classes.json"
-USERS_PATH   = DATA_DIR / "users.json"
+ANN_PATH          = DATA_DIR / "announcements.json"
+TOPICS_PATH       = DATA_DIR / "class_topics.json"
+EXAMS_PATH        = DATA_DIR / "exams.json"
+CLASSES_PATH      = DATA_DIR / "classes.json"
+USERS_PATH        = DATA_DIR / "users.json"
+COMMUNITY_PATH    = DATA_DIR / "community_posts.json"
+OPPORTUNITIES_PATH = DATA_DIR / "opportunities.json"
 
 def load_users() -> dict:
     """Load users from JSON file (DB is used directly per-user in login flow)."""
@@ -1399,6 +1401,17 @@ class AdminLoginRequest(BaseModel):
     password: str
 
 # ── Routes ────────────────────────────────────────────────────
+
+@app.get("/api/config")
+async def app_config():
+    """Return public feature flags for the frontend (no secrets)."""
+    return {
+        "google_oauth":   GOOGLE_OAUTH_AVAILABLE,
+        "github_oauth":   GITHUB_OAUTH_AVAILABLE,
+        "paystack":       PAYSTACK_AVAILABLE,
+        "version":        VERSION,
+    }
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
@@ -5188,6 +5201,73 @@ async def home_brief(data: dict):
     return {"brief": brief, "date": today}
 
 
+@app.post("/api/ai/extract-tasks")
+async def ai_extract_tasks(data: dict):
+    """Extract actionable tasks from free-form text using AI."""
+    sess = get_session_from_token(data.get("token",""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    text = sanitize_text(str(data.get("text","")), 3000)
+    if len(text.strip()) < 10:
+        raise HTTPException(400, "Text too short.")
+    prompt = f"""Extract all actionable tasks from the text below.
+Return ONLY a JSON array of objects, each with:
+  "title": short task title (max 60 chars)
+  "priority": "high", "medium", or "low"
+  "due": ISO date string if mentioned, else null
+
+Text:
+{text}
+
+Return only valid JSON. No explanation. No markdown. Example:
+[{{"title":"Reply to John","priority":"high","due":null}}]"""
+    raw = gemini_once(prompt, temp=0.2, tokens=400)
+    tasks = []
+    if raw:
+        try:
+            import re as _re
+            m = _re.search(r'\[.*\]', raw, _re.DOTALL)
+            if m:
+                tasks = json.loads(m.group(0))
+        except Exception:
+            pass
+    return {"tasks": tasks[:20]}
+
+
+@app.post("/api/ai/write")
+async def ai_write_assist(data: dict):
+    """AI writing assistant — improve, shorten, expand, or reformat text."""
+    sess = get_session_from_token(data.get("token",""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    text   = sanitize_text(str(data.get("text","")), 4000)
+    action = sanitize_text(str(data.get("action","improve")), 20)
+    tone   = sanitize_text(str(data.get("tone","professional")), 20)
+    if len(text.strip()) < 5:
+        raise HTTPException(400, "Text too short.")
+    actions = {
+        "improve":   "Rewrite to improve clarity, flow, and impact.",
+        "shorten":   "Shorten significantly while keeping the core message.",
+        "expand":    "Expand with relevant detail and depth.",
+        "formal":    "Rewrite in a formal, professional tone.",
+        "casual":    "Rewrite in a warm, conversational tone.",
+        "bullets":   "Convert into clear, concise bullet points.",
+        "email":     "Rewrite as a professional email.",
+        "summarise": "Summarise in 2-3 sentences.",
+    }
+    instruction = actions.get(action, actions["improve"])
+    prompt = f"""{instruction}
+
+Text:
+{text}
+
+Respond with ONLY the rewritten text. No preamble, no explanation."""
+    result = gemini_once(prompt, temp=0.7, tokens=600)
+    if not result:
+        raise HTTPException(502, "AI unavailable. Try again.")
+    return {"result": result}
+
+
 @app.post("/api/feedback")
 async def submit_feedback(data: dict):
     token = sanitize_text(str(data.get("token", "")), 100)
@@ -5217,68 +5297,133 @@ async def submit_feedback(data: dict):
 # ═══════════════════════════════════════════════════════════════
 #  GOOGLE OAUTH — Sign in with Google
 # ═══════════════════════════════════════════════════════════════
+#
+# Security design:
+#   • state  = HMAC-signed nonce so the callback can't be forged (CSRF protection)
+#   • After a successful login, a one-time exchange CODE (not the real session token)
+#     is stored in _google_exchange_codes for 120 s.  The browser receives only the
+#     short code in the redirect URL; the real token is fetched server-side via
+#     GET /api/auth/google/exchange?code=…  This keeps session tokens out of URLs,
+#     browser history, and server logs.
+# ─────────────────────────────────────────────────────────────────────────────────
+
+_google_exchange_codes: dict = {}   # code -> {token, expires}
+_google_states:         dict = {}   # state -> expires (nonce registry)
+
+
+def _google_redirect_uri() -> str:
+    return f"{BASE_URL.rstrip('/')}/auth/google/callback"
+
+
+def _google_make_state() -> str:
+    """Generate a signed, time-limited state nonce for CSRF protection."""
+    nonce   = secrets.token_hex(16)
+    expires = time.time() + 300          # 5-minute window
+    sig     = hmac.new(
+        (GOOGLE_CLIENT_SECRET or "sivarr-fallback").encode(),
+        f"{nonce}:{expires:.0f}".encode(),
+        "sha256",
+    ).hexdigest()[:16]
+    state = f"{nonce}.{expires:.0f}.{sig}"
+    _google_states[nonce] = expires
+    return state
+
+
+def _google_verify_state(state: str) -> bool:
+    """Return True only if the state is recent and untampered."""
+    try:
+        nonce, exp_str, sig = state.split(".")
+        if time.time() > float(exp_str):
+            return False
+        expected = hmac.new(
+            (GOOGLE_CLIENT_SECRET or "sivarr-fallback").encode(),
+            f"{nonce}:{exp_str}".encode(),
+            "sha256",
+        ).hexdigest()[:16]
+        if not hmac.compare_digest(sig, expected):
+            return False
+        return nonce in _google_states
+    except Exception:
+        return False
+
 
 @app.get("/auth/google")
 async def google_oauth_start():
-    """Redirect to Google consent screen for sign-in."""
+    """Redirect to Google consent screen for Sign in with Google."""
     if not GOOGLE_OAUTH_AVAILABLE:
         return RedirectResponse("/?auth_error=google_not_configured")
     from urllib.parse import urlencode
+    state  = _google_make_state()
     params = {
         "client_id":     GOOGLE_CLIENT_ID,
-        "redirect_uri":  f"{BASE_URL}/auth/google/callback",
+        "redirect_uri":  _google_redirect_uri(),
         "response_type": "code",
         "scope":         "openid email profile",
         "access_type":   "online",
         "prompt":        "select_account",
+        "state":         state,
     }
     return RedirectResponse(f"{GOOGLE_AUTH_URL}?{urlencode(params)}")
 
 
 @app.get("/auth/google/callback")
-async def google_oauth_callback(code: str = "", error: str = ""):
-    """Exchange Google code, find/create user, issue SIVARR session token."""
-    if error or not code:
+async def google_oauth_callback(code: str = "", error: str = "", state: str = ""):
+    """Exchange Google authorisation code → find/create user → issue one-time exchange code."""
+    if error:
+        return RedirectResponse("/?auth_error=google_denied")
+    if not code:
         return RedirectResponse("/?auth_error=google_denied")
     if not GOOGLE_OAUTH_AVAILABLE or not HTTPX_AVAILABLE:
         return RedirectResponse("/?auth_error=google_not_configured")
+
+    # CSRF check
+    if not state or not _google_verify_state(state):
+        log.warning("Google OAuth: invalid or expired state parameter")
+        return RedirectResponse("/?auth_error=google_failed")
+
+    # Exchange code for Google access token
     try:
-        async with _httpx.AsyncClient(timeout=15) as client:
-            tok = await client.post(GOOGLE_TOKEN_URL, data={
+        async with _httpx.AsyncClient(timeout=20) as client:
+            tok_resp = await client.post(GOOGLE_TOKEN_URL, data={
                 "code":          code,
                 "client_id":     GOOGLE_CLIENT_ID,
                 "client_secret": GOOGLE_CLIENT_SECRET,
-                "redirect_uri":  f"{BASE_URL}/auth/google/callback",
+                "redirect_uri":  _google_redirect_uri(),
                 "grant_type":    "authorization_code",
             })
-            tokens = tok.json()
+            tokens = tok_resp.json()
             if "error" in tokens:
-                log.error(f"Google token exchange error: {tokens}")
+                log.error(f"Google token exchange error: {tokens.get('error_description', tokens)}")
                 return RedirectResponse("/?auth_error=google_token_failed")
-            info = await client.get(GOOGLE_USERINFO_URL,
-                headers={"Authorization": f"Bearer {tokens['access_token']}"})
-            profile = info.json()
+            info_resp = await client.get(
+                GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {tokens['access_token']}"},
+            )
+            profile = info_resp.json()
     except Exception as exc:
-        log.error(f"Google OAuth error: {exc}")
+        log.error(f"Google OAuth HTTP error: {exc}")
         return RedirectResponse("/?auth_error=google_failed")
 
     email     = (profile.get("email") or "").lower().strip()
-    name      = profile.get("name") or email.split("@")[0].title()
-    google_id = profile.get("id") or ""
+    name      = profile.get("name") or (email.split("@")[0].replace(".", " ").title())
+    google_id = profile.get("id") or profile.get("sub") or ""
+
     if not email:
         return RedirectResponse("/?auth_error=google_no_email")
 
+    # Find existing user or create one
     users = load_users()
-    user  = next((u for u in users.values() if u.get("email","").lower() == email), None)
+    user  = next((u for u in users.values() if u.get("email", "").lower() == email), None)
     if not user and db.is_available():
         user = db.get_user_by_email(email)
 
     if not user:
         sid  = uuid.uuid4().hex[:20]
         user = {
-            "sid": sid, "name": name, "email": email, "phone": "",
-            "password": "", "created": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "role": "student", "google_id": google_id,
+            "sid":     sid, "name": name, "email": email, "phone": "",
+            "password": "",
+            "created": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+            "role":    "student", "google_id": google_id,
         }
         users[sid] = user
         save_users(users)
@@ -5290,12 +5435,38 @@ async def google_oauth_callback(code: str = "", error: str = ""):
 
     sid = user["sid"]
     p   = load_progress(sid)
-    p["google_id"] = google_id
-    save_progress(sid, p)
+    if p.get("google_id") != google_id:
+        p["google_id"] = google_id
+        save_progress(sid, p)
 
-    token = create_session_token(sid, user["name"], email)
+    sivarr_token = create_session_token(sid, user["name"], email)
     log.info(f"Google OAuth login: {user['name']} ({email})")
-    return RedirectResponse(f"/?google_token={token}")
+
+    # Issue a short-lived one-time exchange code (token never touches the URL)
+    xcode   = secrets.token_urlsafe(24)
+    expires = time.time() + 120          # valid for 2 minutes
+    _google_exchange_codes[xcode] = {"token": sivarr_token, "expires": expires}
+
+    # Clean up old codes while we're here
+    now = time.time()
+    stale = [k for k, v in _google_exchange_codes.items() if v["expires"] < now]
+    for k in stale:
+        del _google_exchange_codes[k]
+
+    return RedirectResponse(f"/?google_code={xcode}")
+
+
+@app.get("/api/auth/google/exchange")
+async def google_token_exchange(code: str = ""):
+    """Exchange a one-time code (from the Google callback redirect) for a real session token."""
+    if not code:
+        raise HTTPException(400, "Missing code.")
+    entry = _google_exchange_codes.pop(code, None)
+    if not entry:
+        raise HTTPException(400, "Code not found or already used.")
+    if time.time() > entry["expires"]:
+        raise HTTPException(400, "Code expired. Please sign in again.")
+    return {"token": entry["token"]}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -5569,7 +5740,18 @@ async def billing_verify(reference: str, token: str = ""):
         "plan": plan_id, "name": plan.get("name","Pro"), "status": "active",
         "expires": expires, "reference": reference,
         "activated": now.strftime("%Y-%m-%d"),
+        "gateway": "paystack",
     }
+    history = p.get("billing_history", [])
+    history.insert(0, {
+        "date": now.strftime("%Y-%m-%d"),
+        "plan": plan.get("name","Pro"),
+        "amount": f"₦{plan.get('amount_ngn',0):,}",
+        "reference": reference,
+        "gateway": "paystack",
+        "status": "paid",
+    })
+    p["billing_history"] = history[:20]
     save_progress(sid, p)
     log.info(f"Billing: {sid} → {plan_id} expires {expires}")
     return {"ok": True, "plan": plan_id, "name": plan.get("name","Pro"), "expires": expires}
@@ -5592,6 +5774,214 @@ async def billing_status(token: str = ""):
         except ValueError:
             pass
     return sub
+
+
+@app.get("/api/billing/history")
+async def billing_history(token: str = ""):
+    """Return the user's billing payment history."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p = load_progress(sess["sid"])
+    return {"history": p.get("billing_history", [])}
+
+
+@app.post("/api/billing/cancel")
+async def billing_cancel(data: dict):
+    """Cancel the user's active subscription (downgrades to free immediately)."""
+    sess = get_session_from_token(data.get("token",""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p = load_progress(sess["sid"])
+    sub = p.get("subscription", {})
+    if not sub or sub.get("plan","free") == "free":
+        raise HTTPException(400, "No active subscription to cancel.")
+    sub["status"] = "cancelled"
+    sub["cancelled_at"] = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    p["subscription"] = sub
+    save_progress(sess["sid"], p)
+    log.info(f"Billing cancelled: {sess['sid']}")
+    return {"ok": True, "message": "Subscription cancelled. You keep access until the expiry date."}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  COMMUNITY & OPPORTUNITIES
+# ═══════════════════════════════════════════════════════════════
+
+import threading
+_comm_lock = threading.Lock()
+_opp_lock  = threading.Lock()
+
+
+def _load_json_file(path: Path, default):
+    if path.exists():
+        try:
+            return json.loads(path.read_text())
+        except Exception:
+            pass
+    return default
+
+
+def _save_json_file(path: Path, data):
+    tmp = str(path) + ".tmp"
+    Path(tmp).write_text(json.dumps(data, ensure_ascii=False))
+    Path(tmp).replace(path)
+
+
+@app.get("/api/community/posts")
+async def community_get_posts(category: str = "all", limit: int = 40):
+    """Fetch community posts, newest first."""
+    with _comm_lock:
+        posts = _load_json_file(COMMUNITY_PATH, [])
+    if category != "all":
+        posts = [p for p in posts if p.get("category") == category]
+    return {"posts": posts[:limit]}
+
+
+@app.post("/api/community/posts")
+async def community_create_post(data: dict):
+    """Create a new community post."""
+    sess = get_session_from_token(data.get("token",""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    body = sanitize_text(str(data.get("body","")), 800)
+    if len(body) < 3:
+        raise HTTPException(400, "Post is too short.")
+    category = sanitize_text(str(data.get("category","general")), 20)
+    tags     = [sanitize_text(str(t), 30) for t in data.get("tags",[]) if t][:5]
+    p = load_progress(sess["sid"])
+    post = {
+        "id":       uuid.uuid4().hex[:16],
+        "author":   p.get("name", "SIVARR User"),
+        "sid":      sess["sid"],
+        "body":     body,
+        "category": category,
+        "tags":     tags,
+        "likes":    [],
+        "replies":  [],
+        "created":  datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    with _comm_lock:
+        posts = _load_json_file(COMMUNITY_PATH, [])
+        posts.insert(0, post)
+        posts = posts[:200]
+        _save_json_file(COMMUNITY_PATH, posts)
+    return {"ok": True, "post": post}
+
+
+@app.post("/api/community/posts/{post_id}/like")
+async def community_like_post(post_id: str, data: dict):
+    """Toggle like on a post."""
+    sess = get_session_from_token(data.get("token",""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    with _comm_lock:
+        posts = _load_json_file(COMMUNITY_PATH, [])
+        post  = next((p for p in posts if p["id"] == post_id), None)
+        if not post:
+            raise HTTPException(404, "Post not found.")
+        likes = post.get("likes", [])
+        if sid in likes:
+            likes.remove(sid)
+            liked = False
+        else:
+            likes.append(sid)
+            liked = True
+        post["likes"] = likes
+        _save_json_file(COMMUNITY_PATH, posts)
+    return {"ok": True, "liked": liked, "count": len(likes)}
+
+
+@app.post("/api/community/posts/{post_id}/reply")
+async def community_reply(post_id: str, data: dict):
+    """Add a reply to a post."""
+    sess = get_session_from_token(data.get("token",""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    body = sanitize_text(str(data.get("body","")), 400)
+    if len(body) < 2:
+        raise HTTPException(400, "Reply too short.")
+    p = load_progress(sess["sid"])
+    reply = {
+        "id":      uuid.uuid4().hex[:12],
+        "author":  p.get("name","SIVARR User"),
+        "sid":     sess["sid"],
+        "body":    body,
+        "created": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    with _comm_lock:
+        posts = _load_json_file(COMMUNITY_PATH, [])
+        post  = next((p for p in posts if p["id"] == post_id), None)
+        if not post:
+            raise HTTPException(404, "Post not found.")
+        post.setdefault("replies", []).append(reply)
+        _save_json_file(COMMUNITY_PATH, posts)
+    return {"ok": True, "reply": reply}
+
+
+@app.get("/api/opportunities")
+async def get_opportunities(category: str = "all", limit: int = 50):
+    """Fetch opportunity board entries."""
+    with _opp_lock:
+        opps = _load_json_file(OPPORTUNITIES_PATH, [])
+    if category != "all":
+        opps = [o for o in opps if o.get("category") == category]
+    return {"opportunities": opps[:limit]}
+
+
+@app.post("/api/opportunities")
+async def submit_opportunity(data: dict):
+    """Submit a new opportunity to the board."""
+    sess = get_session_from_token(data.get("token",""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    title    = sanitize_text(str(data.get("title","")), 120)
+    desc     = sanitize_text(str(data.get("desc","")), 600)
+    link     = sanitize_text(str(data.get("link","")), 200)
+    category = sanitize_text(str(data.get("category","other")), 20)
+    deadline = sanitize_text(str(data.get("deadline","")), 20)
+    if len(title) < 3:
+        raise HTTPException(400, "Title required.")
+    p = load_progress(sess["sid"])
+    opp = {
+        "id":       uuid.uuid4().hex[:14],
+        "title":    title,
+        "desc":     desc,
+        "link":     link,
+        "category": category,
+        "deadline": deadline,
+        "author":   p.get("name","Community"),
+        "sid":      sess["sid"],
+        "created":  datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    with _opp_lock:
+        opps = _load_json_file(OPPORTUNITIES_PATH, [])
+        opps.insert(0, opp)
+        opps = opps[:300]
+        _save_json_file(OPPORTUNITIES_PATH, opps)
+    return {"ok": True, "opportunity": opp}
+
+
+@app.get("/api/profile/{sid_or_name}")
+async def get_public_profile(sid_or_name: str):
+    """Get a user's public profile by session ID or display name."""
+    sid_or_name = sanitize_text(sid_or_name, 60)
+    p = load_progress(sid_or_name)
+    if not p.get("name"):
+        raise HTTPException(404, "Profile not found.")
+    sub    = p.get("subscription", {})
+    plan   = sub.get("name","Free") if sub.get("status","") == "active" else "Free"
+    joined = p.get("joined", p.get("created",""))
+    return {
+        "name":    p.get("name",""),
+        "joined":  joined,
+        "plan":    plan,
+        "streak":  p.get("streak", 0),
+        "xp":      p.get("xp", 0),
+        "badges":  p.get("badges", []),
+        "bio":     p.get("bio", ""),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -5830,14 +6220,26 @@ async def flutterwave_verify(reference: str, token: str = "", plan_id: str = "")
     expires = (datetime.datetime.utcnow() + datetime.timedelta(
         days=365 if plan.get("period") == "yearly" else 32
     )).strftime("%Y-%m-%d")
+    now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
     p["subscription"] = {
         "plan":    plan_id,
         "name":    plan["name"],
         "status":  "active",
         "expires": expires,
         "gateway": "flutterwave",
-        "ref":     reference,
+        "reference": reference,
+        "activated": now_str,
     }
+    history = p.get("billing_history", [])
+    history.insert(0, {
+        "date": now_str,
+        "plan": plan["name"],
+        "amount": f"₦{plan['amount_ngn']:,}",
+        "reference": reference,
+        "gateway": "flutterwave",
+        "status": "paid",
+    })
+    p["billing_history"] = history[:20]
     save_progress(sid, p)
     email = p.get("email","")
     name  = p.get("name","User")

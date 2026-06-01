@@ -205,7 +205,7 @@ const siModal = (() => {
     if (hid) hid.value = btn.textContent;
   }
 
-  return { input, confirm, alert, form, _done, _bgClose, _subInput, _subForm, _pickEmoji };
+  return { input, confirm, alert, form, _done, _bgClose, _subInput, _subForm, _pickEmoji, _show_raw: _show };
 })();
 
 // ═══════════════════════════ PROFILE PICTURE ════════════════════
@@ -1139,7 +1139,14 @@ function checkAuthParams() {
     sessionStorage.setItem('pending_org_invite', orgInvite);
   }
 
-  // Google OAuth callback
+  // Google OAuth callback — exchange one-time code for real session token
+  const googleCode = params.get('google_code');
+  if (googleCode) {
+    history.replaceState(null, '', '/');
+    sessionStorage.setItem('google_login_pending_code', googleCode);
+    return;
+  }
+  // Legacy fallback: direct token (old flow, keep for safety)
   if (googleTok) {
     history.replaceState(null, '', '/');
     localStorage.setItem('sivarr_token', googleTok);
@@ -1258,15 +1265,66 @@ async function resendVerificationEmail() {
   }
 }
 
+// ── Google Sign-In helpers ────────────────────────────────────────────────────
+
+function googleSignInStart(e) {
+  const btn  = $('btn-google');
+  const txt  = $('google-btn-text');
+  if (btn) { btn.style.opacity = '0.7'; btn.style.pointerEvents = 'none'; }
+  if (txt) txt.textContent = 'Redirecting to Google…';
+  // Let the href navigate — no e.preventDefault()
+}
+
+async function _googleCheckAvailable() {
+  try {
+    const r = await fetch('/api/config');
+    const d = await r.json();
+    if (d.google_oauth === false) {
+      const or  = $('google-or');
+      const btn = $('btn-google');
+      if (or)  or.style.display  = 'none';
+      if (btn) btn.style.display = 'none';
+    }
+  } catch(_) { /* silently ignore — show button by default */ }
+}
+
 // Auto-restore on page load — try token first, fall back to re-login
 window.addEventListener('DOMContentLoaded', async () => {
   localStorage.removeItem('sivarr_lecturer_token');
   localStorage.removeItem('sivarr_lecturer_name');
 
+  // Check if Google OAuth is available (hide button if not configured)
+  _googleCheckAvailable();
+
   // Handle ?reset= / ?verify= / ?verified= URL params before anything else
   checkAuthParams();
 
-  // Google OAuth — token returned from /auth/google/callback
+  // Google OAuth — exchange one-time code for real session token
+  const googleCode = sessionStorage.getItem('google_login_pending_code');
+  if (googleCode) {
+    sessionStorage.removeItem('google_login_pending_code');
+    const btn = $('login-btn');
+    if (btn) { btn.textContent = 'Signing in with Google…'; btn.disabled = true; }
+    try {
+      const r = await fetch(`/api/auth/google/exchange?code=${encodeURIComponent(googleCode)}`);
+      const d = await r.json();
+      if (!r.ok || !d.token) throw new Error(d.detail || 'Exchange failed');
+      localStorage.setItem('sivarr_token', d.token);
+      const ok = await restoreSession(d.token);
+      if (ok) {
+        toast('Signed in with Google!');
+        _postLoginIntegrations();
+        return;
+      }
+      throw new Error('Session restore failed');
+    } catch(e) {
+      toast('Google sign-in failed — please try again.');
+      if (btn) { btn.textContent = 'Sign In'; btn.disabled = false; }
+      return;
+    }
+  }
+
+  // Legacy fallback — direct google_token (kept for safety)
   const googlePending = sessionStorage.getItem('google_login_pending');
   if (googlePending) {
     sessionStorage.removeItem('google_login_pending');
@@ -1275,7 +1333,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     const ok = await restoreSession(googlePending);
     if (ok) {
       toast('Signed in with Google!');
-      // Check for pending post-login tasks
       _postLoginIntegrations();
       return;
     }
@@ -1765,6 +1822,7 @@ async function send(retryText = null) {
 
   clearTimeout(slowTimer);
   t.remove();
+  _chatSetStatus(false);
 
   if (!r && lastErr?.status === 429) {
     const wait = lastErr.retryAfter || 60;
@@ -1844,26 +1902,76 @@ function addMsg(role, text, uncertain = false, isError = false) {
   const welcome = $('chat-welcome');
   if (welcome) welcome.style.display = 'none';
 
-  const w = $('msgs'), d = document.createElement('div');
+  const w  = $('msgs');
+  const d  = document.createElement('div');
   d.className = `msg ${role}`;
-  const av       = role === 'sivarr' ? 'Sr' : S.name[0]?.toUpperCase() || 'U';
-  const rendered = role === 'sivarr' ? renderMarkdown(text) : esc(text);
+
+  const isAI     = role === 'sivarr';
+  const av       = isAI ? 'AI' : (S.name?.[0]?.toUpperCase() || 'U');
+  const rendered = isAI ? renderMarkdown(text) : esc(text);
   const errClass = isError ? ' msg-error' : '';
+
   d.innerHTML = `
     <div class="msg-av">${av}</div>
-    <div style="min-width:0;flex:1">
+    <div class="msg-inner">
       <div class="msg-bub md-body${errClass}">${rendered}</div>
-      ${uncertain ? `<div class="uncertain">⚠️ Verify this with your lecturer</div>` : ''}
-      ${isError  ? `<button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>` : ''}
-      ${role === 'sivarr' && !isError ? `<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-        <button class="action-btn" style="font-size:.68rem" onclick="chatSaveTask(this)">+ Task</button>
-        <button class="action-btn" style="font-size:.68rem" onclick="chatSaveNote(this)">+ Note</button>
-        <button class="action-btn" style="font-size:.68rem" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
-      </div>` : ''}
+      ${uncertain ? `<div class="uncertain"><i class="ti ti-alert-triangle"></i> Verify with your lecturer</div>` : ''}
+      ${isError   ? `<button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>` : ''}
+      ${isAI && !isError ? `
+        <div class="msg-actions">
+          <button class="action-btn" onclick="chatSaveTask(this)">+ Task</button>
+          <button class="action-btn" onclick="chatSaveNote(this)">+ Note</button>
+          <button class="action-btn" onclick="chatCopyMsg(this)">Copy</button>
+          <button class="action-btn" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
+        </div>` : ''}
     </div>`;
   w.appendChild(d);
   scrollMsgs();
   return d;
+}
+
+function chatCopyMsg(btn) {
+  const text = btn.closest('.msg').querySelector('.msg-bub')?.innerText || '';
+  navigator.clipboard?.writeText(text).then(() => toast('Copied ✓'));
+}
+
+async function chatClearConfirm() {
+  const ok = await siModal.confirm('Clear this conversation?', { title: 'Clear chat', confirmLabel: 'Clear', danger: true });
+  if (!ok) return;
+  const w = $('msgs');
+  if (!w) return;
+  w.innerHTML = '';
+  const welcome = document.createElement('div');
+  welcome.id = 'chat-welcome';
+  welcome.innerHTML = document.getElementById('chat-welcome')?.outerHTML
+    ? $('panel-chat').querySelector('#chat-welcome')?.outerHTML || ''
+    : '';
+  // Simpler: reload the welcome screen
+  w.innerHTML = `<div id="chat-welcome" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:2.5rem 1.5rem;text-align:center;animation:fadeUp .5s cubic-bezier(.4,0,.2,1)">
+    <div class="chat-welcome-orb"><img src="/static/sivarrai.png" alt="SIVARR"></div>
+    <h1 class="chat-welcome-heading" id="welcome-greeting">Chat cleared</h1>
+    <p class="chat-welcome-sub">Start a new conversation below.</p>
+  </div>`;
+  toast('Chat cleared');
+}
+
+function chatExport() {
+  const msgs = document.querySelectorAll('#msgs .msg');
+  if (!msgs.length) { toast('Nothing to export yet.'); return; }
+  let out = `SIVARR AI Chat Export — ${new Date().toLocaleString()}\n${'─'.repeat(50)}\n\n`;
+  msgs.forEach(m => {
+    const role = m.classList.contains('sivarr') ? 'SIVARR AI' : (S.name || 'You');
+    const text = m.querySelector('.msg-bub')?.innerText || '';
+    out += `${role}:\n${text}\n\n`;
+  });
+  downloadText(out);
+}
+
+function _chatSetStatus(thinking = false) {
+  const dot  = $('chat-status-dot');
+  const text = $('chat-status-text');
+  if (dot)  dot.classList.toggle('thinking', thinking);
+  if (text) text.textContent = thinking ? 'Thinking…' : 'Online · Ready';
 }
 
 async function chatSaveTask(btn) {
@@ -1889,10 +1997,11 @@ async function chatSaveNote(btn) {
 }
 
 function addTyping() {
+  _chatSetStatus(true);
   const w = $('msgs'), d = document.createElement('div');
   d.className = 'msg sivarr';
-  d.innerHTML = `<div class="msg-av">Sr</div>
-    <div class="typing"><span></span><span></span><span></span></div>`;
+  d.innerHTML = `<div class="msg-av">AI</div>
+    <div class="msg-inner"><div class="typing"><span></span><span></span><span></span></div></div>`;
   w.appendChild(d);
   scrollMsgs();
   return d;
@@ -3275,8 +3384,9 @@ function stInit() {
     });
   }
 
-  // Usage bars
+  // Usage bars + plan details
   stUpdateUsage();
+  stLoadBillingHistory();
 }
 
 function stUpdateUsage() {
@@ -3284,18 +3394,98 @@ function stUpdateUsage() {
   const hist  = JSON.parse(localStorage.getItem(`sivarr_usage_${today}`) || '{"chat":0,"quiz":0}');
   const chatUsed = hist.chat || 0;
   const quizUsed = hist.quiz || 0;
-  const chatMax  = S.plan === 'pro' ? 999 : 20;
-  const quizMax  = S.plan === 'pro' ? 999 : 5;
+  const isPaid   = _planLevel(_BILLING_STATUS?.name || 'free') > 0;
+  const chatMax  = isPaid ? 999 : 20;
+  const quizMax  = isPaid ? 999 : 5;
 
-  const cu = $('st-usage-chat');    if (cu) cu.textContent = `${chatUsed} / ${chatMax}`;
-  const cb = $('st-usage-chat-bar');if (cb) cb.style.width = Math.min((chatUsed/chatMax)*100,100) + '%';
-  const qu = $('st-usage-quiz');    if (qu) qu.textContent = `${quizUsed} / ${quizMax}`;
-  const qb = $('st-usage-quiz-bar');if (qb) qb.style.width = Math.min((quizUsed/quizMax)*100,100) + '%';
+  const cu = $('st-usage-chat');    if (cu) cu.textContent = isPaid ? `${chatUsed} / ∞` : `${chatUsed} / ${chatMax}`;
+  const cb = $('st-usage-chat-bar');if (cb) cb.style.width = isPaid ? '100%' : Math.min((chatUsed/chatMax)*100,100) + '%';
+  if (cb && isPaid) cb.style.background = 'var(--accent)';
+  const qu = $('st-usage-quiz');    if (qu) qu.textContent = isPaid ? `${quizUsed} / ∞` : `${quizUsed} / ${quizMax}`;
+  const qb = $('st-usage-quiz-bar');if (qb) qb.style.width = isPaid ? '100%' : Math.min((quizUsed/quizMax)*100,100) + '%';
+  if (qb && isPaid) qb.style.background = 'var(--accent)';
+
+  const sub    = _BILLING_STATUS || {};
+  const plan   = sub.name || 'Free';
+  const status = sub.status || 'active';
 
   const badge = $('st-plan-badge');
   if (badge) {
-    badge.textContent = S.plan === 'pro' ? '⚡ Pro' : '✦ Free';
-    badge.className   = `st-plan-badge ${S.plan === 'pro' ? 'st-plan-pro' : 'st-plan-free'}`;
+    badge.textContent = isPaid ? `⚡ ${plan}` : '✦ Free';
+    badge.className   = `st-plan-badge ${isPaid ? 'st-plan-pro' : 'st-plan-free'}`;
+  }
+
+  const meta = $('st-plan-meta');
+  if (meta) {
+    if (isPaid) {
+      meta.style.display = '';
+      const expEl = $('st-plan-expires');
+      if (expEl) expEl.textContent = sub.expires || '—';
+      const gwEl = $('st-plan-gateway');
+      if (gwEl) gwEl.textContent = sub.gateway ? sub.gateway.charAt(0).toUpperCase() + sub.gateway.slice(1) : 'Paystack';
+      const stEl = $('st-plan-status');
+      if (stEl) {
+        stEl.textContent = status === 'cancelled' ? 'Cancelled (access until expiry)' : 'Active';
+        stEl.style.color  = status === 'cancelled' ? 'var(--amber,#f59e0b)' : 'var(--green,#22c55e)';
+      }
+    } else {
+      meta.style.display = 'none';
+    }
+  }
+
+  const cta    = $('st-plan-cta');
+  const cancel = $('st-plan-cancel');
+  if (cta)    cta.style.display    = isPaid ? 'none' : '';
+  if (cancel) cancel.style.display = (isPaid && status !== 'cancelled') ? '' : 'none';
+}
+
+async function stLoadBillingHistory() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try {
+    const r = await fetch(`/api/billing/history?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    const list = $('st-billing-history-list');
+    const wrap = $('st-billing-history');
+    if (!list || !wrap) return;
+    if (!d.history || d.history.length === 0) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    list.innerHTML = d.history.map(h => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.78rem">
+        <div>
+          <div style="font-weight:600">${esc(h.plan)}</div>
+          <div style="color:var(--muted);margin-top:2px">${esc(h.date)} · ${esc(h.gateway || 'Paystack')}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700;color:var(--accent)">${esc(h.amount)}</div>
+          <div style="color:var(--muted);font-size:.7rem">${esc(h.reference || '')}</div>
+        </div>
+      </div>`).join('');
+  } catch(_) {}
+}
+
+async function billingCancelConfirm() {
+  const ok = await siModal.confirm(
+    'You\'ll keep access until your expiry date, but won\'t be renewed. Continue?',
+    { title: 'Cancel subscription?', confirmLabel: 'Yes, cancel', danger: true });
+  if (!ok) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch('/api/billing/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(d.message || 'Subscription cancelled.');
+      await billingLoadStatus();
+      stUpdateUsage();
+    } else {
+      toast(d.detail || 'Could not cancel. Contact support.');
+    }
+  } catch(_) {
+    toast('Could not cancel. Please try again.');
   }
 }
 
@@ -4856,31 +5046,347 @@ function reflectWithAI(idx) {
   }, 300);
 }
 
+// ════════════ PHASE 3 — ADVANCED AI ════════════
+
+async function aiTaskExtractor() {
+  const text = await siModal.input(
+    '✨ Extract Tasks with AI',
+    'Paste an email, note, or message — SIVARR will pull out the tasks.',
+    '',
+    { confirmLabel: 'Extract', type: 'text' }
+  );
+  if (!text?.trim()) return;
+  toast('Extracting tasks…');
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch('/api/ai/extract-tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, text: text.trim() }),
+    });
+    const d = await r.json();
+    if (!d.tasks || d.tasks.length === 0) {
+      toast('No tasks found in that text.');
+      return;
+    }
+    _aiShowExtractedTasks(d.tasks);
+  } catch(_) { toast('AI extraction failed. Try again.'); }
+}
+
+function _aiShowExtractedTasks(tasks) {
+  const checked = tasks.map((_, i) => i);
+  const html = `
+    <div class="si-modal-hd">
+      <span class="si-modal-title">✨ ${tasks.length} task${tasks.length>1?'s':''} found</span>
+      <button class="si-modal-x" onclick="siModal._done(null)"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="si-modal-body" style="max-height:320px;overflow-y:auto">
+      ${tasks.map((t,i) => `
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer">
+          <input type="checkbox" id="ait-${i}" checked style="margin-top:2px;accent-color:var(--accent);width:15px;height:15px;flex-shrink:0">
+          <div>
+            <div style="font-size:.85rem;font-weight:600">${esc(t.title)}</div>
+            <div style="font-size:.72rem;color:var(--muted);margin-top:2px">
+              ${t.priority ? `<span style="color:${t.priority==='high'?'var(--red,#ef4444)':t.priority==='medium'?'var(--amber,#f59e0b)':'var(--muted)'}">● ${t.priority}</span>` : ''}
+              ${t.due ? ` · Due ${t.due}` : ''}
+            </div>
+          </div>
+        </label>`).join('')}
+    </div>
+    <div class="si-modal-ft">
+      <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(null)">Cancel</button>
+      <button class="si-modal-btn si-modal-btn-primary" onclick="siModal._done('ok')">Add selected tasks</button>
+    </div>`;
+  siModal._show_raw(html).then(result => {
+    if (!result) return;
+    tasks.forEach((t, i) => {
+      const cb = document.getElementById(`ait-${i}`);
+      if (!cb || !cb.checked) return;
+      _aiAddTask(t);
+    });
+    toast(`Tasks added ✓`);
+  });
+}
+
+function _aiAddTask(t) {
+  const key   = `sivarr_tasks_${S.sid}`;
+  const tasks = JSON.parse(localStorage.getItem(key) || '[]');
+  tasks.push({
+    id:       `t_ai_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+    title:    t.title,
+    priority: t.priority || 'medium',
+    due:      t.due || '',
+    done:     false,
+    created:  new Date().toISOString(),
+    tags:     [],
+  });
+  localStorage.setItem(key, JSON.stringify(tasks));
+}
+
+async function aiWriteAssist() {
+  const vals = await siModal.form('✍️ AI Writing Assistant', [
+    { id:'text',   label:'Your text',  type:'textarea', placeholder:'Paste or type the text you want to improve…', required:true },
+    { id:'action', label:'What to do', type:'select', options:[
+        {label:'Improve clarity & flow', value:'improve'},
+        {label:'Shorten',                value:'shorten'},
+        {label:'Expand with detail',     value:'expand'},
+        {label:'Make formal',            value:'formal'},
+        {label:'Make casual',            value:'casual'},
+        {label:'Convert to bullets',     value:'bullets'},
+        {label:'Rewrite as email',       value:'email'},
+        {label:'Summarise',              value:'summarise'},
+      ], default:'improve' },
+  ], { confirmLabel: 'Rewrite' });
+  if (!vals?.text?.trim()) return;
+  toast('Rewriting…');
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch('/api/ai/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, text: vals.text.trim(), action: vals.action || 'improve' }),
+    });
+    const d = await r.json();
+    if (d.result) {
+      _aiShowWriteResult(d.result);
+    } else {
+      toast(d.detail || 'AI unavailable. Try again.');
+    }
+  } catch(_) { toast('Writing assistant failed. Try again.'); }
+}
+
+function _aiShowWriteResult(result) {
+  siModal._show_raw(`
+    <div class="si-modal-hd">
+      <span class="si-modal-title">✍️ AI Result</span>
+      <button class="si-modal-x" onclick="siModal._done(null)"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="si-modal-body">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:.85rem;line-height:1.65;color:var(--text1);white-space:pre-wrap;max-height:300px;overflow-y:auto">${esc(result)}</div>
+    </div>
+    <div class="si-modal-ft">
+      <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(null)">Close</button>
+      <button class="si-modal-btn si-modal-btn-primary" onclick="_aiCopyResult(${JSON.stringify(result)})">Copy text</button>
+    </div>`);
+}
+
+function _aiCopyResult(text) {
+  navigator.clipboard?.writeText(text).then(() => toast('Copied ✓'));
+}
+
 // ════════════ COMMUNITY ════════════
+let _commCategory = 'all';
+let _oppCategory  = 'all';
+
+function commSetMode(mode, btn) {
+  document.querySelectorAll('.comm-mode-btn').forEach(b => {
+    b.classList.remove('active');
+    b.style.background = 'transparent';
+    b.style.color       = 'var(--muted)';
+    b.style.boxShadow   = 'none';
+  });
+  btn.classList.add('active');
+  btn.style.background  = 'var(--card)';
+  btn.style.color        = 'var(--text1)';
+  btn.style.boxShadow    = '0 1px 3px #0002';
+  const isFeed = mode === 'feed';
+  const fv = $('comm-view-feed'); if (fv) fv.style.display = isFeed ? '' : 'none';
+  const ov = $('comm-view-opp');  if (ov) ov.style.display = isFeed ? 'none' : '';
+  const postBtn = document.querySelector('#comm-actions button:first-child');
+  const oppBtn  = $('comm-opp-btn');
+  if (postBtn) postBtn.style.display = isFeed ? '' : 'none';
+  if (oppBtn)  oppBtn.style.display  = isFeed ? 'none' : '';
+  if (!isFeed) commLoadOpportunities();
+}
+
+async function communityInit() {
+  await commLoadFeed();
+}
+
+async function commLoadFeed(category) {
+  if (category) _commCategory = category;
+  const feed = $('community-feed');
+  if (!feed) return;
+  feed.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">Loading…</div>';
+  try {
+    const r = await fetch(`/api/community/posts?category=${_commCategory}&limit=40`);
+    const d = await r.json();
+    if (!d.posts || d.posts.length === 0) {
+      feed.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">No posts yet. Be the first to share!</div>';
+      return;
+    }
+    feed.innerHTML = d.posts.map(p => _commRenderPost(p)).join('');
+  } catch(_) {
+    feed.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Could not load posts.</div>';
+  }
+}
+
+function _commRenderPost(p) {
+  const ago    = _timeAgo(p.created);
+  const likes  = (p.likes || []).length;
+  const reps   = (p.replies || []).length;
+  const liked  = (p.likes || []).includes(S.sid || '');
+  const initials = (p.author || 'U')[0].toUpperCase();
+  const tags   = (p.tags || []).map(t => `<span class="feed-tag">${esc(t)}</span>`).join('');
+  const replies = (p.replies || []).slice(-3).map(r => `
+    <div style="margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:.78rem">
+      <span style="font-weight:600">${esc(r.author)}</span>
+      <span style="color:var(--muted);margin-left:6px;font-size:.7rem">${_timeAgo(r.created)}</span>
+      <div style="margin-top:4px;color:var(--text2)">${esc(r.body)}</div>
+    </div>`).join('');
+  return `
+    <div class="feed-card" data-id="${esc(p.id)}">
+      <div class="feed-hd">
+        <div class="feed-av">${initials}</div>
+        <div style="flex:1">
+          <div class="feed-name">${esc(p.author)}</div>
+          <div class="feed-time">${ago}</div>
+        </div>
+        ${p.category && p.category !== 'general' ? `<span class="feat-badge">${esc(p.category)}</span>` : ''}
+      </div>
+      <div class="feed-body">${esc(p.body)}</div>
+      ${tags ? `<div class="feed-tags">${tags}</div>` : ''}
+      ${replies}
+      <div class="feed-actions">
+        <button class="feed-action-btn ${liked?'liked':''}" onclick="commLike('${esc(p.id)}',this)">
+          <i class="ti ti-heart${liked?' ti-heart-filled':''}"></i> <span>${likes}</span>
+        </button>
+        <button class="feed-action-btn" onclick="commReply('${esc(p.id)}',this)">
+          <i class="ti ti-message"></i> <span>${reps}</span>
+        </button>
+      </div>
+    </div>`;
+}
+
+function _timeAgo(iso) {
+  if (!iso) return '';
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60)   return 'just now';
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+
 async function communityPost() {
   const body = await siModal.input('Share with Community', 'What\'s on your mind?', '', { confirmLabel:'Post' });
   if (!body?.trim()) return;
-  const feed = $('community-feed');
-  if (!feed) return;
-  const card = document.createElement('div');
-  card.className = 'feed-card';
-  card.innerHTML = `
-    <div class="feed-hd">
-      <div class="feed-av">${(S.name[0]||'U').toUpperCase()}</div>
-      <div style="flex:1"><div class="feed-name">${esc(S.name||'You')}</div><div class="feed-time">Just now</div></div>
-    </div>
-    <div class="feed-body">${esc(body.trim())}</div>
-    <div class="feed-actions">
-      <button class="feed-action-btn" onclick="this.querySelector('span').textContent=Number(this.querySelector('span').textContent)+1"><i class="ti ti-heart"></i> <span>0</span></button>
-      <button class="feed-action-btn"><i class="ti ti-message"></i> Reply</button>
-    </div>`;
-  feed.insertBefore(card, feed.firstChild);
-  toast('Post shared ✓');
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch('/api/community/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, body: body.trim(), category: _commCategory === 'all' ? 'general' : _commCategory }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Post shared ✓');
+      commLoadFeed();
+    }
+  } catch(_) { toast('Could not post. Try again.'); }
+}
+
+async function commLike(postId, btn) {
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/community/posts/${postId}/like`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const span = btn.querySelector('span');
+      if (span) span.textContent = d.count;
+      const icon = btn.querySelector('i');
+      if (icon) icon.className = `ti ti-heart${d.liked?' ti-heart-filled':''}`;
+    }
+  } catch(_) {}
+}
+
+async function commReply(postId, btn) {
+  const body = await siModal.input('Reply', 'Write your reply…', '', { confirmLabel:'Reply' });
+  if (!body?.trim()) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/community/posts/${postId}/reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, body: body.trim() }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Reply added ✓');
+      commLoadFeed();
+    }
+  } catch(_) { toast('Could not reply.'); }
 }
 
 function commFilter(cat, btn) {
   document.querySelectorAll('[id^="comm-tab-"]').forEach(b => b.classList.remove('sp-add'));
   if (btn) btn.classList.add('sp-add');
+  commLoadFeed(cat);
+}
+
+// ════════════ OPPORTUNITIES ════════════
+async function commLoadOpportunities(category) {
+  if (category) _oppCategory = category;
+  const feed = $('opp-feed');
+  if (!feed) return;
+  feed.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">Loading…</div>';
+  try {
+    const r = await fetch(`/api/opportunities?category=${_oppCategory}&limit=50`);
+    const d = await r.json();
+    if (!d.opportunities || d.opportunities.length === 0) {
+      feed.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">No opportunities listed yet. Add the first one!</div>';
+      return;
+    }
+    feed.innerHTML = d.opportunities.map(o => `
+      <div class="feed-card" style="cursor:default">
+        <div class="feed-hd">
+          <div class="feed-av" style="background:var(--accent2,#7c3aed)">🎯</div>
+          <div style="flex:1">
+            <div class="feed-name">${esc(o.title)}</div>
+            <div class="feed-time">${esc(o.author)} · ${_timeAgo(o.created)}</div>
+          </div>
+          <span class="feat-badge" style="background:var(--accent2,#7c3aed)22;color:var(--accent2,#7c3aed)">${esc(o.category)}</span>
+        </div>
+        ${o.desc ? `<div class="feed-body">${esc(o.desc)}</div>` : ''}
+        ${o.deadline ? `<div style="font-size:.75rem;color:var(--muted);margin:6px 0">⏰ Deadline: ${esc(o.deadline)}</div>` : ''}
+        ${o.link ? `<a href="${esc(o.link)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:.78rem;font-weight:700;color:var(--accent);text-decoration:none">Apply / Learn more →</a>` : ''}
+      </div>`).join('');
+  } catch(_) {
+    feed.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Could not load opportunities.</div>';
+  }
+}
+
+function oppFilter(cat, btn) {
+  document.querySelectorAll('[id^="opp-tab-"]').forEach(b => b.classList.remove('sp-add'));
+  if (btn) btn.classList.add('sp-add');
+  commLoadOpportunities(cat);
+}
+
+async function oppSubmit() {
+  const vals = await siModal.form('Add Opportunity', [
+    { id:'title',    label:'Title',    type:'text',     placeholder:'e.g. Google SWE Intern 2026', required:true },
+    { id:'desc',     label:'Description', type:'textarea', placeholder:'What is this opportunity about?' },
+    { id:'category', label:'Category', type:'select',   options:[
+        {label:'Job',value:'job'},{label:'Internship',value:'internship'},
+        {label:'Scholarship',value:'scholarship'},{label:'Grant',value:'grant'},{label:'Other',value:'other'}
+      ], default:'internship' },
+    { id:'deadline', label:'Deadline (optional)', type:'text', placeholder:'e.g. 2026-07-31' },
+    { id:'link',     label:'Link / URL',          type:'text', placeholder:'https://…' },
+  ], { confirmLabel:'Submit' });
+  if (!vals?.title?.trim()) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch('/api/opportunities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, title: vals.title.trim(), desc: (vals.desc||'').trim(), link: (vals.link||'').trim(), category: vals.category||'other', deadline: (vals.deadline||'').trim() }),
+    });
+    const d = await r.json();
+    if (d.ok) { toast('Opportunity added ✓'); commLoadOpportunities(); }
+  } catch(_) { toast('Could not submit. Try again.'); }
 }
 
 // ════════════ LIBRARY ════════════
@@ -5442,7 +5948,7 @@ function nav(name, btn) {
   if (name === 'calendar')  { calInit(); return; }
   if (name === 'habits')    { habitInit(); return; }
   if (name === 'journal')   { journalInit(); return; }
-  if (name === 'community') return;
+  if (name === 'community') { communityInit(); return; }
   if (name === 'library')   { integrationsRender(); return; }
   if (name === 'stats')         loadStats();
   if (name === 'more')          syncMore();
