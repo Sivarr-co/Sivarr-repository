@@ -20,7 +20,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260601e">
+<link rel="stylesheet" href="/css/styles.css?v=20260601g">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -1926,6 +1926,134 @@ Sentry.onLoad(function() {
             </div>
           </div>
 
+          <!-- ── Getting Started Guide (shows for 7 days after signup) ── -->
+          <div class="gs-section" id="gs-section" style="display:none">
+            <div class="gs-header">
+              <div class="gs-header-left">
+                <div class="gs-badge">New</div>
+                <div>
+                  <div class="gs-title">Getting started with SIVARR</div>
+                  <div class="gs-sub">Watch these short guides to get the most out of your workspace</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="gs-progress-wrap">
+                  <div class="gs-progress-bar"><div class="gs-progress-fill" id="gs-progress-fill" style="width:0%"></div></div>
+                  <span class="gs-progress-label" id="gs-progress-label">0 / 6 done</span>
+                </div>
+                <button class="gs-dismiss" onclick="gsDismiss()" title="Dismiss getting started">
+                  <i class="ti ti-x"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Video cards row -->
+            <div class="gs-videos-wrap">
+              <div class="gs-videos" id="gs-videos">
+
+                <div class="gs-vid-card" id="gsvid-0" onclick="gsMarkDone(0,this)">
+                  <div class="gs-vid-thumb">
+                    <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
+                    <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>
+                    <span class="gs-vid-duration">2:30</span>
+                    <div class="gs-vid-done-badge"><i class="ti ti-check"></i></div>
+                  </div>
+                  <div class="gs-vid-title">Welcome to SIVARR</div>
+                  <div class="gs-vid-desc">A quick tour of your workspace</div>
+                </div>
+
+                <div class="gs-vid-card" id="gsvid-1" onclick="gsMarkDone(1,this)">
+                  <div class="gs-vid-thumb">
+                    <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
+                    <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>
+                    <span class="gs-vid-duration">3:15</span>
+                    <div class="gs-vid-done-badge"><i class="ti ti-check"></i></div>
+                  </div>
+                  <div class="gs-vid-title">SIVARR AI Chat</div>
+                  <div class="gs-vid-desc">Ask anything, get smart answers</div>
+                </div>
+
+                <div class="gs-vid-card" id="gsvid-2" onclick="gsMarkDone(2,this)">
+                  <div class="gs-vid-thumb">
+                    <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
+                    <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>
+                    <span class="gs-vid-duration">2:45</span>
+                    <div class="gs-vid-done-badge"><i class="ti ti-check"></i></div>
+                  </div>
+                  <div class="gs-vid-title">Tasks &amp; Goals</div>
+                  <div class="gs-vid-desc">Plan your day and track progress</div>
+                </div>
+
+                <div class="gs-vid-card" id="gsvid-3" onclick="gsMarkDone(3,this)">
+                  <div class="gs-vid-thumb">
+                    <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
+                    <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>
+                    <span class="gs-vid-duration">1:50</span>
+                    <div class="gs-vid-done-badge"><i class="ti ti-check"></i></div>
+                  </div>
+                  <div class="gs-vid-title">Notes &amp; Docs</div>
+                  <div class="gs-vid-desc">Capture ideas and build knowledge</div>
+                </div>
+
+                <div class="gs-vid-card" id="gsvid-4" onclick="gsMarkDone(4,this)">
+                  <div class="gs-vid-thumb">
+                    <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
+                    <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>
+                    <span class="gs-vid-duration">4:00</span>
+                    <div class="gs-vid-done-badge"><i class="ti ti-check"></i></div>
+                  </div>
+                  <div class="gs-vid-title">Org Space</div>
+                  <div class="gs-vid-desc">Collaborate with your team</div>
+                </div>
+
+                <div class="gs-vid-card" id="gsvid-5" onclick="gsMarkDone(5,this)">
+                  <div class="gs-vid-thumb">
+                    <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
+                    <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>
+                    <span class="gs-vid-duration">2:10</span>
+                    <div class="gs-vid-done-badge"><i class="ti ti-check"></i></div>
+                  </div>
+                  <div class="gs-vid-title">Billing &amp; Plans</div>
+                  <div class="gs-vid-desc">Upgrade and manage your plan</div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Quick tips row -->
+            <div class="gs-tips">
+              <div class="gs-tip">
+                <div class="gs-tip-icon" style="background:var(--teal2);color:var(--teal)"><i class="ti ti-keyboard"></i></div>
+                <div>
+                  <div class="gs-tip-title">Cmd + K</div>
+                  <div class="gs-tip-desc">Open command palette to navigate anywhere fast</div>
+                </div>
+              </div>
+              <div class="gs-tip">
+                <div class="gs-tip-icon" style="background:var(--purple2);color:var(--accent2)"><i class="ti ti-wand"></i></div>
+                <div>
+                  <div class="gs-tip-title">Extract Tasks</div>
+                  <div class="gs-tip-desc">Paste any text and AI pulls out your tasks automatically</div>
+                </div>
+              </div>
+              <div class="gs-tip">
+                <div class="gs-tip-icon" style="background:var(--amber2);color:var(--amber)"><i class="ti ti-moon"></i></div>
+                <div>
+                  <div class="gs-tip-title">Dark Mode</div>
+                  <div class="gs-tip-desc">Toggle in Settings → Appearance to switch themes</div>
+                </div>
+              </div>
+              <div class="gs-tip">
+                <div class="gs-tip-icon" style="background:#22c55e18;color:#22c55e"><i class="ti ti-device-mobile"></i></div>
+                <div>
+                  <div class="gs-tip-title">Install as App</div>
+                  <div class="gs-tip-desc">Add SIVARR to your home screen for quick access</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
           <!-- SIVA shortcut pills -->
           <div class="siva-pills">
             <button class="siva-pill sp-add" onclick="nav('chat',null)">
@@ -3631,7 +3759,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260601e" defer></script>
+<script src="/js/app.js?v=20260601g" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

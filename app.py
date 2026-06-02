@@ -5202,11 +5202,12 @@ async def home_brief(data: dict):
 
 
 @app.post("/api/ai/extract-tasks")
-async def ai_extract_tasks(data: dict):
+async def ai_extract_tasks(data: dict, request: Request):
     """Extract actionable tasks from free-form text using AI."""
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
+    check_rate_limit(get_client_key(request), 15, "ai_extract")
     text = sanitize_text(str(data.get("text","")), 3000)
     if len(text.strip()) < 10:
         raise HTTPException(400, "Text too short.")
@@ -5235,11 +5236,12 @@ Return only valid JSON. No explanation. No markdown. Example:
 
 
 @app.post("/api/ai/write")
-async def ai_write_assist(data: dict):
+async def ai_write_assist(data: dict, request: Request):
     """AI writing assistant — improve, shorten, expand, or reformat text."""
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
+    check_rate_limit(get_client_key(request), 20, "ai_write")
     text   = sanitize_text(str(data.get("text","")), 4000)
     action = sanitize_text(str(data.get("action","improve")), 20)
     tone   = sanitize_text(str(data.get("tone","professional")), 20)
@@ -5839,11 +5841,12 @@ async def community_get_posts(category: str = "all", limit: int = 40):
 
 
 @app.post("/api/community/posts")
-async def community_create_post(data: dict):
+async def community_create_post(data: dict, request: Request):
     """Create a new community post."""
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
+    check_rate_limit(get_client_key(request), 10, "community_post")
     body = sanitize_text(str(data.get("body","")), 800)
     if len(body) < 3:
         raise HTTPException(400, "Post is too short.")
@@ -5931,11 +5934,12 @@ async def get_opportunities(category: str = "all", limit: int = 50):
 
 
 @app.post("/api/opportunities")
-async def submit_opportunity(data: dict):
+async def submit_opportunity(data: dict, request: Request):
     """Submit a new opportunity to the board."""
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
+    check_rate_limit(get_client_key(request), 5, "opportunity_post")
     title    = sanitize_text(str(data.get("title","")), 120)
     desc     = sanitize_text(str(data.get("desc","")), 600)
     link     = sanitize_text(str(data.get("link","")), 200)

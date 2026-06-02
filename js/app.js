@@ -4504,10 +4504,88 @@ document.addEventListener('keydown', e => {
 
 // ═══════════════════════ HOME PANEL ═════════════════════════
 
+// ════════════════════ GETTING STARTED GUIDE ══════════════════════
+
+const _GS_KEY        = () => `sivarr_gs_${S.sid}`;
+const _GS_JOINED_KEY = () => `sivarr_joined_${S.sid}`;
+const _GS_DAYS       = 7;    // show for this many days after first login
+const _GS_TOTAL      = 6;    // total video cards
+
+function gsInit() {
+  if (!S.sid) return;
+
+  // Record first login date if not already stored
+  const joinedKey = _GS_JOINED_KEY();
+  if (!localStorage.getItem(joinedKey)) {
+    localStorage.setItem(joinedKey, new Date().toISOString());
+  }
+
+  const section = $('gs-section');
+  if (!section) return;
+
+  // Check: dismissed?
+  const state = JSON.parse(localStorage.getItem(_GS_KEY()) || '{}');
+  if (state.dismissed) { section.style.display = 'none'; return; }
+
+  // Check: within first N days?
+  const joined  = new Date(localStorage.getItem(joinedKey));
+  const ageMs   = Date.now() - joined.getTime();
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  if (ageDays > _GS_DAYS) { section.style.display = 'none'; return; }
+
+  section.style.display = '';
+  _gsRenderProgress(state.done || []);
+}
+
+function _gsRenderProgress(done) {
+  const count = done.length;
+  const fill  = $('gs-progress-fill');
+  const label = $('gs-progress-label');
+  if (fill)  fill.style.width  = `${Math.round((count / _GS_TOTAL) * 100)}%`;
+  if (label) label.textContent = `${count} / ${_GS_TOTAL} done`;
+
+  // Restore done state on cards
+  done.forEach(idx => {
+    const card = $(`gsvid-${idx}`);
+    if (card) card.classList.add('done');
+  });
+}
+
+function gsMarkDone(idx, card) {
+  const state = JSON.parse(localStorage.getItem(_GS_KEY()) || '{}');
+  const done  = state.done || [];
+  if (!done.includes(idx)) {
+    done.push(idx);
+    state.done = done;
+    localStorage.setItem(_GS_KEY(), JSON.stringify(state));
+  }
+  card.classList.add('done');
+  _gsRenderProgress(done);
+
+  // Auto-dismiss when all done
+  if (done.length >= _GS_TOTAL) {
+    setTimeout(() => {
+      const s = $('gs-section');
+      if (s) { s.style.opacity = '0'; s.style.transition = 'opacity .4s'; setTimeout(() => s.style.display = 'none', 400); }
+    }, 800);
+  }
+}
+
+function gsDismiss() {
+  const state = JSON.parse(localStorage.getItem(_GS_KEY()) || '{}');
+  state.dismissed = true;
+  localStorage.setItem(_GS_KEY(), JSON.stringify(state));
+  const s = $('gs-section');
+  if (s) { s.style.opacity = '0'; s.style.transition = 'opacity .3s'; setTimeout(() => s.style.display = 'none', 300); }
+}
+
+// ═════════════════════════════════════════════════════════════════
+
 async function loadHome() {
   if (!S.sid) return;
   _recordActivity();
   _buildNotifs();
+  gsInit();
 
   const hr        = new Date().getHours();
   const tod       = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
@@ -6073,53 +6151,6 @@ async function refreshTopics() {
   renderTopics(S.topics, S.weak);
 }
 
-// ═══════════════════════ SWIPE GESTURES ════════════════════════
-
-(function initSwipe() {
-  let startX = 0, startY = 0, startTime = 0;
-  const PANELS = ['chat','quiz','stats','courses','lab','flux','announcements','notes','studyplan'];
-  let currentIdx = 0;
-
-  function getCurrentIdx() {
-    const active = document.querySelector('.panel.active');
-    if (!active) return 0;
-    const id = active.id.replace('panel-','');
-    const i  = PANELS.indexOf(id);
-    return i >= 0 ? i : currentIdx;
-  }
-
-  document.addEventListener('touchstart', e => {
-    startX    = e.touches[0].clientX;
-    startY    = e.touches[0].clientY;
-    startTime = Date.now();
-  }, { passive: true });
-
-  document.addEventListener('touchend', e => {
-    const dx   = e.changedTouches[0].clientX - startX;
-    const dy   = e.changedTouches[0].clientY - startY;
-    const dt   = Date.now() - startTime;
-    const absDx = Math.abs(dx), absDy = Math.abs(dy);
-
-    // Must be fast, horizontal, and significant
-    if (dt > 350 || absDx < 60 || absDy > absDx * 0.8) return;
-
-    // Don't swipe if inside a scrollable area scrolled horizontally
-    const target = e.target.closest('.chat-msgs,.quiz-wrap,.stats-wrap,.tab-bar,.lh-filter-bar,.sg-msg-wrap');
-    if (target) return;
-
-    currentIdx = getCurrentIdx();
-
-    if (dx < 0 && currentIdx < PANELS.length - 1) {
-      // Swipe left = next panel
-      nav(PANELS[currentIdx + 1], null);
-      currentIdx++;
-    } else if (dx > 0 && currentIdx > 0) {
-      // Swipe right = previous panel
-      nav(PANELS[currentIdx - 1], null);
-      currentIdx--;
-    }
-  }, { passive: true });
-})();
   
 function toast(msg, ms=2500) {
   const el = $('toast'); el.textContent = msg;
