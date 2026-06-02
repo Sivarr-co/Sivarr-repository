@@ -1414,27 +1414,43 @@ async def app_config():
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index():
+async def landing():
+    """Public landing page — served to everyone at the root URL."""
+    if Path("templates/landing.html").exists():
+        return Path("templates/landing.html").read_text()
+    # Fallback: redirect to /app if landing page not built yet
+    return RedirectResponse(url="/app", status_code=302)
+
+
+def _serve_app() -> HTMLResponse:
+    """Inject runtime config and return the main SPA HTML."""
     html = Path("templates/index.html").read_text()
     config = json.dumps({
-        "sentry_dsn":      SENTRY_DSN,
-        "paystack_pk":     PAYSTACK_PUBLIC_KEY,
-        "version":         VERSION,
-        "environment":     os.environ.get("RAILWAY_ENVIRONMENT", "production"),
+        "sentry_dsn":       SENTRY_DSN,
+        "paystack_pk":      PAYSTACK_PUBLIC_KEY,
+        "version":          VERSION,
+        "environment":      os.environ.get("RAILWAY_ENVIRONMENT", "production"),
         "plausible_domain": PLAUSIBLE_DOMAIN,
     })
     inject = f'<script>window.SIVARR_CONFIG={config};</script>'
     html = html.replace('<meta charset="UTF-8">', f'<meta charset="UTF-8">\n{inject}', 1)
-    return html
+    return HTMLResponse(html)
+
+
+@app.get("/app", response_class=HTMLResponse)
+async def app_index():
+    """Main SPA — the logged-in workspace."""
+    return _serve_app()
+
 
 @app.get("/billing/callback")
 async def billing_callback(reference: str = "", trxref: str = "", plan: str = ""):
     """Paystack billing redirect — forward to SPA with billing params."""
     ref = reference or trxref
     if not ref:
-        return RedirectResponse(url="/", status_code=302)
+        return RedirectResponse(url="/app", status_code=302)
     return RedirectResponse(
-        url=f"/?billing=success&ref={ref}&plan={plan}",
+        url=f"/app?billing=success&ref={ref}&plan={plan}",
         status_code=302,
     )
 
@@ -1700,9 +1716,9 @@ async def reset_password(data: dict):
 async def verify_email_endpoint(token: str):
     rec = db.get_email_verify_token(token)
     if not rec:
-        return RedirectResponse(url="/?verified=error", status_code=302)
+        return RedirectResponse(url="/app?verified=error", status_code=302)
     db.mark_email_verified(rec["sid"])
-    return RedirectResponse(url="/?verified=1", status_code=302)
+    return RedirectResponse(url="/app?verified=1", status_code=302)
 
 
 @app.post("/api/auth/resend-verification")
@@ -4127,7 +4143,7 @@ async def ag_checkout(data: dict):
                 "quantity": 1,
             }],
             mode="payment",
-            success_url=f"{BASE_URL}/?payment=success&template={template_id}",
+            success_url=f"{BASE_URL.rstrip("/")}/app?payment=success&template={template_id}",
             cancel_url=f"{BASE_URL}/?payment=cancelled&template={template_id}",
             metadata={
                 "template_id": template_id,
@@ -4325,7 +4341,7 @@ async def paystack_initialize(data: dict):
         "amount":      amount_kobo,
         "currency":    "NGN",
         "reference":   reference,
-        "callback_url": f"{BASE_URL}/?payment=success&template={template_id}&gateway=paystack&ref={reference}",
+        "callback_url": f"{BASE_URL.rstrip("/")}/app?payment=success&template={template_id}&gateway=paystack&ref={reference}",
         "metadata": {
             "template_id": template_id,
             "buyer_sid":   sid,
@@ -5353,7 +5369,7 @@ def _google_verify_state(state: str) -> bool:
 async def google_oauth_start():
     """Redirect to Google consent screen for Sign in with Google."""
     if not GOOGLE_OAUTH_AVAILABLE:
-        return RedirectResponse("/?auth_error=google_not_configured")
+        return RedirectResponse("/app?auth_error=google_not_configured")
     from urllib.parse import urlencode
     state  = _google_make_state()
     params = {
@@ -5372,16 +5388,16 @@ async def google_oauth_start():
 async def google_oauth_callback(code: str = "", error: str = "", state: str = ""):
     """Exchange Google authorisation code → find/create user → issue one-time exchange code."""
     if error:
-        return RedirectResponse("/?auth_error=google_denied")
+        return RedirectResponse("/app?auth_error=google_denied")
     if not code:
-        return RedirectResponse("/?auth_error=google_denied")
+        return RedirectResponse("/app?auth_error=google_denied")
     if not GOOGLE_OAUTH_AVAILABLE or not HTTPX_AVAILABLE:
-        return RedirectResponse("/?auth_error=google_not_configured")
+        return RedirectResponse("/app?auth_error=google_not_configured")
 
     # CSRF check
     if not state or not _google_verify_state(state):
         log.warning("Google OAuth: invalid or expired state parameter")
-        return RedirectResponse("/?auth_error=google_failed")
+        return RedirectResponse("/app?auth_error=google_failed")
 
     # Exchange code for Google access token
     try:
@@ -5396,7 +5412,7 @@ async def google_oauth_callback(code: str = "", error: str = "", state: str = ""
             tokens = tok_resp.json()
             if "error" in tokens:
                 log.error(f"Google token exchange error: {tokens.get('error_description', tokens)}")
-                return RedirectResponse("/?auth_error=google_token_failed")
+                return RedirectResponse("/app?auth_error=google_token_failed")
             info_resp = await client.get(
                 GOOGLE_USERINFO_URL,
                 headers={"Authorization": f"Bearer {tokens['access_token']}"},
@@ -5404,14 +5420,14 @@ async def google_oauth_callback(code: str = "", error: str = "", state: str = ""
             profile = info_resp.json()
     except Exception as exc:
         log.error(f"Google OAuth HTTP error: {exc}")
-        return RedirectResponse("/?auth_error=google_failed")
+        return RedirectResponse("/app?auth_error=google_failed")
 
     email     = (profile.get("email") or "").lower().strip()
     name      = profile.get("name") or (email.split("@")[0].replace(".", " ").title())
     google_id = profile.get("id") or profile.get("sub") or ""
 
     if not email:
-        return RedirectResponse("/?auth_error=google_no_email")
+        return RedirectResponse("/app?auth_error=google_no_email")
 
     # Find existing user or create one
     users = load_users()
@@ -5455,7 +5471,7 @@ async def google_oauth_callback(code: str = "", error: str = "", state: str = ""
     for k in stale:
         del _google_exchange_codes[k]
 
-    return RedirectResponse(f"/?google_code={xcode}")
+    return RedirectResponse(f"/app?google_code={xcode}")
 
 
 @app.get("/api/auth/google/exchange")
@@ -5479,7 +5495,7 @@ async def google_token_exchange(code: str = ""):
 async def google_cal_connect(token: str = ""):
     """Start OAuth flow for Google Calendar (offline, to get refresh token)."""
     if not GOOGLE_OAUTH_AVAILABLE:
-        return RedirectResponse("/?gcal_error=not_configured")
+        return RedirectResponse("/app?gcal_error=not_configured")
     from urllib.parse import urlencode
     params = {
         "client_id":     GOOGLE_CLIENT_ID,
@@ -5497,12 +5513,12 @@ async def google_cal_connect(token: str = ""):
 async def google_cal_callback(code: str = "", state: str = "", error: str = ""):
     """Store Google Calendar refresh token for the SIVARR user."""
     if error or not code:
-        return RedirectResponse("/?gcal_error=denied")
+        return RedirectResponse("/app?gcal_error=denied")
     if not GOOGLE_OAUTH_AVAILABLE or not HTTPX_AVAILABLE:
-        return RedirectResponse("/?gcal_error=not_configured")
+        return RedirectResponse("/app?gcal_error=not_configured")
     sess = get_session_from_token(state)
     if not sess:
-        return RedirectResponse("/?gcal_error=session_expired")
+        return RedirectResponse("/app?gcal_error=session_expired")
     try:
         async with _httpx.AsyncClient(timeout=15) as client:
             tok = await client.post(GOOGLE_TOKEN_URL, data={
@@ -5514,10 +5530,10 @@ async def google_cal_callback(code: str = "", state: str = "", error: str = ""):
             })
             tokens = tok.json()
             if "error" in tokens:
-                return RedirectResponse("/?gcal_error=token_failed")
+                return RedirectResponse("/app?gcal_error=token_failed")
     except Exception as exc:
         log.error(f"Google Calendar OAuth error: {exc}")
-        return RedirectResponse("/?gcal_error=failed")
+        return RedirectResponse("/app?gcal_error=failed")
 
     sid = sess["sid"]
     p   = load_progress(sid)
@@ -5528,7 +5544,7 @@ async def google_cal_callback(code: str = "", state: str = "", error: str = ""):
     }
     save_progress(sid, p)
     log.info(f"Google Calendar connected: {sid}")
-    return RedirectResponse("/?gcal_connected=1")
+    return RedirectResponse("/app?gcal_connected=1")
 
 
 async def _gcal_access_token(sid: str) -> str | None:
@@ -5996,7 +6012,7 @@ async def get_public_profile(sid_or_name: str):
 async def github_oauth_start(token: str = ""):
     """Redirect to GitHub OAuth consent screen."""
     if not GITHUB_OAUTH_AVAILABLE:
-        return RedirectResponse("/?github_error=not_configured")
+        return RedirectResponse("/app?github_error=not_configured")
     from urllib.parse import urlencode
     params = {
         "client_id":   GITHUB_CLIENT_ID,
@@ -6011,14 +6027,14 @@ async def github_oauth_start(token: str = ""):
 async def github_oauth_callback(code: str = "", state: str = "", error: str = ""):
     """Exchange GitHub code, store access token, redirect back to app."""
     if error or not code:
-        return RedirectResponse("/?github_error=denied")
+        return RedirectResponse("/app?github_error=denied")
     if not GITHUB_OAUTH_AVAILABLE or not HTTPX_AVAILABLE:
-        return RedirectResponse("/?github_error=not_configured")
+        return RedirectResponse("/app?github_error=not_configured")
 
     sivarr_token = state
     sess = get_session_from_token(sivarr_token)
     if not sess:
-        return RedirectResponse("/?github_error=session_expired")
+        return RedirectResponse("/app?github_error=session_expired")
 
     try:
         async with _httpx.AsyncClient(timeout=15) as client:
@@ -6033,14 +6049,14 @@ async def github_oauth_callback(code: str = "", state: str = "", error: str = ""
             tokens = tok.json()
             if "error" in tokens or "access_token" not in tokens:
                 log.error(f"GitHub token error: {tokens}")
-                return RedirectResponse("/?github_error=token_failed")
+                return RedirectResponse("/app?github_error=token_failed")
 
             info = await client.get(f"{GITHUB_API}/user",
                 headers={"Authorization": f"Bearer {tokens['access_token']}", "Accept": "application/json"})
             profile = info.json()
     except Exception as exc:
         log.error(f"GitHub OAuth error: {exc}")
-        return RedirectResponse("/?github_error=failed")
+        return RedirectResponse("/app?github_error=failed")
 
     sid = sess["sid"]
     p   = load_progress(sid)
@@ -6050,7 +6066,7 @@ async def github_oauth_callback(code: str = "", state: str = "", error: str = ""
     p["github_avatar"]   = profile.get("avatar_url","")
     save_progress(sid, p)
     log.info(f"GitHub connected: {sid} → @{profile.get('login','')}")
-    return RedirectResponse("/?github_connected=1")
+    return RedirectResponse("/app?github_connected=1")
 
 
 @app.get("/api/integrations/github/status")
@@ -6163,7 +6179,7 @@ async def flutterwave_subscribe(data: dict):
         "tx_ref":       ref,
         "amount":       str(amount_ngn),
         "currency":     "NGN",
-        "redirect_url": f"{BASE_URL}/?flw_billing=success&ref={ref}&plan={plan_id}",
+        "redirect_url": f"{BASE_URL.rstrip("/")}/app?flw_billing=success&ref={ref}&plan={plan_id}",
         "customer":     {"email": email, "name": name},
         "customizations": {
             "title":       f"SIVARR {plan['name']} Plan",
