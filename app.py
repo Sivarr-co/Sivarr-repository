@@ -1275,7 +1275,7 @@ app.mount("/css",    StaticFiles(directory="css"),    name="css")
 app.mount("/js",     StaticFiles(directory="js"),     name="js")
 
 _cors_origins = list({o.strip() for o in [
-    BASE_URL.rstrip("/"),
+    BASE_URL.rstrip('/'),
     "https://sivarr.up.railway.app",
     "https://sivarr.app",
 ] if o.strip()})
@@ -4143,7 +4143,7 @@ async def ag_checkout(data: dict):
                 "quantity": 1,
             }],
             mode="payment",
-            success_url=f"{BASE_URL.rstrip("/")}/app?payment=success&template={template_id}",
+            success_url=f"{BASE_URL.rstrip('/')}/app?payment=success&template={template_id}",
             cancel_url=f"{BASE_URL}/?payment=cancelled&template={template_id}",
             metadata={
                 "template_id": template_id,
@@ -4341,7 +4341,7 @@ async def paystack_initialize(data: dict):
         "amount":      amount_kobo,
         "currency":    "NGN",
         "reference":   reference,
-        "callback_url": f"{BASE_URL.rstrip("/")}/app?payment=success&template={template_id}&gateway=paystack&ref={reference}",
+        "callback_url": f"{BASE_URL.rstrip('/')}/app?payment=success&template={template_id}&gateway=paystack&ref={reference}",
         "metadata": {
             "template_id": template_id,
             "buyer_sid":   sid,
@@ -6179,7 +6179,7 @@ async def flutterwave_subscribe(data: dict):
         "tx_ref":       ref,
         "amount":       str(amount_ngn),
         "currency":     "NGN",
-        "redirect_url": f"{BASE_URL.rstrip("/")}/app?flw_billing=success&ref={ref}&plan={plan_id}",
+        "redirect_url": f"{BASE_URL.rstrip('/')}/app?flw_billing=success&ref={ref}&plan={plan_id}",
         "customer":     {"email": email, "name": name},
         "customizations": {
             "title":       f"SIVARR {plan['name']} Plan",
