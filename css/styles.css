@@ -1156,7 +1156,9 @@ h1,h2,h3,.panel-title,.section-title,
 
 /* ── MESSAGES AREA ──────────────────────────────────────────── */
 .chat-msgs {
-  flex: 1; overflow-y: auto; padding: 24px 20px 16px;
+  flex: 1; overflow-y: auto;
+  /* Horizontal padding centres messages within --chat-max */
+  padding: 24px max(20px, calc((100% - var(--chat-max)) / 2)) 16px;
   display: flex; flex-direction: column; gap: 4px;
   background: var(--bg);
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
@@ -1365,16 +1367,17 @@ h1,h2,h3,.panel-title,.section-title,
 
 /* ── CHAT BAR ───────────────────────────────────────────────── */
 .chat-bar {
-  padding:10px 14px max(16px, env(safe-area-inset-bottom, 16px));
-  margin:0 12px 12px;
-  border:1px solid var(--border);
-  border-radius:20px;
-  background:var(--bg2);
-  flex-shrink:0;
-  display:flex; flex-direction:column; gap:8px;
-  box-shadow:0 4px 24px rgba(0,0,0,.12),
-             0 0 0 1px rgba(255,255,255,.03) inset;
-  transition:border-color .2s, box-shadow .2s;
+  padding: 10px 14px max(16px, env(safe-area-inset-bottom, 16px));
+  margin: 0 auto 12px;
+  width: calc(100% - 24px);
+  max-width: var(--chat-max);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg2);
+  flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.12), 0 0 0 1px rgba(255,255,255,.03) inset;
+  transition: border-color .2s, box-shadow .2s;
 }
 .chat-bar:focus-within {
   border-color:rgba(13,122,95,.4);
@@ -3454,49 +3457,145 @@ h1,h2,h3,.panel-title,.section-title,
 }
 .skill-add-btn:hover { border-color:var(--teal); color:var(--teal4); }
 
-/* ── RESPONSIVE ────────────────────────────────────────────── */
-@media (max-width:900px) {
-  .stat-grid { grid-template-columns:repeat(2,1fr); }
-  .g3l, .g3r { grid-template-columns:1fr; }
-  .home-grid  { grid-template-columns:1fr; }
-  .h-stat-grid { grid-template-columns:repeat(2,1fr); }
-  .h2col { grid-template-columns:1fr; }
-  .org-stats-row { grid-template-columns:repeat(2,1fr); }
-  .opp-grid { grid-template-columns:1fr; }
-  .projects-grid { grid-template-columns:1fr; }
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE SYSTEM
+   Breakpoints: 480 · 720 · 900 · 1280 · 1440 · 1920
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Universal panel content max-width ──────────────────────── */
+/* Prevents content from stretching on wide monitors / TVs.
+   The panel background fills edge-to-edge; only the inner
+   content is constrained and centred.                          */
+:root {
+  --panel-max:   1180px;   /* Standard panels (home, habits, etc.)   */
+  --chat-max:     860px;   /* Chat & single-column focused panels     */
+  --wide-max:    1400px;   /* Dashboard-style panels with more cols   */
 }
 
-@media (max-width:720px) {
-  .topbar { padding:0 12px; gap:8px; }
-  .tb-brand { width:auto; }
-  .tb-center { display:none; }
-  .tb-ham { display:flex; }
-  .sidebar { transform:translateX(calc(-1 * var(--sb-width))); }
-  .sidebar.mobile-open { transform:translateX(0); box-shadow:var(--shadow2); }
-  .main { margin-left:0!important; }
-  .overlay { display:block; }
-  .stat-grid { grid-template-columns:repeat(2,1fr); }
-  .g2 { grid-template-columns:1fr; }
-  .content { padding:14px; }
-  .view-head { padding:0 14px; }
+/* Panel wraps use padding-based centering.
+   Background fills edge-to-edge; content stays within --panel-max. */
+.home-wrap,
+.habits-wrap,
+.journal-wrap,
+.cal-wrap,
+.community-wrap,
+.library-wrap,
+.quiz-wrap,
+.stats-wrap,
+.ask-notes-panel,
+.quizzes-wrap,
+.inbox-wrap {
+  /* Adds lateral padding so content never exceeds --panel-max */
+  padding-left:  max(24px, calc((100% - var(--panel-max)) / 2));
+  padding-right: max(24px, calc((100% - var(--panel-max)) / 2));
 }
 
-@media (max-width:480px) {
-  .stat-grid { grid-template-columns:repeat(2,1fr); }
-  .stat-val  { font-size:18px; }
-  .content   { padding:12px; }
-  .doc-sidebar { width:160px; }
-  .doc-title-input { font-size:1.1rem; }
-  .brief-card { padding:24px 20px; }
-  .brief-greeting { font-size:1.3rem; }
-  .chat-prompt-grid { grid-template-columns:1fr; max-width:340px; }
-  .chat-welcome-heading { font-size:1.5rem; }
-  .chat-action-pills { gap:4px; }
-  .chat-pill { font-size:.72rem; padding:4px 10px; }
-  .chat-header { padding:10px 14px; }
-  .chat-header-av { width:34px; height:34px; border-radius:10px; }
-  .msg { max-width:90%; }
-  .chat-hdr-btn { width:28px; height:28px; font-size:.78rem; }
+/* .content class used across many feature panels */
+.content {
+  padding-left:  max(24px, calc((100% - var(--panel-max)) / 2)) !important;
+  padding-right: max(24px, calc((100% - var(--panel-max)) / 2)) !important;
+}
+
+/* ── Tablet · 900px ─────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .stat-grid    { grid-template-columns: repeat(2,1fr); }
+  .g3l, .g3r   { grid-template-columns: 1fr; }
+  .home-grid    { grid-template-columns: 1fr; }
+  .h-stat-grid  { grid-template-columns: repeat(2,1fr); }
+  .h2col        { grid-template-columns: 1fr; }
+  .org-stats-row { grid-template-columns: repeat(2,1fr); }
+  .opp-grid     { grid-template-columns: 1fr; }
+  .projects-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Mobile · 720px ─────────────────────────────────────────── */
+@media (max-width: 720px) {
+  :root { --panel-max: 9999px; --chat-max: 9999px; }
+  .topbar   { padding: 0 12px; gap: 8px; }
+  .tb-brand { width: auto; }
+  .tb-center { display: none; }
+  .tb-ham   { display: flex; }
+  .sidebar  { transform: translateX(calc(-1 * var(--sb-width))); }
+  .sidebar.mobile-open { transform: translateX(0); box-shadow: var(--shadow2); }
+  .main     { margin-left: 0 !important; }
+  .overlay  { display: block; }
+  .stat-grid { grid-template-columns: repeat(2,1fr); }
+  .g2       { grid-template-columns: 1fr; }
+  .view-head { padding: 0 14px; }
+
+  /* Reset padding-based centering on mobile — use normal small padding */
+  .home-wrap, .habits-wrap, .journal-wrap, .cal-wrap,
+  .community-wrap, .library-wrap, .quiz-wrap, .stats-wrap,
+  .ask-notes-panel, .quizzes-wrap, .inbox-wrap {
+    padding-left: 16px !important; padding-right: 16px !important;
+  }
+  .content { padding: 14px !important; }
+  .chat-msgs { padding-left: 12px !important; padding-right: 12px !important; }
+}
+
+/* ── Small mobile · 480px ───────────────────────────────────── */
+@media (max-width: 480px) {
+  .stat-grid  { grid-template-columns: repeat(2,1fr); }
+  .stat-val   { font-size: 18px; }
+  .content    { padding: 12px; }
+  .doc-sidebar { width: 160px; }
+  .doc-title-input { font-size: 1.1rem; }
+  .brief-card { padding: 24px 20px; }
+  .brief-greeting { font-size: 1.3rem; }
+  .chat-prompt-grid { grid-template-columns: 1fr; max-width: 340px; }
+  .chat-welcome-heading { font-size: 1.5rem; }
+  .chat-action-pills { gap: 4px; }
+  .chat-pill  { font-size: .72rem; padding: 4px 10px; }
+  .chat-header { padding: 10px 14px; }
+  .chat-header-av { width: 34px; height: 34px; border-radius: 10px; }
+  .msg        { max-width: 90%; }
+  .chat-hdr-btn { width: 28px; height: 28px; font-size: .78rem; }
+  .h-stat-grid { grid-template-columns: repeat(2,1fr); }
+  .h2col      { grid-template-columns: 1fr; }
+  .siva-brief { padding: 16px 16px; }
+  .home-wrap  { padding: 16px; }
+}
+
+/* ── Large desktop · 1280px+ ────────────────────────────────── */
+@media (min-width: 1280px) {
+  :root { --sb-width: 264px; --panel-max: 1180px; --chat-max: 860px; }
+}
+
+/* ── XL desktop · 1440px+ ───────────────────────────────────── */
+@media (min-width: 1440px) {
+  :root {
+    --sb-width:  272px;
+    --panel-max: 1240px;
+    --chat-max:   900px;
+    --topbar-h:   56px;
+  }
+  .view-head { height: 56px; padding: 0 28px; }
+  .h-stat-grid { gap: 16px; }
+  .h-stat-card { padding: 22px; }
+}
+
+/* ── Wide / TV · 1920px+ ────────────────────────────────────── */
+@media (min-width: 1920px) {
+  :root {
+    --sb-width:  300px;
+    --panel-max: 1380px;
+    --chat-max:  1000px;
+    --topbar-h:   58px;
+  }
+  html { font-size: 17px; }
+  .view-head { height: 58px; padding: 0 32px; }
+  .msg { max-width: 72%; }
+  .h-stat-grid { grid-template-columns: repeat(4,1fr); gap: 18px; }
+}
+
+/* ── Ultra-wide · 2560px+ ───────────────────────────────────── */
+@media (min-width: 2560px) {
+  :root {
+    --sb-width:  320px;
+    --panel-max: 1600px;
+    --chat-max:  1100px;
+  }
+  html { font-size: 18px; }
 }
 
 /* ══════════════════════════════════════════════════
