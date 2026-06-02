@@ -20,7 +20,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260601g">
+<link rel="stylesheet" href="/css/styles.css?v=20260602a">
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -401,121 +401,104 @@ Sentry.onLoad(function() {
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
 
+      <!-- Workspace header -->
+      <div class="sb-header">
+        <div class="sb-ws">
+          <div class="sb-ws-av">S</div>
+          <span class="sb-ws-name">SIVARR</span>
+        </div>
+        <button class="sb-new-btn" onclick="openCmdPalette()" title="Search or create (⌘K)">
+          <i class="ti ti-search"></i>
+        </button>
+      </div>
 
       <div class="sb-scroll">
 
-        <!-- Core -->
-        <div class="sg" onclick="sbToggleSection('core')">
-          <span class="sl">Core</span>
-          <i class="ti ti-chevron-down sg-chev"></i>
-        </div>
-        <div class="sg-items" id="sgi-core">
+        <!-- Pinned -->
+        <div class="sb-nav-group">
           <button class="si on" id="si-chat" data-panel="chat" onclick="sidebarNav(this)">
-            <i class="ti ti-robot si-ic"></i>
+            <div class="si-icon"><i class="ti ti-sparkles"></i></div>
             <span class="si-lb">SIVARR AI</span>
           </button>
           <button class="si" data-panel="home" onclick="sidebarNav(this)">
-            <i class="ti ti-home si-ic"></i>
+            <div class="si-icon"><i class="ti ti-home"></i></div>
             <span class="si-lb">Home</span>
           </button>
           <button class="si" data-panel="announcements" onclick="sidebarNav(this)">
-            <i class="ti ti-inbox si-ic"></i>
+            <div class="si-icon"><i class="ti ti-inbox"></i></div>
             <span class="si-lb">Inbox</span>
-          </button>
-          <button class="si" data-panel="quiz" onclick="sidebarNav(this)">
-            <i class="ti ti-pencil si-ic"></i>
-            <span class="si-lb">Quiz</span>
+            <span class="si-dot" id="sb-inbox-dot" style="display:none"></span>
           </button>
         </div>
 
         <!-- Work -->
-        <div class="sg" onclick="sbToggleSection('work')">
-          <span class="sl">Work</span>
-          <i class="ti ti-chevron-down sg-chev"></i>
-        </div>
-        <div class="sg-items" id="sgi-work">
+        <div class="sb-section-label">Work</div>
+        <div class="sb-nav-group" id="sgi-work">
           <button class="si" data-panel="flux" onclick="sidebarNav(this)">
-            <i class="ti ti-checkbox si-ic"></i>
+            <div class="si-icon"><i class="ti ti-checkbox"></i></div>
             <span class="si-lb">Tasks</span>
           </button>
-          <button class="si" data-panel="notes" onclick="sidebarNav(this)">
-            <i class="ti ti-notebook si-ic"></i>
-            <span class="si-lb">Docs &amp; Notes</span>
+          <button class="si" data-panel="goals" onclick="sidebarNav(this)">
+            <div class="si-icon"><i class="ti ti-target"></i></div>
+            <span class="si-lb">Goals</span>
           </button>
           <button class="si" data-panel="calendar" onclick="sidebarNav(this)">
-            <i class="ti ti-calendar si-ic"></i>
+            <div class="si-icon"><i class="ti ti-calendar"></i></div>
             <span class="si-lb">Calendar</span>
           </button>
-          <button class="si" data-panel="documenthub" onclick="sidebarNav(this)">
-            <i class="ti ti-folders si-ic"></i>
-            <span class="si-lb">Document Hub</span>
-          </button>
-          <button class="si" data-panel="courses" onclick="sidebarNav(this)">
-            <i class="ti ti-school si-ic"></i>
-            <span class="si-lb">Courses</span>
+          <button class="si" data-panel="notes" onclick="sidebarNav(this)">
+            <div class="si-icon"><i class="ti ti-notebook"></i></div>
+            <span class="si-lb">Docs &amp; Notes</span>
           </button>
         </div>
 
-        <!-- Grow -->
-        <div class="sg" onclick="sbToggleSection('grow')">
-          <span class="sl">Grow</span>
-          <i class="ti ti-chevron-down sg-chev"></i>
-        </div>
-        <div class="sg-items" id="sgi-grow">
-          <button class="si" data-panel="goals" onclick="sidebarNav(this)">
-            <i class="ti ti-target si-ic"></i>
-            <span class="si-lb">Goals</span>
-          </button>
+        <!-- Life -->
+        <div class="sb-section-label">Life</div>
+        <div class="sb-nav-group" id="sgi-grow">
           <button class="si" data-panel="habits" onclick="sidebarNav(this)">
-            <i class="ti ti-repeat si-ic"></i>
+            <div class="si-icon"><i class="ti ti-flame"></i></div>
             <span class="si-lb">Habits</span>
           </button>
-          <button class="si" data-panel="stats" onclick="sidebarNav(this)">
-            <i class="ti ti-chart-bar si-ic"></i>
-            <span class="si-lb">Analytics</span>
-          </button>
           <button class="si" data-panel="journal" onclick="sidebarNav(this)">
-            <i class="ti ti-writing si-ic"></i>
+            <div class="si-icon"><i class="ti ti-writing"></i></div>
             <span class="si-lb">Journal</span>
+          </button>
+          <button class="si" data-panel="stats" onclick="sidebarNav(this)">
+            <div class="si-icon"><i class="ti ti-chart-bar"></i></div>
+            <span class="si-lb">Analytics</span>
           </button>
         </div>
 
         <!-- Connect -->
-        <div class="sg" data-spaces="personal" onclick="sbToggleSection('connect')">
-          <span class="sl">Connect</span>
-          <i class="ti ti-chevron-down sg-chev"></i>
-        </div>
-        <div class="sg-items" id="sgi-connect" data-spaces="personal">
+        <div class="sb-section-label">Connect</div>
+        <div class="sb-nav-group" id="sgi-connect">
           <button class="si" data-panel="community" onclick="sidebarNav(this)">
-            <i class="ti ti-users si-ic"></i>
+            <div class="si-icon"><i class="ti ti-users"></i></div>
             <span class="si-lb">Community</span>
           </button>
           <button class="si" data-panel="opportunities" onclick="sidebarNav(this)">
-            <i class="ti ti-briefcase si-ic"></i>
+            <div class="si-icon"><i class="ti ti-briefcase"></i></div>
             <span class="si-lb">Opportunities</span>
           </button>
           <button class="si" data-panel="library" onclick="sidebarNav(this)">
-            <i class="ti ti-plug-connected si-ic"></i>
+            <div class="si-icon"><i class="ti ti-plug-connected"></i></div>
             <span class="si-lb">Integrations</span>
           </button>
           <button class="si" data-panel="agents" onclick="sidebarNav(this)" id="nav-agents">
-            <i class="ti ti-robot si-ic"></i>
+            <div class="si-icon"><i class="ti ti-robot"></i></div>
             <span class="si-lb">Agents</span>
-            <span class="si-badge si-badge--new">New</span>
+            <span class="si-new-badge">New</span>
           </button>
         </div>
 
-        <!-- ── Spaces ────────────────────────────────────────── -->
-        <div class="sg sb-spaces-sg" onclick="sbToggleSection('spaces')">
-          <span class="sl">Spaces</span>
-          <div style="display:flex;align-items:center;gap:6px">
-            <button class="sb-spaces-add" onclick="event.stopPropagation();openCreateSpaceModal()" title="New space">
-              <i class="ti ti-plus"></i>
-            </button>
-            <i class="ti ti-chevron-down sg-chev"></i>
-          </div>
+        <!-- Spaces -->
+        <div class="sb-section-row">
+          <span class="sb-section-label" style="margin:0">Spaces</span>
+          <button class="sb-spaces-add" onclick="openCreateSpaceModal()" title="New space">
+            <i class="ti ti-plus"></i>
+          </button>
         </div>
-        <div class="sg-items" id="sgi-spaces">
+        <div class="sb-nav-group" id="sgi-spaces">
           <div id="sb-spaces-list">
             <!-- rendered by spaceRenderSidebar() -->
           </div>
@@ -525,28 +508,32 @@ Sentry.onLoad(function() {
 
       <!-- Sidebar footer -->
       <div class="sb-foot">
-        <!-- Upgrade / plan chip -->
         <button class="sb-upgrade-btn" id="sb-upgrade-btn" onclick="showPricing()">
-          <div>
-            <div class="sb-upgrade-plan" id="sb-plan-label">Free Plan</div>
-            <div class="sb-upgrade-label" id="sb-upgrade-label">Upgrade SIVARR</div>
+          <div class="sb-upgrade-left">
+            <div class="sb-upgrade-icon"><i class="ti ti-bolt"></i></div>
+            <div>
+              <div class="sb-upgrade-plan" id="sb-plan-label">Free Plan</div>
+              <div class="sb-upgrade-label" id="sb-upgrade-label">Upgrade SIVARR</div>
+            </div>
           </div>
           <i class="ti ti-chevron-right sb-upgrade-caret"></i>
         </button>
-        <div class="user-row">
+
+        <div class="sb-user-row">
           <div class="u-av" id="snav-av">?</div>
           <div class="u-info">
-            <div class="u-name" id="snav-name">Student</div>
-            <div class="u-role">Academic</div>
+            <div class="u-name" id="snav-name">User</div>
+            <div class="u-role" id="sb-plan-label2">Free</div>
           </div>
-          <button class="tb-icon-btn" onclick="nav('settings',null)" title="Settings" style="flex-shrink:0">
-            <i class="ti ti-settings" style="font-size:16px;color:var(--text3)"></i>
-          </button>
+          <div style="display:flex;gap:2px;flex-shrink:0">
+            <button class="sb-icon-action" onclick="openFeedback()" title="Feedback">
+              <i class="ti ti-message-2"></i>
+            </button>
+            <button class="sb-icon-action" onclick="nav('settings',null)" title="Settings">
+              <i class="ti ti-settings"></i>
+            </button>
+          </div>
         </div>
-        <button class="feedback-btn" onclick="openFeedback()" title="Send feedback">
-          <i class="ti ti-message-2-heart"></i>
-          <span>Give feedback</span>
-        </button>
       </div>
 
     </aside>
@@ -3759,7 +3746,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260601g" defer></script>
+<script src="/js/app.js?v=20260602a" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
