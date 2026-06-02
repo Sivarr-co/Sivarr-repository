@@ -1293,6 +1293,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   localStorage.removeItem('sivarr_lecturer_token');
   localStorage.removeItem('sivarr_lecturer_name');
 
+  // Restore accent colour immediately — before anything renders
+  const _sa = localStorage.getItem('sivarr_accent');
+  if (_sa) _applyAccentColor(_sa, localStorage.getItem('sivarr_accent2') || '');
+
   // Check if Google OAuth is available (hide button if not configured)
   _googleCheckAvailable();
 
@@ -3376,11 +3380,13 @@ function stInit() {
     }
   });
 
-  // Accent colour — restore saved
+  // Accent colour — mark the correct dot as selected
   const savedAccent = localStorage.getItem('sivarr_accent');
   if (savedAccent) {
     document.querySelectorAll('.st-accent-dot').forEach(d => {
-      d.classList.toggle('sel', d.style.background === savedAccent);
+      // compare hex values case-insensitively
+      const bg = d.style.background.replace(/\s/g,'').toLowerCase();
+      d.classList.toggle('sel', bg === savedAccent.toLowerCase());
     });
   }
 
@@ -3522,13 +3528,42 @@ function stToggleNotif(btn, key) {
   toast(`${btn.classList.contains('on') ? 'Enabled' : 'Disabled'} notifications`);
 }
 
+// Full accent colour map — each swatch defines every derived CSS variable
+const _ACCENT_MAP = {
+  '#4f6ef7': { teal:'#4f6ef7', teal2:'rgba(79,110,247,.12)',   teal3:'rgba(79,110,247,.22)',  teal4:'#3a55d4', purple:'#7c3aed', purple2:'rgba(124,58,237,.12)',  glow:'0 0 20px rgba(79,110,247,.3)' },
+  '#0D7A5F': { teal:'#0D7A5F', teal2:'rgba(13,122,95,.12)',    teal3:'rgba(13,122,95,.22)',   teal4:'#085041', purple:'#534AB7', purple2:'rgba(83,74,183,.12)',   glow:'0 0 20px rgba(13,122,95,.3)'  },
+  '#06b6d4': { teal:'#06b6d4', teal2:'rgba(6,182,212,.12)',    teal3:'rgba(6,182,212,.22)',   teal4:'#0891b2', purple:'#0284c7', purple2:'rgba(2,132,199,.12)',   glow:'0 0 20px rgba(6,182,212,.3)'  },
+  '#10b981': { teal:'#10b981', teal2:'rgba(16,185,129,.12)',   teal3:'rgba(16,185,129,.22)',  teal4:'#059669', purple:'#0D7A5F', purple2:'rgba(13,122,95,.12)',   glow:'0 0 20px rgba(16,185,129,.3)' },
+  '#f59e0b': { teal:'#f59e0b', teal2:'rgba(245,158,11,.12)',   teal3:'rgba(245,158,11,.22)',  teal4:'#d97706', purple:'#ef4444', purple2:'rgba(239,68,68,.1)',    glow:'0 0 20px rgba(245,158,11,.3)' },
+  '#ef4444': { teal:'#ef4444', teal2:'rgba(239,68,68,.1)',     teal3:'rgba(239,68,68,.2)',    teal4:'#dc2626', purple:'#f97316', purple2:'rgba(249,115,22,.1)',   glow:'0 0 20px rgba(239,68,68,.3)'  },
+  '#ec4899': { teal:'#ec4899', teal2:'rgba(236,72,153,.1)',    teal3:'rgba(236,72,153,.2)',   teal4:'#db2777', purple:'#8b5cf6', purple2:'rgba(139,92,246,.1)',   glow:'0 0 20px rgba(236,72,153,.3)' },
+  '#8b5cf6': { teal:'#8b5cf6', teal2:'rgba(139,92,246,.12)',   teal3:'rgba(139,92,246,.22)',  teal4:'#7c3aed', purple:'#ec4899', purple2:'rgba(236,72,153,.1)',   glow:'0 0 20px rgba(139,92,246,.3)' },
+};
+
+function _applyAccentColor(color, color2) {
+  const r = document.documentElement.style;
+  const m = _ACCENT_MAP[color] || {};
+  const c1 = m.teal    || color;
+  const c2 = m.purple  || color2 || '#534AB7';
+  r.setProperty('--accent',    c1);
+  r.setProperty('--accent2',   c2);
+  r.setProperty('--teal',      c1);
+  r.setProperty('--teal2',     m.teal2   || `${c1}20`);
+  r.setProperty('--teal3',     m.teal3   || `${c1}33`);
+  r.setProperty('--teal4',     m.teal4   || c1);
+  r.setProperty('--purple',    c2);
+  r.setProperty('--purple2',   m.purple2 || `${c2}20`);
+  r.setProperty('--glow-teal', m.glow    || `0 0 20px ${c1}44`);
+  r.setProperty('--glow-purple', `0 0 20px ${c2}44`);
+  r.setProperty('--ai-grad',   `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`);
+}
+
 function stSetAccent(color, color2, el) {
   document.querySelectorAll('.st-accent-dot').forEach(d => d.classList.remove('sel'));
-  el.classList.add('sel');
-  document.documentElement.style.setProperty('--accent',  color);
-  document.documentElement.style.setProperty('--accent2', color2);
+  if (el) el.classList.add('sel');
+  _applyAccentColor(color, color2);
   localStorage.setItem('sivarr_accent',  color);
-  localStorage.setItem('sivarr_accent2', color2);
+  localStorage.setItem('sivarr_accent2', color2 || '');
   toast('Accent colour updated ✓');
 }
 
