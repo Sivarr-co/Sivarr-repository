@@ -309,6 +309,10 @@ Sentry.onLoad(function() {
 
     <!-- Right actions -->
     <div class="tb-right">
+      <!-- Quick Add -->
+      <button class="tb-icon-btn tb-quickadd-btn" onclick="nlOpen()" title="Quick add — type anything (Alt+A)">
+        <i class="ti ti-plus"></i>
+      </button>
       <!-- Fullscreen toggle -->
       <button class="tb-icon-btn" id="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">
         <i class="ti ti-maximize" id="fullscreen-icon"></i>
@@ -484,6 +488,10 @@ Sentry.onLoad(function() {
           <button class="si" data-panel="stats" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-chart-bar"></i></div>
             <span class="si-lb">Analytics</span>
+          </button>
+          <button class="si" data-panel="review" onclick="sidebarNav(this)">
+            <div class="si-icon"><i class="ti ti-calendar-stats"></i></div>
+            <span class="si-lb">Weekly Review</span>
           </button>
         </div>
 
@@ -3580,6 +3588,68 @@ Sentry.onLoad(function() {
 
       </div><!-- /panel-agents -->
 
+      <!-- ── Weekly Review Panel ── -->
+      <div class="panel" id="panel-review">
+        <div class="view-head">
+          <div class="vh-left">
+            <div class="vh-icon"><i class="ti ti-calendar-stats"></i></div>
+            <div>
+              <div class="vh-title">Weekly Review</div>
+              <div class="vh-sub">SIVA reflects on your week and sets you up for the next one</div>
+            </div>
+          </div>
+          <div class="vh-actions">
+            <button class="btn-primary" id="review-gen-btn" onclick="reviewGenerate()">
+              <i class="ti ti-sparkles"></i> Generate Review
+            </button>
+          </div>
+        </div>
+
+        <div class="review-body" id="review-body">
+
+          <!-- Stats summary row (populated by JS) -->
+          <div class="review-stats-row" id="review-stats-row">
+            <div class="review-stat" id="rs-tasks">
+              <div class="rs-val" id="rs-tasks-val">—</div>
+              <div class="rs-lbl">Tasks done</div>
+            </div>
+            <div class="review-stat" id="rs-habits">
+              <div class="rs-val" id="rs-habits-val">—</div>
+              <div class="rs-lbl">Habits rate</div>
+            </div>
+            <div class="review-stat" id="rs-goals">
+              <div class="rs-val" id="rs-goals-val">—</div>
+              <div class="rs-lbl">Active goals</div>
+            </div>
+            <div class="review-stat" id="rs-focus">
+              <div class="rs-val" id="rs-focus-val">—</div>
+              <div class="rs-lbl">Focus sessions</div>
+            </div>
+          </div>
+
+          <!-- AI review output -->
+          <div class="review-ai-card" id="review-ai-card" style="display:none">
+            <div class="review-ai-header">
+              <div class="review-ai-orb"><i class="ti ti-sparkles"></i></div>
+              <div>
+                <div class="review-ai-title">SIVA's Review</div>
+                <div class="review-ai-week" id="review-ai-week"></div>
+              </div>
+            </div>
+            <div class="review-ai-content" id="review-ai-content"></div>
+          </div>
+
+          <!-- Empty state -->
+          <div class="review-empty" id="review-empty">
+            <div class="es-orb"><i class="ti ti-calendar-stats"></i></div>
+            <div class="es-title">Your week, reflected</div>
+            <p class="es-sub">SIVA reads your tasks, habits, goals, and focus sessions — then writes a personalised review to close out your week and sharpen your focus for the next.</p>
+            <button class="es-cta" onclick="reviewGenerate()"><i class="ti ti-sparkles"></i> Generate my review</button>
+          </div>
+
+        </div>
+      </div><!-- /panel-review -->
+
 </main>
   </div>
 
@@ -3963,6 +4033,40 @@ Sentry.onLoad(function() {
 <!-- ══════════════════════════════════════════════════════
      FOCUS MODE OVERLAY
      ══════════════════════════════════════════════════════ -->
+<!-- ── Natural Language Quick-Add ──────────────────────── -->
+<div class="nl-overlay" id="nl-overlay" onclick="if(event.target===this)nlClose()">
+  <div class="nl-box" id="nl-box">
+    <div class="nl-header">
+      <div class="nl-hint">Type anything — SIVA will figure it out</div>
+      <button class="nl-close" onclick="nlClose()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="nl-input-row">
+      <i class="ti ti-sparkles nl-spark"></i>
+      <input class="nl-input" id="nl-input" placeholder="e.g. Remind me to review my essay tomorrow · Finish physics assignment · Aim to score 80% in maths" maxlength="300"
+        onkeydown="if(event.key==='Enter')nlSubmit();if(event.key==='Escape')nlClose()" />
+    </div>
+    <!-- Parsed preview -->
+    <div class="nl-preview" id="nl-preview" style="display:none">
+      <div class="nl-prev-label">Creating as</div>
+      <div class="nl-prev-row" id="nl-prev-row">
+        <span class="nl-badge" id="nl-prev-type"></span>
+        <span class="nl-prev-title" id="nl-prev-title"></span>
+        <span class="nl-prev-meta" id="nl-prev-meta"></span>
+      </div>
+      <div class="nl-prev-actions">
+        <button class="nl-btn-sec" onclick="nlClose()">Cancel</button>
+        <button class="nl-btn-pri" id="nl-confirm-btn" onclick="nlConfirm()">Add</button>
+      </div>
+    </div>
+    <div class="nl-examples">
+      <span onclick="nlExample(this)" class="nl-ex-chip">📋 Draft email to team</span>
+      <span onclick="nlExample(this)" class="nl-ex-chip">🎯 Score 85% in Physics</span>
+      <span onclick="nlExample(this)" class="nl-ex-chip">📅 Submit assignment Friday</span>
+      <span onclick="nlExample(this)" class="nl-ex-chip">📓 Write a quick note</span>
+    </div>
+  </div>
+</div>
+
 <div class="focus-overlay" id="focus-overlay">
   <!-- Active timer screen -->
   <div class="focus-screen" id="focus-screen">

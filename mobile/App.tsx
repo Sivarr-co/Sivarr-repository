@@ -6,20 +6,23 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 
-import TodayScreen     from './src/screens/TodayScreen';
-import AIScreen        from './src/screens/AIScreen';
-import TasksScreen     from './src/screens/TasksScreen';
-import MeScreen        from './src/screens/MeScreen';
-import GoalsScreen     from './src/screens/GoalsScreen';
-import HabitsScreen    from './src/screens/HabitsScreen';
-import JournalScreen   from './src/screens/JournalScreen';
-import CommunityScreen from './src/screens/CommunityScreen';
-import SettingsScreen  from './src/screens/SettingsScreen';
-import LoginScreen     from './src/screens/LoginScreen';
-import MoreScreen      from './src/screens/MoreScreen';
+import TodayScreen        from './src/screens/TodayScreen';
+import AIScreen           from './src/screens/AIScreen';
+import TasksScreen        from './src/screens/TasksScreen';
+import MeScreen           from './src/screens/MeScreen';
+import GoalsScreen        from './src/screens/GoalsScreen';
+import HabitsScreen       from './src/screens/HabitsScreen';
+import JournalScreen      from './src/screens/JournalScreen';
+import CommunityScreen    from './src/screens/CommunityScreen';
+import SettingsScreen     from './src/screens/SettingsScreen';
+import LoginScreen        from './src/screens/LoginScreen';
+import MoreScreen         from './src/screens/MoreScreen';
+import WeeklyReviewScreen from './src/screens/WeeklyReviewScreen';
+import FocusScreen        from './src/screens/FocusScreen';
 
 import { useAuth } from './src/hooks/useAuth';
 import { COLORS }  from './src/theme';
+import { configureNotificationHandler, requestNotificationPermission, scheduleDailyBrief, scheduleHabitReminder } from './src/services/notifications';
 
 const Tab   = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -42,12 +45,14 @@ const TAB_OPTS = {
 function MoreStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="MoreHome"  component={MoreScreen} />
-      <Stack.Screen name="Goals"     component={GoalsScreen} />
-      <Stack.Screen name="Habits"    component={HabitsScreen} />
-      <Stack.Screen name="Journal"   component={JournalScreen} />
-      <Stack.Screen name="Community" component={CommunityScreen} />
-      <Stack.Screen name="Settings"  component={SettingsScreen} />
+      <Stack.Screen name="MoreHome"      component={MoreScreen} />
+      <Stack.Screen name="Goals"         component={GoalsScreen} />
+      <Stack.Screen name="Habits"        component={HabitsScreen} />
+      <Stack.Screen name="Journal"       component={JournalScreen} />
+      <Stack.Screen name="Community"     component={CommunityScreen} />
+      <Stack.Screen name="Settings"      component={SettingsScreen} />
+      <Stack.Screen name="WeeklyReview"  component={WeeklyReviewScreen} />
+      <Stack.Screen name="Focus"         component={FocusScreen} />
     </Stack.Navigator>
   );
 }
@@ -101,6 +106,18 @@ function MainTabs() {
 
 export default function App() {
   const { isLoggedIn } = useAuth();
+
+  React.useEffect(() => {
+    configureNotificationHandler();
+    if (isLoggedIn) {
+      requestNotificationPermission().then(granted => {
+        if (granted) {
+          scheduleDailyBrief(8, 0);
+          scheduleHabitReminder(20, 0);
+        }
+      });
+    }
+  }, [isLoggedIn]);
 
   return (
     <SafeAreaProvider>

@@ -6393,6 +6393,7 @@ function nav(name, btn) {
   if (name === 'personal')      psRenderOverview();
   if (name === 'academic')      acRenderOverview();
   if (name === 'agents')        agInit();
+  if (name === 'review')        reviewInit();
 }
 
 // Mobile tab bar navigation with smooth pill scroll
@@ -14767,3 +14768,294 @@ function _psShowNotConnected() {
   _psConnected = false;
   psGoTab('connect', null);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   WEEKLY REVIEW
+═══════════════════════════════════════════════════════════════ */
+
+let _reviewGenerated = false;
+
+function reviewInit() {
+  _reviewGenerated = false;
+  _reviewPopulateStats();
+  const aiCard = $('review-ai-card');
+  const empty  = $('review-empty');
+  if (aiCard) aiCard.style.display = 'none';
+  if (empty)  empty.style.display  = 'flex';
+}
+
+function _reviewPopulateStats() {
+  if (!S.sid) return;
+  const sid   = S.sid;
+  const today = new Date().toISOString().split('T')[0];
+  const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0];
+
+  // Tasks
+  try {
+    const tasks = JSON.parse(localStorage.getItem(`sivarr_tasks_${sid}`) || '[]');
+    const done  = tasks.filter(t => t.done).length;
+    const total = tasks.length;
+    const tv = $('rs-tasks-val');
+    if (tv) tv.textContent = `${done}/${total}`;
+  } catch(_) {}
+
+  // Habits
+  try {
+    const habits = JSON.parse(localStorage.getItem(`sivarr_habits_${sid}`) || '[]');
+    if (habits.length) {
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+        days.push(d);
+      }
+      let completed = 0, possible = habits.length * 7;
+      habits.forEach(h => {
+        const c = (h.completions || []);
+        days.forEach(d => { if (c.includes(d)) completed++; });
+      });
+      const pct = possible ? Math.round(completed / possible * 100) : 0;
+      const hv = $('rs-habits-val');
+      if (hv) hv.textContent = `${pct}%`;
+    } else {
+      const hv = $('rs-habits-val'); if (hv) hv.textContent = '—';
+    }
+  } catch(_) {}
+
+  // Goals
+  try {
+    const goals  = JSON.parse(localStorage.getItem(`sivarr_goals_${sid}`) || '[]');
+    const active = goals.filter(g => !g.done).length;
+    const gv = $('rs-goals-val'); if (gv) gv.textContent = active || '0';
+  } catch(_) {}
+
+  // Focus sessions this week
+  try {
+    const log = JSON.parse(localStorage.getItem(`sivarr_focus_log_${sid}`) || '[]');
+    const thisWeek = log.filter(f => f.date && f.date >= weekAgo);
+    const fv = $('rs-focus-val'); if (fv) fv.textContent = thisWeek.length || '0';
+  } catch(_) {}
+}
+
+async function reviewGenerate() {
+  if (!S.sid || !S.token) { toast('Sign in to generate your review.'); return; }
+  const btn = $('review-gen-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin .8s linear infinite"></i> Generating…'; }
+
+  const sid = S.sid;
+  // Collect week stats
+  let tasksDone = 0, tasksTotal = 0, habitsPct = 0;
+  const goals = [];
+
+  try {
+    const tasks = JSON.parse(localStorage.getItem(`sivarr_tasks_${sid}`) || '[]');
+    tasksDone  = tasks.filter(t => t.done).length;
+    tasksTotal = tasks.length;
+  } catch(_) {}
+
+  try {
+    const habits = JSON.parse(localStorage.getItem(`sivarr_habits_${sid}`) || '[]');
+    if (habits.length) {
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        days.push(new Date(Date.now() - i * 86400000).toISOString().split('T')[0]);
+      }
+      let completed = 0, possible = habits.length * 7;
+      habits.forEach(h => {
+        (h.completions || []).forEach(d => { if (days.includes(d)) completed++; });
+      });
+      habitsPct = possible ? Math.round(completed / possible * 100) : 0;
+    }
+  } catch(_) {}
+
+  try {
+    const gl = JSON.parse(localStorage.getItem(`sivarr_goals_${sid}`) || '[]');
+    gl.filter(g => !g.done).slice(0, 5).forEach(g => {
+      goals.push({ title: g.title || '', progress: g.progress || 0 });
+    });
+  } catch(_) {}
+
+  const jnl = JSON.parse(localStorage.getItem(`sivarr_journal_${sid}`) || '[]');
+  const mood = jnl.length ? (jnl[jnl.length - 1].mood || '') : '';
+
+  try {
+    const res = await API('/api/ai/weekly-review', {
+      token: S.token,
+      tasks_done: tasksDone,
+      tasks_total: tasksTotal,
+      habits_pct: habitsPct,
+      goals,
+      mood,
+    });
+
+    const aiCard = $('review-ai-card');
+    const empty  = $('review-empty');
+    const content = $('review-ai-content');
+    const weekEl  = $('review-ai-week');
+
+    if (content) content.innerHTML = _reviewFormatMd(res.review || '');
+    if (weekEl)  weekEl.textContent = res.week || '';
+    if (aiCard)  aiCard.style.display = 'block';
+    if (empty)   empty.style.display  = 'none';
+    _reviewGenerated = true;
+  } catch(e) {
+    toast('Could not generate review. Try again.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-sparkles"></i> Generate Review'; }
+  }
+}
+
+function _reviewFormatMd(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^- (.+)$/gm, '<span style="display:block;padding-left:12px;position:relative;margin-bottom:4px"><span style="position:absolute;left:0;color:var(--teal)">•</span>$1</span>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NATURAL LANGUAGE QUICK-ADD
+═══════════════════════════════════════════════════════════════ */
+
+let _nlParsed = null;
+let _nlDebounce = null;
+
+function nlOpen() {
+  const overlay = $('nl-overlay');
+  const input   = $('nl-input');
+  if (!overlay) return;
+  overlay.classList.add('open');
+  _nlReset();
+  setTimeout(() => input?.focus(), 60);
+}
+
+function nlClose() {
+  const overlay = $('nl-overlay');
+  if (overlay) overlay.classList.remove('open');
+  _nlParsed = null;
+}
+
+function _nlReset() {
+  const input   = $('nl-input');
+  const preview = $('nl-preview');
+  if (input)   input.value = '';
+  if (preview) preview.style.display = 'none';
+  _nlParsed = null;
+  clearTimeout(_nlDebounce);
+}
+
+function nlExample(el) {
+  const input = $('nl-input');
+  if (!input) return;
+  // Strip leading emoji + space
+  input.value = el.textContent.replace(/^[\p{Emoji}\s]+/u, '').trim();
+  input.focus();
+  nlSubmit();
+}
+
+async function nlSubmit() {
+  const input = $('nl-input');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  clearTimeout(_nlDebounce);
+  _nlDebounce = setTimeout(async () => {
+    const preview = $('nl-preview');
+    if (preview) preview.style.display = 'none';
+
+    try {
+      const res = await API('/api/ai/parse-intent', { token: S.token, text });
+      if (!res?.ok) return;
+      _nlParsed = res.parsed;
+      _nlShowPreview(res.parsed);
+    } catch(_) {
+      // Fallback — just create as task without preview
+      _nlParsed = { action: 'task', title: text, priority: 'normal', due: null };
+      _nlShowPreview(_nlParsed);
+    }
+  }, 300);
+}
+
+function _nlShowPreview(p) {
+  const preview = $('nl-preview');
+  const badge   = $('nl-prev-type');
+  const title   = $('nl-prev-title');
+  const meta    = $('nl-prev-meta');
+  if (!preview) return;
+
+  badge.textContent = p.action;
+  badge.className   = `nl-badge ${p.action}`;
+  title.textContent = p.title || '';
+
+  const parts = [];
+  if (p.priority && p.priority !== 'normal') parts.push(p.priority + ' priority');
+  if (p.due) parts.push('due ' + p.due);
+  if (p.subject) parts.push(p.subject);
+  meta.textContent = parts.join(' · ');
+
+  preview.style.display = 'block';
+}
+
+async function nlConfirm() {
+  if (!_nlParsed) return;
+  const p   = _nlParsed;
+  const sid = S.sid;
+
+  if (p.action === 'task') {
+    // Save to tasks localStorage (same key as Flux panel)
+    try {
+      const key   = `sivarr_tasks_${sid}`;
+      const tasks = JSON.parse(localStorage.getItem(key) || '[]');
+      tasks.unshift({
+        id:       Date.now(),
+        title:    p.title,
+        status:   'todo',
+        priority: p.priority || 'normal',
+        date:     p.due || '',
+        done:     false,
+        created:  new Date().toISOString().split('T')[0],
+      });
+      localStorage.setItem(key, JSON.stringify(tasks));
+      toast(`Task added: "${p.title}" ✓`);
+    } catch(_) { toast('Could not save task.'); }
+
+  } else if (p.action === 'goal') {
+    // Call goals API
+    try {
+      await API('/api/goals/add', {
+        token:        S.token,
+        title:        p.title,
+        subject:      p.subject || '',
+        deadline:     p.due || '',
+        target_score: 70,
+      });
+      toast(`Goal added: "${p.title}" ✓`);
+    } catch(_) { toast('Could not save goal.'); }
+
+  } else {
+    // Note — save to journal/notes localStorage
+    try {
+      const key   = `sivarr_notes_${sid}`;
+      const notes = JSON.parse(localStorage.getItem(key) || '[]');
+      notes.unshift({
+        id:      Date.now(),
+        title:   p.title,
+        content: p.title,
+        created: new Date().toISOString(),
+      });
+      localStorage.setItem(key, JSON.stringify(notes));
+      toast(`Note saved ✓`);
+    } catch(_) { toast('Could not save note.'); }
+  }
+
+  nlClose();
+}
+
+// Keyboard shortcut: Alt+A
+document.addEventListener('keydown', e => {
+  if (e.altKey && e.key === 'a' && !e.ctrlKey && !e.metaKey) {
+    const active = document.activeElement;
+    const isTyping = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+    if (!isTyping) { e.preventDefault(); nlOpen(); }
+  }
+});

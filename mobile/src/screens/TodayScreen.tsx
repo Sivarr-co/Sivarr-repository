@@ -160,13 +160,38 @@ export default function TodayScreen({ navigation }: { navigation: any }) {
 
   async function saveCapture() {
     if (!captureText.trim()) return;
+    const text = captureText.trim();
+
     if (captureType === 'task') {
-      const task: Task = { id: Date.now().toString(), title: captureText.trim(), done: false, date: todayStr, priority: 'normal' };
+      const task: Task = { id: Date.now().toString(), title: text, done: false, date: todayStr, priority: 'normal' };
       const updated = [task, ...tasks];
       setTasks(updated); await saveTasks(updated);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      closeCapture();
+    } else {
+      // Note mode — extract tasks via AI
+      closeCapture();
+      try {
+        const res = await api.voiceToTask(text);
+        if (res.ok && res.tasks?.length) {
+          const newTasks: Task[] = res.tasks.map((t: any) => ({
+            id:       Date.now().toString() + Math.random(),
+            title:    t.title || text,
+            done:     false,
+            date:     t.due || todayStr,
+            priority: t.priority || 'normal',
+          }));
+          const updated = [...newTasks, ...tasks];
+          setTasks(updated); await saveTasks(updated);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } catch(_) {
+        // Fallback — save as-is
+        const task: Task = { id: Date.now().toString(), title: text, done: false, date: todayStr, priority: 'normal' };
+        const updated = [task, ...tasks];
+        setTasks(updated); await saveTasks(updated);
+      }
     }
-    closeCapture();
   }
 
   return (
@@ -316,7 +341,7 @@ export default function TodayScreen({ navigation }: { navigation: any }) {
                       onPress={() => setCaptureType(type)}
                     >
                       <Text style={[s.captureTypeTxt, captureType === type && s.captureTypeTxtActive]}>
-                        {type === 'task' ? '📋  Task' : '📓  Note'}
+                        {type === 'task' ? '📋  Task' : '🎤  Voice / Note'}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -324,7 +349,7 @@ export default function TodayScreen({ navigation }: { navigation: any }) {
 
                 <TextInput
                   style={s.captureInput}
-                  placeholder={captureType === 'task' ? 'What needs to be done?' : 'Write a quick note…'}
+                  placeholder={captureType === 'task' ? 'What needs to be done?' : 'Dictate or type a note — SIVA will extract tasks from it…'}
                   placeholderTextColor={COLORS.muted}
                   value={captureText}
                   onChangeText={setCaptureText}
@@ -339,7 +364,7 @@ export default function TodayScreen({ navigation }: { navigation: any }) {
                   onPress={saveCapture}
                   disabled={!captureText.trim()}
                 >
-                  <Text style={s.captureBtnTxt}>Add {captureType}</Text>
+                  <Text style={s.captureBtnTxt}>{captureType === 'task' ? 'Add task' : 'Extract tasks ✦'}</Text>
                   <Ionicons name="arrow-forward" size={16} color="#fff" />
                 </TouchableOpacity>
               </Pressable>

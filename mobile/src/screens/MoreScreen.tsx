@@ -13,11 +13,13 @@ type NavItem = {
 };
 
 const ITEMS: NavItem[] = [
-  { icon: 'trophy-outline',    label: 'Goals',       sub: 'Track your targets',         screen: 'Goals'     },
-  { icon: 'flame-outline',     label: 'Habits',      sub: 'Daily habit tracker',        screen: 'Habits'    },
-  { icon: 'journal-outline',   label: 'Journal',     sub: 'Reflect and write daily',    screen: 'Journal'   },
-  { icon: 'people-outline',    label: 'Community',   sub: 'Connect with peers',         screen: 'Community' },
-  { icon: 'settings-outline',  label: 'Settings',    sub: 'Billing, account, sign out', screen: 'Settings'  },
+  { icon: 'calendar-outline',  label: 'Weekly Review', sub: 'SIVA reflects on your week',    screen: 'WeeklyReview' },
+  { icon: 'timer-outline',     label: 'Focus',         sub: 'Pomodoro timer & sessions',     screen: 'Focus'        },
+  { icon: 'trophy-outline',    label: 'Goals',         sub: 'Track your targets',            screen: 'Goals'        },
+  { icon: 'flame-outline',     label: 'Habits',        sub: 'Daily habit tracker',           screen: 'Habits'       },
+  { icon: 'journal-outline',   label: 'Journal',       sub: 'Reflect and write daily',       screen: 'Journal'      },
+  { icon: 'people-outline',    label: 'Community',     sub: 'Connect with peers',            screen: 'Community'    },
+  { icon: 'settings-outline',  label: 'Settings',      sub: 'Billing, account, sign out',    screen: 'Settings'     },
 ];
 
 export default function MoreScreen({ navigation }: { navigation: any }) {

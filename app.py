@@ -5601,6 +5601,141 @@ Respond with ONLY the rewritten text. No preamble, no explanation."""
     return {"result": result}
 
 
+@app.post("/api/ai/weekly-review")
+async def weekly_review(data: dict, request: Request):
+    """Generate a personalised AI weekly review digest."""
+    sid, name = _resolve_token(data)
+    check_rate_limit(get_client_key(request), 10, "weekly_review")
+    import datetime as _dt
+    first_name    = name.split()[0] if name else "there"
+    week_end      = _dt.date.today()
+    week_start    = week_end - _dt.timedelta(days=6)
+    week_range    = f"{week_start.strftime('%b %d')}–{week_end.strftime('%b %d')}"
+
+    tasks_done    = max(0, int(data.get("tasks_done", 0)))
+    tasks_total   = max(0, int(data.get("tasks_total", 0)))
+    habits_pct    = max(0, min(100, int(data.get("habits_pct", 0))))
+    mood          = sanitize_text(str(data.get("mood", "")), 20)
+    raw_goals     = data.get("goals", [])
+    goals         = [g for g in raw_goals if isinstance(g, dict)][:5]
+
+    goals_txt = "\n".join(
+        f"  - {sanitize_text(str(g.get('title','')),60)}: {int(g.get('progress',0))}%"
+        for g in goals
+    ) if goals else "  - No active goals"
+
+    prompt = f"""You are SIVA, the SIVARR AI assistant. Write a warm, insightful weekly review for {first_name} covering {week_range}.
+
+Data:
+- Tasks completed: {tasks_done} of {tasks_total}
+- Habits completion rate: {habits_pct}%
+- Goals progress:
+{goals_txt}
+{"- Dominant mood: " + mood if mood else ""}
+
+Format your response in exactly 4 labelled sections:
+
+**This Week**
+2 sentences summarising their overall performance — be honest and specific.
+
+**Wins**
+- [win 1]
+- [win 2]
+Two genuine achievements based on the data.
+
+**Focus Next Week**
+- [action 1]
+- [action 2]
+Two specific, actionable recommendations tied to their data.
+
+**Closing**
+One energising sentence using their first name.
+
+Keep it concise, personal, and grounded in the actual numbers. No generic filler."""
+
+    review = gemini_once(prompt, temp=0.72, tokens=380)
+    if not review:
+        review = f"Great effort this week, {first_name}! You completed {tasks_done} tasks and maintained {habits_pct}% of your habits. Keep building that momentum — next week, push one goal past its current mark."
+    return {"review": review, "week": week_range}
+
+
+@app.post("/api/ai/parse-intent")
+async def parse_intent(data: dict, request: Request):
+    """Parse a natural-language string into a structured action (task, goal, or note)."""
+    sid, _ = _resolve_token(data)
+    check_rate_limit(get_client_key(request), 30, "parse_intent")
+    text = sanitize_text(str(data.get("text", "")), 300)
+    if not text.strip():
+        raise HTTPException(400, "Text required.")
+    today = str(__import__('datetime').date.today())
+    prompt = f"""Parse the following natural-language input into a structured action. Today is {today}.
+
+Input: "{text}"
+
+Respond with a single JSON object — no explanation, no markdown fences. Schema:
+{{"action":"task"|"goal"|"note","title":"string","priority":"high"|"normal"|"low","due":"YYYY-MM-DD"|null,"subject":"string"|null}}
+
+Rules:
+- action = "task" if it describes something to do, complete, or finish
+- action = "goal" if it describes a target, aim, score, or achievement
+- action = "note" for everything else
+- Extract any explicit date or relative date (tomorrow, Friday, next week) and convert to YYYY-MM-DD
+- Keep title concise (max 70 chars), remove filler words like "remind me to" or "I need to"
+- subject is only for goals (the subject area, e.g. "Physics")"""
+
+    raw = gemini_once(prompt, temp=0.1, tokens=120)
+    parsed = None
+    if raw:
+        try:
+            import re as _re, json as _json
+            m = _re.search(r'\{.*\}', raw, _re.DOTALL)
+            if m:
+                parsed = _json.loads(m.group(0))
+        except Exception:
+            pass
+    if not parsed:
+        parsed = {"action": "task", "title": text[:70], "priority": "normal", "due": None, "subject": None}
+    return {"ok": True, "parsed": parsed}
+
+
+@app.post("/api/ai/voice-to-task")
+async def voice_to_task(data: dict, request: Request):
+    """Convert a voice-note transcript into structured tasks."""
+    sid, _ = _resolve_token(data)
+    check_rate_limit(get_client_key(request), 20, "voice_to_task")
+    transcript = sanitize_text(str(data.get("transcript", "")), 600)
+    if not transcript.strip():
+        raise HTTPException(400, "Transcript required.")
+    today = str(__import__('datetime').date.today())
+    prompt = f"""Extract all actionable tasks from this voice note. Today is {today}.
+
+Voice note: "{transcript}"
+
+Return a JSON array of task objects (max 5). Each object:
+{{"title":"string","priority":"high"|"normal"|"low","due":"YYYY-MM-DD"|null}}
+
+Rules:
+- Only extract clear action items — skip context-setting or general remarks
+- Keep titles concise (max 60 chars)
+- Respond with the JSON array only, no explanation"""
+
+    raw = gemini_once(prompt, temp=0.15, tokens=250)
+    tasks = []
+    if raw:
+        try:
+            import re as _re, json as _json
+            m = _re.search(r'\[.*\]', raw, _re.DOTALL)
+            if m:
+                result = _json.loads(m.group(0))
+                if isinstance(result, list):
+                    tasks = result[:5]
+        except Exception:
+            pass
+    if not tasks:
+        tasks = [{"title": transcript[:60], "priority": "normal", "due": None}]
+    return {"ok": True, "tasks": tasks}
+
+
 @app.post("/api/feedback")
 async def submit_feedback(data: dict):
     token = sanitize_text(str(data.get("token", "")), 100)

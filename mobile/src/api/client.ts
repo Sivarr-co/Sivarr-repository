@@ -65,4 +65,7 @@ export const api = {
   aiExtractTasks: (text: string) => post('/api/ai/extract-tasks', { text }),
   aiWrite:        (text: string, action: string) => post('/api/ai/write', { text, action }),
   homeBrief:      (ctx: object) => post('/api/home/brief', ctx),
+  weeklyReview:   (ctx: object) => post('/api/ai/weekly-review', ctx),
+  parseIntent:    (text: string) => post('/api/ai/parse-intent', { text }),
+  voiceToTask:    (transcript: string) => post('/api/ai/voice-to-task', { transcript }),
 };
