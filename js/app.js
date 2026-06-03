@@ -8466,8 +8466,13 @@ document.addEventListener('click', e => {
 });
 
 function toggleThemeFromMenu() {
-  const html    = document.documentElement;
-  const isDark  = html.getAttribute('data-theme') === 'dark';
+  const html   = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+
+  // Smooth colour transition
+  document.body.classList.add('theme-transitioning');
+  setTimeout(() => document.body.classList.remove('theme-transitioning'), 300);
+
   if (isDark) html.removeAttribute('data-theme');
   else        html.setAttribute('data-theme', 'dark');
   const nowDark = !isDark;
@@ -8481,6 +8486,10 @@ function toggleThemeFromMenu() {
   if (icon)      icon.className = nowDark ? 'ti ti-moon pd-icon'  : 'ti ti-sun pd-icon';
   if (label)     label.textContent = nowDark ? 'Dark Mode' : 'Light Mode';
   if (themeIcon) themeIcon.className = nowDark ? 'ti ti-moon' : 'ti ti-sun';
+
+  // Re-apply accent so it uses the right dark/light tint values
+  const savedAccent = localStorage.getItem('sivarr_accent');
+  if (savedAccent) _applyAccentColor(savedAccent, localStorage.getItem('sivarr_accent2') || '');
 
   localStorage.setItem('sivarr_theme', nowDark ? 'dark' : 'light');
 }

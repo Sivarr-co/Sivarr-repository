@@ -1290,80 +1290,89 @@ h1,h2,h3,.panel-title,.section-title,
 }
 
 /* ── CHAT WELCOME SCREEN ────────────────────────────────────── */
+/* ── CHAT WELCOME SCREEN ─────────────────────────────────────── */
 #chat-welcome {
-  display:flex; flex-direction:column;
-  align-items:center; justify-content:center;
-  min-height:100%; padding:2.5rem 1.5rem;
-  text-align:center; animation:fadeUp .5s cubic-bezier(.4,0,.2,1);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 100%; padding: 2.5rem 1.5rem 1rem;
+  text-align: center; animation: fadeUp .45s cubic-bezier(.4,0,.2,1);
 }
-@keyframes fadeUp {
-  from { opacity:0; transform:translateY(18px); }
-  to   { opacity:1; transform:translateY(0); }
-}
+
+/* Glowing AI orb */
 .chat-welcome-orb {
-  width:88px; height:88px; border-radius:24px;
-  background:linear-gradient(135deg,#0D7A5F 0%,#534AB7 100%);
-  display:flex; align-items:center; justify-content:center;
-  margin-bottom:1.8rem; position:relative;
-  box-shadow:0 8px 32px rgba(13,122,95,.35),
-             0 0 0 1px rgba(255,255,255,.06);
-  animation:orbGlow 3s ease-in-out infinite;
+  width: 92px; height: 92px; border-radius: 26px;
+  background: var(--ai-grad);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 1.75rem; position: relative;
+  box-shadow: var(--ai-glow), 0 0 0 1px rgba(255,255,255,.07);
+  animation: orbPulse 3.5s ease-in-out infinite;
 }
-@keyframes orbGlow {
-  0%,100% { box-shadow:0 8px 32px rgba(13,122,95,.35), 0 0 0 1px rgba(255,255,255,.06); }
-  50%      { box-shadow:0 8px 48px rgba(83,74,183,.45), 0 0 0 1px rgba(255,255,255,.09); }
+@keyframes orbPulse {
+  0%,100% { box-shadow: var(--ai-glow), 0 0 0 1px rgba(255,255,255,.06); }
+  50%     { box-shadow: 0 0 56px rgba(var(--teal-rgb,13,122,95),.45), 0 0 20px rgba(83,74,183,.3), 0 0 0 1px rgba(255,255,255,.1); }
 }
-.chat-welcome-orb::before {
-  content:''; position:absolute; inset:-3px; border-radius:27px;
-  background:linear-gradient(135deg,rgba(13,122,95,.25),rgba(83,74,183,.25));
-  filter:blur(10px); z-index:-1;
-  animation:orbGlow 3s ease-in-out infinite;
+.chat-welcome-orb::after {
+  content: ''; position: absolute; inset: -6px; border-radius: 32px;
+  background: var(--ai-grad); opacity: .2; filter: blur(16px); z-index: -1;
+  animation: orbPulse 3.5s ease-in-out infinite;
 }
-.chat-welcome-orb img { width:48px; height:48px; object-fit:contain; filter:brightness(0) invert(1); }
+.chat-welcome-orb img { width: 50px; height: 50px; object-fit: contain; filter: brightness(0) invert(1); }
+
+/* Greeting */
 .chat-welcome-heading {
-  font-size:1.75rem; font-weight:900; letter-spacing:-.04em;
-  background:linear-gradient(135deg,var(--text1) 30%,var(--teal) 100%);
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-  background-clip:text;
-  margin-bottom:.4rem; line-height:1.1;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 900; letter-spacing: -.04em;
+  color: var(--text1); margin-bottom: .4rem; line-height: 1.1;
+}
+.chat-welcome-heading .name-teal {
+  background: var(--ai-grad);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 .chat-welcome-sub {
-  font-size:.9rem; color:var(--text3); margin-bottom:2.2rem;
+  font-size: .95rem; color: var(--text3); margin-bottom: 2.4rem; line-height: 1.6;
 }
 .chat-welcome-hint {
-  font-size:.74rem; color:var(--text4); margin-top:1.8rem;
-  display:flex; align-items:center; gap:6px;
+  font-size: .74rem; color: var(--text4); margin-top: 1.6rem;
+  display: flex; align-items: center; gap: 6px;
 }
-.chat-welcome-hint::before { content:'✦'; color:var(--teal); font-size:.6rem; }
+.chat-welcome-hint::before { content: '✦'; color: var(--teal); font-size: .6rem; }
 
-/* 2×2 prompt card grid */
+/* 2×2 prompt cards — colour-coded per action */
 .chat-prompt-grid {
-  display:grid; grid-template-columns:1fr 1fr;
-  gap:10px; max-width:480px; width:100%;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; max-width: 520px; width: 100%;
 }
 .chat-prompt-card {
-  background:var(--bg2); border:1px solid var(--border);
-  border-radius:16px; padding:16px;
-  text-align:left; cursor:pointer;
-  transition:all .2s cubic-bezier(.4,0,.2,1);
-  display:flex; flex-direction:column; gap:6px;
-  font-family:var(--font);
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 16px; padding: 18px 16px 15px;
+  text-align: left; cursor: pointer;
+  transition: all .2s cubic-bezier(.4,0,.2,1);
+  display: flex; flex-direction: column; gap: 5px;
+  font-family: var(--font); position: relative; overflow: hidden;
 }
-.chat-prompt-card:hover {
-  border-color:var(--teal); background:var(--teal2);
-  transform:translateY(-2px); box-shadow:0 8px 24px rgba(13,122,95,.15);
+.chat-prompt-card::before {
+  content: ''; position: absolute; inset: 0; opacity: 0;
+  background: var(--cpc-grad, linear-gradient(135deg,var(--teal2),transparent));
+  transition: opacity .2s;
 }
-.cpc-icon {
-  font-size:1.1rem; color:var(--teal); margin-bottom:2px;
-  transition:transform .2s;
+.chat-prompt-card:hover { transform: translateY(-2px); box-shadow: var(--shadow2); }
+.chat-prompt-card:hover { border-color: var(--cpc-color, var(--teal)); }
+.chat-prompt-card:hover::before { opacity: 1; }
+[data-theme="dark"] .chat-prompt-card { background: rgba(255,255,255,.03); }
+[data-theme="dark"] .chat-prompt-card:hover { background: rgba(255,255,255,.06); }
+
+.cpc-icon-wrap {
+  width: 32px; height: 32px; border-radius: 9px; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; background: var(--cpc-bg, var(--teal2)); color: var(--cpc-color, var(--teal));
+  transition: transform .2s;
+  position: relative;
 }
-.chat-prompt-card:hover .cpc-icon { transform:scale(1.15); }
-.cpc-title {
-  font-size:.84rem; font-weight:700; color:var(--text1); line-height:1.2;
-}
-.cpc-sub {
-  font-size:.74rem; color:var(--text3); line-height:1.4;
-}
+.chat-prompt-card:hover .cpc-icon-wrap { transform: scale(1.08); }
+.cpc-title { font-size: .86rem; font-weight: 700; color: var(--text1); line-height: 1.2; position: relative; }
+.cpc-sub   { font-size: .74rem; color: var(--text3); line-height: 1.4; position: relative; }
 
 /* ── CHAT BAR ───────────────────────────────────────────────── */
 .chat-bar {
@@ -1796,20 +1805,50 @@ h1,h2,h3,.panel-title,.section-title,
 .class-card:hover { box-shadow:var(--shadow); border-color:var(--border2); }
 
 /* ── EMPTY STATE ───────────────────────────────────────────── */
+/* ── EMPTY STATES ───────────────────────────────────────────── */
 .empty-state {
-  display:flex; flex-direction:column;
-  align-items:center; justify-content:center;
-  padding:3rem 1rem; text-align:center;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 60px 24px; text-align: center;
+  animation: fadeUp .3s cubic-bezier(.4,0,.2,1);
 }
-.es-icon { font-size:2.5rem; margin-bottom:.75rem; opacity:.4; }
-.es-text { font-size:.88rem; color:var(--text4); }
+.es-orb {
+  width: 72px; height: 72px; border-radius: 20px;
+  background: var(--bg3); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.06);
+}
+[data-theme="dark"] .es-orb {
+  background: var(--bg3); border-color: var(--border2);
+  box-shadow: 0 4px 20px rgba(0,0,0,.3);
+}
+.es-icon { font-size: 2.5rem; margin-bottom: .75rem; opacity: .35; }
+.es-title {
+  font-family: var(--font-display); font-size: 1.05rem; font-weight: 800;
+  color: var(--text1); letter-spacing: -.02em; margin-bottom: 8px;
+}
+.es-text { font-size: .88rem; color: var(--text4); line-height: 1.6; max-width: 280px; }
 .es-cta {
-  margin-top:1rem; padding:8px 18px;
-  background:var(--accent); color:#fff; border:none; border-radius:8px;
-  font-size:.84rem; font-weight:600; cursor:pointer; font-family:var(--font);
-  transition:opacity .15s;
+  margin-top: 20px; padding: 10px 22px;
+  background: var(--teal); color: #fff; border: none; border-radius: 10px;
+  font-size: .88rem; font-weight: 700; cursor: pointer; font-family: var(--font);
+  transition: all .18s; box-shadow: 0 0 16px rgba(13,122,95,.25);
 }
-.es-cta:hover { opacity:.85; }
+.es-cta:hover { opacity: .88; transform: translateY(-1px); }
+
+/* ── THEME TRANSITION ───────────────────────────────────────── */
+/* Smooth colour transition when toggling dark/light mode */
+body.theme-transitioning,
+body.theme-transitioning *,
+body.theme-transitioning *::before,
+body.theme-transitioning *::after {
+  transition:
+    background-color .25s ease,
+    border-color .25s ease,
+    color .15s ease,
+    box-shadow .25s ease !important;
+}
 
 /* ── FEEDBACK ──────────────────────────────────────────────── */
 /* ── NOTIFICATIONS ─────────────────────────────────────────── */
@@ -3465,15 +3504,18 @@ h1,h2,h3,.panel-title,.section-title,
 /* ── Universal panel content max-width ──────────────────────── */
 /* Prevents content from stretching on wide monitors / TVs.
    The panel background fills edge-to-edge; only the inner
-   content is constrained and centred.                          */
+   content is constrained and centred. Works across all screens:
+   mobile → tablet → laptop → 4K → TV.                         */
 :root {
-  --panel-max:   1180px;   /* Standard panels (home, habits, etc.)   */
-  --chat-max:     860px;   /* Chat & single-column focused panels     */
-  --wide-max:    1400px;   /* Dashboard-style panels with more cols   */
+  --panel-max:   1180px;   /* Standard panels (home, habits, etc.)  */
+  --chat-max:     860px;   /* Chat & single-column focused panels    */
+  --wide-max:    1400px;   /* Wide dashboard panels                  */
+  --settings-max: 680px;   /* Settings, goals — narrower feels right */
 }
 
-/* Panel wraps use padding-based centering.
-   Background fills edge-to-edge; content stays within --panel-max. */
+/* ── Centering mixin via padding ─────────────────────────────── */
+/* Applied to every panel scroll container.
+   padding-left/right = at least 24px but grows on wider screens  */
 .home-wrap,
 .habits-wrap,
 .journal-wrap,
@@ -3485,15 +3527,57 @@ h1,h2,h3,.panel-title,.section-title,
 .ask-notes-panel,
 .quizzes-wrap,
 .inbox-wrap {
-  /* Adds lateral padding so content never exceeds --panel-max */
   padding-left:  max(24px, calc((100% - var(--panel-max)) / 2));
   padding-right: max(24px, calc((100% - var(--panel-max)) / 2));
+}
+
+/* Panels that use a narrower column feel (settings, goals, etc.) */
+#panel-settings > div,
+#panel-goals    > div,
+#panel-progress > div {
+  max-width: var(--settings-max);
+  margin:    0 auto;
+  width:     100%;
+}
+
+/* Settings & goals scroll containers — apply lateral padding on big screens */
+#panel-settings,
+#panel-goals,
+#panel-progress {
+  overflow-y: auto;
+  padding-left:  max(24px, calc((100% - var(--settings-max)) / 2));
+  padding-right: max(24px, calc((100% - var(--settings-max)) / 2));
+}
+/* Override the inline padding on the inner div so we don't double-pad */
+#panel-settings > div,
+#panel-goals    > div,
+#panel-progress > div {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Templates & other full-width panels with their own internal layout */
+#panel-templates > .tpl-wrap,
+#panel-flux      > .content,
+.os-main         > .os-content {
+  max-width:   var(--wide-max);
+  margin-left:  auto;
+  margin-right: auto;
+  width: 100%;
 }
 
 /* .content class used across many feature panels */
 .content {
   padding-left:  max(24px, calc((100% - var(--panel-max)) / 2)) !important;
   padding-right: max(24px, calc((100% - var(--panel-max)) / 2)) !important;
+}
+
+/* Chat welcome screen — constrain greeting width on large displays */
+#chat-welcome {
+  max-width: var(--chat-max);
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
 }
 
 /* ── Tablet · 900px ─────────────────────────────────────────── */
@@ -3523,14 +3607,21 @@ h1,h2,h3,.panel-title,.section-title,
   .g2       { grid-template-columns: 1fr; }
   .view-head { padding: 0 14px; }
 
-  /* Reset padding-based centering on mobile — use normal small padding */
+  /* Reset ALL centering on mobile — full width with small padding */
   .home-wrap, .habits-wrap, .journal-wrap, .cal-wrap,
   .community-wrap, .library-wrap, .quiz-wrap, .stats-wrap,
   .ask-notes-panel, .quizzes-wrap, .inbox-wrap {
     padding-left: 16px !important; padding-right: 16px !important;
   }
+  #panel-settings, #panel-goals, #panel-progress {
+    padding-left: 16px !important; padding-right: 16px !important;
+  }
+  #panel-settings > div, #panel-goals > div, #panel-progress > div {
+    max-width: 100% !important;
+  }
   .content { padding: 14px !important; }
   .chat-msgs { padding-left: 12px !important; padding-right: 12px !important; }
+  #chat-welcome { max-width: 100%; }
 }
 
 /* ── Small mobile · 480px ───────────────────────────────────── */
