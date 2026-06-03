@@ -4168,14 +4168,39 @@ Sentry.onLoad(function() {
   </div>
 </div>
 
+<!-- ── Mobile Me Panel ─────────────────────────────────── -->
+<div class="panel" id="panel-me-mobile">
+  <div style="flex:1;overflow-y:auto;padding:20px 18px 100px" id="mob-me-content">
+    <!-- Rendered by renderMobileMePanel() -->
+  </div>
+</div>
+
+<!-- ── Mobile FAB (quick capture) ──────────────────────── -->
+<button class="mob-fab" id="mob-fab" onclick="cnOpen()" title="Quick capture">
+  <i class="ti ti-plus"></i>
+</button>
+
 <!-- ── Mobile Bottom Navigation ─────────────────────────── -->
 <nav class="mobile-nav" id="mobile-nav">
   <div class="mobile-nav-inner">
-    <button class="mob-nav-btn" id="mob-home" onclick="nav('home')"><i class="ti ti-home"></i><span>Home</span></button>
-    <button class="mob-nav-btn" id="mob-siva" onclick="nav('chat')"><i class="ti ti-sparkles"></i><span>SIVARR AI</span></button>
-    <button class="mob-nav-btn" id="mob-tasks" onclick="nav('flux')"><i class="ti ti-checkbox"></i><span>Tasks</span></button>
-    <button class="mob-nav-btn" id="mob-docs"  onclick="nav('documenthub')"><i class="ti ti-file-text"></i><span>Docs</span></button>
-    <button class="mob-nav-btn" id="mob-org"   onclick="nav('org')"><i class="ti ti-building"></i><span>Org</span></button>
+
+    <button class="mob-nav-btn" id="mob-today" onclick="nav('home')">
+      <i class="ti ti-sun-high"></i>
+      <span>Today</span>
+    </button>
+
+    <button class="mob-nav-btn mob-ai-btn" id="mob-ai" onclick="nav('chat')">
+      <div class="mob-ai-orb">
+        <i class="ti ti-sparkles"></i>
+      </div>
+      <span>AI</span>
+    </button>
+
+    <button class="mob-nav-btn" id="mob-me" onclick="navMobileMe()">
+      <i class="ti ti-user"></i>
+      <span>Me</span>
+    </button>
+
   </div>
 </nav>
 
