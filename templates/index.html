@@ -21,6 +21,15 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <link rel="stylesheet" href="/css/styles.css?v=20260602e">
+<!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
+<script type="module">
+import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
+import StarterKit   from 'https://esm.sh/@tiptap/starter-kit@2.10.3';
+import Placeholder  from 'https://esm.sh/@tiptap/extension-placeholder@2.10.3';
+import Underline    from 'https://esm.sh/@tiptap/extension-underline@2.10.3';
+window._tiptap = { Editor, StarterKit, Placeholder, Underline };
+window.dispatchEvent(new Event('tiptap-ready'));
+</script>
 <!-- Sentry error monitoring + session replay (Loader Script) -->
 <script
   src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
@@ -1099,12 +1108,8 @@ Sentry.onLoad(function() {
              <input class="doc-title-input" id="doc-title" placeholder="Untitled" oninput="docTitleChange()">
            </div>
 
-           <!-- Content -->
-           <div class="doc-content" id="doc-content"
-                contenteditable="true"
-                oninput="docContentChange()"
-                onkeydown="docKeyDown(event)"
-                data-placeholder="Start writing..."></div>
+           <!-- Content — Tiptap mounts here -->
+           <div class="doc-content" id="doc-content"></div>
 
            <!-- Footer -->
            <div class="doc-footer">
@@ -3536,6 +3541,9 @@ Sentry.onLoad(function() {
 </div><!-- /dashboard -->
 
 <div class="toast" id="toast"></div>
+
+<!-- Slash command menu (Tiptap doc editor) -->
+<div id="slash-menu" style="display:none;position:fixed;z-index:9999"></div>
 
   <!-- ── Command Palette ── -->
 <div class="cmd-bg" id="cmd-bg" onclick="cmdClose(event)">

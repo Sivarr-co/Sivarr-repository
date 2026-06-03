@@ -8974,10 +8974,19 @@ function focusFinish() {
 // FEATURE 4 — DOC EDITOR (Docs & Notes)
 // ═══════════════════════════════════════════════════════════════
 
-const DOC_KEY    = () => `sivarr_docs_${S.sid || 'guest'}`;
+// ══════════════════════════════════════════════════════════════
+//  DOCS & NOTES — Tiptap rich-text editor
+// ══════════════════════════════════════════════════════════════
+
+const DOC_KEY         = () => `sivarr_docs_${S.sid || 'guest'}`;
 const DOC_AUTOSAVE_MS = 1500;
-let   _docId     = null;   // currently open doc id
-let   _docTimer  = null;   // autosave debounce
+
+let _docId      = null;
+let _docTimer   = null;
+let _docEditor  = null;   // Tiptap Editor instance
+let _slashPos   = -1;     // ProseMirror position where / was typed
+let _slashFilt  = '';     // text typed after /
+let _slashIdx   = 0;      // highlighted item index
 
 function docGetAll() {
   try { return JSON.parse(localStorage.getItem(DOC_KEY()) || '[]'); }
@@ -9057,10 +9066,9 @@ function docOpenEditor(doc) {
   const titleEl = $('doc-title');
   if (titleEl) titleEl.value = doc.title || '';
 
-  const contentEl = $('doc-content');
-  if (contentEl) {
-    contentEl.innerHTML = doc.content || '';
-    contentEl.focus();
+  if (_docEditor) {
+    _docEditor.commands.setContent(doc.content || '<p></p>', false);
+    setTimeout(() => _docEditor.commands.focus('end'), 50);
   }
   docUpdateWordCount();
   const statusEl = $('doc-save-status');
@@ -9084,6 +9092,7 @@ function docDelete(id, e) {
   docSaveAll(list);
   if (_docId === id) {
     _docId = null;
+    if (_docEditor) _docEditor.commands.setContent('<p></p>', false);
     const emptyState = $('doc-empty-state');
     const wrap       = $('doc-editor-wrap');
     if (emptyState) emptyState.style.display = 'flex';
@@ -9141,94 +9150,250 @@ function docScheduleSave() {
 }
 
 function docSave() {
-  if (!_docId) return;
-  const list    = docGetAll();
-  const idx     = list.findIndex(d => d.id === _docId);
+  if (!_docId || !_docEditor) return;
+  const list = docGetAll();
+  const idx  = list.findIndex(d => d.id === _docId);
   if (idx < 0) return;
   list[idx].title   = $('doc-title')?.value?.trim() || 'Untitled';
-  list[idx].content = $('doc-content')?.innerHTML || '';
+  list[idx].content = _docEditor.getHTML();
   list[idx].updated = Date.now();
   docSaveAll(list);
   docRenderList();
-  const statusEl = $('doc-save-status');
-  if (statusEl) statusEl.textContent = 'All changes saved';
+  const st = $('doc-save-status');
+  if (st) st.textContent = 'All changes saved';
 }
 
 function docUpdateWordCount() {
-  const text = $('doc-content')?.innerText || '';
+  const text  = _docEditor ? _docEditor.getText() : '';
   const words = text.trim().split(/\s+/).filter(Boolean).length;
-  const wc = $('doc-word-count');
+  const wc    = $('doc-word-count');
   if (wc) wc.textContent = `${words} word${words !== 1 ? 's' : ''}`;
 }
 
+// ── Toolbar format commands (same names, now call Tiptap) ─────
+
 function docFormat(cmd) {
-  document.execCommand(cmd, false, null);
-  $('doc-content')?.focus();
+  if (!_docEditor) return;
+  const c = _docEditor.chain().focus();
+  ({
+    bold:                c.toggleBold(),
+    italic:              c.toggleItalic(),
+    underline:           c.toggleUnderline(),
+    insertUnorderedList: c.toggleBulletList(),
+    insertOrderedList:   c.toggleOrderedList(),
+    strikeThrough:       c.toggleStrike(),
+  }[cmd] || c).run();
   docScheduleSave();
 }
 
 function docFormatBlock(tag) {
-  document.execCommand('formatBlock', false, tag);
-  $('doc-content')?.focus();
+  if (!_docEditor) return;
+  const c = _docEditor.chain().focus();
+  ({
+    h1:         c.toggleHeading({ level: 1 }),
+    h2:         c.toggleHeading({ level: 2 }),
+    h3:         c.toggleHeading({ level: 3 }),
+    p:          c.setParagraph(),
+    blockquote: c.toggleBlockquote(),
+    pre:        c.toggleCodeBlock(),
+  }[tag] || c).run();
   docScheduleSave();
 }
 
-function docKeyDown(e) {
-  // Tab → indent
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
-  }
-  // Enter in pre → insert newline without creating new block
-  if (e.key === 'Enter' && !e.shiftKey) {
-    const sel = window.getSelection();
-    if (sel?.anchorNode) {
-      let node = sel.anchorNode;
-      while (node && node !== $('doc-content')) {
-        if (node.nodeName === 'PRE') {
-          e.preventDefault();
-          document.execCommand('insertHTML', false, '\n');
-          return;
-        }
-        node = node.parentNode;
-      }
-    }
-  }
-}
+// ── SIVARR AI ────────────────────────────────────────────────
 
 function docAskSiva() {
   if (!S.sid) return;
-  const content = $('doc-content')?.innerText?.trim() || '';
+  const content = _docEditor ? _docEditor.getText().trim() : '';
   const title   = $('doc-title')?.value?.trim() || '';
   const sel     = window.getSelection()?.toString()?.trim() || '';
   const text    = sel || content.slice(0, 600);
   if (!text) { toast('Write something first, then ask SIVARR to assist.'); return; }
-  const prompt  = sel
-    ? `Help me improve or continue this selection from my doc "${title}":\n\n${text}`
+  const prompt = sel
+    ? `Help me improve or continue this from my doc "${title}":\n\n${text}`
     : `I'm writing a doc titled "${title}". Here's what I have so far:\n\n${text}\n\nPlease continue or improve it.`;
   nav('chat', null);
   setTimeout(() => {
-    const inp = $('chat-input') || $('msg-input');
-    if (inp) { inp.value = prompt; inp.focus(); }
+    const inp = $('ci');
+    if (inp) { inp.value = prompt; inp.dispatchEvent(new Event('input')); inp.focus(); }
   }, 200);
+}
+
+// ── Tiptap initialisation ─────────────────────────────────────
+
+function _waitForTiptap(cb) {
+  if (window._tiptap) { cb(); return; }
+  window.addEventListener('tiptap-ready', cb, { once: true });
+}
+
+function _initTiptapEditor() {
+  if (_docEditor) return;
+  const el = $('doc-content');
+  if (!el || !window._tiptap) return;
+
+  const { Editor, StarterKit, Placeholder, Underline } = window._tiptap;
+
+  _docEditor = new Editor({
+    element: el,
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      Placeholder.configure({ placeholder: 'Start writing… or type / for commands' }),
+      Underline,
+    ],
+    content: '',
+    onUpdate({ editor }) {
+      docUpdateWordCount();
+      docScheduleSave();
+      const st = $('doc-save-status');
+      if (st) st.textContent = 'Unsaved…';
+      _checkSlash(editor);
+    },
+  });
+
+  // Intercept keyboard for slash menu
+  el.addEventListener('keydown', e => {
+    if (!_slashOpen()) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); _slashMove(1);  }
+    else if (e.key === 'ArrowUp')   { e.preventDefault(); _slashMove(-1); }
+    else if (e.key === 'Enter')     { e.preventDefault(); _slashExec();   }
+    else if (e.key === 'Escape')    { e.preventDefault(); _slashHide();   }
+    else if (e.key === 'Backspace') {
+      if (_slashFilt.length) { _slashFilt = _slashFilt.slice(0, -1); _slashRender(); }
+      else _slashHide();
+    }
+  }, true);
 }
 
 function docInit() {
   docRenderList();
-  if (!_docId) {
-    const docs = docGetAll();
-    if (docs.length) docOpen(docs[0].id);
-    else {
-      const emptyState = $('doc-empty-state');
-      const wrap       = $('doc-editor-wrap');
-      if (emptyState) emptyState.style.display = 'flex';
-      if (wrap)       wrap.style.display       = 'none';
+  _waitForTiptap(() => {
+    _initTiptapEditor();
+    if (!_docId) {
+      const docs = docGetAll();
+      if (docs.length) docOpen(docs[0].id);
+      else {
+        const emptyState = $('doc-empty-state');
+        const wrap       = $('doc-editor-wrap');
+        if (emptyState) emptyState.style.display = 'flex';
+        if (wrap)       wrap.style.display       = 'none';
+      }
+    } else {
+      const doc = docGetAll().find(d => d.id === _docId);
+      if (doc) docOpenEditor(doc);
     }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SLASH COMMAND MENU
+// ══════════════════════════════════════════════════════════════
+
+const _SLASH_CMDS = [
+  { icon:'ti-h-1',          label:'Heading 1',      desc:'Large section heading',  act:() => docFormatBlock('h1') },
+  { icon:'ti-h-2',          label:'Heading 2',       desc:'Medium heading',         act:() => docFormatBlock('h2') },
+  { icon:'ti-h-3',          label:'Heading 3',       desc:'Small heading',          act:() => docFormatBlock('h3') },
+  { icon:'ti-list',         label:'Bullet list',     desc:'Unordered list',         act:() => docFormat('insertUnorderedList') },
+  { icon:'ti-list-numbers', label:'Numbered list',   desc:'Ordered list',           act:() => docFormat('insertOrderedList') },
+  { icon:'ti-quote',        label:'Quote',           desc:'Blockquote',             act:() => docFormatBlock('blockquote') },
+  { icon:'ti-code',         label:'Code block',      desc:'Monospace code',         act:() => docFormatBlock('pre') },
+  { icon:'ti-minus',        label:'Divider',         desc:'Horizontal rule',        act:() => _docEditor?.chain().focus().setHorizontalRule().run() },
+  { icon:'ti-sparkles',     label:'Ask SIVARR AI',   desc:'AI writing assistant',   act:() => { _slashHide(); docAskSiva(); } },
+];
+
+function _checkSlash(editor) {
+  const { from } = editor.state.selection;
+  if (from < 1) { _slashHide(); return; }
+  const $pos   = editor.state.doc.resolve(from);
+  const lineStart = $pos.start();
+  const lineText  = editor.state.doc.textBetween(lineStart, from);
+  if (lineText === '/') {
+    _slashPos  = from - 1;
+    _slashFilt = '';
+    _slashIdx  = 0;
+    _slashShow(editor, _slashPos);
+  } else if (_slashOpen() && lineText.startsWith('/')) {
+    _slashFilt = lineText.slice(1).toLowerCase();
+    _slashIdx  = 0;
+    _slashRender();
   } else {
-    const doc = docGetAll().find(d => d.id === _docId);
-    if (doc) docOpenEditor(doc);
+    _slashHide();
   }
 }
+
+function _slashOpen() {
+  const m = $('slash-menu');
+  return m && m.style.display !== 'none';
+}
+
+function _slashShow(editor, pos) {
+  const menu = $('slash-menu');
+  if (!menu) return;
+  try {
+    const coords = editor.view.coordsAtPos(pos);
+    const scrollY = window.scrollY || 0;
+    menu.style.top  = `${coords.bottom + scrollY + 4}px`;
+    menu.style.left = `${Math.max(8, coords.left)}px`;
+  } catch(_) {}
+  menu.style.display = 'block';
+  _slashRender();
+}
+
+function _slashRender() {
+  const menu  = $('slash-menu');
+  if (!menu) return;
+  const q   = _slashFilt;
+  const vis = _SLASH_CMDS.filter(c =>
+    !q || c.label.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q)
+  );
+  if (!vis.length) { _slashHide(); return; }
+  menu.innerHTML = vis.map((c, i) => `
+    <div class="slash-item${i === _slashIdx ? ' sel' : ''}" onmousedown="event.preventDefault();_slashRun(${_SLASH_CMDS.indexOf(c)})">
+      <div class="slash-ic"><i class="ti ${c.icon}"></i></div>
+      <div>
+        <div class="slash-lb">${c.label}</div>
+        <div class="slash-ds">${c.desc}</div>
+      </div>
+    </div>`).join('');
+}
+
+function _slashMove(dir) {
+  const q   = _slashFilt;
+  const vis = _SLASH_CMDS.filter(c =>
+    !q || c.label.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q)
+  );
+  _slashIdx = Math.max(0, Math.min(vis.length - 1, _slashIdx + dir));
+  _slashRender();
+}
+
+function _slashExec() {
+  const q   = _slashFilt;
+  const vis = _SLASH_CMDS.filter(c =>
+    !q || c.label.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q)
+  );
+  _slashRun(_SLASH_CMDS.indexOf(vis[_slashIdx]));
+}
+
+function _slashRun(idx) {
+  _slashHide();
+  const cmd = _SLASH_CMDS[idx];
+  if (!cmd || !_docEditor) return;
+  const delLen = 1 + _slashFilt.length;
+  _docEditor.chain().focus()
+    .deleteRange({ from: _slashPos, to: _slashPos + delLen })
+    .run();
+  setTimeout(() => cmd.act(), 20);
+}
+
+function _slashHide() {
+  const m = $('slash-menu');
+  if (m) m.style.display = 'none';
+  _slashFilt = '';
+  _slashIdx  = 0;
+}
+
+document.addEventListener('mousedown', e => {
+  if (_slashOpen() && !$('slash-menu')?.contains(e.target)) _slashHide();
+});
 
 /* ══════════════════════════════════════════════════
    PHASE 5 — SPACE SWITCHER
