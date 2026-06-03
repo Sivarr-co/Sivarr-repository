@@ -1397,6 +1397,47 @@ function _postLoginIntegrations() {
     sessionStorage.removeItem('flw_billing_plan');
     flutterwaveVerify(flwRef, flwPlan);
   }
+
+  // Set up browser push notifications (silent — user won't see this unless they approve)
+  setTimeout(_pushSetup, 2000);
+}
+
+// ═══════════════════════ BROWSER PUSH NOTIFICATIONS ═════════════════════
+
+function _urlBase64ToUint8Array(base64) {
+  const pad = '='.repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function _pushSetup() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  const token = localStorage.getItem('sivarr_token');
+  if (!token) return;
+  try {
+    const res  = await fetch('/api/push/vapid-public');
+    const data = await res.json();
+    if (!data.available || !data.public_key) return;
+
+    const reg = await navigator.serviceWorker.ready;
+    let sub   = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlBase64ToUint8Array(data.public_key),
+      });
+    }
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, subscription: sub.toJSON() }),
+    });
+  } catch(_) {
+    // Push is optional — fail silently
+  }
 }
 
 ['ln','lm'].forEach((id,i) => {
@@ -6255,6 +6296,18 @@ function getSHData() {
 
 function saveSHData(data) {
   localStorage.setItem(SH_KEY(), JSON.stringify(data));
+  _syncTasksToServer(data.tasks || []);
+}
+
+// ── Silently mirror tasks to the server for digest + search ──
+function _syncTasksToServer(tasks) {
+  const token = localStorage.getItem('sivarr_token');
+  if (!token || !S.sid) return;
+  fetch('/api/tasks/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, tasks }),
+  }).catch(() => {});
 }
 
 function loadStudyHelp() {

@@ -59,6 +59,14 @@ except ImportError:
     _resend = None
 
 try:
+    from pywebpush import webpush as _webpush, WebPushException
+    WEBPUSH_AVAILABLE = True
+except ImportError:
+    WEBPUSH_AVAILABLE = False
+    _webpush = None
+    WebPushException = Exception
+
+try:
     import sentry_sdk
     from sentry_sdk.integrations.starlette import StarletteIntegration
     from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -141,6 +149,10 @@ BASE_URL           = os.environ.get("BASE_URL", "https://sivarr.up.railway.app")
 RESEND_API_KEY     = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM        = os.environ.get("RESEND_FROM_EMAIL", "Sivarr <noreply@sivarr.app>")
 RESEND_REPLY_TO    = os.environ.get("RESEND_REPLY_TO", "Connectsivarr@gmail.com")
+CRON_SECRET        = os.environ.get("CRON_SECRET", "")
+VAPID_PRIVATE_KEY  = os.environ.get("VAPID_PRIVATE_KEY", "")
+VAPID_PUBLIC_KEY   = os.environ.get("VAPID_PUBLIC_KEY", "")
+VAPID_EMAIL        = os.environ.get("VAPID_EMAIL", "mailto:connectsivarr@gmail.com")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
 # ── Paystack (NGN payments) ───────────────────────────────────
@@ -879,6 +891,90 @@ def _email_welcome_html(name: str) -> str:
       </table>
     </td></tr>
   </table>
+</body></html>"""
+
+
+def _email_digest_html(name: str, tasks: list, goals: list) -> str:
+    """Daily briefing email — tasks due/overdue + goals with upcoming deadlines."""
+    today = datetime.date.today().isoformat()
+    overdue   = [t for t in tasks if not t.get("done") and t.get("date") and t["date"] < today]
+    due_today = [t for t in tasks if not t.get("done") and t.get("date") == today]
+    act_goals = [g for g in goals if not g.get("completed") and g.get("deadline")]
+
+    if not overdue and not due_today and not act_goals:
+        return ""  # nothing worth sending today
+
+    task_rows = ""
+    for t in (due_today + overdue)[:6]:
+        label = "due today" if t.get("date") == today else f'overdue ({t.get("date","")})'
+        colour = "#0D7A5F" if t.get("date") == today else "#E8614A"
+        task_rows += (
+            f'<li style="margin-bottom:8px;color:#1a1a1a">'
+            f'{t["title"]}'
+            f'<span style="color:{colour};font-size:.78rem;margin-left:6px">{label}</span>'
+            f'</li>'
+        )
+    task_section = (
+        f'<h3 style="font-size:.95rem;font-weight:700;margin:0 0 10px;color:#555;'
+        f'text-transform:uppercase;letter-spacing:.06em">Tasks</h3>'
+        f'<ul style="padding-left:18px;margin:0 0 28px;line-height:1.9">{task_rows}</ul>'
+    ) if task_rows else ""
+
+    goal_rows = ""
+    for g in act_goals[:4]:
+        try:
+            days = (datetime.date.fromisoformat(g["deadline"]) - datetime.date.today()).days
+        except Exception:
+            continue
+        if days < 0 or days > 7:
+            continue
+        label  = "today!" if days == 0 else f"in {days}d"
+        pct    = g.get("progress", 0)
+        goal_rows += (
+            f'<li style="margin-bottom:8px;color:#1a1a1a">'
+            f'{g["title"]}'
+            f'<span style="color:#534AB7;font-size:.78rem;margin-left:6px">'
+            f'deadline {label} · {pct}% done</span>'
+            f'</li>'
+        )
+    goal_section = (
+        f'<h3 style="font-size:.95rem;font-weight:700;margin:0 0 10px;color:#555;'
+        f'text-transform:uppercase;letter-spacing:.06em">Goals</h3>'
+        f'<ul style="padding-left:18px;margin:0 0 28px;line-height:1.9">{goal_rows}</ul>'
+    ) if goal_rows else ""
+
+    if not task_section and not goal_section:
+        return ""
+
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:40px auto;padding:24px;color:#1a1a1a;background:#fff">
+  <div style="margin-bottom:28px;display:flex;align-items:center;gap:10px">
+    <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#0D7A5F,#534AB7);
+                display:inline-flex;align-items:center;justify-content:center">
+      <span style="color:#fff;font-weight:900;font-size:.75rem">S</span>
+    </div>
+    <span style="font-size:1.1rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+  </div>
+  <h2 style="margin:0 0 6px;font-size:1.35rem;font-weight:800;letter-spacing:-.02em">
+    Good morning, {name} ☀️
+  </h2>
+  <p style="color:#666;line-height:1.6;margin:0 0 28px;font-size:.95rem">
+    Here's what needs your attention today.
+  </p>
+  {task_section}
+  {goal_section}
+  <a href="{BASE_URL}/app"
+     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+            border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem;
+            letter-spacing:-.01em">
+    Open SIVARR →
+  </a>
+  <hr style="border:none;border-top:1px solid #f0f0f0;margin:32px 0 20px">
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0;line-height:1.6">
+    SIVARR · Your productivity OS<br>
+    You're getting this because daily digests are on in your settings.
+  </p>
 </body></html>"""
 
 
@@ -3676,6 +3772,42 @@ def load_goals(sid: str) -> list:
 def save_goals(sid: str, goals: list):
     p = DATA_DIR / f"{sid}_goals.json"
     save_json(p, goals)
+
+# ── Personal tasks — server-side mirror of localStorage ───────────────────────
+def load_tasks(sid: str) -> list:
+    p = DATA_DIR / f"{sid}_tasks.json"
+    return json.loads(p.read_text()) if p.exists() else []
+
+def save_tasks(sid: str, tasks: list):
+    p = DATA_DIR / f"{sid}_tasks.json"
+    save_json(p, tasks)
+
+@app.post("/api/tasks/sync")
+async def sync_tasks(data: dict):
+    """Bulk-sync personal tasks from client localStorage to server. Called silently on every save."""
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid   = sess["sid"]
+    tasks = data.get("tasks", [])
+    if not isinstance(tasks, list):
+        raise HTTPException(400, "tasks must be a list.")
+    clean = []
+    for t in tasks[:500]:
+        clean.append({
+            "id":       sanitize_text(str(t.get("id","")), 50),
+            "title":    sanitize_text(str(t.get("title","")), 200),
+            "status":   sanitize_text(str(t.get("status","todo")), 20),
+            "done":     bool(t.get("done", False)),
+            "date":     sanitize_text(str(t.get("date","")), 20),
+            "time":     sanitize_text(str(t.get("time","")), 10),
+            "priority": sanitize_text(str(t.get("priority","normal")), 20),
+            "type":     sanitize_text(str(t.get("type","other")), 30),
+            "goal_id":  sanitize_text(str(t.get("goal_id","")), 50),
+        })
+    save_tasks(sid, clean)
+    return {"ok": True, "count": len(clean)}
 
 @app.get("/api/goals")
 async def get_goals(sid: str):
@@ -6788,6 +6920,128 @@ async def notify_tasks(data: dict):
         p["last_reminder_date"] = today
         save_progress(sid, p)
     return {"ok": ok, "detail": detail}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  DAILY DIGEST — called by Railway cron at 6am UTC (7am WAT)
+#  Authorization: Bearer {CRON_SECRET}
+# ═══════════════════════════════════════════════════════════════
+
+@app.post("/api/notifications/digest")
+async def notifications_digest(request: Request):
+    """Send a daily briefing email to every user who has tasks due or goals expiring soon."""
+    if CRON_SECRET:
+        auth = request.headers.get("Authorization", "")
+        if not hmac.compare_digest(auth, f"Bearer {CRON_SECRET}"):
+            raise HTTPException(403, "Forbidden")
+
+    today = datetime.date.today().isoformat()
+    sent, skipped = 0, 0
+
+    users = load_users()
+    targets = []
+    if users:
+        for email, u in users.items():
+            sid = u.get("sid", "")
+            if email and sid:
+                targets.append((sid, u.get("name", "there"), email))
+    else:
+        # Fallback: scan goals files for any users not in users.json
+        for f in DATA_DIR.glob("*_goals.json"):
+            if "backup" in f.name:
+                continue
+            sid = f.name.replace("_goals.json", "")
+            p   = load_progress(sid)
+            if p.get("email") and p.get("name"):
+                targets.append((sid, p["name"], p["email"]))
+
+    for sid, name, email in targets:
+        p = load_progress(sid)
+        if p.get("last_digest_date") == today:
+            skipped += 1
+            continue
+        tasks = load_tasks(sid)
+        goals = load_goals(sid)
+        html  = _email_digest_html(name, tasks, goals)
+        if not html:
+            skipped += 1
+            continue
+        ok, _ = send_email(email, f"Good morning, {name} — your SIVARR daily briefing", html)
+        if ok:
+            p["last_digest_date"] = today
+            save_progress(sid, p)
+            sent += 1
+
+    return {"ok": True, "sent": sent, "skipped": skipped}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  WEB PUSH NOTIFICATIONS
+# ═══════════════════════════════════════════════════════════════
+
+def load_push_subs(sid: str) -> list:
+    p = DATA_DIR / f"{sid}_push_subs.json"
+    return json.loads(p.read_text()) if p.exists() else []
+
+def save_push_subs(sid: str, subs: list):
+    p = DATA_DIR / f"{sid}_push_subs.json"
+    save_json(p, subs)
+
+def send_push(sid: str, title: str, body: str, url: str = "/app", tag: str = "sivarr") -> None:
+    """Fire-and-forget push to all of a user's subscriptions. Cleans dead endpoints."""
+    if not WEBPUSH_AVAILABLE or not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
+        return
+    subs    = load_push_subs(sid)
+    dead    = []
+    payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
+    for sub in subs:
+        try:
+            _webpush(
+                subscription_info=sub,
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={"sub": VAPID_EMAIL},
+            )
+        except WebPushException as exc:
+            if exc.response and exc.response.status_code in (404, 410):
+                dead.append(sub.get("endpoint", ""))
+        except Exception:
+            pass
+    if dead:
+        save_push_subs(sid, [s for s in subs if s.get("endpoint") not in dead])
+
+@app.get("/api/push/vapid-public")
+async def push_vapid_public():
+    return {"public_key": VAPID_PUBLIC_KEY, "available": bool(VAPID_PUBLIC_KEY)}
+
+@app.post("/api/push/subscribe")
+async def push_subscribe(data: dict):
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    sub = data.get("subscription")
+    if not sub or not isinstance(sub, dict) or not sub.get("endpoint"):
+        raise HTTPException(400, "Valid subscription object required.")
+    subs     = load_push_subs(sid)
+    endpoint = sub["endpoint"]
+    subs     = [s for s in subs if s.get("endpoint") != endpoint]  # dedup
+    subs.append(sub)
+    save_push_subs(sid, subs[-5:])  # keep max 5 per user
+    return {"ok": True}
+
+@app.post("/api/push/unsubscribe")
+async def push_unsubscribe(data: dict):
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid      = sess["sid"]
+    endpoint = data.get("endpoint", "")
+    subs     = [s for s in load_push_subs(sid) if s.get("endpoint") != endpoint]
+    save_push_subs(sid, subs)
+    return {"ok": True}
 
 
 @app.get("/health")
