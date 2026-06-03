@@ -59,18 +59,18 @@
   --yellow: var(--amber3); --fg: var(--text1);
 }
 
-/* ── DARK MODE — Deep Space palette ───────────────────────── */
+/* ── DARK MODE — Olive Forest palette ─────────────────────── */
 [data-theme="dark"] {
-  /* True deep backgrounds — not GitHub grey */
-  --bg:  #080811;
-  --bg2: #0F0F1C;
-  --bg3: #16162A;
-  --sidebar-bg:     #0A0A18;
-  --sidebar-border: #1C1C35;
-  --border:  #1E1E38; --border2: #282844;
+  /* Warm olive-dark backgrounds */
+  --bg:  #2f322b;
+  --bg2: #363a30;
+  --bg3: #3e4238;
+  --sidebar-bg:     #2b2e26;
+  --sidebar-border: #3a3e34;
+  --border:  #3d4137; --border2: #4b5044;
 
-  /* Text — clean dark mode hierarchy */
-  --text1: #F2F2FF; --text2: #B8B8D8; --text3: #6868A0; --text4: #44446A;
+  /* Text — warm off-white hierarchy */
+  --text1: #F4F4EF; --text2: #C0C4B0; --text3: #7A8070; --text4: #545A4A;
 
   /* Shadows — richer in dark mode */
   --shadow:  0 1px 4px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.4);
@@ -190,7 +190,7 @@ h1,h2,h3,.panel-title,.section-title,
   padding: 0 16px; gap: 12px; z-index: 100;
 }
 [data-theme="dark"] .topbar {
-  background: rgba(8,8,17,.82);
+  background: rgba(43,46,38,.88);
   border-bottom-color: rgba(255,255,255,.05);
   box-shadow: 0 1px 0 rgba(255,255,255,.04);
 }
@@ -622,8 +622,8 @@ h1,h2,h3,.panel-title,.section-title,
   flex-shrink: 0; background: var(--bg2);
 }
 [data-theme="dark"] .view-head {
-  background: rgba(15,15,28,.7);
-  border-bottom-color: rgba(255,255,255,.05);
+  background: rgba(54,58,48,.85);
+  border-bottom-color: rgba(255,255,255,.06);
 }
 .vh-icon  { font-size: 20px; color: var(--text3); }
 .vh-title {
@@ -1217,7 +1217,7 @@ h1,h2,h3,.panel-title,.section-title,
   box-shadow: var(--shadow);
 }
 [data-theme="dark"] .msg.sivarr .msg-bub {
-  background: rgba(15,15,28,.9);
+  background: rgba(43,46,38,.95);
   border-color: rgba(15,219,173,.12);
   box-shadow: 0 2px 12px rgba(0,0,0,.4), 0 0 0 1px rgba(15,219,173,.06);
 }
@@ -1999,9 +1999,9 @@ body.theme-transitioning *::after {
   animation: toastIn .3s cubic-bezier(.34,1.56,.64,1);
 }
 [data-theme="dark"] .toast {
-  background: rgba(22,22,42,.92);
+  background: rgba(47,50,43,.96);
   border-color: rgba(255,255,255,.08);
-  box-shadow: 0 8px 40px rgba(0,0,0,.7);
+  box-shadow: 0 8px 40px rgba(0,0,0,.5);
 }
 
 /* ── COMMAND PALETTE ───────────────────────────────────────── */
