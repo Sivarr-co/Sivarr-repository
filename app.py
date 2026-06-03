@@ -1563,6 +1563,10 @@ async def service_worker():
 async def admin_page():
     return Path("templates/admin.html").read_text()
 
+@app.get("/admin/metrics", response_class=HTMLResponse)
+async def admin_metrics_page():
+    return Path("templates/admin_metrics.html").read_text()
+
 
 @app.post("/api/login")
 async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
@@ -3808,6 +3812,113 @@ async def sync_tasks(data: dict):
         })
     save_tasks(sid, clean)
     return {"ok": True, "count": len(clean)}
+
+# ── Personal docs — server-side mirror of localStorage ────────────────────────
+def load_docs(sid: str) -> list:
+    p = DATA_DIR / f"{sid}_docs.json"
+    return json.loads(p.read_text()) if p.exists() else []
+
+def save_docs(sid: str, docs: list):
+    p = DATA_DIR / f"{sid}_docs.json"
+    save_json(p, docs)
+
+@app.post("/api/docs/sync")
+async def sync_docs(data: dict):
+    """Bulk-sync personal docs from client localStorage to server."""
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid  = sess["sid"]
+    docs = data.get("docs", [])
+    if not isinstance(docs, list):
+        raise HTTPException(400, "docs must be a list.")
+    import re as _re
+    clean = []
+    for d in docs[:200]:
+        raw_content = str(d.get("content", ""))
+        text_only   = _re.sub(r'<[^>]+>', ' ', raw_content)[:5000]
+        clean.append({
+            "id":       sanitize_text(str(d.get("id", "")),    50),
+            "title":    sanitize_text(str(d.get("title", "")), 200),
+            "content":  text_only,
+            "updated":  sanitize_text(str(d.get("updated", "")), 30),
+        })
+    save_docs(sid, clean)
+    return {"ok": True, "count": len(clean)}
+
+# ═══════════════════════════════════════════════════════════════
+#  UNIFIED SEARCH  — GET /api/search?q=&token=
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/search")
+async def unified_search(q: str = "", token: str = ""):
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    q   = q.strip().lower()
+    if len(q) < 2:
+        return {"results": []}
+
+    import re as _re
+    results = []
+
+    # ── Tasks ──────────────────────────────────────────────────
+    for t in load_tasks(sid):
+        if q in t.get("title", "").lower():
+            results.append({
+                "type": "task",
+                "icon": "✅" if t.get("done") else "☐",
+                "title": t["title"],
+                "meta":  t.get("status", "todo"),
+                "id":    t.get("id", ""),
+            })
+
+    # ── Goals ──────────────────────────────────────────────────
+    for g in load_goals(sid):
+        if q in g.get("title", "").lower() or q in g.get("subject", "").lower():
+            results.append({
+                "type":  "goal",
+                "icon":  "🎯",
+                "title": g["title"],
+                "meta":  f'{g.get("progress", 0)}% complete',
+                "id":    g.get("id", ""),
+            })
+
+    # ── Docs ───────────────────────────────────────────────────
+    for d in load_docs(sid):
+        title   = d.get("title", "").lower()
+        content = d.get("content", "").lower()
+        if q in title or q in content:
+            snippet = ""
+            idx = content.find(q)
+            if idx >= 0:
+                snippet = d["content"][max(0, idx - 30): idx + 70].strip()
+            results.append({
+                "type":  "doc",
+                "icon":  "📄",
+                "title": d.get("title") or "Untitled",
+                "meta":  snippet or "",
+                "id":    str(d.get("id", "")),
+            })
+
+    # ── Community posts ────────────────────────────────────────
+    if db.is_available():
+        try:
+            posts = db.search_community_posts(q, limit=5)
+            for p in posts:
+                results.append({
+                    "type":  "post",
+                    "icon":  "💬",
+                    "title": (p.get("content") or "")[:80],
+                    "meta":  p.get("author_name", ""),
+                    "id":    str(p.get("id", "")),
+                })
+        except Exception:
+            pass
+
+    return {"results": results[:25]}
 
 @app.get("/api/goals")
 async def get_goals(sid: str):
@@ -7042,6 +7153,106 @@ async def push_unsubscribe(data: dict):
     subs     = [s for s in load_push_subs(sid) if s.get("endpoint") != endpoint]
     save_push_subs(sid, subs)
     return {"ok": True}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  FEATURE TRACKING  — /api/track
+# ═══════════════════════════════════════════════════════════════
+
+@app.post("/api/track")
+async def track_event(data: dict):
+    """Record a lightweight feature-usage event (nav, action, etc.)."""
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        return {"ok": False}  # fail silently — never block the UI
+    event = sanitize_text(str(data.get("event", "")), 30)
+    panel = sanitize_text(str(data.get("panel", "")), 50)
+    today = datetime.date.today().isoformat()
+
+    metrics_path = DATA_DIR / f"metrics_{today}.json"
+    try:
+        metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
+    except Exception:
+        metrics = {}
+
+    # DAU — set of unique sids who touched the app today
+    dau = set(metrics.get("dau", []))
+    dau.add(sess["sid"])
+    metrics["dau"] = list(dau)
+
+    # Panel / feature nav counts
+    if event == "nav" and panel:
+        nav_counts = metrics.get("nav", {})
+        nav_counts[panel] = nav_counts.get(panel, 0) + 1
+        metrics["nav"] = nav_counts
+
+    save_json(metrics_path, metrics)
+    return {"ok": True}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  ADMIN METRICS  — /api/admin/metrics
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/admin/metrics")
+async def admin_metrics(token: str, days: int = 14):
+    if not _is_valid_admin_session(token):
+        raise HTTPException(401, "Unauthorized")
+    days  = min(max(int(days), 1), 90)
+    today = datetime.date.today()
+    result = {}
+
+    # ── Aggregate daily metrics files ─────────────────────────
+    dau_series   = {}
+    nav_totals   = {}
+    for i in range(days):
+        d     = (today - datetime.timedelta(days=i)).isoformat()
+        mpath = DATA_DIR / f"metrics_{d}.json"
+        if not mpath.exists():
+            dau_series[d] = 0
+            continue
+        try:
+            m = json.loads(mpath.read_text())
+        except Exception:
+            dau_series[d] = 0
+            continue
+        dau_series[d] = len(m.get("dau", []))
+        for panel, count in m.get("nav", {}).items():
+            nav_totals[panel] = nav_totals.get(panel, 0) + count
+
+    result["dau_series"]   = dict(sorted(dau_series.items()))
+    result["top_features"] = sorted(nav_totals.items(), key=lambda x: -x[1])[:15]
+
+    # ── WAU (unique users in last 7 days) ─────────────────────
+    wau_sids = set()
+    for i in range(7):
+        d     = (today - datetime.timedelta(days=i)).isoformat()
+        mpath = DATA_DIR / f"metrics_{d}.json"
+        if mpath.exists():
+            try:
+                m = json.loads(mpath.read_text())
+                wau_sids.update(m.get("dau", []))
+            except Exception:
+                pass
+    result["wau"] = len(wau_sids)
+    result["dau"] = dau_series.get(today.isoformat(), 0)
+
+    # ── Signup stats (from users file + DB) ───────────────────
+    users = load_users()
+    result["total_users"] = len(users)
+
+    # ── Subscription conversion ───────────────────────────────
+    paid = 0
+    if db.is_available():
+        try:
+            db_stats = db.get_platform_stats()
+            result["db_stats"] = db_stats
+        except Exception:
+            pass
+
+    result["days"] = days
+    return result
 
 
 @app.get("/health")

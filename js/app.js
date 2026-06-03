@@ -4422,105 +4422,101 @@ function cmdDismiss() {
   $('cmd-bg').classList.remove('open');
 }
 
+let _cmdSearchTimer = null;
+
 function cmdSearch() {
   const q   = ($('cmd-input')?.value || '').toLowerCase().trim();
   const res = $('cmd-results');
   if (!res) return;
   CMD_IDX = -1;
 
-  // Show / hide quick-capture row
   const capRow = $('cmd-capture-row');
   if (capRow) capRow.style.display = q.length > 1 ? 'flex' : 'none';
 
-  // Search all content sources
-  const docs   = JSON.parse(localStorage.getItem(`sivarr_docs_${S.sid}`)    || '[]');
-  const notes  = JSON.parse(localStorage.getItem(`sivarr_notes_${S.sid}`)   || '[]');
-  const tasks  = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`)   || '[]');
-  const goals  = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`)   || '[]');
-  const jnl    = JSON.parse(localStorage.getItem(`sivarr_journal_${S.sid}`) || '[]');
+  // ── Step 1: instant local results (panels + localStorage content) ──
+  const notes = JSON.parse(localStorage.getItem(`sivarr_notes_${S.sid}`)   || '[]');
+  const jnl   = JSON.parse(localStorage.getItem(`sivarr_journal_${S.sid}`) || '[]');
 
-  // Filter panels / actions
-  let items = CMD_ITEMS.filter(item =>
-    !q ||
-    item.label.toLowerCase().includes(q) ||
-    (item.tag || '').toLowerCase().includes(q)
-  );
+  const panelItems = CMD_ITEMS.filter(item =>
+    !q || item.label.toLowerCase().includes(q) || (item.tag || '').toLowerCase().includes(q)
+  ).map(i => ({ ...i, type: 'panel' }));
 
-  // Match docs
-  const matchedDocs = q
-    ? docs.filter(d =>
-        (d.title || '').toLowerCase().includes(q) ||
-        (d.content || '').replace(/<[^>]+>/g,'').toLowerCase().includes(q)
-      ).slice(0, 4)
-    : docs.slice(0, 3);
-
-  // Match old notes
-  const matchedNotes = q
-    ? notes.filter(n =>
-        (n.text || n.title || '').toLowerCase().includes(q) ||
-        (n.tag  || '').toLowerCase().includes(q)
-      ).slice(0, 3)
+  const noteItems = q
+    ? notes.filter(n => (n.text || n.title || '').toLowerCase().includes(q))
+           .slice(0, 3)
+           .map(n => ({
+             icon: '📓', label: ((n.text || n.title || '').split('\n')[0].slice(0, 50)) || 'Note',
+             tag: 'Note', type: 'note', action: () => nav('notes', null),
+           }))
     : [];
 
-  // Match tasks
-  const matchedTasks = q
-    ? tasks.filter(t => (t.title || '').toLowerCase().includes(q)).slice(0, 4)
+  const jnlItems = q
+    ? jnl.filter(e => (e.text || e.content || e.entry || '').toLowerCase().includes(q))
+          .slice(0, 3)
+          .map(e => ({
+            icon: '✍️', label: ((e.text || e.content || e.entry || '').slice(0, 50)) || 'Journal entry',
+            tag: 'Journal', type: 'journal', action: () => nav('journal', null),
+          }))
     : [];
 
-  // Match goals
-  const matchedGoals = q
-    ? goals.filter(g => (g.title || '').toLowerCase().includes(q)).slice(0, 3)
-    : [];
+  CMD_VISIBLE = [...panelItems, ...noteItems, ...jnlItems];
+  cmdRenderResults(q);
 
-  // Match journal entries
-  const matchedJournal = q
-    ? jnl.filter(e => (e.text || e.content || e.entry || '').toLowerCase().includes(q)).slice(0, 3)
-    : [];
+  // ── Step 2: server search — debounced 300ms, merges into results ──
+  clearTimeout(_cmdSearchTimer);
+  if (q.length >= 2) {
+    const token = localStorage.getItem('sivarr_token');
+    if (token) {
+      _cmdSearchTimer = setTimeout(async () => {
+        try {
+          const r = await fetch(`/api/search?q=${encodeURIComponent(q)}&token=${encodeURIComponent(token)}`);
+          if (!r.ok) return;
+          const data = await r.json();
+          const serverItems = (data.results || []).map(item => {
+            const ACTION_MAP = {
+              task:  () => nav('flux', null),
+              goal:  () => nav('goals', null),
+              doc:   () => { nav('notes', null); setTimeout(() => docOpen(parseInt(item.id) || item.id), 150); },
+              post:  () => nav('community', null),
+            };
+            return {
+              icon:   item.icon,
+              label:  (item.title || '').slice(0, 60),
+              tag:    item.type.charAt(0).toUpperCase() + item.type.slice(1),
+              type:   item.type,
+              meta:   item.meta || '',
+              action: ACTION_MAP[item.type] || (() => {}),
+            };
+          });
+          // Merge: keep existing panels/notes/journal, replace content types with server data
+          const panels = CMD_VISIBLE.filter(i => i.type === 'panel');
+          const others = CMD_VISIBLE.filter(i => i.type !== 'panel' && !['task','goal','doc','post'].includes(i.type));
+          CMD_VISIBLE = [...panels, ...serverItems, ...others];
+          cmdRenderResults(q);
+        } catch(_) {}
+      }, 300);
+    }
+  }
+}
 
-  CMD_VISIBLE = [
-    ...items.map(i => ({ ...i, type: 'panel' })),
-    ...matchedDocs.map(d => ({
-      icon: '📄', label: (d.title || 'Untitled').slice(0, 50),
-      tag: 'Doc', type: 'doc',
-      action: () => { nav('notes', null); setTimeout(() => docOpen(d.id), 150); }
-    })),
-    ...matchedNotes.map(n => ({
-      icon: '📓', label: ((n.text || n.title || '').split('\n')[0].slice(0, 50)) || 'Note',
-      tag: 'Note', type: 'note',
-      action: () => nav('notes', null),
-    })),
-    ...matchedTasks.map(t => ({
-      icon: t.done ? '✅' : '☐',
-      label: (t.title || '').slice(0, 50),
-      tag: 'Task', type: 'task',
-      action: () => nav('flux', null),
-    })),
-    ...matchedGoals.map(g => ({
-      icon: '🎯', label: (g.title || '').slice(0, 50),
-      tag: 'Goal', type: 'goal',
-      action: () => nav('goals', null),
-    })),
-    ...matchedJournal.map(e => ({
-      icon: '✍️', label: ((e.text || e.content || e.entry || '').slice(0, 50)) || 'Journal entry',
-      tag: 'Journal', type: 'journal',
-      action: () => nav('journal', null),
-    })),
-  ];
+function cmdRenderResults(q) {
+  const res = $('cmd-results');
+  if (!res) return;
 
   if (!CMD_VISIBLE.length) {
     res.innerHTML = q
       ? `<div class="cmd-empty">No results for "<strong>${esc(q)}</strong>" — capture it below ↓</div>`
-      : `<div class="cmd-empty">Type to search panels, docs, or actions…</div>`;
+      : `<div class="cmd-empty">Type to search panels, docs, tasks or actions…</div>`;
     return;
   }
 
-  // Group by type/tag
   const groups = {};
   CMD_VISIBLE.forEach((item, idx) => {
     const g = item.type === 'doc'     ? 'Docs'
             : item.type === 'note'    ? 'Notes'
             : item.type === 'task'    ? 'Tasks'
             : item.type === 'goal'    ? 'Goals'
+            : item.type === 'post'    ? 'Community'
             : item.type === 'journal' ? 'Journal'
             : (item.tag || 'Actions');
     if (!groups[g]) groups[g] = [];
@@ -4532,7 +4528,10 @@ function cmdSearch() {
     ${groupItems.map(item => `
       <button class="cmd-item" data-idx="${item._idx}" onclick="cmdRun(${item._idx})">
         <div class="cmd-item-icon">${item.icon}</div>
-        <span class="cmd-item-label">${esc(item.label)}</span>
+        <div style="flex:1;min-width:0">
+          <div class="cmd-item-label">${esc(item.label)}</div>
+          ${item.meta ? `<div style="font-size:.72rem;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.meta)}</div>` : ''}
+        </div>
         ${item.tag ? `<span class="cmd-item-tag">${esc(item.tag)}</span>` : ''}
       </button>`).join('')}
   `).join('');
@@ -6087,6 +6086,7 @@ function nav(name, btn) {
   const mob = document.getElementById(`mn-${name}`); if (mob) mob.classList.add('active');
   _updateMobileNav(name);
   syncSnavFromPanel(name);
+  _trackNav(name);
 
   // ── Paywall guards ──
   const _GUARDED = { org: 'Pro', orgchat: 'Pro', team: 'Pro', projects: 'Pro', founder: 'Team' };
@@ -8985,6 +8985,30 @@ function docGetAll() {
 }
 function docSaveAll(list) {
   localStorage.setItem(DOC_KEY(), JSON.stringify(list));
+  _syncDocsToServer(list);
+}
+
+function _syncDocsToServer(docs) {
+  const token = localStorage.getItem('sivarr_token');
+  if (!token || !S.sid) return;
+  fetch('/api/docs/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, docs }),
+  }).catch(() => {});
+}
+
+// ── Feature usage tracking (fires on every panel navigation) ─
+let _lastTrackedNav = '';
+function _trackNav(panel) {
+  const token = localStorage.getItem('sivarr_token');
+  if (!token || !panel || panel === _lastTrackedNav) return;
+  _lastTrackedNav = panel;
+  fetch('/api/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, event: 'nav', panel }),
+  }).catch(() => {});
 }
 
 function docNew() {
