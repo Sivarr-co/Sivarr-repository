@@ -3622,20 +3622,174 @@ async function stLogoutAll() {
   location.reload();
 }
 
-function stExportData() {
-  const data = {
-    name:    S.name,
-    email:   S.email,
-    stats:   S.stats,
-    topics:  S.topics,
-    exported: new Date().toISOString(),
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  const a    = document.createElement('a');
-  a.href     = URL.createObjectURL(blob);
-  a.download = `sivarr-data-${S.name?.split(' ')[0]?.toLowerCase() || 'export'}.json`;
-  a.click();
-  toast('Data exported ✓');
+// ═══════════════════════════════════════════════════════════════
+//  IMPORT / EXPORT
+// ═══════════════════════════════════════════════════════════════
+
+async function stExportAll() {
+  const token = localStorage.getItem('sivarr_token');
+  if (!token) { toast('Sign in first.'); return; }
+
+  const btn = $('export-btn');
+  if (btn) { btn.textContent = 'Preparing ZIP…'; btn.disabled = true; }
+
+  // Gather localStorage-only data to send alongside the token
+  const habits  = JSON.parse(localStorage.getItem(`sivarr_habits_${S.sid}`)  || '[]');
+  const journal = JSON.parse(localStorage.getItem(JNL_KEY())                  || '[]');
+
+  try {
+    const r = await fetch('/api/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, habits, journal }),
+    });
+    if (!r.ok) throw new Error('Export failed');
+    const blob     = await r.blob();
+    const url      = URL.createObjectURL(blob);
+    const a        = document.createElement('a');
+    const dispHdr  = r.headers.get('Content-Disposition') || '';
+    const match    = dispHdr.match(/filename="([^"]+)"/);
+    a.download     = match ? match[1] : 'sivarr-export.zip';
+    a.href         = url;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Export downloaded ✓');
+  } catch(e) {
+    toast('Export failed — try again.');
+  } finally {
+    if (btn) { btn.textContent = '↓ Export my data (ZIP)'; btn.disabled = false; }
+  }
+}
+
+// ── CSV parser (no external library) ──────────────────────────
+
+function _parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = _splitCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/[\s-]+/g, '_'));
+  return lines.slice(1).map(line => {
+    const vals = _splitCSVLine(line);
+    const obj  = {};
+    headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim().replace(/^"|"$/g, ''); });
+    return obj;
+  }).filter(r => Object.values(r).some(v => v));
+}
+
+function _splitCSVLine(line) {
+  const result = [];
+  let cur = ''; let inQ = false;
+  for (const ch of line) {
+    if (ch === '"') { inQ = !inQ; }
+    else if (ch === ',' && !inQ) { result.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  result.push(cur);
+  return result;
+}
+
+// ── Import handlers ───────────────────────────────────────────
+
+async function stImportTasks(input) {
+  const file = input.files[0]; input.value = '';
+  if (!file) return;
+  const token = localStorage.getItem('sivarr_token');
+  if (!token) { toast('Sign in first.'); return; }
+  const text = await file.text();
+  const rows = _parseCSV(text);
+  if (!rows.length) { toast('No valid rows found in CSV.'); return; }
+  _setImportStatus(`Importing ${rows.length} tasks…`);
+  try {
+    const r = await fetch('/api/import/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, tasks: rows }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Import failed');
+    _setImportStatus(`✓ ${d.imported} tasks imported`);
+    toast(`${d.imported} tasks imported ✓`);
+    // Sync localStorage from server
+    const taskR = await fetch(`/api/tasks/sync`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({token, tasks: JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]')}) });
+  } catch(e) {
+    _setImportStatus('Import failed — check CSV format.');
+    toast('Task import failed.');
+  }
+}
+
+async function stImportGoals(input) {
+  const file = input.files[0]; input.value = '';
+  if (!file) return;
+  const token = localStorage.getItem('sivarr_token');
+  if (!token) { toast('Sign in first.'); return; }
+  const text = await file.text();
+  const rows = _parseCSV(text);
+  if (!rows.length) { toast('No valid rows found in CSV.'); return; }
+  _setImportStatus(`Importing ${rows.length} goals…`);
+  try {
+    const r = await fetch('/api/import/goals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, goals: rows }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Import failed');
+    _setImportStatus(`✓ ${d.imported} goals imported`);
+    toast(`${d.imported} goals imported ✓`);
+  } catch(e) {
+    _setImportStatus('Import failed — check CSV format.');
+    toast('Goal import failed.');
+  }
+}
+
+async function stImportNotes(input) {
+  const file = input.files[0]; input.value = '';
+  if (!file) return;
+  const token = localStorage.getItem('sivarr_token');
+  if (!token) { toast('Sign in first.'); return; }
+  const markdown = await file.text();
+  if (!markdown.trim()) { toast('File is empty.'); return; }
+  _setImportStatus(`Importing ${file.name}…`);
+  try {
+    const r = await fetch('/api/import/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, markdown, filename: file.name }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Import failed');
+    _setImportStatus(`✓ Note imported as "${file.name.replace('.md','').replace('.txt','')}" in Docs`);
+    toast('Note imported ✓ — check Docs & Notes');
+  } catch(e) {
+    _setImportStatus('Import failed.');
+    toast('Note import failed.');
+  }
+}
+
+function _setImportStatus(msg) {
+  const el = $('import-status');
+  if (el) el.textContent = msg;
+}
+
+// ── Habits + Journal sync wiring ─────────────────────────────
+
+function _syncHabitsToServer(habits) {
+  const token = localStorage.getItem('sivarr_token');
+  if (!token || !S.sid) return;
+  fetch('/api/habits/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, habits }),
+  }).catch(() => {});
+}
+
+function _syncJournalToServer(entries) {
+  const token = localStorage.getItem('sivarr_token');
+  if (!token || !S.sid) return;
+  fetch('/api/journal/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, entries }),
+  }).catch(() => {});
 }
 
 async function stClearChat() {
@@ -4931,6 +5085,7 @@ function homeHabitToggle(idx) {
     _recordActivity();
   }
   localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
+  _syncHabitsToServer(habits);
   loadHome();
 }
 
@@ -5107,6 +5262,7 @@ function habitToggle(idx) {
     habits[idx].streak = (habits[idx].streak||0) + 1;
   }
   localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
+  _syncHabitsToServer(habits);
   _recordActivity();
   habitInit();
 }
@@ -5122,6 +5278,7 @@ async function habitAdd() {
   const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
   habits.push({ id: Date.now().toString(), title: d.title, emoji: d.emoji || '📌', completions: [], streak: 0 });
   localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
+  _syncHabitsToServer(habits);
   habitInit();
   toast('Habit added ✓');
 }
@@ -5165,6 +5322,7 @@ function journalSave() {
   else entries.unshift(entry);
   localStorage.setItem(JNL_KEY(), JSON.stringify(entries));
   localStorage.setItem(`${JNL_KEY()}_jnl_draft_${today}`, ta.value.trim());
+  _syncJournalToServer(entries);
   journalRenderEntries();
   _saveStatus('saved');
   _recordActivity();

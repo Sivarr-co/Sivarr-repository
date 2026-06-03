@@ -5,9 +5,12 @@ Added: Rate limiting, Input validation, Error logging
 
 import ast
 import collections
+import csv
 import datetime
 import hashlib
 import hmac
+import io
+import zipfile
 import bcrypt
 import json
 import logging
@@ -3847,6 +3850,69 @@ async def sync_docs(data: dict):
     save_docs(sid, clean)
     return {"ok": True, "count": len(clean)}
 
+# ── Personal habits — server-side mirror ──────────────────────
+def load_habits(sid: str) -> list:
+    p = DATA_DIR / f"{sid}_habits.json"
+    return json.loads(p.read_text()) if p.exists() else []
+
+def save_habits(sid: str, habits: list):
+    p = DATA_DIR / f"{sid}_habits.json"
+    save_json(p, habits)
+
+@app.post("/api/habits/sync")
+async def sync_habits(data: dict):
+    """Bulk-sync habits from client localStorage to server."""
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid    = sess["sid"]
+    habits = data.get("habits", [])
+    if not isinstance(habits, list):
+        raise HTTPException(400, "habits must be a list.")
+    clean = []
+    for h in habits[:200]:
+        clean.append({
+            "id":          sanitize_text(str(h.get("id","")),    50),
+            "title":       sanitize_text(str(h.get("title","")), 100),
+            "emoji":       sanitize_text(str(h.get("emoji","")), 10),
+            "frequency":   sanitize_text(str(h.get("frequency","daily")), 20),
+            "streak":      int(h.get("streak", 0)),
+            "completions": [sanitize_text(str(d), 12) for d in (h.get("completions") or [])[:400]],
+        })
+    save_habits(sid, clean)
+    return {"ok": True, "count": len(clean)}
+
+# ── Personal journal — server-side mirror ─────────────────────
+def load_journal(sid: str) -> list:
+    p = DATA_DIR / f"{sid}_journal.json"
+    return json.loads(p.read_text()) if p.exists() else []
+
+def save_journal(sid: str, entries: list):
+    p = DATA_DIR / f"{sid}_journal.json"
+    save_json(p, entries)
+
+@app.post("/api/journal/sync")
+async def sync_journal(data: dict):
+    """Bulk-sync journal entries from client localStorage to server."""
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid     = sess["sid"]
+    entries = data.get("entries", [])
+    if not isinstance(entries, list):
+        raise HTTPException(400, "entries must be a list.")
+    clean = []
+    for e in entries[:1000]:
+        clean.append({
+            "date":    sanitize_text(str(e.get("date","")),    20),
+            "text":    sanitize_text(str(e.get("text","") or e.get("content","") or e.get("entry","")), 10000),
+            "mood":    sanitize_text(str(e.get("mood","")),    10),
+        })
+    save_journal(sid, clean)
+    return {"ok": True, "count": len(clean)}
+
 # ═══════════════════════════════════════════════════════════════
 #  UNIFIED SEARCH  — GET /api/search?q=&token=
 # ═══════════════════════════════════════════════════════════════
@@ -7253,6 +7319,204 @@ async def admin_metrics(token: str, days: int = 14):
 
     result["days"] = days
     return result
+
+
+# ═══════════════════════════════════════════════════════════════
+#  DATA EXPORT  — POST /api/export  →  ZIP download
+# ═══════════════════════════════════════════════════════════════
+
+def _csv_bytes(rows: list, fieldnames: list) -> str:
+    buf = io.StringIO()
+    w   = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction='ignore')
+    w.writeheader()
+    for r in rows:
+        w.writerow({f: r.get(f, '') for f in fieldnames})
+    return buf.getvalue()
+
+@app.post("/api/export")
+async def export_data(data: dict):
+    """
+    Build and return a ZIP with all user data.
+    Client sends localStorage-only data (habits, journal) alongside the token.
+    """
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    p   = load_progress(sid)
+
+    # Client provides localStorage-only data
+    client_habits  = data.get("habits",  []) or []
+    client_journal = data.get("journal", []) or []
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+
+        # ── tasks.csv ──────────────────────────────────────────
+        tasks = load_tasks(sid)
+        if tasks:
+            zf.writestr("tasks.csv", _csv_bytes(tasks, [
+                "title", "status", "done", "date", "time", "priority", "type"
+            ]))
+
+        # ── goals.csv ──────────────────────────────────────────
+        goals = load_goals(sid)
+        if goals:
+            zf.writestr("goals.csv", _csv_bytes(goals, [
+                "title", "subject", "target_score", "deadline", "progress", "completed"
+            ]))
+
+        # ── habits.csv ─────────────────────────────────────────
+        habits = client_habits or load_habits(sid)
+        if habits:
+            zf.writestr("habits.csv", _csv_bytes(habits, [
+                "title", "emoji", "frequency", "streak"
+            ]))
+
+        # ── notes.md (docs) ────────────────────────────────────
+        docs = load_docs(sid)
+        if docs:
+            lines = []
+            for d in docs:
+                title   = d.get("title") or "Untitled"
+                content = (d.get("content") or "").strip()
+                lines.append(f"# {title}\n\n{content}\n\n---\n")
+            zf.writestr("notes.md", "\n".join(lines))
+
+        # ── journal.md ─────────────────────────────────────────
+        journal = client_journal or load_journal(sid)
+        if journal:
+            lines = []
+            for e in journal:
+                date = e.get("date", "")
+                text = (e.get("text") or e.get("content") or e.get("entry") or "").strip()
+                mood = e.get("mood", "")
+                header = f"## {date}" + (f" — {mood}" if mood else "")
+                lines.append(f"{header}\n\n{text}\n\n---\n")
+            zf.writestr("journal.md", "\n".join(lines))
+
+        # ── profile.json ───────────────────────────────────────
+        zf.writestr("profile.json", json.dumps({
+            "name":      p.get("name", ""),
+            "email":     p.get("email", ""),
+            "exported":  datetime.datetime.now().isoformat(),
+            "version":   VERSION,
+        }, indent=2))
+
+    buf.seek(0)
+    safe_name = re.sub(r'[^a-z0-9]', '', (p.get("name","sivarr") or "sivarr").lower().split()[0])
+    filename  = f"sivarr-export-{safe_name}-{datetime.date.today().isoformat()}.zip"
+    return Response(
+        content=buf.read(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+#  DATA IMPORT
+# ═══════════════════════════════════════════════════════════════
+
+@app.post("/api/import/tasks")
+async def import_tasks(data: dict):
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid  = sess["sid"]
+    rows = data.get("tasks", [])
+    if not isinstance(rows, list):
+        raise HTTPException(400, "tasks must be a list.")
+    existing = load_tasks(sid)
+    imported = []
+    for r in rows[:500]:
+        title = sanitize_text(str(r.get("title", "")), 200).strip()
+        if not title:
+            continue
+        imported.append({
+            "id":       str(uuid.uuid4())[:8],
+            "title":    title,
+            "status":   sanitize_text(str(r.get("status", "todo")), 20),
+            "done":     str(r.get("done", "")).lower() in ("yes", "true", "1"),
+            "date":     sanitize_text(str(r.get("date", "")), 20),
+            "time":     sanitize_text(str(r.get("time", "")), 10),
+            "priority": sanitize_text(str(r.get("priority", "normal")), 20),
+            "type":     sanitize_text(str(r.get("type", "other")), 30),
+            "goal_id":  "",
+        })
+    save_tasks(sid, existing + imported)
+    return {"ok": True, "imported": len(imported)}
+
+
+@app.post("/api/import/goals")
+async def import_goals(data: dict):
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid  = sess["sid"]
+    rows = data.get("goals", [])
+    if not isinstance(rows, list):
+        raise HTTPException(400, "goals must be a list.")
+    existing = load_goals(sid)
+    imported = []
+    for r in rows[:200]:
+        title = sanitize_text(str(r.get("title", "")), 100).strip()
+        if not title:
+            continue
+        try:
+            target = min(max(int(float(r.get("target_score", 70))), 1), 100)
+        except (ValueError, TypeError):
+            target = 70
+        imported.append({
+            "id":           str(uuid.uuid4())[:8],
+            "title":        title,
+            "subject":      sanitize_text(str(r.get("subject", "")), 100),
+            "target_score": target,
+            "deadline":     sanitize_text(str(r.get("deadline", "")), 20),
+            "created":      datetime.date.today().isoformat(),
+            "progress":     0,
+            "completed":    str(r.get("completed", "")).lower() in ("yes", "true", "1"),
+        })
+    save_goals(sid, existing + imported)
+    return {"ok": True, "imported": len(imported)}
+
+
+@app.post("/api/import/notes")
+async def import_notes(data: dict):
+    """Accept markdown text and create a doc from it."""
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid      = sess["sid"]
+    markdown = sanitize_text(str(data.get("markdown", "")), 200000)
+    filename = sanitize_text(str(data.get("filename", "Imported note")), 100)
+    if not markdown.strip():
+        raise HTTPException(400, "Empty content.")
+
+    # Convert markdown to simple HTML for the doc editor
+    lines    = markdown.split("\n")
+    html_parts = []
+    for line in lines:
+        if line.startswith("### "): html_parts.append(f"<h3>{line[4:]}</h3>")
+        elif line.startswith("## "): html_parts.append(f"<h2>{line[3:]}</h2>")
+        elif line.startswith("# "):  html_parts.append(f"<h1>{line[2:]}</h1>")
+        elif line.strip() == "---": html_parts.append("<hr>")
+        elif line.strip():           html_parts.append(f"<p>{line}</p>")
+    html_content = "\n".join(html_parts)
+
+    existing = load_docs(sid)
+    doc = {
+        "id":      int(datetime.datetime.now().timestamp() * 1000),
+        "title":   filename.replace(".md", ""),
+        "content": html_content,
+        "updated": int(datetime.datetime.now().timestamp() * 1000),
+    }
+    existing.insert(0, doc)
+    save_docs(sid, existing)
+    return {"ok": True, "doc_id": doc["id"]}
 
 
 @app.get("/health")

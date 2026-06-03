@@ -1539,7 +1539,48 @@ Sentry.onLoad(function() {
             </div>
           </div>
 
-          <!-- Data -->
+          <!-- Import & Export -->
+          <div class="st-section" id="st-sec-export">
+            <div class="st-section-hd" onclick="stToggleSection('export')">
+              <div class="st-section-icon" style="background:#0D7A5F20">📦</div>
+              <div class="st-section-title">Import &amp; Export</div>
+              <i class="ti ti-chevron-down st-section-chevron"></i>
+            </div>
+            <div class="st-section-body">
+              <p style="font-size:.78rem;color:var(--text3);margin-bottom:12px;line-height:1.6">
+                Export all your data as a ZIP (tasks, goals, habits, notes, journal). Import tasks or goals from CSV, or notes from Markdown.
+              </p>
+              <button class="st-btn" onclick="stExportAll()" id="export-btn">
+                <i class="ti ti-download" style="margin-right:6px"></i>Export my data (ZIP)
+              </button>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+                <div>
+                  <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Import Tasks (CSV)</div>
+                  <input type="file" id="import-tasks-file" accept=".csv" style="display:none" onchange="stImportTasks(this)">
+                  <button class="st-btn" onclick="$('import-tasks-file').click()">
+                    <i class="ti ti-upload" style="margin-right:6px"></i>Upload tasks.csv
+                  </button>
+                </div>
+                <div>
+                  <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Import Goals (CSV)</div>
+                  <input type="file" id="import-goals-file" accept=".csv" style="display:none" onchange="stImportGoals(this)">
+                  <button class="st-btn" onclick="$('import-goals-file').click()">
+                    <i class="ti ti-upload" style="margin-right:6px"></i>Upload goals.csv
+                  </button>
+                </div>
+              </div>
+              <div style="margin-top:4px">
+                <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Import Notes (Markdown / Notion)</div>
+                <input type="file" id="import-notes-file" accept=".md,.txt" style="display:none" onchange="stImportNotes(this)">
+                <button class="st-btn" onclick="$('import-notes-file').click()" style="width:100%">
+                  <i class="ti ti-upload" style="margin-right:6px"></i>Upload .md or .txt file
+                </button>
+              </div>
+              <div id="import-status" style="font-size:.78rem;color:var(--teal);margin-top:8px;min-height:18px"></div>
+            </div>
+          </div>
+
+          <!-- Data & Privacy -->
           <div class="st-section" id="st-sec-data">
             <div class="st-section-hd" onclick="stToggleSection('data')">
               <div class="st-section-icon" style="background:#ef444420">🗑️</div>
@@ -1547,7 +1588,6 @@ Sentry.onLoad(function() {
               <i class="ti ti-chevron-down st-section-chevron"></i>
             </div>
             <div class="st-section-body">
-              <button class="st-btn" onclick="stExportData()">📦 Export my data (JSON)</button>
               <button class="st-btn danger" onclick="stClearChat()">🗑️ Clear chat history</button>
               <button class="st-btn danger" onclick="stClearWrong()">🗑️ Clear revision list</button>
               <button class="st-btn danger" onclick="stResetProgress()">⚠️ Reset all progress</button>
