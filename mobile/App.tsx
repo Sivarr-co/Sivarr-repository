@@ -1,119 +1,111 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { Text, TextInput, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+
+// Prevent OS accessibility font-size from stretching/compressing all text
+if (Text.defaultProps == null) (Text as any).defaultProps = {};
+(Text as any).defaultProps.allowFontScaling = false;
+if (TextInput.defaultProps == null) (TextInput as any).defaultProps = {};
+(TextInput as any).defaultProps.allowFontScaling = false;
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 
-import TodayScreen        from './src/screens/TodayScreen';
-import AIScreen           from './src/screens/AIScreen';
-import TasksScreen        from './src/screens/TasksScreen';
-import MeScreen           from './src/screens/MeScreen';
-import GoalsScreen        from './src/screens/GoalsScreen';
-import HabitsScreen       from './src/screens/HabitsScreen';
-import JournalScreen      from './src/screens/JournalScreen';
-import CommunityScreen    from './src/screens/CommunityScreen';
-import SettingsScreen     from './src/screens/SettingsScreen';
-import LoginScreen        from './src/screens/LoginScreen';
-import MoreScreen         from './src/screens/MoreScreen';
-import WeeklyReviewScreen from './src/screens/WeeklyReviewScreen';
-import FocusScreen        from './src/screens/FocusScreen';
+import TodayScreen from './src/screens/TodayScreen';
+import AIScreen    from './src/screens/AIScreen';
+import MeScreen    from './src/screens/MeScreen';
+import LoginScreen from './src/screens/LoginScreen';
 
 import { useAuth } from './src/hooks/useAuth';
 import { COLORS }  from './src/theme';
-import { configureNotificationHandler, requestNotificationPermission, scheduleDailyBrief, scheduleHabitReminder } from './src/services/notifications';
+import {
+  configureNotificationHandler,
+  requestNotificationPermission,
+  scheduleDailyBrief,
+  scheduleHabitReminder,
+} from './src/services/notifications';
 
 const Tab   = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const TAB_OPTS = {
-  headerShown: false,
-  tabBarStyle: {
-    backgroundColor: COLORS.bg2,
-    borderTopColor: COLORS.border,
-    height: 60,
-    paddingBottom: 8,
-    paddingTop: 4,
-  },
-  tabBarActiveTintColor:   COLORS.accent,
-  tabBarInactiveTintColor: COLORS.muted,
-  tabBarLabelStyle: { fontSize: 10, fontWeight: '600' as const },
-};
-
-// Stack inside "More" tab
-function MoreStack() {
+// ── AI tab icon — glowing orb when active ─────────────────────
+function AITabIcon({ color, focused }: { color: string; focused: boolean }) {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="MoreHome"      component={MoreScreen} />
-      <Stack.Screen name="Goals"         component={GoalsScreen} />
-      <Stack.Screen name="Habits"        component={HabitsScreen} />
-      <Stack.Screen name="Journal"       component={JournalScreen} />
-      <Stack.Screen name="Community"     component={CommunityScreen} />
-      <Stack.Screen name="Settings"      component={SettingsScreen} />
-      <Stack.Screen name="WeeklyReview"  component={WeeklyReviewScreen} />
-      <Stack.Screen name="Focus"         component={FocusScreen} />
-    </Stack.Navigator>
+    <View style={[styles.aiIcon, focused && styles.aiIconActive]}>
+      <Ionicons name="sparkles" size={focused ? 19 : 17} color={focused ? '#fff' : color} />
+    </View>
   );
 }
 
+// ── 3-tab navigator ───────────────────────────────────────────
 function MainTabs() {
   return (
-    <Tab.Navigator screenOptions={TAB_OPTS}>
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: COLORS.bg2,
+          borderTopWidth: 1,
+          borderTopColor: COLORS.border,
+          height: 64,
+          paddingBottom: 10,
+          paddingTop: 6,
+        },
+        tabBarActiveTintColor:   COLORS.accent,
+        tabBarInactiveTintColor: COLORS.muted,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
+      }}
+    >
       <Tab.Screen
         name="Today"
         component={TodayScreen}
         options={{
           tabBarLabel: 'Today',
-          tabBarIcon: ({ color, size }) => <Ionicons name="today-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="sunny-outline" size={size} color={color} />
+          ),
         }}
       />
+
       <Tab.Screen
         name="AI"
         component={AIScreen}
         options={{
           tabBarLabel: 'SIVARR AI',
-          tabBarIcon: ({ color, size }) => <Ionicons name="sparkles-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <AITabIcon color={color} focused={focused} />
+          ),
+          tabBarLabelStyle: { fontSize: 10, fontWeight: '700', color: COLORS.accent },
         }}
       />
-      <Tab.Screen
-        name="Tasks"
-        component={TasksScreen}
-        options={{
-          tabBarLabel: 'Tasks',
-          tabBarIcon: ({ color, size }) => <Ionicons name="checkbox-outline" size={size} color={color} />,
-        }}
-      />
+
       <Tab.Screen
         name="Me"
         component={MeScreen}
         options={{
           tabBarLabel: 'Me',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="More"
-        component={MoreStack}
-        options={{
-          tabBarLabel: 'More',
-          tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
         }}
       />
     </Tab.Navigator>
   );
 }
 
+// ── Root ──────────────────────────────────────────────────────
 export default function App() {
   const { isLoggedIn } = useAuth();
 
-  React.useEffect(() => {
+  useEffect(() => {
     configureNotificationHandler();
     if (isLoggedIn) {
       requestNotificationPermission().then(granted => {
         if (granted) {
-          scheduleDailyBrief(8, 0);
-          scheduleHabitReminder(20, 0);
+          scheduleDailyBrief(8, 0);      // 8am daily brief
+          scheduleHabitReminder(20, 0);  // 8pm habit check
         }
       });
     }
@@ -121,9 +113,9 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      <StatusBar style="light" backgroundColor={COLORS.bg} />
       <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
           {isLoggedIn ? (
             <Stack.Screen name="Main" component={MainTabs} />
           ) : (
@@ -134,3 +126,23 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  aiIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  aiIconActive: {
+    backgroundColor: COLORS.accent,
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+});
