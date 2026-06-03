@@ -1451,9 +1451,99 @@ async function _pushSetup() {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then(reg => {
+        // Listen for FLUSH_QUEUE messages from service worker background sync
+        navigator.serviceWorker.addEventListener('message', e => {
+          if (e.data?.type === 'FLUSH_QUEUE') _flushOfflineQueue();
+        });
+      })
       .catch(err => console.warn('SW registration failed:', err));
   });
 }
+
+// ═══════════════════════ OFFLINE SUPPORT ════════════════════════
+
+const _OFFLINE_QUEUE_KEY = 'sivarr_offline_queue';
+let   _offlineQueue      = JSON.parse(localStorage.getItem(_OFFLINE_QUEUE_KEY) || '[]');
+
+function _showOfflineBanner() {
+  const b = $('offline-banner');
+  if (b) b.style.display = 'flex';
+  document.body.classList.add('offline');
+  _updateOfflineCount();
+}
+
+function _hideOfflineBanner() {
+  const b = $('offline-banner');
+  if (b) b.style.display = 'none';
+  document.body.classList.remove('offline');
+}
+
+function _updateOfflineCount() {
+  const el = $('offline-queue-count');
+  if (el && _offlineQueue.length) {
+    el.textContent = `${_offlineQueue.length} change${_offlineQueue.length > 1 ? 's' : ''} pending`;
+  } else if (el) {
+    el.textContent = '';
+  }
+}
+
+// Queue a POST API call for when we're back online
+function _queueMutation(url, body) {
+  const token = localStorage.getItem('sivarr_token') || '';
+  _offlineQueue.push({ url, body: JSON.stringify({ ...body, token }), ts: Date.now() });
+  localStorage.setItem(_OFFLINE_QUEUE_KEY, JSON.stringify(_offlineQueue));
+  _updateOfflineCount();
+}
+
+// Flush queued mutations after reconnecting
+async function _flushOfflineQueue() {
+  if (!_offlineQueue.length || !navigator.onLine) return;
+  const queue = [..._offlineQueue];
+  _offlineQueue = [];
+  localStorage.removeItem(_OFFLINE_QUEUE_KEY);
+  let flushed = 0;
+  for (const item of queue) {
+    try {
+      const body = JSON.parse(item.body);
+      // Always use the current session token (original may have expired)
+      const token = localStorage.getItem('sivarr_token');
+      if (token && body.token !== undefined) body.token = token;
+      const r = await fetch(item.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (r.ok) flushed++;
+      else _offlineQueue.push(item);
+    } catch(_) {
+      _offlineQueue.push(item);
+    }
+  }
+  if (_offlineQueue.length) {
+    localStorage.setItem(_OFFLINE_QUEUE_KEY, JSON.stringify(_offlineQueue));
+  }
+  _updateOfflineCount();
+  if (flushed > 0) toast(`${flushed} offline change${flushed > 1 ? 's' : ''} synced ✓`);
+}
+
+// Online / offline event handlers
+window.addEventListener('offline', () => {
+  _showOfflineBanner();
+});
+
+window.addEventListener('online', async () => {
+  _hideOfflineBanner();
+  await _flushOfflineQueue();
+  // Try Background Sync if supported
+  if ('serviceWorker' in navigator && 'SyncManager' in window) {
+    const reg = await navigator.serviceWorker.ready.catch(() => null);
+    if (reg) reg.sync.register('sivarr-sync').catch(() => {});
+  }
+});
+
+// Show banner immediately if already offline on load
+if (!navigator.onLine) _showOfflineBanner();
 
 // ═══════════════════════ AUTOSAVE SYSTEM ════════════════════════
 
@@ -2557,12 +2647,19 @@ function getProgressCoaching() {
 let GL_GOALS = [];
 
 async function glLoad() {
+  const cacheKey = `sivarr_goals_cache_${S.sid}`;
   try {
     const r = await fetch(`/api/goals?sid=${S.sid}`);
     const d = await r.json();
     GL_GOALS = d.goals || [];
+    localStorage.setItem(cacheKey, JSON.stringify(GL_GOALS)); // cache for offline
     glRender();
-  } catch(e) { GL_GOALS = []; glRender(); }
+  } catch(e) {
+    // Offline fallback — use cached goals
+    const cached = localStorage.getItem(cacheKey);
+    GL_GOALS = cached ? JSON.parse(cached) : [];
+    glRender();
+  }
 }
 
 function glRender() {
@@ -3775,21 +3872,23 @@ function _setImportStatus(msg) {
 function _syncHabitsToServer(habits) {
   const token = localStorage.getItem('sivarr_token');
   if (!token || !S.sid) return;
+  if (!navigator.onLine) { _queueMutation('/api/habits/sync', { token, habits }); return; }
   fetch('/api/habits/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, habits }),
-  }).catch(() => {});
+  }).catch(() => _queueMutation('/api/habits/sync', { token, habits }));
 }
 
 function _syncJournalToServer(entries) {
   const token = localStorage.getItem('sivarr_token');
   if (!token || !S.sid) return;
+  if (!navigator.onLine) { _queueMutation('/api/journal/sync', { token, entries }); return; }
   fetch('/api/journal/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, entries }),
-  }).catch(() => {});
+  }).catch(() => _queueMutation('/api/journal/sync', { token, entries }));
 }
 
 async function stClearChat() {
@@ -6461,11 +6560,12 @@ function saveSHData(data) {
 function _syncTasksToServer(tasks) {
   const token = localStorage.getItem('sivarr_token');
   if (!token || !S.sid) return;
+  if (!navigator.onLine) { _queueMutation('/api/tasks/sync', { token, tasks }); return; }
   fetch('/api/tasks/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, tasks }),
-  }).catch(() => {});
+  }).catch(() => _queueMutation('/api/tasks/sync', { token, tasks }));
 }
 
 function loadStudyHelp() {
@@ -9158,11 +9258,12 @@ function docSaveAll(list) {
 function _syncDocsToServer(docs) {
   const token = localStorage.getItem('sivarr_token');
   if (!token || !S.sid) return;
+  if (!navigator.onLine) { _queueMutation('/api/docs/sync', { token, docs }); return; }
   fetch('/api/docs/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, docs }),
-  }).catch(() => {});
+  }).catch(() => _queueMutation('/api/docs/sync', { token, docs }));
 }
 
 // ── Feature usage tracking (fires on every panel navigation) ─

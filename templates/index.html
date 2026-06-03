@@ -267,6 +267,13 @@ Sentry.onLoad(function() {
 <!-- DASHBOARD -->
 <div id="dashboard">
 
+  <!-- Offline banner -->
+  <div id="offline-banner" style="display:none">
+    <i class="ti ti-wifi-off"></i>
+    <span>You're offline — your work is saved locally and will sync when you reconnect</span>
+    <span id="offline-queue-count" style="margin-left:auto;opacity:.7"></span>
+  </div>
+
   <!-- Email verification banner (hidden by default) -->
   <div id="verify-banner" style="display:none;background:#1a3a2e;border-bottom:1px solid var(--teal);padding:10px 20px;display:none;align-items:center;gap:12px;font-size:0.88rem">
     <i class="ti ti-mail" style="color:var(--teal);font-size:1.1rem"></i>

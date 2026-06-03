@@ -1,9 +1,12 @@
-const CACHE = 'sivarr-v3';
+const CACHE = 'sivarr-v5';
 
 const PRECACHE = [
   '/',
+  '/app',
+  '/js/app.js',
   '/css/styles.css',
   '/static/sivarrai.png',
+  '/static/manifest.json',
 ];
 
 // Install: pre-cache the app shell
@@ -52,6 +55,17 @@ self.addEventListener('notificationclick', e => {
       return clients.openWindow(url);
     })
   );
+});
+
+// ── Background sync — flush offline mutation queue ────────────
+self.addEventListener('sync', e => {
+  if (e.tag === 'sivarr-sync') {
+    e.waitUntil(
+      self.clients.matchAll({ type: 'window' }).then(clients => {
+        clients.forEach(c => c.postMessage({ type: 'FLUSH_QUEUE' }));
+      })
+    );
+  }
 });
 
 // ── Fetch strategy ────────────────────────────────────────────

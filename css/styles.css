@@ -178,6 +178,20 @@ h1,h2,h3,.panel-title,.section-title,
   border-radius: var(--radius);
 }
 
+/* ── OFFLINE BANNER ────────────────────────────────────────── */
+#offline-banner {
+  position: fixed; top: var(--topbar-h); left: 0; right: 0; z-index: 95;
+  background: var(--amber3); color: #1a1000;
+  padding: 7px 20px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: .8rem; font-weight: 600;
+  animation: fadeIn .2s ease;
+}
+#offline-banner i { font-size: 1rem; flex-shrink: 0; }
+body.offline .layout {
+  padding-top: calc(var(--topbar-h) + 34px);
+}
+
 /* ── TOPBAR ────────────────────────────────────────────────── */
 .topbar {
   position: fixed; top: 0; left: 0; right: 0;
