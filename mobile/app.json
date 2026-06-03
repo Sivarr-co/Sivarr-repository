@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -13,21 +13,38 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "app.sivarr.mobile"
+      "supportsTablet": false,
+      "bundleIdentifier": "app.sivarr.mobile",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0a0a"
       },
-      "package": "app.sivarr.mobile"
+      "package": "app.sivarr.mobile",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-font",
+        { "fonts": [] }
+      ]
+    ],
     "extra": {
-      "apiUrl": "https://sivarr-repository-production.up.railway.app"
+      "apiUrl": "https://sivarr-repository-production.up.railway.app",
+      "eas": {
+        "projectId": "replace-with-your-eas-project-id"
+      }
     }
   }
 }

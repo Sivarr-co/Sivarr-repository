@@ -3987,7 +3987,13 @@ async def unified_search(q: str = "", token: str = ""):
     return {"results": results[:25]}
 
 @app.get("/api/goals")
-async def get_goals(sid: str):
+async def get_goals(sid: str = "", token: str = ""):
+    # Support both sid (web) and token (mobile)
+    if token:
+        sess = get_session_from_token(token)
+        if not sess:
+            raise HTTPException(401, "Invalid session.")
+        sid = sess["sid"]
     sid = sanitize_text(sid, 100)
     return {"goals": load_goals(sid)}
 

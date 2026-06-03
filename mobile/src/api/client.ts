@@ -52,6 +52,14 @@ export const api = {
   opportunities: (category = 'all') => get('/api/opportunities', { category }),
   submitOpp:     (data: object) => post('/api/opportunities', data),
 
+  // Goals (token is injected automatically by post/get)
+  goals:      () => get('/api/goals'),
+  addGoal:    (data: { title: string; subject?: string; deadline?: string }) =>
+    post('/api/goals/add', { title: data.title, subject: data.subject ?? '', deadline: data.deadline ?? '', target_score: 70 }),
+  updateGoal: (id: string, progress: number, completed: boolean) =>
+    post('/api/goals/update', { id, progress, completed }),
+  deleteGoal: (id: string) => post('/api/goals/delete', { id }),
+
   // AI
   aiChat:         (message: string, session = 'main') => post('/api/chat', { message, session }),
   aiExtractTasks: (text: string) => post('/api/ai/extract-tasks', { text }),
