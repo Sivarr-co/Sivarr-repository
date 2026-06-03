@@ -13,6 +13,7 @@ type NavItem = {
 };
 
 const ITEMS: NavItem[] = [
+  { icon: 'trophy-outline',    label: 'Goals',       sub: 'Track your targets',         screen: 'Goals'     },
   { icon: 'flame-outline',     label: 'Habits',      sub: 'Daily habit tracker',        screen: 'Habits'    },
   { icon: 'journal-outline',   label: 'Journal',     sub: 'Reflect and write daily',    screen: 'Journal'   },
   { icon: 'people-outline',    label: 'Community',   sub: 'Connect with peers',         screen: 'Community' },

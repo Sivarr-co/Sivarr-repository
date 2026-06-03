@@ -6,9 +6,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 
-import HomeScreen      from './src/screens/HomeScreen';
-import ChatScreen      from './src/screens/ChatScreen';
+import TodayScreen     from './src/screens/TodayScreen';
+import AIScreen        from './src/screens/AIScreen';
 import TasksScreen     from './src/screens/TasksScreen';
+import MeScreen        from './src/screens/MeScreen';
 import GoalsScreen     from './src/screens/GoalsScreen';
 import HabitsScreen    from './src/screens/HabitsScreen';
 import JournalScreen   from './src/screens/JournalScreen';
@@ -37,11 +38,12 @@ const TAB_OPTS = {
   tabBarLabelStyle: { fontSize: 10, fontWeight: '600' as const },
 };
 
-// Stack inside "More" tab for Habits, Journal, Community, Settings
+// Stack inside "More" tab
 function MoreStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MoreHome"  component={MoreScreen} />
+      <Stack.Screen name="Goals"     component={GoalsScreen} />
       <Stack.Screen name="Habits"    component={HabitsScreen} />
       <Stack.Screen name="Journal"   component={JournalScreen} />
       <Stack.Screen name="Community" component={CommunityScreen} />
@@ -54,16 +56,16 @@ function MainTabs() {
   return (
     <Tab.Navigator screenOptions={TAB_OPTS}>
       <Tab.Screen
-        name="Home"
-        component={HomeScreen}
+        name="Today"
+        component={TodayScreen}
         options={{
-          tabBarLabel: 'Home',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
+          tabBarLabel: 'Today',
+          tabBarIcon: ({ color, size }) => <Ionicons name="today-outline" size={size} color={color} />,
         }}
       />
       <Tab.Screen
         name="AI"
-        component={ChatScreen}
+        component={AIScreen}
         options={{
           tabBarLabel: 'SIVARR AI',
           tabBarIcon: ({ color, size }) => <Ionicons name="sparkles-outline" size={size} color={color} />,
@@ -78,11 +80,11 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="Goals"
-        component={GoalsScreen}
+        name="Me"
+        component={MeScreen}
         options={{
-          tabBarLabel: 'Goals',
-          tabBarIcon: ({ color, size }) => <Ionicons name="trophy-outline" size={size} color={color} />,
+          tabBarLabel: 'Me',
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
       />
       <Tab.Screen
