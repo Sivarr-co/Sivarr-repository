@@ -1035,6 +1035,135 @@ def _email_billing_receipt_html(name: str, plan: str, amount: str, ref: str) -> 
 </body></html>"""
 
 
+def _email_org_mention_html(recipient_name: str, sender_name: str, org_name: str,
+                            channel: str, preview: str) -> str:
+    first = recipient_name.split()[0] if recipient_name else recipient_name
+    safe_preview = preview[:300].replace("<", "&lt;").replace(">", "&gt;")
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
+  <div style="margin-bottom:24px">
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+  </div>
+  <h2 style="margin:0 0 6px;font-size:1.3rem;font-weight:800">You were mentioned, {first}</h2>
+  <p style="color:#666;font-size:.9rem;margin:0 0 20px">
+    <strong>{sender_name}</strong> mentioned you in <strong>#{channel}</strong> · {org_name}
+  </p>
+  <div style="background:#f6f6f6;border-left:3px solid #0D7A5F;border-radius:4px;
+              padding:14px 16px;margin-bottom:28px;font-size:.95rem;line-height:1.6;color:#333">
+    {safe_preview}
+  </div>
+  <a href="{BASE_URL}/app"
+     style="display:inline-block;background:#0D7A5F;color:#fff;padding:12px 28px;
+            border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem">
+    View in SIVARR →
+  </a>
+  <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
+  <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+</body></html>"""
+
+
+def _email_org_announcement_html(recipient_name: str, org_name: str,
+                                  author_name: str, title: str, body: str) -> str:
+    first = recipient_name.split()[0] if recipient_name else recipient_name
+    safe_body = body[:1000].replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
+  <div style="margin-bottom:24px">
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+  </div>
+  <div style="font-size:.75rem;font-weight:700;color:#534AB7;text-transform:uppercase;
+              letter-spacing:.06em;margin-bottom:8px">📢 Announcement · {org_name}</div>
+  <h2 style="margin:0 0 6px;font-size:1.3rem;font-weight:800">{title}</h2>
+  <p style="color:#888;font-size:.82rem;margin:0 0 20px">Posted by {author_name}</p>
+  {"<div style='background:#f6f6f6;border-radius:8px;padding:16px;margin-bottom:28px;font-size:.95rem;line-height:1.7;color:#333'>" + safe_body + "</div>" if body else ""}
+  <p style="color:#555;font-size:.9rem;line-height:1.6;margin:0 0 24px">
+    Hi {first}, there's a new announcement waiting for you in your workspace.
+  </p>
+  <a href="{BASE_URL}/app"
+     style="display:inline-block;background:#534AB7;color:#fff;padding:12px 28px;
+            border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem">
+    View Announcement →
+  </a>
+  <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
+  <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+</body></html>"""
+
+
+def _email_org_progress_html(recipient_name: str, org_name: str, period: str,
+                              tasks_done: int, tasks_total: int,
+                              goals: list, top_contributors: list) -> str:
+    first = recipient_name.split()[0] if recipient_name else recipient_name
+    completion_pct = round((tasks_done / tasks_total * 100) if tasks_total else 0)
+    bar_w = min(completion_pct, 100)
+
+    goal_rows = "".join(
+        f'<tr>'
+        f'<td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#333;font-size:.88rem">{g.get("title","")}</td>'
+        f'<td style="padding:8px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-size:.88rem">'
+        f'<span style="color:#0D7A5F;font-weight:700">{g.get("progress",0)}%</span></td>'
+        f'</tr>'
+        for g in goals[:5]
+    ) if goals else '<tr><td colspan="2" style="padding:8px 0;color:#aaa;font-size:.85rem">No active goals this week.</td></tr>'
+
+    contrib_rows = "".join(
+        f'<li style="margin-bottom:6px;font-size:.88rem;color:#333">'
+        f'<strong>{c["name"]}</strong> — {c["done"]} task{"s" if c["done"]!=1 else ""} completed</li>'
+        for c in top_contributors[:5]
+    ) if top_contributors else '<li style="color:#aaa;font-size:.85rem">No activity data yet.</li>'
+
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:40px auto;padding:24px;color:#1a1a1a">
+  <div style="margin-bottom:24px;display:flex;align-items:center;gap:10px">
+    <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#0D7A5F,#534AB7);
+                display:inline-flex;align-items:center;justify-content:center">
+      <span style="color:#fff;font-weight:900;font-size:.75rem">S</span>
+    </div>
+    <span style="font-size:1.1rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+  </div>
+  <div style="font-size:.75rem;font-weight:700;color:#0D7A5F;text-transform:uppercase;
+              letter-spacing:.06em;margin-bottom:8px">Weekly Progress Report · {org_name}</div>
+  <h2 style="margin:0 0 4px;font-size:1.35rem;font-weight:800">Here's how the team did, {first} 📊</h2>
+  <p style="color:#888;font-size:.82rem;margin:0 0 28px">{period}</p>
+
+  <!-- Task completion -->
+  <h3 style="font-size:.88rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+             color:#888;margin:0 0 10px">Task Completion</h3>
+  <div style="background:#f0f0f0;border-radius:6px;height:10px;overflow:hidden;margin-bottom:8px">
+    <div style="width:{bar_w}%;height:100%;background:linear-gradient(90deg,#0D7A5F,#534AB7);border-radius:6px"></div>
+  </div>
+  <p style="font-size:.88rem;color:#555;margin:0 0 28px">
+    <strong>{tasks_done}</strong> of <strong>{tasks_total}</strong> tasks completed this week
+    <span style="color:#0D7A5F;font-weight:700;margin-left:6px">({completion_pct}%)</span>
+  </p>
+
+  <!-- Goals -->
+  <h3 style="font-size:.88rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+             color:#888;margin:0 0 10px">Goal Progress</h3>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:28px">
+    {goal_rows}
+  </table>
+
+  <!-- Top contributors -->
+  <h3 style="font-size:.88rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+             color:#888;margin:0 0 10px">Top Contributors</h3>
+  <ul style="padding-left:18px;margin:0 0 28px;line-height:1.8">{contrib_rows}</ul>
+
+  <a href="{BASE_URL}/app"
+     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+            border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem">
+    Open SIVARR →
+  </a>
+  <hr style="border:none;border-top:1px solid #f0f0f0;margin:32px 0 20px">
+  <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0;line-height:1.6">
+    SIVARR · Your productivity OS<br>
+    You're getting this because you're a member of {org_name}.
+  </p>
+</body></html>"""
+
+
 def cleanup_expired_tokens():
     now = datetime.datetime.utcnow()
     stale = [t for t, v in _session_tokens.items() if v.get("expires", now) <= now]
@@ -5194,7 +5323,7 @@ async def org_messages_list(data: dict):
 
 
 @app.post("/api/org/messages/send")
-async def org_message_send(data: dict):
+async def org_message_send(data: dict, bg: BackgroundTasks):
     sid, uname = _resolve_token(data)
     if not db.is_available(): raise HTTPException(503, "Database unavailable.")
     org = db.get_org_by_member(sid)
@@ -5213,6 +5342,24 @@ async def org_message_send(data: dict):
         "created_at":  _dt.datetime.utcnow().isoformat(),
     })
     asyncio.create_task(_sse_broadcast(org["id"], msg_payload))
+
+    # ── @mention email notifications ─────────────────────────────
+    import re as _re
+    raw_mentions = _re.findall(r'@(\w+)', content)
+    if raw_mentions:
+        members = db.get_org_members(org["id"])
+        for m in members:
+            if m["sid"] == sid:
+                continue  # don't notify the sender
+            first_word = (m["name"] or "").split()[0].lower()
+            if any(mention.lower() == first_word for mention in raw_mentions):
+                bg.add_task(
+                    send_email,
+                    m["email"],
+                    f"{uname} mentioned you in #{channel} — {org['name']}",
+                    _email_org_mention_html(m["name"], uname, org["name"], channel, content),
+                )
+
     return {"ok": True}
 
 
@@ -6805,7 +6952,7 @@ async def mono_status(token: str = ""):
 # ═══════════════════════════════════════════════════════════════
 
 @app.post("/api/org/announce")
-async def org_announce(data: dict):
+async def org_announce(data: dict, bg: BackgroundTasks):
     """Post a new org-wide announcement (admin/owner only)."""
     token = data.get("token","")
     sess  = get_session_from_token(token)
@@ -6820,19 +6967,33 @@ async def org_announce(data: dict):
     if role not in ("owner","admin"):
         raise HTTPException(403, "Only admins can post announcements.")
     p = load_progress(sid)
+    author_name = p.get("name","")
     title  = sanitize_text(data.get("title",""), 200)
     body   = sanitize_text(data.get("body",""), 2000)
     pinned = bool(data.get("pinned", False))
     if not title:
         raise HTTPException(400, "title required.")
     ann_id = str(uuid.uuid4())
-    ok = db.create_org_announcement(org_id, ann_id, title, body, sid, p.get("name",""), pinned)
+    ok = db.create_org_announcement(org_id, ann_id, title, body, sid, author_name, pinned)
     if not ok:
         raise HTTPException(500, "Failed to save announcement.")
     ann = {"id": ann_id, "org_id": org_id, "title": title, "body": body,
-           "author_sid": sid, "author_name": p.get("name",""),
+           "author_sid": sid, "author_name": author_name,
            "pinned": pinned, "created_at": datetime.datetime.utcnow().isoformat()}
     await _sse_broadcast(org_id, json.dumps({"type": "announcement", "ann": ann}))
+
+    # ── Email all org members (except the author) ─────────────────
+    members = db.get_org_members(org_id)
+    for m in members:
+        if m["sid"] == sid or not m.get("email"):
+            continue
+        bg.add_task(
+            send_email,
+            m["email"],
+            f"📢 {title} — {org['name']}",
+            _email_org_announcement_html(m["name"], org["name"], author_name, title, body),
+        )
+
     return {"ok": True, "ann": ann}
 
 
@@ -7289,6 +7450,77 @@ async def notifications_digest(request: Request):
             p["last_digest_date"] = today
             save_progress(sid, p)
             sent += 1
+
+    return {"ok": True, "sent": sent, "skipped": skipped}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  WEEKLY ORG PROGRESS REPORT — Railway cron every Monday 7am WAT
+#  Authorization: Bearer {CRON_SECRET}
+# ═══════════════════════════════════════════════════════════════
+
+@app.post("/api/org/notifications/progress-report")
+async def org_progress_report(request: Request):
+    """Send a weekly progress report email to all members of every org."""
+    if CRON_SECRET:
+        auth = request.headers.get("Authorization", "")
+        if not hmac.compare_digest(auth, f"Bearer {CRON_SECRET}"):
+            raise HTTPException(403, "Forbidden")
+
+    if not db.is_available():
+        return {"ok": False, "reason": "db_unavailable"}
+
+    today     = datetime.date.today()
+    week_ago  = (today - datetime.timedelta(days=7)).isoformat()
+    period    = f"{week_ago} → {today.isoformat()}"
+    sent, skipped = 0, 0
+
+    for org in db.get_all_orgs():
+        org_id   = org["id"]
+        org_name = org["name"]
+        members  = db.get_org_members(org_id)
+        if not members:
+            continue
+
+        # Build stats for this org
+        all_tasks  = db.get_org_tasks(org_id)
+        all_goals  = db.get_org_goals(org_id)
+        tasks_done = [t for t in all_tasks if t.get("status") == "done"]
+        active_goals = [
+            {"title": g["title"], "progress": g.get("progress", 0)}
+            for g in all_goals if g.get("status") == "active"
+        ]
+
+        # Top contributors — count done tasks per assignee name
+        contrib_map: dict = {}
+        for t in tasks_done:
+            name = t.get("assignee_name") or t.get("author_name") or "Unknown"
+            contrib_map[name] = contrib_map.get(name, 0) + 1
+        top_contributors = sorted(
+            [{"name": n, "done": c} for n, c in contrib_map.items()],
+            key=lambda x: x["done"], reverse=True
+        )
+
+        # Skip if there's nothing meaningful to report
+        if not tasks_done and not active_goals:
+            skipped += len(members)
+            continue
+
+        for m in members:
+            if not m.get("email"):
+                skipped += 1
+                continue
+            ok, _ = send_email(
+                m["email"],
+                f"Weekly progress report — {org_name}",
+                _email_org_progress_html(
+                    m["name"], org_name, period,
+                    len(tasks_done), len(all_tasks),
+                    active_goals, top_contributors,
+                ),
+            )
+            sent += 1 if ok else 0
+            skipped += 0 if ok else 1
 
     return {"ok": True, "sent": sent, "skipped": skipped}
 

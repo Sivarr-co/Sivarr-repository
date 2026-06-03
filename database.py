@@ -1841,6 +1841,20 @@ def create_org(owner_sid: str, name: str, org_id: str, owner_name: str = "") -> 
         _release(conn)
 
 
+def get_all_orgs() -> list:
+    """Return all orgs — used by cron jobs to iterate every org."""
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT id, name FROM orgs ORDER BY created_at ASC")
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_all_orgs: {exc}"); return []
+    finally:
+        _release(conn)
+
+
 def get_org_by_member(user_sid: str) -> dict | None:
     conn = _get_conn()
     if not conn: return None
