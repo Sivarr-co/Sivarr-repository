@@ -1,12 +1,6 @@
 import React, { useEffect } from 'react';
 import { Text, TextInput, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-
-// Prevent OS accessibility font-size from stretching/compressing all text
-if (Text.defaultProps == null) (Text as any).defaultProps = {};
-(Text as any).defaultProps.allowFontScaling = false;
-if (TextInput.defaultProps == null) (TextInput as any).defaultProps = {};
-(TextInput as any).defaultProps.allowFontScaling = false;
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -26,6 +20,12 @@ import {
   scheduleDailyBrief,
   scheduleHabitReminder,
 } from './src/services/notifications';
+
+// Prevent OS accessibility font-size from stretching/compressing all text
+if (Text.defaultProps == null) (Text as any).defaultProps = {};
+(Text as any).defaultProps.allowFontScaling = false;
+if (TextInput.defaultProps == null) (TextInput as any).defaultProps = {};
+(TextInput as any).defaultProps.allowFontScaling = false;
 
 const Tab   = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
