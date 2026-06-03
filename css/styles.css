@@ -2040,8 +2040,9 @@ body.theme-transitioning *::after {
 .cmd-empty { padding:24px; text-align:center; font-size:.88rem; color:var(--text4); }
 .cmd-section-label {
   font-size:.68rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
-  color:var(--text4); padding:10px 18px 4px;
+  color:var(--text3); padding:10px 18px 4px;
 }
+[data-theme="dark"] .cmd-section-label { color: var(--text2); }
 .cmd-input-wrap {
   display:flex; align-items:center;
   border-bottom:1px solid var(--border);

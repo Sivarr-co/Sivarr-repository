@@ -404,10 +404,12 @@ Sentry.onLoad(function() {
       <!-- Workspace header -->
       <div class="sb-header">
         <div class="sb-ws">
-          <div class="sb-ws-av">S</div>
+          <div class="sb-ws-av">
+            <img src="/static/sivarrai.png" alt="SIVARR" style="width:16px;height:16px;object-fit:contain;filter:brightness(0) invert(1)">
+          </div>
           <span class="sb-ws-name">SIVARR</span>
         </div>
-        <button class="sb-new-btn" onclick="openCmdPalette()" title="Search or create (⌘K)">
+        <button class="sb-new-btn" onclick="cmdOpen()" title="Search or create (⌘K)">
           <i class="ti ti-search"></i>
         </button>
       </div>
