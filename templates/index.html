@@ -341,7 +341,7 @@ Sentry.onLoad(function() {
           <div class="pa" id="tb-av" style="overflow:hidden">?</div>
         </button>
         <!-- Hidden name span kept for JS compat -->
-        <span class="pn" id="tb-name" style="display:none">Student</span>
+        <span class="pn" id="tb-name" style="display:none">User</span>
 
         <div class="profile-dropdown" id="profile-dropdown">
           <!-- Header with avatar + upload -->
@@ -359,8 +359,8 @@ Sentry.onLoad(function() {
                           font-size:.6rem;cursor:pointer;border:2px solid var(--card)">✏</div>
             </div>
             <input type="file" id="pfp-input" accept="image/*" style="display:none" onchange="uploadProfilePic(this)">
-            <div class="pd-name" id="pd-name">Student</div>
-            <div class="pd-matric" id="pd-matric">Matric</div>
+            <div class="pd-name" id="pd-name">Your Name</div>
+            <div class="pd-matric" id="pd-matric">Account</div>
             <button onclick="$('pfp-input').click()"
               style="margin-top:6px;background:none;border:1px solid var(--border);border-radius:7px;
                      padding:3px 10px;color:var(--muted);font-size:.7rem;cursor:pointer;
@@ -377,8 +377,8 @@ Sentry.onLoad(function() {
           <button class="pd-item" onclick="nav('notes',null);closeProfile()">
             <i class="ti ti-notebook pd-icon"></i> My Notes
           </button>
-          <button class="pd-item" onclick="nav('courses',null);closeProfile()">
-            <i class="ti ti-school pd-icon"></i> Courses
+          <button class="pd-item" onclick="nav('calendar',null);closeProfile()">
+            <i class="ti ti-calendar pd-icon"></i> Calendar
           </button>
           <button class="pd-item" onclick="nav('announcements',null);closeProfile()">
             <i class="ti ti-bell pd-icon"></i> Announcements
@@ -949,11 +949,11 @@ Sentry.onLoad(function() {
               <div class="sh-field-group">
                 <label class="sh-field-label">Task type</label>
                 <select id="sh-modal-type" class="sh-input" style="font-size:.82rem">
-                  <option value="assignment">📋 Assignment</option>
-                  <option value="exam">📝 Exam prep</option>
+                  <option value="work">📋 Work Item</option>
+                  <option value="research">🔬 Research</option>
                   <option value="reading">📖 Reading</option>
                   <option value="project">🗂 Project</option>
-                  <option value="revision">🔄 Revision</option>
+                  <option value="review">🔄 Review</option>
                   <option value="other">⚙️ Other</option>
                 </select>
               </div>
@@ -1052,7 +1052,7 @@ Sentry.onLoad(function() {
             <div class="empty-state">
               <div class="es-orb">📢</div>
               <div class="es-title">No announcements yet</div>
-              <div class="es-text">Messages from your lecturers will appear here.</div>
+              <div class="es-text">Announcements and updates will appear here.</div>
             </div>
           </div>
         </div>
@@ -1629,8 +1629,8 @@ Sentry.onLoad(function() {
           <div class="gl-add-form" id="gl-add-form">
             <div style="font-family:var(--font);font-size:.85rem;font-weight:700;margin-bottom:.75rem">✦ New Goal</div>
             <div style="display:grid;gap:.625rem">
-              <input class="st-input" id="gl-title" placeholder="e.g. Pass Thermodynamics exam">
-              <input class="st-input" id="gl-subject" placeholder="Subject / Course">
+              <input class="st-input" id="gl-title" placeholder="e.g. Launch the new product feature">
+              <input class="st-input" id="gl-subject" placeholder="Category (optional)">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:.625rem">
                 <div>
                   <div style="font-size:.72rem;color:var(--muted);margin-bottom:4px">Target Score (%)</div>
@@ -2133,7 +2133,7 @@ Sentry.onLoad(function() {
             <div class="h-stat-card">
               <div class="h-stat-ic" style="background:var(--purple2)">📝</div>
               <div class="h-stat-val" id="home-quizzes">0</div>
-              <div class="h-stat-lbl">Quizzes Done</div>
+              <div class="h-stat-lbl">Focus Sessions</div>
             </div>
             <div class="h-stat-card">
               <div class="h-stat-ic" style="background:var(--amber2)">🔥</div>
@@ -2202,7 +2202,7 @@ Sentry.onLoad(function() {
               </div>
               <div class="habit-check-row">
                 <div class="habit-cb" onclick="this.classList.toggle('done')"></div>
-                <div class="habit-name">Complete a quiz</div>
+                <div class="habit-name">Daily reading</div>
                 <div class="habit-streak">🔥 0 day streak</div>
               </div>
             </div>
@@ -4003,8 +4003,8 @@ Sentry.onLoad(function() {
                display:flex;align-items:center;justify-content:center;
                font-weight:700;font-size:10px;color:#fff">?</div>
       <div style="flex:1;min-width:0">
-        <div id="mob-snav-name" style="font-size:11.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Student</div>
-        <div style="font-size:9.5px;color:var(--muted)">Student account</div>
+        <div id="mob-snav-name" style="font-size:11.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Your Name</div>
+        <div style="font-size:9.5px;color:var(--muted)">Personal account</div>
       </div>
     </div>
   </div>
@@ -4042,7 +4042,7 @@ Sentry.onLoad(function() {
     </div>
     <div class="nl-input-row">
       <i class="ti ti-sparkles nl-spark"></i>
-      <input class="nl-input" id="nl-input" placeholder="e.g. Remind me to review my essay tomorrow · Finish physics assignment · Aim to score 80% in maths" maxlength="300"
+      <input class="nl-input" id="nl-input" placeholder="e.g. Remind me to follow up with the team tomorrow · Finish the report by Friday · Hit the gym this week" maxlength="300"
         onkeydown="if(event.key==='Enter')nlSubmit();if(event.key==='Escape')nlClose()" />
     </div>
     <!-- Parsed preview -->
@@ -4060,8 +4060,8 @@ Sentry.onLoad(function() {
     </div>
     <div class="nl-examples">
       <span onclick="nlExample(this)" class="nl-ex-chip">📋 Draft email to team</span>
-      <span onclick="nlExample(this)" class="nl-ex-chip">🎯 Score 85% in Physics</span>
-      <span onclick="nlExample(this)" class="nl-ex-chip">📅 Submit assignment Friday</span>
+      <span onclick="nlExample(this)" class="nl-ex-chip">🎯 Read 2 books this month</span>
+      <span onclick="nlExample(this)" class="nl-ex-chip">📅 Submit report by Friday</span>
       <span onclick="nlExample(this)" class="nl-ex-chip">📓 Write a quick note</span>
     </div>
   </div>

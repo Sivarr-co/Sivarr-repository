@@ -382,7 +382,7 @@ async function doLogin(prefillEmail) {
       const ad  = await ann.json();
       if (ad.announcements?.length) {
         const latest = ad.announcements[0];
-        addMsg('sivarr', `📢 Announcement from your lecturer:\n\n"${latest.message}"\n\n— ${latest.author}, ${latest.date}`);
+        addMsg('sivarr', `📢 New announcement:\n\n"${latest.message}"\n\n— ${latest.author}, ${latest.date}`);
       }
     } catch(_) {}
 
@@ -447,7 +447,7 @@ async function loadAnnouncements() {
           <div style="flex:1;min-width:0">
             <div style="font-size:.72rem;font-weight:700;color:${style.color};text-transform:uppercase;
               letter-spacing:.05em;margin-bottom:3px">
-              From your lecturer
+              New announcement
               ${unseen.length > 1 ? `<span style="background:${style.color};color:#fff;border-radius:20px;
                 padding:1px 7px;font-size:.65rem;margin-left:6px">${unseen.length} new</span>` : ''}
             </div>
@@ -520,7 +520,7 @@ function showAllAnnouncements() {
     .then(d => {
       const anns = d.announcements || [];
       const TYPE_ICONS = {info:'📘', warning:'⚠️', deadline:'⏰', exam:'📝'};
-      addMsg('sivarr', '📢 Announcements from your lecturer:\n\n' +
+      addMsg('sivarr', '📢 Announcements:\n\n' +
         anns.map((a,i) => `${TYPE_ICONS[a.type]||'📘'} ${a.text}\n— ${a.date}`).join('\n\n'));
     }).catch(() => {});
 }
