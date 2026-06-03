@@ -6188,9 +6188,14 @@ async function refreshTopics() {
 
   
 function toast(msg, ms=2500) {
-  const el = $('toast'); el.textContent = msg;
+  const el = $('toast');
+  if (!el) return;
+  clearTimeout(el._toastTimer);
+  el.classList.remove('show');
+  el.textContent = msg;
+  void el.offsetWidth; // force reflow so animation replays on consecutive toasts
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), ms);
+  el._toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
 async function runStudyHavenP(input) {

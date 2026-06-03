@@ -1981,13 +1981,27 @@ body.theme-transitioning *::after {
 .modal-close:hover { background:var(--bg3); color:var(--text1); }
 
 /* ── TOAST ─────────────────────────────────────────────────── */
-.toast-el {
-  position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
-  background:var(--text1); color:var(--bg2);
-  border-radius:20px; padding:10px 20px;
-  font-size:15px; font-weight:600; z-index:9999;
-  white-space:nowrap; box-shadow:var(--shadow2);
-  animation: toastIn .25s ease;
+.toast {
+  display: none;
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg2); color: var(--text1);
+  border: 1px solid var(--border2);
+  border-radius: 999px; padding: 11px 22px;
+  font-size: .88rem; font-weight: 600; z-index: 9999;
+  white-space: nowrap;
+  box-shadow: var(--shadow3);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.toast.show {
+  display: block;
+  animation: toastIn .3s cubic-bezier(.34,1.56,.64,1);
+}
+[data-theme="dark"] .toast {
+  background: rgba(22,22,42,.92);
+  border-color: rgba(255,255,255,.08);
+  box-shadow: 0 8px 40px rgba(0,0,0,.7);
 }
 
 /* ── COMMAND PALETTE ───────────────────────────────────────── */
@@ -1998,7 +2012,7 @@ body.theme-transitioning *::after {
   padding-top:15vh;
 }
 #cmd-bg.open { display:flex; animation:fadeUp .15s ease; }
-#cmd-box {
+.cmd-box, #cmd-box {
   width:100%; max-width:520px;
   background:var(--bg2); border:1px solid var(--border);
   border-radius:var(--radius3);
@@ -2018,9 +2032,44 @@ body.theme-transitioning *::after {
 }
 .cmd-item:hover, .cmd-item.focused { background:var(--bg3); }
 .cmd-icon { font-size:16px; width:22px; text-align:center; flex-shrink:0; }
+.cmd-item-icon { font-size:15px; width:22px; text-align:center; flex-shrink:0; }
+.cmd-item-label { font-size:.88rem; font-weight:600; color:var(--text1); flex:1; }
+.cmd-item-tag { font-size:.72rem; color:var(--text4); background:var(--bg3); padding:2px 8px; border-radius:20px; }
 .cmd-label { font-size:15px; font-weight:600; color:var(--text1); }
 .cmd-tag { font-size:13px; color:var(--text4); margin-left:auto; }
-.cmd-empty { padding:24px; text-align:center; font-size:15px; color:var(--text4); }
+.cmd-empty { padding:24px; text-align:center; font-size:.88rem; color:var(--text4); }
+.cmd-section-label {
+  font-size:.68rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--text4); padding:10px 18px 4px;
+}
+.cmd-input-wrap {
+  display:flex; align-items:center;
+  border-bottom:1px solid var(--border);
+}
+.cmd-hint {
+  font-size:.72rem; color:var(--text4);
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:5px; padding:2px 8px; margin-right:14px;
+  font-family:var(--font); flex-shrink:0;
+}
+/* ── Cmd palette footer — keyboard shortcut hints ───────────── */
+.cmd-footer {
+  display: flex; align-items: center; gap: 16px;
+  padding: 8px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg3);
+}
+.cmd-footer-hint {
+  display: flex; align-items: center; gap: 5px;
+  font-size: .7rem; color: var(--text4);
+}
+.cmd-footer-hint kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 1px 6px;
+  font-size: .7rem; font-family: var(--font); color: var(--text3);
+  box-shadow: 0 1px 0 var(--border2);
+}
 
 /* ── ANNOUNCEMENT POPUP ────────────────────────────────────── */
 #ann-popup {
@@ -3556,14 +3605,26 @@ body.theme-transitioning *::after {
   padding-right: 0 !important;
 }
 
-/* Templates & other full-width panels with their own internal layout */
-#panel-templates > .tpl-wrap,
+/* Full-width panels with their own internal layout */
 #panel-flux      > .content,
 .os-main         > .os-content {
   max-width:   var(--wide-max);
   margin-left:  auto;
   margin-right: auto;
   width: 100%;
+}
+
+/* Standard panels that use view-head + scrollable inner div.
+   The scrollable div is always the last child (after .view-head).
+   --panel-max centering keeps content readable on wide screens.  */
+#panel-courses    > div:last-child,
+#panel-lab        > div:last-child,
+#panel-announcements > div:last-child,
+#panel-studyplan  > div:last-child,
+#panel-contenthub > div:last-child,
+#panel-templates  > div:last-child {
+  padding-left:  max(24px, calc((100% - var(--panel-max)) / 2));
+  padding-right: max(24px, calc((100% - var(--panel-max)) / 2));
 }
 
 /* .content class used across many feature panels */
@@ -3618,6 +3679,14 @@ body.theme-transitioning *::after {
   }
   #panel-settings > div, #panel-goals > div, #panel-progress > div {
     max-width: 100% !important;
+  }
+  #panel-courses    > div:last-child,
+  #panel-lab        > div:last-child,
+  #panel-announcements > div:last-child,
+  #panel-studyplan  > div:last-child,
+  #panel-contenthub > div:last-child,
+  #panel-templates  > div:last-child {
+    padding-left: 16px !important; padding-right: 16px !important;
   }
   .content { padding: 14px !important; }
   .chat-msgs { padding-left: 12px !important; padding-right: 12px !important; }
