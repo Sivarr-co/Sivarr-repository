@@ -14252,14 +14252,91 @@ async function _sendTaskReminderIfNeeded() {
 // ═══════════════════════════════════════════════════════════════
 
 // Maps every panel name → which bottom nav button lights up
+// 3-tab mobile nav map: panel name → tab button id suffix
 const _MOB_NAV_MAP = {
-  home:      'home',
-  chat:      'siva',   siva: 'siva',
-  tasks:     'tasks',  flux: 'tasks',  goals: 'tasks',
-  notes:     'docs',   documenthub: 'docs', templates: 'docs',
-  org:       'org',    team: 'org', orgchat: 'org', projects: 'org',
-              hr: 'org', automations: 'org', founder: 'org',
+  // Today tab
+  home: 'today', habits: 'today', journal: 'today', calendar: 'today',
+  stats: 'today', progress: 'today', announcements: 'today',
+  // AI tab
+  chat: 'ai', quiz: 'ai', lab: 'ai', studyplan: 'ai',
+  // Me tab
+  'me-mobile': 'me', goals: 'me', settings: 'me', profile: 'me',
+  opportunities: 'me', community: 'me', library: 'me',
+  // fallback: Tasks/Flux/Notes → Today
+  flux: 'today', notes: 'today', documenthub: 'today',
+  org: 'me', team: 'me', orgchat: 'me', projects: 'me',
 };
+
+function navMobileMe() {
+  nav('me-mobile', null);
+  renderMobileMePanel();
+}
+
+function renderMobileMePanel() {
+  const el = $('mob-me-content');
+  if (!el || !S.sid) return;
+
+  const habits  = JSON.parse(localStorage.getItem(`sivarr_habits_${S.sid}`)  || '[]');
+  const todayStr = new Date().toISOString().split('T')[0];
+  const doneToday = habits.filter(h => (h.completions || []).includes(todayStr)).length;
+  const maxStreak = habits.length ? Math.max(...habits.map(h => h.streak || 0), 0) : 0;
+  const activeGoals = (typeof GL_GOALS !== 'undefined' ? GL_GOALS : []).filter(g => !g.completed).length;
+  const initial = (S.name?.[0] || '?').toUpperCase();
+  const planName = (typeof _BILLING_STATUS !== 'undefined' && _BILLING_STATUS?.name) || 'Free';
+
+  el.innerHTML = `
+    <!-- Profile card -->
+    <div class="me-profile-card">
+      <div class="me-av">${initial}</div>
+      <div>
+        <div class="me-name">${esc(S.name || 'My profile')}</div>
+        <div class="me-plan">${planName} plan · ${esc(S.email || '')}</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="me-stats">
+      <div class="me-stat">
+        <div class="me-stat-val">${maxStreak}</div>
+        <div class="me-stat-lbl">Best streak</div>
+      </div>
+      <div class="me-stat">
+        <div class="me-stat-val">${doneToday}/${habits.length}</div>
+        <div class="me-stat-lbl">Done today</div>
+      </div>
+      <div class="me-stat">
+        <div class="me-stat-val">${activeGoals}</div>
+        <div class="me-stat-lbl">Active goals</div>
+      </div>
+    </div>
+
+    <!-- Quick links -->
+    <div class="me-links">
+      <button class="me-link-btn" onclick="nav('goals',null)">
+        <div class="me-link-icon">🎯</div>
+        <div class="me-link-label">Goals</div>
+        <div class="me-link-sub">${activeGoals} active</div>
+      </button>
+      <button class="me-link-btn" onclick="nav('habits',null)">
+        <div class="me-link-icon">🔥</div>
+        <div class="me-link-label">Habits</div>
+        <div class="me-link-sub">${doneToday}/${habits.length} today</div>
+      </button>
+      <button class="me-link-btn" onclick="nav('journal',null)">
+        <div class="me-link-icon">✍️</div>
+        <div class="me-link-label">Journal</div>
+        <div class="me-link-sub">Write today's entry</div>
+      </button>
+      <button class="me-link-btn" onclick="nav('settings',null)">
+        <div class="me-link-icon">⚙️</div>
+        <div class="me-link-label">Settings</div>
+        <div class="me-link-sub">Account & appearance</div>
+      </button>
+    </div>
+
+    <button class="me-sign-out" onclick="logout()">Sign out</button>
+  `;
+}
 
 function _updateMobileNav(panelName) {
   document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
@@ -14268,7 +14345,6 @@ function _updateMobileNav(panelName) {
     const btn = $('mob-' + target);
     if (btn) btn.classList.add('active');
   }
-  // Close mobile sidebar whenever a panel is navigated to
   if (window.innerWidth <= 720) closeMobileSidebar();
 }
 
