@@ -38,7 +38,7 @@
 
   /* Typography */
   --font:      'Plus Jakarta Sans', 'DM Sans', system-ui, sans-serif;
-  --font-head: 'Syne', var(--font);
+  --font-head: var(--font);
 
   /* Transitions */
   --transition: all .18s ease;
