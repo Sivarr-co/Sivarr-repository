@@ -2711,6 +2711,40 @@ function getProgressCoaching() {
 
 let GL_GOALS = [];
 
+function _glHealth(g) {
+  if (g.completed) return { label: 'Done',      color: '#22c55e', icon: '✅' };
+  if (!g.deadline) return null;
+  const today    = new Date(); today.setHours(0,0,0,0);
+  const deadline = new Date(g.deadline + 'T00:00:00');
+  if (today > deadline) return { label: 'Off Track', color: '#ef4444', icon: '🔴' };
+  const created  = g.created ? new Date(g.created.split('T')[0] + 'T00:00:00') : deadline;
+  const total    = Math.max(1, (deadline - created) / 86400000);
+  const elapsed  = Math.max(0, (today - created) / 86400000);
+  const ePct     = (elapsed / total) * 100;
+  const pct      = g.progress || 0;
+  if (ePct < 5)         return { label: 'On Track',  color: '#22c55e', icon: '🟢' };
+  if (pct >= ePct * 0.85) return { label: 'On Track',  color: '#22c55e', icon: '🟢' };
+  if (pct >= ePct * 0.5)  return { label: 'At Risk',   color: '#f59e0b', icon: '🟡' };
+  return                   { label: 'Off Track', color: '#ef4444', icon: '🔴' };
+}
+
+function glStartCheckin() {
+  if (!S.sid) return;
+  localStorage.setItem(`sivarr_gl_checkin_${S.sid}`, new Date().toISOString().split('T')[0]);
+  glRender(); // re-render to dismiss banner
+  const first = GL_GOALS.find(g => !g.completed);
+  if (first) glUpdateProgress(first.id, first.progress || 0);
+}
+
+function _glCheckinDue() {
+  if (!S.sid) return false;
+  const key  = `sivarr_gl_checkin_${S.sid}`;
+  const last = localStorage.getItem(key);
+  if (!last) return GL_GOALS.some(g => !g.completed);
+  const daysSince = (Date.now() - new Date(last + 'T00:00:00').getTime()) / 86400000;
+  return daysSince >= 7 && GL_GOALS.some(g => !g.completed);
+}
+
 async function glLoad() {
   const cacheKey = `sivarr_goals_cache_${S.sid}`;
   try {
@@ -2730,35 +2764,54 @@ async function glLoad() {
 function glRender() {
   const list = $('gl-list'); if (!list) return;
   if (!GL_GOALS.length) {
-    list.innerHTML = `<div class="empty-state"><div class="es-icon">🎯</div><div class="es-text">No goals yet.</div><button class="es-cta" onclick="$('gl-form')?.scrollIntoView({behavior:'smooth'})">Set your first goal →</button></div>`;
+    list.innerHTML = `<div class="empty-state">
+      <div class="es-orb" style="font-size:2rem;margin-bottom:10px">🎯</div>
+      <div class="es-title">No goals yet</div>
+      <p class="es-sub" style="max-width:300px">Goals keep you accountable. Set a target, track progress, and let Sivarr AI tell you if you're on track.</p>
+      <button class="es-cta" onclick="glToggleForm()">+ Set your first goal</button>
+    </div>`;
     return;
   }
 
+  const checkinBanner = _glCheckinDue() ? `
+    <div style="background:linear-gradient(135deg,var(--accent)08,var(--accent2)06);border:1px solid var(--accent)30;border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div>
+        <div style="font-weight:700;font-size:.86rem;color:var(--text)">📋 Weekly check-in</div>
+        <div style="font-size:.77rem;color:var(--muted);margin-top:2px">How are your goals tracking? Update your progress numbers.</div>
+      </div>
+      <button onclick="glStartCheckin()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-family:var(--font-body);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">Update now</button>
+    </div>` : '';
+
   const today = new Date();
-  list.innerHTML = GL_GOALS.map(g => {
+  list.innerHTML = checkinBanner + GL_GOALS.map(g => {
     const daysLeft = g.deadline
-      ? Math.ceil((new Date(g.deadline) - today) / 86400000) : null;
-    const urgency  = daysLeft !== null && daysLeft <= 3 ? 'var(--red)' :
-                     daysLeft !== null && daysLeft <= 7 ? 'var(--yellow)' : 'var(--muted)';
-    const pct = g.progress || 0;
+      ? Math.ceil((new Date(g.deadline + 'T00:00:00') - today) / 86400000) : null;
+    const pct    = g.progress || 0;
+    const health = _glHealth(g);
+    const healthBadge = health ? `<span style="display:inline-flex;align-items:center;gap:3px;background:${health.color}18;color:${health.color};border-radius:5px;padding:1px 7px;font-size:.68rem;font-weight:700;letter-spacing:.02em">${health.icon} ${health.label}</span>` : '';
+    const daysLabel = daysLeft !== null
+      ? (daysLeft > 0 ? `${daysLeft}d left` : daysLeft === 0 ? 'Today!' : 'Overdue')
+      : '';
     return `
       <div class="gl-card ${g.completed ? 'done' : ''}">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-          <div style="flex:1">
-            <div class="gl-title">${g.completed ? '✅ ' : ''}${esc(g.title)}</div>
-            <div class="gl-meta">
-              ${g.subject ? `📚 ${esc(g.subject)} · ` : ''}
-              🎯 Target: ${g.target_score}%
-              ${daysLeft !== null ? ` · <span style="color:${urgency}">${daysLeft > 0 ? daysLeft+' days left' : daysLeft === 0 ? 'Today!' : 'Overdue'}</span>` : ''}
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
+          <div style="flex:1;min-width:0">
+            <div class="gl-title" style="margin-bottom:4px">${g.completed ? '✅ ' : ''}${esc(g.title)}</div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              ${healthBadge}
+              ${g.subject ? `<span style="font-size:.72rem;color:var(--muted)">📚 ${esc(g.subject)}</span>` : ''}
+              ${daysLeft !== null ? `<span style="font-size:.72rem;color:${daysLeft <= 0 ? '#ef4444' : daysLeft <= 3 ? '#f59e0b' : 'var(--muted)'}">${daysLabel}</span>` : ''}
             </div>
           </div>
-          <div style="font-family:var(--font);font-size:.85rem;font-weight:800;color:var(--accent)">${pct}%</div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-family:var(--font);font-size:.9rem;font-weight:800;color:var(--accent)">${pct}%</div>
+            <div style="font-size:.67rem;color:var(--muted)">of ${g.target_score}%</div>
+          </div>
         </div>
         <div class="gl-prog-wrap">
-          <div class="gl-prog-fill ${g.completed?'done':''}" style="width:${pct}%"></div>
+          <div class="gl-prog-fill ${g.completed ? 'done' : ''}" style="width:${pct}%"></div>
         </div>
-        <div style="font-size:.68rem;color:var(--muted)">${pct}% of target reached</div>
-        <div class="gl-actions">
+        <div class="gl-actions" style="margin-top:8px">
           <button class="gl-action-btn" onclick="glUpdateProgress('${g.id}',${pct})">📈 Update</button>
           <button class="gl-action-btn done-btn" onclick="glMarkDone('${g.id}')">${g.completed ? '↩ Reopen' : '✓ Done'}</button>
           <button class="gl-action-btn del-btn" onclick="glDelete('${g.id}')">🗑</button>
