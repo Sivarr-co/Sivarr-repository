@@ -6537,9 +6537,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 const SH_KEY  = () => `sivarr_sh_${S.sid || 'guest'}`;
-let SH_DRAG   = null;
-let SH_VIEW   = 'board';
-let SH_ADD_COL = 'todo';
+let SH_DRAG     = null;
+let SH_VIEW     = 'board';
+let SH_ADD_COL  = 'todo';
+let SH_SELECTED = null;
+
+function _fmtDueDate(date, time) {
+  if (!date) return { label: '—', color: 'var(--muted)', overdue: false };
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due   = new Date(date + 'T00:00:00'); due.setHours(0,0,0,0);
+  const diff  = Math.round((due - today) / 86400000);
+  const t     = time ? `, ${time}` : '';
+  if (diff < 0)   return { label: 'Overdue',         color: '#ef4444',       overdue: true  };
+  if (diff === 0) return { label: `Today${t}`,        color: '#f59e0b',       overdue: false };
+  if (diff === 1) return { label: `Tomorrow${t}`,     color: 'var(--accent)', overdue: false };
+  return               { label: `${date}${t}`,        color: 'var(--text2)',  overdue: false };
+}
+
+function _shSelectTask(id) {
+  SH_SELECTED = id;
+  document.querySelectorAll('.sh-overview-row').forEach(r => {
+    r.style.background = Number(r.dataset.id) === id ? 'var(--teal2,rgba(13,122,95,.08))' : '';
+  });
+}
 
 const SH_COLS = {
   todo:       { label: 'Not Started', color: '#94a3b8' },
@@ -6609,20 +6629,31 @@ function renderSHOverview() {
   };
 
   if (!tasks.length) {
-    tbody.innerHTML = `<tr><td colspan="11" style="padding:2rem;text-align:center;color:var(--muted);font-size:.84rem">
-      No tasks yet — click "+ New task" below to add your first task.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11"><div style="display:flex;flex-direction:column;align-items:center;padding:3rem 1rem;gap:10px">
+      <div style="font-size:2.2rem">✅</div>
+      <div style="font-weight:700;font-size:.95rem;color:var(--text)">No tasks yet</div>
+      <div style="font-size:.82rem;color:var(--muted);text-align:center;max-width:340px;line-height:1.5">
+        Capture everything you need to do. Press <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:.73rem;font-family:monospace">N</kbd> or click the button below to add your first task.
+      </div>
+      <button onclick="openAddTask('todo')" style="margin-top:6px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-family:var(--font-body);font-size:.83rem;font-weight:600;cursor:pointer">+ New task</button>
+    </div></td></tr>`;
     return;
   }
 
   tbody.innerHTML = tasks.map((t, idx) => {
-    const st  = STATUS[t.status]   || STATUS.todo;
-    const pr  = PRIORITY[t.priority] || PRIORITY.normal;
-    const ico = TYPE_ICONS[t.type] || '⚙️';
-    const due = t.date ? (t.time ? `${t.date} ${t.time}` : t.date) : '—';
+    const st     = STATUS[t.status]    || STATUS.todo;
+    const pr     = PRIORITY[t.priority] || PRIORITY.normal;
+    const ico    = TYPE_ICONS[t.type]  || '⚙️';
+    const dueFmt = _fmtDueDate(t.date, t.time);
     const updated = t.updated || t.created || '—';
-    const isDone = t.status === 'done';
+    const isDone  = t.status === 'done';
+    const isSel   = SH_SELECTED === t.id;
 
-    return `<tr style="transition:background .1s" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">
+    return `<tr class="sh-overview-row" data-id="${t.id}"
+      style="transition:background .1s;background:${isSel ? 'var(--teal2,rgba(13,122,95,.08))' : ''};cursor:pointer"
+      onclick="_shSelectTask(${t.id})"
+      onmouseover="if(SH_SELECTED!==${t.id})this.style.background='var(--surface)'"
+      onmouseout="this.style.background=SH_SELECTED===${t.id}?'var(--teal2,rgba(13,122,95,.08))':''">
       <td><div class="sh-cell" style="display:flex;align-items:center;gap:6px">
             <div class="editable sh-cell-title" style="flex:1;${isDone ? 'text-decoration:line-through;opacity:.6' : ''}"
                 onclick="inlineEdit(${t.id},'title',this)">${esc(t.title)}</div>
@@ -6637,8 +6668,8 @@ function renderSHOverview() {
       <td><div class="sh-cell editable" style="font-size:.75rem;color:var(--muted)"
             onclick="inlineEdit(${t.id},'desc',this)">${esc(t.desc || '—')}</div></td>
       <td><div class="sh-cell editable" onclick="inlineEdit(${t.id},'assignee',this)">${esc(t.assignee || '—')}</div></td>
-      <td><div class="sh-cell editable" style="color:${t.date && !isDone ? 'var(--accent)' : 'var(--muted)'};font-size:.78rem"
-            onclick="inlineEditDate(${t.id},this)">${due}</div></td>
+      <td><div class="sh-cell editable" style="color:${isDone ? 'var(--muted)' : dueFmt.color};font-size:.78rem;font-weight:${dueFmt.overdue ? '700' : '400'}"
+            onclick="inlineEditDate(${t.id},this)">${dueFmt.label}</div></td>
       <td><div class="sh-cell" onclick="inlineEditSelect(${t.id},'priority',this)"
             style="color:${pr.color};font-weight:600;font-size:.78rem">${pr.label}</div></td>
       <td><div class="sh-cell" style="justify-content:center">
@@ -6923,6 +6954,26 @@ function shDrop(e, col) {
   if (SH_DRAG !== null) { moveSHTask(SH_DRAG, col); SH_DRAG = null; }
 }
 
+document.addEventListener('keydown', function _shKeys(e) {
+  if (!$('panel-flux')?.classList.contains('active')) return;
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if ($('sh-modal-bg')?.style.display === 'flex') return;
+
+  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openAddTask('todo'); return; }
+  if (!SH_SELECTED) return;
+  if (e.key === 'e' || e.key === 'E') { e.preventDefault(); openEditTask(SH_SELECTED); }
+  if (e.key === ' ') {
+    e.preventDefault();
+    const task = (getSHData().tasks || []).find(t => t.id === SH_SELECTED);
+    if (task) moveSHTask(SH_SELECTED, task.status === 'done' ? 'todo' : 'done');
+  }
+  if (e.key === 'Delete') {
+    e.preventDefault();
+    if (confirm('Delete this task?')) { deleteSHTask(SH_SELECTED); SH_SELECTED = null; }
+  }
+});
+
 function renderSHBoard() {
   const data  = getSHData();
   const tasks = data.tasks || [];
@@ -6942,14 +6993,16 @@ function renderSHBoard() {
     if (!body) return;
     if (count) count.textContent = colTasks.length;
 
-    body.innerHTML = colTasks.length ? colTasks.map(t => `
+    body.innerHTML = colTasks.length ? colTasks.map(t => {
+      const dFmt = _fmtDueDate(t.date, t.time);
+      return `
       <div class="sh-card" draggable="true"
         ondragstart="SH_DRAG=${t.id}"
         ondragend="document.querySelectorAll('.sh-col-body').forEach(b=>b.classList.remove('drag-over'))">
         <div class="sh-card-title">${esc(t.title)}</div>
         ${t.notes ? `<div class="sh-card-notes">${esc(t.notes)}</div>` : ''}
         <div class="sh-card-footer">
-          ${t.date ? `<span class="sh-card-date">📅 ${t.date}</span>` : ''}
+          ${t.date ? `<span class="sh-card-date" style="color:${dFmt.color};font-weight:${dFmt.overdue?'700':'400'}">${dFmt.overdue ? '⚠️' : '📅'} ${dFmt.label}</span>` : ''}
           <span class="sh-priority ${t.priority}">${
             t.priority === 'high' ? '🔴 High' :
             t.priority === 'medium' ? '🟡 Med' :
@@ -6963,7 +7016,7 @@ function renderSHBoard() {
               style="opacity:1;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.75rem">✕</button>
           </div>
         </div>
-      </div>`).join('')
+      </div>`; }).join('')
       : `<div style="font-size:.75rem;color:var(--muted);padding:8px 4px;text-align:center">No tasks</div>`;
   });
 
@@ -6979,7 +7032,14 @@ function renderSHListView() {
   if (!container) return;
 
   if (!tasks.length) {
-    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:2rem;font-size:.84rem">No tasks yet — click "+ New Task" to get started.</div>';
+    container.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;padding:3rem 1rem;gap:10px">
+      <div style="font-size:2.2rem">✅</div>
+      <div style="font-weight:700;font-size:.95rem;color:var(--text)">No tasks yet</div>
+      <div style="font-size:.82rem;color:var(--muted);text-align:center;max-width:340px;line-height:1.5">
+        Press <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:.73rem;font-family:monospace">N</kbd> to create your first task.
+      </div>
+      <button onclick="openAddTask('todo')" style="margin-top:6px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-family:var(--font-body);font-size:.83rem;font-weight:600;cursor:pointer">+ New task</button>
+    </div>`;
     return;
   }
 
@@ -7003,7 +7063,7 @@ function renderSHListView() {
         t.priority === 'medium' ? '🟡 Med' :
         t.priority === 'low' ? '🟢 Low' : '—'
       }</span></div>
-      <div style="font-size:.72rem;color:var(--accent)">${t.date || '—'}</div>
+      ${(() => { const d = _fmtDueDate(t.date,t.time); return `<div style="font-size:.72rem;color:${d.color};font-weight:${d.overdue?'700':'400'}">${d.label}</div>`; })()}
       <button onclick="deleteSHTask(${t.id})"
         style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem">✕</button>
     </div>`).join('')}`;
