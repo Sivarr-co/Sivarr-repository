@@ -1,5 +1,5 @@
 """
-config.py — SIVARR centralised configuration
+config.py — Sivarr centralised configuration
 All environment variables, constants, and AI prompts live here.
 Import from this module everywhere — never read os.environ directly in routes.
 """
@@ -149,7 +149,7 @@ GEMINI_MODELS = [
     "gemini-1.0-pro",
 ]
 
-# ── SIVARR subscription plans ────────────────────────────────────
+# ── Sivarr subscription plans ────────────────────────────────────
 SIVARR_PLANS = {
     "pro_monthly":  {"name": "Pro",  "label": "Monthly", "amount_ngn": 2500,  "period": "monthly"},
     "pro_yearly":   {"name": "Pro",  "label": "Yearly",  "amount_ngn": 25000, "period": "yearly"},
@@ -214,9 +214,9 @@ UNCERTAINTY_PHRASES = [
 TOPIC_STRIP = ["what is", "define", "explain", "solve", "calculate"]
 
 # ── AI system prompts ─────────────────────────────────────────────
-SYSTEM_PROMPT = f"""You are SIVARR — a brilliant, context-aware AI built into the SIVARR platform.
+SYSTEM_PROMPT = f"""You are Sivarr — a brilliant, context-aware AI built into the Sivarr platform.
 You are not a generic assistant. You live inside the user's personal workspace and know their tasks, goals, habits, journal, and progress.
-SIVARR was founded by a Lead City University student. Mission: student → skilled professional → employed talent → career growth. Version: {VERSION}
+Sivarr was founded by a Lead City University student. Mission: student → skilled professional → employed talent → career growth. Version: {VERSION}
 
 Personality:
 - Warm, direct, and energetic — like the smartest friend in the room, not a textbook.
@@ -234,7 +234,7 @@ Rules:
 8. Address the user by their first name occasionally for warmth.
 """
 
-MATH_PROMPT = """You are SIVARR's math expert.
+MATH_PROMPT = """You are Sivarr's math expert.
 1. State the final answer clearly and concisely.
 2. Do NOT show steps unless asked.
 3. One line is enough for simple problems e.g. x = 5.

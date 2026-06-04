@@ -194,7 +194,7 @@ GITHUB_AUTH_URL        = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL       = "https://github.com/login/oauth/access_token"
 GITHUB_API             = "https://api.github.com"
 
-# ── SIVARR Subscription Plans ─────────────────────────────────
+# ── Sivarr Subscription Plans ─────────────────────────────────
 SIVARR_PLANS = {
     "pro_monthly":  {"name": "Pro",  "label": "Monthly", "amount_ngn": 2500,  "period": "monthly"},
     "pro_yearly":   {"name": "Pro",  "label": "Yearly",  "amount_ngn": 25000, "period": "yearly"},
@@ -284,9 +284,9 @@ UNCERTAINTY_PHRASES = [
 
 TOPIC_STRIP = ["what is", "define", "explain", "solve", "calculate"]
 
-SYSTEM_PROMPT = f"""You are SIVARR — a brilliant, context-aware AI built into the SIVARR platform.
+SYSTEM_PROMPT = f"""You are Sivarr — a brilliant, context-aware AI built into the Sivarr platform.
 You are not a generic assistant. You live inside the user's personal workspace and know their tasks, goals, habits, journal, and progress.
-SIVARR was founded by a Lead City University student. Mission: student → skilled professional → employed talent → career growth. Version: {VERSION}
+Sivarr was founded by a Lead City University student. Mission: student → skilled professional → employed talent → career growth. Version: {VERSION}
 
 Personality:
 - Warm, direct, and energetic — like the smartest friend in the room, not a textbook.
@@ -304,7 +304,7 @@ Rules:
 8. Address the user by their first name occasionally for warmth.
 """
 
-MATH_PROMPT = """You are SIVARR's math expert.
+MATH_PROMPT = """You are Sivarr's math expert.
 1. State the final answer clearly and concisely.
 2. Do NOT show steps unless asked.
 3. One line is enough for simple problems e.g. x = 5.
@@ -711,7 +711,7 @@ def _email_reset_html(reset_url: str) -> str:
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Reset your password</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 28px">
@@ -729,7 +729,7 @@ def _email_reset_html(reset_url: str) -> str:
   </p>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
   <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">
-    SIVARR · Your productivity OS
+    Sivarr · Your productivity OS
   </p>
 </body></html>"""
 
@@ -739,7 +739,7 @@ def _email_verify_html(verify_url: str, name: str) -> str:
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Welcome, {name} 👋</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 28px">
@@ -756,7 +756,7 @@ def _email_verify_html(verify_url: str, name: str) -> str:
   </p>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
   <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">
-    SIVARR · Your productivity OS
+    Sivarr · Your productivity OS
   </p>
 </body></html>"""
 
@@ -766,7 +766,7 @@ def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">You're invited to join <strong>{org_name}</strong></h2>
   <p style="color:#555;line-height:1.6;margin:0 0 8px">
@@ -785,7 +785,7 @@ def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role
     If you weren't expecting this, you can safely ignore this email.
   </p>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
 </body></html>"""
 
 
@@ -805,7 +805,7 @@ def _email_welcome_html(name: str) -> str:
 
         <!-- Logo -->
         <tr><td style="padding-bottom:32px">
-          <span style="font-size:1.4rem;font-weight:900;color:#0D7A5F;letter-spacing:-.04em">SIVARR</span>
+          <span style="font-size:1.4rem;font-weight:900;color:#0D7A5F;letter-spacing:-.04em">Sivarr</span>
         </td></tr>
 
         <!-- Greeting -->
@@ -815,13 +815,13 @@ def _email_welcome_html(name: str) -> str:
 
         <!-- Opening line -->
         <tr><td style="font-size:1rem;color:#1a1a1a;padding-bottom:28px;line-height:1.6">
-          You now have access to your SIVARR workspace.
+          You now have access to your Sivarr workspace.
         </td></tr>
 
         <!-- CTA Button 1 -->
         <tr><td style="padding-bottom:20px">
           <a href="{url}" style="display:inline-block;color:#C0392B;font-weight:800;font-size:.95rem;text-decoration:none;letter-spacing:.04em">
-            OPEN MY SIVARR WORKSPACE
+            OPEN MY Sivarr WORKSPACE
           </a>
         </td></tr>
 
@@ -870,16 +870,16 @@ def _email_welcome_html(name: str) -> str:
         <!-- CTA Button 2 -->
         <tr><td style="padding-bottom:28px">
           <a href="{url}" style="display:inline-block;color:#C0392B;font-weight:800;font-size:.95rem;text-decoration:none;letter-spacing:.04em">
-            OPEN MY SIVARR WORKSPACE
+            OPEN MY Sivarr WORKSPACE
           </a>
         </td></tr>
 
         <!-- Closing -->
         <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:20px;line-height:1.6">
-          We can&rsquo;t wait to see what you do with SIVARR !
+          We can&rsquo;t wait to see what you do with Sivarr !
         </td></tr>
         <tr><td style="font-size:.92rem;color:#555;font-style:italic;padding-bottom:28px;line-height:1.8">
-          See you Inside,<br>SIVARR Team
+          See you Inside,<br>Sivarr Team
         </td></tr>
 
         <tr><td style="font-size:.88rem;color:#1a1a1a;padding-bottom:32px;line-height:1.6">
@@ -888,7 +888,7 @@ def _email_welcome_html(name: str) -> str:
 
         <!-- Footer -->
         <tr><td style="border-top:1px solid #eee;padding-top:20px">
-          <p style="margin:0;font-size:.72rem;color:#bbb;text-align:center">SIVARR &middot; Your productivity OS</p>
+          <p style="margin:0;font-size:.72rem;color:#bbb;text-align:center">Sivarr &middot; Your productivity OS</p>
         </td></tr>
 
       </table>
@@ -957,7 +957,7 @@ def _email_digest_html(name: str, tasks: list, goals: list) -> str:
                 display:inline-flex;align-items:center;justify-content:center">
       <span style="color:#fff;font-weight:900;font-size:.75rem">S</span>
     </div>
-    <span style="font-size:1.1rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.1rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 6px;font-size:1.35rem;font-weight:800;letter-spacing:-.02em">
     Good morning, {name} ☀️
@@ -971,11 +971,11 @@ def _email_digest_html(name: str, tasks: list, goals: list) -> str:
      style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem;
             letter-spacing:-.01em">
-    Open SIVARR →
+    Open Sivarr →
   </a>
   <hr style="border:none;border-top:1px solid #f0f0f0;margin:32px 0 20px">
   <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0;line-height:1.6">
-    SIVARR · Your productivity OS<br>
+    Sivarr · Your productivity OS<br>
     You're getting this because daily digests are on in your settings.
   </p>
 </body></html>"""
@@ -991,7 +991,7 @@ def _email_task_reminder_html(name: str, tasks: list) -> str:
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Tasks due soon, {name}</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 16px">
@@ -1004,7 +1004,7 @@ def _email_task_reminder_html(name: str, tasks: list) -> str:
     Open Tasks
   </a>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
 </body></html>"""
 
 
@@ -1013,7 +1013,7 @@ def _email_billing_receipt_html(name: str, plan: str, amount: str, ref: str) -> 
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Payment confirmed</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 8px">Hi {name}, your payment was successful.</p>
@@ -1031,7 +1031,7 @@ def _email_billing_receipt_html(name: str, plan: str, amount: str, ref: str) -> 
     Open Sivarr
   </a>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
 </body></html>"""
 
 
@@ -1043,7 +1043,7 @@ def _email_org_mention_html(recipient_name: str, sender_name: str, org_name: str
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:24px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 6px;font-size:1.3rem;font-weight:800">You were mentioned, {first}</h2>
   <p style="color:#666;font-size:.9rem;margin:0 0 20px">
@@ -1056,10 +1056,10 @@ def _email_org_mention_html(recipient_name: str, sender_name: str, org_name: str
   <a href="{BASE_URL}/app"
      style="display:inline-block;background:#0D7A5F;color:#fff;padding:12px 28px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem">
-    View in SIVARR →
+    View in Sivarr →
   </a>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
 </body></html>"""
 
 
@@ -1071,7 +1071,7 @@ def _email_org_announcement_html(recipient_name: str, org_name: str,
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:24px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <div style="font-size:.75rem;font-weight:700;color:#534AB7;text-transform:uppercase;
               letter-spacing:.06em;margin-bottom:8px">📢 Announcement · {org_name}</div>
@@ -1087,7 +1087,7 @@ def _email_org_announcement_html(recipient_name: str, org_name: str,
     View Announcement →
   </a>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
 </body></html>"""
 
 
@@ -1121,7 +1121,7 @@ def _email_org_progress_html(recipient_name: str, org_name: str, period: str,
                 display:inline-flex;align-items:center;justify-content:center">
       <span style="color:#fff;font-weight:900;font-size:.75rem">S</span>
     </div>
-    <span style="font-size:1.1rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.1rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <div style="font-size:.75rem;font-weight:700;color:#0D7A5F;text-transform:uppercase;
               letter-spacing:.06em;margin-bottom:8px">Weekly Progress Report · {org_name}</div>
@@ -1154,11 +1154,11 @@ def _email_org_progress_html(recipient_name: str, org_name: str, period: str,
   <a href="{BASE_URL}/app"
      style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem">
-    Open SIVARR →
+    Open Sivarr →
   </a>
   <hr style="border:none;border-top:1px solid #f0f0f0;margin:32px 0 20px">
   <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0;line-height:1.6">
-    SIVARR · Your productivity OS<br>
+    Sivarr · Your productivity OS<br>
     You're getting this because you're a member of {org_name}.
   </p>
 </body></html>"""
@@ -1220,7 +1220,7 @@ def friendly_gemini_error(e):
     """Convert raw Gemini exceptions into short readable messages."""
     msg = str(e).lower()
     if "quota" in msg or "429" in msg or "resource_exhausted" in msg:
-        return "SIVARR is taking a short break — free tier quota reached. Please wait a minute and try again! ⏳"
+        return "Sivarr is taking a short break — free tier quota reached. Please wait a minute and try again! ⏳"
     if "api key" in msg or "invalid" in msg or "401" in msg or "403" in msg:
         return "API key issue — please contact support."
     if "network" in msg or "connection" in msg or "timeout" in msg or "unavailable" in msg:
@@ -1230,7 +1230,7 @@ def friendly_gemini_error(e):
     return "Something went wrong — please try again shortly."
 
 _AI_ERROR_PREFIXES = (
-    "SIVARR is taking a short break",
+    "Sivarr is taking a short break",
     "API key issue",
     "Connection issue",
     "AI model unavailable",
@@ -1763,7 +1763,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
                     "Verify your Sivarr email",
                     _email_verify_html(verify_url, user['name']))
         bg.add_task(send_email, email,
-                    "Welcome to SIVARR AI",
+                    "Welcome to Sivarr AI",
                     _email_welcome_html(user['name']))
 
     # ── LOGIN ──────────────────────────────────────────────────
@@ -1893,7 +1893,7 @@ async def test_email(data: dict):
     target = to or "djhunterd712@gmail.com"
     ok, detail = send_email(
         target,
-        "SIVARR email test",
+        "Sivarr email test",
         "<h2>Email is working ✓</h2><p>Resend is configured correctly on your Railway deployment.</p>"
     )
     return {
@@ -4680,7 +4680,7 @@ def _ag_demo_templates() -> list:
             "short_description": "Complete workspace for high-achieving students",
             "category": "workspace", "price": 0, "download_count": 1240,
             "avg_rating": 4.8, "review_count": 94, "status": "published",
-            "thumbnail_color": "#4f6ef7", "agent_name": "SIVARR Team",
+            "thumbnail_color": "#4f6ef7", "agent_name": "Sivarr Team",
             "agent_verified": True, "tags": ["workspace","productivity"],
             "agent_id": "demo_agent_1",
         },
@@ -5569,7 +5569,7 @@ async def org_founder_save(data: dict):
     return {"ok": True}
 
 
-# ── SIVARR AI Org Briefing ───────────────────────────────────────────────────────
+# ── Sivarr AI Org Briefing ───────────────────────────────────────────────────────
 
 @app.post("/api/org/ai/briefing")
 async def org_ai_briefing(data: dict):
@@ -5592,7 +5592,7 @@ async def org_ai_briefing(data: dict):
     high_pri     = [t for t in open_tasks if t.get("priority") == "high"]
     active_goals = [g for g in goals if g.get("status") == "active"]
 
-    context = f"""You are SIVARR, the AI operating intelligence for {org['name']}.
+    context = f"""You are Sivarr, the AI operating intelligence for {org['name']}.
 Generate a concise executive briefing for {uname} (role: {org.get('member_role','member')}).
 
 Organization snapshot ({today}):
@@ -5771,7 +5771,7 @@ async def weekly_review(data: dict, request: Request):
         for g in goals
     ) if goals else "  - No active goals"
 
-    prompt = f"""You are SIVA, the SIVARR AI assistant. Write a warm, insightful weekly review for {first_name} covering {week_range}.
+    prompt = f"""You are Sivarr AI, the Sivarr AI assistant. Write a warm, insightful weekly review for {first_name} covering {week_range}.
 
 Data:
 - Tasks completed: {tasks_done} of {tasks_total}
@@ -6108,7 +6108,7 @@ async def google_cal_connect(token: str = ""):
 
 @app.get("/auth/google/calendar/callback")
 async def google_cal_callback(code: str = "", state: str = "", error: str = ""):
-    """Store Google Calendar refresh token for the SIVARR user."""
+    """Store Google Calendar refresh token for the Sivarr user."""
     if error or not code:
         return RedirectResponse("/app?gcal_error=denied")
     if not GOOGLE_OAUTH_AVAILABLE or not HTTPX_AVAILABLE:
@@ -6226,7 +6226,7 @@ async def gcal_events(token: str = "", time_min: str = "", time_max: str = ""):
 
 @app.post("/api/integrations/gcal/push")
 async def gcal_push(data: dict):
-    """Push a SIVARR calendar event to the user's Google Calendar."""
+    """Push a Sivarr calendar event to the user's Google Calendar."""
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
@@ -6281,7 +6281,7 @@ async def billing_plans():
 
 @app.post("/api/billing/subscribe")
 async def billing_subscribe(data: dict):
-    """Initialize a Paystack transaction for a SIVARR subscription plan."""
+    """Initialize a Paystack transaction for a Sivarr subscription plan."""
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
@@ -6468,7 +6468,7 @@ async def community_create_post(data: dict, request: Request):
     p = load_progress(sess["sid"])
     post = {
         "id":       uuid.uuid4().hex[:16],
-        "author":   p.get("name", "SIVARR User"),
+        "author":   p.get("name", "Sivarr User"),
         "sid":      sess["sid"],
         "body":     body,
         "category": category,
@@ -6521,7 +6521,7 @@ async def community_reply(post_id: str, data: dict):
     p = load_progress(sess["sid"])
     reply = {
         "id":      uuid.uuid4().hex[:12],
-        "author":  p.get("name","SIVARR User"),
+        "author":  p.get("name","Sivarr User"),
         "sid":     sess["sid"],
         "body":    body,
         "created": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -6755,7 +6755,7 @@ async def github_activity(token: str = "", repo: str = ""):
 
 @app.post("/api/billing/flutterwave/subscribe")
 async def flutterwave_subscribe(data: dict):
-    """Initialize a Flutterwave payment for a SIVARR plan."""
+    """Initialize a Flutterwave payment for a Sivarr plan."""
     token = data.get("token","")
     sess  = get_session_from_token(token)
     if not sess:
@@ -6779,7 +6779,7 @@ async def flutterwave_subscribe(data: dict):
         "redirect_url": f"{BASE_URL.rstrip('/')}/app?flw_billing=success&ref={ref}&plan={plan_id}",
         "customer":     {"email": email, "name": name},
         "customizations": {
-            "title":       f"SIVARR {plan['name']} Plan",
+            "title":       f"Sivarr {plan['name']} Plan",
             "description": f"{plan['label']} subscription",
             "logo":        f"{BASE_URL}/static/logo.png",
         },
@@ -6861,7 +6861,7 @@ async def flutterwave_verify(reference: str, token: str = "", plan_id: str = "")
     email = p.get("email","")
     name  = p.get("name","User")
     if email:
-        send_email(email, f"SIVARR {plan['name']} — Payment Confirmed",
+        send_email(email, f"Sivarr {plan['name']} — Payment Confirmed",
                    _email_billing_receipt_html(name, plan["name"],
                        f"₦{plan['amount_ngn']:,}", reference))
     return {"ok": True, "plan": p["subscription"]}
@@ -7445,7 +7445,7 @@ async def notifications_digest(request: Request):
         if not html:
             skipped += 1
             continue
-        ok, _ = send_email(email, f"Good morning, {name} — your SIVARR daily briefing", html)
+        ok, _ = send_email(email, f"Good morning, {name} — your Sivarr daily briefing", html)
         if ok:
             p["last_digest_date"] = today
             save_progress(sid, p)

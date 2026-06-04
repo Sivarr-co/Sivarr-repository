@@ -298,7 +298,7 @@ function setAuthTab(tab) {
   const pw = $('l-pw'); if (pw) pw.placeholder = isReg ? 'Min. 8 characters' : 'Your password';
 
   const h = $('login-heading'); if (h) h.textContent = isReg ? 'Create account' : 'Welcome back';
-  const s = $('login-sub');     if (s) s.textContent = isReg ? 'Join the SIVARR workspace.' : 'Sign in to your workspace.';
+  const s = $('login-sub');     if (s) s.textContent = isReg ? 'Join the Sivarr workspace.' : 'Sign in to your workspace.';
   const b = $('login-btn');     if (b) b.textContent = isReg ? 'Create account' : 'Sign in';
   const e = $('login-err');     if (e) e.textContent = '';
 
@@ -787,7 +787,7 @@ function _billingRenderSidebar() {
   const planLabel = $('sb-plan-label');
   const upLabel   = $('sb-upgrade-label');
   if (planLabel) planLabel.textContent = isPaid ? `${planName} Plan` : 'Free Plan';
-  if (upLabel)   upLabel.textContent   = isPaid ? 'Manage subscription' : 'Upgrade SIVARR';
+  if (upLabel)   upLabel.textContent   = isPaid ? 'Manage subscription' : 'Upgrade Sivarr';
   if (btn) btn.style.borderColor = isPaid ? 'var(--teal)' : 'var(--border)';
 }
 
@@ -1692,10 +1692,10 @@ document.addEventListener('click', e => {
 
 
 /* ══════════════════════════════════════════════════════════════
-   SIVARR CONTEXT ENGINE
+   Sivarr CONTEXT ENGINE
    Reads all local data stores and builds a rich snapshot that
    gets injected into the first message of each chat session,
-   giving SIVARR genuine awareness of the user's world.
+   giving Sivarr genuine awareness of the user's world.
    ══════════════════════════════════════════════════════════════ */
 
 let _contextSent = false; // reset to false on each login
@@ -1780,7 +1780,7 @@ async function buildSivarrContext() {
   if (!S.sid) return '';
   const sid = S.sid;
   const today = new Date().toDateString();
-  const lines = [`SIVARR CONTEXT SNAPSHOT for ${S.name} — ${today}`];
+  const lines = [`Sivarr CONTEXT SNAPSHOT for ${S.name} — ${today}`];
 
   // ── Tasks ─────────────────────────────────────────────────
   try {
@@ -1983,8 +1983,8 @@ async function send(retryText = null) {
   } else {
     const isTimeout = lastErr?.name === 'AbortError';
     const errText = isTimeout
-      ? 'Request timed out — SIVARR may be busy. Tap "Try again" below.'
-      : 'Could not reach SIVARR — check your connection and tap "Try again".';
+      ? 'Request timed out — Sivarr may be busy. Tap "Try again" below.'
+      : 'Could not reach Sivarr — check your connection and tap "Try again".';
     addMsg('sivarr', errText, false, true);
     _lastFailedMsg = fullMsg;
   }
@@ -2083,7 +2083,7 @@ async function chatClearConfirm() {
     : '';
   // Simpler: reload the welcome screen
   w.innerHTML = `<div id="chat-welcome" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:2.5rem 1.5rem;text-align:center;animation:fadeUp .5s cubic-bezier(.4,0,.2,1)">
-    <div class="chat-welcome-orb"><img src="/static/sivarrai.png" alt="SIVARR"></div>
+    <div class="chat-welcome-orb"><img src="/static/sivarrai.png" alt="Sivarr"></div>
     <h1 class="chat-welcome-heading" id="welcome-greeting">Chat cleared</h1>
     <p class="chat-welcome-sub">Start a new conversation below.</p>
   </div>`;
@@ -2093,9 +2093,9 @@ async function chatClearConfirm() {
 function chatExport() {
   const msgs = document.querySelectorAll('#msgs .msg');
   if (!msgs.length) { toast('Nothing to export yet.'); return; }
-  let out = `SIVARR AI Chat Export — ${new Date().toLocaleString()}\n${'─'.repeat(50)}\n\n`;
+  let out = `Sivarr AI Chat Export — ${new Date().toLocaleString()}\n${'─'.repeat(50)}\n\n`;
   msgs.forEach(m => {
-    const role = m.classList.contains('sivarr') ? 'SIVARR AI' : (S.name || 'You');
+    const role = m.classList.contains('sivarr') ? 'Sivarr AI' : (S.name || 'You');
     const text = m.querySelector('.msg-bub')?.innerText || '';
     out += `${role}:\n${text}\n\n`;
   });
@@ -2599,7 +2599,7 @@ async function loadProgress() {
     <div style="background:linear-gradient(135deg,var(--accent)15,var(--accent2)10);border:1px solid var(--accent)30;border-radius:12px;padding:1rem;margin-bottom:.875rem;text-align:center">
       <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">✨ AI Coaching</div>
       <div style="font-size:.8rem;color:var(--text2);margin-bottom:.75rem">Get a personalised coaching session based on your progress data.</div>
-      <button onclick="getProgressCoaching()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:9px;padding:9px 22px;font-family:var(--font);font-size:.8rem;font-weight:700;cursor:pointer">Get coaching from SIVARR →</button>
+      <button onclick="getProgressCoaching()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:9px;padding:9px 22px;font-family:var(--font);font-size:.8rem;font-weight:700;cursor:pointer">Get coaching from Sivarr →</button>
     </div>
   `;
 }
@@ -3153,7 +3153,7 @@ function toggleSPTask(di, ti, el) {
 function downloadStudyPlan() {
   const subject  = $('sp-subject')?.value.trim() || 'Study Plan';
   const cards    = document.querySelectorAll('.sp-day-card');
-  let text = `SIVARR STUDY PLAN — ${subject.toUpperCase()}\n`;
+  let text = `Sivarr STUDY PLAN — ${subject.toUpperCase()}\n`;
   text += `Generated: ${new Date().toLocaleDateString()}\n`;
   text += '='.repeat(40) + '\n\n';
   cards.forEach(card => {
@@ -4937,7 +4937,7 @@ async function loadHome() {
   const activeGoals  = goals.filter(g => !g.completed);
   const streak       = _getActivityStreak();
 
-  // ── SIVARR brief (AI-generated, cached per day) ─────────────────
+  // ── Sivarr brief (AI-generated, cached per day) ─────────────────
   const briefMsg = $('home-brief-msg');
   if (briefMsg) {
     const briefKey = `sivarr_brief_${S.sid}_${today8601}`;
@@ -5461,7 +5461,7 @@ function reflectWithAI(idx) {
 async function aiTaskExtractor() {
   const text = await siModal.input(
     '✨ Extract Tasks with AI',
-    'Paste an email, note, or message — SIVARR will pull out the tasks.',
+    'Paste an email, note, or message — Sivarr will pull out the tasks.',
     '',
     { confirmLabel: 'Extract', type: 'text' }
   );
@@ -7215,7 +7215,7 @@ function downloadLabResult()  { _downloadLab(); }
 function downloadLabResultD() { _downloadLab(); }
 function _downloadLab() {
   if (!LAB_RESULT_TEXT) { toast('No study pack yet.'); return; }
-  const blob = new Blob([`SIVARR AI — LECTURE LAB\n${'─'.repeat(40)}\n\n${LAB_RESULT_TEXT}`], {type:'text/plain'});
+  const blob = new Blob([`Sivarr AI — LECTURE LAB\n${'─'.repeat(40)}\n\n${LAB_RESULT_TEXT}`], {type:'text/plain'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `sivarr_study_pack_${Date.now()}.txt`;
@@ -9016,7 +9016,7 @@ function qcCapture(type) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// FEATURE 2 — DAILY SIVARR BRIEF
+// FEATURE 2 — DAILY Sivarr BRIEF
 // ═══════════════════════════════════════════════════════════════
 
 function briefCheck() {
@@ -9045,7 +9045,7 @@ function briefBuild() {
   const dateEl = $('brief-date-line');
   if (dateEl) dateEl.textContent = day;
 
-  // Build SIVARR message
+  // Build Sivarr message
   let msg = `Here's your day at a glance, ${firstName}. `;
   const tasks      = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]').filter(t => !t.done);
   const habits     = JSON.parse(localStorage.getItem(`sivarr_habits_${S.sid}`) || '[]');
@@ -9460,7 +9460,7 @@ function docFormatBlock(tag) {
   docScheduleSave();
 }
 
-// ── SIVARR AI ────────────────────────────────────────────────
+// ── Sivarr AI ────────────────────────────────────────────────
 
 function docAskSiva() {
   if (!S.sid) return;
@@ -9468,7 +9468,7 @@ function docAskSiva() {
   const title   = $('doc-title')?.value?.trim() || '';
   const sel     = window.getSelection()?.toString()?.trim() || '';
   const text    = sel || content.slice(0, 600);
-  if (!text) { toast('Write something first, then ask SIVARR to assist.'); return; }
+  if (!text) { toast('Write something first, then ask Sivarr to assist.'); return; }
   const prompt = sel
     ? `Help me improve or continue this from my doc "${title}":\n\n${text}`
     : `I'm writing a doc titled "${title}". Here's what I have so far:\n\n${text}\n\nPlease continue or improve it.`;
@@ -9557,7 +9557,7 @@ const _SLASH_CMDS = [
   { icon:'ti-quote',        label:'Quote',           desc:'Blockquote',             act:() => docFormatBlock('blockquote') },
   { icon:'ti-code',         label:'Code block',      desc:'Monospace code',         act:() => docFormatBlock('pre') },
   { icon:'ti-minus',        label:'Divider',         desc:'Horizontal rule',        act:() => _docEditor?.chain().focus().setHorizontalRule().run() },
-  { icon:'ti-sparkles',     label:'Ask SIVARR AI',   desc:'AI writing assistant',   act:() => { _slashHide(); docAskSiva(); } },
+  { icon:'ti-sparkles',     label:'Ask Sivarr AI',   desc:'AI writing assistant',   act:() => { _slashHide(); docAskSiva(); } },
 ];
 
 function _checkSlash(editor) {
@@ -10165,7 +10165,7 @@ async function orgUpdateKR(krId, current, target, unit) {
 }
 
 // ══════════════════════════════════════════════════
-//  S8 — SIVARR AI EXECUTIVE BRIEFING
+//  S8 — Sivarr AI EXECUTIVE BRIEFING
 // ══════════════════════════════════════════════════
 
 async function orgGetBriefing() {
@@ -10173,7 +10173,7 @@ async function orgGetBriefing() {
   const btn  = $('os-briefing-btn');
   const text = $('os-briefing-text');
   if (btn)  { btn.textContent = 'Generating…'; btn.disabled = true; }
-  if (text) text.textContent = 'SIVARR is analysing your organisation…';
+  if (text) text.textContent = 'Sivarr is analysing your organisation…';
   const token = localStorage.getItem('sivarr_token') || '';
   try {
     const r = await API('/api/org/ai/briefing', { token });
@@ -10932,7 +10932,7 @@ function autoDelete(id) {
 
 const AUTO_TRIGGER_LABELS = {
   task_done:'A task is marked done', goal_progress:'Goal reaches 100%',
-  habit_streak:'Habit streak hits a milestone', daily_open:'I open SIVARR each day',
+  habit_streak:'Habit streak hits a milestone', daily_open:'I open Sivarr each day',
   focus_complete:'A Focus session completes',
 };
 const AUTO_ACTION_LABELS = {
@@ -12313,7 +12313,7 @@ async function agRenderMarketplace() {
       <div class="ag-launch-hero">
         <div class="ag-launch-icon">🚀</div>
         <div class="ag-launch-title">Marketplace is warming up</div>
-        <div class="ag-launch-desc">Be among the first creators to publish templates on SIVARR and get in front of early users.</div>
+        <div class="ag-launch-desc">Be among the first creators to publish templates on Sivarr and get in front of early users.</div>
         <button class="ag-tb-btn ag-tb-btn--primary" style="margin-top:8px" onclick="agNav('apply');agRenderApply()">
           <i class="ti ti-rocket"></i> Become a Creator
         </button>
@@ -12844,7 +12844,7 @@ async function agRenderDirectory() {
           : `<div class="ag-launch-hero" style="margin-top:24px">
               <div class="ag-launch-icon">🌐</div>
               <div class="ag-launch-title">No agents yet</div>
-              <div class="ag-launch-desc">SIVARR Agents is in early access. Apply now and get prime visibility as one of the founding creators.</div>
+              <div class="ag-launch-desc">Sivarr Agents is in early access. Apply now and get prime visibility as one of the founding creators.</div>
               <button class="ag-tb-btn ag-tb-btn--primary" style="margin-top:8px" onclick="agNav('apply');agRenderApply()">
                 <i class="ti ti-user-plus"></i> Apply to become an agent
               </button>
@@ -13775,7 +13775,7 @@ function siObRender() {
   }
 
   box.innerHTML = `
-    <div class="si-ob-logo">SIVARR</div>
+    <div class="si-ob-logo">Sivarr</div>
     <div class="si-ob-dots">${dots}</div>
     ${content}`;
 }
@@ -14053,7 +14053,7 @@ function monoRender() {
       <div class="mono-connect-card">
         <div class="mono-logo">M</div>
         <div class="mono-connect-title">Connect your bank</div>
-        <div class="mono-connect-desc">Link your African bank account via Mono to view your balance and transactions inside SIVARR.</div>
+        <div class="mono-connect-desc">Link your African bank account via Mono to view your balance and transactions inside Sivarr.</div>
         <button class="mono-connect-btn" onclick="monoConnect()"><span style="font-weight:900">M</span> Connect Bank</button>
       </div>`;
     return;

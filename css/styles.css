@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   SIVARR — Premium AI OS Design System  v5
+   Sivarr — Premium AI OS Design System  v5
    Primary AI colour: Electric Teal #0FDBAD (dark) / #0D7A5F (light)
    Font: Plus Jakarta Sans (all weights — no display font)
    ═══════════════════════════════════════════════════════════════ */
@@ -755,7 +755,7 @@ body.offline .layout {
 .prog-wrap { background: var(--bg3); height: 7px; border-radius: 4px; overflow: hidden; }
 .prog-fill  { height: 100%; border-radius: 4px; transition: width .4s; }
 
-/* ── SIVARR BOX ────────────────────────────────────────────── */
+/* ── Sivarr BOX ────────────────────────────────────────────── */
 .siva-box {
   background: var(--teal2);
   border-left: 3px solid var(--teal);
@@ -3074,7 +3074,7 @@ body.theme-transitioning *::after {
 .doc-save-status { font-size:.72rem; color:var(--text4); }
 .doc-word-count  { font-size:.72rem; color:var(--text4); }
 
-/* ── DAILY SIVARR BRIEF ────────────────────────────────────── */
+/* ── DAILY Sivarr BRIEF ────────────────────────────────────── */
 .brief-overlay {
   position:fixed; inset:0; z-index:3000;
   background:rgba(0,0,0,.65); backdrop-filter:blur(8px);
@@ -4256,7 +4256,7 @@ body.theme-transitioning *::after {
   .os-tabs { padding:0 12px; }
 }
 
-/* ── SIVARR AI BRIEFING ─────────────────────────────────────── */
+/* ── Sivarr AI BRIEFING ─────────────────────────────────────── */
 .os-briefing-card { border-left:3px solid var(--teal); }
 .os-briefing-text {
   font-size:.88rem; color:var(--fg); line-height:1.65;

@@ -43,7 +43,7 @@ def _email_reset_html(reset_url: str) -> str:
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Reset your password</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 28px">
@@ -59,7 +59,7 @@ def _email_reset_html(reset_url: str) -> str:
     If you didn't request this, you can safely ignore this email.
   </p>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
 </body></html>"""
 
 
@@ -68,7 +68,7 @@ def _email_verify_html(verify_url: str, name: str) -> str:
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Welcome, {name} 👋</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 28px">
@@ -84,7 +84,7 @@ def _email_verify_html(verify_url: str, name: str) -> str:
     If you didn't create a Sivarr account, you can safely ignore this email.
   </p>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
 </body></html>"""
 
 
@@ -93,7 +93,7 @@ def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">You're invited to join <strong>{org_name}</strong></h2>
   <p style="color:#555;line-height:1.6;margin:0 0 8px">
@@ -109,7 +109,7 @@ def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role
     Accept Invite &amp; Join {org_name} →
   </a>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
 </body></html>"""
 
 
@@ -124,14 +124,14 @@ def _email_welcome_html(name: str) -> str:
   <tr><td align="center">
     <table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;padding:40px 48px;max-width:520px;width:100%">
       <tr><td style="padding-bottom:32px">
-        <span style="font-size:1.4rem;font-weight:900;color:#0D7A5F;letter-spacing:-.04em">SIVARR</span>
+        <span style="font-size:1.4rem;font-weight:900;color:#0D7A5F;letter-spacing:-.04em">Sivarr</span>
       </td></tr>
       <tr><td style="font-size:1rem;color:#1a1a1a;padding-bottom:16px;line-height:1.6">Hello {first},</td></tr>
       <tr><td style="font-size:1rem;color:#1a1a1a;padding-bottom:28px;line-height:1.6">
-        You now have access to your SIVARR workspace.</td></tr>
+        You now have access to your Sivarr workspace.</td></tr>
       <tr><td style="padding-bottom:20px">
         <a href="{url}" style="display:inline-block;color:#C0392B;font-weight:800;font-size:.95rem;text-decoration:none;letter-spacing:.04em">
-          OPEN MY SIVARR WORKSPACE</a></td></tr>
+          OPEN MY Sivarr WORKSPACE</a></td></tr>
       <tr><td style="font-size:.92rem;color:#555;font-style:italic;padding-bottom:28px;line-height:1.6">
         Click the link above to get started.</td></tr>
       <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:12px;line-height:1.6">Once you do, you will find that you can;</td></tr>
@@ -143,9 +143,9 @@ def _email_welcome_html(name: str) -> str:
           <li>Study faster by creating notes and study materials.</li>
         </ul></td></tr>
       <tr><td style="font-size:.92rem;color:#555;font-style:italic;padding-bottom:28px;line-height:1.8">
-        See you inside,<br>SIVARR Team</td></tr>
+        See you inside,<br>Sivarr Team</td></tr>
       <tr><td style="border-top:1px solid #eee;padding-top:20px">
-        <p style="margin:0;font-size:.72rem;color:#bbb;text-align:center">SIVARR &middot; Your productivity OS</p>
+        <p style="margin:0;font-size:.72rem;color:#bbb;text-align:center">Sivarr &middot; Your productivity OS</p>
       </td></tr>
     </table>
   </td></tr>
@@ -163,7 +163,7 @@ def _email_task_reminder_html(name: str, tasks: list) -> str:
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Tasks due soon, {name}</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 16px">
@@ -176,7 +176,7 @@ def _email_task_reminder_html(name: str, tasks: list) -> str:
     Open Tasks
   </a>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
 </body></html>"""
 
 
@@ -185,7 +185,7 @@ def _email_billing_receipt_html(name: str, plan: str, amount: str, ref: str) -> 
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">SIVARR</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Payment confirmed</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 8px">Hi {name}, your payment was successful.</p>
@@ -203,5 +203,5 @@ def _email_billing_receipt_html(name: str, plan: str, amount: str, ref: str) -> 
     Open Sivarr
   </a>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">SIVARR · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
 </body></html>"""
