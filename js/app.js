@@ -1885,7 +1885,8 @@ async function buildSivarrContext() {
   return lines.join('\n');
 }
 
-let _lastFailedMsg = null; // stored for retryChat()
+let _lastFailedMsg = null;
+let _lastUserMsg   = null;
 
 async function send(retryText = null) {
   const ci  = $('ci');
@@ -1912,15 +1913,7 @@ async function send(retryText = null) {
     if (ci) { ci.value = ''; ci.style.height = 'auto'; }
   }
 
-  const t   = addTyping();
   const btn = $('sb'); if (btn) btn.disabled = true;
-
-  // "Taking a bit longer…" nudge after 8 s
-  const slowTimer = setTimeout(() => {
-    const inner = t.querySelector('.typing');
-    if (inner) inner.innerHTML =
-      '<span style="font-size:.8rem;color:var(--muted);padding:4px 0">Taking a bit longer…</span>';
-  }, 8000);
 
   // Always inject context: full snapshot on message 1 and every 8 messages, micro-context otherwise
   let context = '';
@@ -1935,67 +1928,21 @@ async function send(retryText = null) {
     }
   }
 
-  let r = null, lastErr = null, attempts = 0;
-  while (attempts < 2) {
-    attempts++;
-    try {
-      r = await Promise.race([
-        API('/api/chat', { sid: S.sid, message: fullMsg, context }),
-        new Promise((_, rej) => setTimeout(
-          () => rej(Object.assign(new Error('Request timed out'), { name: 'AbortError' })),
-          20000
-        )),
-      ]);
-      break; // success
-    } catch(e) {
-      lastErr = e;
-      // Only auto-retry on network failure — not on timeout, 429, or other server errors
-      if (e.name === 'AbortError' || e.status === 429 || (e.status && e.status < 500) || attempts >= 2) break;
-      await new Promise(res => setTimeout(res, 1500));
-    }
+  _lastUserMsg = fullMsg;
+  const r = await _chatStream(fullMsg, context);
+  if (r && !r.error) {
+    _lastFailedMsg = null;
+    S.stats.questions++;
+    updateSBStats();
+    refreshTopics();
+    chatCounterDecrement();
+    track('Chat_Sent');
+    _recordActivity();
   }
-
-  clearTimeout(slowTimer);
-  t.remove();
-  _chatSetStatus(false);
-
-  if (!r && lastErr?.status === 429) {
-    const wait = lastErr.retryAfter || 60;
-    addMsg('sivarr', `You've sent a lot of messages — please wait ${wait} seconds before trying again.`, false, true);
-    if (btn) btn.disabled = false;
-    scrollMsgs();
-    return;
-  }
-
-  if (r) {
-    addMsg('sivarr', r.reply, r.uncertain, r.error);
-    if (!r.error) {
-      _lastFailedMsg = null;
-      S.stats.questions++;
-      updateSBStats();
-      refreshTopics();
-      chatCounterDecrement(); // only counts real successful answers
-      track('Chat_Sent');
-      _recordActivity();
-    } else {
-      _lastFailedMsg = fullMsg; // AI returned an error string — allow retry
-    }
-  } else {
-    const isTimeout = lastErr?.name === 'AbortError';
-    const errText = isTimeout
-      ? 'Request timed out — Sivarr may be busy. Tap "Try again" below.'
-      : 'Could not reach Sivarr — check your connection and tap "Try again".';
-    addMsg('sivarr', errText, false, true);
-    _lastFailedMsg = fullMsg;
-  }
-
-  if (btn) btn.disabled = false;
-  scrollMsgs();
 }
 
 function retryChat() {
   if (!_lastFailedMsg) return;
-  // Remove the last error bubble so it doesn't stack up
   const msgs = $('msgs');
   if (msgs) {
     const errBubs = msgs.querySelectorAll('.msg-error');
@@ -2004,6 +1951,123 @@ function retryChat() {
   const txt = _lastFailedMsg;
   _lastFailedMsg = null;
   send(txt);
+}
+
+function chatRegenerate() {
+  if (!_lastUserMsg) return;
+  const msgs = $('msgs');
+  if (msgs) {
+    const aiBubbles = msgs.querySelectorAll('.msg.sivarr');
+    if (aiBubbles.length) aiBubbles[aiBubbles.length - 1].remove();
+  }
+  _chatStream(_lastUserMsg, '');
+}
+
+async function _chatStream(fullMsg, context) {
+  const btn = $('sb'); if (btn) btn.disabled = true;
+  _chatSetStatus(true);
+
+  let res;
+  try {
+    res = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sid: S.sid, message: fullMsg, context })
+    });
+  } catch {
+    _chatSetStatus(false);
+    if (btn) btn.disabled = false;
+    addMsg('sivarr', 'Could not reach Sivarr — check your connection and tap "Try again".', false, true);
+    _lastFailedMsg = fullMsg;
+    return null;
+  }
+
+  if (!res.ok) {
+    _chatSetStatus(false);
+    if (btn) btn.disabled = false;
+    if (res.status === 429) {
+      const data = await res.json().catch(() => ({}));
+      addMsg('sivarr', `You've sent a lot of messages — please wait ${data.retryAfter || 60} seconds before trying again.`, false, true);
+    } else {
+      addMsg('sivarr', 'Could not reach Sivarr — check your connection and tap "Try again".', false, true);
+      _lastFailedMsg = fullMsg;
+    }
+    return null;
+  }
+
+  // Create streaming bubble
+  const welcome = $('chat-welcome');
+  if (welcome) welcome.style.display = 'none';
+  const w = $('msgs');
+  const d = document.createElement('div');
+  d.className = 'msg sivarr';
+  d.innerHTML = `<div class="msg-av">AI</div><div class="msg-inner"><div class="msg-bub md-body" style="min-height:1.4em"></div></div>`;
+  w.appendChild(d);
+  scrollMsgs();
+
+  const bub  = d.querySelector('.msg-bub');
+  const slowTimer = setTimeout(() => { if (!bub.textContent.trim()) bub.textContent = 'Thinking…'; }, 8000);
+  let fullText = '', isError = false;
+
+  const reader = res.body.getReader();
+  const dec    = new TextDecoder();
+  let buf = '';
+
+  try {
+    outer: while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') break outer;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.token) {
+            fullText += parsed.token;
+            isError   = parsed.error || false;
+            bub.textContent = fullText + '▌';
+            scrollMsgs();
+          }
+        } catch {}
+      }
+    }
+  } catch {
+    clearTimeout(slowTimer);
+    _chatSetStatus(false);
+    if (btn) btn.disabled = false;
+    bub.classList.add('msg-error');
+    bub.innerHTML = 'Stream interrupted — <button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>';
+    _lastFailedMsg = fullMsg;
+    return null;
+  }
+
+  clearTimeout(slowTimer);
+
+  // Finalise: render markdown + add action buttons
+  bub.innerHTML = isError ? `<span class="msg-error">${esc(fullText)}</span>` : renderMarkdown(fullText);
+  if (!isError) {
+    d.querySelector('.msg-inner').insertAdjacentHTML('beforeend', `
+      <div class="msg-actions">
+        <button class="action-btn" onclick="chatSaveTask(this)">+ Task</button>
+        <button class="action-btn" onclick="chatSaveNote(this)">+ Note</button>
+        <button class="action-btn" onclick="chatCopyMsg(this)">Copy</button>
+        <button class="action-btn" onclick="chatRegenerate()" title="Regenerate response">↻</button>
+        <button class="action-btn" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
+      </div>`);
+  } else {
+    _lastFailedMsg = fullMsg;
+    d.querySelector('.msg-inner').insertAdjacentHTML('beforeend',
+      `<button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>`);
+  }
+
+  _chatSetStatus(false);
+  if (btn) btn.disabled = false;
+  scrollMsgs();
+  return { reply: fullText, uncertain: false, error: isError };
 }
 
 /* Daily message counter — resets at midnight */
@@ -2057,6 +2121,7 @@ function addMsg(role, text, uncertain = false, isError = false) {
           <button class="action-btn" onclick="chatSaveTask(this)">+ Task</button>
           <button class="action-btn" onclick="chatSaveNote(this)">+ Note</button>
           <button class="action-btn" onclick="chatCopyMsg(this)">Copy</button>
+          <button class="action-btn" onclick="chatRegenerate()" title="Regenerate response">↻</button>
           <button class="action-btn" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
         </div>` : ''}
     </div>`;

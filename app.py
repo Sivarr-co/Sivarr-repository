@@ -2109,6 +2109,70 @@ async def chat(req: ChatRequest, request: Request):
     return {"reply": ans, "uncertain": uncertain, "error": is_err}
 
 
+@app.post("/api/chat/stream")
+async def chat_stream(req: ChatRequest, request: Request):
+    key = get_client_key(request, req.sid)
+    check_rate_limit(key, RATE_LIMIT_CHAT, "chat")
+
+    msg = req.message
+    if req.context:
+        msg = f"{req.context}\n\nUser: {req.message}"
+
+    p = load_progress(req.sid)
+
+    # Local math solver — stream the single result
+    local = solve_local(msg)
+    if local:
+        add_history(p, req.sid, "user", msg)
+        add_history(p, req.sid, "sivarr", local)
+        p["questions"] += 1
+        save_progress(req.sid, p)
+        async def _math():
+            yield f"data: {json.dumps({'token': local})}\n\n"
+            yield "data: [DONE]\n\n"
+        return StreamingResponse(_math(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    sessions = get_sessions(req.sid)
+    loop = asyncio.get_running_loop()
+    q: asyncio.Queue = asyncio.Queue()
+
+    def _run_gemini():
+        try:
+            resp = sessions["chat"].send_message(msg, stream=True)
+            for chunk in resp:
+                txt = getattr(chunk, "text", None)
+                if txt:
+                    loop.call_soon_threadsafe(q.put_nowait, {"token": txt})
+        except Exception as e:
+            loop.call_soon_threadsafe(q.put_nowait, {"token": friendly_gemini_error(e), "error": True})
+        loop.call_soon_threadsafe(q.put_nowait, None)
+
+    loop.run_in_executor(None, _run_gemini)
+
+    async def _stream():
+        full: list[str] = []
+        while True:
+            item = await q.get()
+            if item is None:
+                break
+            yield f"data: {json.dumps(item)}\n\n"
+            if not item.get("error"):
+                full.append(item["token"])
+
+        full_text = "".join(full)
+        if full_text and not _is_ai_error(full_text):
+            add_history(p, req.sid, "user", req.message)
+            add_history(p, req.sid, "sivarr", full_text)
+            p["questions"] += 1
+            save_progress(req.sid, p)
+
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(_stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 @app.get("/api/quiz/question")
 async def quiz_question(request: Request, sid: str, topic: str = "", difficulty: str = "medium", file_id: str = ""):
     sid = sanitize_text(sid, 100)
