@@ -2167,7 +2167,24 @@ async def chat_stream(req: ChatRequest, request: Request):
             p["questions"] += 1
             save_progress(req.sid, p)
 
-        yield "data: [DONE]\n\n"
+        # Generate 3 follow-up suggestions (fast, non-blocking)
+        suggestions: list[str] = []
+        if full_text and not _is_ai_error(full_text):
+            try:
+                raw = gemini_once(
+                    f"Based on this AI response, suggest exactly 3 short follow-up questions a user might ask next. "
+                    f"Return ONLY a JSON array of 3 strings, no other text.\n\nResponse:\n{full_text[:800]}",
+                    temp=0.7, tokens=120
+                )
+                if raw:
+                    raw = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`")
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        suggestions = [str(s).strip() for s in parsed[:3] if s]
+            except Exception:
+                pass
+
+        yield f"data: {json.dumps({'done': True, 'suggestions': suggestions})}\n\n"
 
     return StreamingResponse(_stream(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

@@ -2005,9 +2005,11 @@ async function _chatStream(fullMsg, context) {
   w.appendChild(d);
   scrollMsgs();
 
+  const msgId  = Date.now();
+  d.dataset.msgId = msgId;
   const bub  = d.querySelector('.msg-bub');
   const slowTimer = setTimeout(() => { if (!bub.textContent.trim()) bub.textContent = 'Thinking…'; }, 8000);
-  let fullText = '', isError = false;
+  let fullText = '', isError = false, suggestions = [];
 
   const reader = res.body.getReader();
   const dec    = new TextDecoder();
@@ -2026,6 +2028,7 @@ async function _chatStream(fullMsg, context) {
         if (raw === '[DONE]') break outer;
         try {
           const parsed = JSON.parse(raw);
+          if (parsed.done) { suggestions = parsed.suggestions || []; break outer; }
           if (parsed.token) {
             fullText += parsed.token;
             isError   = parsed.error || false;
@@ -2047,20 +2050,29 @@ async function _chatStream(fullMsg, context) {
 
   clearTimeout(slowTimer);
 
-  // Finalise: render markdown + add action buttons
+  // Finalise: render markdown, reactions, action buttons, suggestion pills
   bub.innerHTML = isError ? `<span class="msg-error">${esc(fullText)}</span>` : renderMarkdown(fullText);
+  const inner = d.querySelector('.msg-inner');
   if (!isError) {
-    d.querySelector('.msg-inner').insertAdjacentHTML('beforeend', `
+    inner.insertAdjacentHTML('beforeend', `
       <div class="msg-actions">
         <button class="action-btn" onclick="chatSaveTask(this)">+ Task</button>
         <button class="action-btn" onclick="chatSaveNote(this)">+ Note</button>
         <button class="action-btn" onclick="chatCopyMsg(this)">Copy</button>
         <button class="action-btn" onclick="chatRegenerate()" title="Regenerate response">↻</button>
         <button class="action-btn" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
+        <button class="action-btn chat-react-btn" data-val="up"   onclick="chatReact(this,'up')"   title="Good response">👍</button>
+        <button class="action-btn chat-react-btn" data-val="down" onclick="chatReact(this,'down')" title="Bad response">👎</button>
       </div>`);
+    if (suggestions.length) {
+      inner.insertAdjacentHTML('beforeend', `
+        <div class="chat-suggestions">
+          ${suggestions.map(s => `<button class="chat-sug-pill" onclick="quickPrompt(${JSON.stringify(s)})">${esc(s)}</button>`).join('')}
+        </div>`);
+    }
   } else {
     _lastFailedMsg = fullMsg;
-    d.querySelector('.msg-inner').insertAdjacentHTML('beforeend',
+    inner.insertAdjacentHTML('beforeend',
       `<button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>`);
   }
 
@@ -2068,6 +2080,23 @@ async function _chatStream(fullMsg, context) {
   if (btn) btn.disabled = false;
   scrollMsgs();
   return { reply: fullText, uncertain: false, error: isError };
+}
+
+function chatReact(btn, val) {
+  const msgId = btn.closest('.msg')?.dataset.msgId;
+  if (!msgId || !S.sid) return;
+  const key   = `sivarr_chat_reactions_${S.sid}`;
+  const store = JSON.parse(localStorage.getItem(key) || '{}');
+  const cur   = store[msgId];
+  store[msgId] = cur === val ? null : val; // toggle off if same
+  localStorage.setItem(key, JSON.stringify(store));
+  // Update visuals in the message
+  btn.closest('.msg-actions').querySelectorAll('.chat-react-btn').forEach(b => {
+    const active = store[msgId] === b.dataset.val;
+    b.style.background    = active ? 'var(--teal2,rgba(13,122,95,.1))' : '';
+    b.style.borderColor   = active ? 'var(--accent)' : '';
+    b.style.fontWeight    = active ? '700' : '';
+  });
 }
 
 /* Daily message counter — resets at midnight */
@@ -6659,6 +6688,7 @@ let SH_DRAG     = null;
 let SH_VIEW     = 'board';
 let SH_ADD_COL  = 'todo';
 let SH_SELECTED = null;
+const SH_BULK_SEL = new Set();
 
 function _fmtDueDate(date, time) {
   if (!date) return { label: '—', color: 'var(--muted)', overdue: false };
@@ -6708,7 +6738,8 @@ function _syncTasksToServer(tasks) {
 }
 
 function loadStudyHelp() {
-  // Default to overview on first load
+  SH_BULK_SEL.clear();
+  _shBulkUpdateBar();
   const overviewBtn = $('sh-view-overview');
   setSHView('overview', overviewBtn);
   renderSHBoard();
@@ -6747,7 +6778,7 @@ function renderSHOverview() {
   };
 
   if (!tasks.length) {
-    tbody.innerHTML = `<tr><td colspan="11"><div style="display:flex;flex-direction:column;align-items:center;padding:3rem 1rem;gap:10px">
+    tbody.innerHTML = `<tr><td colspan="12"><div style="display:flex;flex-direction:column;align-items:center;padding:3rem 1rem;gap:10px">
       <div style="font-size:2.2rem">✅</div>
       <div style="font-weight:700;font-size:.95rem;color:var(--text)">No tasks yet</div>
       <div style="font-size:.82rem;color:var(--muted);text-align:center;max-width:340px;line-height:1.5">
@@ -6772,10 +6803,16 @@ function renderSHOverview() {
       onclick="_shSelectTask(${t.id})"
       onmouseover="if(SH_SELECTED!==${t.id})this.style.background='var(--surface)'"
       onmouseout="this.style.background=SH_SELECTED===${t.id}?'var(--teal2,rgba(13,122,95,.08))':''">
-      <td><div class="sh-cell" style="display:flex;align-items:center;gap:6px">
-            <div class="editable sh-cell-title" style="flex:1;${isDone ? 'text-decoration:line-through;opacity:.6' : ''}"
-                onclick="inlineEdit(${t.id},'title',this)">${esc(t.title)}</div>
-            <button class="task-focus-btn" onclick="focusStart(${JSON.stringify(t.title)},25)" title="Focus on this task"><i class="ti ti-player-play" style="font-size:10px"></i></button>
+      <td style="text-align:center;padding:4px;vertical-align:middle">
+        <input type="checkbox" ${SH_BULK_SEL.has(t.id) ? 'checked' : ''}
+          onclick="event.stopPropagation();_shToggleBulk(${t.id},this.checked)"
+          style="cursor:pointer;accent-color:var(--accent)">
+      </td>
+      <td><div class="sh-cell" style="display:flex;align-items:center;gap:5px">
+            <div class="sh-cell-title" style="flex:1;${isDone ? 'text-decoration:line-through;opacity:.6' : ''};cursor:pointer"
+                onclick="event.stopPropagation();shOpenDetail(${t.id})">${esc(t.title)}</div>
+            <button class="task-focus-btn" onclick="event.stopPropagation();focusStart(${JSON.stringify(t.title)},25)" title="Focus on this task"><i class="ti ti-player-play" style="font-size:10px"></i></button>
+            <button class="task-focus-btn" onclick="event.stopPropagation();inlineEdit(${t.id},'title',this.parentElement.querySelector('.sh-cell-title'))" title="Rename task"><i class="ti ti-pencil" style="font-size:10px"></i></button>
           </div></td>
       <td><div class="sh-cell" onclick="inlineEditSelect(${t.id},'status',this)">
             <span class="sh-status-pill" style="background:${st.bg};color:${st.color}">
@@ -7078,9 +7115,10 @@ document.addEventListener('keydown', function _shKeys(e) {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   if ($('sh-modal-bg')?.style.display === 'flex') return;
 
+  if (e.key === 'Escape') { shCloseDetail(); return; }
   if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openAddTask('todo'); return; }
   if (!SH_SELECTED) return;
-  if (e.key === 'e' || e.key === 'E') { e.preventDefault(); openEditTask(SH_SELECTED); }
+  if (e.key === 'e' || e.key === 'E') { e.preventDefault(); shOpenDetail(SH_SELECTED); }
   if (e.key === ' ') {
     e.preventDefault();
     const task = (getSHData().tasks || []).find(t => t.id === SH_SELECTED);
@@ -7088,9 +7126,171 @@ document.addEventListener('keydown', function _shKeys(e) {
   }
   if (e.key === 'Delete') {
     e.preventDefault();
-    if (confirm('Delete this task?')) { deleteSHTask(SH_SELECTED); SH_SELECTED = null; }
+    if (confirm('Delete this task?')) { deleteSHTask(SH_SELECTED); SH_SELECTED = null; shCloseDetail(); }
   }
 });
+
+// ── Bulk actions ──────────────────────────────────────────────────────────────
+
+function _shBulkUpdateBar() {
+  const bar   = $('sh-bulk-bar');
+  const count = $('sh-bulk-count');
+  const size  = SH_BULK_SEL.size;
+  if (bar)   bar.style.display   = size > 0 ? 'flex' : 'none';
+  if (count) count.textContent   = `${size} task${size !== 1 ? 's' : ''} selected`;
+  const allCb = $('sh-bulk-all');
+  if (allCb) {
+    const total = (getSHData().tasks || []).length;
+    allCb.checked       = size > 0 && size === total;
+    allCb.indeterminate = size > 0 && size < total;
+  }
+}
+
+function _shToggleBulk(id, checked) {
+  if (checked) SH_BULK_SEL.add(id);
+  else SH_BULK_SEL.delete(id);
+  _shBulkUpdateBar();
+}
+
+function _shBulkSelectAll(checked) {
+  const tasks = getSHData().tasks || [];
+  if (checked) tasks.forEach(t => SH_BULK_SEL.add(t.id));
+  else SH_BULK_SEL.clear();
+  _shBulkUpdateBar();
+  renderSHOverview();
+}
+
+function _shBulkComplete() {
+  if (!SH_BULK_SEL.size) return;
+  const n = SH_BULK_SEL.size;
+  const data = getSHData();
+  (data.tasks || []).forEach(t => {
+    if (SH_BULK_SEL.has(t.id)) { t.status = 'done'; t.done = true; t.updated = new Date().toLocaleDateString(); }
+  });
+  saveSHData(data);
+  SH_BULK_SEL.clear();
+  _shBulkUpdateBar();
+  renderSHBoard();
+  toast(`✓ ${n} task${n !== 1 ? 's' : ''} completed`);
+}
+
+function _shBulkDelete() {
+  if (!SH_BULK_SEL.size) return;
+  const n = SH_BULK_SEL.size;
+  if (!confirm(`Delete ${n} task${n !== 1 ? 's' : ''}?`)) return;
+  const data = getSHData();
+  data.tasks = (data.tasks || []).filter(t => !SH_BULK_SEL.has(t.id));
+  saveSHData(data);
+  SH_BULK_SEL.clear();
+  _shBulkUpdateBar();
+  renderSHBoard();
+  toast(`🗑 ${n} task${n !== 1 ? 's' : ''} deleted`);
+}
+
+function _shBulkPriority(p) {
+  if (!p || !SH_BULK_SEL.size) return;
+  const data = getSHData();
+  (data.tasks || []).forEach(t => {
+    if (SH_BULK_SEL.has(t.id)) { t.priority = p; t.updated = new Date().toLocaleDateString(); }
+  });
+  saveSHData(data);
+  renderSHOverview();
+  const sel = document.querySelector('#sh-bulk-bar select');
+  if (sel) sel.value = '';
+  toast(`Priority → ${p}`);
+}
+
+function _shBulkClear() {
+  SH_BULK_SEL.clear();
+  _shBulkUpdateBar();
+  renderSHOverview();
+}
+
+// ── Task detail side panel ────────────────────────────────────────────────────
+
+function shOpenDetail(id) {
+  const data = getSHData();
+  const task = (data.tasks || []).find(t => t.id === id);
+  if (!task) return;
+
+  const ST = {
+    todo:       { label: 'Not started', color: '#94a3b8' },
+    inprogress: { label: 'In progress', color: '#4f6ef7' },
+    done:       { label: 'Done',        color: '#22c55e' },
+  };
+  const PR = { high: '🔴 High', medium: '🟡 Medium', low: '🟢 Low', normal: '— Normal' };
+  const dueFmt = _fmtDueDate(task.date, task.time);
+  const st = ST[task.status] || ST.todo;
+
+  $('sh-detail-body').innerHTML = `
+    <div contenteditable="true" spellcheck="false"
+      style="font-size:1.05rem;font-weight:700;color:var(--text);line-height:1.45;margin-bottom:16px;
+             outline:none;border-radius:6px;padding:4px 6px;margin:-4px -6px"
+      onblur="saveInline(${task.id},'title',this.innerText.trim())"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+      >${esc(task.title)}</div>
+
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">
+      <span style="background:${st.color}15;color:${st.color};border:1px solid ${st.color}30;
+                   border-radius:6px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer"
+        onclick="inlineEditSelect(${task.id},'status',this)">${st.label}</span>
+      <span style="background:var(--surface);border:1px solid var(--border);
+                   border-radius:6px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;color:var(--text2)"
+        onclick="inlineEditSelect(${task.id},'priority',this)">${PR[task.priority] || '— Normal'}</span>
+      <span style="background:var(--surface);border:1px solid var(--border);
+                   border-radius:6px;padding:3px 10px;font-size:.75rem;color:${dueFmt.color};font-weight:${dueFmt.overdue?'700':'500'};cursor:pointer"
+        onclick="inlineEditDate(${task.id},this)">📅 ${dueFmt.label}</span>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Description</div>
+      <div contenteditable="true" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;
+           padding:10px 12px;font-size:.84rem;color:var(--text);min-height:72px;line-height:1.6;outline:none"
+        onblur="saveInline(${task.id},'desc',this.innerText.trim())">${esc(task.desc || '')}<br></div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Notes</div>
+      <div contenteditable="true" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;
+           padding:10px 12px;font-size:.84rem;color:var(--text);min-height:72px;line-height:1.6;outline:none"
+        onblur="saveInline(${task.id},'notes',this.innerText.trim())">${esc(task.notes || '')}<br></div>
+    </div>
+
+    <div style="margin-bottom:20px;display:flex;flex-direction:column;gap:5px">
+      <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Activity</div>
+      ${task.created ? `<div style="font-size:.76rem;color:var(--muted)">📌 Created — ${task.created}</div>` : ''}
+      ${task.updated ? `<div style="font-size:.76rem;color:var(--muted)">✏️ Updated — ${task.updated}</div>` : ''}
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button onclick="moveSHTask(${task.id},'${task.status === 'done' ? 'todo' : 'done'}');shOpenDetail(${task.id})"
+        style="flex:1;background:${task.status === 'done' ? 'var(--surface)' : '#22c55e'};
+               border:1px solid ${task.status === 'done' ? 'var(--border)' : '#22c55e'};
+               color:${task.status === 'done' ? 'var(--text2)' : '#fff'};
+               border-radius:8px;padding:9px;font-family:var(--font-body);font-size:.83rem;font-weight:600;cursor:pointer">
+        ${task.status === 'done' ? '↩ Reopen' : '✓ Mark Done'}
+      </button>
+      <button onclick="openEditTask(${task.id})"
+        style="background:var(--surface);border:1px solid var(--border);border-radius:8px;
+               padding:9px 14px;color:var(--text2);font-size:.83rem;cursor:pointer" title="Edit in modal">✎</button>
+      <button onclick="if(confirm('Delete task?')){deleteSHTask(${task.id});shCloseDetail()}"
+        style="background:none;border:1px solid var(--border);border-radius:8px;
+               padding:9px 12px;color:var(--muted);font-size:.83rem;cursor:pointer">🗑</button>
+    </div>`;
+
+  const panel    = $('sh-detail-panel');
+  const backdrop = $('sh-detail-backdrop');
+  if (panel)    panel.style.transform   = 'translateX(0)';
+  if (backdrop) backdrop.style.display  = 'block';
+  _shSelectTask(id);
+}
+
+function shCloseDetail() {
+  const panel    = $('sh-detail-panel');
+  const backdrop = $('sh-detail-backdrop');
+  if (panel)    panel.style.transform   = 'translateX(100%)';
+  if (backdrop) backdrop.style.display  = 'none';
+}
 
 function renderSHBoard() {
   const data  = getSHData();
