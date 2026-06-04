@@ -4013,15 +4013,16 @@ async def sync_tasks(data: dict):
     clean = []
     for t in tasks[:500]:
         clean.append({
-            "id":       sanitize_text(str(t.get("id","")), 50),
-            "title":    sanitize_text(str(t.get("title","")), 200),
-            "status":   sanitize_text(str(t.get("status","todo")), 20),
-            "done":     bool(t.get("done", False)),
-            "date":     sanitize_text(str(t.get("date","")), 20),
-            "time":     sanitize_text(str(t.get("time","")), 10),
-            "priority": sanitize_text(str(t.get("priority","normal")), 20),
-            "type":     sanitize_text(str(t.get("type","other")), 30),
-            "goal_id":  sanitize_text(str(t.get("goal_id","")), 50),
+            "id":        sanitize_text(str(t.get("id","")), 50),
+            "title":     sanitize_text(str(t.get("title","")), 200),
+            "status":    sanitize_text(str(t.get("status","todo")), 20),
+            "done":      bool(t.get("done", False)),
+            "date":      sanitize_text(str(t.get("date","")), 20),
+            "time":      sanitize_text(str(t.get("time","")), 10),
+            "priority":  sanitize_text(str(t.get("priority","normal")), 20),
+            "type":      sanitize_text(str(t.get("type","other")), 30),
+            "goal_id":   sanitize_text(str(t.get("goal_id","")), 50),
+            "parent_id": sanitize_text(str(t.get("parent_id","")), 50),
         })
     save_tasks(sid, clean)
     return {"ok": True, "count": len(clean)}
@@ -4253,6 +4254,73 @@ async def delete_goal(data: dict):
     goals   = [g for g in load_goals(sid) if g["id"] != goal_id]
     save_goals(sid, goals)
     return {"ok": True}
+
+
+def _calc_goal_progress(g: dict) -> int:
+    krs = g.get("key_results", [])
+    if not krs:
+        return g.get("progress", 0)
+    pcts = [min(100.0, (kr["current"] / max(0.01, kr["target"])) * 100) for kr in krs]
+    return round(sum(pcts) / len(pcts))
+
+
+@app.post("/api/goals/kr/add")
+async def add_goal_kr(data: dict):
+    sid     = sanitize_text(str(data.get("sid","")), 100)
+    goal_id = sanitize_text(str(data.get("goal_id","")), 20)
+    title   = sanitize_text(str(data.get("title","")), 200)
+    target  = float(data.get("target", 100))
+    current = float(data.get("current", 0))
+    unit    = sanitize_text(str(data.get("unit","")), 50)
+    if not title:
+        raise HTTPException(400, "KR title required.")
+    goals = load_goals(sid)
+    for g in goals:
+        if g["id"] == goal_id:
+            kr = {"id": str(uuid.uuid4())[:8], "title": title,
+                  "target": max(0.1, target), "current": max(0.0, current), "unit": unit}
+            g.setdefault("key_results", []).append(kr)
+            g["progress"] = _calc_goal_progress(g)
+            break
+    save_goals(sid, goals)
+    return {"ok": True}
+
+
+@app.post("/api/goals/kr/update")
+async def update_goal_kr(data: dict):
+    sid     = sanitize_text(str(data.get("sid","")), 100)
+    goal_id = sanitize_text(str(data.get("goal_id","")), 20)
+    kr_id   = sanitize_text(str(data.get("kr_id","")), 20)
+    current = float(data.get("current", 0))
+    goals   = load_goals(sid)
+    for g in goals:
+        if g["id"] == goal_id:
+            for kr in g.get("key_results", []):
+                if kr["id"] == kr_id:
+                    kr["current"] = max(0.0, current)
+                    break
+            g["progress"] = _calc_goal_progress(g)
+            if g["progress"] >= 100:
+                g["completed"] = True
+            break
+    save_goals(sid, goals)
+    return {"ok": True}
+
+
+@app.post("/api/goals/kr/delete")
+async def delete_goal_kr(data: dict):
+    sid     = sanitize_text(str(data.get("sid","")), 100)
+    goal_id = sanitize_text(str(data.get("goal_id","")), 20)
+    kr_id   = sanitize_text(str(data.get("kr_id","")), 20)
+    goals   = load_goals(sid)
+    for g in goals:
+        if g["id"] == goal_id:
+            g["key_results"] = [kr for kr in g.get("key_results", []) if kr["id"] != kr_id]
+            g["progress"] = _calc_goal_progress(g)
+            break
+    save_goals(sid, goals)
+    return {"ok": True}
+
 
 @app.post("/api/learning-hub/enroll")
 async def enroll_course(data: dict):

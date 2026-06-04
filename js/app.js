@@ -2821,8 +2821,34 @@ function glRender() {
     const daysLabel = daysLeft !== null
       ? (daysLeft > 0 ? `${daysLeft}d left` : daysLeft === 0 ? 'Today!' : 'Overdue')
       : '';
+    const krs = g.key_results || [];
+    const hasKRs = krs.length > 0;
+    const krsHTML = krs.map(kr => {
+      const krPct = Math.min(100, (kr.current / Math.max(0.01, kr.target)) * 100);
+      return `
+        <div style="margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;gap:8px">
+            <span style="font-size:.78rem;color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(kr.title)}</span>
+            <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+              <input type="number" value="${kr.current}" min="0"
+                style="width:52px;text-align:right;background:var(--surface);border:1px solid var(--border);
+                       border-radius:5px;padding:2px 6px;font-size:.76rem;color:var(--text);outline:none"
+                onblur="glUpdateKR('${g.id}','${kr.id}',+this.value)"
+                onkeydown="if(event.key==='Enter')this.blur()">
+              <span style="font-size:.7rem;color:var(--muted);white-space:nowrap">/ ${kr.target}${kr.unit ? ' '+esc(kr.unit) : ''}</span>
+              <span style="font-size:.7rem;font-weight:700;color:var(--accent);min-width:30px;text-align:right">${Math.round(krPct)}%</span>
+              <button onclick="glDeleteKR('${g.id}','${kr.id}')"
+                style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.72rem;padding:1px 3px;flex-shrink:0">✕</button>
+            </div>
+          </div>
+          <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${krPct}%;background:var(--accent);border-radius:2px;transition:width .3s"></div>
+          </div>
+        </div>`;
+    }).join('');
+
     return `
-      <div class="gl-card ${g.completed ? 'done' : ''}">
+      <div class="gl-card ${g.completed ? 'done' : ''}" data-id="${g.id}">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
           <div style="flex:1;min-width:0">
             <div class="gl-title" style="margin-bottom:4px">${g.completed ? '✅ ' : ''}${esc(g.title)}</div>
@@ -2834,14 +2860,22 @@ function glRender() {
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-family:var(--font);font-size:.9rem;font-weight:800;color:var(--accent)">${pct}%</div>
-            <div style="font-size:.67rem;color:var(--muted)">of ${g.target_score}%</div>
+            <div style="font-size:.67rem;color:var(--muted)">${hasKRs ? `${krs.length} KR${krs.length!==1?'s':''}` : `of ${g.target_score}%`}</div>
           </div>
         </div>
         <div class="gl-prog-wrap">
           <div class="gl-prog-fill ${g.completed ? 'done' : ''}" style="width:${pct}%"></div>
         </div>
+        ${hasKRs ? `<div style="margin-top:10px">${krsHTML}</div>` : ''}
+        <button onclick="glAddKR('${g.id}')"
+          style="background:none;border:1px dashed var(--border);border-radius:7px;padding:4px 10px;
+                 font-size:.74rem;color:var(--muted);cursor:pointer;margin-top:${hasKRs?'0':'8px'};width:100%;
+                 font-family:var(--font-body);transition:var(--transition)"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+          + Key Result</button>
         <div class="gl-actions" style="margin-top:8px">
-          <button class="gl-action-btn" onclick="glUpdateProgress('${g.id}',${pct})">📈 Update</button>
+          ${!hasKRs ? `<button class="gl-action-btn" onclick="glUpdateProgress('${g.id}',${pct})">📈 Update</button>` : ''}
           <button class="gl-action-btn done-btn" onclick="glMarkDone('${g.id}')">${g.completed ? '↩ Reopen' : '✓ Done'}</button>
           <button class="gl-action-btn del-btn" onclick="glDelete('${g.id}')">🗑</button>
         </div>
@@ -2909,6 +2943,74 @@ async function glDelete(id) {
     glRender();
     toast('Goal deleted');
   } catch(e) { toast('Delete failed.'); }
+}
+
+// ── Goal Key Results ──────────────────────────────────────────────────────────
+
+function glAddKR(goalId) {
+  // Inject inline form into the goal card
+  const card = document.querySelector(`.gl-card[data-id="${goalId}"]`);
+  if (!card) return;
+  card.querySelectorAll('.gl-kr-form').forEach(f => f.remove());
+  const form = document.createElement('div');
+  form.className = 'gl-kr-form';
+  form.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap';
+  form.innerHTML = `
+    <input placeholder="What will you measure?" id="kr-title-${goalId}"
+      style="flex:2;min-width:130px;background:var(--surface);border:1px solid var(--accent);border-radius:7px;
+             padding:5px 9px;color:var(--text);font-family:var(--font-body);font-size:.8rem;outline:none">
+    <input type="number" placeholder="Target" id="kr-target-${goalId}" value="100" min="1"
+      style="width:68px;background:var(--surface);border:1px solid var(--border);border-radius:7px;
+             padding:5px 8px;color:var(--text);font-family:var(--font-body);font-size:.8rem;outline:none;text-align:center">
+    <input placeholder="Unit" id="kr-unit-${goalId}" value="%"
+      style="width:60px;background:var(--surface);border:1px solid var(--border);border-radius:7px;
+             padding:5px 8px;color:var(--text);font-family:var(--font-body);font-size:.8rem;outline:none">
+    <button onclick="glSaveKR('${goalId}')"
+      style="background:var(--accent);color:#fff;border:none;border-radius:7px;
+             padding:5px 13px;font-family:var(--font-body);font-size:.78rem;font-weight:600;cursor:pointer">Add</button>
+    <button onclick="this.closest('.gl-kr-form').remove()"
+      style="background:none;border:1px solid var(--border);border-radius:7px;
+             padding:5px 9px;font-family:var(--font-body);font-size:.78rem;color:var(--muted);cursor:pointer">✕</button>`;
+  card.appendChild(form);
+  document.getElementById(`kr-title-${goalId}`)?.focus();
+}
+
+async function glSaveKR(goalId) {
+  const title  = ($(`kr-title-${goalId}`)?.value || '').trim();
+  const target = parseFloat($(`kr-target-${goalId}`)?.value) || 100;
+  const unit   = ($(`kr-unit-${goalId}`)?.value || '').trim();
+  if (!title) { toast('Enter a Key Result name'); return; }
+  try {
+    await API('/api/goals/kr/add', { sid: S.sid, goal_id: goalId, title, target, current: 0, unit });
+    await glLoad();
+    toast('Key Result added ✓');
+  } catch { toast('Could not add Key Result'); }
+}
+
+async function glUpdateKR(goalId, krId, current) {
+  try {
+    await API('/api/goals/kr/update', { sid: S.sid, goal_id: goalId, kr_id: krId, current });
+    // Update local cache silently, then re-render
+    const g = GL_GOALS.find(x => x.id === goalId);
+    if (g) {
+      const kr = (g.key_results || []).find(k => k.id === krId);
+      if (kr) kr.current = current;
+      g.progress = Math.round(
+        (g.key_results || []).reduce((s, k) => s + Math.min(100, (k.current / Math.max(0.01, k.target)) * 100), 0) /
+        Math.max(1, (g.key_results || []).length)
+      );
+      if (g.progress >= 100) g.completed = true;
+    }
+    glRender();
+  } catch { toast('Update failed'); }
+}
+
+async function glDeleteKR(goalId, krId) {
+  if (!confirm('Delete this Key Result?')) return;
+  try {
+    await API('/api/goals/kr/delete', { sid: S.sid, goal_id: goalId, kr_id: krId });
+    await glLoad();
+  } catch { toast('Delete failed'); }
 }
 
 // ═══════════════════════ DOCUMENT HUB ══════════════════════
@@ -6789,7 +6891,21 @@ function renderSHOverview() {
     return;
   }
 
-  tbody.innerHTML = tasks.map((t, idx) => {
+  // Group: top-level tasks first, subtasks indented beneath their parent
+  const topLevel = tasks.filter(t => !t.parent_id);
+  const childMap = {};
+  tasks.filter(t => t.parent_id).forEach(t => {
+    (childMap[String(t.parent_id)] = childMap[String(t.parent_id)] || []).push(t);
+  });
+  const ordered = [];
+  topLevel.forEach(t => {
+    ordered.push({ task: t, indent: false });
+    (childMap[String(t.id)] || []).forEach(c => ordered.push({ task: c, indent: true }));
+  });
+  tasks.filter(t => t.parent_id && !topLevel.find(p => String(p.id) === String(t.parent_id)))
+       .forEach(t => ordered.push({ task: t, indent: false }));
+
+  tbody.innerHTML = ordered.map(({ task: t, indent }) => {
     const st     = STATUS[t.status]    || STATUS.todo;
     const pr     = PRIORITY[t.priority] || PRIORITY.normal;
     const ico    = TYPE_ICONS[t.type]  || '⚙️';
@@ -6808,7 +6924,8 @@ function renderSHOverview() {
           onclick="event.stopPropagation();_shToggleBulk(${t.id},this.checked)"
           style="cursor:pointer;accent-color:var(--accent)">
       </td>
-      <td><div class="sh-cell" style="display:flex;align-items:center;gap:5px">
+      <td><div class="sh-cell" style="display:flex;align-items:center;gap:5px;${indent ? 'padding-left:12px' : ''}">
+            ${indent ? '<span style="color:var(--border);font-size:.75rem;flex-shrink:0;margin-right:1px">↳</span>' : ''}
             <div class="sh-cell-title" style="flex:1;${isDone ? 'text-decoration:line-through;opacity:.6' : ''};cursor:pointer"
                 onclick="event.stopPropagation();shOpenDetail(${t.id})">${esc(t.title)}</div>
             <button class="task-focus-btn" onclick="event.stopPropagation();focusStart(${JSON.stringify(t.title)},25)" title="Focus on this task"><i class="ti ti-player-play" style="font-size:10px"></i></button>
@@ -7262,6 +7379,32 @@ function shOpenDetail(id) {
       ${task.updated ? `<div style="font-size:.76rem;color:var(--muted)">✏️ Updated — ${task.updated}</div>` : ''}
     </div>
 
+    ${(() => {
+      const allTasks = getSHData().tasks || [];
+      const subs = allTasks.filter(c => String(c.parent_id) === String(task.id));
+      const subsHTML = subs.length
+        ? subs.map(s => `
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:7px;background:var(--surface);margin-bottom:4px">
+            <input type="checkbox" ${s.status === 'done' ? 'checked' : ''}
+              onchange="moveSHTask(${s.id},this.checked?'done':'todo');shOpenDetail(${task.id})"
+              style="cursor:pointer;accent-color:var(--accent);flex-shrink:0">
+            <span style="flex:1;font-size:.82rem;${s.status === 'done' ? 'text-decoration:line-through;opacity:.5;' : ''}">${esc(s.title)}</span>
+            <button onclick="if(confirm('Delete subtask?')){deleteSHTask(${s.id});shOpenDetail(${task.id})}"
+              style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.75rem;padding:2px 4px">✕</button>
+          </div>`).join('')
+        : `<div style="font-size:.78rem;color:var(--muted);padding:4px 0">No subtasks yet</div>`;
+      return `
+    <div style="margin-bottom:16px">
+      <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+        <span>Subtasks ${subs.length ? `(${subs.filter(s=>s.done).length}/${subs.length})` : ''}</span>
+        <button onclick="addSubtask(${task.id})"
+          style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;
+                 font-size:.72rem;color:var(--accent);cursor:pointer;font-weight:600">+ Add</button>
+      </div>
+      ${subsHTML}
+    </div>`;
+    })()}
+
     <div style="display:flex;gap:8px">
       <button onclick="moveSHTask(${task.id},'${task.status === 'done' ? 'todo' : 'done'}');shOpenDetail(${task.id})"
         style="flex:1;background:${task.status === 'done' ? 'var(--surface)' : '#22c55e'};
@@ -7292,6 +7435,25 @@ function shCloseDetail() {
   if (backdrop) backdrop.style.display  = 'none';
 }
 
+async function addSubtask(parentId) {
+  const title = await siModal.input('New Subtask', 'Subtask name:', '', { confirmLabel: 'Add' });
+  if (!title?.trim()) return;
+  const data   = getSHData();
+  const parent = (data.tasks || []).find(t => t.id === parentId);
+  const now    = new Date().toLocaleDateString();
+  data.tasks.push({
+    id: Date.now(), title: title.trim(),
+    status: 'todo', done: false,
+    parent_id: parentId,
+    priority: parent?.priority || 'normal',
+    created: now, updated: now,
+  });
+  saveSHData(data);
+  renderSHBoard();
+  shOpenDetail(parentId);
+  toast('Subtask added ✓');
+}
+
 function renderSHBoard() {
   const data  = getSHData();
   const tasks = data.tasks || [];
@@ -7311,8 +7473,11 @@ function renderSHBoard() {
     if (!body) return;
     if (count) count.textContent = colTasks.length;
 
-    body.innerHTML = colTasks.length ? colTasks.map(t => {
-      const dFmt = _fmtDueDate(t.date, t.time);
+    const allTasksForBoard = tasks;
+    body.innerHTML = colTasks.length ? colTasks.filter(t => !t.parent_id).map(t => {
+      const dFmt   = _fmtDueDate(t.date, t.time);
+      const subs   = allTasksForBoard.filter(c => String(c.parent_id) === String(t.id));
+      const subDone = subs.filter(c => c.done).length;
       return `
       <div class="sh-card" draggable="true"
         ondragstart="SH_DRAG=${t.id}"
@@ -7321,6 +7486,7 @@ function renderSHBoard() {
         ${t.notes ? `<div class="sh-card-notes">${esc(t.notes)}</div>` : ''}
         <div class="sh-card-footer">
           ${t.date ? `<span class="sh-card-date" style="color:${dFmt.color};font-weight:${dFmt.overdue?'700':'400'}">${dFmt.overdue ? '⚠️' : '📅'} ${dFmt.label}</span>` : ''}
+          ${subs.length ? `<span style="font-size:.67rem;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px">${subDone}/${subs.length} ○</span>` : ''}
           <span class="sh-priority ${t.priority}">${
             t.priority === 'high' ? '🔴 High' :
             t.priority === 'medium' ? '🟡 Med' :
