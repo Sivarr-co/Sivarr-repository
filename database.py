@@ -171,6 +171,7 @@ CREATE TABLE IF NOT EXISTS spaces (
     space_type TEXT DEFAULT 'personal',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_spaces_user ON spaces(user_sid);
 
 CREATE TABLE IF NOT EXISTS space_data (
     space_id   TEXT NOT NULL,
@@ -257,6 +258,7 @@ CREATE TABLE IF NOT EXISTS agent_follows (
     followed_at  TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (follower_sid, agent_id)
 );
+CREATE INDEX IF NOT EXISTS idx_agent_follows_agent ON agent_follows(agent_id);
 
 CREATE TABLE IF NOT EXISTS agent_payouts (
     id                 TEXT PRIMARY KEY,
@@ -269,6 +271,7 @@ CREATE TABLE IF NOT EXISTS agent_payouts (
     paid_at            TIMESTAMPTZ,
     created_at         TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_agent_payouts_agent ON agent_payouts(agent_id);
 
 -- ── Migrations for existing installs ──────────────────────────
 ALTER TABLE agent_templates ADD COLUMN IF NOT EXISTS price_ngn NUMERIC(10,2);
@@ -310,6 +313,7 @@ CREATE TABLE IF NOT EXISTS orgs (
     settings    JSONB DEFAULT '{}',
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_orgs_owner ON orgs(owner_sid);
 
 CREATE TABLE IF NOT EXISTS org_members (
     id          SERIAL PRIMARY KEY,
@@ -333,7 +337,8 @@ CREATE TABLE IF NOT EXISTS org_invites (
     used        BOOLEAN DEFAULT FALSE,
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_org_invites_org ON org_invites(org_id);
+CREATE INDEX IF NOT EXISTS idx_org_invites_org   ON org_invites(org_id);
+CREATE INDEX IF NOT EXISTS idx_org_invites_email ON org_invites(email);
 
 CREATE TABLE IF NOT EXISTS org_tasks (
     id           TEXT PRIMARY KEY,
@@ -349,8 +354,9 @@ CREATE TABLE IF NOT EXISTS org_tasks (
     created_at   TIMESTAMPTZ DEFAULT NOW(),
     updated_at   TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_org_tasks_org     ON org_tasks(org_id);
-CREATE INDEX IF NOT EXISTS idx_org_tasks_project ON org_tasks(project_id);
+CREATE INDEX IF NOT EXISTS idx_org_tasks_org      ON org_tasks(org_id);
+CREATE INDEX IF NOT EXISTS idx_org_tasks_project  ON org_tasks(project_id);
+CREATE INDEX IF NOT EXISTS idx_org_tasks_assignee ON org_tasks(assignee_sid);
 
 CREATE TABLE IF NOT EXISTS org_projects (
     id           TEXT PRIMARY KEY,
@@ -417,6 +423,7 @@ CREATE TABLE IF NOT EXISTS org_key_results (
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_org_kr_goal ON org_key_results(goal_id);
+CREATE INDEX IF NOT EXISTS idx_org_kr_org  ON org_key_results(org_id);
 
 CREATE TABLE IF NOT EXISTS org_founder (
     org_id        TEXT PRIMARY KEY REFERENCES orgs(id) ON DELETE CASCADE,
