@@ -19,6 +19,7 @@ import random
 import re
 import secrets
 import shutil
+import threading
 import time
 import traceback
 import uuid
@@ -1537,11 +1538,264 @@ async def startup():
         if ok:
             db.migrate_from_json(str(USERS_PATH), str(DATA_DIR))
             db.cleanup_db_sessions()
+            db.seed_marketplace_templates()   # MP3: seed agent templates if empty
             log.info("Database ready")
         else:
             log.error("DB schema init failed after all retries — org features may be unavailable")
     else:
         log.info("Running on JSON file storage (no DATABASE_URL set)")
+
+    # MP4: seed community posts and opportunities JSON files if empty
+    _seed_community_and_opps()
+
+    # MP6: start APScheduler for weekly review + push notification jobs
+    _start_scheduler()
+
+# ═══════════════════════════════════════════════════════════════
+#  MP4 — Seed community posts + opportunities (JSON files)
+# ═══════════════════════════════════════════════════════════════
+
+def _seed_community_and_opps():
+    """Populate community posts and opportunities JSON files with starter content
+    if they are empty or missing. Safe to call on every startup — skips if data exists."""
+    import datetime as _dt
+
+    # ── Community posts ───────────────────────────────────────
+    with _comm_lock:
+        posts = _load_json_file(COMMUNITY_PATH, [])
+    if not posts:
+        now = _dt.datetime.utcnow()
+        seed_posts = [
+            {"id": "seed_1", "author": "Sivarr Team", "content": "Just launched my first feature after two weeks of debugging. Celebrate the small wins.", "category": "general", "likes": 14, "replies": [], "created": (now - _dt.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")},
+            {"id": "seed_2", "author": "Sivarr Team", "content": "Anyone else use Sivarr AI for breaking down big projects? The task extraction is underrated.", "category": "q_and_a", "likes": 8, "replies": [], "created": (now - _dt.timedelta(hours=5)).strftime("%Y-%m-%dT%H:%M:%SZ")},
+            {"id": "seed_3", "author": "Sivarr Team", "content": "Tip: link your tasks to goals in the detail panel. Your weekly review gets way more useful.", "category": "general", "likes": 22, "replies": [], "created": (now - _dt.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")},
+            {"id": "seed_4", "author": "Sivarr Team", "content": "Built a study routine using the Pomodoro timer and daily plan combo. 3 weeks consistent.", "category": "study", "likes": 31, "replies": [], "created": (now - _dt.timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")},
+            {"id": "seed_5", "author": "Sivarr Team", "content": "For Nigerian founders: Paystack webhooks + Sivarr Financials tab is a clean combo for tracking MRR.", "category": "general", "likes": 19, "replies": [], "created": (now - _dt.timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")},
+        ]
+        with _comm_lock:
+            _save_json_file(COMMUNITY_PATH, seed_posts)
+        log.info("Seeded community posts")
+
+    # ── Opportunities ─────────────────────────────────────────
+    with _opp_lock:
+        opps = _load_json_file(OPPORTUNITIES_PATH, [])
+    if not opps:
+        now = _dt.datetime.utcnow()
+        seed_opps = [
+            {"id": "opp_1", "title": "Frontend Developer — Remote", "description": "Build interfaces for a Lagos-based fintech. 2+ years React required.", "category": "job", "organisation": "PaystackHQ", "location": "Remote / Lagos", "deadline": (now + _dt.timedelta(days=14)).strftime("%Y-%m-%d"), "url": "#", "created": now.strftime("%Y-%m-%dT%H:%M:%SZ")},
+            {"id": "opp_2", "title": "Google Africa Developer Scholarship", "description": "Scholarship for African developers to upskill in cloud and mobile development.", "category": "scholarship", "organisation": "Google", "location": "Africa-wide", "deadline": (now + _dt.timedelta(days=30)).strftime("%Y-%m-%d"), "url": "#", "created": now.strftime("%Y-%m-%dT%H:%M:%SZ")},
+            {"id": "opp_3", "title": "Tony Elumelu Foundation Grant", "description": "₦5M grant for early-stage African entrepreneurs. Applications open now.", "category": "grant", "organisation": "TEF", "location": "Africa-wide", "deadline": (now + _dt.timedelta(days=45)).strftime("%Y-%m-%d"), "url": "#", "created": now.strftime("%Y-%m-%dT%H:%M:%SZ")},
+            {"id": "opp_4", "title": "UI/UX Design Internship", "description": "3-month paid internship at a product studio in Yaba, Lagos. Stipend provided.", "category": "internship", "organisation": "Studio Yaba", "location": "Lagos, Nigeria", "deadline": (now + _dt.timedelta(days=10)).strftime("%Y-%m-%d"), "url": "#", "created": now.strftime("%Y-%m-%dT%H:%M:%SZ")},
+            {"id": "opp_5", "title": "Binance Africa Web3 Hackathon", "description": "Build on-chain tools for African markets. Prizes up to $50,000.", "category": "grant", "organisation": "Binance", "location": "Remote", "deadline": (now + _dt.timedelta(days=21)).strftime("%Y-%m-%d"), "url": "#", "created": now.strftime("%Y-%m-%dT%H:%M:%SZ")},
+        ]
+        with _opp_lock:
+            _save_json_file(OPPORTUNITIES_PATH, seed_opps)
+        log.info("Seeded opportunities")
+
+
+# ═══════════════════════════════════════════════════════════════
+#  MP5 — Push notification backend (subscribe + send)
+# ═══════════════════════════════════════════════════════════════
+
+_PUSH_SUBS_PATH = DATA_DIR / "push_subscriptions.json"
+_push_lock = threading.Lock()
+
+def _load_push_subs() -> dict:
+    with _push_lock:
+        return _load_json_file(_PUSH_SUBS_PATH, {})
+
+def _save_push_subs(subs: dict):
+    with _push_lock:
+        _save_json_file(_PUSH_SUBS_PATH, subs)
+
+def _send_push(subscription_info: dict, title: str, body: str, url: str = "/app") -> str:
+    """Send a web push notification. Returns 'expired' if subscription is stale."""
+    if not WEBPUSH_AVAILABLE or not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
+        return "unavailable"
+    try:
+        _webpush(
+            subscription_info=subscription_info,
+            data=json.dumps({"title": title, "body": body, "url": url}),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims={"sub": VAPID_EMAIL},
+        )
+        return "ok"
+    except WebPushException as e:
+        if e.response and e.response.status_code in (404, 410):
+            return "expired"
+        log.warning(f"Push failed: {e}")
+        return "error"
+    except Exception as e:
+        log.warning(f"Push error: {e}")
+        return "error"
+
+@app.post("/api/notifications/subscribe")
+async def push_subscribe(data: dict):
+    """Store a browser push subscription for a user."""
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid          = sess["sid"]
+    subscription = data.get("subscription")
+    notif_type   = data.get("type", "")
+    if not subscription or notif_type not in ("streak", "tasks"):
+        raise HTTPException(400, "Missing subscription or invalid type.")
+    subs = _load_push_subs()
+    entry = subs.get(sid, {"subscription": subscription, "types": []})
+    entry["subscription"] = subscription
+    if notif_type not in entry["types"]:
+        entry["types"].append(notif_type)
+    subs[sid] = entry
+    _save_push_subs(subs)
+    return {"status": "subscribed"}
+
+@app.post("/api/notifications/unsubscribe")
+async def push_unsubscribe(data: dict):
+    """Remove a notification type from a user's subscription."""
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid        = sess["sid"]
+    notif_type = data.get("type", "")
+    subs = _load_push_subs()
+    if sid in subs:
+        subs[sid]["types"] = [t for t in subs[sid].get("types", []) if t != notif_type]
+        if not subs[sid]["types"]:
+            del subs[sid]
+    _save_push_subs(subs)
+    return {"status": "unsubscribed"}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  MP6 — APScheduler: weekly review + push notification jobs
+# ═══════════════════════════════════════════════════════════════
+
+def _start_scheduler():
+    """Initialise and start APScheduler with weekly review and push notification jobs."""
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        from apscheduler.triggers.cron import CronTrigger
+        from apscheduler.triggers.interval import IntervalTrigger
+    except ImportError:
+        log.warning("APScheduler not installed — scheduled jobs disabled. Run: pip install apscheduler")
+        return
+
+    scheduler = AsyncIOScheduler(timezone="UTC")
+
+    # ── Job 1: Weekly review auto-generation — Monday 06:00 UTC ──
+    async def _auto_weekly_reviews():
+        import datetime as _dt
+        log.info("Running auto weekly review job…")
+        today      = _dt.date.today()
+        week_start = str(today - _dt.timedelta(days=today.weekday()))  # Monday
+        reviews_dir = DATA_DIR / "weekly_reviews"
+        reviews_dir.mkdir(exist_ok=True)
+
+        # Iterate users who have task/habit files
+        for p in DATA_DIR.glob("*_habits.json"):
+            sid = p.name.replace("_habits.json", "")
+            # Skip if review already exists for this week
+            review_path = reviews_dir / f"{sid}_{week_start}.json"
+            if review_path.exists():
+                continue
+            tasks  = load_tasks(sid)
+            habits = load_habits(sid)
+            goals  = load_goals(sid)
+            tasks_done  = sum(1 for t in tasks if t.get("done"))
+            tasks_total = len(tasks)
+            habit_logs  = sum(len(h.get("completions", [])) for h in habits)
+            if tasks_done < 3 and habit_logs < 5:
+                continue  # not enough activity
+            habits_pct = 0
+            if habits:
+                days_range = [str(today - _dt.timedelta(days=i)) for i in range(7)]
+                done_logs  = sum(1 for h in habits for d in h.get("completions",[]) if d in days_range)
+                habits_pct = round(done_logs / (len(habits) * 7) * 100) if habits else 0
+            mood = ""
+            jnl_path = DATA_DIR / f"{sid}_journal.json"
+            if jnl_path.exists():
+                try:
+                    jnl   = json.loads(jnl_path.read_text())
+                    moods = [e.get("mood","") for e in jnl if e.get("date","") >= str(today - _dt.timedelta(days=7)) and e.get("mood")]
+                    if moods:
+                        from collections import Counter as _Counter
+                        mood = _Counter(moods).most_common(1)[0][0]
+                except Exception:
+                    pass
+            goals_txt = "\n".join(f"  - {g.get('title','')}: {g.get('progress',0)}%" for g in goals[:5]) or "  - No active goals"
+            week_end   = today
+            week_range = f"{(today - _dt.timedelta(days=6)).strftime('%b %d')}–{today.strftime('%b %d')}"
+            prompt = f"""Write a warm, insightful weekly review covering {week_range}.
+Tasks completed: {tasks_done}/{tasks_total}. Habits: {habits_pct}%. Goals:\n{goals_txt}.
+{"Mood: " + mood + "." if mood else ""}
+4 sections: **This Week**, **Wins**, **Focus Next Week**, **Closing**. Concise, personal, max 300 words."""
+            try:
+                review = gemini_once(prompt, temp=0.72, tokens=380)
+                if review:
+                    save_json(review_path, {"review": review, "week_start": week_start, "generated_at": today.isoformat()})
+                    log.info(f"Auto weekly review saved for {sid}")
+            except Exception as e:
+                log.error(f"Auto review failed for {sid}: {e}")
+
+    scheduler.add_job(_auto_weekly_reviews, CronTrigger(day_of_week="mon", hour=6, minute=0))
+
+    # ── Job 2: Streak reminder — daily at 19:00 UTC (20:00 WAT) ──
+    async def _streak_reminders():
+        import datetime as _dt
+        today_str = str(_dt.date.today())
+        subs = _load_push_subs()
+        for sid, entry in list(subs.items()):
+            if "streak" not in entry.get("types", []):
+                continue
+            habits = load_habits(sid)
+            if not habits:
+                continue
+            unchecked = [h for h in habits if today_str not in h.get("completions", [])]
+            if not unchecked:
+                continue
+            result = _send_push(entry["subscription"], title="Sivarr — Streak at risk", body="Log your habits before midnight to keep your streak.", url="/app#habits")
+            if result == "expired":
+                subs.pop(sid, None)
+        _save_push_subs(subs)
+
+    scheduler.add_job(_streak_reminders, CronTrigger(hour=19, minute=0))
+
+    # ── Job 3: Task due alerts — every 15 minutes ────────────────
+    async def _task_due_alerts():
+        import datetime as _dt
+        now       = _dt.datetime.utcnow()
+        window    = str((now + _dt.timedelta(minutes=75)).date())
+        today_str = str(now.date())
+        subs = _load_push_subs()
+        for sid, entry in list(subs.items()):
+            if "tasks" not in entry.get("types", []):
+                continue
+            tasks = load_tasks(sid)
+            for t in tasks:
+                if t.get("done"):
+                    continue
+                due = t.get("date","")
+                if not due or not (today_str <= due <= window):
+                    continue
+                if t.get("push_notified_at","") >= today_str:
+                    continue
+                result = _send_push(entry["subscription"], title=f"Due soon: {t.get('title','Task')}", body="This task is due in under an hour.", url="/app#tasks")
+                if result == "ok":
+                    t["push_notified_at"] = today_str
+                elif result == "expired":
+                    subs.pop(sid, None)
+                    break
+            else:
+                save_tasks(sid, tasks)
+        _save_push_subs(subs)
+
+    scheduler.add_job(_task_due_alerts, IntervalTrigger(minutes=15))
+
+    scheduler.start()
+    log.info("APScheduler started — weekly review (Mon 06:00 UTC) + push notification jobs registered")
+
 
 # ── Global error handler ──────────────────────────────────────
 
@@ -4017,19 +4271,73 @@ async def sync_tasks(data: dict):
     clean = []
     for t in tasks[:500]:
         clean.append({
-            "id":        sanitize_text(str(t.get("id","")), 50),
-            "title":     sanitize_text(str(t.get("title","")), 200),
-            "status":    sanitize_text(str(t.get("status","todo")), 20),
-            "done":      bool(t.get("done", False)),
-            "date":      sanitize_text(str(t.get("date","")), 20),
-            "time":      sanitize_text(str(t.get("time","")), 10),
-            "priority":  sanitize_text(str(t.get("priority","normal")), 20),
-            "type":      sanitize_text(str(t.get("type","other")), 30),
-            "goal_id":   sanitize_text(str(t.get("goal_id","")), 50),
-            "parent_id": sanitize_text(str(t.get("parent_id","")), 50),
+            "id":                 sanitize_text(str(t.get("id","")), 50),
+            "title":              sanitize_text(str(t.get("title","")), 200),
+            "status":             sanitize_text(str(t.get("status","todo")), 20),
+            "done":               bool(t.get("done", False)),
+            "date":               sanitize_text(str(t.get("date","")), 20),
+            "time":               sanitize_text(str(t.get("time","")), 10),
+            "priority":           sanitize_text(str(t.get("priority","normal")), 20),
+            "type":               sanitize_text(str(t.get("type","other")), 30),
+            "goal_id":            sanitize_text(str(t.get("goal_id","")), 50),
+            "parent_id":          sanitize_text(str(t.get("parent_id","")), 50),
+            "recurrence":         sanitize_text(str(t.get("recurrence","")), 20) or None,
+            "recurrence_spawned": bool(t.get("recurrence_spawned", False)),
         })
+
+    # ── Recurring task spawn ──────────────────────────────────────────────────
+    # When a recurring task is marked done, create the next occurrence and mark
+    # the original as spawned so we don't create duplicates on the next sync.
+    import datetime as _dt
+    existing_ids = {t["id"] for t in clean}
+    new_occurrences = []
+    _RECUR_INTERVALS = {
+        "daily":   _dt.timedelta(days=1),
+        "weekly":  _dt.timedelta(weeks=1),
+        "monthly": _dt.timedelta(days=30),
+    }
+    for t in clean:
+        if (t.get("done")
+                and t.get("recurrence") and t["recurrence"] not in ("", "none", None)
+                and not t.get("recurrence_spawned")
+                and t.get("date")):
+            interval = _RECUR_INTERVALS.get(t["recurrence"])
+            if not interval:
+                continue
+            try:
+                base_due = _dt.date.fromisoformat(t["date"])
+            except ValueError:
+                continue
+            new_due = str(base_due + interval)
+            new_id  = f"rec_{t['id']}_{int(_dt.datetime.utcnow().timestamp() * 1000)}"
+            new_occurrences.append({
+                "id":                 new_id,
+                "title":              t["title"],
+                "status":             "todo",
+                "done":               False,
+                "date":               new_due,
+                "time":               t.get("time", ""),
+                "priority":           t.get("priority", "normal"),
+                "type":               t.get("type", "other"),
+                "goal_id":            t.get("goal_id", ""),
+                "parent_id":          t["id"],
+                "recurrence":         t["recurrence"],
+                "recurrence_spawned": False,
+            })
+            t["recurrence_spawned"] = True  # prevent re-creation on next sync
+
+    clean.extend(new_occurrences)
     save_tasks(sid, clean)
-    return {"ok": True, "count": len(clean)}
+    spawned = [o["id"] for o in new_occurrences]
+    return {"ok": True, "count": len(clean), "spawned": spawned}
+
+@app.get("/api/tasks/restore")
+async def restore_tasks(token: str = ""):
+    """Return the server-stored task list so the client can sync back after a spawn."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    return {"tasks": load_tasks(sess["sid"])}
 
 # ── Personal docs — server-side mirror of localStorage ────────────────────────
 def load_docs(sid: str) -> list:
@@ -4214,11 +4522,14 @@ async def get_goals(sid: str = "", token: str = ""):
 
 @app.post("/api/goals/add")
 async def add_goal(data: dict):
-    sid     = sanitize_text(str(data.get("sid","")), 100)
-    title   = sanitize_text(str(data.get("title","")), 100)
-    subject = sanitize_text(str(data.get("subject","")), 100)
-    target  = int(data.get("target_score", 70))
-    deadline = sanitize_text(str(data.get("deadline","")), 20)
+    sid       = sanitize_text(str(data.get("sid","")), 100)
+    title     = sanitize_text(str(data.get("title","")), 100)
+    subject   = sanitize_text(str(data.get("subject","")), 100)
+    target    = int(data.get("target_score", 70))
+    deadline  = sanitize_text(str(data.get("deadline","")), 20)
+    goal_type = sanitize_text(str(data.get("goal_type", "okr")), 20)
+    if goal_type not in ("okr", "score"):
+        goal_type = "okr"
     if not title:
         raise HTTPException(400, "Goal title required.")
     goals = load_goals(sid)
@@ -4231,6 +4542,7 @@ async def add_goal(data: dict):
         "created":      datetime.date.today().isoformat(),
         "progress":     0,
         "completed":    False,
+        "goal_type":    goal_type,
     }
     goals.append(goal)
     save_goals(sid, goals)
@@ -6059,7 +6371,32 @@ Keep it concise, personal, and grounded in the actual numbers. No generic filler
     review = gemini_once(prompt, temp=0.72, tokens=380)
     if not review:
         review = f"Great effort this week, {first_name}! You completed {tasks_done} tasks and maintained {habits_pct}% of your habits. Keep building that momentum — next week, push one goal past its current mark."
+    # Cache the review server-side for auto-display next time
+    import datetime as _dt2
+    week_start_str = str(_dt2.date.today() - _dt2.timedelta(days=_dt2.date.today().weekday()))
+    reviews_dir = DATA_DIR / "weekly_reviews"
+    reviews_dir.mkdir(exist_ok=True)
+    review_path = reviews_dir / f"{sid}_{week_start_str}.json"
+    save_json(review_path, {"review": review, "week_start": week_start_str, "generated_at": str(_dt2.date.today())})
+
     return {"review": review, "week": week_range}
+
+
+@app.get("/api/ai/weekly-review/latest")
+async def weekly_review_latest(token: str = ""):
+    """Return the most recent auto-generated or manual review for the current week."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    import datetime as _dt
+    today      = _dt.date.today()
+    week_start = str(today - _dt.timedelta(days=today.weekday()))
+    review_path = DATA_DIR / "weekly_reviews" / f"{sid}_{week_start}.json"
+    if not review_path.exists():
+        raise HTTPException(404, "No review for this week yet.")
+    data = json.loads(review_path.read_text())
+    return {"review": data.get("review",""), "week_start": data.get("week_start", week_start)}
 
 
 @app.post("/api/ai/parse-intent")
@@ -6679,7 +7016,6 @@ async def billing_cancel(data: dict):
 #  COMMUNITY & OPPORTUNITIES
 # ═══════════════════════════════════════════════════════════════
 
-import threading
 _comm_lock = threading.Lock()
 _opp_lock  = threading.Lock()
 

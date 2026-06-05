@@ -2862,7 +2862,8 @@ function glRender() {
       ? (daysLeft > 0 ? `${daysLeft}d left` : daysLeft === 0 ? 'Today!' : 'Overdue')
       : '';
     const krs = g.key_results || [];
-    const hasKRs = krs.length > 0;
+    const isScore = g.goal_type === 'score';  // score model shows % bar only, no KR UI
+    const hasKRs = !isScore && krs.length > 0;
     const krsHTML = krs.map(kr => {
       const krPct = Math.min(100, (kr.current / Math.max(0.01, kr.target)) * 100);
       return `
@@ -2907,15 +2908,15 @@ function glRender() {
           <div class="gl-prog-fill ${g.completed ? 'done' : ''}" style="width:${pct}%"></div>
         </div>
         ${hasKRs ? `<div style="margin-top:10px">${krsHTML}</div>` : ''}
-        <button onclick="glAddKR('${g.id}')"
+        ${!isScore ? `<button onclick="glAddKR('${g.id}')"
           style="background:none;border:1px dashed var(--border);border-radius:7px;padding:4px 10px;
                  font-size:.74rem;color:var(--muted);cursor:pointer;margin-top:${hasKRs?'0':'8px'};width:100%;
                  font-family:var(--font-body);transition:var(--transition)"
           onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-          + Key Result</button>
+          + Key Result</button>` : ''}
         <div class="gl-actions" style="margin-top:8px">
-          ${!hasKRs ? `<button class="gl-action-btn" onclick="glUpdateProgress('${g.id}',${pct})">📈 Update</button>` : ''}
+          ${(isScore || !hasKRs) ? `<button class="gl-action-btn" onclick="glUpdateProgress('${g.id}',${pct})">📈 Update</button>` : ''}
           <button class="gl-action-btn done-btn" onclick="glMarkDone('${g.id}')">${g.completed ? '↩ Reopen' : '✓ Done'}</button>
           <button class="gl-action-btn del-btn" onclick="glDelete('${g.id}')">🗑</button>
         </div>
@@ -2931,19 +2932,27 @@ function glToggleForm() {
   }
 }
 
+function glToggleScoreField(type) {
+  const sf = $('gl-score-field');
+  if (sf) sf.style.display = type === 'score' ? 'block' : 'none';
+}
+
 async function glSaveGoal() {
-  const title   = $('gl-title')?.value.trim();
-  const subject = $('gl-subject')?.value.trim();
-  const target  = parseInt($('gl-target')?.value) || 70;
-  const deadline = $('gl-deadline')?.value;
+  const title     = $('gl-title')?.value.trim();
+  const subject   = $('gl-subject')?.value.trim();
+  const target    = parseInt($('gl-target')?.value) || 70;
+  const deadline  = $('gl-deadline')?.value;
+  const goal_type = $('gl-type')?.value || 'okr';
   if (!title) { toast('Enter a goal title.'); return; }
   try {
-    const r = await API('/api/goals/add', {sid:S.sid, title, subject, target_score:target, deadline});
+    const r = await API('/api/goals/add', {sid:S.sid, title, subject, target_score:target, deadline, goal_type});
     GL_GOALS.push(r.goal);
     glRender();
     $('gl-add-form').classList.remove('open');
     $('gl-title').value = ''; $('gl-subject').value = '';
     $('gl-target').value = '70'; $('gl-deadline').value = '';
+    if ($('gl-type')) $('gl-type').value = 'okr';
+    glToggleScoreField('okr');
     toast('Goal added! 🎯');
   } catch(e) { toast('Could not save goal.'); }
 }
@@ -7272,6 +7281,22 @@ function _syncTasksToServer(tasks) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, tasks }),
+  }).then(r => r.json()).then(d => {
+    // If the server spawned new recurring task occurrences, merge them into localStorage
+    if (d.spawned && d.spawned.length > 0) {
+      const data = getSHData();
+      const ids  = new Set((data.tasks || []).map(t => t.id));
+      // Reload all tasks from server to get the new occurrences
+      fetch(`/api/tasks/restore?token=${encodeURIComponent(token)}`).then(r2 => r2.json()).then(d2 => {
+        if (d2.tasks && d2.tasks.length) {
+          data.tasks = d2.tasks;
+          localStorage.setItem(SH_KEY(), JSON.stringify(data));
+          renderSHOverview();
+          renderSHBoard();
+          toast('New recurring task added ↻');
+        }
+      }).catch(() => {});
+    }
   }).catch(() => _queueMutation('/api/tasks/sync', { token, tasks }));
 }
 

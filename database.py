@@ -2591,3 +2591,111 @@ def save_feedback(sid: str, rating: int, text: str, page: str = "") -> bool:
         return False
     finally:
         _release(conn)
+
+
+# ── MP3: Marketplace seed data ────────────────────────────────────────────────
+
+_SEED_AGENT_ID = "sivarr_seed_agent"
+
+_SEED_TEMPLATES = [
+    {
+        "id": "seed_copy_assistant",
+        "name": "Copy Assistant",
+        "short_description": "Writes social captions, emails, product descriptions, and ad copy from a brief.",
+        "category": "writing",
+        "price": 0.0,
+        "price_ngn": 0.0,
+        "thumbnail_color": "#4f6ef7",
+        "tags": ["copywriting", "social media", "email"],
+    },
+    {
+        "id": "seed_startup_analyst",
+        "name": "Startup Analyst",
+        "short_description": "Analyses your metrics and writes weekly founder briefings from your data.",
+        "category": "finance",
+        "price": 0.0,
+        "price_ngn": 500.0,
+        "thumbnail_color": "#22c55e",
+        "tags": ["founders", "metrics", "briefing"],
+    },
+    {
+        "id": "seed_study_coach",
+        "name": "Study Coach",
+        "short_description": "Creates personalised study plans, flashcards, and quizzes you on weak areas.",
+        "category": "academic",
+        "price": 0.0,
+        "price_ngn": 0.0,
+        "thumbnail_color": "#f59e0b",
+        "tags": ["study", "flashcards", "quiz"],
+    },
+    {
+        "id": "seed_outreach_pro",
+        "name": "Outreach Pro",
+        "short_description": "Writes cold emails, follow-ups, and investor updates from bullet-point notes.",
+        "category": "writing",
+        "price": 0.0,
+        "price_ngn": 1200.0,
+        "thumbnail_color": "#7c3aed",
+        "tags": ["outreach", "email", "investors"],
+    },
+    {
+        "id": "seed_daily_planner",
+        "name": "Daily Planner",
+        "short_description": "Builds a prioritised daily schedule from your tasks and calendar each morning.",
+        "category": "workspace",
+        "price": 0.0,
+        "price_ngn": 0.0,
+        "thumbnail_color": "#0D7A5F",
+        "tags": ["planning", "productivity", "schedule"],
+    },
+    {
+        "id": "seed_research_digest",
+        "name": "Research Digest",
+        "short_description": "Summarises articles, PDFs, and web pages into key points and action items.",
+        "category": "academic",
+        "price": 0.0,
+        "price_ngn": 800.0,
+        "thumbnail_color": "#ef4444",
+        "tags": ["research", "summary", "reading"],
+    },
+]
+
+
+def seed_marketplace_templates() -> None:
+    """Insert seed agent + templates if the templates table is empty. Safe to call on every startup."""
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM agent_templates")
+            count = cur.fetchone()[0]
+            if count > 0:
+                return  # already seeded
+
+            # Create a seed agent row first (templates FK to agents)
+            cur.execute("""
+                INSERT INTO agents (id, user_sid, display_name, bio, status, verified)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
+            """, (_SEED_AGENT_ID, _SEED_AGENT_ID, "Sivarr Team", "Official Sivarr workspace templates.", "active", True))
+
+            for t in _SEED_TEMPLATES:
+                cur.execute("""
+                    INSERT INTO agent_templates
+                        (id, agent_id, name, short_description, category, price, price_ngn,
+                         thumbnail_color, tags, contents, included_items, status, download_count, avg_rating)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,'{}','[]','published',0,0.0)
+                    ON CONFLICT (id) DO NOTHING
+                """, (
+                    t["id"], _SEED_AGENT_ID, t["name"], t["short_description"],
+                    t["category"], t["price"], t["price_ngn"], t["thumbnail_color"],
+                    json.dumps(t["tags"]),
+                ))
+        conn.commit()
+        log.info(f"Seeded {len(_SEED_TEMPLATES)} marketplace templates")
+    except Exception as exc:
+        log.error(f"seed_marketplace_templates: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
