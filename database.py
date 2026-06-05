@@ -9,13 +9,26 @@ import json
 import logging
 import os
 import pathlib
+import time
 import traceback
+from contextlib import contextmanager
 
 import psycopg2
 import psycopg2.extras
 from psycopg2 import pool as pgpool
 
 log = logging.getLogger("sivarr")
+
+SLOW_QUERY_MS = 200  # log any DB function that takes longer than this
+
+@contextmanager
+def _timed(label: str):
+    """Context manager — logs a warning when a DB call exceeds SLOW_QUERY_MS."""
+    t = time.monotonic()
+    yield
+    ms = (time.monotonic() - t) * 1000
+    if ms > SLOW_QUERY_MS:
+        log.warning(f"SLOW_QUERY [{ms:.0f}ms] {label}")
 
 _DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 # Railway sometimes prepends the word "railway" to the URL value (e.g. "railwaypostgresql://...")
@@ -66,11 +79,20 @@ def _get_conn():
     p = _get_pool()
     if not p:
         return None
-    try:
-        return p.getconn()
-    except Exception as exc:
-        log.error(f"_get_conn: {exc}")
-        return None
+    last_exc = None
+    for attempt in range(3):
+        try:
+            return p.getconn()
+        except pgpool.PoolError as exc:
+            last_exc = exc
+            if attempt < 2:
+                time.sleep(0.05 * (2 ** attempt))  # 50 ms → 100 ms
+                log.warning(f"DB pool exhausted (attempt {attempt + 1}/3) — retrying")
+        except Exception as exc:
+            log.error(f"_get_conn: {exc}")
+            return None
+    log.error(f"_get_conn: pool exhausted after 3 attempts: {last_exc}")
+    return None
 
 
 def _release(conn):
@@ -121,9 +143,11 @@ def db_test() -> dict:
             result["error"] = result["pool_error"] or "could not get connection from pool"
         return result
     try:
+        t0 = time.monotonic()
         conn.cursor().execute("SELECT 1")
         conn.rollback()
         result["ping"] = True
+        result["latency_ms"] = round((time.monotonic() - t0) * 1000, 1)
     except Exception as exc:
         result["error"] = str(exc)
     finally:
@@ -620,21 +644,22 @@ def create_db_session(token: str, sid: str, name: str, email: str, expires_at) -
 
 
 def get_db_session(token: str) -> dict | None:
-    conn = _get_conn()
-    if not conn:
-        return None
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT sid, name, email, expires_at FROM user_sessions
-                WHERE token = %s AND expires_at > NOW()
-            """, (token,))
-            row = cur.fetchone()
-        if not row:
+    with _timed("get_db_session"):
+        conn = _get_conn()
+        if not conn:
             return None
-        return {"sid": row[0], "name": row[1], "email": row[2], "expires_at": row[3]}
-    finally:
-        _release(conn)
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT sid, name, email, expires_at FROM user_sessions
+                    WHERE token = %s AND expires_at > NOW()
+                """, (token,))
+                row = cur.fetchone()
+            if not row:
+                return None
+            return {"sid": row[0], "name": row[1], "email": row[2], "expires_at": row[3]}
+        finally:
+            _release(conn)
 
 
 def delete_db_session(token: str) -> None:
@@ -1992,25 +2017,26 @@ def use_org_invite(token: str, user_sid: str) -> bool:
 
 def get_org_tasks(org_id: str, project_id: str = None,
                   limit: int = 500, offset: int = 0) -> list:
-    conn = _get_conn()
-    if not conn: return []
-    try:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            if project_id:
-                cur.execute(
-                    "SELECT * FROM org_tasks WHERE org_id=%s AND project_id=%s ORDER BY created_at DESC LIMIT %s OFFSET %s",
-                    (org_id, project_id, limit, offset)
-                )
-            else:
-                cur.execute(
-                    "SELECT * FROM org_tasks WHERE org_id=%s ORDER BY created_at DESC LIMIT %s OFFSET %s",
-                    (org_id, limit, offset)
-                )
-            return [dict(r) for r in cur.fetchall()]
-    except Exception as exc:
-        log.error(f"get_org_tasks: {exc}"); return []
-    finally:
-        _release(conn)
+    with _timed("get_org_tasks"):
+        conn = _get_conn()
+        if not conn: return []
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                if project_id:
+                    cur.execute(
+                        "SELECT * FROM org_tasks WHERE org_id=%s AND project_id=%s ORDER BY created_at DESC LIMIT %s OFFSET %s",
+                        (org_id, project_id, limit, offset)
+                    )
+                else:
+                    cur.execute(
+                        "SELECT * FROM org_tasks WHERE org_id=%s ORDER BY created_at DESC LIMIT %s OFFSET %s",
+                        (org_id, limit, offset)
+                    )
+                return [dict(r) for r in cur.fetchall()]
+        except Exception as exc:
+            log.error(f"get_org_tasks: {exc}"); return []
+        finally:
+            _release(conn)
 
 
 def count_org_tasks(org_id: str, exclude_status: str = None) -> int:
@@ -2197,19 +2223,20 @@ def delete_org_doc(doc_id: str, org_id: str) -> bool:
 
 
 def get_org_messages(org_id: str, channel: str = "general", limit: int = 60) -> list:
-    conn = _get_conn()
-    if not conn: return []
-    try:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM org_messages WHERE org_id=%s AND channel=%s ORDER BY created_at DESC LIMIT %s",
-                (org_id, channel, limit)
-            )
-            return list(reversed([dict(r) for r in cur.fetchall()]))
-    except Exception as exc:
-        log.error(f"get_org_messages: {exc}"); return []
-    finally:
-        _release(conn)
+    with _timed("get_org_messages"):
+        conn = _get_conn()
+        if not conn: return []
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT * FROM org_messages WHERE org_id=%s AND channel=%s ORDER BY created_at DESC LIMIT %s",
+                    (org_id, channel, limit)
+                )
+                return list(reversed([dict(r) for r in cur.fetchall()]))
+        except Exception as exc:
+            log.error(f"get_org_messages: {exc}"); return []
+        finally:
+            _release(conn)
 
 
 def send_org_message(org_id: str, channel: str, author_sid: str, author_name: str, content: str) -> dict | None:
@@ -2233,19 +2260,20 @@ def send_org_message(org_id: str, channel: str, author_sid: str, author_name: st
 
 def get_org_messages_since(org_id: str, since_id: int, limit: int = 30) -> list:
     """Return messages with id > since_id for the org, all channels, ascending order."""
-    conn = _get_conn()
-    if not conn: return []
-    try:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM org_messages WHERE org_id=%s AND id > %s ORDER BY id ASC LIMIT %s",
-                (org_id, since_id, limit)
-            )
-            return [dict(r) for r in cur.fetchall()]
-    except Exception as exc:
-        log.error(f"get_org_messages_since: {exc}"); return []
-    finally:
-        _release(conn)
+    with _timed("get_org_messages_since"):
+        conn = _get_conn()
+        if not conn: return []
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT * FROM org_messages WHERE org_id=%s AND id > %s ORDER BY id ASC LIMIT %s",
+                    (org_id, since_id, limit)
+                )
+                return [dict(r) for r in cur.fetchall()]
+        except Exception as exc:
+            log.error(f"get_org_messages_since: {exc}"); return []
+        finally:
+            _release(conn)
 
 
 def prune_rate_limit_hits(older_than_seconds: int) -> None:
@@ -2269,30 +2297,30 @@ def prune_rate_limit_hits(older_than_seconds: int) -> None:
 
 def db_check_rate_limit(key: str, limit: int, window_seconds: int) -> bool:
     """Sliding-window rate check backed by PostgreSQL. Returns True if allowed."""
-    conn = _get_conn()
-    if not conn: return True  # fail open when DB unavailable
-    try:
-        with conn.cursor() as cur:
-            # INTERVAL '1 second' * n is the psycopg2-safe way to pass a numeric interval
-            cur.execute(
-                "DELETE FROM rate_limit_hits WHERE key=%s AND ts < NOW() - INTERVAL '1 second' * %s",
-                (key, window_seconds)
-            )
-            cur.execute("SELECT COUNT(*) FROM rate_limit_hits WHERE key=%s", (key,))
-            count = cur.fetchone()[0]
-            if count >= limit:
-                conn.rollback()
-                return False
-            cur.execute("INSERT INTO rate_limit_hits (key) VALUES (%s)", (key,))
-        conn.commit()
-        return True
-    except Exception as exc:
-        log.error(f"db_check_rate_limit: {exc}")
-        try: conn.rollback()
-        except Exception: pass
-        return True  # fail open
-    finally:
-        _release(conn)
+    with _timed("db_check_rate_limit"):
+        conn = _get_conn()
+        if not conn: return True  # fail open when DB unavailable
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM rate_limit_hits WHERE key=%s AND ts < NOW() - INTERVAL '1 second' * %s",
+                    (key, window_seconds)
+                )
+                cur.execute("SELECT COUNT(*) FROM rate_limit_hits WHERE key=%s", (key,))
+                count = cur.fetchone()[0]
+                if count >= limit:
+                    conn.rollback()
+                    return False
+                cur.execute("INSERT INTO rate_limit_hits (key) VALUES (%s)", (key,))
+            conn.commit()
+            return True
+        except Exception as exc:
+            log.error(f"db_check_rate_limit: {exc}")
+            try: conn.rollback()
+            except Exception: pass
+            return True  # fail open
+        finally:
+            _release(conn)
 
 
 def upsert_presence(sid: str, org_id: str, name: str) -> None:

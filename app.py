@@ -1502,6 +1502,8 @@ def parse_quiz_json(raw: str, topic: str) -> dict:
 # ═══════════════════════════════════════════════════════════════
 
 app = FastAPI(title="Sivarr AI", version=VERSION)
+_START_TIME    = time.time()
+_health_cache: dict = {"result": None, "ts": 0.0}
 
 # Init Sentry before any middleware so it captures all errors
 if SENTRY_AVAILABLE and SENTRY_DSN:
@@ -1878,12 +1880,23 @@ def _start_scheduler():
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Catch all unhandled exceptions, log them, return clean error."""
+    """Catch all unhandled exceptions, log them, return a clean error ID — never a traceback."""
     error_id = str(uuid.uuid4())[:8]
     log.error(f"Unhandled error [{error_id}] {request.url.path}: {exc}\n{traceback.format_exc()}")
     return JSONResponse(
         status_code=500,
         content={"detail": f"Something went wrong. Error ID: {error_id}"}
+    )
+
+
+from fastapi.exceptions import RequestValidationError
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return a clean 422 without exposing Pydantic's internal field paths."""
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Invalid request data — check your input and try again."}
     )
 
 # ── Request models with validation ────────────────────────────
@@ -8578,10 +8591,23 @@ async def import_notes(data: dict):
 
 @app.get("/health")
 async def railway_health():
-    """Railway healthcheck endpoint."""
-    return {
-        "status":  "ok",
-        "version": VERSION,
-        "time":    datetime.datetime.now().isoformat(),
-        "gemini":  GEMINI_AVAILABLE,
+    """Railway healthcheck — cached 5 s so frequent pings don't hammer the DB."""
+    now = time.time()
+    if now - _health_cache["ts"] < 5 and _health_cache["result"]:
+        return _health_cache["result"]
+
+    db_info = await asyncio.to_thread(db.db_test)
+    db_ok   = db_info.get("ping", False)
+    result  = {
+        "status":    "ok" if db_ok else "degraded",
+        "version":   VERSION,
+        "uptime_s":  int(now - _START_TIME),
+        "db":        db_ok,
+        "db_ms":     db_info.get("latency_ms"),
+        "db_error":  db_info.get("error"),
+        "ai":        GEMINI_AVAILABLE,
+        "time":      datetime.datetime.utcnow().isoformat() + "Z",
     }
+    _health_cache["result"] = result
+    _health_cache["ts"]     = now
+    return result
