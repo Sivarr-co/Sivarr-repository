@@ -6394,7 +6394,7 @@ async def weekly_review_latest(token: str = ""):
     week_start = str(today - _dt.timedelta(days=today.weekday()))
     review_path = DATA_DIR / "weekly_reviews" / f"{sid}_{week_start}.json"
     if not review_path.exists():
-        raise HTTPException(404, "No review for this week yet.")
+        return {"review": None, "week_start": week_start}
     data = json.loads(review_path.read_text())
     return {"review": data.get("review",""), "week_start": data.get("week_start", week_start)}
 

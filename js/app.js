@@ -7060,7 +7060,7 @@ function nav(name, btn) {
   if (name === 'leaderboard')   loadLeaderboard();
   if (name === 'flux')          loadStudyHelp();
   if (name === 'courses')       loadClasses();
-  if (name === 'announcements') loadAllAnnouncements();
+  if (name === 'announcements') annLoad();
   if (name === 'studyplan') {
     $('sp-date') && ($('sp-date').min = new Date().toISOString().split('T')[0]);
     setTimeout(spLoadSaved, 100);
@@ -7112,7 +7112,7 @@ function navTab(name, btn) {
   if (name === 'notes')         docInit();
   if (name === 'flux')          loadStudyHelp();
   if (name === 'courses')       loadClasses();
-  if (name === 'announcements') loadAllAnnouncements();
+  if (name === 'announcements') annLoad();
   if (name === 'studyplan') { const d = new Date(); d.setDate(d.getDate()+14); $('sp-date') && ($('sp-date').min = new Date().toISOString().split('T')[0]); }
   if (name === 'contenthub') chInit();
   if (name === 'settings')   stInit();
