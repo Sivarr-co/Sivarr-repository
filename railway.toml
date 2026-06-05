@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "gunicorn app:app -w 4 -k uvicorn.workers.UvicornWorker --timeout 120 --bind 0.0.0.0:$PORT"
+startCommand = "gunicorn app:app -w 4 -k uvicorn.workers.UvicornWorker --timeout 120 --keep-alive 5 --max-requests 1000 --max-requests-jitter 100 --bind 0.0.0.0:$PORT"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"

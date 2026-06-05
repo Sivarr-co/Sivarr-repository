@@ -1990,18 +1990,43 @@ def use_org_invite(token: str, user_sid: str) -> bool:
         _release(conn)
 
 
-def get_org_tasks(org_id: str, project_id: str = None) -> list:
+def get_org_tasks(org_id: str, project_id: str = None,
+                  limit: int = 500, offset: int = 0) -> list:
     conn = _get_conn()
     if not conn: return []
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             if project_id:
-                cur.execute("SELECT * FROM org_tasks WHERE org_id=%s AND project_id=%s ORDER BY created_at DESC", (org_id, project_id))
+                cur.execute(
+                    "SELECT * FROM org_tasks WHERE org_id=%s AND project_id=%s ORDER BY created_at DESC LIMIT %s OFFSET %s",
+                    (org_id, project_id, limit, offset)
+                )
             else:
-                cur.execute("SELECT * FROM org_tasks WHERE org_id=%s ORDER BY created_at DESC", (org_id,))
+                cur.execute(
+                    "SELECT * FROM org_tasks WHERE org_id=%s ORDER BY created_at DESC LIMIT %s OFFSET %s",
+                    (org_id, limit, offset)
+                )
             return [dict(r) for r in cur.fetchall()]
     except Exception as exc:
         log.error(f"get_org_tasks: {exc}"); return []
+    finally:
+        _release(conn)
+
+
+def count_org_tasks(org_id: str, exclude_status: str = None) -> int:
+    """COUNT query — avoids loading all rows just to get a number."""
+    conn = _get_conn()
+    if not conn: return 0
+    try:
+        with conn.cursor() as cur:
+            if exclude_status:
+                cur.execute("SELECT COUNT(*) FROM org_tasks WHERE org_id=%s AND status != %s",
+                            (org_id, exclude_status))
+            else:
+                cur.execute("SELECT COUNT(*) FROM org_tasks WHERE org_id=%s", (org_id,))
+            return cur.fetchone()[0]
+    except Exception as exc:
+        log.error(f"count_org_tasks: {exc}"); return 0
     finally:
         _release(conn)
 
@@ -2059,12 +2084,12 @@ def delete_org_task(task_id: str, org_id: str) -> bool:
         _release(conn)
 
 
-def get_org_projects(org_id: str) -> list:
+def get_org_projects(org_id: str, limit: int = 100) -> list:
     conn = _get_conn()
     if not conn: return []
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT * FROM org_projects WHERE org_id=%s ORDER BY created_at DESC", (org_id,))
+            cur.execute("SELECT * FROM org_projects WHERE org_id=%s ORDER BY created_at DESC LIMIT %s", (org_id, limit))
             return [dict(r) for r in cur.fetchall()]
     except Exception as exc:
         log.error(f"get_org_projects: {exc}"); return []
@@ -2109,12 +2134,15 @@ def update_org_project(project_id: str, updates: dict, org_id: str) -> bool:
         _release(conn)
 
 
-def get_org_docs(org_id: str) -> list:
+def get_org_docs(org_id: str, limit: int = 100) -> list:
     conn = _get_conn()
     if not conn: return []
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT id, org_id, title, created_by, created_at, updated_at FROM org_docs WHERE org_id=%s ORDER BY updated_at DESC", (org_id,))
+            cur.execute(
+                "SELECT id, org_id, title, created_by, created_at, updated_at FROM org_docs WHERE org_id=%s ORDER BY updated_at DESC LIMIT %s",
+                (org_id, limit)
+            )
             return [dict(r) for r in cur.fetchall()]
     except Exception as exc:
         log.error(f"get_org_docs: {exc}"); return []

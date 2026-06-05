@@ -1738,69 +1738,62 @@ def _start_scheduler():
         from apscheduler.triggers.cron import CronTrigger
         from apscheduler.triggers.interval import IntervalTrigger
     except ImportError:
-        log.warning("APScheduler not installed — scheduled jobs disabled. Run: pip install apscheduler")
+        log.warning("APScheduler not installed — scheduled jobs disabled.")
         return
 
-    scheduler = AsyncIOScheduler(timezone="UTC")
+    # ── Define job coroutines ─────────────────────────────────────
 
-    # ── Job 1: Weekly review auto-generation — Monday 06:00 UTC ──
     async def _auto_weekly_reviews():
         import datetime as _dt
         log.info("Running auto weekly review job…")
-        today      = _dt.date.today()
-        week_start = str(today - _dt.timedelta(days=today.weekday()))  # Monday
+        today       = _dt.date.today()
+        week_start  = str(today - _dt.timedelta(days=today.weekday()))
         reviews_dir = DATA_DIR / "weekly_reviews"
         reviews_dir.mkdir(exist_ok=True)
-
-        # Iterate users who have task/habit files
         for p in DATA_DIR.glob("*_habits.json"):
             sid = p.name.replace("_habits.json", "")
-            # Skip if review already exists for this week
             review_path = reviews_dir / f"{sid}_{week_start}.json"
             if review_path.exists():
                 continue
-            tasks  = load_tasks(sid)
-            habits = load_habits(sid)
-            goals  = load_goals(sid)
-            tasks_done  = sum(1 for t in tasks if t.get("done"))
-            tasks_total = len(tasks)
-            habit_logs  = sum(len(h.get("completions", [])) for h in habits)
+            tasks      = load_tasks(sid)
+            habits     = load_habits(sid)
+            goals      = load_goals(sid)
+            tasks_done = sum(1 for t in tasks if t.get("done"))
+            habit_logs = sum(len(h.get("completions", [])) for h in habits)
             if tasks_done < 3 and habit_logs < 5:
-                continue  # not enough activity
+                continue
             habits_pct = 0
             if habits:
                 days_range = [str(today - _dt.timedelta(days=i)) for i in range(7)]
-                done_logs  = sum(1 for h in habits for d in h.get("completions",[]) if d in days_range)
-                habits_pct = round(done_logs / (len(habits) * 7) * 100) if habits else 0
+                done_logs  = sum(1 for h in habits for d in h.get("completions", []) if d in days_range)
+                habits_pct = round(done_logs / (len(habits) * 7) * 100)
             mood = ""
             jnl_path = DATA_DIR / f"{sid}_journal.json"
             if jnl_path.exists():
                 try:
                     jnl   = json.loads(jnl_path.read_text())
-                    moods = [e.get("mood","") for e in jnl if e.get("date","") >= str(today - _dt.timedelta(days=7)) and e.get("mood")]
+                    moods = [e.get("mood", "") for e in jnl
+                             if e.get("date", "") >= str(today - _dt.timedelta(days=7)) and e.get("mood")]
                     if moods:
                         from collections import Counter as _Counter
                         mood = _Counter(moods).most_common(1)[0][0]
                 except Exception:
                     pass
-            goals_txt = "\n".join(f"  - {g.get('title','')}: {g.get('progress',0)}%" for g in goals[:5]) or "  - No active goals"
-            week_end   = today
+            goals_txt  = "\n".join(f"  - {g.get('title','')}: {g.get('progress',0)}%" for g in goals[:5]) or "  - No active goals"
             week_range = f"{(today - _dt.timedelta(days=6)).strftime('%b %d')}–{today.strftime('%b %d')}"
-            prompt = f"""Write a warm, insightful weekly review covering {week_range}.
-Tasks completed: {tasks_done}/{tasks_total}. Habits: {habits_pct}%. Goals:\n{goals_txt}.
-{"Mood: " + mood + "." if mood else ""}
-4 sections: **This Week**, **Wins**, **Focus Next Week**, **Closing**. Concise, personal, max 300 words."""
+            prompt = (f"Write a warm, insightful weekly review covering {week_range}.\n"
+                      f"Tasks completed: {tasks_done}/{len(tasks)}. Habits: {habits_pct}%. Goals:\n{goals_txt}.\n"
+                      f"{'Mood: ' + mood + '.' if mood else ''}\n"
+                      f"4 sections: **This Week**, **Wins**, **Focus Next Week**, **Closing**. Max 300 words.")
             try:
-                review = await async_gemini_once(prompt, temp=0.72, tokens=380)
+                review = gemini_once(prompt, temp=0.72, tokens=380)
                 if review:
-                    save_json(review_path, {"review": review, "week_start": week_start, "generated_at": today.isoformat()})
+                    save_json(review_path, {"review": review, "week_start": week_start,
+                                            "generated_at": today.isoformat()})
                     log.info(f"Auto weekly review saved for {sid}")
             except Exception as e:
                 log.error(f"Auto review failed for {sid}: {e}")
 
-    scheduler.add_job(_auto_weekly_reviews, CronTrigger(day_of_week="mon", hour=6, minute=0))
-
-    # ── Job 2: Streak reminder — daily at 19:00 UTC (20:00 WAT) ──
     async def _streak_reminders():
         import datetime as _dt
         today_str = str(_dt.date.today())
@@ -1808,20 +1801,18 @@ Tasks completed: {tasks_done}/{tasks_total}. Habits: {habits_pct}%. Goals:\n{goa
         for sid, entry in list(subs.items()):
             if "streak" not in entry.get("types", []):
                 continue
-            habits = load_habits(sid)
-            if not habits:
-                continue
+            habits    = load_habits(sid)
             unchecked = [h for h in habits if today_str not in h.get("completions", [])]
             if not unchecked:
                 continue
-            result = _send_push(entry["subscription"], title="Sivarr — Streak at risk", body="Log your habits before midnight to keep your streak.", url="/app#habits")
+            result = _send_push(entry["subscription"],
+                                title="Sivarr — Streak at risk",
+                                body="Log your habits before midnight to keep your streak.",
+                                url="/app#habits")
             if result == "expired":
                 subs.pop(sid, None)
         _save_push_subs(subs)
 
-    scheduler.add_job(_streak_reminders, CronTrigger(hour=19, minute=0))
-
-    # ── Job 3: Task due alerts — every 15 minutes ────────────────
     async def _task_due_alerts():
         import datetime as _dt
         now       = _dt.datetime.utcnow()
@@ -1835,12 +1826,15 @@ Tasks completed: {tasks_done}/{tasks_total}. Habits: {habits_pct}%. Goals:\n{goa
             for t in tasks:
                 if t.get("done"):
                     continue
-                due = t.get("date","")
+                due = t.get("date", "")
                 if not due or not (today_str <= due <= window):
                     continue
-                if t.get("push_notified_at","") >= today_str:
+                if t.get("push_notified_at", "") >= today_str:
                     continue
-                result = _send_push(entry["subscription"], title=f"Due soon: {t.get('title','Task')}", body="This task is due in under an hour.", url="/app#tasks")
+                result = _send_push(entry["subscription"],
+                                    title=f"Due soon: {t.get('title','Task')}",
+                                    body="This task is due in under an hour.",
+                                    url="/app#tasks")
                 if result == "ok":
                     t["push_notified_at"] = today_str
                 elif result == "expired":
@@ -1850,10 +1844,17 @@ Tasks completed: {tasks_done}/{tasks_total}. Habits: {habits_pct}%. Goals:\n{goa
                 save_tasks(sid, tasks)
         _save_push_subs(subs)
 
-    scheduler.add_job(_task_due_alerts, IntervalTrigger(minutes=15))
-
-    scheduler.start()
-    log.info("APScheduler started — weekly review (Mon 06:00 UTC) + push notification jobs registered")
+    # ── Register jobs and start — wrapped so a failure never crashes the app ──
+    try:
+        import datetime as _tz_dt
+        scheduler = AsyncIOScheduler(timezone=_tz_dt.timezone.utc)
+        scheduler.add_job(_auto_weekly_reviews, CronTrigger(day_of_week="mon", hour=6, minute=0))
+        scheduler.add_job(_streak_reminders,    CronTrigger(hour=19, minute=0))
+        scheduler.add_job(_task_due_alerts,     IntervalTrigger(minutes=15))
+        scheduler.start()
+        log.info("APScheduler started — weekly review (Mon 06:00 UTC) + push jobs registered")
+    except Exception as exc:
+        log.warning(f"APScheduler failed to start ({exc}) — scheduled jobs disabled, app continues normally")
 
 
 # ── Global error handler ──────────────────────────────────────
@@ -2722,6 +2723,23 @@ async def clear_wrong(data: dict):
 
 # ── File Upload ───────────────────────────────────────────────
 
+def _extract_file_text(content: bytes, ext: str) -> str:
+    """CPU-bound text extraction — always call via asyncio.to_thread."""
+    if ext == ".pdf":
+        try:
+            import io as _io
+            try:
+                import pypdf
+                reader = pypdf.PdfReader(_io.BytesIO(content))
+                return "\n".join(page.extract_text() or "" for page in reader.pages)
+            except ImportError:
+                return content.decode("utf-8", errors="ignore")
+        except Exception as exc:
+            log.error(f"PDF parse error: {exc}")
+            return content.decode("utf-8", errors="ignore")
+    return content.decode("utf-8", errors="ignore")
+
+
 @app.post("/api/upload")
 async def upload_file(request: Request, sid: str = Form(...), file: UploadFile = File(...)):
     sid = sanitize_text(sid, 100)
@@ -2738,28 +2756,15 @@ async def upload_file(request: Request, sid: str = Form(...), file: UploadFile =
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(400, f"File too large. Maximum size is 5MB.")
 
-    if ext == ".pdf":
-        try:
-            import io
-            try:
-                import pypdf
-                reader = pypdf.PdfReader(io.BytesIO(content))
-                text   = "\n".join(page.extract_text() or "" for page in reader.pages)
-            except ImportError:
-                text = content.decode("utf-8", errors="ignore")
-        except Exception as e:
-            log.error(f"PDF parse error: {e}")
-            text = content.decode("utf-8", errors="ignore")
-    else:
-        text = content.decode("utf-8", errors="ignore")
-
+    # CPU-bound PDF parsing and disk write both run in a thread
+    text = await asyncio.to_thread(_extract_file_text, content, ext)
     text = sanitize_text(text, 10000)
     if not text.strip():
         raise HTTPException(400, "Could not extract text from file.")
 
     file_id = str(uuid.uuid4())[:8]
     fpath   = UPLOADS_DIR / f"{sid}_{file_id}.txt"
-    fpath.write_text(text)
+    await asyncio.to_thread(fpath.write_text, text)
 
     p = load_progress(sid)
     p.setdefault("uploaded_files", []).append({
@@ -3906,21 +3911,7 @@ async def study_deck(request: Request, sid: str = Form(...), file: UploadFile = 
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(400, "File too large. Maximum 5MB.")
 
-    # Extract text
-    if ext == ".pdf":
-        try:
-            import io
-            try:
-                import pypdf
-                reader = pypdf.PdfReader(io.BytesIO(content))
-                text   = "\n".join(page.extract_text() or "" for page in reader.pages)
-            except ImportError:
-                text = content.decode("utf-8", errors="ignore")
-        except Exception:
-            text = content.decode("utf-8", errors="ignore")
-    else:
-        text = content.decode("utf-8", errors="ignore")
-
+    text = await asyncio.to_thread(_extract_file_text, content, ext)
     text = sanitize_text(text, 8000)
     if not text.strip():
         raise HTTPException(400, "Could not extract text from file.")
@@ -5597,7 +5588,7 @@ async def context_snapshot(token: str = ""):
             org = db.get_org_by_member(sid)
             if org:
                 members      = db.get_org_members(org["id"])
-                tasks        = db.get_org_tasks(org["id"])
+                tasks        = db.get_org_tasks(org["id"], limit=100)
                 goals        = db.get_org_goals(org["id"])
                 today_str    = str(_dt.date.today())
                 open_tasks   = [t for t in tasks if t.get("status") != "done"]
@@ -5707,7 +5698,9 @@ async def org_tasks_list(data: dict):
     org = db.get_org_by_member(sid)
     if not org: raise HTTPException(404, "No organization found.")
     project_id = data.get("project_id")
-    tasks = db.get_org_tasks(org["id"], project_id)
+    limit  = min(int(data.get("limit",  500)), 1000)
+    offset = max(int(data.get("offset", 0)),   0)
+    tasks = db.get_org_tasks(org["id"], project_id, limit=limit, offset=offset)
     return {"tasks": tasks}
 
 
@@ -6101,7 +6094,7 @@ async def org_ai_briefing(data: dict):
     org = db.get_org_by_member(sid)
     if not org: raise HTTPException(404, "No organization found.")
 
-    tasks    = db.get_org_tasks(org["id"])
+    tasks    = db.get_org_tasks(org["id"], limit=100)
     members  = db.get_org_members(org["id"])
     projects = db.get_org_projects(org["id"])
     goals    = db.get_org_goals(org["id"])
@@ -6163,7 +6156,7 @@ async def home_brief(data: dict):
             org = db.get_org_by_member(sid)
             if org:
                 org_name  = org["name"]
-                org_tasks = len([t for t in db.get_org_tasks(org["id"]) if t.get("status") != "done"])
+                org_tasks = db.count_org_tasks(org["id"], exclude_status="done")
         except Exception:
             pass
 
