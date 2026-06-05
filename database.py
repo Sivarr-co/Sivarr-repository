@@ -1332,30 +1332,49 @@ def get_all_agents(sort: str = "downloads") -> list:
 
 def get_templates(category: str = None, sort: str = "popular",
                   free_only: bool = False, limit: int = 60) -> list:
+    """Fetch published templates with agent info in a single JOIN — no N+1."""
     conn = _get_conn()
     if not conn:
         return []
-    wheres = ["status = 'published'"]
+    wheres = ["at.status = 'published'"]
     vals = []
     if category and category != "all":
-        wheres.append("category = %s")
+        wheres.append("at.category = %s")
         vals.append(category)
     if free_only:
-        wheres.append("price = 0")
+        wheres.append("at.price = 0")
     order = {
-        "popular": "download_count DESC",
-        "newest":  "created_at DESC",
-        "rating":  "avg_rating DESC",
-        "price":   "price ASC",
-    }.get(sort, "download_count DESC")
+        "popular": "at.download_count DESC",
+        "newest":  "at.created_at DESC",
+        "rating":  "at.avg_rating DESC",
+        "price":   "at.price ASC",
+    }.get(sort, "at.download_count DESC")
     where_clause = " AND ".join(wheres)
     try:
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                f"SELECT * FROM agent_templates WHERE {where_clause} ORDER BY {order} LIMIT %s",
+                f"""SELECT at.*,
+                           COALESCE(a.display_name, '') AS agent_name,
+                           COALESCE(a.verified, FALSE)  AS agent_verified
+                    FROM agent_templates at
+                    LEFT JOIN agents a ON a.id = at.agent_id
+                    WHERE {where_clause}
+                    ORDER BY {order}
+                    LIMIT %s""",
                 vals + [limit]
             )
-            return [_row_to_template(r) for r in cur.fetchall()]
+            rows = [dict(r) for r in cur.fetchall()]
+        for r in rows:
+            r.setdefault("tags", [])
+            r.setdefault("contents", {})
+            r.setdefault("included_items", [])
+            r["price"]      = float(r.get("price") or 0)
+            r["price_ngn"]  = float(r["price_ngn"]) if r.get("price_ngn") is not None else None
+            r["avg_rating"] = float(r.get("avg_rating") or 0)
+            for k in ("created_at", "updated_at"):
+                if r.get(k):
+                    r[k] = str(r[k])
+        return rows
     finally:
         _release(conn)
 

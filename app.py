@@ -1516,6 +1516,9 @@ if SENTRY_AVAILABLE and SENTRY_DSN:
     log.info("Sentry initialized")
 
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/css",    StaticFiles(directory="css"),    name="css")
 app.mount("/js",     StaticFiles(directory="js"),     name="js")
@@ -1532,6 +1535,38 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
     allow_credentials=False,
 )
+
+# Compress responses >= 1 KB — critical for 602 KB app.js / 262 KB styles.css
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Long-lived cache headers for versioned static assets (CSS/JS/static)
+class _StaticCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path.startswith(("/css/", "/js/", "/static/")):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+app.add_middleware(_StaticCacheMiddleware)
+
+# ── Per-worker in-memory response cache with TTL ─────────────────
+_rcache: dict[str, tuple] = {}  # key → (payload, expires_at)
+
+def _rc_get(key: str):
+    entry = _rcache.get(key)
+    if entry and time.time() < entry[1]:
+        return entry[0]
+    _rcache.pop(key, None)
+    return None
+
+def _rc_set(key: str, value, ttl: int = 60) -> None:
+    _rcache[key] = (value, time.time() + ttl)
+
+def _rc_bust(prefix: str) -> None:
+    for k in list(_rcache):
+        if k.startswith(prefix):
+            _rcache.pop(k, None)
 
 
 @app.on_event("startup")
@@ -4695,18 +4730,23 @@ async def ag_list_templates(
     category: str = "all", sort: str = "popular",
     free_only: bool = False, limit: int = 60,
 ):
+    ck = f"tmpl:{category}:{sort}:{free_only}:{limit}"
+    cached = _rc_get(ck)
+    if cached is not None:
+        return cached
     if not db.is_available():
-        return {"templates": _ag_demo_templates()}
-    templates = db.get_templates(
-        category=None if category == "all" else category,
-        sort=sort, free_only=free_only, limit=limit,
+        result = {"templates": _ag_demo_templates()}
+        _rc_set(ck, result, ttl=120)
+        return result
+    # agent_name + agent_verified come from the JOIN in get_templates — no N+1
+    templates = await asyncio.to_thread(
+        db.get_templates,
+        None if category == "all" else category,
+        sort, free_only, limit,
     )
-    # Attach agent display name
-    for t in templates:
-        agent = db.get_agent_by_id(t.get("agent_id",""))
-        t["agent_name"] = agent.get("display_name","") if agent else ""
-        t["agent_verified"] = agent.get("verified", False) if agent else False
-    return {"templates": templates}
+    result = {"templates": templates}
+    _rc_set(ck, result, ttl=120)
+    return result
 
 
 @app.get("/api/agents/templates/{template_id}")
@@ -4949,6 +4989,7 @@ async def ag_publish_template(template_id: str, data: dict):
     if not agent or agent.get("status") != "active":
         raise HTTPException(403, "Active agent account required.")
     db.update_template(template_id, agent["id"], {"status": "published"})
+    _rc_bust("tmpl:")
     return {"ok": True}
 
 
@@ -5157,6 +5198,7 @@ async def ag_admin_approve_template(template_id: str, data: dict):
         t = db.get_template_by_id(template_id)
         if t:
             db.update_template(template_id, t["agent_id"], {"status": "published"})
+            _rc_bust("tmpl:")
     return {"ok": True}
 
 
@@ -7062,11 +7104,17 @@ def _save_json_file(path: Path, data):
 @app.get("/api/community/posts")
 async def community_get_posts(category: str = "all", limit: int = 40):
     """Fetch community posts, newest first."""
+    ck = f"comm:{category}:{limit}"
+    cached = _rc_get(ck)
+    if cached is not None:
+        return cached
     with _comm_lock:
         posts = _load_json_file(COMMUNITY_PATH, [])
     if category != "all":
         posts = [p for p in posts if p.get("category") == category]
-    return {"posts": posts[:limit]}
+    result = {"posts": posts[:limit]}
+    _rc_set(ck, result, ttl=30)
+    return result
 
 
 @app.post("/api/community/posts")
@@ -7098,6 +7146,7 @@ async def community_create_post(data: dict, request: Request):
         posts.insert(0, post)
         posts = posts[:200]
         _save_json_file(COMMUNITY_PATH, posts)
+    _rc_bust("comm:")
     return {"ok": True, "post": post}
 
 
@@ -7122,6 +7171,7 @@ async def community_like_post(post_id: str, data: dict):
             liked = True
         post["likes"] = likes
         _save_json_file(COMMUNITY_PATH, posts)
+    _rc_bust("comm:")
     return {"ok": True, "liked": liked, "count": len(likes)}
 
 
@@ -7149,17 +7199,24 @@ async def community_reply(post_id: str, data: dict):
             raise HTTPException(404, "Post not found.")
         post.setdefault("replies", []).append(reply)
         _save_json_file(COMMUNITY_PATH, posts)
+    _rc_bust("comm:")
     return {"ok": True, "reply": reply}
 
 
 @app.get("/api/opportunities")
 async def get_opportunities(category: str = "all", limit: int = 50):
     """Fetch opportunity board entries."""
+    ck = f"opp:{category}:{limit}"
+    cached = _rc_get(ck)
+    if cached is not None:
+        return cached
     with _opp_lock:
         opps = _load_json_file(OPPORTUNITIES_PATH, [])
     if category != "all":
         opps = [o for o in opps if o.get("category") == category]
-    return {"opportunities": opps[:limit]}
+    result = {"opportunities": opps[:limit]}
+    _rc_set(ck, result, ttl=60)
+    return result
 
 
 @app.post("/api/opportunities")
@@ -7193,6 +7250,7 @@ async def submit_opportunity(data: dict, request: Request):
         opps.insert(0, opp)
         opps = opps[:300]
         _save_json_file(OPPORTUNITIES_PATH, opps)
+    _rc_bust("opp:")
     return {"ok": True, "opportunity": opp}
 
 
