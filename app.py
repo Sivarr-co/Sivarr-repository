@@ -1593,11 +1593,19 @@ async def startup():
     else:
         log.info("Running on JSON file storage (no DATABASE_URL set)")
 
-    # MP4: seed community posts and opportunities JSON files if empty
-    _seed_community_and_opps()
+    # Non-critical init (seeding + scheduler) runs in a background task so it
+    # cannot delay the startup event and block Railway's healthcheck.
+    async def _background_init():
+        try:
+            _seed_community_and_opps()
+        except Exception as exc:
+            log.warning(f"Seed community/opps skipped: {exc}")
+        try:
+            _start_scheduler()
+        except Exception as exc:
+            log.warning(f"Scheduler start skipped: {exc}")
 
-    # MP6: start APScheduler for weekly review + push notification jobs
-    _start_scheduler()
+    asyncio.create_task(_background_init())
 
     # Background: prune rate_limit_hits rows older than 10× the window every 10 minutes
     async def _cleanup_rate_hits():
