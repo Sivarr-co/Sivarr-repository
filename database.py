@@ -501,6 +501,13 @@ CREATE TABLE IF NOT EXISTS user_presence (
     PRIMARY KEY (sid, org_id)
 );
 CREATE INDEX IF NOT EXISTS idx_presence_org_seen ON user_presence(org_id, last_seen);
+
+-- Short-lived one-time codes for Google OAuth token exchange (multi-worker safe)
+CREATE TABLE IF NOT EXISTS google_exchange_codes (
+    code       TEXT PRIMARY KEY,
+    token      TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
+);
 """
 
 
@@ -884,6 +891,56 @@ def is_email_verified(sid: str) -> bool:
             cur.execute("SELECT email_verified FROM users WHERE sid = %s", (sid,))
             row = cur.fetchone()
         return bool(row and row[0])
+    finally:
+        _release(conn)
+
+
+# ── Google OAuth exchange codes (multi-worker safe) ────────────────
+
+def create_google_xcode(code: str, token: str) -> None:
+    """Store a 2-minute one-time code that maps to a Sivarr session token."""
+    import datetime
+    conn = _get_conn()
+    if not conn:
+        raise RuntimeError("DB unavailable")
+    expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=120)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO google_exchange_codes (code, token, expires_at) VALUES (%s, %s, %s)",
+                (code, token, expires)
+            )
+            # Also prune expired codes
+            cur.execute("DELETE FROM google_exchange_codes WHERE expires_at < NOW()")
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        raise exc
+    finally:
+        _release(conn)
+
+
+def pop_google_xcode(code: str) -> str | None:
+    """Retrieve and delete a one-time exchange code. Returns the token or None."""
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT token FROM google_exchange_codes WHERE code = %s AND expires_at > NOW()",
+                (code,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            cur.execute("DELETE FROM google_exchange_codes WHERE code = %s", (code,))
+        conn.commit()
+        return row[0]
+    except Exception as exc:
+        log.error(f"pop_google_xcode failed: {exc}")
+        conn.rollback()
+        return None
     finally:
         _release(conn)
 

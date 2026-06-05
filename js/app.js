@@ -1163,10 +1163,6 @@ function checkAuthParams() {
     showResetPasswordForm(reset);
     return;
   }
-  if (verify) {
-    history.replaceState(null, '', '/');
-    return;
-  }
   if (verified === '1') {
     history.replaceState(null, '', '/');
     toast('Email verified! You can now sign in.');

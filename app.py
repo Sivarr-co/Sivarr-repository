@@ -2179,7 +2179,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
         log.info(f"Register: {user['name']} ({email})")
         # Send verification email in background (don't block registration)
         verify_token = db.create_email_verify_token(sid, email)
-        verify_url   = f"{BASE_URL}/?verify={verify_token}"
+        verify_url   = f"{BASE_URL}/api/auth/verify-email/{verify_token}"
         bg.add_task(send_email, email,
                     "Verify your Sivarr email",
                     _email_verify_html(verify_url, user['name']))
@@ -2214,7 +2214,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
         # Auto-resend the link so the user has something actionable.
         if db.is_available() and not db.is_email_verified(sid):
             verify_token = db.create_email_verify_token(sid, email)
-            verify_url   = f"{BASE_URL}/?verify={verify_token}"
+            verify_url   = f"{BASE_URL}/api/auth/verify-email/{verify_token}"
             bg.add_task(send_email, email, "Verify your Sivarr email",
                         _email_verify_html(verify_url, user.get("name", "")))
             raise HTTPException(403, "email_not_verified")
@@ -2387,7 +2387,7 @@ async def resend_verification(data: dict, bg: BackgroundTasks):
     if db.is_email_verified(sid):
         return {"ok": True, "message": "Already verified."}
     verify_token = db.create_email_verify_token(sid, email)
-    verify_url   = f"{BASE_URL}/?verify={verify_token}"
+    verify_url   = f"{BASE_URL}/api/auth/verify-email/{verify_token}"
     bg.add_task(send_email, email, "Verify your Sivarr email",
                 _email_verify_html(verify_url, entry.get("name", "")))
     return {"ok": True}
@@ -6720,8 +6720,8 @@ async def submit_feedback(data: dict):
 #     browser history, and server logs.
 # ─────────────────────────────────────────────────────────────────────────────────
 
-_google_exchange_codes: dict = {}   # code -> {token, expires}
-_google_states:         dict = {}   # state -> expires (nonce registry)
+# In-memory fallback for exchange codes (used when DB unavailable, e.g. dev mode)
+_google_exchange_codes_mem: dict = {}   # code -> {token, expires}
 
 
 def _google_redirect_uri() -> str:
@@ -6729,7 +6729,8 @@ def _google_redirect_uri() -> str:
 
 
 def _google_make_state() -> str:
-    """Generate a signed, time-limited state nonce for CSRF protection."""
+    """Generate a signed, time-limited state nonce for CSRF protection.
+    Purely HMAC-based — no per-worker dict, safe across all gunicorn workers."""
     nonce   = secrets.token_hex(16)
     expires = time.time() + 300          # 5-minute window
     sig     = hmac.new(
@@ -6737,13 +6738,12 @@ def _google_make_state() -> str:
         f"{nonce}:{expires:.0f}".encode(),
         "sha256",
     ).hexdigest()[:16]
-    state = f"{nonce}.{expires:.0f}.{sig}"
-    _google_states[nonce] = expires
-    return state
+    return f"{nonce}.{expires:.0f}.{sig}"
 
 
 def _google_verify_state(state: str) -> bool:
-    """Return True only if the state is recent and untampered."""
+    """Return True if state HMAC is valid and unexpired.
+    Purely cryptographic — no server-side nonce registry needed."""
     try:
         nonce, exp_str, sig = state.split(".")
         if time.time() > float(exp_str):
@@ -6753,11 +6753,37 @@ def _google_verify_state(state: str) -> bool:
             f"{nonce}:{exp_str}".encode(),
             "sha256",
         ).hexdigest()[:16]
-        if not hmac.compare_digest(sig, expected):
-            return False
-        return nonce in _google_states
+        return hmac.compare_digest(sig, expected)
     except Exception:
         return False
+
+
+def _store_google_xcode(xcode: str, token: str) -> None:
+    """Store a one-time Google exchange code — DB first, memory fallback."""
+    expires = time.time() + 120
+    if db.is_available():
+        try:
+            db.create_google_xcode(xcode, token)
+            return
+        except Exception as exc:
+            log.warning(f"DB google_xcode store failed ({exc}), using memory")
+    _google_exchange_codes_mem[xcode] = {"token": token, "expires": expires}
+
+
+def _pop_google_xcode(xcode: str) -> str | None:
+    """Retrieve and consume a one-time Google exchange code."""
+    if db.is_available():
+        try:
+            tok = db.pop_google_xcode(xcode)
+            if tok is not None:
+                return tok
+        except Exception:
+            pass
+    # fallback: memory
+    entry = _google_exchange_codes_mem.pop(xcode, None)
+    if entry and time.time() <= entry["expires"]:
+        return entry["token"]
+    return None
 
 
 @app.get("/auth/google")
@@ -6855,16 +6881,9 @@ async def google_oauth_callback(code: str = "", error: str = "", state: str = ""
     sivarr_token = create_session_token(sid, user["name"], email)
     log.info(f"Google OAuth login: {user['name']} ({email})")
 
-    # Issue a short-lived one-time exchange code (token never touches the URL)
-    xcode   = secrets.token_urlsafe(24)
-    expires = time.time() + 120          # valid for 2 minutes
-    _google_exchange_codes[xcode] = {"token": sivarr_token, "expires": expires}
-
-    # Clean up old codes while we're here
-    now = time.time()
-    stale = [k for k, v in _google_exchange_codes.items() if v["expires"] < now]
-    for k in stale:
-        del _google_exchange_codes[k]
+    # Issue a short-lived one-time exchange code (DB-backed, safe across workers)
+    xcode = secrets.token_urlsafe(24)
+    _store_google_xcode(xcode, sivarr_token)
 
     return RedirectResponse(f"/app?google_code={xcode}")
 
@@ -6874,12 +6893,10 @@ async def google_token_exchange(code: str = ""):
     """Exchange a one-time code (from the Google callback redirect) for a real session token."""
     if not code:
         raise HTTPException(400, "Missing code.")
-    entry = _google_exchange_codes.pop(code, None)
-    if not entry:
-        raise HTTPException(400, "Code not found or already used.")
-    if time.time() > entry["expires"]:
-        raise HTTPException(400, "Code expired. Please sign in again.")
-    return {"token": entry["token"]}
+    tok = _pop_google_xcode(code)
+    if not tok:
+        raise HTTPException(400, "Code not found, already used, or expired. Please sign in again.")
+    return {"token": tok}
 
 
 # ═══════════════════════════════════════════════════════════════
