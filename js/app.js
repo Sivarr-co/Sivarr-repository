@@ -2779,6 +2779,7 @@ function getProgressCoaching() {
 // ═══════════════════════ GOALS ═════════════════════════════
 
 let GL_GOALS = [];
+let _glFilter = 'all'; // 'all' | 'active' | 'completed'
 
 function _glHealth(g) {
   if (g.completed) return { label: 'Done',      color: '#22c55e', icon: '✅' };
@@ -2832,7 +2833,14 @@ async function glLoad() {
 
 function glRender() {
   const list = $('gl-list'); if (!list) return;
-  if (!GL_GOALS.length) {
+  const today = new Date();
+
+  const total     = GL_GOALS.length;
+  const active    = GL_GOALS.filter(g => !g.completed).length;
+  const completed = GL_GOALS.filter(g => g.completed).length;
+  const overdue   = GL_GOALS.filter(g => !g.completed && g.deadline && new Date(g.deadline + 'T00:00:00') < today).length;
+
+  if (!total) {
     list.innerHTML = `<div class="empty-state">
       <div class="es-orb" style="font-size:2rem;margin-bottom:10px">🎯</div>
       <div class="es-title">No goals yet</div>
@@ -2841,6 +2849,10 @@ function glRender() {
     </div>`;
     return;
   }
+
+  let goals = GL_GOALS;
+  if (_glFilter === 'active')    goals = GL_GOALS.filter(g => !g.completed);
+  if (_glFilter === 'completed') goals = GL_GOALS.filter(g => g.completed);
 
   const checkinBanner = _glCheckinDue() ? `
     <div style="background:linear-gradient(135deg,var(--accent)08,var(--accent2)06);border:1px solid var(--accent)30;border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
@@ -2851,8 +2863,26 @@ function glRender() {
       <button onclick="glStartCheckin()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-family:var(--font-body);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">Update now</button>
     </div>` : '';
 
-  const today = new Date();
-  list.innerHTML = checkinBanner + GL_GOALS.map(g => {
+  const statsHTML = `
+    <div class="gl-stats">
+      <div class="gl-stat"><div class="gl-stat-val">${total}</div><div class="gl-stat-lbl">Total</div></div>
+      <div class="gl-stat"><div class="gl-stat-val">${active}</div><div class="gl-stat-lbl">Active</div></div>
+      <div class="gl-stat completed"><div class="gl-stat-val">${completed}</div><div class="gl-stat-lbl">Done</div></div>
+      <div class="gl-stat${overdue?' overdue':''}"><div class="gl-stat-val">${overdue}</div><div class="gl-stat-lbl">Overdue</div></div>
+    </div>`;
+
+  const filtersHTML = `
+    <div class="gl-filters">
+      <button class="gl-filter-btn${_glFilter==='all'?' active':''}" onclick="glSetFilter('all')">All (${total})</button>
+      <button class="gl-filter-btn${_glFilter==='active'?' active':''}" onclick="glSetFilter('active')">Active (${active})</button>
+      <button class="gl-filter-btn${_glFilter==='completed'?' active':''}" onclick="glSetFilter('completed')">Completed (${completed})</button>
+    </div>`;
+
+  const emptyFilter = !goals.length
+    ? `<div style="text-align:center;padding:2rem 1rem;color:var(--muted);font-size:.84rem">No ${_glFilter} goals.</div>`
+    : '';
+
+  list.innerHTML = statsHTML + checkinBanner + filtersHTML + emptyFilter + goals.map(g => {
     const daysLeft = g.deadline
       ? Math.ceil((new Date(g.deadline + 'T00:00:00') - today) / 86400000) : null;
     const pct    = g.progress || 0;
@@ -2862,7 +2892,7 @@ function glRender() {
       ? (daysLeft > 0 ? `${daysLeft}d left` : daysLeft === 0 ? 'Today!' : 'Overdue')
       : '';
     const krs = g.key_results || [];
-    const isScore = g.goal_type === 'score';  // score model shows % bar only, no KR UI
+    const isScore = g.goal_type === 'score';
     const hasKRs = !isScore && krs.length > 0;
     const krsHTML = krs.map(kr => {
       const krPct = Math.min(100, (kr.current / Math.max(0.01, kr.target)) * 100);
@@ -2872,7 +2902,7 @@ function glRender() {
             <span style="font-size:.78rem;color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(kr.title)}</span>
             <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
               <input type="number" value="${kr.current}" min="0"
-                style="width:52px;text-align:right;background:var(--surface);border:1px solid var(--border);
+                style="width:52px;text-align:right;background:var(--bg3);border:1px solid var(--border);
                        border-radius:5px;padding:2px 6px;font-size:.76rem;color:var(--text);outline:none"
                 onblur="glUpdateKR('${g.id}','${kr.id}',+this.value)"
                 onkeydown="if(event.key==='Enter')this.blur()">
@@ -2896,12 +2926,12 @@ function glRender() {
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               ${healthBadge}
               ${g.subject ? `<span style="font-size:.72rem;color:var(--muted)">📚 ${esc(g.subject)}</span>` : ''}
-              ${daysLeft !== null ? `<span style="font-size:.72rem;color:${daysLeft <= 0 ? '#ef4444' : daysLeft <= 3 ? '#f59e0b' : 'var(--muted)'}">${daysLabel}</span>` : ''}
+              ${daysLeft !== null ? `<span style="font-size:.72rem;color:${daysLeft<=0?'#ef4444':daysLeft<=3?'#f59e0b':'var(--muted)'}">${daysLabel}</span>` : ''}
             </div>
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-family:var(--font);font-size:.9rem;font-weight:800;color:var(--accent)">${pct}%</div>
-            <div style="font-size:.67rem;color:var(--muted)">${hasKRs ? `${krs.length} KR${krs.length!==1?'s':''}` : `of ${g.target_score}%`}</div>
+            <div style="font-size:.67rem;color:var(--muted)">${hasKRs ? `${krs.length} KR${krs.length!==1?'s':''}` : `of ${g.target_score||100}%`}</div>
           </div>
         </div>
         <div class="gl-prog-wrap">
@@ -2915,9 +2945,11 @@ function glRender() {
           onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
           + Key Result</button>` : ''}
-        <div class="gl-actions" style="margin-top:8px">
+        <div class="gl-actions">
           ${(isScore || !hasKRs) ? `<button class="gl-action-btn" onclick="glUpdateProgress('${g.id}',${pct})">📈 Update</button>` : ''}
           <button class="gl-action-btn done-btn" onclick="glMarkDone('${g.id}')">${g.completed ? '↩ Reopen' : '✓ Done'}</button>
+          <button class="gl-action-btn" onclick="glEditGoal('${g.id}')">✏️ Edit</button>
+          <button class="gl-action-btn siva-btn" onclick="glAskSivaGoal('${g.id}')">🤖 Ask SIVA</button>
           <button class="gl-action-btn del-btn" onclick="glDelete('${g.id}')">🗑</button>
         </div>
       </div>`;
@@ -3055,11 +3087,69 @@ async function glUpdateKR(goalId, krId, current) {
 }
 
 async function glDeleteKR(goalId, krId) {
-  if (!confirm('Delete this Key Result?')) return;
+  if (!await siModal.confirm('Delete this Key Result?', { title:'Delete Key Result', confirmLabel:'Delete', danger:true })) return;
   try {
     await API('/api/goals/kr/delete', { sid: S.sid, goal_id: goalId, kr_id: krId });
     await glLoad();
   } catch { toast('Delete failed'); }
+}
+
+function glSetFilter(f) {
+  _glFilter = f;
+  glRender();
+}
+
+function glEditGoal(id) {
+  const g = GL_GOALS.find(x => x.id === id);
+  if (!g) return;
+  const card = document.querySelector(`.gl-card[data-id="${id}"]`);
+  if (!card) return;
+  card.querySelectorAll('.gl-edit-form').forEach(f => f.remove());
+  const form = document.createElement('div');
+  form.className = 'gl-edit-form';
+  form.innerHTML = `
+    <div class="gl-edit-title">Edit Goal</div>
+    <input class="gl-edit-input" id="gl-edit-t-${id}" placeholder="Goal title" value="${esc(g.title)}">
+    <input class="gl-edit-input" id="gl-edit-s-${id}" placeholder="Category (optional)" value="${esc(g.subject||'')}">
+    <input class="gl-edit-input" id="gl-edit-d-${id}" type="date" value="${g.deadline||''}" style="color-scheme:dark">
+    <div style="display:flex;gap:7px">
+      <button class="gl-edit-save" onclick="glSaveEdit('${id}')">Save</button>
+      <button class="gl-edit-cancel" onclick="this.closest('.gl-edit-form').remove()">Cancel</button>
+    </div>`;
+  const actions = card.querySelector('.gl-actions');
+  if (actions) card.insertBefore(form, actions);
+  else card.appendChild(form);
+  document.getElementById(`gl-edit-t-${id}`)?.focus();
+}
+
+async function glSaveEdit(id) {
+  const title    = ($(`gl-edit-t-${id}`)?.value || '').trim();
+  const subject  = ($(`gl-edit-s-${id}`)?.value || '').trim();
+  const deadline = $(`gl-edit-d-${id}`)?.value || '';
+  if (!title) { toast('Goal title required'); return; }
+  try {
+    await API('/api/goals/edit', { sid: S.sid, id, title, subject, deadline: deadline || null });
+    const g = GL_GOALS.find(x => x.id === id);
+    if (g) { g.title = title; g.subject = subject; g.deadline = deadline || null; }
+    glRender();
+    toast('Goal updated ✓');
+  } catch { toast('Update failed.'); }
+}
+
+function glAskSivaGoal(id) {
+  const g = GL_GOALS.find(x => x.id === id);
+  if (!g) return;
+  const health = _glHealth(g);
+  const krs    = g.key_results || [];
+  const krSummary = krs.length
+    ? ' Key results: ' + krs.map(k => `${k.title} (${k.current}/${k.target}${k.unit?' '+k.unit:''})`).join(', ') + '.'
+    : '';
+  const prompt = `My goal: "${g.title}"${g.subject?' ('+g.subject+')':''}. Progress: ${g.progress||0}%${health?', status: '+health.label:''}.${krSummary}${g.deadline?` Deadline: ${g.deadline}.`:''} Help me stay on track — what should I focus on next?`;
+  nav('sivarr');
+  setTimeout(() => {
+    const ci = $('ci');
+    if (ci) { ci.value = prompt; ci.focus(); }
+  }, 350);
 }
 
 // ═══════════════════════ DOCUMENT HUB ══════════════════════

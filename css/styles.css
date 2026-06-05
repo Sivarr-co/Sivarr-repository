@@ -2199,6 +2199,109 @@ body.theme-transitioning *::after {
 .gs-lbl { font-size:12px; color:var(--text4); margin-bottom:2px; }
 .gs-val { font-size:16px; font-weight:700; color:var(--text1); }
 
+/* ── GOALS PANEL (gl-* classes) ────────────────────────────── */
+.gl-stats {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:10px;
+  margin-bottom:16px;
+}
+.gl-stat {
+  background:var(--bg2); border:1px solid var(--border); border-radius:12px;
+  padding:12px 14px; text-align:center;
+}
+.gl-stat-val {
+  font-family:var(--font); font-size:1.3rem; font-weight:800;
+  color:var(--text); line-height:1;
+}
+.gl-stat-lbl {
+  font-size:.68rem; color:var(--muted); margin-top:3px;
+  text-transform:uppercase; letter-spacing:.05em; font-weight:600;
+}
+.gl-stat.overdue .gl-stat-val  { color:#ef4444; }
+.gl-stat.completed .gl-stat-val { color:#22c55e; }
+
+.gl-filters { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+.gl-filter-btn {
+  padding:5px 14px; border-radius:20px; border:1px solid var(--border);
+  background:var(--bg2); color:var(--muted); font-size:.75rem;
+  font-weight:700; cursor:pointer; font-family:var(--font);
+  transition:var(--transition);
+}
+.gl-filter-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.gl-filter-btn:hover:not(.active) { border-color:var(--accent); color:var(--accent); }
+
+.gl-add-form {
+  max-height:0; overflow:hidden;
+  transition:max-height .35s ease, padding .35s ease;
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:14px; margin-bottom:16px; padding:0 16px;
+}
+.gl-add-form.open { max-height:460px; padding:16px; }
+
+.gl-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:14px; padding:16px; margin-bottom:10px;
+  transition:var(--transition);
+}
+.gl-card:hover { box-shadow:var(--shadow); border-color:var(--border2); }
+.gl-card.done { opacity:.72; }
+.gl-card.done .gl-title { text-decoration:line-through; color:var(--muted); }
+
+.gl-title {
+  font-family:var(--font); font-size:.94rem; font-weight:800;
+  color:var(--text); letter-spacing:-.01em; line-height:1.3;
+}
+
+.gl-prog-wrap {
+  height:5px; background:var(--bg3); border-radius:3px;
+  overflow:hidden; margin:10px 0 4px;
+}
+.gl-prog-fill {
+  height:100%; border-radius:3px;
+  background:linear-gradient(90deg, var(--accent), var(--accent2));
+  transition:width .4s ease;
+}
+.gl-prog-fill.done { background:#22c55e; }
+
+.gl-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.gl-action-btn {
+  padding:4px 11px; border-radius:7px; border:1px solid var(--border);
+  background:none; color:var(--text2); font-size:.75rem; font-weight:600;
+  cursor:pointer; font-family:var(--font-body); transition:var(--transition);
+  white-space:nowrap;
+}
+.gl-action-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent)08; }
+.gl-action-btn.done-btn:hover  { border-color:#22c55e; color:#22c55e; background:#22c55e10; }
+.gl-action-btn.del-btn:hover   { border-color:#ef4444; color:#ef4444; background:#ef444410; }
+.gl-action-btn.siva-btn { color:var(--accent2); border-color:var(--accent2)50; }
+.gl-action-btn.siva-btn:hover  { color:#fff; border-color:transparent; background:linear-gradient(135deg,var(--accent),var(--accent2)); }
+
+.gl-edit-form {
+  background:var(--bg3); border:1px solid var(--border); border-radius:10px;
+  padding:12px; margin:8px 0; display:flex; flex-direction:column; gap:7px;
+}
+.gl-edit-title {
+  font-size:.7rem; font-weight:700; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.05em;
+}
+.gl-edit-input {
+  width:100%; padding:7px 10px; border:1px solid var(--border);
+  border-radius:8px; background:var(--bg2); color:var(--text);
+  font-size:.82rem; font-family:inherit; outline:none;
+  transition:border-color .15s; box-sizing:border-box;
+}
+.gl-edit-input:focus { border-color:var(--accent); }
+.gl-edit-save {
+  flex:1; background:var(--accent); color:#fff; border:none;
+  border-radius:8px; padding:7px; font-family:var(--font);
+  font-size:.8rem; font-weight:700; cursor:pointer;
+}
+.gl-edit-cancel {
+  flex:1; background:none; border:1px solid var(--border);
+  border-radius:8px; padding:7px; color:var(--muted);
+  font-family:var(--font); font-size:.8rem; font-weight:700; cursor:pointer;
+}
+@media (max-width:600px) { .gl-stats { grid-template-columns:repeat(2,1fr); } }
+
 /* ── CONTENT HUB ───────────────────────────────────────────── */
 .ch-platform-btn {
   display:flex; align-items:center; gap:12px;

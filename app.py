@@ -4749,6 +4749,25 @@ async def delete_goal(data: dict):
     return {"ok": True}
 
 
+@app.post("/api/goals/edit")
+async def edit_goal(data: dict):
+    sid     = sanitize_text(str(data.get("sid","")), 100)
+    goal_id = sanitize_text(str(data.get("id","")), 20)
+    goals   = load_goals(sid)
+    for g in goals:
+        if g["id"] == goal_id:
+            if data.get("title"):
+                g["title"] = sanitize_text(str(data["title"]), 200)
+            if "subject" in data:
+                g["subject"] = sanitize_text(str(data.get("subject", "")), 100)
+            if "deadline" in data:
+                dl = data.get("deadline") or None
+                g["deadline"] = sanitize_text(str(dl), 20) if dl else None
+            break
+    save_goals(sid, goals)
+    return {"ok": True}
+
+
 def _calc_goal_progress(g: dict) -> int:
     krs = g.get("key_results", [])
     if not krs:
