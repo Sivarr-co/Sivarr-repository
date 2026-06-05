@@ -5824,6 +5824,117 @@ async def home_brief(data: dict):
     return {"brief": brief, "date": today}
 
 
+@app.get("/api/home/briefing")
+async def home_briefing_data(token: str = ""):
+    """Return structured home-panel data assembled from real user data — no AI call."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    import datetime as _dt
+    today = str(_dt.date.today())
+    hr    = _dt.datetime.now().hour
+    greeting = "Good morning" if hr < 12 else "Good afternoon" if hr < 17 else "Good evening"
+
+    tasks  = load_tasks(sid)
+    habits = load_habits(sid)
+    goals  = load_goals(sid)
+
+    tasks_due_today = sum(1 for t in tasks if not t.get("done") and t.get("date") == today)
+    overdue_tasks   = sum(1 for t in tasks if not t.get("done") and t.get("date","") and t.get("date","") < today)
+    active_goals    = sum(1 for g in goals if not g.get("completed") and not g.get("done"))
+    goals_at_risk   = sum(1 for g in goals
+                          if not g.get("completed") and not g.get("done")
+                          and g.get("due") and g.get("due") < today)
+
+    # Streak: count consecutive days any habit was completed
+    streak_days = 0
+    if habits:
+        all_completions = set()
+        for h in habits:
+            for d in (h.get("completions") or []):
+                all_completions.add(d)
+        d = _dt.date.today()
+        while str(d) in all_completions:
+            streak_days += 1
+            d -= _dt.timedelta(days=1)
+
+    return {
+        "tasks_due_today": tasks_due_today,
+        "overdue_tasks":   overdue_tasks,
+        "streak_days":     streak_days,
+        "active_goals":    active_goals,
+        "goals_at_risk":   goals_at_risk,
+        "greeting":        greeting,
+    }
+
+
+JOURNAL_PROMPTS = [
+    "What's one decision you made this week you'd make differently?",
+    "What's something you've been avoiding that needs your attention?",
+    "Describe a moment today where you felt fully present.",
+    "What would you do this week if you weren't afraid of failing?",
+    "What's one thing you learned today that surprised you?",
+    "Who made a positive impact on you recently, and have you told them?",
+    "What does success look like for you one year from now?",
+    "What habit is quietly holding you back?",
+    "What are you most grateful for right now?",
+    "What's one thing you want to stop doing? One thing to start?",
+    "Describe your energy level today. What drained you? What filled you?",
+    "What problem have you been overthinking that needs a decision, not more thought?",
+    "What did you build, create, or contribute today?",
+    "If today was the only evidence someone had of who you are, what would it say?",
+    "What's been on your mind that you haven't written down yet?",
+    "Where did you spend the most focus today? Was it worth it?",
+    "What's one conversation you need to have that you've been putting off?",
+    "What's working well right now that you should protect?",
+    "Name one thing you're proud of this week, however small.",
+    "What boundary did you hold or fail to hold today?",
+    "How has your thinking on a big goal shifted recently?",
+    "What would you tell yourself 3 months ago?",
+    "What's one thing you want to remember about today?",
+    "Where are you being too hard on yourself?",
+    "What would make next week significantly better than this one?",
+    "Describe your ideal version of tomorrow.",
+    "What are you currently building, and why does it matter to you?",
+    "What's one relationship you want to invest more in?",
+    "What does your gut say about a decision you're facing?",
+    "What's the most important thing you didn't do today, and why?",
+]
+
+@app.get("/api/journal/prompt")
+async def journal_prompt():
+    """Return today's journal prompt — consistent for all users on the same day."""
+    import datetime as _dt
+    day_of_year = _dt.date.today().timetuple().tm_yday
+    prompt = JOURNAL_PROMPTS[day_of_year % len(JOURNAL_PROMPTS)]
+    return {"prompt": prompt}
+
+
+@app.get("/api/analytics/mood")
+async def analytics_mood(token: str = "", days: int = 30):
+    """Return mood data from journal entries for the last N days."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    import datetime as _dt
+    days   = max(7, min(days, 90))
+    cutoff = str(_dt.date.today() - _dt.timedelta(days=days))
+    entries = load_journal(sid)
+
+    SCORE = {"great": 5, "good": 4, "okay": 3, "low": 2, "stressed": 1}
+    result = []
+    for e in entries:
+        d = e.get("date", "")
+        m = e.get("mood", "")
+        if d and d >= cutoff and m in SCORE:
+            result.append({"date": d, "mood": m, "mood_score": SCORE[m]})
+
+    result.sort(key=lambda x: x["date"])
+    return {"data": result}
+
+
 @app.post("/api/ai/extract-tasks")
 async def ai_extract_tasks(data: dict, request: Request):
     """Extract actionable tasks from free-form text using AI."""

@@ -777,7 +777,36 @@ Sentry.onLoad(function() {
               <span id="sh-done-count">0</span> completed
             </div>
           </div>
-          <div style="display:flex;gap:6px;align-items:center">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <div style="position:relative">
+              <button class="sh-view-btn" id="sh-filter-btn" onclick="shToggleFilter(event)">⊟ Filter</button>
+              <div id="sh-filter-drop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:200px;box-shadow:0 6px 20px rgba(0,0,0,.18)">
+                <div style="font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase">Status</div>
+                <label class="sh-filter-opt"><input type="checkbox" value="not_started" onchange="shApplyFilters()"> Not started</label>
+                <label class="sh-filter-opt"><input type="checkbox" value="in_progress" onchange="shApplyFilters()"> In progress</label>
+                <label class="sh-filter-opt"><input type="checkbox" value="done" onchange="shApplyFilters()"> Done</label>
+                <div style="font-size:.72rem;font-weight:700;color:var(--muted);margin:8px 0 6px;text-transform:uppercase">Priority</div>
+                <label class="sh-filter-opt"><input type="checkbox" value="p_high" onchange="shApplyFilters()"> High</label>
+                <label class="sh-filter-opt"><input type="checkbox" value="p_medium" onchange="shApplyFilters()"> Medium</label>
+                <label class="sh-filter-opt"><input type="checkbox" value="p_normal" onchange="shApplyFilters()"> Normal</label>
+                <label class="sh-filter-opt"><input type="checkbox" value="p_low" onchange="shApplyFilters()"> Low</label>
+                <div style="font-size:.72rem;font-weight:700;color:var(--muted);margin:8px 0 6px;text-transform:uppercase">Due</div>
+                <label class="sh-filter-opt"><input type="checkbox" value="due_overdue" onchange="shApplyFilters()"> Overdue</label>
+                <label class="sh-filter-opt"><input type="checkbox" value="due_today" onchange="shApplyFilters()"> Today</label>
+                <label class="sh-filter-opt"><input type="checkbox" value="due_week" onchange="shApplyFilters()"> This week</label>
+                <label class="sh-filter-opt"><input type="checkbox" value="due_none" onchange="shApplyFilters()"> No date</label>
+              </div>
+            </div>
+            <div style="position:relative">
+              <button class="sh-view-btn" id="sh-sort-btn" onclick="shToggleSort(event)">↕ Sort</button>
+              <div id="sh-sort-drop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:210px;box-shadow:0 6px 20px rgba(0,0,0,.18)">
+                <label class="sh-filter-opt"><input type="radio" name="sh-sort" value="due_asc" checked onchange="shApplySort()"> Due date (earliest first)</label>
+                <label class="sh-filter-opt"><input type="radio" name="sh-sort" value="due_desc" onchange="shApplySort()"> Due date (latest first)</label>
+                <label class="sh-filter-opt"><input type="radio" name="sh-sort" value="priority" onchange="shApplySort()"> Priority (high to low)</label>
+                <label class="sh-filter-opt"><input type="radio" name="sh-sort" value="created" onchange="shApplySort()"> Created (newest first)</label>
+                <label class="sh-filter-opt"><input type="radio" name="sh-sort" value="alpha" onchange="shApplySort()"> Alphabetical</label>
+              </div>
+            </div>
             <button class="sh-view-btn active" id="sh-view-overview" onclick="setSHView('overview',this)">★ Overview</button>
             <button class="sh-view-btn" id="sh-view-board" onclick="setSHView('board',this)">⊞ Board</button>
             <button class="sh-view-btn" id="sh-view-list" onclick="setSHView('list',this)">☰ List</button>
@@ -1027,7 +1056,7 @@ Sentry.onLoad(function() {
             </div>
 
             <!-- Due date + Time -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
               <div class="sh-field-group">
                 <label class="sh-field-label">Due date</label>
                 <input id="sh-modal-date" type="date" class="sh-input" style="font-size:.82rem">
@@ -1035,6 +1064,15 @@ Sentry.onLoad(function() {
               <div class="sh-field-group">
                 <label class="sh-field-label">Due time</label>
                 <input id="sh-modal-time" type="time" class="sh-input" style="font-size:.82rem">
+              </div>
+              <div class="sh-field-group">
+                <label class="sh-field-label">Repeat</label>
+                <select id="sh-modal-recur" class="sh-input" style="font-size:.82rem">
+                  <option value="">One time</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
               </div>
             </div>
 
@@ -2079,7 +2117,7 @@ Sentry.onLoad(function() {
             <div class="gs-videos-wrap">
               <div class="gs-videos" id="gs-videos">
 
-                <div class="gs-vid-card" id="gsvid-0" onclick="gsMarkDone(0,this)">
+                <div class="gs-vid-card" id="gsvid-0" onclick="gsOpenVideo(0,this)">
                   <div class="gs-vid-thumb">
                     <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
                     <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>
@@ -2090,7 +2128,7 @@ Sentry.onLoad(function() {
                   <div class="gs-vid-desc">A quick tour of your workspace</div>
                 </div>
 
-                <div class="gs-vid-card" id="gsvid-1" onclick="gsMarkDone(1,this)">
+                <div class="gs-vid-card" id="gsvid-1" onclick="gsOpenVideo(1,this)">
                   <div class="gs-vid-thumb">
                     <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
                     <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>
@@ -2101,7 +2139,7 @@ Sentry.onLoad(function() {
                   <div class="gs-vid-desc">Ask anything, get smart answers</div>
                 </div>
 
-                <div class="gs-vid-card" id="gsvid-2" onclick="gsMarkDone(2,this)">
+                <div class="gs-vid-card" id="gsvid-2" onclick="gsOpenVideo(2,this)">
                   <div class="gs-vid-thumb">
                     <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
                     <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>
@@ -2112,7 +2150,7 @@ Sentry.onLoad(function() {
                   <div class="gs-vid-desc">Plan your day and track progress</div>
                 </div>
 
-                <div class="gs-vid-card" id="gsvid-3" onclick="gsMarkDone(3,this)">
+                <div class="gs-vid-card" id="gsvid-3" onclick="gsOpenVideo(3,this)">
                   <div class="gs-vid-thumb">
                     <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
                     <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>
@@ -2123,7 +2161,7 @@ Sentry.onLoad(function() {
                   <div class="gs-vid-desc">Capture ideas and build knowledge</div>
                 </div>
 
-                <div class="gs-vid-card" id="gsvid-4" onclick="gsMarkDone(4,this)">
+                <div class="gs-vid-card" id="gsvid-4" onclick="gsOpenVideo(4,this)">
                   <div class="gs-vid-thumb">
                     <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
                     <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>
@@ -2134,7 +2172,7 @@ Sentry.onLoad(function() {
                   <div class="gs-vid-desc">Collaborate with your team</div>
                 </div>
 
-                <div class="gs-vid-card" id="gsvid-5" onclick="gsMarkDone(5,this)">
+                <div class="gs-vid-card" id="gsvid-5" onclick="gsOpenVideo(5,this)">
                   <div class="gs-vid-thumb">
                     <div class="gs-vid-play"><i class="ti ti-player-play-filled"></i></div>
                     <div class="gs-vid-placeholder"><i class="ti ti-video" style="font-size:1.4rem;opacity:.3"></i></div>

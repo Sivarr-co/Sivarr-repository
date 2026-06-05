@@ -1767,6 +1767,12 @@ body.offline .layout {
 }
 .sh-add-task-btn:hover { opacity:.88; }
 
+.sh-filter-opt {
+  display:flex; align-items:center; gap:7px; padding:3px 0;
+  font-size:.82rem; cursor:pointer; color:var(--text2);
+}
+.sh-filter-opt input { accent-color:var(--teal); cursor:pointer; }
+
 .sh-ai-card {
   background:var(--bg2); border:1px solid var(--border);
   border-radius:var(--radius); padding:10px;

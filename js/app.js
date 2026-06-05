@@ -1039,7 +1039,7 @@ async function showPricing() {
     cards.innerHTML = plans.map(p => {
       const isCurrent = currentPlan === p.name.toLowerCase() || (p.free && currentPlan === 'free');
       return `
-      <div class="pricing-card${p.featured ? ' featured' : ''}">
+      <div class="pricing-card${p.featured ? ' featured' : ''}${isCurrent ? ' current-plan' : ''}">
         <div class="pricing-name">${esc(p.name)}</div>
         <div class="pricing-price">${p.price}<span>${p.per}</span></div>
         <ul class="pricing-perks">${p.perks.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
@@ -1054,6 +1054,45 @@ async function showPricing() {
         }
       </div>`;
     }).join('');
+
+    // Comparison table
+    const tableWrap = cards.parentElement?.querySelector('#pricing-compare') || (() => {
+      const t = document.createElement('div');
+      t.id = 'pricing-compare';
+      t.style.cssText = 'margin-top:24px;border-top:1px solid var(--border);padding-top:20px';
+      cards.parentElement?.appendChild(t);
+      return t;
+    })();
+    const CHECK = '<span style="color:var(--teal)">✓</span>';
+    const CROSS = '<span style="color:var(--muted)">✗</span>';
+    const rows = [
+      ['AI messages / day',    '20',         'Unlimited',  'Unlimited'],
+      ['Quizzes / day',        '5',          'Unlimited',  'Unlimited'],
+      ['Core panels',          CHECK,        CHECK,        CHECK],
+      ['Spaces (each type)',   '1',          '3',          'Unlimited'],
+      ['Advanced analytics',   CROSS,        CHECK,        CHECK],
+      ['Priority AI',          CROSS,        CHECK,        CHECK],
+      ['Org members',          CROSS,        CROSS,        'Unlimited'],
+      ['Team analytics',       CROSS,        CROSS,        CHECK],
+      ['Data export',          CROSS,        CROSS,        CHECK],
+      ['Price',                '₦0/mo',     '₦2,500/mo', '₦8,000/mo'],
+    ];
+    tableWrap.innerHTML = `
+      <div style="font-weight:700;margin-bottom:12px;font-size:.9rem">Feature comparison</div>
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:600">Feature</th>
+            ${['Free','Pro','Team'].map(n => `<th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);color:${n.toLowerCase()===currentPlan?'var(--teal)':'var(--muted)'};font-weight:700">${n}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:7px 8px;color:var(--text2)">${r[0]}</td>
+            ${r.slice(1).map(v => `<td style="padding:7px 8px;text-align:center">${v}</td>`).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
   }
 }
 
@@ -3911,9 +3950,53 @@ function stToggleTheme(btn) {
 }
 
 function stToggleNotif(btn, key) {
+  const turningOn = !btn.classList.contains('on');
   btn.classList.toggle('on');
-  localStorage.setItem(`sivarr_notif_${key}`, btn.classList.contains('on') ? 'on' : 'off');
-  toast(`${btn.classList.contains('on') ? 'Enabled' : 'Disabled'} notifications`);
+  const isOn = btn.classList.contains('on');
+  localStorage.setItem(`sivarr_notif_${key}`, isOn ? 'on' : 'off');
+
+  if (isOn && (key === 'streak' || key === 'tasks') && 'Notification' in window) {
+    Notification.requestPermission().then(perm => {
+      if (perm === 'granted') {
+        toast(`${key === 'streak' ? 'Streak' : 'Task'} reminders enabled`);
+        _pushSubscribeForKey(key);
+      } else {
+        btn.classList.remove('on');
+        localStorage.setItem(`sivarr_notif_${key}`, 'off');
+        const errEl = document.createElement('div');
+        errEl.style.cssText = 'font-size:.78rem;color:var(--red,#ef4444);margin-top:4px';
+        errEl.textContent = 'Enable notifications in your browser settings first.';
+        btn.parentElement?.appendChild(errEl);
+        setTimeout(() => errEl.remove(), 4000);
+      }
+    });
+  } else {
+    toast(`${isOn ? 'Enabled' : 'Disabled'} notifications`);
+  }
+}
+
+async function _pushSubscribeForKey(type) {
+  try {
+    const token = localStorage.getItem('sivarr_token') || '';
+    if (!token || !navigator.serviceWorker) return;
+    const cfgR = await fetch('/api/config');
+    const cfg  = await cfgR.json();
+    if (!cfg.vapid_public_key) return;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlBase64ToUint8Array(cfg.vapid_public_key),
+      });
+    }
+    await fetch('/api/notifications/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, subscription: sub.toJSON(), type }),
+    });
+    localStorage.setItem('sivarr_notif_subscribed', 'true');
+  } catch(_) {}
 }
 
 // Full accent colour map — each swatch defines every derived CSS variable
@@ -5129,6 +5212,37 @@ function _gsRenderProgress(done) {
   });
 }
 
+const _GS_VIDEOS = [
+  { title: 'Welcome to Sivarr',  embed: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
+  { title: 'Sivarr AI Chat',     embed: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
+  { title: 'Tasks & Goals',      embed: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
+  { title: 'Notes & Docs',       embed: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
+  { title: 'Org Space',          embed: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
+  { title: 'Billing & Plans',    embed: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
+];
+
+function gsOpenVideo(idx, card) {
+  const v = _GS_VIDEOS[idx];
+  if (!v) return;
+  // Remove old modal if any
+  document.getElementById('gs-video-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'gs-video-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--bg);border-radius:14px;padding:20px;width:min(720px,95vw);position:relative">
+      <button onclick="document.getElementById('gs-video-modal').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">×</button>
+      <div style="font-weight:700;margin-bottom:12px;padding-right:24px">${esc(v.title)}</div>
+      <div style="position:relative;padding-top:56.25%;background:#000;border-radius:8px;overflow:hidden">
+        <iframe src="${v.embed}?autoplay=1" style="position:absolute;inset:0;width:100%;height:100%;border:none" allow="autoplay;encrypted-media" allowfullscreen></iframe>
+      </div>
+    </div>`;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+  // Mark done
+  gsMarkDone(idx, card);
+}
+
 function gsMarkDone(idx, card) {
   const state = JSON.parse(localStorage.getItem(_GS_KEY()) || '{}');
   const done  = state.done || [];
@@ -5137,7 +5251,7 @@ function gsMarkDone(idx, card) {
     state.done = done;
     localStorage.setItem(_GS_KEY(), JSON.stringify(state));
   }
-  card.classList.add('done');
+  if (card) card.classList.add('done');
   _gsRenderProgress(done);
 
   // Auto-dismiss when all done
@@ -5187,7 +5301,7 @@ async function loadHome() {
   const activeGoals  = goals.filter(g => !g.completed);
   const streak       = _getActivityStreak();
 
-  // ── Sivarr brief (AI-generated, cached per day) ─────────────────
+  // ── Sivarr brief — fast data-driven first, AI overlay if cached ──────────────
   const briefMsg = $('home-brief-msg');
   if (briefMsg) {
     const briefKey = `sivarr_brief_${S.sid}_${today8601}`;
@@ -5195,8 +5309,26 @@ async function loadHome() {
     if (cached) {
       briefMsg.innerHTML = renderMarkdown(cached);
     } else {
-      briefMsg.innerHTML = `<span class="brief-pulse">Generating your brief…</span>`;
-      _fetchHomeBrief({ openTasks, activeGoals, habits, jnl, events, today8601, streak, briefKey, briefMsg });
+      // Show structured data immediately from /api/home/briefing, then fetch AI brief in background
+      const token = localStorage.getItem('sivarr_token') || '';
+      briefMsg.innerHTML = `<span class="brief-pulse">Loading…</span>`;
+      fetch(`/api/home/briefing?token=${encodeURIComponent(token)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (!d) return;
+          const parts = [`${d.greeting}, ${S.name.split(' ')[0]}.`];
+          if (d.tasks_due_today) parts.push(`${d.tasks_due_today} task${d.tasks_due_today > 1 ? 's' : ''} due today${d.overdue_tasks ? ` · ${d.overdue_tasks} overdue` : ''}.`);
+          if (d.streak_days)     parts.push(`${d.streak_days}-day streak — keep it going.`);
+          if (d.goals_at_risk)   parts.push(`${d.goals_at_risk} goal${d.goals_at_risk > 1 ? 's' : ''} at risk.`);
+          if (!briefMsg.querySelector('.brief-pulse')) return; // AI beat us, skip
+          briefMsg.textContent = parts.join(' ');
+          // Still fire the AI brief in background to replace with richer text
+          _fetchHomeBrief({ openTasks, activeGoals, habits, jnl, events, today8601, streak, briefKey, briefMsg });
+        })
+        .catch(() => {
+          briefMsg.innerHTML = `<span class="brief-pulse">Generating your brief…</span>`;
+          _fetchHomeBrief({ openTasks, activeGoals, habits, jnl, events, today8601, streak, briefKey, briefMsg });
+        });
     }
   }
 
@@ -5441,26 +5573,157 @@ function homeHabitToggle(idx) {
 // ════════════ CALENDAR ════════════
 let CAL_YEAR = new Date().getFullYear();
 let CAL_MONTH = new Date().getMonth();
+let CAL_VIEW = 'month';   // 'month' | 'week' | 'day'
+let CAL_WEEK_START = null; // Date (Monday of current week view)
+let CAL_DAY_DATE   = null; // Date string for day view
 let CAL_EVENTS_KEY = () => `sivarr_cal_${S.sid||'guest'}`;
 
 function calInit() {
+  _calRenderViewBtns();
   calRender();
 }
 
+function _calRenderViewBtns() {
+  const hdr = document.querySelector('.cal-header');
+  if (!hdr || $('cal-view-btns')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'cal-view-btns';
+  wrap.style.cssText = 'display:flex;gap:4px;margin-left:auto';
+  ['Month','Week','Day'].forEach(v => {
+    const b = document.createElement('button');
+    b.textContent = v;
+    b.className = 'cal-nav-btn' + (v.toLowerCase() === CAL_VIEW ? ' active' : '');
+    b.style.cssText = 'font-size:.78rem;padding:4px 10px';
+    b.onclick = () => { CAL_VIEW = v.toLowerCase(); _calRenderViewBtns(); calRender(); };
+    wrap.appendChild(b);
+  });
+  hdr.appendChild(wrap);
+}
+
 function calNav(dir) {
+  if (CAL_VIEW === 'week') {
+    const base = CAL_WEEK_START || _getWeekStart(new Date());
+    CAL_WEEK_START = new Date(base.getTime() + dir * 7 * 86400000);
+    calRender(); return;
+  }
+  if (CAL_VIEW === 'day') {
+    const base = CAL_DAY_DATE ? new Date(CAL_DAY_DATE + 'T12:00:00') : new Date();
+    base.setDate(base.getDate() + dir);
+    CAL_DAY_DATE = base.toISOString().split('T')[0];
+    calRender(); return;
+  }
   CAL_MONTH += dir;
   if (CAL_MONTH > 11) { CAL_MONTH = 0; CAL_YEAR++; }
   if (CAL_MONTH < 0)  { CAL_MONTH = 11; CAL_YEAR--; }
   calRender();
 }
 
+function _getWeekStart(d) {
+  const day = d.getDay(); // 0=Sun
+  const diff = day === 0 ? -6 : 1 - day; // move to Monday
+  const m = new Date(d); m.setDate(d.getDate() + diff); m.setHours(0,0,0,0);
+  return m;
+}
+
+function _calRenderWeek() {
+  const start = CAL_WEEK_START || _getWeekStart(new Date());
+  CAL_WEEK_START = start;
+  const lbl = $('cal-month-label');
+  const endD = new Date(start.getTime() + 6 * 86400000);
+  if (lbl) lbl.textContent = `${start.toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${endD.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`;
+
+  const events = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start.getTime() + i * 86400000);
+    days.push(d);
+  }
+  const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const today = new Date().toISOString().split('T')[0];
+
+  let html = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:10px;flex:1;overflow:auto">`;
+  days.forEach((d, i) => {
+    const ds = d.toISOString().split('T')[0];
+    const isToday = ds === today;
+    const dayEvs = events.filter(e => e.date === ds);
+    html += `<div style="border:1px solid var(--border);border-radius:8px;padding:8px;min-height:100px;cursor:pointer${isToday?' border-color:var(--teal)':''}" onclick="calSelectDay('${ds}',${d.getDate()})">
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:4px">${DAYS[i]}</div>
+      <div style="font-weight:700;font-size:.9rem;${isToday ? 'color:var(--teal)' : ''}">${d.getDate()}</div>
+      ${dayEvs.slice(0,3).map(e => `<div style="margin-top:4px;padding:2px 6px;border-radius:4px;background:${e.color||'var(--teal)'}22;color:${e.color||'var(--teal)'};font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="event.stopPropagation();calEditEvent('${e.id}')">${esc(e.title)}</div>`).join('')}
+      ${dayEvs.length > 3 ? `<div style="font-size:.68rem;color:var(--muted);margin-top:2px">+${dayEvs.length - 3} more</div>` : ''}
+    </div>`;
+  });
+  html += '</div>';
+
+  const grid = $('cal-grid');
+  if (grid) { grid.style.display = 'none'; }
+  let weekView = $('cal-week-view');
+  if (!weekView) {
+    weekView = document.createElement('div');
+    weekView.id = 'cal-week-view';
+    weekView.style.cssText = 'display:flex;flex-direction:column;flex:1;overflow:hidden';
+    grid.parentElement.insertBefore(weekView, grid.nextSibling);
+  }
+  weekView.style.display = 'flex';
+  weekView.innerHTML = html;
+  const dayView = $('cal-day-view'); if (dayView) dayView.style.display = 'none';
+}
+
+function _calRenderDay() {
+  const ds = CAL_DAY_DATE || new Date().toISOString().split('T')[0];
+  CAL_DAY_DATE = ds;
+  const lbl = $('cal-month-label');
+  if (lbl) lbl.textContent = new Date(ds + 'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  const events = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]').filter(e => e.date === ds);
+  let html = `<div style="flex:1;overflow:auto;padding:10px">`;
+  for (let hr = 6; hr <= 23; hr++) {
+    const label = hr < 12 ? `${hr}:00 AM` : hr === 12 ? '12:00 PM' : `${hr-12}:00 PM`;
+    const hrEvs = events.filter(e => {
+      const t = (e.time || '').slice(0,2);
+      return parseInt(t, 10) === hr;
+    });
+    html += `<div style="display:flex;gap:8px;min-height:52px;border-bottom:1px solid var(--border);padding:6px 0">
+      <div style="width:56px;font-size:.72rem;color:var(--muted);flex-shrink:0;padding-top:2px">${label}</div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:3px">
+        ${hrEvs.map(e => `<div style="padding:4px 8px;border-radius:6px;background:${e.color||'var(--teal)'}22;color:${e.color||'var(--teal)'};font-size:.8rem;cursor:pointer" onclick="calEditEvent('${e.id}')">${esc(e.title)}</div>`).join('')}
+      </div>
+    </div>`;
+  }
+  html += '</div>';
+
+  const grid = $('cal-grid'); if (grid) grid.style.display = 'none';
+  const weekView = $('cal-week-view'); if (weekView) weekView.style.display = 'none';
+  let dayView = $('cal-day-view');
+  if (!dayView) {
+    dayView = document.createElement('div');
+    dayView.id = 'cal-day-view';
+    dayView.style.cssText = 'display:flex;flex-direction:column;flex:1;overflow:hidden';
+    grid.parentElement.insertBefore(dayView, grid.nextSibling);
+  }
+  dayView.style.display = 'flex';
+  dayView.innerHTML = html;
+}
+
 function calRender() {
+  // Update view-button active states
+  document.querySelectorAll('#cal-view-btns button').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase() === CAL_VIEW);
+  });
+  if (CAL_VIEW === 'week') { _calRenderWeek(); return; }
+  if (CAL_VIEW === 'day')  { _calRenderDay();  return; }
+
+  // Month view — restore grid, hide alternate views
+  const weekView = $('cal-week-view'); if (weekView) weekView.style.display = 'none';
+  const dayView  = $('cal-day-view');  if (dayView)  dayView.style.display  = 'none';
+
   const lbl = $('cal-month-label');
   if (lbl) lbl.textContent = new Date(CAL_YEAR, CAL_MONTH, 1)
     .toLocaleDateString('en-GB', { month:'long', year:'numeric' });
 
   const grid = $('cal-grid');
   if (!grid) return;
+  grid.style.display = '';
 
   const headers = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
     .map(d => `<div class="cal-dh">${d}</div>`).join('');
@@ -5502,14 +5765,14 @@ function calSelectDay(dateStr, d) {
   if (!list) return;
 
   const evHTML = events.map(e => `
-    <div class="ev-row">
+    <div class="ev-row" style="cursor:pointer" onclick="calEditEvent('${e.id}')">
       <div class="ev-time">${esc(e.time||'All day')}</div>
       <div class="ev-dot" style="background:${e.color||'var(--teal)'}"></div>
       <div class="ev-info">
         <div class="ev-name">${esc(e.title)}</div>
         ${e.desc ? `<div class="ev-sub">${esc(e.desc)}</div>` : ''}
       </div>
-      <button onclick="calDeleteEvent('${e.id}')" style="background:none;border:none;color:var(--text4);cursor:pointer;font-size:13px;padding:2px 6px" title="Delete">×</button>
+      <button onclick="event.stopPropagation();calDeleteEvent('${e.id}')" style="background:none;border:none;color:var(--text4);cursor:pointer;font-size:13px;padding:2px 6px" title="Delete">×</button>
     </div>`).join('');
 
   const taskHTML = shTasks.map(t => `
@@ -5553,6 +5816,69 @@ function calDeleteEvent(id) {
   localStorage.setItem(CAL_EVENTS_KEY(), JSON.stringify(evs));
   calRender();
   toast('Event removed');
+}
+
+async function calEditEvent(id) {
+  const evs = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
+  const ev  = evs.find(e => e.id === id);
+  if (!ev) return;
+  document.getElementById('cal-edit-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'cal-edit-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center';
+  const COLORS = [
+    { label:'Teal',    val:'var(--teal)' },
+    { label:'Purple',  val:'var(--purple)' },
+    { label:'Red',     val:'var(--coral,#ef4444)' },
+    { label:'Amber',   val:'var(--amber3,#f59e0b)' },
+  ];
+  const swatches = COLORS.map((c, i) => {
+    const sel = ev.color === c.val;
+    return `<div data-color="${c.val}" onclick="this.parentNode.querySelectorAll('[data-color]').forEach(x=>x.style.outline='none');this.style.outline='2px solid var(--teal)'" style="width:22px;height:22px;border-radius:50%;background:${c.val};cursor:pointer;${sel?'outline:2px solid var(--teal)':''}" title="${c.label}"></div>`;
+  }).join('');
+  modal.innerHTML = `
+    <div style="background:var(--bg);border-radius:14px;padding:22px;width:min(380px,95vw);position:relative">
+      <button onclick="document.getElementById('cal-edit-modal').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer">×</button>
+      <div style="font-weight:700;margin-bottom:16px">Edit Event</div>
+      <label style="font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px">Title</label>
+      <input id="cal-edit-title" value="${esc(ev.title)}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--fg);font-family:var(--font);margin-bottom:12px;box-sizing:border-box">
+      <label style="font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px">Date</label>
+      <input id="cal-edit-date" type="date" value="${esc(ev.date)}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--fg);font-family:var(--font);margin-bottom:12px;box-sizing:border-box">
+      <label style="font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px">Time</label>
+      <input id="cal-edit-time" type="text" value="${esc(ev.time||'')}" placeholder="e.g. 09:00" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--fg);font-family:var(--font);margin-bottom:14px;box-sizing:border-box">
+      <label style="font-size:.8rem;color:var(--muted);display:block;margin-bottom:6px">Colour</label>
+      <div id="cal-edit-colors" style="display:flex;gap:8px;margin-bottom:16px">${swatches}</div>
+      <div style="display:flex;justify-content:space-between;gap:8px">
+        <button onclick="calDeleteEventFromEdit('${id}')" style="background:var(--red,#ef4444);color:#fff;border:none;border-radius:8px;padding:9px 14px;cursor:pointer;font-family:var(--font);font-size:.85rem">Delete</button>
+        <button onclick="calSaveEditEvent('${id}')" style="background:var(--teal);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:var(--font);font-size:.85rem;font-weight:600">Save</button>
+      </div>
+    </div>`;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function calSaveEditEvent(id) {
+  const evs   = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
+  const idx   = evs.findIndex(e => e.id === id);
+  if (idx < 0) return;
+  const title = $('cal-edit-title')?.value.trim();
+  const date  = $('cal-edit-date')?.value;
+  const time  = $('cal-edit-time')?.value.trim();
+  const selectedSwatch = document.querySelector('#cal-edit-colors [data-color][style*="outline: 2px"]') ||
+                         document.querySelector('#cal-edit-colors [data-color][style*="outline:2px"]');
+  const color = selectedSwatch?.dataset.color || evs[idx].color;
+  if (!title || !date) { toast('Title and date are required.'); return; }
+  evs[idx] = { ...evs[idx], title, date, time, color };
+  localStorage.setItem(CAL_EVENTS_KEY(), JSON.stringify(evs));
+  document.getElementById('cal-edit-modal')?.remove();
+  calRender();
+  calSelectDay(date);
+  toast('Event updated ✓');
+}
+
+function calDeleteEventFromEdit(id) {
+  document.getElementById('cal-edit-modal')?.remove();
+  calDeleteEvent(id);
 }
 
 // ════════════ HABITS ════════════
@@ -5712,11 +6038,36 @@ async function habitDelete(idx) {
 const JNL_KEY = () => `sivarr_journal_${S.sid||'guest'}`;
 
 const JNL_PROMPTS = [
-  'What\'s one thing you learned today that surprised you? How can you apply it?',
-  'What\'s your biggest challenge right now, and what\'s one step you can take toward solving it?',
-  'What are you most grateful for today?',
-  'What would make tomorrow even better than today?',
-  'What habit would most transform your life if you built it this month?',
+  "What's one decision you made this week you'd make differently?",
+  "What's something you've been avoiding that needs your attention?",
+  "Describe a moment today where you felt fully present.",
+  "What would you do this week if you weren't afraid of failing?",
+  "What's one thing you learned today that surprised you?",
+  "Who made a positive impact on you recently, and have you told them?",
+  "What does success look like for you one year from now?",
+  "What habit is quietly holding you back?",
+  "What are you most grateful for right now?",
+  "What's one thing you want to stop doing? One thing to start?",
+  "Describe your energy level today. What drained you? What filled you?",
+  "What problem have you been overthinking that needs a decision, not more thought?",
+  "What did you build, create, or contribute today?",
+  "If today was the only evidence someone had of who you are, what would it say?",
+  "What's been on your mind that you haven't written down yet?",
+  "Where did you spend the most focus today? Was it worth it?",
+  "What's one conversation you need to have that you've been putting off?",
+  "What's working well right now that you should protect?",
+  "Name one thing you're proud of this week, however small.",
+  "What boundary did you hold or fail to hold today?",
+  "How has your thinking on a big goal shifted recently?",
+  "What would you tell yourself 3 months ago?",
+  "What's one thing you want to remember about today?",
+  "Where are you being too hard on yourself?",
+  "What would make next week significantly better than this one?",
+  "Describe your ideal version of tomorrow.",
+  "What are you currently building, and why does it matter to you?",
+  "What's one relationship you want to invest more in?",
+  "What does your gut say about a decision you're facing?",
+  "What's the most important thing you didn't do today, and why?",
 ];
 
 function journalInit() {
@@ -5728,9 +6079,17 @@ function journalInit() {
   const draft = localStorage.getItem(`${JNL_KEY()}_${todayKey}`) || '';
   const ta = $('journal-text'); if (ta) ta.value = draft;
 
-  // Random prompt
+  // Daily prompt — fetch from API for server-consistent rotation, fall back to local
   const prompt2 = document.querySelector('.journal-prompt');
-  if (prompt2) prompt2.innerHTML = `<strong>Today's prompt:</strong> ${JNL_PROMPTS[new Date().getDay() % JNL_PROMPTS.length]}`;
+  if (prompt2) {
+    const now = new Date();
+    const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+    const localPrompt = JNL_PROMPTS[dayOfYear % JNL_PROMPTS.length];
+    prompt2.innerHTML = `<strong>Today's prompt:</strong> ${localPrompt}`;
+    fetch('/api/journal/prompt').then(r => r.json()).then(d => {
+      if (d.prompt) prompt2.innerHTML = `<strong>Today's prompt:</strong> ${d.prompt}`;
+    }).catch(() => {});
+  }
 
   journalRenderEntries();
 }
@@ -6924,6 +7283,82 @@ function loadStudyHelp() {
   renderSHBoard();
 }
 
+// ── Filter / Sort state ───────────────────────────────────────
+let _SH_FILTERS = {};
+let _SH_SORT    = 'due_asc';
+
+function shToggleFilter(e) {
+  e.stopPropagation();
+  const d = $('sh-filter-drop'), s = $('sh-sort-drop');
+  if (s) s.style.display = 'none';
+  if (d) d.style.display = d.style.display === 'none' ? 'block' : 'none';
+}
+function shToggleSort(e) {
+  e.stopPropagation();
+  const d = $('sh-filter-drop'), s = $('sh-sort-drop');
+  if (d) d.style.display = 'none';
+  if (s) s.style.display = s.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', () => {
+  const fd = $('sh-filter-drop'); if (fd) fd.style.display = 'none';
+  const sd = $('sh-sort-drop');   if (sd) sd.style.display = 'none';
+});
+
+function shApplyFilters() {
+  const checked = [...document.querySelectorAll('#sh-filter-drop input:checked')].map(el => el.value);
+  _SH_FILTERS = {};
+  checked.forEach(v => _SH_FILTERS[v] = true);
+  if (SH_VIEW === 'overview') renderSHOverview();
+  if (SH_VIEW === 'list')     renderSHListView();
+}
+function shApplySort() {
+  const sel = document.querySelector('#sh-sort-drop input:checked');
+  if (sel) _SH_SORT = sel.value;
+  if (SH_VIEW === 'overview') renderSHOverview();
+  if (SH_VIEW === 'list')     renderSHListView();
+}
+
+function _shFilterAndSort(tasks) {
+  const today = new Date().toISOString().split('T')[0];
+  const weekEnd = new Date(Date.now() + 6 * 86400000).toISOString().split('T')[0];
+  const PRI = { high:4, medium:3, normal:2, low:1 };
+  const hasF = Object.keys(_SH_FILTERS).length > 0;
+
+  let out = hasF ? tasks.filter(t => {
+    const s = t.status || (t.done ? 'done' : 'not_started');
+    const p = t.priority || 'normal';
+    const d = t.date || t.due_date || '';
+    if (_SH_FILTERS['not_started'] || _SH_FILTERS['in_progress'] || _SH_FILTERS['done']) {
+      if (!_SH_FILTERS[s]) return false;
+    }
+    if (_SH_FILTERS['p_high'] || _SH_FILTERS['p_medium'] || _SH_FILTERS['p_normal'] || _SH_FILTERS['p_low']) {
+      if (!_SH_FILTERS[`p_${p}`]) return false;
+    }
+    if (_SH_FILTERS['due_overdue'] || _SH_FILTERS['due_today'] || _SH_FILTERS['due_week'] || _SH_FILTERS['due_none']) {
+      if (_SH_FILTERS['due_none'] && !d) return true;
+      if (_SH_FILTERS['due_overdue'] && d && d < today) return true;
+      if (_SH_FILTERS['due_today']   && d === today)    return true;
+      if (_SH_FILTERS['due_week']    && d > today && d <= weekEnd) return true;
+      return false;
+    }
+    return true;
+  }) : [...tasks];
+
+  out.sort((a, b) => {
+    const da = a.date || a.due_date || '';
+    const db = b.date || b.due_date || '';
+    const pa = PRI[a.priority || 'normal'] || 2;
+    const pb = PRI[b.priority || 'normal'] || 2;
+    if (_SH_SORT === 'due_asc')  return (da || '9') < (db || '9') ? -1 : 1;
+    if (_SH_SORT === 'due_desc') return (da || '') > (db || '') ? -1 : 1;
+    if (_SH_SORT === 'priority') return pb - pa;
+    if (_SH_SORT === 'created')  return (b.id || '') > (a.id || '') ? 1 : -1;
+    if (_SH_SORT === 'alpha')    return (a.title || '').localeCompare(b.title || '');
+    return 0;
+  });
+  return out;
+}
+
 function setSHView(view, btn) {
   SH_VIEW = view;
   document.querySelectorAll('.sh-view-btn').forEach(b => b.classList.remove('active'));
@@ -6937,7 +7372,7 @@ function setSHView(view, btn) {
 
 function renderSHOverview() {
   const data   = getSHData();
-  const tasks  = data.tasks || [];
+  const tasks  = _shFilterAndSort(data.tasks || []);
   const tbody  = $('sh-overview-rows');
   if (!tbody) return;
 
@@ -7004,7 +7439,7 @@ function renderSHOverview() {
       <td><div class="sh-cell" style="display:flex;align-items:center;gap:5px;${indent ? 'padding-left:12px' : ''}">
             ${indent ? '<span style="color:var(--border);font-size:.75rem;flex-shrink:0;margin-right:1px">↳</span>' : ''}
             <div class="sh-cell-title" style="flex:1;${isDone ? 'text-decoration:line-through;opacity:.6' : ''};cursor:pointer"
-                onclick="event.stopPropagation();shOpenDetail(${t.id})">${esc(t.title)}</div>
+                onclick="event.stopPropagation();shOpenDetail(${t.id})">${esc(t.title)}${t.recurrence ? ' <span title="Recurring" style="color:var(--teal);font-size:.8em">↻</span>' : ''}</div>
             <button class="task-focus-btn" onclick="event.stopPropagation();focusStart(${JSON.stringify(t.title)},25)" title="Focus on this task"><i class="ti ti-player-play" style="font-size:10px"></i></button>
             <button class="task-focus-btn" onclick="event.stopPropagation();inlineEdit(${t.id},'title',this.parentElement.querySelector('.sh-cell-title'))" title="Rename task"><i class="ti ti-pencil" style="font-size:10px"></i></button>
           </div></td>
@@ -7174,6 +7609,7 @@ function openEditTask(id) {
   $('sh-modal-time').value     = task.time        || '';
   $('sh-modal-priority').value = task.priority    || 'normal';
   $('sh-modal-summary').value  = task.summary     || '';
+  if ($('sh-modal-recur')) $('sh-modal-recur').value = task.recurrence || '';
   _populateGoalPicker(task.goalId || '');
   const fn = $('sh-modal-file-name');
   if (fn) fn.textContent = task.attachName || 'No file chosen';
@@ -7227,17 +7663,18 @@ function saveSHModal() {
   const goalId = $('sh-modal-goal')?.value || '';
   const fields = {
     title,
-    status:   $('sh-modal-status')?.value   || 'todo',
-    type:     $('sh-modal-type')?.value      || 'other',
-    desc:     $('sh-modal-desc')?.value.trim()     || '',
-    assignee: $('sh-modal-assignee')?.value.trim() || '',
-    date:     $('sh-modal-date')?.value      || '',
-    time:     $('sh-modal-time')?.value      || '',
-    priority: $('sh-modal-priority')?.value  || 'normal',
-    summary:  $('sh-modal-summary')?.value.trim()  || '',
+    status:     $('sh-modal-status')?.value   || 'todo',
+    type:       $('sh-modal-type')?.value      || 'other',
+    desc:       $('sh-modal-desc')?.value.trim()     || '',
+    assignee:   $('sh-modal-assignee')?.value.trim() || '',
+    date:       $('sh-modal-date')?.value      || '',
+    time:       $('sh-modal-time')?.value      || '',
+    priority:   $('sh-modal-priority')?.value  || 'normal',
+    summary:    $('sh-modal-summary')?.value.trim()  || '',
+    recurrence: $('sh-modal-recur')?.value     || null,
     attachName: $('sh-modal-file')?._filename || '',
-    goalId:   goalId,
-    updated:  now,
+    goalId:     goalId,
+    updated:    now,
   };
 
   if (editId) {
@@ -10968,7 +11405,7 @@ function founderRender() {
   const raised = parseFloat(f.total_raised) || 0;
   const runway = burn > 0 ? Math.round(cash / burn) : null;
 
-  const fmt = v => v >= 1000000 ? `$${(v/1000000).toFixed(1)}M` : v >= 1000 ? `$${(v/1000).toFixed(0)}K` : `$${v.toLocaleString()}`;
+  const fmt = v => v >= 1000000 ? `₦${(v/1000000).toFixed(1)}M` : v >= 1000 ? `₦${(v/1000).toFixed(0)}K` : `₦${v.toLocaleString()}`;
 
   const setV = (id, v) => { const el = $(id); if (el) el.textContent = v; };
   setV('fd-burn',   fmt(burn));
@@ -15624,6 +16061,101 @@ function reviewInit() {
   const empty  = $('review-empty');
   if (aiCard) aiCard.style.display = 'none';
   if (empty)  empty.style.display  = 'flex';
+  _moodChartLoad();
+  _reviewAutoLoad();
+}
+
+async function _reviewAutoLoad() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  // Check for a cached review from this week in localStorage
+  const weekStart = (() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().split('T')[0];
+  })();
+  const cacheKey = `sivarr_weekly_review_${S.sid}_${weekStart}`;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    _reviewShowContent(cached, weekStart);
+    return;
+  }
+  // Try fetching from server if the review was auto-generated
+  try {
+    const r = await fetch(`/api/ai/weekly-review/latest?token=${encodeURIComponent(token)}`);
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.review && d.week_start === weekStart) {
+      localStorage.setItem(cacheKey, d.review);
+      _reviewShowContent(d.review, weekStart);
+    }
+  } catch(_) {}
+}
+
+function _reviewShowContent(text, weekStart) {
+  const aiCard  = $('review-ai-card');
+  const empty   = $('review-empty');
+  const content = $('review-ai-content');
+  const weekEl  = $('review-ai-week');
+  if (content) content.innerHTML = typeof _reviewFormatMd === 'function' ? _reviewFormatMd(text) : text;
+  if (weekEl)  weekEl.textContent = `Week of ${weekStart}`;
+  if (aiCard)  { aiCard.style.display = 'block'; _reviewGenerated = true; }
+  if (empty)   empty.style.display = 'none';
+}
+
+async function _moodChartLoad() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  let container = $('mood-chart-card');
+  if (!container) {
+    // Append card after the review stats section
+    const reviewWrap = document.querySelector('.review-stats-wrap') || document.querySelector('#review-ai-card')?.parentElement;
+    if (!reviewWrap) return;
+    container = document.createElement('div');
+    container.id = 'mood-chart-card';
+    container.style.cssText = 'margin-top:16px;padding:16px 18px;background:var(--surface);border:1px solid var(--border);border-radius:12px';
+    reviewWrap.parentElement?.appendChild(container);
+  }
+  container.innerHTML = '<div style="font-size:.82rem;color:var(--muted)">Loading mood data…</div>';
+  try {
+    const r = await fetch(`/api/analytics/mood?token=${encodeURIComponent(token)}&days=30`);
+    const d = await r.json();
+    const pts = d.data || [];
+    if (pts.length < 3) {
+      container.innerHTML = '<div style="font-weight:700;margin-bottom:8px;font-size:.9rem">Mood trend — last 30 days</div><div style="font-size:.82rem;color:var(--muted)">Keep journalling to see your mood trend.</div>';
+      return;
+    }
+    const W = 480, H = 120, PAD_L = 52, PAD_R = 12, PAD_T = 12, PAD_B = 28;
+    const w = W - PAD_L - PAD_R, h = H - PAD_T - PAD_B;
+    const COLORS = { great:'var(--teal)', good:'#22c55e', okay:'var(--amber,#f59e0b)', low:'#d97706', stressed:'var(--red,#ef4444)' };
+    const LABELS = { 5:'Great', 4:'Good', 3:'Okay', 2:'Low', 1:'Stressed' };
+    const xs = pts.map((_, i) => PAD_L + (i / (pts.length - 1)) * w);
+    const ys = pts.map(p => PAD_T + h - ((p.mood_score - 1) / 4) * h);
+    const poly = xs.map((x, i) => `${x},${ys[i]}`).join(' ');
+    const dots = pts.map((p, i) => `<circle cx="${xs[i]}" cy="${ys[i]}" r="4" fill="${COLORS[p.mood] || 'var(--teal)'}" stroke="var(--surface)" stroke-width="1.5"><title>${p.date}: ${p.mood}</title></circle>`).join('');
+    const yLabels = [1,3,5].map(v => {
+      const y = PAD_T + h - ((v - 1) / 4) * h;
+      return `<text x="${PAD_L - 6}" y="${y + 4}" text-anchor="end" font-size="9" fill="var(--muted)">${LABELS[v]}</text><line x1="${PAD_L}" y1="${y}" x2="${PAD_L + w}" y2="${y}" stroke="var(--border)" stroke-width="0.5"/>`;
+    }).join('');
+    const step = Math.max(1, Math.floor(pts.length / 5));
+    const xLabels = pts.filter((_, i) => i % step === 0).map((p, i2) => {
+      const idx = i2 * step;
+      const label = p.date.slice(5); // MM-DD
+      return `<text x="${xs[idx]}" y="${PAD_T + h + 16}" text-anchor="middle" font-size="9" fill="var(--muted)">${label}</text>`;
+    }).join('');
+    container.innerHTML = `
+      <div style="font-weight:700;margin-bottom:10px;font-size:.9rem">Mood trend — last 30 days</div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;display:block;overflow:visible">
+        ${yLabels}
+        <polyline points="${poly}" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linejoin="round"/>
+        ${dots}
+        ${xLabels}
+      </svg>`;
+  } catch(_) {
+    container.innerHTML = '<div style="font-size:.82rem;color:var(--muted)">Could not load mood data.</div>';
+  }
 }
 
 function _reviewPopulateStats() {
