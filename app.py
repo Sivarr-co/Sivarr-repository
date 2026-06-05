@@ -560,8 +560,7 @@ API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 _model_name = None
 _chat_sessions: dict = {}          # sid → {chat, math, last_used}
 _session_tokens:    dict = {}   # token → {sid, name, email, expires}
-_admin_sessions:    dict = {}   # token → expiry datetime  (2-hour window)
-_lecturer_sessions: dict = {}   # token → expiry datetime  (2-hour window)
+# Admin/lecturer sessions are now stateless HMAC tokens — no in-memory dicts needed
 _failed_logins:     dict = {}   # email → {count, locked_until}
 
 LOGIN_LOCK_ATTEMPTS = 10
@@ -595,52 +594,53 @@ def _clear_failed_login(email: str) -> None:
 
 SESSION_TTL_DAYS  = 30             # auth token lifetime
 CHAT_SESSION_TTL  = 4 * 3600      # evict idle AI sessions after 4 hours
-_PRIV_SESSION_TTL = datetime.timedelta(hours=2)
+_PRIV_SESSION_TTL_S = 7200  # 2 hours in seconds
 
 
-def _cleanup_priv_sessions(store: dict) -> None:
-    now   = datetime.datetime.utcnow()
-    stale = [t for t, exp in store.items() if exp <= now]
-    for t in stale:
-        del store[t]
+def _hmac_sign(payload: str, secret: str) -> str:
+    return hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()[:24]
 
 
 def _create_admin_session() -> str:
-    _cleanup_priv_sessions(_admin_sessions)
-    token = "adm_" + secrets.token_urlsafe(32)
-    _admin_sessions[token] = datetime.datetime.utcnow() + _PRIV_SESSION_TTL
-    return token
+    """Stateless HMAC-signed token — valid across all Gunicorn workers."""
+    ts = str(int(time.time()))
+    sig = _hmac_sign(f"admin:{ts}", ADMIN_PASSWORD or "unset")
+    return f"adm_{ts}_{sig}"
 
 
 def _is_valid_admin_session(token: str) -> bool:
-    if not token:
+    if not token or not token.startswith("adm_"):
         return False
-    expiry = _admin_sessions.get(token)
-    if not expiry:
+    try:
+        parts = token.split("_")
+        ts, sig = int(parts[1]), parts[2]
+    except (IndexError, ValueError):
         return False
-    if datetime.datetime.utcnow() > expiry:
-        del _admin_sessions[token]
+    if time.time() - ts > _PRIV_SESSION_TTL_S:
         return False
-    return True
+    expected = _hmac_sign(f"admin:{ts}", ADMIN_PASSWORD or "unset")
+    return hmac.compare_digest(sig, expected)
 
 
 def _create_lecturer_session() -> str:
-    _cleanup_priv_sessions(_lecturer_sessions)
-    token = "lec_" + secrets.token_urlsafe(32)
-    _lecturer_sessions[token] = datetime.datetime.utcnow() + _PRIV_SESSION_TTL
-    return token
+    """Stateless HMAC-signed token — valid across all Gunicorn workers."""
+    ts = str(int(time.time()))
+    sig = _hmac_sign(f"lec:{ts}", LECTURER_PASSWORD or "unset")
+    return f"lec_{ts}_{sig}"
 
 
 def _is_valid_lecturer_session(token: str) -> bool:
-    if not token:
+    if not token or not token.startswith("lec_"):
         return False
-    expiry = _lecturer_sessions.get(token)
-    if not expiry:
+    try:
+        parts = token.split("_")
+        ts, sig = int(parts[1]), parts[2]
+    except (IndexError, ValueError):
         return False
-    if datetime.datetime.utcnow() > expiry:
-        del _lecturer_sessions[token]
+    if time.time() - ts > _PRIV_SESSION_TTL_S:
         return False
-    return True
+    expected = _hmac_sign(f"lec:{ts}", LECTURER_PASSWORD or "unset")
+    return hmac.compare_digest(sig, expected)
 
 
 def _evict_stale_chat_sessions():
@@ -1282,10 +1282,29 @@ async def async_gemini_ask(session, question):
 #  MATH
 # ═══════════════════════════════════════════════════════════════
 
-_SAFE = (
-    ast.Expression, ast.BinOp, ast.UnaryOp, ast.Constant,
-    ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow, ast.USub, ast.UAdd,
-)
+def _safe_eval_node(node):
+    """Recursive arithmetic evaluator — no eval() call, only safe AST nodes."""
+    if isinstance(node, ast.Expression):
+        return _safe_eval_node(node.body)
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return float(node.value)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        v = _safe_eval_node(node.operand)
+        return -v if isinstance(node.op, ast.USub) else v
+    if isinstance(node, ast.BinOp):
+        left  = _safe_eval_node(node.left)
+        right = _safe_eval_node(node.right)
+        if isinstance(node.op, ast.Add):  return left + right
+        if isinstance(node.op, ast.Sub):  return left - right
+        if isinstance(node.op, ast.Mult): return left * right
+        if isinstance(node.op, ast.Div):
+            if right == 0: raise ZeroDivisionError
+            return left / right
+        if isinstance(node.op, ast.Pow):
+            if abs(right) > 100: raise ValueError("exponent too large")
+            return left ** right
+    raise ValueError(f"unsafe node: {type(node).__name__}")
+
 
 def solve_local(text):
     if not re.fullmatch(r"[\d+\-*/().^ \s]+", text.strip()):
@@ -1293,10 +1312,9 @@ def solve_local(text):
     for c in [text] + re.findall(r"[\d+\-*/().^ ]+", text):
         try:
             tree = ast.parse(c.strip(), mode="eval")
-            if any(not isinstance(n, _SAFE) for n in ast.walk(tree)):
-                continue
-            r = eval(compile(tree, "<string>", "eval"), {"__builtins__": {}}, {})
-            return f"Result = {int(r) if isinstance(r, float) and r.is_integer() else r}"
+            r = _safe_eval_node(tree)
+            display = int(r) if isinstance(r, float) and r.is_integer() else round(r, 6)
+            return f"Result = {display}"
         except Exception:
             continue
     return None
@@ -1551,6 +1569,40 @@ class _StaticCacheMiddleware(BaseHTTPMiddleware):
         return response
 
 app.add_middleware(_StaticCacheMiddleware)
+
+# Security headers on every response
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    _CSP = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://plausible.io https://cdn.jsdelivr.net "
+        "  https://js.sentry-cdn.com https://browser.sentry-cdn.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: blob: https:; "
+        "media-src 'self' blob:; "
+        "connect-src 'self' https://plausible.io https://o*.ingest.sentry.io "
+        "  https://api.paystack.co https://api.flutterwave.com https://api.withmono.com "
+        "  https://accounts.google.com https://api.github.com; "
+        "frame-src https://js.paystack.co https://checkout.flutterwave.com; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self';"
+    )
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        h = response.headers
+        h["X-Frame-Options"]           = "DENY"
+        h["X-Content-Type-Options"]    = "nosniff"
+        h["Referrer-Policy"]           = "strict-origin-when-cross-origin"
+        h["Permissions-Policy"]        = "camera=(), microphone=(), geolocation=()"
+        h["Content-Security-Policy"]   = self._CSP
+        # Only send HSTS over HTTPS (Railway always proxies via HTTPS)
+        if request.headers.get("x-forwarded-proto") == "https":
+            h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+app.add_middleware(_SecurityHeadersMiddleware)
 
 # ── Per-worker in-memory response cache with TTL ─────────────────
 _rcache: dict[str, tuple] = {}  # key → (payload, expires_at)
@@ -2039,12 +2091,33 @@ async def service_worker():
         headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-store, no-cache"},
     )
 
+def _admin_basic_auth(request: Request) -> bool:
+    """Validate HTTP Basic Auth against ADMIN_PASSWORD for admin HTML pages."""
+    import base64
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Basic "):
+        return False
+    try:
+        _, password = base64.b64decode(auth[6:]).decode().split(":", 1)
+        return bool(ADMIN_PASSWORD) and hmac.compare_digest(password, ADMIN_PASSWORD)
+    except Exception:
+        return False
+
+_BASIC_AUTH_CHALLENGE = Response(
+    status_code=401,
+    headers={"WWW-Authenticate": "Basic realm=\"Sivarr Admin\""},
+)
+
 @app.get("/admin", response_class=HTMLResponse)
-async def admin_page():
+async def admin_page(request: Request):
+    if not _admin_basic_auth(request):
+        return _BASIC_AUTH_CHALLENGE
     return Path("templates/admin.html").read_text()
 
 @app.get("/admin/metrics", response_class=HTMLResponse)
-async def admin_metrics_page():
+async def admin_metrics_page(request: Request):
+    if not _admin_basic_auth(request):
+        return _BASIC_AUTH_CHALLENGE
     return Path("templates/admin_metrics.html").read_text()
 
 
@@ -2753,6 +2826,26 @@ async def clear_wrong(data: dict):
 
 # ── File Upload ───────────────────────────────────────────────
 
+_FILE_MAGIC: dict[str, bytes] = {
+    ".pdf": b"%PDF",
+}
+# Binary-content rejection: reject files claiming to be text but >30% non-text bytes
+_TEXT_EXTS = {".txt", ".md"}
+
+def _validate_file_magic(content: bytes, ext: str) -> bool:
+    """Check that file bytes match the declared extension."""
+    magic = _FILE_MAGIC.get(ext)
+    if magic and not content.startswith(magic):
+        return False
+    if ext in _TEXT_EXTS:
+        sample = content[:512]
+        if sample:
+            non_text = sum(1 for b in sample if b < 32 and b not in (9, 10, 13))
+            if non_text / len(sample) > 0.30:
+                return False
+    return True
+
+
 def _extract_file_text(content: bytes, ext: str) -> str:
     """CPU-bound text extraction — always call via asyncio.to_thread."""
     if ext == ".pdf":
@@ -2784,7 +2877,9 @@ async def upload_file(request: Request, sid: str = Form(...), file: UploadFile =
     content = await file.read()
 
     if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(400, f"File too large. Maximum size is 5MB.")
+        raise HTTPException(400, "File too large. Maximum size is 5MB.")
+    if not _validate_file_magic(content, ext):
+        raise HTTPException(400, "File content does not match its extension.")
 
     # CPU-bound PDF parsing and disk write both run in a thread
     text = await asyncio.to_thread(_extract_file_text, content, ext)
@@ -3940,6 +4035,8 @@ async def study_deck(request: Request, sid: str = Form(...), file: UploadFile = 
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(400, "File too large. Maximum 5MB.")
+    if not _validate_file_magic(content, ext):
+        raise HTTPException(400, "File content does not match its extension.")
 
     text = await asyncio.to_thread(_extract_file_text, content, ext)
     text = sanitize_text(text, 8000)
