@@ -301,6 +301,7 @@ function setAuthTab(tab) {
   const s = $('login-sub');     if (s) s.textContent = isReg ? 'Join the Sivarr workspace.' : 'Sign in to your workspace.';
   const b = $('login-btn');     if (b) b.textContent = isReg ? 'Create account' : 'Sign in';
   const e = $('login-err');     if (e) e.textContent = '';
+  const g = $('google-btn-text'); if (g) g.textContent = isReg ? 'Sign up with Google' : 'Continue with Google';
 
   // Focus the first visible field
   if (isReg) { setTimeout(() => $('ln')?.focus(), 50); }
@@ -5557,42 +5558,74 @@ function calDeleteEvent(id) {
 // ════════════ HABITS ════════════
 const HAB_KEY = () => `sivarr_habits_${S.sid||'guest'}`;
 
+function _habFreqLabel(freq) {
+  return ({daily:'Every day',weekdays:'Weekdays (M–F)',weekends:'Weekends',weekly:'Once a week'})[freq] || 'Every day';
+}
+
+function _habHeatmap(h) {
+  const today = new Date();
+  const cells = [];
+  for (let d = 27; d >= 0; d--) {
+    const dt = new Date(); dt.setDate(today.getDate() - d);
+    const ds = dt.toISOString().split('T')[0];
+    const done = (h.completions||[]).includes(ds);
+    cells.push(`<div class="hm-cell${done?' done':''}" title="${ds}"></div>`);
+  }
+  return `<div class="hab-heatmap-grid">${cells.join('')}</div>`;
+}
+
 function habitInit() {
   const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
-  const tot = $('hab-total'); if (tot) tot.textContent = habits.length;
-  const today = new Date().toISOString().split('T')[0];
+  const today  = new Date().toISOString().split('T')[0];
+
+  // Stats
+  const bestEver  = habits.reduce((m, h) => Math.max(m, h.best_streak||h.streak||0), 0);
   const doneToday = habits.filter(h => (h.completions||[]).includes(today)).length;
-  const dt = $('hab-today'); if (dt) dt.textContent = doneToday;
-  const maxStreak = habits.reduce((m, h) => Math.max(m, h.streak||0), 0);
-  const hs = $('hab-streak'); if (hs) hs.textContent = maxStreak;
+  const hs = $('hab-streak'); if (hs) hs.textContent = bestEver;
+  const dt = $('hab-today'); if (dt) dt.textContent = `${doneToday}/${habits.length}`;
+  // 28-day rate
+  if (habits.length) {
+    const dateRange = [];
+    for (let d = 27; d >= 0; d--) {
+      const dt2 = new Date(); dt2.setDate(dt2.getDate()-d);
+      dateRange.push(dt2.toISOString().split('T')[0]);
+    }
+    const totalPossible = habits.length * 28;
+    const totalDone = habits.reduce((s, h) => s + dateRange.filter(ds => (h.completions||[]).includes(ds)).length, 0);
+    const rate = Math.round((totalDone / totalPossible) * 100);
+    const rEl = $('hab-rate'); if (rEl) rEl.textContent = `${rate}%`;
+  }
 
   const list = $('habits-list');
   if (!list) return;
   if (!habits.length) {
-    list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text4);font-size:.83rem">No habits yet. Add your first habit!</div>`;
+    list.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;padding:2.5rem 1rem;gap:10px;color:var(--muted)">
+      <div style="font-size:2rem">🔥</div>
+      <div style="font-weight:700;font-size:.95rem;color:var(--text)">No habits yet</div>
+      <div style="font-size:.82rem;text-align:center;max-width:280px">Build consistency by tracking daily habits. Click <strong>+ Habit</strong> to get started.</div>
+    </div>`;
     return;
   }
-  list.innerHTML = habits.map((h,i) => {
-    const week = [];
-    for (let d = 6; d >= 0; d--) {
-      const dt2 = new Date(); dt2.setDate(dt2.getDate()-d);
-      week.push((h.completions||[]).includes(dt2.toISOString().split('T')[0]));
-    }
-    const isToday2 = (h.completions||[]).includes(today);
-    const pct = Math.round(week.filter(Boolean).length / 7 * 100);
-    return `<div class="habit-card" onclick="habitToggle(${i})">
-      <div class="habit-emoji">${h.emoji||'📌'}</div>
-      <div class="habit-info">
-        <div class="habit-title">${esc(h.title)}</div>
-        <div class="habit-sub2">Every day · ${h.freq||'daily'}</div>
-        <div class="hdots">${week.map(f=>`<div class="hdot ${f?'f':'e'}"></div>`).join('')}</div>
-      </div>
-      <div style="text-align:right">
-        <div class="habit-pct">${pct}%</div>
-        <div style="font-size:.7rem;color:${isToday2?'var(--teal)':'var(--text4)'}">
-          ${isToday2 ? '✓ done' : 'pending'}
+
+  list.innerHTML = habits.map((h, i) => {
+    const isToday = (h.completions||[]).includes(today);
+    const streak  = h.streak || 0;
+    const best    = Math.max(h.best_streak||0, streak);
+    return `
+    <div class="habit-card">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="habit-cb ${isToday ? 'done' : ''}" onclick="habitToggle(${i})" title="${isToday?'Mark undone':'Mark done today'}">${isToday ? '✓' : ''}</button>
+        <div class="habit-emoji">${h.emoji||'📌'}</div>
+        <div class="habit-info" style="flex:1;min-width:0">
+          <div class="habit-title">${esc(h.title)}</div>
+          <div class="habit-sub2">${_habFreqLabel(h.freq)} · 🔥 ${streak}${best > streak ? ` · best: ${best}` : ''}</div>
+        </div>
+        <div class="hab-card-actions">
+          <button class="habit-action-btn" onclick="habitEdit(${i})" title="Edit"><i class="ti ti-pencil"></i></button>
+          <button class="habit-action-btn" onclick="habitDelete(${i})" title="Delete"><i class="ti ti-trash"></i></button>
         </div>
       </div>
+      ${_habHeatmap(h)}
     </div>`;
   }).join('');
 }
@@ -5608,6 +5641,7 @@ function habitToggle(idx) {
   } else {
     habits[idx].completions.push(today);
     habits[idx].streak = (habits[idx].streak||0) + 1;
+    habits[idx].best_streak = Math.max(habits[idx].best_streak||0, habits[idx].streak);
   }
   localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
   _syncHabitsToServer(habits);
@@ -5621,14 +5655,57 @@ async function habitAdd() {
     { id:'title', label:'Habit name', placeholder:'e.g. Morning Study', required:true },
     { id:'emoji', label:'Pick an emoji', type:'emoji',
       options: emojis, default: emojis[Math.floor(Math.random()*emojis.length)] },
+    { id:'freq', label:'Frequency', type:'select', options:[
+      {value:'daily',    label:'Every day'},
+      {value:'weekdays', label:'Weekdays (Mon–Fri)'},
+      {value:'weekends', label:'Weekends'},
+      {value:'weekly',   label:'Once a week'},
+    ], default:'daily' },
   ], { confirmLabel:'Add Habit' });
   if (!d || !d.title) return;
   const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
-  habits.push({ id: Date.now().toString(), title: d.title, emoji: d.emoji || '📌', completions: [], streak: 0 });
+  habits.push({ id: Date.now().toString(), title: d.title, emoji: d.emoji||'📌',
+    freq: d.freq||'daily', completions: [], streak: 0, best_streak: 0 });
   localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
   _syncHabitsToServer(habits);
   habitInit();
   toast('Habit added ✓');
+}
+
+async function habitEdit(idx) {
+  const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
+  const h = habits[idx]; if (!h) return;
+  const emojis = ['📚','🧘','🏃','💧','🥗','✍️','🎯','🛌','🔔','💡'];
+  const d = await siModal.form('Edit Habit', [
+    { id:'title', label:'Habit name', placeholder:'e.g. Morning Study', required:true, default: h.title },
+    { id:'emoji', label:'Pick an emoji', type:'emoji', options: emojis, default: h.emoji||'📌' },
+    { id:'freq', label:'Frequency', type:'select', options:[
+      {value:'daily',    label:'Every day'},
+      {value:'weekdays', label:'Weekdays (Mon–Fri)'},
+      {value:'weekends', label:'Weekends'},
+      {value:'weekly',   label:'Once a week'},
+    ], default: h.freq||'daily' },
+  ], { confirmLabel:'Save' });
+  if (!d || !d.title) return;
+  habits[idx].title = d.title;
+  habits[idx].emoji = d.emoji || h.emoji || '📌';
+  habits[idx].freq  = d.freq  || 'daily';
+  localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
+  _syncHabitsToServer(habits);
+  habitInit();
+  toast('Habit updated ✓');
+}
+
+async function habitDelete(idx) {
+  const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
+  const h = habits[idx]; if (!h) return;
+  if (!await siModal.confirm(`Delete "${h.title}"? All completion history will be lost.`,
+    { title:'Delete Habit', confirmLabel:'Delete', danger:true })) return;
+  habits.splice(idx, 1);
+  localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
+  _syncHabitsToServer(habits);
+  habitInit();
+  toast('Habit deleted');
 }
 
 // ════════════ JOURNAL ════════════
@@ -9824,14 +9901,46 @@ function _trackNav(panel) {
   }).catch(() => {});
 }
 
+const _DOC_TEMPLATES = {
+  blank:   { title: '', content: '<p></p>' },
+  meeting: { title: 'Meeting Notes', content: `<h2>Meeting Notes</h2><p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p><p><strong>Attendees:</strong> </p><h3>Agenda</h3><ul><li></li></ul><h3>Discussion</h3><p></p><h3>Action Items</h3><ul><li></li></ul><h3>Next Steps</h3><p></p>` },
+  project: { title: 'Project Brief', content: `<h1>Project Brief</h1><h2>Overview</h2><p></p><h2>Goals</h2><ul><li></li></ul><h2>Timeline</h2><p></p><h2>Resources Needed</h2><ul><li></li></ul><h2>Success Criteria</h2><p></p>` },
+  study:   { title: 'Study Notes', content: `<h1>Study Notes</h1><p><strong>Subject:</strong> </p><p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p><h2>Key Concepts</h2><ul><li></li></ul><h2>Notes</h2><p></p><h2>Summary</h2><p></p><h2>Questions to Revisit</h2><ul><li></li></ul>` },
+  journal: { title: `Journal — ${new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}`, content: `<h2>${new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</h2><h3>Today's Highlights</h3><p></p><h3>What I Learned</h3><p></p><h3>What I'm Grateful For</h3><ul><li></li></ul><h3>Tomorrow's Focus</h3><p></p>` },
+  weekly:  { title: 'Weekly Review', content: `<h1>Weekly Review</h1><p><strong>Week of:</strong> ${new Date().toLocaleDateString()}</p><h2>Wins This Week</h2><ul><li></li></ul><h2>What Could Have Gone Better</h2><ul><li></li></ul><h2>Goals Progress</h2><p></p><h2>Focus for Next Week</h2><ul><li></li></ul>` },
+};
+
 function docNew() {
-  const doc = {
-    id:      Date.now(),
-    title:   '',
-    content: '',
-    created: Date.now(),
-    updated: Date.now(),
-  };
+  // Show template picker in the editor area
+  const emptyState = $('doc-empty-state');
+  const wrap       = $('doc-editor-wrap');
+  if (wrap) wrap.style.display = 'none';
+  if (emptyState) {
+    emptyState.style.display = 'flex';
+    emptyState.innerHTML = `
+      <div style="max-width:560px;width:100%;text-align:left">
+        <div style="font-size:1.05rem;font-weight:800;color:var(--text);margin-bottom:4px">New Document</div>
+        <div style="font-size:.83rem;color:var(--muted);margin-bottom:20px">Start from a template or create blank</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
+          ${[{k:'blank',i:'📄',n:'Blank'},{k:'meeting',i:'📋',n:'Meeting Notes'},
+             {k:'project',i:'🚀',n:'Project Brief'},{k:'study',i:'📚',n:'Study Notes'},
+             {k:'journal',i:'✍️',n:'Daily Journal'},{k:'weekly',i:'🔁',n:'Weekly Review'}
+            ].map(t => `
+            <div onclick="docFromTemplate('${t.k}')" style="background:var(--surface);border:1px solid var(--border);
+                 border-radius:10px;padding:16px 14px;cursor:pointer;transition:var(--transition)"
+              onmouseover="this.style.borderColor='var(--accent)';this.style.background='var(--teal2,rgba(13,122,95,.06))'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+              <div style="font-size:1.8rem;margin-bottom:8px">${t.i}</div>
+              <div style="font-size:.82rem;font-weight:600;color:var(--text)">${t.n}</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+}
+
+function docFromTemplate(key) {
+  const tpl = _DOC_TEMPLATES[key] || _DOC_TEMPLATES.blank;
+  const doc = { id: Date.now(), title: tpl.title, content: tpl.content, created: Date.now(), updated: Date.now() };
   const list = docGetAll();
   list.unshift(doc);
   docSaveAll(list);
@@ -9972,6 +10081,8 @@ function docUpdateWordCount() {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
   const wc    = $('doc-word-count');
   if (wc) wc.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+  const rt = $('doc-read-time');
+  if (rt) rt.textContent = `${Math.max(1, Math.round(words / 250))} min read`;
 }
 
 // ── Toolbar format commands (same names, now call Tiptap) ─────
@@ -10004,24 +10115,132 @@ function docFormatBlock(tag) {
   docScheduleSave();
 }
 
-// ── Sivarr AI ────────────────────────────────────────────────
+// ── Sivarr AI inline writing ──────────────────────────────────
 
-function docAskSiva() {
-  if (!S.sid) return;
-  const content = _docEditor ? _docEditor.getText().trim() : '';
-  const title   = $('doc-title')?.value?.trim() || '';
-  const sel     = window.getSelection()?.toString()?.trim() || '';
-  const text    = sel || content.slice(0, 600);
-  if (!text) { toast('Write something first, then ask Sivarr to assist.'); return; }
-  const prompt = sel
-    ? `Help me improve or continue this from my doc "${title}":\n\n${text}`
-    : `I'm writing a doc titled "${title}". Here's what I have so far:\n\n${text}\n\nPlease continue or improve it.`;
-  nav('chat', null);
-  setTimeout(() => {
-    const inp = $('ci');
-    if (inp) { inp.value = prompt; inp.dispatchEvent(new Event('input')); inp.focus(); }
-  }, 200);
+let _docAiText = '';
+
+function docInlineAI() {
+  const panel = $('doc-ai-panel');
+  if (!panel) return;
+  if (panel.style.display !== 'none') { docAIPanelClose(); return; }
+  panel.style.display = 'block';
+  $('doc-ai-result').style.display = 'none';
+  $('doc-ai-insert').style.display = 'none';
+  $('doc-ai-replace').style.display = 'none';
+  _docAiText = '';
+  // Pre-fill hint if text is selected
+  const sel = window.getSelection()?.toString()?.trim() || '';
+  const inp = $('doc-ai-prompt');
+  if (inp) { inp.value = sel ? `Improve this: "${sel.slice(0,60)}${sel.length>60?'…':''}"` : ''; inp.focus(); }
 }
+
+function docAIPanelClose() {
+  const panel = $('doc-ai-panel');
+  if (panel) panel.style.display = 'none';
+}
+
+async function docAIGenerate() {
+  if (!S.sid) return;
+  const prompt  = $('doc-ai-prompt')?.value?.trim();
+  if (!prompt) { toast('Enter a prompt first'); return; }
+  const sel     = window.getSelection()?.toString()?.trim() || '';
+  const content = _docEditor ? _docEditor.getText().trim().slice(0, 400) : '';
+  const title   = $('doc-title')?.value?.trim() || '';
+  const ctx     = sel
+    ? `Selected text from doc "${title}": "${sel}"\n\nInstruction: ${prompt}`
+    : content
+    ? `Document "${title}" so far: ${content}\n\nInstruction: ${prompt}`
+    : prompt;
+  const resultEl  = $('doc-ai-result');
+  const insertBtn = $('doc-ai-insert');
+  const replaceBtn = $('doc-ai-replace');
+  if (resultEl) { resultEl.style.display = 'block'; resultEl.textContent = 'Generating…'; }
+  try {
+    const r = await API('/api/chat', { sid: S.sid, message: ctx, context: '' });
+    _docAiText = r.reply || r.response || '';
+    if (resultEl)   resultEl.textContent  = _docAiText;
+    if (insertBtn)  insertBtn.style.display  = 'block';
+    if (replaceBtn) replaceBtn.style.display = sel ? 'block' : 'none';
+  } catch { if (resultEl) resultEl.textContent = 'Could not generate — try again.'; }
+}
+
+function docAIInsert() {
+  if (!_docAiText || !_docEditor) return;
+  _docEditor.chain().focus().insertContent(`<p>${_docAiText.replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>')}</p>`).run();
+  docScheduleSave();
+  docAIPanelClose();
+  toast('Text inserted ✓');
+}
+
+function docAIReplace() {
+  if (!_docAiText || !_docEditor) return;
+  _docEditor.chain().focus().insertContent(_docAiText.replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>')).run();
+  docScheduleSave();
+  docAIPanelClose();
+  toast('Text replaced ✓');
+}
+
+// ── Export ────────────────────────────────────────────────────
+
+function _htmlToMd(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  function node(n) {
+    if (n.nodeType === 3) return n.textContent;
+    const t = n.tagName?.toLowerCase();
+    const c = Array.from(n.childNodes).map(node).join('');
+    switch(t) {
+      case 'h1': return `\n# ${c}\n`;
+      case 'h2': return `\n## ${c}\n`;
+      case 'h3': return `\n### ${c}\n`;
+      case 'p':  return `\n${c}\n`;
+      case 'strong': case 'b': return `**${c}**`;
+      case 'em': case 'i':     return `*${c}*`;
+      case 's': case 'strike': return `~~${c}~~`;
+      case 'code': return `\`${c}\``;
+      case 'pre':  return `\n\`\`\`\n${n.textContent}\n\`\`\`\n`;
+      case 'blockquote': return `\n> ${c.trim().replace(/\n/g,'\n> ')}\n`;
+      case 'ul': return `\n${Array.from(n.children).map(li=>`- ${li.textContent.trim()}`).join('\n')}\n`;
+      case 'ol': return `\n${Array.from(n.children).map((li,i)=>`${i+1}. ${li.textContent.trim()}`).join('\n')}\n`;
+      case 'hr': return `\n---\n`;
+      case 'br': return '\n';
+      default:   return c;
+    }
+  }
+  return Array.from(div.childNodes).map(node).join('').replace(/\n{3,}/g,'\n\n').trim();
+}
+
+function docExportMd() {
+  if (!_docEditor) { toast('Open a document first'); return; }
+  const title = $('doc-title')?.value?.trim() || 'document';
+  const md    = `# ${title}\n\n${_htmlToMd(_docEditor.getHTML())}`;
+  const a     = document.createElement('a');
+  a.href      = URL.createObjectURL(new Blob([md], { type:'text/markdown' }));
+  a.download  = `${title.replace(/\s+/g,'-').toLowerCase()}.md`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Exported as Markdown ✓');
+}
+
+function docExportPdf() {
+  if (!_docEditor) { toast('Open a document first'); return; }
+  const title   = $('doc-title')?.value?.trim() || 'Document';
+  const content = _docEditor.getHTML();
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+    <style>body{font-family:Georgia,serif;max-width:680px;margin:40px auto;color:#1a1a2e;line-height:1.75;font-size:16px}
+    h1{font-size:2rem;font-weight:800;margin:1.5rem 0 .5rem}h2{font-size:1.4rem;font-weight:700;margin:1.2rem 0 .5rem}
+    h3{font-size:1.15rem;font-weight:700;margin:1rem 0 .4rem}blockquote{border-left:3px solid #0D7A5F;padding:8px 16px;
+    margin:1rem 0;background:#f0faf6}pre{background:#1a1a2e;color:#e2e8f0;padding:16px;border-radius:8px;overflow-x:auto}
+    code{font-family:monospace;font-size:.9em;background:#f1f5f9;padding:2px 5px;border-radius:3px}
+    ul,ol{padding-left:1.5rem}@media print{body{margin:0}}</style>
+    </head><body><h1>${title}</h1>${content}</body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 400);
+}
+
+// ── Legacy shim (anything calling docAskSiva still works) ─────
+function docAskSiva() { docInlineAI(); }
 
 // ── Tiptap initialisation ─────────────────────────────────────
 
@@ -10101,7 +10320,8 @@ const _SLASH_CMDS = [
   { icon:'ti-quote',        label:'Quote',           desc:'Blockquote',             act:() => docFormatBlock('blockquote') },
   { icon:'ti-code',         label:'Code block',      desc:'Monospace code',         act:() => docFormatBlock('pre') },
   { icon:'ti-minus',        label:'Divider',         desc:'Horizontal rule',        act:() => _docEditor?.chain().focus().setHorizontalRule().run() },
-  { icon:'ti-sparkles',     label:'Ask Sivarr AI',   desc:'AI writing assistant',   act:() => { _slashHide(); docAskSiva(); } },
+  { icon:'ti-info-circle',  label:'Callout',         desc:'Highlighted note block', act:() => _docEditor?.chain().focus().insertContent('<blockquote><p>💡 <strong>Note:</strong> </p></blockquote>').run() },
+  { icon:'ti-sparkles',     label:'AI Write',        desc:'Generate with Sivarr AI',act:() => { _slashHide(); docInlineAI(); } },
 ];
 
 function _checkSlash(editor) {
@@ -11044,6 +11264,7 @@ let _OC_PRESENCE = null;       // setInterval
 let _OC_CHANNELS = [];         // [{id,name,desc}]
 let _OC_UNREAD   = {};         // {channelId: count}
 let _OC_ONLINE   = new Set();  // set of sids currently online
+let _OC_LAST_ID  = 0;          // highest message id received via SSE
 
 // Avatar colour palette (seeded by name)
 const _OC_COLOURS = ['#0d9488','#7c3aed','#d97706','#2563eb','#dc2626','#059669','#db2777','#0891b2'];
@@ -11170,15 +11391,16 @@ function _ocConnectSSE() {
   const token = localStorage.getItem('sivarr_token') || '';
   if (!token || !ORG) return;
 
-  _OC_SSE = new EventSource(`/api/org/chat/stream?token=${encodeURIComponent(token)}`);
+  _OC_SSE = new EventSource(`/api/org/chat/stream?token=${encodeURIComponent(token)}&last_id=${_OC_LAST_ID}`);
   _OC_SSE.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === 'announcement') {
-        // Real-time announcement — prepend to feed if visible
         if (_ANN_LIST !== undefined) { _ANN_LIST.unshift(msg.ann); annRender(); }
         return;
       }
+      // Track the cursor so reconnects don't re-deliver old messages
+      if (msg.id && msg.id > _OC_LAST_ID) _OC_LAST_ID = msg.id;
       if (msg.channel === _OC_CHANNEL) {
         _ocAppendMsg(msg, true);
       } else {
@@ -11188,7 +11410,7 @@ function _ocConnectSSE() {
     } catch(_) {}
   };
   _OC_SSE.onerror = () => {
-    // auto-reconnect after 5s
+    // auto-reconnect after 5s, resuming from last known message id
     setTimeout(() => { if (ORG && _OC_SSE) _ocConnectSSE(); }, 5000);
   };
 }

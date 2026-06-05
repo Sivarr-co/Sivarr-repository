@@ -429,9 +429,13 @@ def get_client_key(request: Request, sid: str = "") -> str:
 
 
 def check_rate_limit(key: str, limit: int, endpoint: str) -> None:
-    """Raise 429 if rate limit exceeded, and log the event."""
+    """Raise 429 if rate limit exceeded. Uses PostgreSQL when available (multi-worker safe)."""
     full_key = f"{endpoint}_{key}"
-    if not limiter.is_allowed(full_key, limit):
+    if db.is_available():
+        allowed = db.db_check_rate_limit(full_key, limit, RATE_LIMIT_WINDOW)
+    else:
+        allowed = limiter.is_allowed(full_key, limit)
+    if not allowed:
         log.warning(f"Rate limit exceeded | key={key} | endpoint={endpoint}")
         raise HTTPException(
             status_code=429,
@@ -5480,17 +5484,8 @@ async def org_message_send(data: dict, bg: BackgroundTasks):
     content = sanitize_text(str(data.get("content", "")).strip(), 2000)
     if not content: raise HTTPException(400, "Message content required.")
     channel = sanitize_text(str(data.get("channel", "general")), 60)
-    ok = db.send_org_message(org["id"], channel, sid, uname, content)
-    if not ok: raise HTTPException(500, "Failed to send message.")
-    import datetime as _dt
-    msg_payload = json.dumps({
-        "channel":     channel,
-        "content":     content,
-        "author_sid":  sid,
-        "author_name": uname,
-        "created_at":  _dt.datetime.utcnow().isoformat(),
-    })
-    asyncio.create_task(_sse_broadcast(org["id"], msg_payload))
+    msg = db.send_org_message(org["id"], channel, sid, uname, content)
+    if not msg: raise HTTPException(500, "Failed to send message.")
 
     # ── @mention email notifications ─────────────────────────────
     import re as _re
@@ -5513,8 +5508,8 @@ async def org_message_send(data: dict, bg: BackgroundTasks):
 
 
 @app.get("/api/org/chat/stream")
-async def org_chat_stream(token: str = "", request: Request = None):
-    """SSE endpoint — streams new messages to connected clients."""
+async def org_chat_stream(token: str = "", last_id: int = 0, request: Request = None):
+    """SSE endpoint — polls PostgreSQL for new messages so all Gunicorn workers see the same feed."""
     token = sanitize_text(token, 100)
     entry = get_session_from_token(token)
     if not entry: raise HTTPException(401, "Invalid token.")
@@ -5523,23 +5518,29 @@ async def org_chat_stream(token: str = "", request: Request = None):
     org = db.get_org_by_member(sid)
     if not org: raise HTTPException(404, "No organization found.")
     org_id = org["id"]
-
-    q: asyncio.Queue = asyncio.Queue(maxsize=50)
-    _ORG_SSE[org_id].append(q)
+    cursor = max(0, int(last_id))
 
     async def stream():
-        try:
-            while True:
-                if request and await request.is_disconnected():
-                    break
-                try:
-                    data = await asyncio.wait_for(q.get(), timeout=20)
-                    yield f"data: {data}\n\n"
-                except asyncio.TimeoutError:
-                    yield ": ping\n\n"
-        finally:
-            try: _ORG_SSE[org_id].remove(q)
-            except ValueError: pass
+        nonlocal cursor
+        while True:
+            if request and await request.is_disconnected():
+                break
+            msgs = await asyncio.to_thread(db.get_org_messages_since, org_id, cursor)
+            if msgs:
+                for msg in msgs:
+                    cursor = msg["id"]
+                    payload = {
+                        "id":          msg["id"],
+                        "channel":     msg["channel"],
+                        "content":     msg["content"],
+                        "author_sid":  msg["author_sid"],
+                        "author_name": msg["author_name"],
+                        "created_at":  msg["created_at"].isoformat() if hasattr(msg["created_at"], "isoformat") else str(msg["created_at"]),
+                    }
+                    yield f"data: {json.dumps(payload)}\n\n"
+            else:
+                yield ": ping\n\n"
+            await asyncio.sleep(2)
 
     return StreamingResponse(
         stream(),
@@ -5566,7 +5567,7 @@ async def org_presence_ping(data: dict):
     if not db.is_available(): raise HTTPException(503, "DB unavailable.")
     org = db.get_org_by_member(sid)
     if not org: raise HTTPException(404, "No organization.")
-    _PRESENCE[org["id"]][sid] = {"name": uname, "ts": time.time()}
+    await asyncio.to_thread(db.upsert_presence, sid, org["id"], uname)
     return {"ok": True}
 
 
@@ -5578,12 +5579,7 @@ async def org_presence_list(token: str = ""):
     if not db.is_available(): return {"online": []}
     org = db.get_org_by_member(entry["sid"])
     if not org: return {"online": []}
-    cutoff = time.time() - 90
-    online = [
-        {"sid": s, "name": v["name"]}
-        for s, v in _PRESENCE.get(org["id"], {}).items()
-        if v["ts"] > cutoff
-    ]
+    online = await asyncio.to_thread(db.get_presence, org["id"])
     return {"online": online}
 
 

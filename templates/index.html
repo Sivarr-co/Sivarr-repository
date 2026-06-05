@@ -130,7 +130,7 @@ Sentry.onLoad(function() {
           <label>Password</label>
           <div class="field-ic">
             <i class="ti ti-lock"></i>
-            <input id="l-pw" type="password" placeholder="Min. 8 characters"
+            <input id="l-pw" type="password" placeholder="Your password"
               onkeydown="if(event.key==='Enter') { AUTH_TAB==='register'?$('l-cpw').focus():doLogin() }">
             <button type="button" class="field-eye" onclick="togglePwVis('l-pw','l-pw-eye')" id="l-pw-eye">
               <i class="ti ti-eye"></i>
@@ -1165,9 +1165,38 @@ Sentry.onLoad(function() {
                <button class="doc-tb-btn" onmousedown="event.preventDefault();docFormatBlock('pre')" title="Code block"><i class="ti ti-code"></i></button>
              </div>
              <div class="doc-tb-sep"></div>
-             <button class="doc-siva-btn" onclick="docAskSiva()">
-               <i class="ti ti-sparkles"></i> Sivarr
+             <div class="doc-tb-group">
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docExportMd()" title="Export as Markdown"><i class="ti ti-markdown"></i></button>
+               <button class="doc-tb-btn" onmousedown="event.preventDefault();docExportPdf()" title="Export as PDF"><i class="ti ti-file-type-pdf"></i></button>
+             </div>
+             <div class="doc-tb-sep"></div>
+             <button class="doc-siva-btn" onclick="docInlineAI()">
+               <i class="ti ti-sparkles"></i> AI Write
              </button>
+           </div>
+
+           <!-- Inline AI panel (hidden until triggered) -->
+           <div id="doc-ai-panel" style="display:none;border-bottom:1px solid var(--border);padding:12px 16px;background:var(--surface);flex-shrink:0">
+             <div style="display:flex;gap:8px;align-items:flex-start">
+               <div style="flex:1;min-width:0">
+                 <input id="doc-ai-prompt" placeholder="What should Sivarr write or improve? (e.g. 'Expand this', 'Make it formal')"
+                   style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;
+                          padding:8px 12px;color:var(--text);font-family:var(--font-body);font-size:.83rem;outline:none"
+                   onkeydown="if(event.key==='Enter')docAIGenerate()"
+                   onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                 <div id="doc-ai-result" style="display:none;margin-top:8px;padding:10px 12px;background:var(--bg);
+                      border:1px solid var(--border);border-radius:8px;font-size:.83rem;color:var(--text);
+                      line-height:1.65;max-height:180px;overflow-y:auto;white-space:pre-wrap"></div>
+               </div>
+               <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+                 <button onclick="docAIGenerate()"
+                   style="background:var(--accent);color:#fff;border:none;border-radius:7px;padding:7px 13px;
+                          font-family:var(--font-body);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap">✨ Generate</button>
+                 <button id="doc-ai-insert" onclick="docAIInsert()" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:6px 11px;font-family:var(--font-body);font-size:.76rem;cursor:pointer;color:var(--text2);white-space:nowrap">Insert ↓</button>
+                 <button id="doc-ai-replace" onclick="docAIReplace()" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:6px 11px;font-family:var(--font-body);font-size:.76rem;cursor:pointer;color:var(--text2);white-space:nowrap">Replace ↺</button>
+                 <button onclick="docAIPanelClose()" style="background:none;border:1px solid var(--border);border-radius:7px;padding:6px 9px;font-size:.76rem;cursor:pointer;color:var(--muted)">✕</button>
+               </div>
+             </div>
            </div>
 
            <!-- Title -->
@@ -1181,7 +1210,10 @@ Sentry.onLoad(function() {
            <!-- Footer -->
            <div class="doc-footer">
              <span class="doc-save-status" id="doc-save-status">All changes saved</span>
-             <span class="doc-word-count" id="doc-word-count">0 words</span>
+             <div style="display:flex;gap:14px">
+               <span class="doc-word-count" id="doc-word-count">0 words</span>
+               <span class="doc-word-count" id="doc-read-time" style="color:var(--muted)">0 min read</span>
+             </div>
            </div>
          </div>
        </div>
@@ -2431,8 +2463,8 @@ Sentry.onLoad(function() {
                 <div style="font-size:.72rem;color:var(--text3)">Done Today</div>
               </div>
               <div>
-                <div style="font-size:1.6rem;font-weight:800;color:var(--purple)" id="hab-total">0</div>
-                <div style="font-size:.72rem;color:var(--text3)">Total Habits</div>
+                <div style="font-size:1.6rem;font-weight:800;color:var(--purple)" id="hab-rate">—</div>
+                <div style="font-size:.72rem;color:var(--text3)">28-Day Rate</div>
               </div>
             </div>
           </div>

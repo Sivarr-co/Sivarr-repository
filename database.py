@@ -460,6 +460,23 @@ CREATE TABLE IF NOT EXISTS org_integrations (
     updated_at  TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (org_id, provider)
 );
+
+-- Multi-worker rate limiting: one row per request hit, pruned by window
+CREATE TABLE IF NOT EXISTS rate_limit_hits (
+    key  TEXT        NOT NULL,
+    ts   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_rate_hits_key_ts ON rate_limit_hits(key, ts);
+
+-- Multi-worker presence: upserted on each heartbeat ping
+CREATE TABLE IF NOT EXISTS user_presence (
+    sid       TEXT        NOT NULL,
+    org_id    TEXT        NOT NULL,
+    name      TEXT        NOT NULL DEFAULT '',
+    last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (sid, org_id)
+);
+CREATE INDEX IF NOT EXISTS idx_presence_org_seen ON user_presence(org_id, last_seen);
 """
 
 
@@ -2148,19 +2165,102 @@ def get_org_messages(org_id: str, channel: str = "general", limit: int = 60) -> 
         _release(conn)
 
 
-def send_org_message(org_id: str, channel: str, author_sid: str, author_name: str, content: str) -> bool:
+def send_org_message(org_id: str, channel: str, author_sid: str, author_name: str, content: str) -> dict | None:
+    """Insert a message and return the full row (with id/created_at) or None on failure."""
     conn = _get_conn()
-    if not conn: return False
+    if not conn: return None
     try:
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO org_messages (org_id, channel, content, author_sid, author_name) VALUES (%s,%s,%s,%s,%s)",
+                "INSERT INTO org_messages (org_id, channel, content, author_sid, author_name) VALUES (%s,%s,%s,%s,%s) RETURNING *",
                 (org_id, channel, content, author_sid, author_name)
             )
+            row = dict(cur.fetchone())
+        conn.commit()
+        return row
+    except Exception as exc:
+        log.error(f"send_org_message: {exc}"); conn.rollback(); return None
+    finally:
+        _release(conn)
+
+
+def get_org_messages_since(org_id: str, since_id: int, limit: int = 30) -> list:
+    """Return messages with id > since_id for the org, all channels, ascending order."""
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM org_messages WHERE org_id=%s AND id > %s ORDER BY id ASC LIMIT %s",
+                (org_id, since_id, limit)
+            )
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_org_messages_since: {exc}"); return []
+    finally:
+        _release(conn)
+
+
+def db_check_rate_limit(key: str, limit: int, window_seconds: int) -> bool:
+    """Sliding-window rate check backed by PostgreSQL. Returns True if allowed."""
+    conn = _get_conn()
+    if not conn: return True  # fail open when DB unavailable
+    try:
+        with conn.cursor() as cur:
+            # INTERVAL '1 second' * n is the psycopg2-safe way to pass a numeric interval
+            cur.execute(
+                "DELETE FROM rate_limit_hits WHERE key=%s AND ts < NOW() - INTERVAL '1 second' * %s",
+                (key, window_seconds)
+            )
+            cur.execute("SELECT COUNT(*) FROM rate_limit_hits WHERE key=%s", (key,))
+            count = cur.fetchone()[0]
+            if count >= limit:
+                conn.rollback()
+                return False
+            cur.execute("INSERT INTO rate_limit_hits (key) VALUES (%s)", (key,))
         conn.commit()
         return True
     except Exception as exc:
-        log.error(f"send_org_message: {exc}"); conn.rollback(); return False
+        log.error(f"db_check_rate_limit: {exc}")
+        try: conn.rollback()
+        except Exception: pass
+        return True  # fail open
+    finally:
+        _release(conn)
+
+
+def upsert_presence(sid: str, org_id: str, name: str) -> None:
+    conn = _get_conn()
+    if not conn: return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO user_presence (sid, org_id, name, last_seen)
+                   VALUES (%s, %s, %s, NOW())
+                   ON CONFLICT (sid, org_id) DO UPDATE SET name=EXCLUDED.name, last_seen=NOW()""",
+                (sid, org_id, name)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"upsert_presence: {exc}")
+        try: conn.rollback()
+        except Exception: pass
+    finally:
+        _release(conn)
+
+
+def get_presence(org_id: str, cutoff_seconds: int = 90) -> list:
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT sid, name FROM user_presence WHERE org_id=%s AND last_seen > NOW() - INTERVAL '1 second' * %s",
+                (org_id, cutoff_seconds)
+            )
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_presence: {exc}"); return []
     finally:
         _release(conn)
 
