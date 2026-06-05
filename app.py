@@ -673,9 +673,12 @@ def get_session_from_token(token: str) -> dict | None:
             return entry
         del _session_tokens[token]
         return None
-    # Fallback: check DB
+    # Fallback: check DB and warm this worker's cache for subsequent requests
     if db.is_available():
-        return db.get_db_session(token)
+        db_entry = db.get_db_session(token)
+        if db_entry:
+            _session_tokens[token] = db_entry
+        return db_entry
     return None
 
 
@@ -1265,6 +1268,16 @@ def gemini_once(prompt, temp=0.8, tokens=600):
         log.error(f"Gemini once error: {e}")
         return None
 
+
+async def async_gemini_once(prompt, temp=0.8, tokens=600):
+    """Non-blocking wrapper — runs gemini_once in a thread so the event loop stays free."""
+    return await asyncio.to_thread(gemini_once, prompt, temp, tokens)
+
+
+async def async_gemini_ask(session, question):
+    """Non-blocking wrapper — runs gemini_ask in a thread so the event loop stays free."""
+    return await asyncio.to_thread(gemini_ask, session, question)
+
 # ═══════════════════════════════════════════════════════════════
 #  MATH
 # ═══════════════════════════════════════════════════════════════
@@ -1551,6 +1564,17 @@ async def startup():
     # MP6: start APScheduler for weekly review + push notification jobs
     _start_scheduler()
 
+    # Background: prune rate_limit_hits rows older than 10× the window every 10 minutes
+    async def _cleanup_rate_hits():
+        while True:
+            await asyncio.sleep(600)
+            if db.is_available():
+                try:
+                    await asyncio.to_thread(db.prune_rate_limit_hits, RATE_LIMIT_WINDOW * 10)
+                except Exception as exc:
+                    log.warning(f"rate_limit_hits cleanup error: {exc}")
+    asyncio.create_task(_cleanup_rate_hits())
+
 # ═══════════════════════════════════════════════════════════════
 #  MP4 — Seed community posts + opportunities (JSON files)
 # ═══════════════════════════════════════════════════════════════
@@ -1732,7 +1756,7 @@ Tasks completed: {tasks_done}/{tasks_total}. Habits: {habits_pct}%. Goals:\n{goa
 {"Mood: " + mood + "." if mood else ""}
 4 sections: **This Week**, **Wins**, **Focus Next Week**, **Closing**. Concise, personal, max 300 words."""
             try:
-                review = gemini_once(prompt, temp=0.72, tokens=380)
+                review = await async_gemini_once(prompt, temp=0.72, tokens=380)
                 if review:
                     save_json(review_path, {"review": review, "week_start": week_start, "generated_at": today.isoformat()})
                     log.info(f"Auto weekly review saved for {sid}")
@@ -2330,7 +2354,7 @@ async def chat(req: ChatRequest, request: Request):
     sessions = get_sessions(req.sid)
 
     if is_math(cmd):
-        ans = gemini_ask(sessions["math"], msg)
+        ans = await async_gemini_ask(sessions["math"], msg)
         uncertain = is_uncertain(ans)
         is_err = _is_ai_error(ans)
         if not is_err:
@@ -2350,7 +2374,7 @@ async def chat(req: ChatRequest, request: Request):
         save_progress(req.sid, p)
         return {"reply": cached, "uncertain": False, "error": False}
 
-    ans       = gemini_ask(sessions["chat"], msg)
+    ans       = await async_gemini_ask(sessions["chat"], msg)
     uncertain = is_uncertain(ans)
     is_err    = _is_ai_error(ans)
 
@@ -2429,7 +2453,7 @@ async def chat_stream(req: ChatRequest, request: Request):
         suggestions: list[str] = []
         if full_text and not _is_ai_error(full_text):
             try:
-                raw = gemini_once(
+                raw = await async_gemini_once(
                     f"Based on this AI response, suggest exactly 3 short follow-up questions a user might ask next. "
                     f"Return ONLY a JSON array of 3 strings, no other text.\n\nResponse:\n{full_text[:800]}",
                     temp=0.7, tokens=120
@@ -2464,7 +2488,7 @@ async def quiz_question(request: Request, sid: str, topic: str = "", difficulty:
         fpath = UPLOADS_DIR / f"{sid}_{file_id}.txt"
         if fpath.exists():
             content = fpath.read_text()[:3000]
-            raw = gemini_once(FILE_QUIZ_PROMPT.format(text=content, difficulty=difficulty), temp=0.9, tokens=300)
+            raw = await async_gemini_once(FILE_QUIZ_PROMPT.format(text=content, difficulty=difficulty), temp=0.9, tokens=300)
             if raw:
                 try:
                     raw = re.sub(r"```(?:json)?","",raw).strip().rstrip("`")
@@ -2491,7 +2515,7 @@ async def quiz_question(request: Request, sid: str, topic: str = "", difficulty:
         q["topic"] = t
         return q
 
-    raw = gemini_once(QUIZ_PROMPT.format(topic=t, difficulty=difficulty), temp=0.9, tokens=300)
+    raw = await async_gemini_once(QUIZ_PROMPT.format(topic=t, difficulty=difficulty), temp=0.9, tokens=300)
     if not raw:
         log.warning(f"Gemini unavailable for quiz — using fallback question bank")
         return get_fallback_question(t, [])
@@ -2499,7 +2523,7 @@ async def quiz_question(request: Request, sid: str, topic: str = "", difficulty:
     q = parse_quiz_json(raw, t)
     if not q:
         # Retry once with lower temperature
-        raw2 = gemini_once(QUIZ_PROMPT.format(topic=t, difficulty=difficulty), temp=0.5, tokens=300)
+        raw2 = await async_gemini_once(QUIZ_PROMPT.format(topic=t, difficulty=difficulty), temp=0.5, tokens=300)
         q = parse_quiz_json(raw2 or "", t)
     if not q:
         log.warning(f"Quiz parse failed twice — using fallback question bank")
@@ -2622,7 +2646,7 @@ async def suggest(request: Request, sid: str):
     quizzes = p.get("quizzes",[])
     qs = (f"avg {sum(q['score'] for q in quizzes)/len(quizzes)*100:.0f}% across {len(quizzes)} quizzes"
           if quizzes else "no quizzes yet")
-    result = gemini_once(SUGGESTION_PROMPT.format(
+    result = await async_gemini_once(SUGGESTION_PROMPT.format(
         name=p.get("name","Student"), topics=", ".join(topics),
         weak=", ".join(weak_topics(p)) or "none",
         quiz_summary=qs, difficulty=p.get("difficulty","medium"),
@@ -2711,7 +2735,7 @@ async def upload_file(request: Request, sid: str = Form(...), file: UploadFile =
     save_progress(sid, p)
 
     log.info(f"File uploaded: {file.filename} by {sid[:20]}")
-    summary = gemini_once(FILE_SUMMARY_PROMPT.format(text=text[:3000]), temp=0.5, tokens=600)
+    summary = await async_gemini_once(FILE_SUMMARY_PROMPT.format(text=text[:3000]), temp=0.5, tokens=600)
     return {
         "file_id": file_id,
         "filename": file.filename,
@@ -3869,7 +3893,7 @@ async def study_deck(request: Request, sid: str = Form(...), file: UploadFile = 
     log.info(f"Study Haven processing: {file.filename} for {sid[:20]}")
 
     # Generate study pack
-    result = gemini_once(
+    result = await async_gemini_once(
         STUDY_DECK_PROMPT.format(text=text[:6000]),
         temp=0.4,
         tokens=2000,
@@ -3949,7 +3973,7 @@ async def generate_exam_questions(data: dict, request: Request):
         types=", ".join(qtypes)
     )
 
-    result = gemini_once(prompt, temp=0.7, tokens=4000)
+    result = await async_gemini_once(prompt, temp=0.7, tokens=4000)
     if not result:
         raise HTTPException(503, "AI unavailable — try again")
 
@@ -4222,7 +4246,7 @@ Reply ONLY with a valid JSON array — no markdown, no extra text:
 ]
 Make tasks specific and actionable. Each day must have 2-4 tasks."""
 
-    raw = gemini_once(prompt, temp=0.7, tokens=2000)
+    raw = await async_gemini_once(prompt, temp=0.7, tokens=2000)
     if not raw:
         raise HTTPException(503, "Could not generate plan. Try again.")
 
@@ -6065,7 +6089,7 @@ High priority: {', '.join([t['title'] for t in high_pri[:3]]) or 'None'}
 Write a 3–5 sentence executive briefing. Be direct and actionable. Highlight risks, wins, and the #1 priority today. No bullet points — flowing prose."""
 
     sessions = get_sessions(sid)
-    briefing = gemini_ask(sessions.get("main", []), context)
+    briefing = await async_gemini_ask(sessions.get("main", []), context)
     return {"briefing": briefing}
 
 
@@ -6130,7 +6154,7 @@ async def home_brief(data: dict):
     ]
 
     prompt  = "\n".join(lines)
-    brief   = gemini_once(prompt, temp=0.75, tokens=120)
+    brief   = await async_gemini_once(prompt, temp=0.75, tokens=120)
     if not brief:
         brief = f"Good {tod}, {first_name}. Your workspace is ready — make today count."
     return {"brief": brief, "date": today}
@@ -6268,7 +6292,7 @@ Text:
 
 Return only valid JSON. No explanation. No markdown. Example:
 [{{"title":"Reply to John","priority":"high","due":null}}]"""
-    raw = gemini_once(prompt, temp=0.2, tokens=400)
+    raw = await async_gemini_once(prompt, temp=0.2, tokens=400)
     tasks = []
     if raw:
         try:
@@ -6310,7 +6334,7 @@ Text:
 {text}
 
 Respond with ONLY the rewritten text. No preamble, no explanation."""
-    result = gemini_once(prompt, temp=0.7, tokens=600)
+    result = await async_gemini_once(prompt, temp=0.7, tokens=600)
     if not result:
         raise HTTPException(502, "AI unavailable. Try again.")
     return {"result": result}
@@ -6368,7 +6392,7 @@ One energising sentence using their first name.
 
 Keep it concise, personal, and grounded in the actual numbers. No generic filler."""
 
-    review = gemini_once(prompt, temp=0.72, tokens=380)
+    review = await async_gemini_once(prompt, temp=0.72, tokens=380)
     if not review:
         review = f"Great effort this week, {first_name}! You completed {tasks_done} tasks and maintained {habits_pct}% of your habits. Keep building that momentum — next week, push one goal past its current mark."
     # Cache the review server-side for auto-display next time
@@ -6423,7 +6447,7 @@ Rules:
 - Keep title concise (max 70 chars), remove filler words like "remind me to" or "I need to"
 - subject is only for goals (the subject area, e.g. "Physics")"""
 
-    raw = gemini_once(prompt, temp=0.1, tokens=120)
+    raw = await async_gemini_once(prompt, temp=0.1, tokens=120)
     parsed = None
     if raw:
         try:
@@ -6459,7 +6483,7 @@ Rules:
 - Keep titles concise (max 60 chars)
 - Respond with the JSON array only, no explanation"""
 
-    raw = gemini_once(prompt, temp=0.15, tokens=250)
+    raw = await async_gemini_once(prompt, temp=0.15, tokens=250)
     tasks = []
     if raw:
         try:

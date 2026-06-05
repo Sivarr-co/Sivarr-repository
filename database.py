@@ -50,7 +50,7 @@ def _get_pool() -> pgpool.SimpleConnectionPool | None:
         variants.append(_DATABASE_URL + sep + "sslmode=disable")
     for url in variants:
         try:
-            _pool = pgpool.SimpleConnectionPool(1, 10, url, connect_timeout=10)
+            _pool = pgpool.SimpleConnectionPool(2, 20, url, connect_timeout=10)
             _pool_error = ""
             log.info(f"DB connection pool ready (variant: {'plain' if url == _DATABASE_URL else url.split(sep)[-1]})")
             return _pool
@@ -2197,6 +2197,25 @@ def get_org_messages_since(org_id: str, since_id: int, limit: int = 30) -> list:
             return [dict(r) for r in cur.fetchall()]
     except Exception as exc:
         log.error(f"get_org_messages_since: {exc}"); return []
+    finally:
+        _release(conn)
+
+
+def prune_rate_limit_hits(older_than_seconds: int) -> None:
+    """Delete rate_limit_hits rows older than the given age. Called by background cleanup task."""
+    conn = _get_conn()
+    if not conn: return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM rate_limit_hits WHERE ts < NOW() - INTERVAL '1 second' * %s",
+                (older_than_seconds,)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"prune_rate_limit_hits: {exc}")
+        try: conn.rollback()
+        except Exception: pass
     finally:
         _release(conn)
 
