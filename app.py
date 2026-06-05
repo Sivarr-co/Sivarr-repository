@@ -1573,50 +1573,59 @@ def _rc_bust(prefix: str) -> None:
 async def startup():
     import asyncio
     limiter._set_path(DATA_DIR / "rate_limits.json")
-    if db.is_available():
-        # Railway starts the app and PostgreSQL simultaneously — retry a few times
-        # in case the DB isn't accepting connections yet at process start.
-        ok = False
-        for attempt in range(6):
-            ok = db.init_db()
-            if ok:
-                break
-            log.warning(f"DB init attempt {attempt + 1} failed — retrying in 3s…")
-            await asyncio.sleep(3)
-        if ok:
-            db.migrate_from_json(str(USERS_PATH), str(DATA_DIR))
-            db.cleanup_db_sessions()
-            db.seed_marketplace_templates()   # MP3: seed agent templates if empty
-            log.info("Database ready")
-        else:
-            log.error("DB schema init failed after all retries — org features may be unavailable")
-    else:
-        log.info("Running on JSON file storage (no DATABASE_URL set)")
 
-    # Non-critical init (seeding + scheduler) runs in a background task so it
-    # cannot delay the startup event and block Railway's healthcheck.
-    async def _background_init():
+    # ── Everything runs in the background so workers bind to the port
+    # immediately and Railway's /health check passes in milliseconds.
+    async def _full_startup():
+        # DB init — retry up to 3 times with a short sleep between attempts
+        if db.is_available():
+            ok = False
+            for attempt in range(3):
+                try:
+                    ok = db.init_db()
+                except Exception as e:
+                    log.warning(f"DB init attempt {attempt + 1} exception: {e}")
+                if ok:
+                    break
+                log.warning(f"DB init attempt {attempt + 1} failed — retrying in 2s…")
+                await asyncio.sleep(2)
+            if ok:
+                try:
+                    db.migrate_from_json(str(USERS_PATH), str(DATA_DIR))
+                    db.cleanup_db_sessions()
+                    db.seed_marketplace_templates()
+                except Exception as e:
+                    log.warning(f"DB post-init step failed: {e}")
+                log.info("Database ready")
+            else:
+                log.error("DB schema init failed — org features may be unavailable")
+        else:
+            log.info("Running on JSON file storage (no DATABASE_URL set)")
+
+        # Seed community/opportunities JSON files
         try:
             _seed_community_and_opps()
         except Exception as exc:
             log.warning(f"Seed community/opps skipped: {exc}")
+
+        # APScheduler — jobs for weekly review + push notifications
         try:
             _start_scheduler()
         except Exception as exc:
             log.warning(f"Scheduler start skipped: {exc}")
 
-    asyncio.create_task(_background_init())
+        # Periodic rate-limit cleanup (runs forever)
+        async def _cleanup_rate_hits():
+            while True:
+                await asyncio.sleep(600)
+                if db.is_available():
+                    try:
+                        await asyncio.to_thread(db.prune_rate_limit_hits, RATE_LIMIT_WINDOW * 10)
+                    except Exception as exc:
+                        log.warning(f"rate_limit_hits cleanup error: {exc}")
+        asyncio.create_task(_cleanup_rate_hits())
 
-    # Background: prune rate_limit_hits rows older than 10× the window every 10 minutes
-    async def _cleanup_rate_hits():
-        while True:
-            await asyncio.sleep(600)
-            if db.is_available():
-                try:
-                    await asyncio.to_thread(db.prune_rate_limit_hits, RATE_LIMIT_WINDOW * 10)
-                except Exception as exc:
-                    log.warning(f"rate_limit_hits cleanup error: {exc}")
-    asyncio.create_task(_cleanup_rate_hits())
+    asyncio.create_task(_full_startup())
 
 # ═══════════════════════════════════════════════════════════════
 #  MP4 — Seed community posts + opportunities (JSON files)
