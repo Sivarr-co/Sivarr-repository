@@ -13287,6 +13287,7 @@ function acRenderPlan() {
 const _ag = {
   view:       'marketplace', // current sub-view
   category:   'all',
+  searchQuery: '',
   filters:    [],
   templates:  [],
   agents:     [],
@@ -13496,6 +13497,15 @@ async function agRenderMarketplace() {
   v.innerHTML = `
     <div class="ag-market-wrap">
 
+      <!-- Search bar -->
+      <div class="ag-search-bar">
+        <i class="ti ti-search"></i>
+        <input id="ag-search-input" placeholder="Search templates…" autocomplete="off"
+          value="${esc(_ag.searchQuery||'')}"
+          oninput="agSearchTemplates(this.value)">
+        ${_ag.searchQuery ? `<button class="ag-search-clear" onclick="agSearchTemplates('')">✕</button>` : ''}
+      </div>
+
       <!-- Category tabs + currency toggle row -->
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
         <div class="ag-cats" style="flex:1;margin-bottom:0">
@@ -13689,12 +13699,49 @@ function agToggleFilter(id) {
 function agApplyFilters(templates, category, filters) {
   let list = [...templates];
   if (category && category !== 'all') list = list.filter(t => t.category === category);
+  if (_ag.searchQuery) {
+    const q = _ag.searchQuery.toLowerCase();
+    list = list.filter(t =>
+      (t.name||'').toLowerCase().includes(q) ||
+      (t.short_description||'').toLowerCase().includes(q) ||
+      (t.agent_name||'').toLowerCase().includes(q) ||
+      (t.tags||[]).some(tag => tag.toLowerCase().includes(q))
+    );
+  }
   if (filters.includes('free'))     list = list.filter(t => parseFloat(t.price||0) === 0);
   if (filters.includes('under5'))   list = list.filter(t => parseFloat(t.price||0) < 5);
   if (filters.includes('top_rated'))list = [...list].sort((a,b) => (b.avg_rating||0) - (a.avg_rating||0));
   if (filters.includes('popular'))  list = [...list].sort((a,b) => (b.download_count||0) - (a.download_count||0));
   if (filters.includes('new'))      list = [...list].sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0));
   return list;
+}
+
+function agSearchTemplates(q) {
+  _ag.searchQuery = q.trim();
+  const filtered = agApplyFilters(_ag.templates, _ag.category, _ag.filters);
+  const searchInput = $('ag-search-input');
+  if (searchInput) searchInput.value = q;
+  const wrap = searchInput?.closest('.ag-search-bar');
+  if (wrap) {
+    let clearBtn = wrap.querySelector('.ag-search-clear');
+    if (_ag.searchQuery && !clearBtn) {
+      clearBtn = document.createElement('button');
+      clearBtn.className = 'ag-search-clear';
+      clearBtn.textContent = '✕';
+      clearBtn.onclick = () => agSearchTemplates('');
+      wrap.appendChild(clearBtn);
+    } else if (!_ag.searchQuery && clearBtn) {
+      clearBtn.remove();
+    }
+  }
+  const grid = $('ag-grid');
+  if (grid) {
+    grid.innerHTML = filtered.length
+      ? filtered.map(t => agTemplateCardHTML(t)).join('')
+      : `<div class="ag-empty" style="grid-column:1/-1"><div class="ag-empty-icon">🔍</div><p>No results for "<strong>${esc(_ag.searchQuery)}</strong>".</p></div>`;
+  } else {
+    agRenderMarketplace();
+  }
 }
 
 // ── Template detail ───────────────────────────────────────────
@@ -14619,19 +14666,36 @@ function agRenderBuilder() {
     body = `
       <div class="ag-apply-card">
         <div class="ag-apply-title">Step 2 — Contents</div>
-        <div class="ag-apply-sub">Select what gets installed when a user gets this template.</div>
-        <div class="ag-contents-check">
+        <div class="ag-apply-sub">Select content types and add the actual items that get installed with this template.</div>
+        <div class="ag-contents-list">
           ${AG_CONTENTS.map(c => {
-            const hasSel = d.contents && (d.contents[c.id]||[]).length > 0;
+            const items = (d.contents && d.contents[c.id]) || [];
+            const isOpen = items.length > 0;
+            const count  = items.length;
             return `
-              <div class="ag-content-row${hasSel?' sel':''}" onclick="agBuilderToggleContent('${c.id}',this)">
-                <input type="checkbox"${hasSel?' checked':''} onclick="event.stopPropagation();agBuilderToggleContent('${c.id}',this.closest('.ag-content-row'))">
-                <span class="ag-content-icon">${c.icon}</span>
-                <div class="ag-content-info">
-                  <div class="ag-content-name">${c.name}</div>
-                  <div class="ag-content-desc">${c.desc}</div>
+              <div class="ag-content-section${isOpen?' open':''}" id="ab-ct-${c.id}">
+                <div class="ag-content-header" onclick="agBuilderToggleSection('${c.id}')">
+                  <input type="checkbox"${isOpen?' checked':''} onclick="event.stopPropagation();agBuilderToggleSection('${c.id}')">
+                  <span class="ag-content-icon">${c.icon}</span>
+                  <div class="ag-content-info">
+                    <div class="ag-content-name">${c.name}</div>
+                    <div class="ag-content-desc">${c.desc}</div>
+                  </div>
+                  <span class="ag-content-count">${count>0?`${count} item${count!==1?'s':''}`:''}
+                  </span>
+                  <i class="ti ti-chevron-right ag-content-chevron"></i>
                 </div>
-              </div>`;}).join('')}
+                ${isOpen ? `
+                <div class="ag-content-editor" id="ab-ce-${c.id}">
+                  <div class="ag-items-list" id="ab-items-${c.id}">
+                    ${items.map((item,i) => agBuilderItemRowHTML(c.id, i, item)).join('')}
+                  </div>
+                  <button class="ag-add-item-btn" onclick="agBuilderAddItem('${c.id}')">
+                    <i class="ti ti-plus"></i> Add item
+                  </button>
+                </div>` : ''}
+              </div>`;
+          }).join('')}
         </div>
       </div>`;
   } else if (step === 3) {
@@ -14709,6 +14773,9 @@ function agBuilderStep(step) {
     d.tags = (($('ab-tags')||{}).value||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,5);
     if (!d.name) { showToast('Enter a template name.'); return; }
   }
+  if (_agBuilder.step === 2) {
+    agBuilderCollectContents();
+  }
   _agBuilder.step = step;
   agRenderBuilder();
 }
@@ -14719,17 +14786,185 @@ function agBuilderSetColor(color, el) {
   el.classList.add('sel');
 }
 
-function agBuilderToggleContent(id, row) {
-  row.classList.toggle('sel');
-  const cb = row.querySelector('input[type=checkbox]');
-  if (cb) cb.checked = row.classList.contains('sel');
+function agBuilderToggleSection(id) {
+  const section = $(`ab-ct-${id}`);
+  if (!section) return;
+  const isOpen = section.classList.contains('open');
   const d = _agBuilder.data;
   if (!d.contents) d.contents = {};
-  if (row.classList.contains('sel')) {
-    if (!d.contents[id] || d.contents[id].length === 0) d.contents[id] = [{}];
-  } else {
+
+  if (isOpen) {
+    agBuilderSaveContentItems(id);
     delete d.contents[id];
+    section.classList.remove('open');
+    const editor = $(`ab-ce-${id}`);
+    if (editor) editor.remove();
+    const cb = section.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = false;
+  } else {
+    if (!d.contents[id] || !d.contents[id].length) {
+      d.contents[id] = [agBuilderDefaultItem(id)];
+    }
+    section.classList.add('open');
+    const cb = section.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = true;
+    const editorEl = document.createElement('div');
+    editorEl.className = 'ag-content-editor';
+    editorEl.id = `ab-ce-${id}`;
+    editorEl.innerHTML = `
+      <div class="ag-items-list" id="ab-items-${id}">
+        ${(d.contents[id]||[]).map((item,i) => agBuilderItemRowHTML(id, i, item)).join('')}
+      </div>
+      <button class="ag-add-item-btn" onclick="agBuilderAddItem('${id}')">
+        <i class="ti ti-plus"></i> Add item
+      </button>`;
+    section.appendChild(editorEl);
+    agBuilderUpdateCount(id);
   }
+}
+
+function agBuilderDefaultItem(typeId) {
+  if (typeId === 'studyDeck')      return { question:'', answer:'' };
+  if (typeId === 'aiPrompts' || typeId === 'journalPrompts') return { text:'' };
+  if (typeId === 'spaces')         return { name:'', type:'personal' };
+  if (typeId === 'habits')         return { name:'', frequency:'daily' };
+  if (typeId === 'tasks')          return { name:'', priority:'medium', status:'Not Started' };
+  if (typeId === 'goals')          return { name:'', description:'' };
+  return { name:'' };
+}
+
+function agBuilderItemRowHTML(typeId, idx, item) {
+  const del = `agBuilderRemoveItem('${typeId}',${idx})`;
+  const delBtn = `<button class="ag-item-del" onclick="${del}"><i class="ti ti-x"></i></button>`;
+  if (typeId === 'studyDeck') {
+    return `<div class="ag-item-row" data-idx="${idx}">
+      <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+        <input class="ab-item-q" placeholder="Question…" value="${esc(item.question||'')}">
+        <input class="ab-item-a" placeholder="Answer…" value="${esc(item.answer||'')}">
+      </div>${delBtn}</div>`;
+  }
+  if (typeId === 'aiPrompts' || typeId === 'journalPrompts') {
+    return `<div class="ag-item-row" data-idx="${idx}">
+      <input class="ab-item-text" style="flex:1" placeholder="Prompt text…" value="${esc(item.text||'')}">
+      ${delBtn}</div>`;
+  }
+  if (typeId === 'spaces') {
+    return `<div class="ag-item-row" data-idx="${idx}">
+      <input class="ab-item-name" style="flex:1" placeholder="Space name…" value="${esc(item.name||'')}">
+      <select class="ab-item-type">
+        <option value="personal"${(item.type||'personal')==='personal'?' selected':''}>Personal</option>
+        <option value="academic"${item.type==='academic'?' selected':''}>Academic</option>
+      </select>${delBtn}</div>`;
+  }
+  if (typeId === 'habits') {
+    return `<div class="ag-item-row" data-idx="${idx}">
+      <input class="ab-item-name" style="flex:1" placeholder="Habit name…" value="${esc(item.name||'')}">
+      <select class="ab-item-freq">
+        <option value="daily"${(item.frequency||'daily')==='daily'?' selected':''}>Daily</option>
+        <option value="weekdays"${item.frequency==='weekdays'?' selected':''}>Weekdays</option>
+        <option value="weekly"${item.frequency==='weekly'?' selected':''}>Weekly</option>
+      </select>${delBtn}</div>`;
+  }
+  if (typeId === 'tasks') {
+    return `<div class="ag-item-row" data-idx="${idx}">
+      <input class="ab-item-name" style="flex:1" placeholder="Task name…" value="${esc(item.name||'')}">
+      <select class="ab-item-priority">
+        <option value="medium"${(item.priority||'medium')==='medium'?' selected':''}>Medium</option>
+        <option value="high"${item.priority==='high'?' selected':''}>High</option>
+        <option value="low"${item.priority==='low'?' selected':''}>Low</option>
+      </select>${delBtn}</div>`;
+  }
+  if (typeId === 'goals') {
+    return `<div class="ag-item-row" data-idx="${idx}">
+      <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+        <input class="ab-item-name" placeholder="Goal name…" value="${esc(item.name||'')}">
+        <input class="ab-item-desc" placeholder="Description (optional)…" value="${esc(item.description||'')}">
+      </div>${delBtn}</div>`;
+  }
+  return `<div class="ag-item-row" data-idx="${idx}">
+    <input class="ab-item-name" style="flex:1" placeholder="Name…" value="${esc(item.name||'')}">
+    ${delBtn}</div>`;
+}
+
+function agBuilderSaveContentItems(typeId) {
+  const list = $(`ab-items-${typeId}`);
+  if (!list) return;
+  const rows = list.querySelectorAll('.ag-item-row');
+  const d = _agBuilder.data;
+  if (!d.contents[typeId]) d.contents[typeId] = [];
+  const saved = [];
+  rows.forEach((row) => {
+    if (typeId === 'studyDeck') {
+      saved.push({ question:(row.querySelector('.ab-item-q')||{}).value?.trim()||'', answer:(row.querySelector('.ab-item-a')||{}).value?.trim()||'' });
+    } else if (typeId === 'aiPrompts' || typeId === 'journalPrompts') {
+      saved.push({ text:(row.querySelector('.ab-item-text')||{}).value?.trim()||'' });
+    } else if (typeId === 'spaces') {
+      saved.push({ name:(row.querySelector('.ab-item-name')||{}).value?.trim()||'', type:(row.querySelector('.ab-item-type')||{}).value||'personal' });
+    } else if (typeId === 'habits') {
+      saved.push({ name:(row.querySelector('.ab-item-name')||{}).value?.trim()||'', frequency:(row.querySelector('.ab-item-freq')||{}).value||'daily' });
+    } else if (typeId === 'tasks') {
+      saved.push({ name:(row.querySelector('.ab-item-name')||{}).value?.trim()||'', priority:(row.querySelector('.ab-item-priority')||{}).value||'medium', status:'Not Started' });
+    } else if (typeId === 'goals') {
+      saved.push({ name:(row.querySelector('.ab-item-name')||{}).value?.trim()||'', description:(row.querySelector('.ab-item-desc')||{}).value?.trim()||'' });
+    } else {
+      saved.push({ name:(row.querySelector('.ab-item-name')||{}).value?.trim()||'' });
+    }
+  });
+  d.contents[typeId] = saved;
+}
+
+function agBuilderAddItem(typeId) {
+  agBuilderSaveContentItems(typeId);
+  const d = _agBuilder.data;
+  if (!d.contents[typeId]) d.contents[typeId] = [];
+  const idx = d.contents[typeId].length;
+  d.contents[typeId].push(agBuilderDefaultItem(typeId));
+  const list = $(`ab-items-${typeId}`);
+  if (list) {
+    const el = document.createElement('div');
+    el.innerHTML = agBuilderItemRowHTML(typeId, idx, d.contents[typeId][idx]);
+    list.appendChild(el.firstElementChild);
+  }
+  agBuilderUpdateCount(typeId);
+}
+
+function agBuilderRemoveItem(typeId, idx) {
+  agBuilderSaveContentItems(typeId);
+  const d = _agBuilder.data;
+  if (d.contents[typeId]) d.contents[typeId].splice(idx, 1);
+  const list = $(`ab-items-${typeId}`);
+  if (list) {
+    list.innerHTML = (d.contents[typeId]||[]).map((item,i) => agBuilderItemRowHTML(typeId, i, item)).join('');
+  }
+  agBuilderUpdateCount(typeId);
+}
+
+function agBuilderUpdateCount(typeId) {
+  const section = $(`ab-ct-${typeId}`);
+  if (!section) return;
+  const countEl = section.querySelector('.ag-content-count');
+  const itemsList = $(`ab-items-${typeId}`);
+  const count = itemsList ? itemsList.querySelectorAll('.ag-item-row').length : (_agBuilder.data.contents[typeId]||[]).length;
+  if (countEl) countEl.textContent = count>0 ? `${count} item${count!==1?'s':''}` : '';
+}
+
+function agBuilderCollectContents() {
+  AG_CONTENTS.forEach(c => {
+    if ($(`ab-items-${c.id}`)) agBuilderSaveContentItems(c.id);
+  });
+  const d = _agBuilder.data;
+  Object.keys(d.contents||{}).forEach(typeId => {
+    const items = d.contents[typeId];
+    if (!items || !items.length) { delete d.contents[typeId]; return; }
+    if (typeId === 'studyDeck') {
+      d.contents[typeId] = items.filter(i => (i.question||'').trim() || (i.answer||'').trim());
+    } else if (typeId === 'aiPrompts' || typeId === 'journalPrompts') {
+      d.contents[typeId] = items.filter(i => (i.text||'').trim());
+    } else {
+      d.contents[typeId] = items.filter(i => (i.name||'').trim());
+    }
+    if (!d.contents[typeId].length) delete d.contents[typeId];
+  });
 }
 
 function agBuilderSetPricing(isFree) {
