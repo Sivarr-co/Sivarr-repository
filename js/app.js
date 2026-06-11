@@ -2205,6 +2205,21 @@ function chatCopyMsg(btn) {
   navigator.clipboard?.writeText(text).then(() => toast('Copied ✓'));
 }
 
+// ── Agent selector ─────────────────────────────────────────
+let _activeAgent = 'siva';
+
+function agentSelect(id, btn) {
+  if (_activeAgent === id) return;
+  _activeAgent = id;
+  document.querySelectorAll('.agent-chip').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function agentSelectLocked(id) {
+  const labels = { claude:'Claude (Anthropic)', gpt4:'GPT-4 (OpenAI)', perplexity:'Perplexity' };
+  toast(`${labels[id] || id} integration coming soon ✦`);
+}
+
 async function chatClearConfirm() {
   const ok = await siModal.confirm('Clear this conversation?', { title: 'Clear chat', confirmLabel: 'Clear', danger: true });
   if (!ok) return;
@@ -6256,6 +6271,237 @@ async function habitDelete(idx) {
   toast('Habit deleted');
 }
 
+// ════════════ FINANCE ════════════
+const FIN_KEY = () => `sivarr_finance_${S.sid || 'guest'}`;
+
+const FIN_CATS = {
+  expense: [
+    { id:'food',          label:'Food & Dining',   icon:'🍔', color:'#f59e0b' },
+    { id:'transport',     label:'Transport',        icon:'🚗', color:'#3b82f6' },
+    { id:'housing',       label:'Housing / Rent',   icon:'🏠', color:'#8b5cf6' },
+    { id:'utilities',     label:'Utilities',        icon:'⚡', color:'#06b6d4' },
+    { id:'health',        label:'Health',           icon:'💊', color:'#10b981' },
+    { id:'education',     label:'Education',        icon:'📚', color:'#6366f1' },
+    { id:'entertainment', label:'Entertainment',    icon:'🎬', color:'#ec4899' },
+    { id:'shopping',      label:'Shopping',         icon:'🛍️', color:'#f97316' },
+    { id:'data',          label:'Data / Airtime',   icon:'📱', color:'#14b8a6' },
+    { id:'other',         label:'Other',            icon:'💸', color:'#6b7280' },
+  ],
+  income: [
+    { id:'salary',     label:'Salary',           icon:'💼', color:'#10b981' },
+    { id:'freelance',  label:'Freelance',         icon:'💻', color:'#3b82f6' },
+    { id:'business',   label:'Business',          icon:'🏪', color:'#8b5cf6' },
+    { id:'investment', label:'Investment',        icon:'📈', color:'#f59e0b' },
+    { id:'gift',       label:'Gift / Transfer',   icon:'🎁', color:'#ec4899' },
+    { id:'other',      label:'Other Income',      icon:'➕', color:'#6b7280' },
+  ],
+};
+
+function _finData() {
+  try { return JSON.parse(localStorage.getItem(FIN_KEY()) || '{"transactions":[],"budgets":{}}'); }
+  catch { return { transactions: [], budgets: {} }; }
+}
+function _finSave(data) {
+  localStorage.setItem(FIN_KEY(), JSON.stringify(data));
+  _finSyncServer(data);
+}
+function _finSyncServer(data) {
+  const token = localStorage.getItem('sivarr_token');
+  if (!token || !navigator.onLine) return;
+  fetch('/api/finance/sync', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ token, data }),
+  }).catch(() => {});
+}
+function _finCat(type, id) {
+  return FIN_CATS[type]?.find(c => c.id === id) || { label: id, icon: '💸', color: '#6b7280' };
+}
+function _finFmt(n) {
+  if (n >= 1_000_000) return `₦${(n/1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `₦${(n/1_000).toFixed(0)}K`;
+  return `₦${Math.round(n).toLocaleString()}`;
+}
+
+let _finActiveTab = 'overview';
+
+function finInit() {
+  _finActiveTab = 'overview';
+  ['overview','transactions','budget'].forEach(t => {
+    const v = $(`fin-view-${t}`); if (v) v.style.display = t === 'overview' ? '' : 'none';
+    const b = $(`fin-tab-${t}`);  if (b) b.classList.toggle('active', t === 'overview');
+  });
+  finRenderOverview();
+}
+
+function finTab(tab, btn) {
+  _finActiveTab = tab;
+  ['overview','transactions','budget'].forEach(t => {
+    const v = $(`fin-view-${t}`); if (v) v.style.display = t === tab ? '' : 'none';
+    const b = $(`fin-tab-${t}`);  if (b) b.classList.toggle('active', t === tab);
+  });
+  if (tab === 'overview')     finRenderOverview();
+  if (tab === 'transactions') finRenderTransactions();
+  if (tab === 'budget')       finRenderBudget();
+}
+
+function finRenderOverview() {
+  const el = $('fin-view-overview'); if (!el) return;
+  const data  = _finData();
+  const txs   = data.transactions || [];
+  const month = new Date().toISOString().slice(0, 7);
+  const mTxs  = txs.filter(t => t.date.startsWith(month));
+  const inc   = mTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const exp   = mTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const bal   = inc - exp;
+  const savRate = inc > 0 ? Math.round((bal / inc) * 100) : 0;
+
+  const catTotals = {};
+  mTxs.filter(t => t.type === 'expense').forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.amount; });
+  const maxCat = Math.max(...Object.values(catTotals), 1);
+  const catBars = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, amt]) => {
+    const cat = _finCat('expense', id);
+    return `<div class="fin-bar-row">
+      <div class="fin-bar-cat">${cat.icon} ${cat.label}</div>
+      <div class="fin-bar-track"><div class="fin-bar-fill" style="width:${Math.round(amt/maxCat*100)}%;background:${cat.color}"></div></div>
+      <div class="fin-bar-pct">${_finFmt(amt)}</div>
+    </div>`;
+  }).join('');
+
+  const recent = [...txs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+  const monthName = new Date().toLocaleString('default', { month:'long' });
+
+  el.innerHTML = `
+    <div class="fin-bal-card">
+      <div class="fin-bal-label">Net Balance · ${monthName}</div>
+      <div class="fin-bal-amount">${_finFmt(Math.abs(bal))}</div>
+      <div class="fin-bal-sub">${bal >= 0 ? '↑ Surplus' : '↓ Deficit'} · ${savRate}% savings rate</div>
+    </div>
+    <div class="fin-summary-grid">
+      <div class="fin-stat"><div class="fin-stat-val" style="color:var(--teal)">${_finFmt(inc)}</div><div class="fin-stat-lbl">Income</div></div>
+      <div class="fin-stat"><div class="fin-stat-val" style="color:#f87171">${_finFmt(exp)}</div><div class="fin-stat-lbl">Expenses</div></div>
+      <div class="fin-stat"><div class="fin-stat-val" style="color:var(--accent2)">${txs.length}</div><div class="fin-stat-lbl">All time</div></div>
+    </div>
+    ${catBars ? `<div class="fin-card"><div class="fin-card-title"><i class="ti ti-chart-bar"></i> Top spending this month</div><div class="fin-bar-chart">${catBars}</div></div>` : ''}
+    <div class="fin-card">
+      <div class="fin-card-title"><i class="ti ti-list"></i> Recent transactions</div>
+      ${recent.length ? `<div class="fin-tx-list">${recent.map(t => _finTxHtml(t)).join('')}</div>`
+        : `<div class="fin-empty">No transactions yet — add your first one above.</div>`}
+    </div>`;
+}
+
+function finRenderTransactions() {
+  const el = $('fin-view-transactions'); if (!el) return;
+  const data   = _finData();
+  const allTxs = [...(data.transactions || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const filter = el._filter || 'all';
+  const shown  = filter === 'all' ? allTxs : allTxs.filter(t => t.type === filter);
+
+  el.innerHTML = `
+    <div class="fin-tabs" style="margin-bottom:10px">
+      <button class="fin-tab ${filter==='all'?'active':''}"     onclick="finTxFilter('all')">All (${allTxs.length})</button>
+      <button class="fin-tab ${filter==='income'?'active':''}"  onclick="finTxFilter('income')">Income</button>
+      <button class="fin-tab ${filter==='expense'?'active':''}" onclick="finTxFilter('expense')">Expenses</button>
+    </div>
+    <div class="fin-card">
+      ${shown.length ? `<div class="fin-tx-list">${shown.map(t => _finTxHtml(t)).join('')}</div>`
+        : `<div class="fin-empty">No transactions here yet.</div>`}
+    </div>`;
+}
+
+function finTxFilter(f) {
+  const el = $('fin-view-transactions'); if (!el) return;
+  el._filter = f;
+  finRenderTransactions();
+}
+
+function _finTxHtml(t) {
+  const cat = _finCat(t.type, t.category);
+  const d   = new Date(t.date).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+  return `<div class="fin-tx">
+    <div class="fin-tx-icon ${t.type}" style="background:${cat.color}18">${cat.icon}</div>
+    <div class="fin-tx-info">
+      <div class="fin-tx-note">${esc(t.note || cat.label)}</div>
+      <div class="fin-tx-meta">${cat.label} · ${d}</div>
+    </div>
+    <div class="fin-tx-amt ${t.type}">${t.type==='income'?'+':'-'}${_finFmt(t.amount)}</div>
+    <button class="fin-tx-del" onclick="finDeleteTx('${t.id}')" title="Delete"><i class="ti ti-x"></i></button>
+  </div>`;
+}
+
+function finRenderBudget() {
+  const el = $('fin-view-budget'); if (!el) return;
+  const data    = _finData();
+  const budgets = data.budgets || {};
+  const month   = new Date().toISOString().slice(0, 7);
+  const mExp    = (data.transactions || []).filter(t => t.type === 'expense' && t.date.startsWith(month));
+
+  const rows = FIN_CATS.expense.map(cat => {
+    const spent  = mExp.filter(t => t.category === cat.id).reduce((s, t) => s + t.amount, 0);
+    const budget = budgets[cat.id] || 0;
+    const pct    = budget > 0 ? Math.min(Math.round((spent / budget) * 100), 100) : 0;
+    const over   = budget > 0 && spent > budget;
+    return `<div class="fin-budget-item">
+      <div class="fin-budget-head">
+        <div class="fin-budget-label">${cat.icon} ${cat.label}</div>
+        <div class="fin-budget-nums">${_finFmt(spent)}${budget > 0 ? ` / ${_finFmt(budget)}` : ' (no limit)'}</div>
+      </div>
+      ${budget > 0 ? `<div class="fin-budget-bar"><div class="fin-budget-fill" style="width:${pct}%;background:${over?'#f87171':cat.color}"></div></div>` : ''}
+      <div class="fin-budget-edit">
+        <input class="fin-budget-input" type="number" id="fbi-${cat.id}" placeholder="Monthly limit (₦)" value="${budget||''}" min="0">
+        <button class="fin-save-budget" onclick="finSaveBudgetCat('${cat.id}')">Set</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="fin-card">
+    <div class="fin-card-title"><i class="ti ti-adjustments"></i> Monthly budget limits</div>
+    <div class="fin-budget-row">${rows}</div>
+  </div>`;
+}
+
+async function finAdd(type) {
+  const cats = FIN_CATS[type].map(c => ({ value: c.id, label: `${c.icon} ${c.label}` }));
+  const d = await siModal.form(type === 'income' ? '+ Add Income' : '+ Add Expense', [
+    { id:'amount',   label:'Amount (₦)',        type:'text',   placeholder:'e.g. 50000', required:true },
+    { id:'category', label:'Category',           type:'select', options: cats, default: cats[0].value },
+    { id:'note',     label:'Note (optional)',    placeholder:'e.g. Uber to Lekki' },
+    { id:'date',     label:'Date',               type:'text',   placeholder:'YYYY-MM-DD', default: new Date().toISOString().slice(0,10) },
+  ], { confirmLabel: type === 'income' ? 'Add Income' : 'Add Expense' });
+  if (!d) return;
+  const amount = parseFloat(String(d.amount).replace(/,/g, ''));
+  if (!amount || amount <= 0) { toast('Enter a valid amount.'); return; }
+  const data = _finData();
+  data.transactions.push({ id: Date.now().toString(36), type, amount, category: d.category, note: d.note || '', date: d.date || new Date().toISOString().slice(0,10) });
+  _finSave(data);
+  if (_finActiveTab === 'overview')     finRenderOverview();
+  if (_finActiveTab === 'transactions') finRenderTransactions();
+  toast(`${type === 'income' ? 'Income' : 'Expense'} added ✓`);
+}
+
+async function finDeleteTx(id) {
+  const data = _finData();
+  const tx   = data.transactions.find(t => t.id === id);
+  if (!tx) return;
+  if (!await siModal.confirm(`Delete this ${tx.type} of ${_finFmt(tx.amount)}?`, { title:'Delete Transaction', confirmLabel:'Delete', danger:true })) return;
+  data.transactions = data.transactions.filter(t => t.id !== id);
+  _finSave(data);
+  if (_finActiveTab === 'overview')     finRenderOverview();
+  if (_finActiveTab === 'transactions') finRenderTransactions();
+  toast('Transaction deleted');
+}
+
+function finSaveBudgetCat(catId) {
+  const input = $(`fbi-${catId}`); if (!input) return;
+  const val   = parseFloat(input.value);
+  const data  = _finData();
+  if (!data.budgets) data.budgets = {};
+  if (val > 0) data.budgets[catId] = val;
+  else delete data.budgets[catId];
+  _finSave(data);
+  finRenderBudget();
+  toast('Budget updated ✓');
+}
+
 // ════════════ JOURNAL ════════════
 const JNL_KEY = () => `sivarr_journal_${S.sid||'guest'}`;
 
@@ -7264,6 +7510,7 @@ function nav(name, btn) {
   if (name === 'notes')     { docInit(); return; }
   if (name === 'templates') { tplInit(); return; }
   if (name === 'calendar')  { calInit(); return; }
+  if (name === 'finance')   { finInit(); return; }
   if (name === 'habits')    { habitInit(); return; }
   if (name === 'journal')   { journalInit(); return; }
   if (name === 'community') { communityInit(); return; }
@@ -7319,6 +7566,7 @@ function navTab(name, btn) {
   const desktopBtn = document.querySelector(`.nav-btn[onclick*="'${name}'"]`);
   if (desktopBtn) desktopBtn.classList.add('active');
 
+  if (name === 'finance')       finInit();
   if (name === 'stats')         loadStats();
   if (name === 'more')          syncMore();
   if (name === 'leaderboard')   loadLeaderboard();

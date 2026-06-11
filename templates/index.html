@@ -477,6 +477,10 @@ Sentry.onLoad(function() {
         <!-- Life -->
         <div class="sb-section-label">Life</div>
         <div class="sb-nav-group" id="sgi-grow">
+          <button class="si" data-panel="finance" onclick="sidebarNav(this)">
+            <div class="si-icon"><i class="ti ti-wallet"></i></div>
+            <span class="si-lb">Finance</span>
+          </button>
           <button class="si" data-panel="habits" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-flame"></i></div>
             <span class="si-lb">Habits</span>
@@ -590,6 +594,26 @@ Sentry.onLoad(function() {
               <i class="ti ti-download"></i>
             </button>
           </div>
+        </div>
+
+        <!-- Agent selector -->
+        <div class="agent-selector" id="agent-selector">
+          <button class="agent-chip active" id="agent-siva" onclick="agentSelect('siva',this)">
+            <i class="ti ti-sparkles"></i> SIVA
+            <span class="agent-chip-badge">Gemini</span>
+          </button>
+          <button class="agent-chip locked" onclick="agentSelectLocked('claude')" title="Coming soon">
+            <i class="ti ti-robot"></i> Claude
+            <span class="agent-chip-badge">Soon</span>
+          </button>
+          <button class="agent-chip locked" onclick="agentSelectLocked('gpt4')" title="Coming soon">
+            <i class="ti ti-brain"></i> GPT-4
+            <span class="agent-chip-badge">Soon</span>
+          </button>
+          <button class="agent-chip locked" onclick="agentSelectLocked('perplexity')" title="Coming soon">
+            <i class="ti ti-search"></i> Perplexity
+            <span class="agent-chip-badge">Soon</span>
+          </button>
         </div>
 
         <div class="chat-msgs" id="msgs">
@@ -2496,6 +2520,37 @@ Sentry.onLoad(function() {
       </div>
 
       <!-- ── Habits Panel ── -->
+      <!-- ── Finance Panel ── -->
+      <div class="panel" id="panel-finance">
+        <div class="view-head">
+          <i class="ti ti-wallet vh-icon"></i>
+          <span class="vh-title">Finance</span>
+          <div style="display:flex;gap:6px;margin-left:auto">
+            <button class="fin-add-btn income" onclick="finAdd('income')"><i class="ti ti-plus"></i> Income</button>
+            <button class="fin-add-btn expense" onclick="finAdd('expense')"><i class="ti ti-minus"></i> Expense</button>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:1.25rem 24px">
+
+          <!-- Tabs -->
+          <div class="fin-tabs">
+            <button class="fin-tab active" id="fin-tab-overview"      onclick="finTab('overview',this)">Overview</button>
+            <button class="fin-tab"        id="fin-tab-transactions"   onclick="finTab('transactions',this)">Transactions</button>
+            <button class="fin-tab"        id="fin-tab-budget"         onclick="finTab('budget',this)">Budget</button>
+          </div>
+
+          <!-- Overview -->
+          <div id="fin-view-overview" class="fin-wrap"></div>
+
+          <!-- Transactions -->
+          <div id="fin-view-transactions" class="fin-wrap" style="display:none"></div>
+
+          <!-- Budget -->
+          <div id="fin-view-budget" class="fin-wrap" style="display:none"></div>
+
+        </div>
+      </div>
+
       <div class="panel" id="panel-habits">
         <div class="view-head">
           <i class="ti ti-flame vh-icon"></i>

@@ -509,6 +509,14 @@ CREATE TABLE IF NOT EXISTS google_exchange_codes (
     expires_at TIMESTAMPTZ NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS user_blobs (
+    sid        TEXT NOT NULL,
+    key        TEXT NOT NULL,
+    data       JSONB NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (sid, key)
+);
+
 CREATE TABLE IF NOT EXISTS community_posts (
     id          TEXT PRIMARY KEY,
     author_name TEXT NOT NULL DEFAULT 'Sivarr User',
@@ -1991,6 +1999,42 @@ def create_org(owner_sid: str, name: str, org_id: str, owner_name: str = "") -> 
         log.error(f"create_org: {err}\n{traceback.format_exc()}")
         conn.rollback()
         return False, err
+    finally:
+        _release(conn)
+
+
+# ── User blobs (generic key/value JSON store per user) ────────
+
+def save_user_blob(sid: str, key: str, data: dict) -> None:
+    import json as _json
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO user_blobs (sid, key, data, updated_at)
+                   VALUES (%s, %s, %s, NOW())
+                   ON CONFLICT (sid, key) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()""",
+                (sid, key, _json.dumps(data))
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"save_user_blob failed [{sid}/{key}]: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
+def get_user_blob(sid: str, key: str) -> dict | None:
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT data FROM user_blobs WHERE sid = %s AND key = %s", (sid, key))
+            row = cur.fetchone()
+        return row[0] if row else None
     finally:
         _release(conn)
 
