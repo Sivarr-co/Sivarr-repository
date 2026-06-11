@@ -2348,6 +2348,34 @@ async def forgot_password(data: dict, bg: BackgroundTasks):
     return {"ok": True, "message": "If that email exists, a reset link has been sent."}
 
 
+@app.post("/api/auth/change-password")
+async def change_password(data: dict):
+    token        = sanitize_text(str(data.get("token", "")), 200)
+    current_pw   = str(data.get("current_password", ""))
+    new_pw       = str(data.get("new_password", ""))
+    if not token:
+        raise HTTPException(401, "Authentication required.")
+    if not current_pw or not new_pw:
+        raise HTTPException(400, "Current and new password are required.")
+    if len(new_pw) < 8:
+        raise HTTPException(400, "New password must be at least 8 characters.")
+    entry = get_session_from_token(token)
+    if not entry:
+        raise HTTPException(401, "Session expired. Please sign in again.")
+    sid  = entry["sid"]
+    user = db.get_user(sid) if db.is_available() else None
+    if not user:
+        raise HTTPException(404, "User not found.")
+    stored = user.get("password", "")
+    if not stored:
+        raise HTTPException(400, "This account uses social sign-in. Password changes are not available.")
+    if not bcrypt.checkpw(current_pw.encode(), stored.encode()):
+        raise HTTPException(400, "Current password is incorrect.")
+    hashed = bcrypt.hashpw(new_pw.encode(), bcrypt.gensalt()).decode()
+    db.update_user_password(sid, hashed)
+    return {"ok": True, "message": "Password updated successfully."}
+
+
 @app.post("/api/auth/reset-password")
 async def reset_password(data: dict):
     token    = sanitize_text(str(data.get("token", "")), 200)

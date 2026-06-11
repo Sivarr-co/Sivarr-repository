@@ -1604,14 +1604,18 @@ Sentry.onLoad(function() {
             </div>
             <div class="st-section-body">
               <div>
-                <div class="st-label" style="margin-bottom:4px">New Password</div>
-                <input class="st-input" id="st-pw-input" type="password" placeholder="Min. 6 characters">
+                <div class="st-label" style="margin-bottom:4px">Current Password</div>
+                <input class="st-input" id="st-pw-current" type="password" placeholder="Your current password">
               </div>
               <div>
-                <div class="st-label" style="margin-bottom:4px">Confirm Password</div>
-                <input class="st-input" id="st-pw2-input" type="password" placeholder="Repeat password">
+                <div class="st-label" style="margin-bottom:4px">New Password</div>
+                <input class="st-input" id="st-pw-input" type="password" placeholder="Min. 8 characters">
               </div>
-              <button onclick="stChangePassword()" class="st-btn">
+              <div>
+                <div class="st-label" style="margin-bottom:4px">Confirm New Password</div>
+                <input class="st-input" id="st-pw2-input" type="password" placeholder="Repeat new password">
+              </div>
+              <button onclick="stChangePassword()" class="st-btn" id="st-pw-btn">
                 🔑 Update Password
               </button>
               <button onclick="stLogoutAll()" class="st-btn danger">

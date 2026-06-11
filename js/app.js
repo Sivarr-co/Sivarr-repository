@@ -4133,12 +4133,30 @@ function stSetAccent(color, color2, el) {
   toast('Accent colour updated ✓');
 }
 
-function stChangePassword() {
-  const pw  = $('st-pw-input')?.value;
-  const pw2 = $('st-pw2-input')?.value;
-  if (!pw || pw.length < 6) { toast('Password must be at least 6 characters.'); return; }
-  if (pw !== pw2)            { toast('Passwords do not match.'); return; }
-  toast('Password update coming soon — backend integration needed. 🔧');
+async function stChangePassword() {
+  const current = $('st-pw-current')?.value?.trim();
+  const pw      = $('st-pw-input')?.value;
+  const pw2     = $('st-pw2-input')?.value;
+  if (!current)                { toast('Enter your current password.'); return; }
+  if (!pw || pw.length < 8)    { toast('New password must be at least 8 characters.'); return; }
+  if (pw !== pw2)              { toast('New passwords do not match.'); return; }
+  const token = localStorage.getItem('sivarr_token');
+  if (!token)                  { toast('Session expired. Please sign in again.'); return; }
+  const btn = $('st-pw-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+  try {
+    const r = await fetch('/api/auth/change-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, current_password: current, new_password: pw }),
+    });
+    const d = await r.json();
+    if (!r.ok) { toast(d.detail || 'Failed to update password.'); return; }
+    toast('Password updated ✓');
+    if ($('st-pw-current')) $('st-pw-current').value = '';
+    if ($('st-pw-input'))   $('st-pw-input').value   = '';
+    if ($('st-pw2-input'))  $('st-pw2-input').value  = '';
+  } catch { toast('Network error — try again.'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '🔑 Update Password'; } }
 }
 
 async function stLogoutAll() {
