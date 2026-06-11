@@ -63,7 +63,7 @@ def _get_pool() -> pgpool.SimpleConnectionPool | None:
         variants.append(_DATABASE_URL + sep + "sslmode=disable")
     for url in variants:
         try:
-            _pool = pgpool.SimpleConnectionPool(2, 20, url, connect_timeout=10)
+            _pool = pgpool.SimpleConnectionPool(1, 5, url, connect_timeout=10)
             _pool_error = ""
             log.info(f"DB connection pool ready (variant: {'plain' if url == _DATABASE_URL else url.split(sep)[-1]})")
             return _pool

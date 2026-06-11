@@ -1339,14 +1339,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Handle ?reset= / ?verify= / ?verified= URL params before anything else
   checkAuthParams();
 
-  // Google OAuth — exchange one-time code for real session token (with retries)
+  // Google OAuth — exchange one-time code for full session data (with retries)
+  // The exchange endpoint returns the same shape as /api/login so we can call
+  // _applyLoginData directly — no second cross-worker restoreSession needed.
   const googleCode = sessionStorage.getItem('google_login_pending_code');
   if (googleCode) {
     sessionStorage.removeItem('google_login_pending_code');
     const btn = $('login-btn');
     if (btn) { btn.textContent = 'Signing in with Google…'; btn.disabled = true; }
     const MAX_ATTEMPTS = 5;
-    const RETRY_DELAY  = 700; // ms between attempts
+    const RETRY_DELAY  = 700;
     let lastErr = '';
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
@@ -1355,13 +1357,11 @@ window.addEventListener('DOMContentLoaded', async () => {
         const d = await r.json();
         if (!r.ok || !d.token) { lastErr = d.detail || 'Exchange failed'; continue; }
         localStorage.setItem('sivarr_token', d.token);
-        const ok = await restoreSession(d.token);
-        if (ok) {
-          toast('Signed in with Google!');
-          _postLoginIntegrations();
-          return;
-        }
-        lastErr = 'Session restore failed';
+        saveSession(d.name, d.email, d.token);
+        _applyLoginData(d);
+        toast('Signed in with Google!');
+        _postLoginIntegrations();
+        return;
       } catch(e) { lastErr = e.message || 'Network error'; }
     }
     toast('Google sign-in failed — please try again.');

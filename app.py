@@ -6991,6 +6991,14 @@ async def google_oauth_callback(code: str = "", error: str = "", state: str = ""
         p["google_id"] = google_id
         save_progress(sid, p)
 
+    # Google has verified this email — mark it verified in our DB so the
+    # "verify your email" banner never appears for OAuth users.
+    if db.is_available():
+        try:
+            db.mark_email_verified(sid)
+        except Exception:
+            pass
+
     sivarr_token = create_session_token(sid, user["name"], email)
     log.info(f"Google OAuth login: {user['name']} ({email})")
 
@@ -7003,13 +7011,45 @@ async def google_oauth_callback(code: str = "", error: str = "", state: str = ""
 
 @app.get("/api/auth/google/exchange")
 async def google_token_exchange(code: str = ""):
-    """Exchange a one-time code (from the Google callback redirect) for a real session token."""
+    """Exchange a one-time code for a session token and full login data.
+
+    Returns the same shape as /api/login so the client can call _applyLoginData
+    directly, avoiding a second cross-worker HTTP round-trip to /api/session/restore.
+    """
     if not code:
         raise HTTPException(400, "Missing code.")
     tok = _pop_google_xcode(code)
     if not tok:
         raise HTTPException(400, "Code not found, already used, or expired. Please sign in again.")
-    return {"token": tok}
+
+    entry = get_session_from_token(tok)
+    if not entry:
+        raise HTTPException(400, "Session expired. Please sign in again.")
+
+    sid   = entry["sid"]
+    name  = entry["name"]
+    email = entry["email"]
+
+    p = load_progress(sid)
+    now_ts = time.time()
+    if now_ts - p.get("last_restore_ts", 0) > 1800:
+        p["sessions"] = p.get("sessions", 0) + 1
+        p["last_restore_ts"] = now_ts
+        save_progress(sid, p)
+
+    spaces = db.get_all_spaces_with_data(sid) if db.is_available() else []
+
+    return {
+        "sid": sid, "name": p.get("name", name), "email": p.get("email", email),
+        "token": tok,
+        "sessions": p.get("sessions", 1), "difficulty": p.get("difficulty", "medium"),
+        "topics": list(p.get("topics", {}).keys()), "weak": weak_topics(p),
+        "questions": p.get("questions", 0), "quizzes": len(p.get("quizzes", [])),
+        "wrong_count": len(p.get("wrong_answers", [])), "returning": p.get("sessions", 1) > 1,
+        "uploaded_files": p.get("uploaded_files", []),
+        "spaces": spaces,
+        "email_verified": True,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
