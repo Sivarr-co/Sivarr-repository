@@ -1339,29 +1339,34 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Handle ?reset= / ?verify= / ?verified= URL params before anything else
   checkAuthParams();
 
-  // Google OAuth — exchange one-time code for real session token
+  // Google OAuth — exchange one-time code for real session token (with retries)
   const googleCode = sessionStorage.getItem('google_login_pending_code');
   if (googleCode) {
     sessionStorage.removeItem('google_login_pending_code');
     const btn = $('login-btn');
     if (btn) { btn.textContent = 'Signing in with Google…'; btn.disabled = true; }
-    try {
-      const r = await fetch(`/api/auth/google/exchange?code=${encodeURIComponent(googleCode)}`);
-      const d = await r.json();
-      if (!r.ok || !d.token) throw new Error(d.detail || 'Exchange failed');
-      localStorage.setItem('sivarr_token', d.token);
-      const ok = await restoreSession(d.token);
-      if (ok) {
-        toast('Signed in with Google!');
-        _postLoginIntegrations();
-        return;
-      }
-      throw new Error('Session restore failed');
-    } catch(e) {
-      toast('Google sign-in failed — please try again.');
-      if (btn) { btn.textContent = 'Sign In'; btn.disabled = false; }
-      return;
+    const MAX_ATTEMPTS = 5;
+    const RETRY_DELAY  = 700; // ms between attempts
+    let lastErr = '';
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        if (attempt > 0) await new Promise(res => setTimeout(res, RETRY_DELAY * attempt));
+        const r = await fetch(`/api/auth/google/exchange?code=${encodeURIComponent(googleCode)}`);
+        const d = await r.json();
+        if (!r.ok || !d.token) { lastErr = d.detail || 'Exchange failed'; continue; }
+        localStorage.setItem('sivarr_token', d.token);
+        const ok = await restoreSession(d.token);
+        if (ok) {
+          toast('Signed in with Google!');
+          _postLoginIntegrations();
+          return;
+        }
+        lastErr = 'Session restore failed';
+      } catch(e) { lastErr = e.message || 'Network error'; }
     }
+    toast('Google sign-in failed — please try again.');
+    if (btn) { btn.textContent = 'Sign In'; btn.disabled = false; }
+    return;
   }
 
   // Legacy fallback — direct google_token (kept for safety)
