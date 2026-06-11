@@ -5809,6 +5809,30 @@ async def org_create(data: dict, bg: BackgroundTasks):
     return {"ok": True, "org_id": org_id, "name": org_name}
 
 
+@app.post("/api/org/update")
+async def org_update(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org:
+        raise HTTPException(404, "You don't belong to an organization.")
+    if org.get("owner_sid") != sid:
+        raise HTTPException(403, "Only the owner can update the organization.")
+    updates = {}
+    if "name" in data:
+        name = sanitize_text(str(data["name"]).strip(), 80)
+        if len(name) < 2:
+            raise HTTPException(400, "Name must be at least 2 characters.")
+        updates["name"] = name
+    if "description" in data:
+        updates["description"] = sanitize_text(str(data.get("description", "")), 500)
+    if not updates:
+        raise HTTPException(400, "Nothing to update.")
+    db.update_org(org["id"], sid, updates)
+    return {"ok": True, **updates}
+
+
 @app.post("/api/org/invite")
 async def org_invite(data: dict, bg: BackgroundTasks):
     sid, uname = _resolve_token(data)

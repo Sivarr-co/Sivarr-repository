@@ -1966,6 +1966,33 @@ def create_org(owner_sid: str, name: str, org_id: str, owner_name: str = "") -> 
         _release(conn)
 
 
+def update_org(org_id: str, owner_sid: str, updates: dict) -> bool:
+    """Update allowed org fields. Only the owner can do this."""
+    allowed = {"name", "description", "logo"}
+    fields  = {k: v for k, v in updates.items() if k in allowed}
+    if not fields:
+        return False
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        set_clause = ", ".join(f"{k} = %s" for k in fields)
+        vals       = list(fields.values()) + [org_id, owner_sid]
+        with conn.cursor() as cur:
+            cur.execute(
+                f"UPDATE orgs SET {set_clause} WHERE id = %s AND owner_sid = %s",
+                vals
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"update_org failed: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
 def get_all_orgs() -> list:
     """Return all orgs — used by cron jobs to iterate every org."""
     conn = _get_conn()

@@ -3834,6 +3834,106 @@ function cnAction(type) {
   }, 250);
 }
 
+// ── Framework Templates ────────────────────────────────────────
+const _FRAMEWORKS = {
+  'study-routine': {
+    label: 'Study Routine',
+    fields: [
+      { id:'subject', label:'Subject / Course', placeholder:'e.g. Mathematics', required:true },
+      { id:'duration', label:'Daily study time (mins)', type:'text', placeholder:'e.g. 60', default:'60' },
+    ],
+    build(f) {
+      const mins = parseInt(f.duration) || 60;
+      const subj = f.subject;
+      return [
+        { title:`📖 Read ${subj} notes`,         type:'reading',    priority:'high',   desc:`${mins} min daily reading session` },
+        { title:`✍️ Practice ${subj} problems`,   type:'assignment', priority:'medium', desc:'Work through exercises' },
+        { title:`🔁 Review flashcards — ${subj}`, type:'revision',   priority:'medium', desc:'Active recall session' },
+        { title:`📝 Summarise today's ${subj}`,   type:'other',      priority:'low',    desc:'Write key takeaways' },
+      ];
+    },
+  },
+  'project-pipeline': {
+    label: 'Project Pipeline',
+    fields: [
+      { id:'project', label:'Project name', placeholder:'e.g. Website Redesign', required:true },
+    ],
+    build(f) {
+      const p = f.project;
+      return [
+        { title:`🗺 Plan — ${p}`,      type:'other',      priority:'high',   desc:'Define scope, goals, and timeline' },
+        { title:`🎨 Design — ${p}`,    type:'other',      priority:'high',   desc:'Wireframes, mockups, architecture' },
+        { title:`🔨 Build — ${p}`,     type:'project',    priority:'high',   desc:'Core implementation sprint' },
+        { title:`🧪 Test — ${p}`,      type:'other',      priority:'medium', desc:'QA, bug fixes, review' },
+        { title:`🚀 Launch — ${p}`,    type:'other',      priority:'medium', desc:'Deploy and announce' },
+        { title:`📊 Retrospective — ${p}`, type:'other', priority:'low',    desc:'What worked, what to improve' },
+      ];
+    },
+  },
+  'exam-prep': {
+    label: 'Exam Prep',
+    fields: [
+      { id:'subject', label:'Subject', placeholder:'e.g. Physics', required:true },
+      { id:'exam_date', label:'Exam date', type:'text', placeholder:'e.g. 2026-07-15' },
+    ],
+    build(f) {
+      const s = f.subject;
+      return [
+        { title:`📋 Make ${s} topic list`,          type:'revision',   priority:'high',   desc:'List all topics and mark weak areas' },
+        { title:`📖 Revise ${s} — Week 1`,          type:'revision',   priority:'high',   desc:'Cover first third of syllabus' },
+        { title:`📖 Revise ${s} — Week 2`,          type:'revision',   priority:'high',   desc:'Cover second third of syllabus' },
+        { title:`📖 Revise ${s} — Week 3`,          type:'revision',   priority:'high',   desc:'Cover final third of syllabus' },
+        { title:`❓ Past papers — ${s}`,            type:'exam',       priority:'high',   desc:'Timed practice with past questions' },
+        { title:`🔁 Weak spots review — ${s}`,      type:'revision',   priority:'medium', desc:'Focus on topics that need more work' },
+        { title:`✅ Final revision — ${s}`,         type:'revision',   priority:'high',   desc:'Quick-fire review of all key points' },
+      ];
+    },
+  },
+  'team-sprint': {
+    label: 'Team Sprint',
+    fields: [
+      { id:'goal', label:'Sprint goal', placeholder:'e.g. Launch v2 beta', required:true },
+      { id:'duration', label:'Sprint length (days)', type:'text', placeholder:'e.g. 7', default:'7' },
+    ],
+    build(f) {
+      const g = f.goal;
+      return [
+        { title:`⚡ Sprint planning — ${g}`,        type:'project',   priority:'high',   desc:'Define tasks, assign owners, set deadline' },
+        { title:`🎯 Set milestones — ${g}`,          type:'project',   priority:'high',   desc:'Break goal into measurable checkpoints' },
+        { title:`🔨 Build sprint tasks — ${g}`,     type:'project',   priority:'high',   desc:'Execute the sprint backlog' },
+        { title:`📊 Mid-sprint check-in — ${g}`,    type:'other',     priority:'medium', desc:'Review progress, unblock team' },
+        { title:`🧪 Sprint review — ${g}`,          type:'other',     priority:'medium', desc:'Demo output, gather feedback' },
+        { title:`🔁 Sprint retrospective — ${g}`,   type:'other',     priority:'low',    desc:'What went well, what to change' },
+      ];
+    },
+  },
+};
+
+async function cnFramework(type) {
+  cnClose({ target: $('cn-modal-bg') });
+  const fw = _FRAMEWORKS[type];
+  if (!fw) return;
+  const vals = await siModal.form(`⚡ ${fw.label}`, fw.fields, { confirmLabel:'Create Tasks' });
+  if (!vals) return;
+  const now   = Date.now();
+  const tasks = fw.build(vals).map((t, i) => ({
+    id:       now + i,
+    created:  now + i,
+    title:    t.title,
+    status:   'todo',
+    done:     false,
+    type:     t.type     || 'other',
+    priority: t.priority || 'normal',
+    desc:     t.desc     || '',
+  }));
+  const data = getSHData();
+  data.tasks = [...tasks, ...(data.tasks || [])];
+  saveSHData(data);
+  nav('flux', null);
+  setTimeout(() => { renderSHOverview(); renderSHBoard(); }, 300);
+  toast(`${tasks.length} tasks created for "${fw.label}" ✓`);
+}
+
 // ═══════════════════════ SETTINGS ═════════════════════════
 
 const ST_KEY = () => `sivarr_st_${S.sid || 'guest'}`;
@@ -11754,9 +11854,19 @@ async function orgSendInvite() {
 
 async function orgMoreMenu() {
   if (!ORG) return;
+  if (ORG.member_role !== 'owner' && ORG.owner_sid !== S.sid) {
+    toast('Only the owner can rename this space.'); return;
+  }
   const name = await siModal.input('Rename Space', 'Space name', ORG.name || '', { confirmLabel:'Rename' });
-  if (!name) return;
-  toast('Rename coming soon — contact support to change org name.');
+  if (!name || name.trim() === ORG.name) return;
+  const token = localStorage.getItem('sivarr_token');
+  try {
+    const r = await API('/api/org/update', { token, name: name.trim() });
+    ORG.name = r.name;
+    const nameEl = $('os-space-name');
+    if (nameEl) nameEl.textContent = r.name;
+    toast('Space renamed ✓');
+  } catch(e) { toast(e.message || 'Could not rename space.'); }
 }
 
 /* ══════════════════════════════════════════════════
