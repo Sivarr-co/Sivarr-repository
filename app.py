@@ -664,6 +664,14 @@ def create_session_token(sid: str, name: str, email: str) -> str:
     return token
 
 
+def create_session_token_for_existing(token: str, sid: str, name: str, email: str) -> None:
+    """Register an already-issued token on this worker (cross-worker session recovery)."""
+    expires = datetime.datetime.utcnow() + datetime.timedelta(days=SESSION_TTL_DAYS)
+    _session_tokens[token] = {"sid": sid, "name": name, "email": email, "expires": expires}
+    if db.is_available():
+        db.create_db_session(token, sid, name, email, expires)
+
+
 def get_session_from_token(token: str) -> dict | None:
     if not token:
         return None
@@ -2209,7 +2217,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
 
         stored = user.get("password", "")
         if not stored:
-            raise HTTPException(401, "Account has no password set. Please register again.")
+            raise HTTPException(401, "google_only_account")
         if not req.password:
             raise HTTPException(401, "Password required.")
         if not bcrypt.checkpw(req.password.encode(), stored.encode()):
@@ -6900,32 +6908,43 @@ def _google_verify_state(state: str) -> bool:
         return False
 
 
-def _store_google_xcode(xcode: str, token: str) -> None:
-    """Store a one-time Google exchange code in both DB and memory.
-    Memory is always written so pop never fails due to a DB read error."""
+def _store_google_xcode(xcode: str, token: str, sid: str, name: str, email: str) -> None:
+    """Store a one-time Google exchange code carrying the full session identity.
+    Storing sid/name/email in the code itself makes the exchange endpoint resilient
+    to cross-worker session-not-found failures: even if the DB session write failed
+    on the callback worker, the exchange can reconstruct the session."""
     expires = time.time() + 600  # 10 minutes
-    _google_exchange_codes_mem[xcode] = {"token": token, "expires": expires}
+    _google_exchange_codes_mem[xcode] = {
+        "token": token, "sid": sid, "name": name, "email": email, "expires": expires,
+    }
     if db.is_available():
+        import json as _json
+        payload = _json.dumps({"token": token, "sid": sid, "name": name, "email": email})
         try:
-            db.create_google_xcode(xcode, token)
+            db.create_google_xcode(xcode, payload)
         except Exception as exc:
             log.warning(f"DB google_xcode store failed ({exc}), memory-only fallback active")
 
 
-def _pop_google_xcode(xcode: str) -> str | None:
+def _pop_google_xcode(xcode: str) -> dict | None:
     """Retrieve and consume a one-time Google exchange code.
+    Returns dict with {token, sid, name, email} or None.
     Tries DB first (cross-worker safe), falls back to memory (same-worker)."""
     if db.is_available():
         try:
-            tok = db.pop_google_xcode(xcode)
-            if tok is not None:
+            raw = db.pop_google_xcode(xcode)
+            if raw is not None:
                 _google_exchange_codes_mem.pop(xcode, None)  # evict memory copy
-                return tok
+                import json as _json
+                try:
+                    return _json.loads(raw)
+                except Exception:
+                    return {"token": raw, "sid": "", "name": "", "email": ""}
         except Exception as exc:
             log.warning(f"DB pop_google_xcode failed ({exc}), trying memory")
     entry = _google_exchange_codes_mem.pop(xcode, None)
     if entry and time.time() <= entry["expires"]:
-        return entry["token"]
+        return {k: entry[k] for k in ("token", "sid", "name", "email")}
     return None
 
 
@@ -7032,9 +7051,11 @@ async def google_oauth_callback(code: str = "", error: str = "", state: str = ""
     sivarr_token = create_session_token(sid, user["name"], email)
     log.info(f"Google OAuth login: {user['name']} ({email})")
 
-    # Issue a short-lived one-time exchange code (DB-backed, safe across workers)
+    # Issue a short-lived one-time exchange code carrying full session identity.
+    # Storing sid/name/email in the code means the exchange endpoint can
+    # reconstruct the session even if the DB session write failed on this worker.
     xcode = secrets.token_urlsafe(24)
-    _store_google_xcode(xcode, sivarr_token)
+    _store_google_xcode(xcode, sivarr_token, sid, user["name"], email)
 
     return RedirectResponse(f"/app?google_code={xcode}")
 
@@ -7048,17 +7069,30 @@ async def google_token_exchange(code: str = ""):
     """
     if not code:
         raise HTTPException(400, "Missing code.")
-    tok = _pop_google_xcode(code)
-    if not tok:
+    xdata = _pop_google_xcode(code)
+    if not xdata:
         raise HTTPException(400, "Code not found, already used, or expired. Please sign in again.")
 
-    entry = get_session_from_token(tok)
-    if not entry:
-        raise HTTPException(400, "Session expired. Please sign in again.")
+    tok   = xdata["token"]
+    x_sid   = xdata.get("sid", "")
+    x_name  = xdata.get("name", "")
+    x_email = xdata.get("email", "")
 
-    sid   = entry["sid"]
-    name  = entry["name"]
-    email = entry["email"]
+    # Resolve the session — prefer DB/memory lookup, fall back to xcode payload.
+    entry = get_session_from_token(tok)
+    if entry:
+        sid   = entry["sid"]
+        name  = entry["name"]
+        email = entry["email"]
+    elif x_sid:
+        # Session wasn't persisted to DB (DB write failed on callback worker).
+        # Reconstruct it here using the data stored in the exchange code.
+        sid   = x_sid
+        name  = x_name
+        email = x_email
+        create_session_token_for_existing(tok, sid, name, email)
+    else:
+        raise HTTPException(400, "Session expired. Please sign in again.")
 
     p = load_progress(sid)
     now_ts = time.time()

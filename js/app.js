@@ -390,6 +390,11 @@ async function doLogin(prefillEmail) {
   } catch(e) {
     const status = e.status || 0;
     const detail = e.message || '';
+    if (status === 401 && detail === 'google_only_account') {
+      if (err) err.textContent = `This account was created with Google. Please use the 'Continue with Google' button below to sign in.`;
+      if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; }
+      return;
+    }
     if (status === 403 && detail === 'email_not_verified') {
       if (err) {
         err.textContent = `Your email isn't verified yet. Check your inbox for the verification link.`;

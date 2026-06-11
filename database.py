@@ -63,7 +63,11 @@ def _get_pool() -> pgpool.SimpleConnectionPool | None:
         variants.append(_DATABASE_URL + sep + "sslmode=disable")
     for url in variants:
         try:
-            _pool = pgpool.SimpleConnectionPool(1, 5, url, connect_timeout=10)
+            _pool = pgpool.SimpleConnectionPool(
+                1, 5, url, connect_timeout=10,
+                keepalives=1, keepalives_idle=60,
+                keepalives_interval=10, keepalives_count=5,
+            )
             _pool_error = ""
             log.info(f"DB connection pool ready (variant: {'plain' if url == _DATABASE_URL else url.split(sep)[-1]})")
             return _pool
@@ -99,9 +103,14 @@ def _release(conn):
     p = _get_pool()
     if not p or not conn:
         return
+    # conn.closed: 0=open, 1=closed, 2=broken (server-side kill)
+    # If non-zero, discard from pool — do NOT return it for reuse.
+    if conn.closed:
+        try: p.putconn(conn, close=True)
+        except Exception: pass
+        return
     try:
-        if not conn.closed:
-            conn.rollback()
+        conn.rollback()
     except Exception:
         try: p.putconn(conn, close=True)
         except Exception: pass
