@@ -250,6 +250,7 @@ RATE_LIMIT_QUIZ     = int(os.environ.get("RATE_LIMIT_QUIZ", 5))      # max quiz 
 RATE_LIMIT_UPLOAD   = int(os.environ.get("RATE_LIMIT_UPLOAD", 5))     # max uploads per window
 RATE_LIMIT_WINDOW   = int(os.environ.get("RATE_LIMIT_WINDOW", 60))    # window in seconds
 RATE_LIMIT_LOGIN    = int(os.environ.get("RATE_LIMIT_LOGIN", 10))     # max login attempts per window
+RATE_LIMIT_VERIFY   = int(os.environ.get("RATE_LIMIT_VERIFY", 3))      # max verify-email resends per window
 
 # ── Input validation config ───────────────────────────────────
 MAX_MESSAGE_LEN  = 2000    # max characters in a chat message
@@ -1668,6 +1669,14 @@ async def startup():
         except Exception as exc:
             log.warning(f"Scheduler start skipped: {exc}")
 
+        # Email configuration status — logged prominently so Railway logs surface misconfig fast
+        if not RESEND_AVAILABLE:
+            log.warning("Email: resend package not installed — all transactional emails are disabled")
+        elif not RESEND_API_KEY:
+            log.error("Email: RESEND_API_KEY env var is not set — all emails will be silently skipped")
+        else:
+            log.info(f"Email: configured OK. from={RESEND_FROM}")
+
         # Periodic rate-limit cleanup (runs forever)
         async def _cleanup_rate_hits():
             while True:
@@ -2418,6 +2427,27 @@ async def resend_verification(data: dict, bg: BackgroundTasks):
     verify_url   = f"{BASE_URL}/api/auth/verify-email/{verify_token}"
     bg.add_task(send_email, email, "Verify your Sivarr email",
                 _email_verify_html(verify_url, entry.get("name", "")))
+    return {"ok": True}
+
+
+@app.post("/api/auth/request-verification")
+async def request_verification_email(data: dict, request: Request, bg: BackgroundTasks):
+    """Public endpoint — no session required. Queues a verification email if the account exists and
+    is not yet verified. Always returns 200 to prevent email enumeration."""
+    key = get_client_key(request)
+    check_rate_limit(key, RATE_LIMIT_VERIFY, "request_verification")
+    email = sanitize_text(str(data.get("email", "")), 200).lower().strip()
+    if not email:
+        return {"ok": True}
+    users = load_users()
+    user = next((u for u in users.values() if u.get("email", "").lower() == email), None)
+    if not user and db.is_available():
+        user = db.get_user_by_email(email)
+    if user and not db.is_email_verified(user["sid"]):
+        verify_token = db.create_email_verify_token(user["sid"], email)
+        verify_url   = f"{BASE_URL}/api/auth/verify-email/{verify_token}"
+        bg.add_task(send_email, email, "Verify your Sivarr email",
+                    _email_verify_html(verify_url, user.get("name", "")))
     return {"ok": True}
 
 

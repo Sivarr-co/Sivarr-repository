@@ -391,7 +391,15 @@ async function doLogin(prefillEmail) {
     const status = e.status || 0;
     const detail = e.message || '';
     if (status === 403 && detail === 'email_not_verified') {
-      if (err) err.textContent = `Your email isn't verified yet. A new link has been sent to ${email} — check your inbox and click the link, then try signing in again.`;
+      if (err) {
+        err.textContent = `Your email isn't verified yet. Check your inbox for the verification link.`;
+        const resendBtn = document.createElement('button');
+        resendBtn.type = 'button';
+        resendBtn.textContent = 'Resend verification email';
+        resendBtn.style.cssText = 'display:block;margin-top:6px;background:none;border:none;cursor:pointer;color:var(--teal);text-decoration:underline;padding:0;font-size:.82rem';
+        resendBtn.onclick = () => requestVerificationEmail(email);
+        err.appendChild(resendBtn);
+      }
       if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; }
       clearSession();
       return;
@@ -1298,6 +1306,15 @@ async function resendVerificationEmail() {
     toast('Verification email resent. Check your inbox.');
   } catch(e) {
     toast('Could not resend — please try again shortly.');
+  }
+}
+
+async function requestVerificationEmail(email) {
+  try {
+    await API('/api/auth/request-verification', { email });
+    toast('Verification email sent — check your inbox (and spam folder).');
+  } catch(e) {
+    toast('Could not resend — try again in a moment.');
   }
 }
 
