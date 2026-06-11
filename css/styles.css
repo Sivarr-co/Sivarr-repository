@@ -5962,24 +5962,53 @@ body.theme-transitioning *::after {
 .si-ob-emoji { font-size: 3rem; margin-bottom: 16px; }
 .si-ob-title { font-size: 1.6rem; font-weight: 800; color: var(--text1); line-height: 1.2; margin-bottom: 10px; }
 .si-ob-sub { font-size: .9rem; color: var(--text3); line-height: 1.6; margin-bottom: 32px; max-width: 380px; margin-left: auto; margin-right: auto; }
-.si-ob-role-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 32px; }
+.si-ob-role-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-bottom: 32px; }
 .si-ob-role-card {
-  padding: 20px 12px; border: 2px solid var(--border); border-radius: 12px;
-  background: var(--bg2); cursor: pointer; transition: border-color .15s, background .15s;
+  padding: 18px 12px; border: 2px solid var(--border); border-radius: 14px;
+  background: var(--bg2); cursor: pointer; transition: border-color .15s, background .15s, transform .1s;
   display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
-.si-ob-role-card:hover { border-color: var(--accent); background: var(--teal2); }
-.si-ob-role-card.sel { border-color: var(--accent); background: var(--teal2); }
-.si-ob-role-card .si-ob-role-icon { font-size: 1.8rem; }
-.si-ob-role-card .si-ob-role-label { font-size: .8rem; font-weight: 700; color: var(--text1); }
+.si-ob-role-card:hover { border-color: var(--accent); background: var(--teal2); transform: translateY(-2px); }
+.si-ob-role-card.sel { border-color: var(--accent); background: linear-gradient(135deg,var(--teal2),var(--accent2)18); box-shadow: 0 0 0 1px var(--accent); }
+.si-ob-role-card .si-ob-role-icon { font-size: 2rem; }
+.si-ob-role-card .si-ob-role-label { font-size: .85rem; font-weight: 700; color: var(--text1); }
 .si-ob-role-card .si-ob-role-desc { font-size: .7rem; color: var(--text3); text-align: center; line-height: 1.4; }
-.si-ob-features { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 32px; }
-.si-ob-feat {
-  padding: 14px 10px; background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+.si-ob-goal-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; text-align: left; }
+.si-ob-goal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.si-ob-input {
+  width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--bg2); color: var(--text); font-family: var(--font-body); font-size: .88rem;
+  outline: none; box-sizing: border-box; transition: border-color .15s;
 }
-.si-ob-feat-icon { font-size: 1.4rem; }
-.si-ob-feat-label { font-size: .72rem; font-weight: 700; color: var(--text2); }
+.si-ob-input:focus { border-color: var(--accent); }
+.si-ob-input::placeholder { color: var(--text4); }
+.si-ob-select {
+  width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--bg2); color: var(--text); font-family: var(--font-body); font-size: .88rem;
+  outline: none; box-sizing: border-box; appearance: none;
+}
+.si-ob-skip-step { background: none; border: none; color: var(--text4); font-size: .78rem; cursor: pointer; font-family: var(--font); text-decoration: underline; }
+.si-ob-skip-step:hover { color: var(--text2); }
+.si-ob-int-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 28px; }
+.si-ob-int-btn {
+  padding: 14px 8px; border: 1.5px solid var(--border); border-radius: 12px;
+  background: var(--bg2); cursor: pointer; display: flex; flex-direction: column;
+  align-items: center; gap: 7px; transition: border-color .15s, background .15s; font-family: var(--font);
+}
+.si-ob-int-btn:hover { border-color: var(--accent); background: var(--teal2); }
+.si-ob-int-btn.done { border-color: var(--teal); background: #0fdbad12; }
+.si-ob-int-icon { font-size: 1.5rem; }
+.si-ob-int-label { font-size: .72rem; font-weight: 700; color: var(--text2); }
+.si-ob-done-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 28px; }
+.si-ob-action-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg2);
+  cursor: pointer; text-align: left; font-family: var(--font); transition: border-color .15s, background .15s;
+}
+.si-ob-action-card:hover { border-color: var(--accent); background: var(--teal2); }
+.si-ob-action-icon { font-size: 1.4rem; flex-shrink: 0; }
+.si-ob-action-label { font-size: .82rem; font-weight: 700; color: var(--text1); }
+.si-ob-action-desc  { font-size: .72rem; color: var(--text3); margin-top: 1px; }
 .si-ob-actions { display: flex; gap: 10px; justify-content: center; align-items: center; }
 .si-ob-btn-pri {
   padding: 12px 32px; background: var(--accent); color: #fff;
@@ -5997,7 +6026,8 @@ body.theme-transitioning *::after {
 .si-ob-skip:hover { color: var(--text2); }
 @media (max-width:480px) {
   .si-ob-role-grid  { grid-template-columns: 1fr; }
-  .si-ob-features   { grid-template-columns: repeat(2,1fr); }
+  .si-ob-int-grid   { grid-template-columns: 1fr; }
+  .si-ob-goal-row   { grid-template-columns: 1fr; }
   .si-ob-title      { font-size: 1.3rem; }
 }
 

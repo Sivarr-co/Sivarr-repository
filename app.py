@@ -2258,7 +2258,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
         "sessions": p["sessions"], "difficulty": p.get("difficulty", "medium"),
         "topics": list(p.get("topics", {}).keys()), "weak": weak_topics(p),
         "questions": p.get("questions", 0), "quizzes": len(p.get("quizzes", [])),
-        "wrong_count": len(p.get("wrong_answers", [])), "returning": p["sessions"] > 1,
+        "wrong_count": len(p.get("wrong_answers", [])), "returning": bool(db.get_user_blob(sid, "onboarding")) if db.is_available() else p["sessions"] > 1,
         "uploaded_files": p.get("uploaded_files", []),
         "spaces": spaces,
         "email_verified": db.is_email_verified(sid) if db.is_available() else True,
@@ -2305,7 +2305,7 @@ async def session_restore(data: dict):
         "sessions": p["sessions"], "difficulty": p.get("difficulty", "medium"),
         "topics": list(p.get("topics", {}).keys()), "weak": weak_topics(p),
         "questions": p.get("questions", 0), "quizzes": len(p.get("quizzes", [])),
-        "wrong_count": len(p.get("wrong_answers", [])), "returning": p["sessions"] > 1,
+        "wrong_count": len(p.get("wrong_answers", [])), "returning": bool(db.get_user_blob(sid, "onboarding")) if db.is_available() else p["sessions"] > 1,
         "uploaded_files": p.get("uploaded_files", []),
         "spaces": spaces,
         "email_verified": db.is_email_verified(sid) if db.is_available() else True,
@@ -5907,6 +5907,23 @@ async def user_update_profile(data: dict):
     return {"ok": True, "name": name}
 
 
+@app.post("/api/user/onboarding")
+async def user_onboarding(data: dict):
+    """Mark onboarding complete and persist the user's chosen role."""
+    sid, _ = _resolve_token(data)
+    role   = sanitize_text(str(data.get("role", "")), 20)
+    allowed_roles = {"student", "founder", "freelancer", "creator"}
+    if role not in allowed_roles:
+        role = "student"
+    if db.is_available():
+        db.save_user_blob(sid, "onboarding", {
+            "done": True,
+            "role": role,
+            "completed_at": datetime.datetime.utcnow().isoformat(),
+        })
+    return {"ok": True, "role": role}
+
+
 @app.post("/api/org/update")
 async def org_update(data: dict):
     sid, _ = _resolve_token(data)
@@ -7109,7 +7126,7 @@ async def google_token_exchange(code: str = ""):
         "sessions": p.get("sessions", 1), "difficulty": p.get("difficulty", "medium"),
         "topics": list(p.get("topics", {}).keys()), "weak": weak_topics(p),
         "questions": p.get("questions", 0), "quizzes": len(p.get("quizzes", [])),
-        "wrong_count": len(p.get("wrong_answers", [])), "returning": p.get("sessions", 1) > 1,
+        "wrong_count": len(p.get("wrong_answers", [])), "returning": bool(db.get_user_blob(sid, "onboarding")) if db.is_available() else p.get("sessions", 1) > 1,
         "uploaded_files": p.get("uploaded_files", []),
         "spaces": spaces,
         "email_verified": True,

@@ -15610,131 +15610,178 @@ async function agHandlePaystackReturn(reference, templateId) {
 
 let _siObStep = 1;
 let _siObRole = '';
+let _siObGoalCreated = false;
+
+const _OB_ROLES = [
+  { id:'student',    icon:'🎓', label:'Student',    desc:'Courses, exams, study tools & AI tutor' },
+  { id:'founder',    icon:'🚀', label:'Founder',    desc:'Build a company — org space, team & metrics' },
+  { id:'freelancer', icon:'💼', label:'Freelancer', desc:'Clients, projects, finance & scheduling' },
+  { id:'creator',    icon:'✨', label:'Creator',    desc:'Content, community, goals & personal growth' },
+];
+
+const _OB_DONE_ACTIONS = {
+  student:    [
+    { icon:'🤖', label:'Ask SIVA anything',       desc:'Your AI tutor is ready — try it now',         nav:'chat' },
+    { icon:'📚', label:'Join or create a course',  desc:'Connect with your class via Courses',         nav:'courses' },
+    { icon:'🎯', label:'View your first goal',     desc:'You just set it — track progress in Goals',   nav:'goals' },
+  ],
+  founder:    [
+    { icon:'🏢', label:'Set up your Org Space',    desc:'Invite team, assign tasks, track goals',      nav:'org' },
+    { icon:'💰', label:'Track your finances',      desc:'Log income & expenses in Finance',            nav:'finance' },
+    { icon:'🎯', label:'View your first goal',     desc:'You just set it — track progress in Goals',   nav:'goals' },
+  ],
+  freelancer: [
+    { icon:'✅', label:'Add your first task',      desc:'Manage client work in Flux',                  nav:'flux' },
+    { icon:'💰', label:'Track income & expenses',  desc:'Log your first transaction in Finance',       nav:'finance' },
+    { icon:'🎯', label:'View your first goal',     desc:'You just set it — track progress in Goals',   nav:'goals' },
+  ],
+  creator:    [
+    { icon:'✨', label:'Ask SIVA to help write',   desc:'Draft posts, scripts or ideas with AI',       nav:'chat' },
+    { icon:'👥', label:'Join the community',       desc:'Share and connect with other creators',       nav:'community' },
+    { icon:'🎯', label:'View your first goal',     desc:'You just set it — track progress in Goals',   nav:'goals' },
+  ],
+};
 
 function siObMaybeStart() {
   if (!S.sid) return;
-  const done = localStorage.getItem(`si_onboarded_${S.sid}`);
-  if (done) return;
-  _siObStep = 1;
-  _siObRole = '';
+  if (localStorage.getItem(`si_onboarded_${S.sid}`)) return;
+  _siObStep      = 1;
+  _siObRole      = '';
+  _siObGoalCreated = false;
   const el = $('si-onboard');
   if (el) el.style.display = 'flex';
   siObRender();
 }
 
-function siObFinish() {
+async function siObFinish() {
   if (S.sid) localStorage.setItem(`si_onboarded_${S.sid}`, '1');
+  // Persist role to backend
+  const token = localStorage.getItem('sivarr_token');
+  if (token && _siObRole) {
+    fetch('/api/user/onboarding', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, role: _siObRole }),
+    }).catch(() => {});
+  }
   const el = $('si-onboard');
-  if (el) el.style.display = 'none';
+  if (el) {
+    el.style.opacity = '0';
+    el.style.transition = 'opacity .3s';
+    setTimeout(() => { el.style.display = 'none'; el.style.opacity = ''; }, 300);
+  }
 }
 
 function siObRender() {
   const box = $('si-onboard-box');
   if (!box) return;
-  const dots = [1,2,3,4,5].map(i =>
-    `<div class="si-ob-dot${_siObStep===i?' active':''}"></div>`).join('');
+  const total = 5;
+  const dots  = Array.from({length: total}, (_, i) =>
+    `<div class="si-ob-dot${_siObStep === i+1 ? ' active' : ''}"></div>`).join('');
 
   let content = '';
+
   if (_siObStep === 1) {
+    const first = (S.name || '').split(' ')[0];
     content = `
       <div class="si-ob-emoji">👋</div>
-      <div class="si-ob-title">Welcome to Sivarr,<br>${esc(S.name.split(' ')[0])}!</div>
-      <div class="si-ob-sub">Your all-in-one productivity platform for students and professionals. Let's get you set up in under a minute.</div>
+      <div class="si-ob-title">Welcome to Sivarr,<br>${esc(first)}!</div>
+      <div class="si-ob-sub">Your all-in-one productivity OS. Let's get you set up in under 2 minutes.</div>
       <div class="si-ob-actions">
         <button class="si-ob-btn-pri" onclick="siObNext()">Get started →</button>
       </div>`;
+
   } else if (_siObStep === 2) {
+    const cards = _OB_ROLES.map(r => `
+      <div class="si-ob-role-card${_siObRole === r.id ? ' sel' : ''}" onclick="siObSelectRole('${r.id}',this)">
+        <div class="si-ob-role-icon">${r.icon}</div>
+        <div class="si-ob-role-label">${r.label}</div>
+        <div class="si-ob-role-desc">${r.desc}</div>
+      </div>`).join('');
     content = `
       <div class="si-ob-title">How will you use Sivarr?</div>
-      <div class="si-ob-sub">Choose your primary focus — you can use all features regardless.</div>
-      <div class="si-ob-role-grid">
-        <div class="si-ob-role-card${_siObRole==='student'?' sel':''}" onclick="siObSelectRole('student',this)">
-          <div class="si-ob-role-icon">🎓</div>
-          <div class="si-ob-role-label">Student</div>
-          <div class="si-ob-role-desc">Courses, exams, study tools & flashcards</div>
-        </div>
-        <div class="si-ob-role-card${_siObRole==='professional'?' sel':''}" onclick="siObSelectRole('professional',this)">
-          <div class="si-ob-role-icon">💼</div>
-          <div class="si-ob-role-label">Professional</div>
-          <div class="si-ob-role-desc">Projects, tasks, team spaces & goals</div>
-        </div>
-        <div class="si-ob-role-card${_siObRole==='personal'?' sel':''}" onclick="siObSelectRole('personal',this)">
-          <div class="si-ob-role-icon">🌱</div>
-          <div class="si-ob-role-label">Personal</div>
-          <div class="si-ob-role-desc">Habits, journaling, goals & self-growth</div>
-        </div>
-      </div>
+      <div class="si-ob-sub">Choose your primary focus — you can use every feature regardless.</div>
+      <div class="si-ob-role-grid">${cards}</div>
       <div class="si-ob-actions">
         <button class="si-ob-btn-sec" onclick="siObPrev()">← Back</button>
         <button class="si-ob-btn-pri" onclick="siObNext()">Continue →</button>
       </div>`;
+
   } else if (_siObStep === 3) {
+    const placeholders = {
+      student:    'e.g. Score a first class this semester',
+      founder:    'e.g. Launch beta by end of July',
+      freelancer: 'e.g. Land 3 new clients this month',
+      creator:    'e.g. Grow to 10k followers',
+    };
+    const ph = placeholders[_siObRole] || 'e.g. My #1 goal right now…';
     content = `
-      <div class="si-ob-title">Here's what's waiting for you</div>
-      <div class="si-ob-sub">Everything you need, in one place.</div>
-      <div class="si-ob-features">
-        <div class="si-ob-feat"><div class="si-ob-feat-icon">🤖</div><div class="si-ob-feat-label">AI Tutor</div></div>
-        <div class="si-ob-feat"><div class="si-ob-feat-icon">✅</div><div class="si-ob-feat-label">Tasks</div></div>
-        <div class="si-ob-feat"><div class="si-ob-feat-icon">🎯</div><div class="si-ob-feat-label">Goals</div></div>
-        <div class="si-ob-feat"><div class="si-ob-feat-icon">🔁</div><div class="si-ob-feat-label">Habits</div></div>
-        <div class="si-ob-feat"><div class="si-ob-feat-icon">📚</div><div class="si-ob-feat-label">Study Tools</div></div>
-        <div class="si-ob-feat"><div class="si-ob-feat-icon">🏠</div><div class="si-ob-feat-label">Spaces</div></div>
-        <div class="si-ob-feat"><div class="si-ob-feat-icon">📅</div><div class="si-ob-feat-label">Calendar</div></div>
-        <div class="si-ob-feat"><div class="si-ob-feat-icon">🛒</div><div class="si-ob-feat-label">Agents Market</div></div>
-        <div class="si-ob-feat"><div class="si-ob-feat-icon">📊</div><div class="si-ob-feat-label">Analytics</div></div>
+      <div class="si-ob-emoji">🎯</div>
+      <div class="si-ob-title">Set your first goal</div>
+      <div class="si-ob-sub">What's the one thing you most want to achieve? You can always add more later.</div>
+      <div class="si-ob-goal-form">
+        <input class="si-ob-input" id="ob-goal-title" placeholder="${ph}" maxlength="120">
+        <div class="si-ob-goal-row">
+          <select class="si-ob-select" id="ob-goal-cat">
+            <option value="career">Career / Work</option>
+            <option value="education">Education</option>
+            <option value="health">Health & Fitness</option>
+            <option value="finance">Financial</option>
+            <option value="personal">Personal Growth</option>
+            <option value="business">Business</option>
+            <option value="creative">Creative</option>
+            <option value="other">Other</option>
+          </select>
+          <input class="si-ob-input" id="ob-goal-deadline" type="date" style="color-scheme:dark" title="Deadline (optional)">
+        </div>
       </div>
       <div class="si-ob-actions">
         <button class="si-ob-btn-sec" onclick="siObPrev()">← Back</button>
-        <button class="si-ob-btn-pri" onclick="siObNext()">Almost there →</button>
+        <button class="si-ob-btn-pri" onclick="siObSaveGoal()">Set goal →</button>
+        <button class="si-ob-skip-step" onclick="siObNext()">Skip</button>
       </div>`;
+
   } else if (_siObStep === 4) {
-    const firstStep = _siObRole === 'student'
-      ? 'Head to the <strong>Chat</strong> panel and ask your AI tutor anything.'
-      : _siObRole === 'professional'
-        ? 'Open <strong>Spaces</strong> and create your first workspace.'
-        : 'Check out <strong>Habits</strong> and add your first daily habit.';
     content = `
       <div class="si-ob-emoji">🔗</div>
       <div class="si-ob-title">Connect your tools</div>
-      <div class="si-ob-sub">Link your favourite apps to supercharge your workspace.</div>
+      <div class="si-ob-sub">Link your favourite apps — you can always do this later in Integrations.</div>
       <div class="si-ob-int-grid">
-        <button class="si-ob-int-btn ${_GCAL_CONNECTED?'done':''}" onclick="gcalConnect()">
+        <button class="si-ob-int-btn ${_GCAL_CONNECTED ? 'done' : ''}" onclick="gcalConnect()">
           <span class="si-ob-int-icon">📅</span>
-          <span class="si-ob-int-label">Google Calendar</span>
+          <span class="si-ob-int-label">${_GCAL_CONNECTED ? '✓ Calendar' : 'Google Calendar'}</span>
         </button>
-        <button class="si-ob-int-btn ${_GITHUB_CONNECTED?'done':''}" onclick="githubConnect()">
+        <button class="si-ob-int-btn ${_GITHUB_CONNECTED ? 'done' : ''}" onclick="githubConnect()">
           <span class="si-ob-int-icon">🐙</span>
-          <span class="si-ob-int-label">GitHub</span>
+          <span class="si-ob-int-label">${_GITHUB_CONNECTED ? '✓ GitHub' : 'GitHub'}</span>
         </button>
-        <button class="si-ob-int-btn ${_MONO_CONNECTED?'done':''}" onclick="monoConnect()">
+        <button class="si-ob-int-btn ${_MONO_CONNECTED ? 'done' : ''}" onclick="monoConnect()">
           <span class="si-ob-int-icon">🏦</span>
-          <span class="si-ob-int-label">Mono Bank</span>
+          <span class="si-ob-int-label">${_MONO_CONNECTED ? '✓ Mono Bank' : 'Mono Bank'}</span>
         </button>
       </div>
       <div class="si-ob-actions">
         <button class="si-ob-btn-sec" onclick="siObPrev()">← Back</button>
-        <button class="si-ob-btn-pri" onclick="siObNext()">Finish →</button>
+        <button class="si-ob-btn-pri" onclick="siObNext()">Almost done →</button>
       </div>`;
+
   } else if (_siObStep === 5) {
-    const firstStep = _siObRole === 'student'
-      ? 'Head to the <strong>Chat</strong> panel and ask your AI tutor anything.'
-      : _siObRole === 'professional'
-        ? 'Open <strong>Spaces</strong> and create your first workspace.'
-        : 'Check out <strong>Habits</strong> and add your first daily habit.';
+    const actions = (_OB_DONE_ACTIONS[_siObRole] || _OB_DONE_ACTIONS.creator).map(a => `
+      <div class="si-ob-action-card" onclick="siObFinish();nav('${a.nav}',null)">
+        <div class="si-ob-action-icon">${a.icon}</div>
+        <div><div class="si-ob-action-label">${a.label}</div><div class="si-ob-action-desc">${a.desc}</div></div>
+      </div>`).join('');
     content = `
       <div class="si-ob-emoji">🎉</div>
       <div class="si-ob-title">You're all set!</div>
-      <div class="si-ob-sub">
-        Your Sivarr workspace is ready. A suggested first step:<br>
-        <span style="color:var(--text1)">${firstStep}</span>
-      </div>
+      <div class="si-ob-sub">Here's where to start — pick one and dive in.</div>
+      <div class="si-ob-done-actions">${actions}</div>
       <div class="si-ob-actions">
-        <button class="si-ob-btn-pri" onclick="siObFinish()">Let's go →</button>
+        <button class="si-ob-btn-pri" onclick="siObFinish()">Go to dashboard →</button>
       </div>`;
   }
 
   box.innerHTML = `
-    <div class="si-ob-logo">Sivarr</div>
+    <div class="si-ob-logo">✦ Sivarr</div>
     <div class="si-ob-dots">${dots}</div>
     ${content}`;
 }
@@ -15745,8 +15792,26 @@ function siObSelectRole(role, el) {
   el.classList.add('sel');
 }
 
+async function siObSaveGoal() {
+  const title    = $('ob-goal-title')?.value.trim();
+  const subject  = $('ob-goal-cat')?.value || 'other';
+  const deadline = $('ob-goal-deadline')?.value || '';
+  if (!title) { $('ob-goal-title')?.focus(); return; }
+  // Create goal in the same way glSaveGoal does
+  try {
+    await API('/api/goals/add', {
+      sid: S.sid, title, subject,
+      deadline: deadline || null,
+      type: 'okr', target_score: null,
+    });
+    GL_GOALS = null; // bust cache so Goals panel reloads fresh
+    _siObGoalCreated = true;
+  } catch(_) {}
+  siObNext();
+}
+
 function siObNext() {
-  if (_siObStep < _OB_TOTAL_STEPS) { _siObStep++; siObRender(); }
+  if (_siObStep < 5) { _siObStep++; siObRender(); }
   else siObFinish();
 }
 
@@ -16356,8 +16421,6 @@ function dhConfirmLink() {
 // ═══════════════════════════════════════════════════════════════
 //  ONBOARDING — Step 5 (connect integration) + nav updates
 // ═══════════════════════════════════════════════════════════════
-
-const _OB_TOTAL_STEPS = 5;
 
 function fbSetRating(v) {
   _fbRating = v;
