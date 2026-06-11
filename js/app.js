@@ -4303,12 +4303,13 @@ async function stExportAll() {
   // Gather localStorage-only data to send alongside the token
   const habits  = JSON.parse(localStorage.getItem(`sivarr_habits_${S.sid}`)  || '[]');
   const journal = JSON.parse(localStorage.getItem(JNL_KEY())                  || '[]');
+  const finance = _finData();
 
   try {
     const r = await fetch('/api/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, habits, journal }),
+      body: JSON.stringify({ token, habits, journal, finance }),
     });
     if (!r.ok) throw new Error('Export failed');
     const blob     = await r.blob();
@@ -5204,6 +5205,8 @@ const CMD_ITEMS = [
   { icon:'📝', label:'Quizzes',       tag:'Assessments',action:() => nav('quiz',null) },
   { icon:'📊', label:'Progress',      tag:'Insights',  action:() => nav('progress',null) },
   { icon:'🎯', label:'Goals',         tag:'Spaces',    action:() => nav('goals',null) },
+  { icon:'💰', label:'Finance',       tag:'Life',      action:() => nav('finance',null) },
+  { icon:'📋', label:'Weekly Review', tag:'Life',      action:() => nav('review',null) },
   { icon:'📄', label:'Document Hub',  tag:'Spaces',    action:() => nav('documenthub',null) },
   { icon:'🧠', label:'Content Hub',   tag:'Spaces',    action:() => nav('contenthub',null) },
   { icon:'⚙️', label:'Settings',      tag:'',          action:() => nav('settings',null) },
@@ -7443,7 +7446,7 @@ const PANEL_SECTION_MAP = {
   courses:'academic', quiz:'academic', lab:'academic',
   studyplan:'academic', pomodoro:'academic', contenthub:'academic',
   learninghub:'academic', studygroups:'academic',
-  goals:'grow', habits:'grow', stats:'grow', journal:'grow', progress:'grow',
+  goals:'grow', habits:'grow', stats:'grow', journal:'grow', progress:'grow', finance:'grow', review:'grow',
   community:'connect', library:'connect', opportunities:'connect', agents:'connect',
   team:'org', projects:'org', hr:'org', automations:'org', orgchat:'org', org:'org',
   personal:'spaces', academic:'spaces',

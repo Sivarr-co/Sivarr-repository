@@ -8670,6 +8670,7 @@ async def export_data(data: dict):
     # Client provides localStorage-only data
     client_habits  = data.get("habits",  []) or []
     client_journal = data.get("journal", []) or []
+    client_finance = data.get("finance", {}) or {}
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -8716,6 +8717,16 @@ async def export_data(data: dict):
                 header = f"## {date}" + (f" — {mood}" if mood else "")
                 lines.append(f"{header}\n\n{text}\n\n---\n")
             zf.writestr("journal.md", "\n".join(lines))
+
+        # ── finance.csv ────────────────────────────────────────
+        fin_txs = (client_finance.get("transactions") or []) if isinstance(client_finance, dict) else []
+        if not fin_txs and db.is_available():
+            blob = db.get_user_blob(sid, "finance")
+            fin_txs = (blob or {}).get("transactions", [])
+        if fin_txs:
+            zf.writestr("finance.csv", _csv_bytes(fin_txs, [
+                "date", "type", "category", "amount", "note"
+            ]))
 
         # ── profile.json ───────────────────────────────────────
         zf.writestr("profile.json", json.dumps({
