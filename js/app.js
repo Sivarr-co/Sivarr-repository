@@ -4326,12 +4326,13 @@ async function stExportAll() {
   const habits  = JSON.parse(localStorage.getItem(`sivarr_habits_${S.sid}`)  || '[]');
   const journal = JSON.parse(localStorage.getItem(JNL_KEY())                  || '[]');
   const finance = _finData();
+  const skills  = (_skData().skills || []);
 
   try {
     const r = await fetch('/api/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, habits, journal, finance }),
+      body: JSON.stringify({ token, habits, journal, finance, skills }),
     });
     if (!r.ok) throw new Error('Export failed');
     const blob     = await r.blob();
@@ -5227,6 +5228,7 @@ const CMD_ITEMS = [
   { icon:'📝', label:'Quizzes',       tag:'Assessments',action:() => nav('quiz',null) },
   { icon:'📊', label:'Progress',      tag:'Insights',  action:() => nav('progress',null) },
   { icon:'🎯', label:'Goals',         tag:'Spaces',    action:() => nav('goals',null) },
+  { icon:'🧠', label:'Skills',        tag:'Life',      action:() => nav('skills',null) },
   { icon:'💰', label:'Finance',       tag:'Life',      action:() => nav('finance',null) },
   { icon:'📋', label:'Weekly Review', tag:'Life',      action:() => nav('review',null) },
   { icon:'📄', label:'Document Hub',  tag:'Spaces',    action:() => nav('documenthub',null) },
@@ -6294,6 +6296,208 @@ async function habitDelete(idx) {
   _syncHabitsToServer(habits);
   habitInit();
   toast('Habit deleted');
+}
+
+// ════════════ SKILLS ════════════
+const SK_KEY = () => `sivarr_skills_${S.sid || 'guest'}`;
+
+const SK_CATS = ['Technical','Language','Creative','Business','Physical','Academic','Other'];
+const SK_EMOJIS = ['💻','🎨','🌍','📐','🎸','⚽','📊','🔬','🖊️','🎤','📷','🧠','🏋️','🍳','🎭'];
+const SK_LEVELS = [
+  { max:20,  label:'Beginner',   color:'#6b7280' },
+  { max:40,  label:'Learning',   color:'#3b82f6' },
+  { max:60,  label:'Developing', color:'#f59e0b' },
+  { max:80,  label:'Proficient', color:'#10b981' },
+  { max:100, label:'Expert',     color:'#8b5cf6' },
+];
+
+function _skData() {
+  try { return JSON.parse(localStorage.getItem(SK_KEY()) || '{"skills":[]}'); }
+  catch { return { skills: [] }; }
+}
+function _skSave(data) {
+  localStorage.setItem(SK_KEY(), JSON.stringify(data));
+  const token = localStorage.getItem('sivarr_token');
+  if (token && navigator.onLine)
+    fetch('/api/skills/sync', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token, skills: data.skills }) }).catch(() => {});
+}
+function _skLevel(v) {
+  return SK_LEVELS.find(l => v <= l.max) || SK_LEVELS[SK_LEVELS.length - 1];
+}
+
+let _skFilter = 'all';
+
+function skillsInit() { _skFilter = 'all'; skillsRender(); }
+
+function skillsRender() {
+  const el = $('sk-list'); if (!el) return;
+  const data   = _skData();
+  const skills = data.skills || [];
+
+  const totalHrs   = skills.reduce((s, k) => s + Math.round((k.total_mins || 0) / 60), 0);
+  const sessions   = skills.reduce((s, k) => s + (k.sessions || 0), 0);
+
+  const cats = ['all', ...new Set(skills.map(s => s.category).filter(Boolean))];
+  const filterBtns = cats.map(c =>
+    `<button class="sk-filter-btn${_skFilter===c?' active':''}" onclick="skSetFilter('${c}')">${c==='all'?`All (${skills.length})`:c}</button>`
+  ).join('');
+
+  const shown = _skFilter === 'all' ? skills : skills.filter(s => s.category === _skFilter);
+
+  const cards = shown.length ? shown.map((k, i) => {
+    const lv      = _skLevel(k.level || 0);
+    const tLv     = _skLevel(k.target || 100);
+    const hrs     = Math.round((k.total_mins || 0) / 60);
+    const lastP   = k.last_practiced ? new Date(k.last_practiced).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : 'Never';
+    const tgtPct  = Math.min(k.target || 100, 100);
+    return `
+    <div class="sk-card">
+      <div class="sk-card-head">
+        <div class="sk-emoji">${k.emoji || '💡'}</div>
+        <div class="sk-info">
+          <div class="sk-name">${esc(k.name)}</div>
+          <div class="sk-meta">
+            <span class="sk-cat-badge">${esc(k.category || 'Other')}</span>
+            <span class="sk-level-label">${lv.label}</span>
+          </div>
+        </div>
+        <div class="sk-card-actions">
+          <button class="sk-action-btn" onclick="skillLog('${k.id}')"><i class="ti ti-plus"></i> Log</button>
+          <button class="sk-action-btn siva" onclick="skillAskSiva('${k.id}')"><i class="ti ti-sparkles"></i> SIVA</button>
+          <button class="sk-action-btn" onclick="skillEdit('${k.id}')"><i class="ti ti-pencil"></i></button>
+          <button class="sk-action-btn danger" onclick="skillDelete('${k.id}')"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+      <div class="sk-progress-wrap">
+        <div class="sk-progress-head">
+          <span style="font-size:.72rem;color:var(--text3)">Progress</span>
+          <span class="sk-progress-nums">${k.level || 0}% → target ${tgtPct}%</span>
+        </div>
+        <div class="sk-progress-bar">
+          <div class="sk-progress-fill" style="width:${k.level||0}%;background:${lv.color}"></div>
+          <div class="sk-progress-target" style="left:${tgtPct}%"></div>
+        </div>
+      </div>
+      <div class="sk-sessions">
+        <span class="sk-session-stat"><strong>${k.sessions || 0}</strong> sessions</span>
+        <span class="sk-session-stat"><strong>${hrs}h</strong> practiced</span>
+        <span class="sk-session-stat">Last: <strong>${lastP}</strong></span>
+      </div>
+    </div>`;
+  }).join('') : `<div class="sk-empty">
+    <div class="sk-empty-icon">🧠</div>
+    <div class="sk-empty-title">${_skFilter === 'all' ? 'No skills yet' : `No ${_skFilter} skills`}</div>
+    <div class="sk-empty-sub">${_skFilter === 'all' ? 'Track what you\'re learning — click <strong>+ Add Skill</strong> to start.' : 'Try another category filter.'}</div>
+  </div>`;
+
+  el.innerHTML = `
+    <div class="sk-summary-grid">
+      <div class="sk-stat"><div class="sk-stat-val" style="color:var(--accent)">${skills.length}</div><div class="sk-stat-lbl">Skills</div></div>
+      <div class="sk-stat"><div class="sk-stat-val" style="color:var(--teal)">${totalHrs}h</div><div class="sk-stat-lbl">Practiced</div></div>
+      <div class="sk-stat"><div class="sk-stat-val" style="color:var(--accent2)">${sessions}</div><div class="sk-stat-lbl">Sessions</div></div>
+    </div>
+    ${skills.length > 1 ? `<div class="sk-filter-row">${filterBtns}</div>` : ''}
+    ${cards}`;
+}
+
+function skSetFilter(f) { _skFilter = f; skillsRender(); }
+
+async function skillAdd() {
+  const emojiOpts = SK_EMOJIS.map(e => ({ value: e, label: e }));
+  const catOpts   = SK_CATS.map(c => ({ value: c, label: c }));
+  const d = await siModal.form('+ New Skill', [
+    { id:'name',     label:'Skill name',          placeholder:'e.g. Python, Spanish, Guitar', required:true },
+    { id:'emoji',    label:'Icon',                type:'emoji', options: emojiOpts, default:'💡' },
+    { id:'category', label:'Category',            type:'select', options: catOpts, default:'Technical' },
+    { id:'level',    label:'Current level (0–100)', type:'text', placeholder:'e.g. 30', default:'0' },
+    { id:'target',   label:'Target level (0–100)', type:'text', placeholder:'e.g. 80', default:'80' },
+  ], { confirmLabel: 'Add Skill' });
+  if (!d || !d.name) return;
+  const data = _skData();
+  data.skills.push({
+    id:       Date.now().toString(36),
+    name:     d.name.trim(),
+    emoji:    d.emoji || '💡',
+    category: d.category || 'Other',
+    level:    Math.min(100, Math.max(0, parseInt(d.level) || 0)),
+    target:   Math.min(100, Math.max(0, parseInt(d.target) || 80)),
+    sessions: 0, total_mins: 0,
+    created:  new Date().toISOString().slice(0, 10),
+    last_practiced: null,
+  });
+  _skSave(data);
+  skillsRender();
+  toast('Skill added ✓');
+}
+
+async function skillLog(id) {
+  const d = await siModal.form('Log Practice Session', [
+    { id:'mins', label:'Duration (minutes)', type:'text', placeholder:'e.g. 30', required:true, default:'30' },
+    { id:'note', label:'What did you work on? (optional)', placeholder:'e.g. Completed chapter 3' },
+    { id:'gain', label:'Progress gained (+%)', type:'text', placeholder:'e.g. 5', default:'0' },
+  ], { confirmLabel: 'Log Session' });
+  if (!d) return;
+  const mins = Math.max(1, parseInt(d.mins) || 30);
+  const gain = Math.min(50, Math.max(0, parseInt(d.gain) || 0));
+  const data = _skData();
+  const sk   = data.skills.find(s => s.id === id); if (!sk) return;
+  sk.sessions     = (sk.sessions || 0) + 1;
+  sk.total_mins   = (sk.total_mins || 0) + mins;
+  sk.level        = Math.min(100, (sk.level || 0) + gain);
+  sk.last_practiced = new Date().toISOString().slice(0, 10);
+  _skSave(data);
+  skillsRender();
+  toast(`Session logged — ${mins} min ✓`);
+}
+
+async function skillEdit(id) {
+  const data = _skData();
+  const sk   = data.skills.find(s => s.id === id); if (!sk) return;
+  const emojiOpts = SK_EMOJIS.map(e => ({ value: e, label: e }));
+  const catOpts   = SK_CATS.map(c => ({ value: c, label: c }));
+  const d = await siModal.form('Edit Skill', [
+    { id:'name',     label:'Skill name',            placeholder:'e.g. Python', required:true, default: sk.name },
+    { id:'emoji',    label:'Icon',                  type:'emoji', options: emojiOpts, default: sk.emoji || '💡' },
+    { id:'category', label:'Category',              type:'select', options: catOpts, default: sk.category },
+    { id:'level',    label:'Current level (0–100)', type:'text', default: String(sk.level || 0) },
+    { id:'target',   label:'Target level (0–100)',  type:'text', default: String(sk.target || 80) },
+  ], { confirmLabel: 'Save' });
+  if (!d || !d.name) return;
+  sk.name     = d.name.trim();
+  sk.emoji    = d.emoji || sk.emoji;
+  sk.category = d.category || sk.category;
+  sk.level    = Math.min(100, Math.max(0, parseInt(d.level) || 0));
+  sk.target   = Math.min(100, Math.max(0, parseInt(d.target) || 80));
+  _skSave(data);
+  skillsRender();
+  toast('Skill updated ✓');
+}
+
+async function skillDelete(id) {
+  const data = _skData();
+  const sk   = data.skills.find(s => s.id === id); if (!sk) return;
+  if (!await siModal.confirm(`Delete "${sk.name}"? All progress will be lost.`,
+    { title:'Delete Skill', confirmLabel:'Delete', danger:true })) return;
+  data.skills = data.skills.filter(s => s.id !== id);
+  _skSave(data);
+  skillsRender();
+  toast('Skill deleted');
+}
+
+function skillAskSiva(id) {
+  const data = _skData();
+  const sk   = data.skills.find(s => s.id === id); if (!sk) return;
+  const lv   = _skLevel(sk.level || 0);
+  const prompt = `I'm learning ${sk.name} (${sk.category}). I'm currently at ${sk.level || 0}% proficiency (${lv.label} level) and want to reach ${sk.target || 80}%. I've done ${sk.sessions || 0} practice sessions totalling ${Math.round((sk.total_mins || 0) / 60)} hours. Give me a focused study plan and the 3 most important things I should work on next to level up fast.`;
+  nav('chat', null);
+  setTimeout(() => {
+    const ci = $('ci'); if (!ci) return;
+    ci.value = prompt;
+    ci.style.height = 'auto';
+    ci.style.height = Math.min(ci.scrollHeight, 120) + 'px';
+    ci.focus();
+  }, 300);
 }
 
 // ════════════ FINANCE ════════════
@@ -7468,7 +7672,7 @@ const PANEL_SECTION_MAP = {
   courses:'academic', quiz:'academic', lab:'academic',
   studyplan:'academic', pomodoro:'academic', contenthub:'academic',
   learninghub:'academic', studygroups:'academic',
-  goals:'grow', habits:'grow', stats:'grow', journal:'grow', progress:'grow', finance:'grow', review:'grow',
+  goals:'grow', habits:'grow', stats:'grow', journal:'grow', progress:'grow', finance:'grow', review:'grow', skills:'grow',
   community:'connect', library:'connect', opportunities:'connect', agents:'connect',
   team:'org', projects:'org', hr:'org', automations:'org', orgchat:'org', org:'org',
   personal:'spaces', academic:'spaces',
@@ -7535,6 +7739,7 @@ function nav(name, btn) {
   if (name === 'notes')     { docInit(); return; }
   if (name === 'templates') { tplInit(); return; }
   if (name === 'calendar')  { calInit(); return; }
+  if (name === 'skills')    { skillsInit(); return; }
   if (name === 'finance')   { finInit(); return; }
   if (name === 'habits')    { habitInit(); return; }
   if (name === 'journal')   { journalInit(); return; }
@@ -7591,6 +7796,7 @@ function navTab(name, btn) {
   const desktopBtn = document.querySelector(`.nav-btn[onclick*="'${name}'"]`);
   if (desktopBtn) desktopBtn.classList.add('active');
 
+  if (name === 'skills')        skillsInit();
   if (name === 'finance')       finInit();
   if (name === 'stats')         loadStats();
   if (name === 'more')          syncMore();

@@ -4679,6 +4679,35 @@ async def sync_journal(data: dict):
     save_journal(sid, clean)
     return {"ok": True, "count": len(clean)}
 
+@app.post("/api/skills/sync")
+async def sync_skills(data: dict):
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid    = sess["sid"]
+    skills = data.get("skills", [])
+    if not isinstance(skills, list):
+        raise HTTPException(400, "skills must be a list.")
+    clean = []
+    for s in skills[:500]:
+        clean.append({
+            "id":             sanitize_text(str(s.get("id", "")), 30),
+            "name":           sanitize_text(str(s.get("name", "")), 80),
+            "emoji":          sanitize_text(str(s.get("emoji", "💡")), 10),
+            "category":       sanitize_text(str(s.get("category", "Other")), 30),
+            "level":          min(100, max(0, int(s.get("level", 0)))),
+            "target":         min(100, max(0, int(s.get("target", 80)))),
+            "sessions":       int(s.get("sessions", 0)),
+            "total_mins":     int(s.get("total_mins", 0)),
+            "created":        sanitize_text(str(s.get("created", "")), 20),
+            "last_practiced": sanitize_text(str(s.get("last_practiced") or ""), 20),
+        })
+    if db.is_available():
+        db.save_user_blob(sid, "skills", {"skills": clean})
+    return {"ok": True, "synced": len(clean)}
+
+
 # ═══════════════════════════════════════════════════════════════
 @app.post("/api/finance/sync")
 async def sync_finance(data: dict):
@@ -8792,6 +8821,7 @@ async def export_data(data: dict):
     client_habits  = data.get("habits",  []) or []
     client_journal = data.get("journal", []) or []
     client_finance = data.get("finance", {}) or {}
+    client_skills  = data.get("skills",  []) or []
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -8838,6 +8868,16 @@ async def export_data(data: dict):
                 header = f"## {date}" + (f" — {mood}" if mood else "")
                 lines.append(f"{header}\n\n{text}\n\n---\n")
             zf.writestr("journal.md", "\n".join(lines))
+
+        # ── skills.csv ─────────────────────────────────────────
+        sk_list = client_skills
+        if not sk_list and db.is_available():
+            blob = db.get_user_blob(sid, "skills")
+            sk_list = (blob or {}).get("skills", [])
+        if sk_list:
+            zf.writestr("skills.csv", _csv_bytes(sk_list, [
+                "name", "category", "level", "target", "sessions", "total_mins", "last_practiced"
+            ]))
 
         # ── finance.csv ────────────────────────────────────────
         fin_txs = (client_finance.get("transactions") or []) if isinstance(client_finance, dict) else []

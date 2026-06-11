@@ -7040,3 +7040,70 @@ body.theme-transitioning *::after {
 }
 .agent-chip.active .agent-chip-badge { background:#ffffff30; }
 .agent-chip:not(.active) .agent-chip-badge { background:var(--accent2)20; color:var(--accent2); }
+
+/* ── Skills Panel ─────────────────────────────────────────────── */
+.sk-wrap { display:flex; flex-direction:column; gap:14px; padding-bottom:32px; }
+.sk-summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.sk-stat {
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:14px 12px; text-align:center;
+}
+.sk-stat-val { font-family:var(--font); font-size:1.2rem; font-weight:800; letter-spacing:-.02em; }
+.sk-stat-lbl { font-size:.68rem; color:var(--text3); margin-top:3px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.sk-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:16px; display:flex; flex-direction:column; gap:10px;
+  transition:border-color .15s;
+}
+.sk-card:hover { border-color:var(--accent); }
+.sk-card-head { display:flex; align-items:center; gap:10px; }
+.sk-emoji {
+  width:42px; height:42px; border-radius:12px; display:flex; align-items:center;
+  justify-content:center; font-size:1.3rem; background:var(--surface2); flex-shrink:0;
+}
+.sk-info { flex:1; min-width:0; }
+.sk-name { font-family:var(--font); font-size:.92rem; font-weight:800; color:var(--text); }
+.sk-meta { display:flex; align-items:center; gap:6px; margin-top:2px; flex-wrap:wrap; }
+.sk-cat-badge {
+  font-size:.65rem; font-weight:700; padding:2px 8px; border-radius:10px;
+  background:var(--accent)18; color:var(--accent); letter-spacing:.03em;
+}
+.sk-level-label { font-size:.7rem; color:var(--text3); }
+.sk-card-actions { display:flex; gap:6px; opacity:0; transition:opacity .15s; }
+.sk-card:hover .sk-card-actions { opacity:1; }
+.sk-action-btn {
+  padding:5px 10px; border-radius:8px; border:1px solid var(--border);
+  background:none; color:var(--text3); font-family:var(--font); font-size:.72rem;
+  font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px;
+  transition:all .12s;
+}
+.sk-action-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--teal2); }
+.sk-action-btn.siva { border-color:var(--accent2)60; color:var(--accent2); }
+.sk-action-btn.siva:hover { background:var(--accent2)12; }
+.sk-action-btn.danger:hover { border-color:#f87171; color:#f87171; background:#f8717112; }
+.sk-progress-wrap { display:flex; flex-direction:column; gap:4px; }
+.sk-progress-head { display:flex; justify-content:space-between; align-items:center; }
+.sk-progress-nums { font-size:.72rem; color:var(--text3); }
+.sk-progress-bar  { height:7px; background:var(--border2); border-radius:4px; overflow:visible; position:relative; }
+.sk-progress-fill { height:100%; border-radius:4px; transition:width .5s ease; }
+.sk-progress-target {
+  position:absolute; top:-3px; width:3px; height:13px;
+  background:var(--text3); border-radius:2px; transform:translateX(-50%);
+  opacity:.6;
+}
+.sk-sessions { display:flex; gap:16px; }
+.sk-session-stat { font-size:.72rem; color:var(--text3); }
+.sk-session-stat strong { color:var(--text2); font-weight:700; }
+.sk-empty { text-align:center; padding:3rem 1rem; color:var(--text3); }
+.sk-empty-icon { font-size:2.5rem; margin-bottom:8px; }
+.sk-empty-title { font-family:var(--font); font-size:.95rem; font-weight:700; color:var(--text2); margin-bottom:4px; }
+.sk-empty-sub { font-size:.82rem; }
+.sk-filter-row { display:flex; gap:6px; flex-wrap:wrap; }
+.sk-filter-btn {
+  padding:5px 12px; border-radius:16px; border:1px solid var(--border);
+  background:none; color:var(--text3); font-family:var(--font); font-size:.75rem;
+  font-weight:600; cursor:pointer; transition:all .12s;
+}
+.sk-filter-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+.sk-filter-btn:not(.active):hover { border-color:var(--accent); color:var(--accent); }
+@media (max-width:600px) { .sk-summary-grid { grid-template-columns:repeat(2,1fr); } }
