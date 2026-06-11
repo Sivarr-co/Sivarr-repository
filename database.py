@@ -508,6 +508,35 @@ CREATE TABLE IF NOT EXISTS google_exchange_codes (
     token      TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS community_posts (
+    id          TEXT PRIMARY KEY,
+    author_name TEXT NOT NULL DEFAULT 'Sivarr User',
+    author_sid  TEXT,
+    body        TEXT NOT NULL,
+    category    TEXT DEFAULT 'general',
+    tags        JSONB DEFAULT '[]',
+    likes       JSONB DEFAULT '[]',
+    replies     JSONB DEFAULT '[]',
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_comm_posts_created  ON community_posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_comm_posts_category ON community_posts(category);
+
+CREATE TABLE IF NOT EXISTS opportunities (
+    id           TEXT PRIMARY KEY,
+    title        TEXT NOT NULL,
+    description  TEXT DEFAULT '',
+    link         TEXT DEFAULT '',
+    category     TEXT DEFAULT 'other',
+    organisation TEXT DEFAULT '',
+    location     TEXT DEFAULT '',
+    deadline     TEXT DEFAULT '',
+    submitted_by TEXT,
+    created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_opps_created  ON opportunities(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_opps_category ON opportunities(category);
 """
 
 
@@ -898,12 +927,12 @@ def is_email_verified(sid: str) -> bool:
 # ── Google OAuth exchange codes (multi-worker safe) ────────────────
 
 def create_google_xcode(code: str, token: str) -> None:
-    """Store a 2-minute one-time code that maps to a Sivarr session token."""
+    """Store a 10-minute one-time code that maps to a Sivarr session token."""
     import datetime
     conn = _get_conn()
     if not conn:
         raise RuntimeError("DB unavailable")
-    expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=120)
+    expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=600)
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -1962,6 +1991,249 @@ def create_org(owner_sid: str, name: str, org_id: str, owner_name: str = "") -> 
         log.error(f"create_org: {err}\n{traceback.format_exc()}")
         conn.rollback()
         return False, err
+    finally:
+        _release(conn)
+
+
+# ── User profile ─────────────────────────────────────────────
+
+def update_user_profile(sid: str, name: str, phone: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET name = %s, phone = %s WHERE sid = %s",
+                (name, phone, sid)
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"update_user_profile failed: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+# ── Community posts ───────────────────────────────────────────
+
+def get_community_posts(category: str = "all", limit: int = 40) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            if category == "all":
+                cur.execute(
+                    "SELECT id, author_name, author_sid, body, category, tags, likes, replies, created_at "
+                    "FROM community_posts ORDER BY created_at DESC LIMIT %s",
+                    (limit,)
+                )
+            else:
+                cur.execute(
+                    "SELECT id, author_name, author_sid, body, category, tags, likes, replies, created_at "
+                    "FROM community_posts WHERE category = %s ORDER BY created_at DESC LIMIT %s",
+                    (category, limit)
+                )
+            rows = cur.fetchall()
+        return [
+            {"id": r[0], "author": r[1], "sid": r[2], "body": r[3], "category": r[4],
+             "tags": r[5] or [], "likes": r[6] or [], "replies": r[7] or [],
+             "created": r[8].strftime("%Y-%m-%dT%H:%M:%SZ") if r[8] else ""}
+            for r in rows
+        ]
+    finally:
+        _release(conn)
+
+
+def create_community_post(post_id: str, author_name: str, author_sid: str,
+                          body: str, category: str, tags: list) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        import json as _json
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO community_posts (id, author_name, author_sid, body, category, tags) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (post_id, author_name, author_sid, body, category, _json.dumps(tags))
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_community_post failed: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def toggle_community_like(post_id: str, user_sid: str) -> tuple[bool, int]:
+    """Toggle like. Returns (liked: bool, new_count: int)."""
+    conn = _get_conn()
+    if not conn:
+        return False, 0
+    try:
+        import json as _json
+        with conn.cursor() as cur:
+            cur.execute("SELECT likes FROM community_posts WHERE id = %s FOR UPDATE", (post_id,))
+            row = cur.fetchone()
+            if not row:
+                return False, 0
+            likes = row[0] or []
+            if user_sid in likes:
+                likes.remove(user_sid)
+                liked = False
+            else:
+                likes.append(user_sid)
+                liked = True
+            cur.execute(
+                "UPDATE community_posts SET likes = %s WHERE id = %s",
+                (_json.dumps(likes), post_id)
+            )
+        conn.commit()
+        return liked, len(likes)
+    except Exception as exc:
+        log.error(f"toggle_community_like failed: {exc}")
+        conn.rollback()
+        return False, 0
+    finally:
+        _release(conn)
+
+
+def add_community_reply(post_id: str, reply: dict) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        import json as _json
+        with conn.cursor() as cur:
+            cur.execute("SELECT replies FROM community_posts WHERE id = %s FOR UPDATE", (post_id,))
+            row = cur.fetchone()
+            if not row:
+                return False
+            replies = row[0] or []
+            replies.append(reply)
+            cur.execute(
+                "UPDATE community_posts SET replies = %s WHERE id = %s",
+                (_json.dumps(replies), post_id)
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"add_community_reply failed: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def seed_community_posts(posts: list) -> None:
+    """Insert seed posts only when the table is empty."""
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        import json as _json
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM community_posts")
+            if cur.fetchone()[0] > 0:
+                return
+            for p in posts:
+                cur.execute(
+                    "INSERT INTO community_posts (id, author_name, body, category, created_at) "
+                    "VALUES (%s, %s, %s, %s, NOW() - INTERVAL '1 hour' * %s) ON CONFLICT (id) DO NOTHING",
+                    (p["id"], p.get("author","Sivarr Team"), p.get("content", p.get("body","")),
+                     p.get("category","general"), posts.index(p) * 2)
+                )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"seed_community_posts failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
+# ── Opportunities ─────────────────────────────────────────────
+
+def get_opportunities(category: str = "all", limit: int = 50) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            if category == "all":
+                cur.execute(
+                    "SELECT id, title, description, link, category, organisation, location, deadline, submitted_by, created_at "
+                    "FROM opportunities ORDER BY created_at DESC LIMIT %s",
+                    (limit,)
+                )
+            else:
+                cur.execute(
+                    "SELECT id, title, description, link, category, organisation, location, deadline, submitted_by, created_at "
+                    "FROM opportunities WHERE category = %s ORDER BY created_at DESC LIMIT %s",
+                    (category, limit)
+                )
+            rows = cur.fetchall()
+        return [
+            {"id": r[0], "title": r[1], "desc": r[2], "link": r[3], "category": r[4],
+             "organisation": r[5], "location": r[6], "deadline": r[7],
+             "submitted_by": r[8],
+             "created": r[9].strftime("%Y-%m-%dT%H:%M:%SZ") if r[9] else ""}
+            for r in rows
+        ]
+    finally:
+        _release(conn)
+
+
+def create_opportunity(opp: dict) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO opportunities (id, title, description, link, category, organisation, location, deadline, submitted_by) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (opp["id"], opp["title"], opp.get("desc",""), opp.get("link",""),
+                 opp.get("category","other"), opp.get("organisation",""), opp.get("location",""),
+                 opp.get("deadline",""), opp.get("submitted_by",""))
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_opportunity failed: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def seed_opportunities(opps: list) -> None:
+    """Insert seed opportunities only when the table is empty."""
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM opportunities")
+            if cur.fetchone()[0] > 0:
+                return
+            for o in opps:
+                cur.execute(
+                    "INSERT INTO opportunities (id, title, description, link, category, organisation, location, deadline) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING",
+                    (o["id"], o["title"], o.get("description",""), o.get("url", o.get("link","")),
+                     o.get("category","other"), o.get("organisation",""), o.get("location",""),
+                     o.get("deadline",""))
+                )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"seed_opportunities failed: {exc}")
+        conn.rollback()
     finally:
         _release(conn)
 

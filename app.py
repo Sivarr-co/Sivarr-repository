@@ -1682,45 +1682,45 @@ async def startup():
     asyncio.create_task(_full_startup())
 
 # ═══════════════════════════════════════════════════════════════
-#  MP4 — Seed community posts + opportunities (JSON files)
+#  MP4 — Seed community posts + opportunities (DB-backed, JSON fallback)
 # ═══════════════════════════════════════════════════════════════
 
-def _seed_community_and_opps():
-    """Populate community posts and opportunities JSON files with starter content
-    if they are empty or missing. Safe to call on every startup — skips if data exists."""
-    import datetime as _dt
+_SEED_POSTS = [
+    {"id": "seed_1", "author": "Sivarr Team", "content": "Just launched my first feature after two weeks of debugging. Celebrate the small wins.", "category": "general"},
+    {"id": "seed_2", "author": "Sivarr Team", "content": "Anyone else use Sivarr AI for breaking down big projects? The task extraction is underrated.", "category": "q_and_a"},
+    {"id": "seed_3", "author": "Sivarr Team", "content": "Tip: link your tasks to goals in the detail panel. Your weekly review gets way more useful.", "category": "general"},
+    {"id": "seed_4", "author": "Sivarr Team", "content": "Built a study routine using the Pomodoro timer and daily plan combo. 3 weeks consistent.", "category": "study"},
+    {"id": "seed_5", "author": "Sivarr Team", "content": "For Nigerian founders: Paystack webhooks + Sivarr Financials tab is a clean combo for tracking MRR.", "category": "general"},
+]
 
-    # ── Community posts ───────────────────────────────────────
+_SEED_OPPS = [
+    {"id": "opp_1", "title": "Frontend Developer — Remote", "description": "Build interfaces for a Lagos-based fintech. 2+ years React required.", "category": "job", "organisation": "PaystackHQ", "location": "Remote / Lagos", "deadline": "", "url": "#"},
+    {"id": "opp_2", "title": "Google Africa Developer Scholarship", "description": "Scholarship for African developers to upskill in cloud and mobile development.", "category": "scholarship", "organisation": "Google", "location": "Africa-wide", "deadline": "", "url": "#"},
+    {"id": "opp_3", "title": "Tony Elumelu Foundation Grant", "description": "₦5M grant for early-stage African entrepreneurs. Applications open now.", "category": "grant", "organisation": "TEF", "location": "Africa-wide", "deadline": "", "url": "#"},
+    {"id": "opp_4", "title": "UI/UX Design Internship", "description": "3-month paid internship at a product studio in Yaba, Lagos. Stipend provided.", "category": "internship", "organisation": "Studio Yaba", "location": "Lagos, Nigeria", "deadline": "", "url": "#"},
+    {"id": "opp_5", "title": "Binance Africa Web3 Hackathon", "description": "Build on-chain tools for African markets. Prizes up to $50,000.", "category": "grant", "organisation": "Binance", "location": "Remote", "deadline": "", "url": "#"},
+]
+
+def _seed_community_and_opps():
+    """Seed community posts and opportunities into the DB (or JSON fallback)."""
+    if db.is_available():
+        db.seed_community_posts(_SEED_POSTS)
+        db.seed_opportunities(_SEED_OPPS)
+        log.info("Community/opportunities seed check complete (DB)")
+        return
+    # JSON fallback (no DB)
     with _comm_lock:
         posts = _load_json_file(COMMUNITY_PATH, [])
     if not posts:
-        now = _dt.datetime.utcnow()
-        seed_posts = [
-            {"id": "seed_1", "author": "Sivarr Team", "content": "Just launched my first feature after two weeks of debugging. Celebrate the small wins.", "category": "general", "likes": 14, "replies": [], "created": (now - _dt.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")},
-            {"id": "seed_2", "author": "Sivarr Team", "content": "Anyone else use Sivarr AI for breaking down big projects? The task extraction is underrated.", "category": "q_and_a", "likes": 8, "replies": [], "created": (now - _dt.timedelta(hours=5)).strftime("%Y-%m-%dT%H:%M:%SZ")},
-            {"id": "seed_3", "author": "Sivarr Team", "content": "Tip: link your tasks to goals in the detail panel. Your weekly review gets way more useful.", "category": "general", "likes": 22, "replies": [], "created": (now - _dt.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")},
-            {"id": "seed_4", "author": "Sivarr Team", "content": "Built a study routine using the Pomodoro timer and daily plan combo. 3 weeks consistent.", "category": "study", "likes": 31, "replies": [], "created": (now - _dt.timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")},
-            {"id": "seed_5", "author": "Sivarr Team", "content": "For Nigerian founders: Paystack webhooks + Sivarr Financials tab is a clean combo for tracking MRR.", "category": "general", "likes": 19, "replies": [], "created": (now - _dt.timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")},
-        ]
         with _comm_lock:
-            _save_json_file(COMMUNITY_PATH, seed_posts)
-        log.info("Seeded community posts")
-
-    # ── Opportunities ─────────────────────────────────────────
+            _save_json_file(COMMUNITY_PATH, _SEED_POSTS)
+        log.info("Seeded community posts (JSON)")
     with _opp_lock:
         opps = _load_json_file(OPPORTUNITIES_PATH, [])
     if not opps:
-        now = _dt.datetime.utcnow()
-        seed_opps = [
-            {"id": "opp_1", "title": "Frontend Developer — Remote", "description": "Build interfaces for a Lagos-based fintech. 2+ years React required.", "category": "job", "organisation": "PaystackHQ", "location": "Remote / Lagos", "deadline": (now + _dt.timedelta(days=14)).strftime("%Y-%m-%d"), "url": "#", "created": now.strftime("%Y-%m-%dT%H:%M:%SZ")},
-            {"id": "opp_2", "title": "Google Africa Developer Scholarship", "description": "Scholarship for African developers to upskill in cloud and mobile development.", "category": "scholarship", "organisation": "Google", "location": "Africa-wide", "deadline": (now + _dt.timedelta(days=30)).strftime("%Y-%m-%d"), "url": "#", "created": now.strftime("%Y-%m-%dT%H:%M:%SZ")},
-            {"id": "opp_3", "title": "Tony Elumelu Foundation Grant", "description": "₦5M grant for early-stage African entrepreneurs. Applications open now.", "category": "grant", "organisation": "TEF", "location": "Africa-wide", "deadline": (now + _dt.timedelta(days=45)).strftime("%Y-%m-%d"), "url": "#", "created": now.strftime("%Y-%m-%dT%H:%M:%SZ")},
-            {"id": "opp_4", "title": "UI/UX Design Internship", "description": "3-month paid internship at a product studio in Yaba, Lagos. Stipend provided.", "category": "internship", "organisation": "Studio Yaba", "location": "Lagos, Nigeria", "deadline": (now + _dt.timedelta(days=10)).strftime("%Y-%m-%d"), "url": "#", "created": now.strftime("%Y-%m-%dT%H:%M:%SZ")},
-            {"id": "opp_5", "title": "Binance Africa Web3 Hackathon", "description": "Build on-chain tools for African markets. Prizes up to $50,000.", "category": "grant", "organisation": "Binance", "location": "Remote", "deadline": (now + _dt.timedelta(days=21)).strftime("%Y-%m-%d"), "url": "#", "created": now.strftime("%Y-%m-%dT%H:%M:%SZ")},
-        ]
         with _opp_lock:
-            _save_json_file(OPPORTUNITIES_PATH, seed_opps)
-        log.info("Seeded opportunities")
+            _save_json_file(OPPORTUNITIES_PATH, _SEED_OPPS)
+        log.info("Seeded opportunities (JSON)")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -5809,6 +5809,24 @@ async def org_create(data: dict, bg: BackgroundTasks):
     return {"ok": True, "org_id": org_id, "name": org_name}
 
 
+@app.post("/api/user/update")
+async def user_update_profile(data: dict):
+    """Update the authenticated user's display name and phone."""
+    sid, _ = _resolve_token(data)
+    name  = sanitize_text(str(data.get("name", "")).strip(), 80)
+    phone = sanitize_text(str(data.get("phone", "")).strip(), 30)
+    if not name or len(name) < 2:
+        raise HTTPException(400, "Name must be at least 2 characters.")
+    if db.is_available():
+        db.update_user_profile(sid, name, phone)
+    # Also update the in-memory session so name is reflected immediately
+    token = sanitize_text(str(data.get("token", "")), 100)
+    entry = _session_tokens.get(token)
+    if entry:
+        entry["name"] = name
+    return {"ok": True, "name": name}
+
+
 @app.post("/api/org/update")
 async def org_update(data: dict):
     sid, _ = _resolve_token(data)
@@ -6811,27 +6829,28 @@ def _google_verify_state(state: str) -> bool:
 
 
 def _store_google_xcode(xcode: str, token: str) -> None:
-    """Store a one-time Google exchange code — DB first, memory fallback."""
-    expires = time.time() + 120
+    """Store a one-time Google exchange code in both DB and memory.
+    Memory is always written so pop never fails due to a DB read error."""
+    expires = time.time() + 600  # 10 minutes
+    _google_exchange_codes_mem[xcode] = {"token": token, "expires": expires}
     if db.is_available():
         try:
             db.create_google_xcode(xcode, token)
-            return
         except Exception as exc:
-            log.warning(f"DB google_xcode store failed ({exc}), using memory")
-    _google_exchange_codes_mem[xcode] = {"token": token, "expires": expires}
+            log.warning(f"DB google_xcode store failed ({exc}), memory-only fallback active")
 
 
 def _pop_google_xcode(xcode: str) -> str | None:
-    """Retrieve and consume a one-time Google exchange code."""
+    """Retrieve and consume a one-time Google exchange code.
+    Tries DB first (cross-worker safe), falls back to memory (same-worker)."""
     if db.is_available():
         try:
             tok = db.pop_google_xcode(xcode)
             if tok is not None:
+                _google_exchange_codes_mem.pop(xcode, None)  # evict memory copy
                 return tok
-        except Exception:
-            pass
-    # fallback: memory
+        except Exception as exc:
+            log.warning(f"DB pop_google_xcode failed ({exc}), trying memory")
     entry = _google_exchange_codes_mem.pop(xcode, None)
     if entry and time.time() <= entry["expires"]:
         return entry["token"]
@@ -7311,125 +7330,133 @@ def _save_json_file(path: Path, data):
 
 @app.get("/api/community/posts")
 async def community_get_posts(category: str = "all", limit: int = 40):
-    """Fetch community posts, newest first."""
     ck = f"comm:{category}:{limit}"
     cached = _rc_get(ck)
     if cached is not None:
         return cached
-    with _comm_lock:
-        posts = _load_json_file(COMMUNITY_PATH, [])
-    if category != "all":
-        posts = [p for p in posts if p.get("category") == category]
-    result = {"posts": posts[:limit]}
+    if db.is_available():
+        posts = db.get_community_posts(category, limit)
+    else:
+        with _comm_lock:
+            posts = _load_json_file(COMMUNITY_PATH, [])
+        if category != "all":
+            posts = [p for p in posts if p.get("category") == category]
+        posts = posts[:limit]
+    result = {"posts": posts}
     _rc_set(ck, result, ttl=30)
     return result
 
 
 @app.post("/api/community/posts")
 async def community_create_post(data: dict, request: Request):
-    """Create a new community post."""
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
     check_rate_limit(get_client_key(request), 10, "community_post")
-    body = sanitize_text(str(data.get("body","")), 800)
+    body     = sanitize_text(str(data.get("body","")), 800)
     if len(body) < 3:
         raise HTTPException(400, "Post is too short.")
     category = sanitize_text(str(data.get("category","general")), 20)
     tags     = [sanitize_text(str(t), 30) for t in data.get("tags",[]) if t][:5]
-    p = load_progress(sess["sid"])
+    author   = sess.get("name", "Sivarr User")
+    post_id  = uuid.uuid4().hex[:16]
     post = {
-        "id":       uuid.uuid4().hex[:16],
-        "author":   p.get("name", "Sivarr User"),
-        "sid":      sess["sid"],
-        "body":     body,
-        "category": category,
-        "tags":     tags,
-        "likes":    [],
-        "replies":  [],
-        "created":  datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "id": post_id, "author": author, "sid": sess["sid"],
+        "body": body, "category": category, "tags": tags,
+        "likes": [], "replies": [],
+        "created": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
-    with _comm_lock:
-        posts = _load_json_file(COMMUNITY_PATH, [])
-        posts.insert(0, post)
-        posts = posts[:200]
-        _save_json_file(COMMUNITY_PATH, posts)
+    if db.is_available():
+        db.create_community_post(post_id, author, sess["sid"], body, category, tags)
+    else:
+        with _comm_lock:
+            posts = _load_json_file(COMMUNITY_PATH, [])
+            posts.insert(0, post)
+            _save_json_file(COMMUNITY_PATH, posts[:200])
     _rc_bust("comm:")
     return {"ok": True, "post": post}
 
 
 @app.post("/api/community/posts/{post_id}/like")
 async def community_like_post(post_id: str, data: dict):
-    """Toggle like on a post."""
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
     sid = sess["sid"]
-    with _comm_lock:
-        posts = _load_json_file(COMMUNITY_PATH, [])
-        post  = next((p for p in posts if p["id"] == post_id), None)
-        if not post:
+    if db.is_available():
+        liked, count = db.toggle_community_like(post_id, sid)
+        if count == 0 and not liked:
             raise HTTPException(404, "Post not found.")
-        likes = post.get("likes", [])
-        if sid in likes:
-            likes.remove(sid)
-            liked = False
-        else:
-            likes.append(sid)
-            liked = True
-        post["likes"] = likes
-        _save_json_file(COMMUNITY_PATH, posts)
+    else:
+        with _comm_lock:
+            posts = _load_json_file(COMMUNITY_PATH, [])
+            post  = next((p for p in posts if p["id"] == post_id), None)
+            if not post:
+                raise HTTPException(404, "Post not found.")
+            likes = post.get("likes", [])
+            if sid in likes:
+                likes.remove(sid); liked = False
+            else:
+                likes.append(sid); liked = True
+            post["likes"] = likes
+            count = len(likes)
+            _save_json_file(COMMUNITY_PATH, posts)
     _rc_bust("comm:")
-    return {"ok": True, "liked": liked, "count": len(likes)}
+    return {"ok": True, "liked": liked, "count": count}
 
 
 @app.post("/api/community/posts/{post_id}/reply")
 async def community_reply(post_id: str, data: dict):
-    """Add a reply to a post."""
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
     body = sanitize_text(str(data.get("body","")), 400)
     if len(body) < 2:
         raise HTTPException(400, "Reply too short.")
-    p = load_progress(sess["sid"])
     reply = {
         "id":      uuid.uuid4().hex[:12],
-        "author":  p.get("name","Sivarr User"),
+        "author":  sess.get("name","Sivarr User"),
         "sid":     sess["sid"],
         "body":    body,
         "created": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
-    with _comm_lock:
-        posts = _load_json_file(COMMUNITY_PATH, [])
-        post  = next((p for p in posts if p["id"] == post_id), None)
-        if not post:
+    if db.is_available():
+        ok = db.add_community_reply(post_id, reply)
+        if not ok:
             raise HTTPException(404, "Post not found.")
-        post.setdefault("replies", []).append(reply)
-        _save_json_file(COMMUNITY_PATH, posts)
+    else:
+        with _comm_lock:
+            posts = _load_json_file(COMMUNITY_PATH, [])
+            post  = next((p for p in posts if p["id"] == post_id), None)
+            if not post:
+                raise HTTPException(404, "Post not found.")
+            post.setdefault("replies", []).append(reply)
+            _save_json_file(COMMUNITY_PATH, posts)
     _rc_bust("comm:")
     return {"ok": True, "reply": reply}
 
 
 @app.get("/api/opportunities")
-async def get_opportunities(category: str = "all", limit: int = 50):
-    """Fetch opportunity board entries."""
+async def get_opportunities_list(category: str = "all", limit: int = 50):
     ck = f"opp:{category}:{limit}"
     cached = _rc_get(ck)
     if cached is not None:
         return cached
-    with _opp_lock:
-        opps = _load_json_file(OPPORTUNITIES_PATH, [])
-    if category != "all":
-        opps = [o for o in opps if o.get("category") == category]
-    result = {"opportunities": opps[:limit]}
+    if db.is_available():
+        opps = db.get_opportunities(category, limit)
+    else:
+        with _opp_lock:
+            opps = _load_json_file(OPPORTUNITIES_PATH, [])
+        if category != "all":
+            opps = [o for o in opps if o.get("category") == category]
+        opps = opps[:limit]
+    result = {"opportunities": opps}
     _rc_set(ck, result, ttl=60)
     return result
 
 
 @app.post("/api/opportunities")
 async def submit_opportunity(data: dict, request: Request):
-    """Submit a new opportunity to the board."""
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
@@ -7439,25 +7466,22 @@ async def submit_opportunity(data: dict, request: Request):
     link     = sanitize_text(str(data.get("link","")), 200)
     category = sanitize_text(str(data.get("category","other")), 20)
     deadline = sanitize_text(str(data.get("deadline","")), 20)
+    org      = sanitize_text(str(data.get("organisation","")), 80)
     if len(title) < 3:
         raise HTTPException(400, "Title required.")
-    p = load_progress(sess["sid"])
     opp = {
-        "id":       uuid.uuid4().hex[:14],
-        "title":    title,
-        "desc":     desc,
-        "link":     link,
-        "category": category,
-        "deadline": deadline,
-        "author":   p.get("name","Community"),
-        "sid":      sess["sid"],
-        "created":  datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "id": uuid.uuid4().hex[:14], "title": title, "desc": desc, "link": link,
+        "category": category, "deadline": deadline, "organisation": org,
+        "submitted_by": sess["sid"],
+        "created": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
-    with _opp_lock:
-        opps = _load_json_file(OPPORTUNITIES_PATH, [])
-        opps.insert(0, opp)
-        opps = opps[:300]
-        _save_json_file(OPPORTUNITIES_PATH, opps)
+    if db.is_available():
+        db.create_opportunity(opp)
+    else:
+        with _opp_lock:
+            opps = _load_json_file(OPPORTUNITIES_PATH, [])
+            opps.insert(0, opp)
+            _save_json_file(OPPORTUNITIES_PATH, opps[:300])
     _rc_bust("opp:")
     return {"ok": True, "opportunity": opp}
 

@@ -699,7 +699,13 @@ Sentry.onLoad(function() {
 
       <!-- Stats -->
       <div class="panel" id="panel-stats">
-        <div class="stats-wrap" id="sw"></div>
+        <div class="view-head">
+          <i class="ti ti-chart-bar vh-icon"></i>
+          <span class="vh-title">Analytics</span>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:1.5rem 24px">
+          <div class="stats-wrap" id="sw"></div>
+        </div>
       </div>
 
       <!-- Classes Panel -->
@@ -1532,7 +1538,7 @@ Sentry.onLoad(function() {
               </div>
               <div>
                 <div class="st-label" style="margin-bottom:4px">Email</div>
-                <input class="st-input" id="st-email-input" type="email" placeholder="you@university.edu">
+                <input class="st-input" id="st-email-input" type="email" placeholder="you@university.edu" readonly style="opacity:.6;cursor:default" title="Email cannot be changed here">
               </div>
               <div>
                 <div class="st-label" style="margin-bottom:4px">Phone</div>

@@ -4117,26 +4117,30 @@ async function billingCancelConfirm() {
   }
 }
 
-function stSaveProfile() {
+async function stSaveProfile() {
   const name  = $('st-name-input')?.value.trim();
-  const email = $('st-email-input')?.value.trim();
-  const phone = $('st-phone-input')?.value.trim();
-
+  const phone = $('st-phone-input')?.value.trim() || '';
   if (!name || name.length < 2) { toast('Name must be at least 2 characters.'); return; }
-
-  const st = stLoad();
-  st.email = email;
-  st.phone = phone;
-  stSave(st);
-
-  S.name = name;
-  const nameDisp = $('st-name-display'); if (nameDisp) nameDisp.textContent = name;
-  const avatarL  = $('st-avatar-letter'); if (avatarL) avatarL.textContent = name[0].toUpperCase();
-  const tbAv   = $('tb-av');   if (tbAv)   tbAv.textContent   = name[0].toUpperCase();
-  const tbName = $('tb-name'); if (tbName) tbName.textContent = name;
-
-  _saveStatus('saved');
-  toast('Profile saved ✓');
+  const token = localStorage.getItem('sivarr_token');
+  const btn   = document.querySelector('[onclick="stSaveProfile()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    if (token) {
+      await fetch('/api/user/update', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, name, phone }),
+      });
+    }
+    S.name = name;
+    const st = stLoad(); st.phone = phone; stSave(st);
+    const nameDisp = $('st-name-display'); if (nameDisp) nameDisp.textContent = name;
+    const avatarL  = $('st-avatar-letter'); if (avatarL) avatarL.textContent = name[0].toUpperCase();
+    const tbAv   = $('tb-av');   if (tbAv)   tbAv.textContent   = name[0].toUpperCase();
+    const tbName = $('tb-name'); if (tbName) tbName.textContent = name;
+    _saveStatus('saved');
+    toast('Profile saved ✓');
+  } catch { toast('Could not save — try again.'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'Save Profile'; } }
 }
 
 function stToggleTheme(btn) {
