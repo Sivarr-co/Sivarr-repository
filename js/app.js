@@ -2911,7 +2911,8 @@ async function glLoad() {
     const r = await fetch(`/api/goals?sid=${S.sid}`);
     const d = await r.json();
     GL_GOALS = d.goals || [];
-    localStorage.setItem(cacheKey, JSON.stringify(GL_GOALS)); // cache for offline
+    localStorage.setItem(cacheKey, JSON.stringify(GL_GOALS));
+    GL_GOALS.forEach(g => _calSyncGoal(g)); // keep calendar in sync
     glRender();
   } catch(e) {
     // Offline fallback — use cached goals
@@ -3069,6 +3070,7 @@ async function glSaveGoal() {
   try {
     const r = await API('/api/goals/add', {sid:S.sid, title, subject, target_score:target, deadline, goal_type});
     GL_GOALS.push(r.goal);
+    if (deadline) _calSyncGoal(r.goal);
     glRender();
     $('gl-add-form').classList.remove('open');
     $('gl-title').value = ''; $('gl-subject').value = '';
@@ -3100,7 +3102,8 @@ async function glMarkDone(id) {
   try {
     await API('/api/goals/update', {sid:S.sid, id, progress: completed?100:g.progress, completed});
     g.completed = completed;
-    if (completed) g.progress = 100;
+    if (completed) { g.progress = 100; _calRemoveEvent(`goal_${id}`); }
+    else _calSyncGoal(g);
     glRender();
     toast(completed ? 'Goal completed! 🎉' : 'Goal reopened');
   } catch(e) { toast('Update failed.'); }
@@ -3110,6 +3113,7 @@ async function glDelete(id) {
   if (!await siModal.confirm('This goal will be permanently deleted.', { title:'Delete Goal', confirmLabel:'Delete', danger:true })) return;
   try {
     await API('/api/goals/delete', {sid:S.sid, id});
+    _calRemoveEvent(`goal_${id}`);
     GL_GOALS = GL_GOALS.filter(x=>x.id!==id);
     glRender();
     toast('Goal deleted');
@@ -3220,7 +3224,7 @@ async function glSaveEdit(id) {
   try {
     await API('/api/goals/edit', { sid: S.sid, id, title, subject, deadline: deadline || null });
     const g = GL_GOALS.find(x => x.id === id);
-    if (g) { g.title = title; g.subject = subject; g.deadline = deadline || null; }
+    if (g) { g.title = title; g.subject = subject; g.deadline = deadline || null; _calSyncGoal(g); }
     glRender();
     toast('Goal updated ✓');
   } catch { toast('Update failed.'); }
@@ -5967,6 +5971,37 @@ let CAL_VIEW = 'month';   // 'month' | 'week' | 'day'
 let CAL_WEEK_START = null; // Date (Monday of current week view)
 let CAL_DAY_DATE   = null; // Date string for day view
 let CAL_EVENTS_KEY = () => `sivarr_cal_${S.sid||'guest'}`;
+
+// ── Calendar deadline sync helpers ────────────────────────────
+function _calUpsertEvent(deterministicId, title, date, color) {
+  if (!date || !title) return;
+  const evs = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
+  const idx = evs.findIndex(e => e.id === deterministicId);
+  const ev  = { id: deterministicId, title, date, time: '', color };
+  if (idx >= 0) evs[idx] = ev; else evs.push(ev);
+  localStorage.setItem(CAL_EVENTS_KEY(), JSON.stringify(evs));
+}
+
+function _calRemoveEvent(deterministicId) {
+  const evs = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]')
+    .filter(e => e.id !== deterministicId);
+  localStorage.setItem(CAL_EVENTS_KEY(), JSON.stringify(evs));
+}
+
+function _calSyncGoal(goal) {
+  if (!goal?.deadline || goal.completed) {
+    _calRemoveEvent(`goal_${goal.id}`);
+    return;
+  }
+  _calUpsertEvent(`goal_${goal.id}`, `🎯 ${goal.title}`, goal.deadline, 'var(--teal)');
+}
+
+function _calSyncAssignment(classCode, assignment) {
+  const due = assignment.due_date || assignment.due || '';
+  const id  = `assign_${classCode}_${assignment.id}`;
+  if (!due) return;
+  _calUpsertEvent(id, `📋 ${assignment.title}`, due, 'var(--amber3)');
+}
 
 function calInit() {
   _calRenderViewBtns();
@@ -10446,6 +10481,9 @@ async function loadAssignmentsWithStatus(cls, assigns, container) {
     const r = await fetch(`/api/class/my-submissions?code=${encodeURIComponent(cls.code)}&sid=${encodeURIComponent(S.sid)}`);
     if (r.ok) mySubmissions = (await r.json()).submissions || {};
   } catch(_) {}
+
+  // Sync assignment deadlines to calendar
+  assigns.forEach(a => { if (a.due_date || a.due) _calSyncAssignment(cls.code, a); });
 
   container.innerHTML = assigns.map(a => {
     const sub  = mySubmissions[a.id];
