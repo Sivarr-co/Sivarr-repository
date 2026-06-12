@@ -1,13 +1,16 @@
 # SIVARR — Security Fixes
 > Session: 2026-06-12 | Author: Claude (Opus 4.8) | Branch: `main`
 
-Three auth-audit findings (P4, P5, P2) were implemented, tested in-process, and pushed to `origin/main` this session.
+Four auth-audit findings (P4, P5, P2, P6) were implemented, tested in-process, and pushed to `origin/main` this session.
 
 | Fix | Severity | Commit | Files |
 |---|---|---|---|
 | P4 — Org Paystack endpoints gated by admin/owner role | HIGH | `b941ce1` | `app.py` |
 | P5 — Authenticate AI chat path + enforce free cap server-side | MED-HIGH | `57561ea` | `app.py`, `js/app.js`, `templates/index.html` |
 | P2 — Guard auth-path DB reads against query failures | MEDIUM | `2723eb6` | `database.py` |
+| P6 — Constant-time admin/lecturer password compare | LOW | `eaa290e`¹ | `app.py` |
+
+¹ P6 landed bundled in `eaa290e` (a parallel session's commit swept the uncommitted P6 lines in) rather than a dedicated commit.
 
 ---
 
@@ -168,6 +171,38 @@ safe default instead of propagating (7/7).
 
 ---
 
+## P6 — Constant-time admin/lecturer password compare
+**Commit:** `eaa290e` (bundled) · **File:** `app.py`
+
+### Problem
+The admin and lecturer login handlers compared the submitted password with a plain
+`req.password != SECRET`. Python's `!=` on strings short-circuits at the first differing
+byte, so the comparison time leaks information about how many leading characters matched —
+a classic timing side-channel. The rest of the codebase already used
+`hmac.compare_digest` (admin basic-auth, webhooks, cron auth); these two handlers were the
+inconsistent outliers. (Rate-limited to 5/min, so practical risk was low.)
+
+### Fix applied
+Both handlers now use the codebase's standard constant-time pattern:
+
+```python
+# app.py:3148 — admin_login
+if not (ADMIN_PASSWORD and hmac.compare_digest(req.password, ADMIN_PASSWORD)):
+# app.py:3415 — lecturer_login
+if not (LECTURER_PASSWORD and hmac.compare_digest(req.password, LECTURER_PASSWORD)):
+```
+
+### Bonus — latent bug closed
+With `!=`, an **unset** secret (`""`) made `req.password != ""` true for any real password
+(deny) but **false for an empty submission** — so submitting a blank password when the env
+var was unset would have *succeeded*. The `bool(SECRET) and …` guard keeps login disabled
+when the secret isn't configured (matching the startup "login disabled" warnings).
+
+### Verification
+Syntax-checked, and logic-tested: correct password → allow, wrong → deny, unset secret +
+empty submission → deny (the latent bug).
+
+---
+
 ## Still open (auth audit)
-- **P6 LOW** — admin login uses a non-constant-time password compare.
 - **Round-1** — `_applyLoginData` frontend single-point-of-failure (`app.js`).
