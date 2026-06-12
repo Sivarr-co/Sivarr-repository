@@ -7620,6 +7620,46 @@ async def community_create_post(data: dict, request: Request):
     return {"ok": True, "post": post}
 
 
+@app.delete("/api/community/posts/{post_id}")
+async def community_delete_post(post_id: str, data: dict):
+    sess = get_session_from_token(data.get("token", ""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    if db.is_available():
+        conn = db._get_conn()
+        if not conn:
+            raise HTTPException(503, "Database unavailable.")
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM community_posts WHERE id = %s AND author_sid = %s",
+                    (post_id, sid)
+                )
+                if cur.rowcount == 0:
+                    raise HTTPException(403, "Post not found or not yours.")
+            conn.commit()
+        except HTTPException:
+            raise
+        except Exception as exc:
+            conn.rollback()
+            raise HTTPException(500, str(exc))
+        finally:
+            db._release(conn)
+    else:
+        with _comm_lock:
+            posts = _load_json_file(COMMUNITY_PATH, [])
+            post  = next((p for p in posts if p["id"] == post_id), None)
+            if not post:
+                raise HTTPException(404, "Post not found.")
+            if post.get("sid") != sid:
+                raise HTTPException(403, "You can only delete your own posts.")
+            posts = [p for p in posts if p["id"] != post_id]
+            _save_json_file(COMMUNITY_PATH, posts)
+    _rc_bust("comm:")
+    return {"ok": True}
+
+
 @app.post("/api/community/posts/{post_id}/like")
 async def community_like_post(post_id: str, data: dict):
     sess = get_session_from_token(data.get("token",""))

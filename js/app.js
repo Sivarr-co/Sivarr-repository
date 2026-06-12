@@ -7065,6 +7065,9 @@ function commSetMode(mode, btn) {
 }
 
 async function communityInit() {
+  // Set avatar initial in composer
+  const av = $('comm-av-init');
+  if (av) av.textContent = (S.name || '?')[0].toUpperCase();
   await commLoadFeed();
 }
 
@@ -7087,13 +7090,16 @@ async function commLoadFeed(category) {
 }
 
 function _commRenderPost(p) {
-  const ago    = _timeAgo(p.created);
-  const likes  = (p.likes || []).length;
-  const reps   = (p.replies || []).length;
-  const liked  = (p.likes || []).includes(S.sid || '');
+  const ago      = _timeAgo(p.created);
+  const likes    = (p.likes || []).length;
+  const allReps  = p.replies || [];
+  const liked    = (p.likes || []).includes(S.sid || '');
+  const isOwn    = p.sid && p.sid === S.sid;
   const initials = (p.author || 'U')[0].toUpperCase();
-  const tags   = (p.tags || []).map(t => `<span class="feed-tag">${esc(t)}</span>`).join('');
-  const replies = (p.replies || []).slice(-3).map(r => `
+  const tags     = (p.tags || []).map(t => `<span class="feed-tag">${esc(t)}</span>`).join('');
+  const showReps = allReps.slice(-3);
+  const moreReps = allReps.length - showReps.length;
+  const repliesHtml = showReps.map(r => `
     <div style="margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:.78rem">
       <span style="font-weight:600">${esc(r.author)}</span>
       <span style="color:var(--muted);margin-left:6px;font-size:.7rem">${_timeAgo(r.created)}</span>
@@ -7103,21 +7109,23 @@ function _commRenderPost(p) {
     <div class="feed-card" data-id="${esc(p.id)}">
       <div class="feed-hd">
         <div class="feed-av">${initials}</div>
-        <div style="flex:1">
-          <div class="feed-name">${esc(p.author)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="feed-name feed-author-link" onclick="commViewAuthor('${esc(p.sid||'')}','${esc(p.author)}')">${esc(p.author)}</div>
           <div class="feed-time">${ago}</div>
         </div>
         ${p.category && p.category !== 'general' ? `<span class="feat-badge">${esc(p.category)}</span>` : ''}
+        ${isOwn ? `<button class="feed-delete-btn" onclick="commDeletePost('${esc(p.id)}')" title="Delete post"><i class="ti ti-trash"></i></button>` : ''}
       </div>
       <div class="feed-body">${esc(p.body)}</div>
       ${tags ? `<div class="feed-tags">${tags}</div>` : ''}
-      ${replies}
+      ${moreReps > 0 ? `<div style="font-size:.72rem;color:var(--accent);margin-top:6px;cursor:pointer" onclick="commLoadFeed()">↑ ${moreReps} earlier repl${moreReps>1?'ies':'y'}</div>` : ''}
+      ${repliesHtml}
       <div class="feed-actions">
         <button class="feed-action-btn ${liked?'liked':''}" onclick="commLike('${esc(p.id)}',this)">
           <i class="ti ti-heart${liked?' ti-heart-filled':''}"></i> <span>${likes}</span>
         </button>
         <button class="feed-action-btn" onclick="commReply('${esc(p.id)}',this)">
-          <i class="ti ti-message"></i> <span>${reps}</span>
+          <i class="ti ti-message"></i> <span>${allReps.length}</span>
         </button>
       </div>
     </div>`;
@@ -7132,22 +7140,64 @@ function _timeAgo(iso) {
   return `${Math.floor(diff/86400)}d ago`;
 }
 
+function commCharCount(ta) {
+  const cc = $('comm-char-count');
+  if (cc) cc.textContent = `${ta.value.length} / 800`;
+  const btn = $('comm-post-btn');
+  if (btn) btn.disabled = ta.value.trim().length === 0;
+}
+
 async function communityPost() {
-  const body = await siModal.input('Share with Community', 'What\'s on your mind?', '', { confirmLabel:'Post' });
-  if (!body?.trim()) return;
+  const ta    = $('comm-post-text');
+  const catEl = $('comm-post-cat');
+  const body  = ta?.value.trim();
+  if (!body) { ta?.focus(); return; }
+  if (body.length > 800) { toast('Post is too long (max 800 characters).'); return; }
+  const category = catEl?.value || 'general';
   const token = localStorage.getItem('sivarr_token') || '';
+  const btn = $('comm-post-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Posting…'; }
   try {
     const r = await fetch('/api/community/posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, body: body.trim(), category: _commCategory === 'all' ? 'general' : _commCategory }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, body, category }),
     });
     const d = await r.json();
     if (d.ok) {
-      toast('Post shared ✓');
+      if (ta) { ta.value = ''; ta.style.height = 'auto'; }
+      const cc = $('comm-char-count'); if (cc) cc.textContent = '0 / 800';
+      toast('Posted ✓');
       commLoadFeed();
     }
-  } catch(_) { toast('Could not post. Try again.'); }
+  } catch(_) { toast('Could not post — try again.'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'Post →'; } }
+}
+
+async function commDeletePost(postId) {
+  if (!await siModal.confirm('Delete this post? This cannot be undone.', { title:'Delete Post', confirmLabel:'Delete', danger:true })) return;
+  const token = localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/community/posts/${postId}`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    if (r.ok) { toast('Post deleted'); commLoadFeed(); }
+    else toast('Could not delete post.');
+  } catch(_) { toast('Could not delete post.'); }
+}
+
+function commViewAuthor(sid, name) {
+  if (sid && sid === S.sid) { nav('profile', null); return; }
+  // For other users — filter feed to show only their posts
+  toast(`Showing posts by ${name}`);
+  const feed = $('community-feed');
+  if (!feed) return;
+  fetch(`/api/community/posts?limit=100`).then(r => r.json()).then(d => {
+    const posts = (d.posts || []).filter(p => p.sid === sid || p.author === name);
+    feed.innerHTML = posts.length
+      ? posts.map(p => _commRenderPost(p)).join('')
+      : `<div style="text-align:center;padding:32px;color:var(--muted)">No posts from ${esc(name)}.</div>`;
+  }).catch(() => {});
 }
 
 async function commLike(postId, btn) {
@@ -13093,60 +13143,125 @@ function oppInit() { oppRender(); }
    PHASE 7 — USER PROFILE
    ══════════════════════════════════════════════════ */
 
-function profileInit() {
+async function profileInit() {
   if (!S.sid) return;
   const key  = `sivarr_profile_${S.sid}`;
   const prof = JSON.parse(localStorage.getItem(key) || '{}');
 
-  // Avatar initials
+  // Avatar + name
   const av = $('profile-av-lg');
   if (av) av.textContent = (S.name || '?').charAt(0).toUpperCase();
-
-  // Name
   const nameEl = $('profile-name-disp');
   if (nameEl) nameEl.textContent = S.name || 'Your Name';
-
-  // Bio
   const bioEl = $('profile-bio-disp');
   if (bioEl) bioEl.textContent = prof.bio || 'Click to add a bio…';
 
-  // Stats from data stores
-  const goals    = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`)   || '[]');
-  const tasks    = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`)   || '[]');
-  const focusLog = JSON.parse(localStorage.getItem(`sivarr_focus_log_${S.sid}`) || '[]');
-  const journal  = JSON.parse(localStorage.getItem(`sivarr_journal_${S.sid}`) || '[]');
+  // Data from all panels
+  const goals   = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`)  || '[]');
+  const tasks   = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`)  || '[]');
+  const habits  = JSON.parse(localStorage.getItem(HAB_KEY())                 || '[]');
+  const journal = JSON.parse(localStorage.getItem(JNL_KEY())                 || '[]');
+  const skills  = (_skData().skills || []);
 
-  const focusHrs = focusLog.reduce((s, f) => s + (f.duration || 0), 0) / 60;
+  // Stats
   if ($('ps-goals'))   $('ps-goals').textContent   = goals.length;
   if ($('ps-tasks'))   $('ps-tasks').textContent   = tasks.filter(t => t.done).length;
-  if ($('ps-focus'))   $('ps-focus').textContent   = focusHrs.toFixed(1);
+  if ($('ps-skills'))  $('ps-skills').textContent  = skills.length;
+  if ($('ps-habits'))  $('ps-habits').textContent  = habits.length;
   if ($('ps-journal')) $('ps-journal').textContent = journal.length;
 
+  // Fetch post count
+  let postCount = 0;
+  let myPosts   = [];
+  try {
+    const r = await fetch(`/api/community/posts?limit=100`);
+    const d = await r.json();
+    myPosts   = (d.posts || []).filter(p => p.sid === S.sid);
+    postCount = myPosts.length;
+  } catch(_) {}
+  if ($('ps-posts')) $('ps-posts').textContent = postCount;
+
   // Achievements
-  profileRenderAchievements(goals, tasks, focusLog, journal);
+  profileRenderAchievements(goals, tasks, habits, journal, skills, myPosts);
 
-  // Skills
-  profileRenderSkills(prof.skills || []);
+  // Skills — from new Skills panel
+  const sl = $('profile-skills-list');
+  if (sl) {
+    if (!skills.length) {
+      sl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:6px 0">No skills tracked yet — <button onclick="nav('skills',null)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">add one →</button></div>`;
+    } else {
+      sl.innerHTML = skills.slice(0, 5).map(k => {
+        const lv = _skLevel(k.level || 0);
+        return `<div class="profile-skill-row" onclick="nav('skills',null)">
+          <span style="font-size:1.1rem">${k.emoji || '💡'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+              <span style="font-size:.82rem;font-weight:600">${esc(k.name)}</span>
+              <span style="font-size:.68rem;color:var(--text3)">${lv.label} · ${k.level||0}%</span>
+            </div>
+            <div style="height:4px;background:var(--border2);border-radius:3px;overflow:hidden">
+              <div style="height:4px;width:${k.level||0}%;background:${lv.color};border-radius:3px"></div>
+            </div>
+          </div>
+        </div>`;
+      }).join('') + (skills.length > 5 ? `<div style="font-size:.72rem;color:var(--text3);padding:6px 0">+${skills.length-5} more</div>` : '');
+    }
+  }
 
-  // Tags
-  const tags = $('profile-tags');
-  if (tags && prof.tags && prof.tags.length) {
-    tags.innerHTML = prof.tags.map(t => `<span class="profile-tag">${escHtml(t)}</span>`).join('');
+  // My Posts
+  const pl = $('profile-posts-list');
+  if (pl) {
+    if (!myPosts.length) {
+      pl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:6px 0">No posts yet — <button onclick="nav('community',null)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">share something →</button></div>`;
+    } else {
+      pl.innerHTML = myPosts.slice(0, 5).map(p => {
+        const likes = (p.likes || []).length;
+        const reps  = (p.replies || []).length;
+        return `<div class="profile-post-item" onclick="nav('community',null)">
+          <div class="profile-post-body">${esc((p.body||'').slice(0, 120))}${p.body?.length>120?'…':''}</div>
+          <div class="profile-post-meta">
+            <span>❤️ ${likes}</span><span>💬 ${reps}</span>
+            <span>${_timeAgo(p.created)}</span>
+            ${p.category !== 'general' ? `<span class="feat-badge" style="font-size:.65rem">${esc(p.category)}</span>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
   }
 }
 
-function profileRenderAchievements(goals, tasks, focusLog, journal) {
+function profileRenderAchievements(goals, tasks, habits, journal, skills, posts) {
   const grid = $('achievements-grid');
   if (!grid) return;
-  const badges = [];
-  if (tasks.filter(t => t.done).length >= 1)  badges.push({ icon:'✅', label:'First Task Done' });
-  if (tasks.filter(t => t.done).length >= 10) badges.push({ icon:'🏆', label:'10 Tasks Crushed' });
-  if (goals.length >= 1)  badges.push({ icon:'🎯', label:'Goal Setter' });
-  if (journal.length >= 1) badges.push({ icon:'📓', label:'First Journal Entry' });
-  if (focusLog.length >= 1) badges.push({ icon:'⏱', label:'Focus Starter' });
-  if (focusLog.reduce((s,f)=>s+(f.duration||0),0) >= 60) badges.push({ icon:'🔥', label:'1hr Focus' });
+  const tasksDone = tasks.filter(t => t.done).length;
+  const bestStreak = habits.reduce((m, h) => Math.max(m, h.best_streak || h.streak || 0), 0);
+  const totalSkillHrs = (skills || []).reduce((s, k) => s + Math.round((k.total_mins || 0) / 60), 0);
+  const finData = _finData();
+  const hasTx = (finData.transactions || []).length > 0;
 
-  if (!badges.length) { grid.innerHTML = '<div class="achieve-empty">Complete tasks, goals, and focus sessions to earn badges.</div>'; return; }
+  const badges = [
+    tasksDone >= 1   && { icon:'✅', label:'First Task Done' },
+    tasksDone >= 10  && { icon:'🏆', label:'10 Tasks Crushed' },
+    tasksDone >= 50  && { icon:'💎', label:'50 Tasks Done' },
+    goals.length >= 1 && { icon:'🎯', label:'Goal Setter' },
+    goals.filter(g => g.completed).length >= 1 && { icon:'🏅', label:'Goal Achieved' },
+    journal.length >= 1  && { icon:'📓', label:'First Journal Entry' },
+    journal.length >= 10 && { icon:'✍️', label:'10 Journal Entries' },
+    bestStreak >= 3  && { icon:'🔥', label:`${bestStreak}-Day Streak` },
+    bestStreak >= 30 && { icon:'🌟', label:'30-Day Streak' },
+    habits.length >= 1 && { icon:'🔁', label:'Habit Builder' },
+    (skills||[]).length >= 1 && { icon:'🧠', label:'Skill Tracked' },
+    (skills||[]).length >= 5 && { icon:'💡', label:'5 Skills' },
+    totalSkillHrs >= 10 && { icon:'⚡', label:'10h Practiced' },
+    hasTx            && { icon:'💰', label:'Finance Tracker' },
+    (posts||[]).length >= 1 && { icon:'👥', label:'Community Member' },
+    (posts||[]).length >= 5 && { icon:'📢', label:'Active Contributor' },
+  ].filter(Boolean);
+
+  if (!badges.length) {
+    grid.innerHTML = '<div class="achieve-empty">Complete tasks, set goals, track habits, and log skills to earn badges.</div>';
+    return;
+  }
   grid.innerHTML = badges.map(b =>
     `<div class="achieve-badge"><span class="a-icon">${b.icon}</span>${escHtml(b.label)}</div>`
   ).join('');
