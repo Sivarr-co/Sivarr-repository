@@ -2096,8 +2096,23 @@ async def landing():
     """Public landing page — served to everyone at the root URL."""
     if Path("templates/landing.html").exists():
         return Path("templates/landing.html").read_text()
-    # Fallback: redirect to /app if landing page not built yet
     return RedirectResponse(url="/app", status_code=302)
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms():
+    p = Path("templates/legal/terms.html")
+    if p.exists():
+        return p.read_text()
+    raise HTTPException(404, "Terms page not found")
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy():
+    p = Path("templates/legal/privacy.html")
+    if p.exists():
+        return p.read_text()
+    raise HTTPException(404, "Privacy page not found")
 
 
 def _serve_app() -> HTMLResponse:

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terms of Service — Sivarr</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --teal:   #0D7A5F;
+  --teal2:  #0a6350;
+  --purple: #534AB7;
+  --bg:     #080808;
+  --bg2:    #0f0f0f;
+  --bg3:    #161616;
+  --card:   #111111;
+  --border: #1e1e1e;
+  --border2:#2a2a2a;
+  --text1:  #f0f0f0;
+  --text2:  #a0a0a0;
+  --muted:  #555;
+  --font:   'Plus Jakarta Sans', system-ui, sans-serif;
+  --r:      12px;
+}
+
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text1); font-family: var(--font); font-size: 16px; line-height: 1.7; overflow-x: hidden; }
+a { color: var(--teal); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── NAVBAR ── */
+nav {
+  position: sticky; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px; height: 64px;
+  background: rgba(8,8,8,.92); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font); font-size: 1.15rem; font-weight: 800;
+  letter-spacing: -.03em; color: var(--text1); text-decoration: none;
+}
+.nav-logo-dot {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--teal), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; color: #fff; font-weight: 900;
+}
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.nav-link { font-size: .85rem; color: var(--text2); font-weight: 500; transition: color .2s; }
+.nav-link:hover { color: var(--text1); text-decoration: none; }
+.btn-nav {
+  padding: 8px 18px; border-radius: 9px; border: none;
+  background: linear-gradient(135deg, var(--teal), var(--teal2));
+  color: #fff; font-family: var(--font); font-size: .83rem;
+  font-weight: 700; cursor: pointer; text-decoration: none;
+}
+
+/* ── LEGAL LAYOUT ── */
+.legal-wrap {
+  max-width: 740px; margin: 0 auto; padding: 72px 24px 100px;
+}
+.legal-label {
+  display: inline-block; background: rgba(13,122,95,.12);
+  border: 1px solid rgba(13,122,95,.25); color: var(--teal);
+  padding: 5px 12px; border-radius: 20px; font-size: .73rem;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.legal-title {
+  font-size: clamp(2rem, 5vw, 3rem); font-weight: 900;
+  letter-spacing: -.04em; line-height: 1.1; margin-bottom: 12px;
+}
+.legal-meta { font-size: .83rem; color: var(--muted); margin-bottom: 56px; }
+.legal-meta span { color: var(--text2); }
+
+/* Table of contents */
+.toc {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 24px 28px; margin-bottom: 60px;
+}
+.toc h3 { font-size: .82rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; margin-bottom: 16px; }
+.toc ol { padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.toc li a { font-size: .88rem; color: var(--text2); transition: color .2s; }
+.toc li a:hover { color: var(--teal); text-decoration: none; }
+
+/* Sections */
+.legal-section { margin-bottom: 52px; scroll-margin-top: 88px; }
+.legal-section h2 {
+  font-size: 1.2rem; font-weight: 800; letter-spacing: -.02em;
+  margin-bottom: 14px; color: var(--text1);
+  display: flex; align-items: center; gap: 10px;
+}
+.legal-section h2 .sec-num {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  background: rgba(13,122,95,.12); border: 1px solid rgba(13,122,95,.2);
+  color: var(--teal); font-size: .72rem; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+}
+.legal-section p { color: var(--text2); font-size: .93rem; margin-bottom: 12px; }
+.legal-section ul { padding-left: 20px; display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.legal-section li { color: var(--text2); font-size: .93rem; }
+.legal-section li::marker { color: var(--teal); }
+hr.section-div { border: none; border-top: 1px solid var(--border); margin-bottom: 52px; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border); background: var(--bg);
+  padding: 32px 40px;
+}
+.footer-inner {
+  max-width: 740px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+  font-size: .78rem; color: var(--muted);
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a { color: var(--muted); transition: color .2s; }
+.footer-links a:hover { color: var(--text1); text-decoration: none; }
+
+@media (max-width: 600px) {
+  nav { padding: 0 20px; }
+  .legal-wrap { padding: 48px 20px 80px; }
+  footer { padding: 24px 20px; }
+  .footer-inner { flex-direction: column; gap: 12px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-dot">S</div>
+    Sivarr
+  </a>
+  <div class="nav-right">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/privacy" class="nav-link">Privacy</a>
+    <a href="/app" class="btn-nav">Open app</a>
+  </div>
+</nav>
+
+<div class="legal-wrap">
+  <div class="legal-label">Legal</div>
+  <h1 class="legal-title">Terms of Service</h1>
+  <p class="legal-meta">Last updated: <span>June 2026</span> &nbsp;·&nbsp; Effective immediately upon account creation.</p>
+
+  <div class="toc">
+    <h3>On this page</h3>
+    <ol>
+      <li><a href="#s1">Acceptance of Terms</a></li>
+      <li><a href="#s2">Use of Service</a></li>
+      <li><a href="#s3">Account Responsibilities</a></li>
+      <li><a href="#s4">Subscription and Billing</a></li>
+      <li><a href="#s5">Data and Privacy</a></li>
+      <li><a href="#s6">AI-Generated Content</a></li>
+      <li><a href="#s7">Intellectual Property</a></li>
+      <li><a href="#s8">Termination</a></li>
+      <li><a href="#s9">Limitation of Liability</a></li>
+      <li><a href="#s10">Governing Law</a></li>
+      <li><a href="#s11">Contact</a></li>
+    </ol>
+  </div>
+
+  <div class="legal-section" id="s1">
+    <h2><span class="sec-num">1</span> Acceptance of Terms</h2>
+    <p>By creating an account or using any part of Sivarr, you agree to be bound by these Terms of Service. If you don't agree, please don't use the platform.</p>
+    <p>These terms apply to all users — whether you're on the Free plan, a paying subscriber, or just browsing. We may update these terms from time to time. When we do, we'll notify you by email and post the updated version here. Continued use after an update means you accept the new terms.</p>
+    <p>If you're using Sivarr on behalf of an organisation, you represent that you have the authority to bind that organisation to these terms.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s2">
+    <h2><span class="sec-num">2</span> Use of Service</h2>
+    <p>Sivarr is a productivity platform for personal organisation, collaboration, and learning. You can use it to manage tasks, goals, habits, notes, and team workspaces.</p>
+    <p>You must be at least 13 years old to use Sivarr. If you are under 18, you should have a parent or guardian's permission.</p>
+    <p>You agree not to:</p>
+    <ul>
+      <li>Use Sivarr for any illegal activity or to harm others</li>
+      <li>Attempt to reverse-engineer, scrape, or abuse the platform's APIs</li>
+      <li>Use AI features to generate spam, misinformation, or harmful content</li>
+      <li>Share your account credentials or allow others to use your account</li>
+      <li>Attempt to access other users' data without authorisation</li>
+    </ul>
+    <p>We reserve the right to investigate suspected violations and suspend access without notice if we believe the platform is being misused.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s3">
+    <h2><span class="sec-num">3</span> Account Responsibilities</h2>
+    <p>You are responsible for everything that happens under your account. Keep your password secure and don't share it. If you sign in via Google, make sure your Google account is secure too.</p>
+    <p>If you think your account has been compromised, let us know immediately at <a href="mailto:support@sivarr.com">support@sivarr.com</a>. We'll do our best to help, but we can't be responsible for any losses caused by unauthorised access to your account.</p>
+    <p>You are also responsible for all content you create, upload, or share through Sivarr — tasks, notes, documents, or anything else. Make sure you have the rights to any content you upload.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s4">
+    <h2><span class="sec-num">4</span> Subscription and Billing</h2>
+    <p>Sivarr offers a Free plan and paid plans (Pro and Team). Paid plans are billed monthly in Nigerian Naira (NGN) via Paystack or Flutterwave.</p>
+    <p>By subscribing to a paid plan, you authorise us to charge your payment method on a recurring monthly basis. Prices are shown inclusive of any applicable taxes.</p>
+    <p>You can cancel your subscription at any time from your account settings. Cancellation takes effect at the end of your current billing period — you'll retain access to Pro features until then.</p>
+    <p>Refunds are available within 7 days of your first payment on a new plan. After 7 days, payments are non-refundable. If you have an issue, reach out to us and we'll try to find a fair resolution.</p>
+    <p>We may change pricing with 30 days' notice sent to your registered email address.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s5">
+    <h2><span class="sec-num">5</span> Data and Privacy</h2>
+    <p>Your privacy matters to us. We collect only the data we need to provide and improve Sivarr. We do not sell your personal data to third parties — ever.</p>
+    <p>The full details of how we collect, use, and protect your data are in our <a href="/privacy">Privacy Policy</a>, which is part of these Terms. Please read it.</p>
+    <p>By using Sivarr, you grant us a limited licence to store and process your content solely to provide you with the service. We don't claim ownership of your data.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s6">
+    <h2><span class="sec-num">6</span> AI-Generated Content</h2>
+    <p>Sivarr uses third-party AI models (including Google's Gemini) to power features like the daily brief, writing assistant, and task extraction. AI can be incredibly useful, but it's not perfect.</p>
+    <p>AI-generated content may occasionally be inaccurate, outdated, or misleading. You should always verify important information — especially anything related to health, legal, or financial decisions — before acting on it.</p>
+    <p>We are not liable for any decisions you make based on AI-generated content. The AI is a productivity tool, not a professional advisor.</p>
+    <p>You retain ownership of any content you create using the AI writing tools. However, you're responsible for reviewing it before publishing or sending.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s7">
+    <h2><span class="sec-num">7</span> Intellectual Property</h2>
+    <p>Everything that makes Sivarr what it is — the code, design, branding, product name, and platform architecture — belongs to Sivarr and is protected by intellectual property law. You may not copy, reproduce, or build competing products using our platform.</p>
+    <p>Your content is yours. Tasks you create, goals you set, notes you write, documents you upload — all of that belongs to you. You can export your data at any time.</p>
+    <p>By posting content that other users can see (such as in an Org Space), you grant those users a limited licence to view and interact with that content within Sivarr.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s8">
+    <h2><span class="sec-num">8</span> Termination</h2>
+    <p>You can close your Sivarr account at any time from your account settings. When you do, we'll delete your data within 30 days (see the Privacy Policy for details).</p>
+    <p>We may suspend or terminate your account if:</p>
+    <ul>
+      <li>You violate these Terms of Service</li>
+      <li>Your account is involved in fraudulent activity</li>
+      <li>We receive a valid legal order requiring us to do so</li>
+      <li>You haven't logged in for 24 consecutive months (after prior notice)</li>
+    </ul>
+    <p>In most cases we'll warn you first. For serious violations we may act immediately. If you believe your account was suspended in error, contact us at <a href="mailto:support@sivarr.com">support@sivarr.com</a>.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s9">
+    <h2><span class="sec-num">9</span> Limitation of Liability</h2>
+    <p>Sivarr is provided "as is" and "as available." We make no warranties — express or implied — about the reliability, uptime, or fitness of the platform for any particular purpose.</p>
+    <p>To the fullest extent permitted by law, Sivarr and its team are not liable for any indirect, incidental, or consequential damages arising from your use of the platform — including data loss, service interruptions, or errors in AI-generated content.</p>
+    <p>Our total liability to you for any claim arising from use of Sivarr is limited to the amount you paid us in the 3 months preceding the claim, or ₦5,000 — whichever is greater.</p>
+    <p>Some jurisdictions don't allow certain liability exclusions. Where local law overrides these terms, only the specific override applies — the rest of these terms remain in effect.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s10">
+    <h2><span class="sec-num">10</span> Governing Law</h2>
+    <p>These Terms are governed by the laws of the Federal Republic of Nigeria. Any disputes arising from these Terms or your use of Sivarr will be subject to the exclusive jurisdiction of the courts of Nigeria.</p>
+    <p>If any provision of these Terms is found to be unenforceable, the remaining provisions continue in full force and effect.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s11">
+    <h2><span class="sec-num">11</span> Contact</h2>
+    <p>If you have any questions about these Terms, or anything else related to your account, get in touch:</p>
+    <ul>
+      <li>General support: <a href="mailto:support@sivarr.com">support@sivarr.com</a></li>
+      <li>Privacy questions: <a href="mailto:privacy@sivarr.com">privacy@sivarr.com</a></li>
+      <li>Legal notices: <a href="mailto:legal@sivarr.com">legal@sivarr.com</a></li>
+    </ul>
+    <p style="margin-top:20px;">We'll do our best to respond within 2 business days.</p>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <span>© 2026 Sivarr. Built in Lagos, Nigeria.</span>
+    <div class="footer-links">
+      <a href="/">Home</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="mailto:support@sivarr.com">Support</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

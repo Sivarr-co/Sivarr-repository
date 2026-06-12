@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Sivarr</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --teal:   #0D7A5F;
+  --teal2:  #0a6350;
+  --purple: #534AB7;
+  --bg:     #080808;
+  --bg2:    #0f0f0f;
+  --bg3:    #161616;
+  --card:   #111111;
+  --border: #1e1e1e;
+  --border2:#2a2a2a;
+  --text1:  #f0f0f0;
+  --text2:  #a0a0a0;
+  --muted:  #555;
+  --font:   'Plus Jakarta Sans', system-ui, sans-serif;
+  --r:      12px;
+}
+
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text1); font-family: var(--font); font-size: 16px; line-height: 1.7; overflow-x: hidden; }
+a { color: var(--teal); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── NAVBAR ── */
+nav {
+  position: sticky; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px; height: 64px;
+  background: rgba(8,8,8,.92); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font); font-size: 1.15rem; font-weight: 800;
+  letter-spacing: -.03em; color: var(--text1); text-decoration: none;
+}
+.nav-logo-dot {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--teal), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; color: #fff; font-weight: 900;
+}
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.nav-link { font-size: .85rem; color: var(--text2); font-weight: 500; transition: color .2s; }
+.nav-link:hover { color: var(--text1); text-decoration: none; }
+.btn-nav {
+  padding: 8px 18px; border-radius: 9px; border: none;
+  background: linear-gradient(135deg, var(--teal), var(--teal2));
+  color: #fff; font-family: var(--font); font-size: .83rem;
+  font-weight: 700; cursor: pointer; text-decoration: none;
+}
+
+/* ── LEGAL LAYOUT ── */
+.legal-wrap {
+  max-width: 740px; margin: 0 auto; padding: 72px 24px 100px;
+}
+.legal-label {
+  display: inline-block; background: rgba(83,74,183,.12);
+  border: 1px solid rgba(83,74,183,.25); color: #a78bfa;
+  padding: 5px 12px; border-radius: 20px; font-size: .73rem;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.legal-title {
+  font-size: clamp(2rem, 5vw, 3rem); font-weight: 900;
+  letter-spacing: -.04em; line-height: 1.1; margin-bottom: 12px;
+}
+.legal-meta { font-size: .83rem; color: var(--muted); margin-bottom: 56px; }
+.legal-meta span { color: var(--text2); }
+
+/* Highlight box */
+.highlight-box {
+  background: rgba(13,122,95,.07); border: 1px solid rgba(13,122,95,.2);
+  border-radius: var(--r); padding: 20px 24px; margin-bottom: 56px;
+}
+.highlight-box p { font-size: .88rem; color: var(--text2); margin: 0; }
+.highlight-box strong { color: var(--text1); }
+
+/* Table of contents */
+.toc {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 24px 28px; margin-bottom: 60px;
+}
+.toc h3 { font-size: .82rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; margin-bottom: 16px; }
+.toc ol { padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.toc li a { font-size: .88rem; color: var(--text2); transition: color .2s; }
+.toc li a:hover { color: var(--teal); text-decoration: none; }
+
+/* Sections */
+.legal-section { margin-bottom: 52px; scroll-margin-top: 88px; }
+.legal-section h2 {
+  font-size: 1.2rem; font-weight: 800; letter-spacing: -.02em;
+  margin-bottom: 14px; color: var(--text1);
+  display: flex; align-items: center; gap: 10px;
+}
+.legal-section h2 .sec-num {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  background: rgba(83,74,183,.12); border: 1px solid rgba(83,74,183,.2);
+  color: #a78bfa; font-size: .72rem; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+}
+.legal-section p { color: var(--text2); font-size: .93rem; margin-bottom: 12px; }
+.legal-section ul { padding-left: 20px; display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.legal-section li { color: var(--text2); font-size: .93rem; }
+.legal-section li::marker { color: var(--teal); }
+
+/* Third-party table */
+.providers-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: .85rem; }
+.providers-table th {
+  text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border2);
+  font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+}
+.providers-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: top; }
+.providers-table tr:last-child td { border-bottom: none; }
+.providers-table td:first-child { color: var(--text1); font-weight: 600; white-space: nowrap; }
+
+hr.section-div { border: none; border-top: 1px solid var(--border); margin-bottom: 52px; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border); background: var(--bg);
+  padding: 32px 40px;
+}
+.footer-inner {
+  max-width: 740px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+  font-size: .78rem; color: var(--muted);
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a { color: var(--muted); transition: color .2s; }
+.footer-links a:hover { color: var(--text1); text-decoration: none; }
+
+@media (max-width: 600px) {
+  nav { padding: 0 20px; }
+  .legal-wrap { padding: 48px 20px 80px; }
+  footer { padding: 24px 20px; }
+  .footer-inner { flex-direction: column; gap: 12px; }
+  .providers-table { display: block; overflow-x: auto; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-dot">S</div>
+    Sivarr
+  </a>
+  <div class="nav-right">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/terms" class="nav-link">Terms</a>
+    <a href="/app" class="btn-nav">Open app</a>
+  </div>
+</nav>
+
+<div class="legal-wrap">
+  <div class="legal-label">Legal</div>
+  <h1 class="legal-title">Privacy Policy</h1>
+  <p class="legal-meta">Last updated: <span>June 2026</span> &nbsp;·&nbsp; We'll notify you by email of any material changes.</p>
+
+  <div class="highlight-box">
+    <p><strong>The short version:</strong> We collect the minimum data needed to run Sivarr. We never sell your data. You can delete your account and all associated data at any time.</p>
+  </div>
+
+  <div class="toc">
+    <h3>On this page</h3>
+    <ol>
+      <li><a href="#s1">What data we collect</a></li>
+      <li><a href="#s2">How we use it</a></li>
+      <li><a href="#s3">Data storage</a></li>
+      <li><a href="#s4">Third-party services</a></li>
+      <li><a href="#s5">Google OAuth</a></li>
+      <li><a href="#s6">Data retention</a></li>
+      <li><a href="#s7">Your rights</a></li>
+      <li><a href="#s8">Cookies</a></li>
+      <li><a href="#s9">Children</a></li>
+      <li><a href="#s10">Changes to this policy</a></li>
+      <li><a href="#s11">Contact</a></li>
+    </ol>
+  </div>
+
+  <div class="legal-section" id="s1">
+    <h2><span class="sec-num">1</span> What data we collect</h2>
+    <p>We collect only what we need to provide you with a working, personalised Sivarr experience:</p>
+    <ul>
+      <li><strong>Account data</strong> — your name, email address, and (if you set one) a hashed password. We never store plaintext passwords.</li>
+      <li><strong>Content you create</strong> — tasks, goals, habits, notes, journal entries, documents, and anything else you add to your workspace.</li>
+      <li><strong>Usage data</strong> — which features you use, how often, and session timestamps. This helps us improve the product.</li>
+      <li><strong>Device and technical info</strong> — browser type, operating system, and IP address. Used for security and debugging.</li>
+      <li><strong>Payment data</strong> — we do not store card numbers. Payments are handled by Paystack or Flutterwave, which have their own privacy policies.</li>
+      <li><strong>AI conversation history</strong> — messages you send to Sivarr AI, stored to provide context across sessions. You can clear your AI history at any time.</li>
+    </ul>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s2">
+    <h2><span class="sec-num">2</span> How we use it</h2>
+    <p>The data we collect is used for the following purposes:</p>
+    <ul>
+      <li><strong>To provide the service</strong> — personalising your dashboard, generating AI briefs, syncing your workspace across devices.</li>
+      <li><strong>To improve Sivarr</strong> — understanding how features are used so we can build better ones. We use aggregated, anonymised data for this.</li>
+      <li><strong>To send you notifications</strong> — reminders, streaks, and product updates. You can opt out in your settings.</li>
+      <li><strong>To process payments</strong> — verifying subscription status and managing billing via Paystack or Flutterwave.</li>
+      <li><strong>To keep you safe</strong> — detecting fraud, abuse, and security threats.</li>
+      <li><strong>To comply with the law</strong> — responding to valid legal requests when required.</li>
+    </ul>
+    <p>We do not use your personal data to train third-party AI models, and we do not sell or share it with advertisers.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s3">
+    <h2><span class="sec-num">3</span> Data storage</h2>
+    <p>Your data is stored in a PostgreSQL database hosted on Railway, with servers in the EU and US. Railway's infrastructure is SOC 2 compliant.</p>
+    <p>All data is transmitted over HTTPS (TLS 1.2+). Passwords are hashed using bcrypt before storage. We never store plaintext passwords or payment card numbers.</p>
+    <p>Payments are processed by Paystack and Flutterwave. We receive only a transaction reference and subscription status — not your card details.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s4">
+    <h2><span class="sec-num">4</span> Third-party services</h2>
+    <p>Sivarr uses the following third-party services. Each has its own privacy policy:</p>
+    <table class="providers-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Purpose</th>
+          <th>Privacy policy</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Google Gemini AI</td>
+          <td>Powers Sivarr AI responses and writing tools</td>
+          <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a></td>
+        </tr>
+        <tr>
+          <td>Google OAuth</td>
+          <td>Optional sign-in with Google (see section 5)</td>
+          <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a></td>
+        </tr>
+        <tr>
+          <td>Paystack</td>
+          <td>Payment processing (Nigeria)</td>
+          <td><a href="https://paystack.com/privacy-policy" target="_blank" rel="noopener">paystack.com/privacy-policy</a></td>
+        </tr>
+        <tr>
+          <td>Flutterwave</td>
+          <td>Alternative payment processing</td>
+          <td><a href="https://flutterwave.com/us/privacy-policy" target="_blank" rel="noopener">flutterwave.com/privacy-policy</a></td>
+        </tr>
+        <tr>
+          <td>Railway</td>
+          <td>Cloud hosting and database infrastructure</td>
+          <td><a href="https://railway.app/legal/privacy" target="_blank" rel="noopener">railway.app/legal/privacy</a></td>
+        </tr>
+        <tr>
+          <td>Resend / Gmail SMTP</td>
+          <td>Sending transactional emails (verification, notifications)</td>
+          <td><a href="https://resend.com/privacy" target="_blank" rel="noopener">resend.com/privacy</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s5">
+    <h2><span class="sec-num">5</span> Google OAuth</h2>
+    <p>If you choose to sign in with Google, we request the following scopes only:</p>
+    <ul>
+      <li><strong>openid</strong> — to verify your identity</li>
+      <li><strong>email</strong> — to create or match your Sivarr account</li>
+      <li><strong>profile</strong> — to get your name for personalisation</li>
+    </ul>
+    <p>We do not request access to Google Drive, Google Calendar (unless you explicitly connect it in the Calendar integration), Gmail, Contacts, or any other Google service. We do not store your Google password or OAuth tokens beyond what's needed for your current session.</p>
+    <p>You can revoke Sivarr's access to your Google account at any time at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s6">
+    <h2><span class="sec-num">6</span> Data retention</h2>
+    <p>We keep your data for as long as your account is active. If you delete your account:</p>
+    <ul>
+      <li>Your personal data (name, email, profile) is permanently deleted within 30 days.</li>
+      <li>Your workspace content (tasks, notes, goals, journal entries) is deleted within 30 days.</li>
+      <li>Payment records may be retained for up to 7 years as required by Nigerian financial regulations.</li>
+      <li>Anonymised, aggregated usage data (no personal identifiers) may be retained indefinitely for product analytics.</li>
+    </ul>
+    <p>You can export your data at any time before deleting your account by going to Settings → Data export.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s7">
+    <h2><span class="sec-num">7</span> Your rights</h2>
+    <p>You have the following rights over your data:</p>
+    <ul>
+      <li><strong>Access</strong> — request a copy of all data we hold about you.</li>
+      <li><strong>Correction</strong> — ask us to correct inaccurate information.</li>
+      <li><strong>Deletion</strong> — ask us to delete your account and all associated data.</li>
+      <li><strong>Portability</strong> — export your workspace data in a standard format.</li>
+      <li><strong>Objection</strong> — object to how we use your data for certain purposes.</li>
+    </ul>
+    <p>To exercise any of these rights, email <a href="mailto:privacy@sivarr.com">privacy@sivarr.com</a>. We'll respond within 30 days. You can also delete your account directly from Settings at any time without contacting us.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s8">
+    <h2><span class="sec-num">8</span> Cookies</h2>
+    <p>Sivarr uses session tokens stored in your browser's local storage (not cookies) to keep you signed in. We do not use advertising cookies, tracking pixels, or third-party analytics cookies.</p>
+    <p>The only data stored in your browser is your session token (a random string used to authenticate your requests) and your UI preferences (like selected theme or sidebar state).</p>
+    <p>We do not use Google Analytics, Facebook Pixel, or any advertising network tracking on the platform.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s9">
+    <h2><span class="sec-num">9</span> Children</h2>
+    <p>Sivarr is not intended for children under 13 years old. We do not knowingly collect personal data from anyone under 13.</p>
+    <p>If you're a parent or guardian and believe your child has created an account, please email <a href="mailto:privacy@sivarr.com">privacy@sivarr.com</a> and we will delete the account promptly.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s10">
+    <h2><span class="sec-num">10</span> Changes to this policy</h2>
+    <p>We may update this Privacy Policy from time to time to reflect changes in the platform or applicable law. When we make material changes, we'll:</p>
+    <ul>
+      <li>Send a notification to your registered email address</li>
+      <li>Update the "Last updated" date at the top of this page</li>
+      <li>Post an in-app notification for significant changes</li>
+    </ul>
+    <p>Continued use of Sivarr after the effective date of a change means you accept the updated policy. If you don't agree, you can delete your account before the change takes effect.</p>
+  </div>
+  <hr class="section-div">
+
+  <div class="legal-section" id="s11">
+    <h2><span class="sec-num">11</span> Contact</h2>
+    <p>For any privacy-related questions, requests, or concerns:</p>
+    <ul>
+      <li>Email: <a href="mailto:privacy@sivarr.com">privacy@sivarr.com</a></li>
+      <li>General support: <a href="mailto:support@sivarr.com">support@sivarr.com</a></li>
+    </ul>
+    <p style="margin-top:20px;">We aim to respond to all privacy requests within 30 days.</p>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <span>© 2026 Sivarr. Built in Lagos, Nigeria.</span>
+    <div class="footer-links">
+      <a href="/">Home</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="mailto:support@sivarr.com">Support</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
