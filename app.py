@@ -458,7 +458,9 @@ def sanitize_text(text: str, max_len: int = MAX_MESSAGE_LEN) -> str:
     - Strips whitespace
     - Removes null bytes and control characters
     - Enforces max length
-    - Prevents path traversal sequences
+
+    NOTE: this does NOT strip path-traversal sequences (../, /, \\). For any
+    value interpolated into a filesystem path (e.g. sid), use validate_sid().
     """
     if not text:
         return ""
@@ -2785,7 +2787,7 @@ async def chat_stream(req: ChatRequest, request: Request):
 
 @app.get("/api/quiz/question")
 async def quiz_question(request: Request, sid: str, topic: str = "", difficulty: str = "medium", file_id: str = ""):
-    sid = sanitize_text(sid, 100)
+    sid = validate_sid(sid)  # strips path-traversal chars; sid is interpolated into the upload path
     key = get_client_key(request, sid)
     check_rate_limit(key, RATE_LIMIT_QUIZ, "quiz")
 
@@ -2795,7 +2797,7 @@ async def quiz_question(request: Request, sid: str, topic: str = "", difficulty:
     p = load_progress(sid)
 
     if file_id:
-        file_id = sanitize_text(file_id, 20)
+        file_id = re.sub(r"[^a-z0-9]", "", file_id.lower())[:20]  # alnum only; file_id is interpolated into the path
         fpath = UPLOADS_DIR / f"{sid}_{file_id}.txt"
         if fpath.exists():
             content = fpath.read_text()[:3000]
@@ -3037,7 +3039,7 @@ def _extract_file_text(content: bytes, ext: str) -> str:
 
 @app.post("/api/upload")
 async def upload_file(request: Request, sid: str = Form(...), file: UploadFile = File(...)):
-    sid = sanitize_text(sid, 100)
+    sid = validate_sid(sid)  # strips path-traversal chars; sid is interpolated into the upload path
     key = get_client_key(request, sid)
     check_rate_limit(key, RATE_LIMIT_UPLOAD, "upload")
 
