@@ -7520,14 +7520,38 @@ async def billing_verify(reference: str, token: str = ""):
         raise HTTPException(502, "Paystack API unreachable.")
     if not result.get("status") or result["data"]["status"] != "success":
         raise HTTPException(400, "Payment not confirmed.")
-    tx      = result["data"]
-    meta    = tx.get("metadata", {})
-    sid     = meta.get("sivarr_sid", sess["sid"])
-    plan_id = meta.get("plan_id","")
-    plan    = SIVARR_PLANS.get(plan_id, {})
+    tx   = result["data"]
+    meta = tx.get("metadata", {}) or {}
+
+    # Bind the payment to the authenticated user — prevents replaying another
+    # user's reference onto your own account.
+    if meta.get("sivarr_sid") and meta.get("sivarr_sid") != sess["sid"]:
+        raise HTTPException(403, "This payment belongs to a different account.")
+    sid = sess["sid"]
+
+    # Derive the plan from the server-set metadata, then verify the amount and
+    # currency actually cover it — never trust a client-supplied plan or amount.
+    plan_id = meta.get("plan_id", "")
+    plan    = SIVARR_PLANS.get(plan_id)
+    if not plan:
+        log.error(f"Paystack verify: unknown plan_id {plan_id!r} ref={reference}")
+        raise HTTPException(400, "Could not determine the plan for this payment.")
+    paid_kobo = int(tx.get("amount", 0) or 0)
+    if (tx.get("currency") or "").upper() != "NGN" or paid_kobo < plan["amount_ngn"] * 100:
+        log.warning(f"Paystack verify amount mismatch ref={reference}: paid {paid_kobo} kobo "
+                    f"{tx.get('currency')}, need {plan['amount_ngn'] * 100} kobo for {plan_id}")
+        raise HTTPException(400, "Payment amount does not match the selected plan.")
+
+    p = load_progress(sid)
+    # Idempotency — don't re-apply a reference already in billing history.
+    if any(h.get("reference") == reference for h in p.get("billing_history", [])):
+        sub = p.get("subscription", {})
+        return {"ok": True, "plan": sub.get("plan", plan_id),
+                "name": sub.get("name", plan["name"]),
+                "expires": sub.get("expires", ""), "idempotent": True}
+
     now     = datetime.datetime.utcnow()
     expires = (now + datetime.timedelta(days=365 if plan.get("period")=="yearly" else 30)).strftime("%Y-%m-%d")
-    p = load_progress(sid)
     p["subscription"] = {
         "plan": plan_id, "name": plan.get("name","Pro"), "status": "active",
         "expires": expires, "reference": reference,
@@ -8067,10 +8091,38 @@ async def flutterwave_verify(reference: str, token: str = "", plan_id: str = "")
     if result.get("status") != "success" or result["data"]["status"] != "successful":
         raise HTTPException(400, "Payment not completed.")
     data = result["data"]
-    plan_id = plan_id or data.get("meta",{}).get("plan_id","pro_monthly")
-    plan    = SIVARR_PLANS.get(plan_id, SIVARR_PLANS["pro_monthly"])
+    meta = data.get("meta", {}) or {}
+
+    # Bind to the authenticated user, and IGNORE the client-supplied plan_id query
+    # param — use the server-set tx metadata. (The param let a user pay for the
+    # cheapest plan and claim the most expensive via ?plan_id=.)
+    if meta.get("sid") and meta.get("sid") != sess["sid"]:
+        raise HTTPException(403, "This payment belongs to a different account.")
     sid = sess["sid"]
-    p   = load_progress(sid)
+
+    meta_plan = meta.get("plan_id", "")
+    plan = SIVARR_PLANS.get(meta_plan)
+    if not plan:
+        log.error(f"Flutterwave verify: unknown plan_id {meta_plan!r} ref={reference}")
+        raise HTTPException(400, "Could not determine the plan for this payment.")
+    plan_id = meta_plan
+
+    # Verify the amount paid covers the plan (Flutterwave amount is in the major
+    # unit, e.g. NGN — not kobo).
+    try:
+        paid = float(data.get("amount", 0) or 0)
+    except (TypeError, ValueError):
+        paid = 0.0
+    if (data.get("currency") or "").upper() != "NGN" or paid < plan["amount_ngn"]:
+        log.warning(f"Flutterwave verify amount mismatch ref={reference}: paid {paid} "
+                    f"{data.get('currency')}, need {plan['amount_ngn']} NGN for {plan_id}")
+        raise HTTPException(400, "Payment amount does not match the selected plan.")
+
+    p = load_progress(sid)
+    # Idempotency — don't re-apply a reference already in billing history.
+    if any(h.get("reference") == reference for h in p.get("billing_history", [])):
+        return {"ok": True, "plan": p.get("subscription", {}), "idempotent": True}
+
     expires = (datetime.datetime.utcnow() + datetime.timedelta(
         days=365 if plan.get("period") == "yearly" else 32
     )).strftime("%Y-%m-%d")
