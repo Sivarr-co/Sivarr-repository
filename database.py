@@ -606,6 +606,9 @@ def user_exists(sid: str) -> bool:
         with conn.cursor() as cur:
             cur.execute("SELECT 1 FROM users WHERE sid = %s", (sid,))
             return cur.fetchone() is not None
+    except Exception as exc:
+        log.error(f"user_exists query failed [{sid}]: {exc}")
+        return False
     finally:
         _release(conn)
 
@@ -627,6 +630,9 @@ def get_user(sid: str) -> dict | None:
             "sid": row[0], "name": row[1], "matric": row[2],
             "email": row[3], "phone": row[4], "password": row[5],
         }
+    except Exception as exc:
+        log.error(f"get_user query failed [{sid}]: {exc}")
+        return None
     finally:
         _release(conn)
 
@@ -728,6 +734,9 @@ def get_db_session(token: str) -> dict | None:
             if not row:
                 return None
             return {"sid": row[0], "name": row[1], "email": row[2], "expires_at": row[3]}
+        except Exception as exc:
+            log.error(f"get_db_session query failed: {exc}")
+            return None
         finally:
             _release(conn)
 
@@ -798,6 +807,9 @@ def get_user_by_email(email: str) -> dict | None:
         if not row:
             return None
         return {"sid": row[0], "name": row[1], "email": row[2], "phone": row[3], "password": row[4]}
+    except Exception as exc:
+        log.error(f"get_user_by_email query failed: {exc}")
+        return None
     finally:
         _release(conn)
 
@@ -855,6 +867,9 @@ def get_reset_token(token: str) -> dict | None:
         if used or datetime.datetime.utcnow() > expires_at.replace(tzinfo=None):
             return None
         return {"sid": sid, "email": email, "expires": expires_at}
+    except Exception as exc:
+        log.error(f"get_reset_token query failed: {exc}")
+        return None
     finally:
         _release(conn)
 
@@ -921,6 +936,9 @@ def get_email_verify_token(token: str) -> dict | None:
         if used or datetime.datetime.utcnow() > expires_at.replace(tzinfo=None):
             return None
         return {"sid": sid, "email": email}
+    except Exception as exc:
+        log.error(f"get_email_verify_token query failed: {exc}")
+        return None
     finally:
         _release(conn)
 
@@ -954,6 +972,9 @@ def is_email_verified(sid: str) -> bool:
             cur.execute("SELECT email_verified FROM users WHERE sid = %s", (sid,))
             row = cur.fetchone()
         return bool(row and row[0])
+    except Exception as exc:
+        log.error(f"is_email_verified query failed [{sid}]: {exc}")
+        return False
     finally:
         _release(conn)
 
