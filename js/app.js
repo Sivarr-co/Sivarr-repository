@@ -2459,7 +2459,7 @@ async function answer(letter) {
   ex.style.display = 'block';
   if (correct) S.quizScore++;
   await API('/api/quiz/submit', {
-    sid: S.sid, topic: q.topic || S.topics[0],
+    token: S.token, topic: q.topic || S.topics[0],
     difficulty: S.diff, answer: letter,
     question: q.question, correct: q.answer, explanation: q.explanation,
   });
@@ -2471,7 +2471,7 @@ async function showResult() {
   const pct = Math.round(S.quizScore/5*100);
   const emoji = pct===100?'🏆':pct>=80?'🌟':pct>=60?'👍':'💪';
   const msg = pct===100?'Perfect score! Outstanding!':pct>=80?'Great job!':pct>=60?'Good effort — keep going!':'Keep practising!';
-  await API('/api/quiz/complete', { sid: S.sid, score: S.quizScore, topic: S.topics[0]||'general', difficulty: S.diff });
+  await API('/api/quiz/complete', { token: S.token, score: S.quizScore, topic: S.topics[0]||'general', difficulty: S.diff });
   $('qw').innerHTML = `
     <div class="score-card">
       <div style="font-size:2.5rem;margin-bottom:.5rem">${emoji}</div>
@@ -2510,7 +2510,7 @@ function resetQuiz() {
 async function getSuggestions() {
   const _st = $('sug-txt'); if (_st) _st.textContent = 'Thinking...';
   try {
-    const r = await fetch(`/api/suggest?sid=${S.sid}`);
+    const r = await fetch(`/api/suggest?token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
     if (_st) _st.textContent = d.suggestion;
   } catch { const _stc = $('sug-txt'); if (_stc) _stc.textContent = 'Couldn\'t load suggestions — try again.'; }
@@ -2543,7 +2543,7 @@ async function loadWrong() {
 }
 
 async function clearWrong(idx) {
-  await API('/api/wrong/clear', { sid: S.sid, index: idx });
+  await API('/api/wrong/clear', { token: S.token, index: idx });
   loadWrong(); toast('Removed from revision ✓');
 }
 
@@ -3544,10 +3544,10 @@ async function generateStudyPlan() {
   result.style.display = 'none';
 
   try {
-    const res = await fetch('/api/studyplan', {
+    const res = await fetch('/api/study-plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sid: S.sid, subject, exam_date: date, hours_per_day: SP_HOURS })
+      body: JSON.stringify({ token: S.token, subject, exam_date: date, hours_per_day: SP_HOURS })
     });
 
     if (!res.ok) {
@@ -4562,7 +4562,7 @@ async function stClearChat() {
 
 async function stClearWrong() {
   if (!await siModal.confirm('Your revision list will be cleared.', { title:'Clear Revision List', confirmLabel:'Clear', danger:true })) return;
-  try { await API('/api/wrong/clear', {sid: S.sid, idx: 'all'}); } catch(e) {}
+  try { await API('/api/wrong/clear', {token: S.token, idx: 'all'}); } catch(e) {}
   toast('Revision list cleared ✓');
 }
 
@@ -4843,7 +4843,7 @@ async function sgInit() {
 
 async function sgLoadRooms() {
   try {
-    const r = await fetch(`/api/group/list?sid=${S.sid}`);
+    const r = await fetch(`/api/group/list?token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
     sgRenderRooms(d.groups || []);
   } catch(e) { sgRenderRooms([]); }
@@ -4883,7 +4883,7 @@ async function sgCreate() {
   const name = $('sg-name-input')?.value.trim();
   if (!name) { toast('Enter a group name.'); return; }
   try {
-    await API('/api/group/create', {sid:S.sid, name});
+    await API('/api/group/create', {token:S.token, name});
     $('sg-create-form').style.display = 'none';
     $('sg-name-input').value = '';
     toast(`Group "${name}" created! Share your ID with friends.`);
@@ -4895,7 +4895,7 @@ async function sgJoin() {
   const gid = $('sg-join-input')?.value.trim();
   if (!gid) { toast('Paste a group ID.'); return; }
   try {
-    await API('/api/group/join', {sid:S.sid, group_id:gid});
+    await API('/api/group/join', {token:S.token, group_id:gid});
     $('sg-join-form').style.display = 'none';
     $('sg-join-input').value = '';
     toast('Joined group! 🎉');
@@ -4931,7 +4931,7 @@ function sgCopyId() {
 async function sgLoadMessages() {
   if (!SG_ACTIVE) return;
   try {
-    const r = await fetch(`/api/group/messages?group_id=${SG_ACTIVE.id}&sid=${S.sid}`);
+    const r = await fetch(`/api/group/messages?group_id=${encodeURIComponent(SG_ACTIVE.id)}&token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
     sgRenderMessages(d.messages || []);
   } catch(e) {}
@@ -4960,7 +4960,7 @@ async function sgSend() {
   if (!text) return;
   input.value = '';
   try {
-    await API('/api/group/message', {group_id:SG_ACTIVE.id, sid:S.sid, text, sender_name:S.name});
+    await API('/api/group/message', {group_id:SG_ACTIVE.id, token:S.token, text, sender_name:S.name});
     sgLoadMessages();
   } catch(e) { toast('Send failed — try again.'); }
 }
@@ -7681,7 +7681,7 @@ function openDiff() { $('diff-modal').classList.add('open'); }
 function closeDiff(e) { if (e.target === $('diff-modal')) $('diff-modal').classList.remove('open'); }
 
 async function setDiff(level) {
-  await API('/api/difficulty', { sid: S.sid, level });
+  await API('/api/difficulty', { token: S.token, level });
   S.diff = level;
   updateDiff(level);
   $('diff-modal').classList.remove('open');
@@ -8109,7 +8109,7 @@ function navTab(name, btn) {
 async function getSuggestionsMobile() {
   $('sug-txt-m').textContent = 'Thinking...';
   try {
-    const r = await fetch(`/api/suggest?sid=${S.sid}`);
+    const r = await fetch(`/api/suggest?token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
     $('sug-txt-m').textContent = d.suggestion;
   } catch { $('sug-txt-m').textContent = 'Couldn\'t load — try again.'; }
@@ -9494,7 +9494,7 @@ async function submitExam() {
     const r = await fetch('/api/exam/submit', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
-        sid: S.sid, exam_id: EXAM_STATE.examId,
+        token: S.token, exam_id: EXAM_STATE.examId,
         answers: EXAM_STATE.answers, tab_switches: EXAM_STATE.tabSwitches
       })
     });
@@ -9605,7 +9605,7 @@ async function viewMyExamResult(examId) {
   overlay.style.display = 'flex';
 
   try {
-    const r = await fetch(`/api/exam/student-results?sid=${encodeURIComponent(S.sid)}`);
+    const r = await fetch(`/api/exam/student-results?token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
     const result = (d.results || []).find(res => res.exam_id === examId);
     if (!result) {
@@ -9709,7 +9709,7 @@ async function viewMyExamResult(examId) {
   takeView.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div><div class="es-text">Loading results...</div></div>`;
 
   try {
-    const r = await fetch(`/api/exam/student-results?sid=${encodeURIComponent(S.sid)}`);
+    const r = await fetch(`/api/exam/student-results?token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
     const result = (d.results || []).find(r => r.exam_id === examId);
     if (!result) {
@@ -9737,7 +9737,7 @@ async function enterExamById() {
   try {
     const r = await fetch('/api/exam/start', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ sid: S.sid, exam_id: id, code: CURRENT_CLASS?.code || '' })
+      body: JSON.stringify({ token: S.token, exam_id: id, code: CURRENT_CLASS?.code || '' })
     });
 
     if (r.status === 409) {
@@ -9806,7 +9806,7 @@ async function loadClasses() {
   }
 
   try {
-    const r = await fetch(`/api/class/student?sid=${encodeURIComponent(S.sid)}`);
+    const r = await fetch(`/api/class/student?token=${encodeURIComponent(S.token||'')}`);
     if (!r.ok) throw new Error(`${r.status}`);
     const d       = await r.json();
     const classes = d.classes || [];
@@ -9929,7 +9929,7 @@ async function submitJoinClass() {
     const r = await fetch('/api/class/join', {
       method:  'POST',
       headers: {'Content-Type':'application/json'},
-      body:    JSON.stringify({ sid: S.sid, code }),
+      body:    JSON.stringify({ token: S.token, code }),
     });
     const d = await r.json();
     if (!r.ok) {
@@ -10316,7 +10316,7 @@ async function sendDiscussion() {
   try {
     await fetch('/api/class/discuss', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ sid: S.sid, code: CURRENT_CLASS.code, message: msg, name: S.name })
+      body: JSON.stringify({ token: S.token, code: CURRENT_CLASS.code, message: msg, name: S.name })
     });
   } catch { toast('Could not send message.'); }
 }
@@ -10330,7 +10330,7 @@ async function loadGroupList() {
   const area = $('group-list-area');
   if (!area) return;
   try {
-    const r = await fetch(`/api/group/list?sid=${encodeURIComponent(S.sid)}`);
+    const r = await fetch(`/api/group/list?token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
     const groups = d.groups || [];
     if (!groups.length) {
@@ -10395,7 +10395,7 @@ async function createGroup() {
   try {
     const r = await fetch('/api/group/create', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ sid: S.sid, name })
+      body: JSON.stringify({ token: S.token, name })
     });
     const d = await r.json();
     toast(`Group "${name}" created ✓ ID: ${d.group_id}`);
@@ -10425,7 +10425,7 @@ async function joinGroupById() {
   try {
     const r = await fetch('/api/group/join', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ sid: S.sid, group_id: gid })
+      body: JSON.stringify({ token: S.token, group_id: gid })
     });
     if (!r.ok) { const e = await r.json(); toast(e.detail || 'Group not found.'); return; }
     const d = await r.json();
@@ -10473,7 +10473,7 @@ async function loadGroupMessages() {
   const msgs = $('group-msgs');
   if (!msgs || !CURRENT_GROUP) return;
   try {
-    const r = await fetch(`/api/group/messages?group_id=${CURRENT_GROUP.id}&sid=${encodeURIComponent(S.sid)}`);
+    const r = await fetch(`/api/group/messages?group_id=${encodeURIComponent(CURRENT_GROUP.id)}&token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
     const messages = d.messages || [];
     const atBottom = msgs.scrollHeight - msgs.scrollTop <= msgs.clientHeight + 60;
@@ -10527,7 +10527,7 @@ async function sendGroupMessage() {
   try {
     await fetch('/api/group/message', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ sid: S.sid, group_id: CURRENT_GROUP.id, message: msg, name: S.name })
+      body: JSON.stringify({ token: S.token, group_id: CURRENT_GROUP.id, message: msg, name: S.name })
     });
   } catch { toast('Could not send.'); }
 }
@@ -10552,7 +10552,7 @@ async function launchExamMode(examId, code) {
   try {
     const r = await fetch('/api/exam/start', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ sid: S.sid, exam_id: examId, code })
+      body: JSON.stringify({ token: S.token, exam_id: examId, code })
     });
     if (r.status === 409) {
       overlay.innerHTML = `<div class="exam-body" style="text-align:center;padding-top:3rem">
@@ -10649,7 +10649,7 @@ function renderExamModeUI(overlay) {
 async function loadAssignmentsWithStatus(cls, assigns, container) {
   let mySubmissions = {};
   try {
-    const r = await fetch(`/api/class/my-submissions?code=${encodeURIComponent(cls.code)}&sid=${encodeURIComponent(S.sid)}`);
+    const r = await fetch(`/api/class/my-submissions?code=${encodeURIComponent(cls.code)}&token=${encodeURIComponent(S.token||'')}`);
     if (r.ok) mySubmissions = (await r.json()).submissions || {};
   } catch(_) {}
 
@@ -10722,7 +10722,7 @@ async function submitAssignment(code, assignId, isUpdate = false) {
   try {
     const r = await fetch('/api/class/submit', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ sid: S.sid, code, assignment_id: assignId, content })
+      body: JSON.stringify({ token: S.token, code, assignment_id: assignId, content })
     });
     if (!r.ok) throw new Error();
     toast(isUpdate ? 'Submission updated ✓' : 'Assignment submitted ✓');
@@ -10736,7 +10736,7 @@ async function confirmLeaveClass(code) {
   await fetch('/api/class/leave', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ sid: S.sid, code })
+    body: JSON.stringify({ token: S.token, code })
   });
   toast('Left class ✓');
   clearInterval(DISCUSS_INTERVAL);

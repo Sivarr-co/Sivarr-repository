@@ -2044,7 +2044,8 @@ class ChatRequest(BaseModel):
 
 
 class QuizRequest(BaseModel):
-    sid: str
+    sid: str = ""
+    token: str = ""
     topic: str
     difficulty: str
     answer: str
@@ -2067,7 +2068,8 @@ class QuizRequest(BaseModel):
 
 
 class DifficultyRequest(BaseModel):
-    sid: str
+    sid: str = ""
+    token: str = ""
     level: str
 
     @validator("level")
@@ -2851,7 +2853,12 @@ async def quiz_question(request: Request, sid: str, topic: str = "", difficulty:
 
 @app.post("/api/quiz/submit")
 async def quiz_submit(req: QuizRequest):
-    p       = load_progress(req.sid)
+    # Auth is by session token only; the body `sid` is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(req.token, 100)) if req.token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid     = sess["sid"]
+    p       = load_progress(sid)
     correct = req.answer.upper() == req.correct.upper()
     if not correct:
         p.setdefault("wrong_answers", []).append({
@@ -2863,13 +2870,13 @@ async def quiz_submit(req: QuizRequest):
             "difficulty": req.difficulty,
             "date": datetime.date.today().isoformat(),
         })
-    save_progress(req.sid, p)
+    save_progress(sid, p)
     return {"correct": correct, "correct_answer": req.correct}
 
 
 @app.post("/api/quiz/complete")
 async def quiz_complete(data: dict):
-    sid   = sanitize_text(str(data.get("sid","")), 100)
+    sid, _ = _resolve_token(data)   # IDOR fix: sid from session token, body sid ignored
     score = min(max(int(data.get("score",0)), 0), 5)
     topic = sanitize_text(str(data.get("topic","general")), 100)
     diff  = data.get("difficulty","medium")
@@ -2947,8 +2954,12 @@ async def progress(sid: str, token: str = ""):
 
 
 @app.get("/api/suggest")
-async def suggest(request: Request, sid: str):
-    sid = sanitize_text(sid, 100)
+async def suggest(request: Request, sid: str = "", token: str = ""):
+    # Auth is by session token only; the `sid` query param is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
     key = get_client_key(request, sid)
     check_rate_limit(key, 5, "suggest")
 
@@ -2969,9 +2980,14 @@ async def suggest(request: Request, sid: str):
 
 @app.post("/api/difficulty")
 async def set_difficulty(req: DifficultyRequest):
-    p = load_progress(req.sid)
+    # Auth is by session token only; the body `sid` is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(req.token, 100)) if req.token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    p = load_progress(sid)
     p["difficulty"] = req.level
-    save_progress(req.sid, p)
+    save_progress(sid, p)
     return {"ok": True, "level": req.level}
 
 
@@ -2987,7 +3003,7 @@ async def get_wrong(sid: str, token: str = ""):
 
 @app.post("/api/wrong/clear")
 async def clear_wrong(data: dict):
-    sid   = sanitize_text(str(data.get("sid","")), 100)
+    sid, _ = _resolve_token(data)   # IDOR fix: sid from session token, body sid ignored
     idx   = int(data.get("index", -1))
     p     = load_progress(sid)
     wrong = p.get("wrong_answers",[])
@@ -3547,7 +3563,8 @@ class CreateClassRequest(BaseModel):
     lecturer: str
 
 class JoinClassRequest(BaseModel):
-    sid: str
+    sid: str = ""
+    token: str = ""
     code: str
 
 class MaterialRequest(BaseModel):
@@ -3580,13 +3597,15 @@ class AssignmentRequest(BaseModel):
     due: str = ""
 
 class SubmitAssignmentRequest(BaseModel):
-    sid: str
+    sid: str = ""
+    token: str = ""
     code: str
     assignment_id: str
     content: str
 
 class DiscussionRequest(BaseModel):
-    sid: str
+    sid: str = ""
+    token: str = ""
     code: str
     message: str
     name: str
@@ -3807,15 +3826,20 @@ async def delete_class(data: dict):
 
 @app.post("/api/class/join")
 async def join_class(req: JoinClassRequest, request: Request):
-    key = get_client_key(request, req.sid)
+    # Auth is by session token only; the body `sid` is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(req.token, 100)) if req.token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    key = get_client_key(request, sid)
     check_rate_limit(key, 10, "join_class")
     classes = load_classes()
     code    = req.code.upper().strip()
     if code not in classes:
         raise HTTPException(404, "Class not found. Check the code and try again.")
     cls = classes[code]
-    if req.sid not in cls["students"]:
-        cls["students"].append(req.sid)
+    if sid not in cls["students"]:
+        cls["students"].append(sid)
         save_classes(classes)
     return {
         "ok":      True,
@@ -3829,7 +3853,7 @@ async def join_class(req: JoinClassRequest, request: Request):
 
 @app.post("/api/class/leave")
 async def leave_class(data: dict):
-    sid     = sanitize_text(str(data.get("sid", "")), 100)
+    sid, _  = _resolve_token(data)   # IDOR fix: sid from session token, body sid ignored
     code    = sanitize_text(str(data.get("code", "")), 10).upper()
     classes = load_classes()
     if code in classes and sid in classes[code]["students"]:
@@ -3840,9 +3864,12 @@ async def leave_class(data: dict):
 # ── Student: Get their classes ────────────────────────────────
 
 @app.get("/api/class/student")
-async def student_classes(sid: str):
-    sid = validate_sid(sid)
-    return {"classes": get_student_classes(sid)}
+async def student_classes(sid: str = "", token: str = ""):
+    # Auth is by session token only; the `sid` query param is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    return {"classes": get_student_classes(sess["sid"])}
 
 # ── Student/All: Get class detail ────────────────────────────
 
@@ -3864,25 +3891,30 @@ async def class_detail(code: str, sid: str = ""):
 
 @app.post("/api/class/submit")
 async def submit_assignment(req: SubmitAssignmentRequest):
+    # Auth is by session token only; the body `sid` is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(req.token, 100)) if req.token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
     classes = load_classes()
     if req.code not in classes:
         raise HTTPException(404, "Class not found")
     cls = classes[req.code]
-    if req.sid not in cls.get("students", []):
+    if sid not in cls.get("students", []):
         raise HTTPException(403, "You are not enrolled in this class.")
-    p    = load_progress(req.sid)
+    p    = load_progress(sid)
     name = p.get("name", "Unknown")
     for a in classes[req.code].get("assignments", []):
         if a["id"] == req.assignment_id:
             # Check if already submitted
-            existing = [s for s in a.get("submissions", []) if s["sid"] == req.sid]
+            existing = [s for s in a.get("submissions", []) if s["sid"] == sid]
             if existing:
                 existing[0]["content"] = sanitize_text(req.content, 5000)
                 existing[0]["date"]    = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
                 existing[0]["resubmitted"] = True
             else:
                 a.setdefault("submissions", []).append({
-                    "sid":     req.sid,
+                    "sid":     sid,
                     "name":    name,
                     "content": sanitize_text(req.content, 5000),
                     "date":    datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -3894,9 +3926,13 @@ async def submit_assignment(req: SubmitAssignmentRequest):
 # ── Student: get own submission(s) for a class ───────────────
 
 @app.get("/api/class/my-submissions")
-async def my_submissions(code: str, sid: str):
+async def my_submissions(code: str, sid: str = "", token: str = ""):
     code = sanitize_text(code, 10).upper()
-    sid  = validate_sid(sid)
+    # Auth is by session token only; the `sid` query param is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid  = sess["sid"]
     classes = load_classes()
     if code not in classes:
         raise HTTPException(404, "Class not found")
@@ -3946,15 +3982,20 @@ async def grade_submission(data: dict):
 
 @app.post("/api/class/discuss")
 async def post_discussion(req: DiscussionRequest, request: Request):
-    key = get_client_key(request, req.sid)
+    # Auth is by session token only; identity comes from the token (IDOR fix).
+    sess = get_session_from_token(sanitize_text(req.token, 100)) if req.token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    key = get_client_key(request, sid)
     check_rate_limit(key, 20, "discuss")
     classes = load_classes()
     if req.code not in classes:
         raise HTTPException(404, "Class not found")
     msg = {
         "id":      str(uuid.uuid4())[:8],
-        "sid":     req.sid,
-        "name":    sanitize_text(req.name, MAX_NAME_LEN),
+        "sid":     sid,
+        "name":    sanitize_text(sess.get("name") or req.name, MAX_NAME_LEN),
         "message": sanitize_text(req.message, 1000),
         "date":    datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
@@ -3994,7 +4035,7 @@ def save_groups(groups: dict):
 
 @app.post("/api/group/create")
 async def create_group(data: dict, request: Request):
-    sid  = validate_sid(str(data.get("sid","")))
+    sid, _ = _resolve_token(data)   # IDOR fix: sid from session token, body sid ignored
     name = sanitize_text(str(data.get("name","")), 80)
     if not name: raise HTTPException(400, "Group name required")
     groups = load_groups()
@@ -4013,7 +4054,7 @@ async def create_group(data: dict, request: Request):
 
 @app.post("/api/group/join")
 async def join_group(data: dict):
-    sid = validate_sid(str(data.get("sid","")))
+    sid, _ = _resolve_token(data)   # IDOR fix: sid from session token, body sid ignored
     gid = sanitize_text(str(data.get("group_id","")), 20)
     groups = load_groups()
     if gid not in groups: raise HTTPException(404, "Group not found")
@@ -4024,8 +4065,12 @@ async def join_group(data: dict):
 
 
 @app.get("/api/group/list")
-async def list_groups(sid: str):
-    sid    = validate_sid(sid)
+async def list_groups(sid: str = "", token: str = ""):
+    # Auth is by session token only; the `sid` query param is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid    = sess["sid"]
     groups = load_groups()
     member_of = [
         {"id": gid, "name": g["name"], "member_count": len(g["members"]),
@@ -4038,10 +4083,10 @@ async def list_groups(sid: str):
 
 @app.post("/api/group/message")
 async def send_group_message(data: dict, request: Request):
-    sid     = validate_sid(str(data.get("sid","")))
+    sid, tok_name = _resolve_token(data)   # IDOR fix: identity from session token, not body
     gid     = sanitize_text(str(data.get("group_id","")), 20)
     message = sanitize_text(str(data.get("message","")), 1000)
-    name    = sanitize_text(str(data.get("name","Student")), MAX_NAME_LEN)
+    name    = sanitize_text(str(tok_name or "Student"), MAX_NAME_LEN)
     groups  = load_groups()
     if gid not in groups: raise HTTPException(404, "Group not found")
     if sid not in groups[gid]["members"]: raise HTTPException(403, "Not a member")
@@ -4059,8 +4104,12 @@ async def send_group_message(data: dict, request: Request):
 
 
 @app.get("/api/group/messages")
-async def get_group_messages(group_id: str, sid: str):
-    sid    = validate_sid(sid)
+async def get_group_messages(group_id: str, sid: str = "", token: str = ""):
+    # Auth is by session token only; the `sid` query param is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid    = sess["sid"]
     gid    = sanitize_text(group_id, 20)
     groups = load_groups()
     if gid not in groups: raise HTTPException(404, "Group not found")
@@ -4371,12 +4420,17 @@ async def generate_exam_questions(data: dict, request: Request):
 @app.post("/api/exam/start")
 async def start_exam(data: dict, request: Request):
     """Student starts an exam — returns shuffled unique question set."""
-    sid     = sanitize_text(str(data.get("sid", "")), 100)
+    sid, _  = _resolve_token(data)   # IDOR fix: sid from session token, body sid ignored
     exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
     code    = sanitize_text(str(data.get("code", "")), 10).upper()
 
-    if not sid or not exam_id:
-        raise HTTPException(400, "Missing sid or exam_id")
+    if not exam_id:
+        raise HTTPException(400, "Missing exam_id")
+    # Academic integrity: only enrolled students may sit a class exam.
+    if code:
+        classes = load_classes()
+        if code not in classes or sid not in classes[code].get("students", []):
+            raise HTTPException(403, "You are not enrolled in this class.")
 
     # Load exam
     exams = json.loads(EXAMS_PATH.read_text()) if EXAMS_PATH.exists() else []
@@ -4443,7 +4497,7 @@ async def start_exam(data: dict, request: Request):
 @app.post("/api/exam/submit")
 async def submit_exam(data: dict, request: Request):
     """Student submits completed exam — returns score + analysis."""
-    sid     = sanitize_text(str(data.get("sid", "")), 100)
+    sid, _  = _resolve_token(data)   # IDOR fix: sid from session token, body sid ignored
     exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
     answers = data.get("answers", {})  # {question_index: "A"}
 
@@ -4565,9 +4619,13 @@ async def get_exam_results(exam_id: str, token: str):
 
 
 @app.get("/api/exam/student-results")
-async def get_student_exam_results(sid: str, code: str = ""):
+async def get_student_exam_results(sid: str = "", code: str = "", token: str = ""):
     """Get all exam results for a student."""
-    sid     = sanitize_text(sid, 100)
+    # Auth is by session token only; the `sid` query param is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid     = sess["sid"]
     results = load_exam_results()
     student_results = [r for r in results if r["sid"] == sid]
     if code:
@@ -4577,14 +4635,20 @@ async def get_student_exam_results(sid: str, code: str = ""):
 # ── Health check ──────────────────────────────────────────────
 
 class StudyPlanRequest(BaseModel):
-    sid: str
+    sid: str = ""
+    token: str = ""
     subject: str
     exam_date: str
     hours_per_day: int = 2
 
 @app.post("/api/study-plan")
 async def generate_study_plan(req: StudyPlanRequest, request: Request):
-    key = get_client_key(request, req.sid)
+    # Auth is by session token only; the body `sid` is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(req.token, 100)) if req.token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    key = get_client_key(request, sid)
     check_rate_limit(key, 5, "study_plan")
 
     subject = sanitize_text(req.subject, 100)
@@ -4604,7 +4668,7 @@ async def generate_study_plan(req: StudyPlanRequest, request: Request):
 
     hours = max(1, min(int(req.hours_per_day), 8))
 
-    p    = load_progress(req.sid)
+    p    = load_progress(sid)
     weak = weak_topics(p)
     studied = list(p.get("topics", {}).keys())
 
