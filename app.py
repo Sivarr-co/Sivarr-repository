@@ -248,6 +248,7 @@ def save_users(users: dict):
 
 # ── Rate limiting config ──────────────────────────────────────
 RATE_LIMIT_CHAT     = int(os.environ.get("RATE_LIMIT_CHAT", 20))      # max chat msgs per window
+FREE_DAILY_CHAT     = int(os.environ.get("FREE_DAILY_CHAT", 20))      # free-tier AI messages per day (server-enforced)
 RATE_LIMIT_QUIZ     = int(os.environ.get("RATE_LIMIT_QUIZ", 5))      # max quiz questions per window
 RATE_LIMIT_UPLOAD   = int(os.environ.get("RATE_LIMIT_UPLOAD", 5))     # max uploads per window
 RATE_LIMIT_WINDOW   = int(os.environ.get("RATE_LIMIT_WINDOW", 60))    # window in seconds
@@ -1391,6 +1392,7 @@ _PROGRESS_DEFAULTS = {
     "quizzes": [], "wrong_answers": [], "chat_history": [],
     "difficulty": "medium", "name": "", "matric": "",
     "uploaded_files": [],
+    "chat_daily": {},   # {"date": "YYYY-MM-DD", "count": N} — free-tier daily AI usage
 }
 
 def load_progress(sid):
@@ -2022,6 +2024,7 @@ class ChatRequest(BaseModel):
     sid: str
     message: str
     context: str = ""
+    token: str = ""
 
     @validator("message")
     def msg_valid(cls, v):
@@ -2575,30 +2578,77 @@ async def spaces_delete(data: dict):
     return {"ok": True}
 
 
+def _plan_is_active(p: dict) -> bool:
+    """True if the user holds a non-expired paid subscription."""
+    sub  = p.get("subscription") or {}
+    plan = sub.get("plan", "free")
+    if not plan or plan == "free":
+        return False
+    if sub.get("status") and sub["status"] != "active":
+        return False
+    exp = sub.get("expires")
+    if exp:
+        try:
+            if datetime.datetime.utcnow() > datetime.datetime.strptime(exp, "%Y-%m-%d"):
+                return False
+        except ValueError:
+            pass
+    return True
+
+
+def _chat_authorize(token: str) -> tuple[str, dict]:
+    """Authenticate an AI-chat request and enforce the free-tier daily cap.
+
+    Returns (sid, progress) with the daily counter already incremented for
+    free users (persisted when the caller saves progress). Raises 401 if the
+    token is missing/expired, 429 if the free quota is exhausted. Paid plans
+    are unmetered.
+    """
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Sign in to chat with Sivarr.")
+    sid = sess["sid"]
+    p   = load_progress(sid)
+    if not _plan_is_active(p):
+        today = datetime.date.today().isoformat()
+        dc = p.get("chat_daily") or {}
+        if dc.get("date") != today:
+            dc = {"date": today, "count": 0}
+        if dc["count"] >= FREE_DAILY_CHAT:
+            raise HTTPException(
+                429,
+                f"You've reached today's free limit of {FREE_DAILY_CHAT} messages. "
+                f"Upgrade to Pro for unlimited chat.",
+            )
+        dc["count"] += 1
+        p["chat_daily"] = dc
+    return sid, p
+
+
 @app.post("/api/chat")
 async def chat(req: ChatRequest, request: Request):
-    key = get_client_key(request, req.sid)
+    sid, p = _chat_authorize(req.token)
+    key = get_client_key(request, sid)
     check_rate_limit(key, RATE_LIMIT_CHAT, "chat")
 
-    p   = load_progress(req.sid)
     msg = req.message
     # Prepend user context snapshot if provided (injected by frontend on first message)
     if req.context:
         msg = f"{req.context}\n\nUser: {req.message}"
     cmd = msg.lower()
 
-    log.info(f"Chat: {req.sid[:20]} | {req.message[:60]}")
+    log.info(f"Chat: {sid[:20]} | {req.message[:60]}")
 
     local = solve_local(msg)
     if local:
-        add_history(p, req.sid, "user", msg)
-        add_history(p, req.sid, "sivarr", local)
+        add_history(p, sid, "user", msg)
+        add_history(p, sid, "sivarr", local)
         p["questions"] += 1
         p["topics"]["math"] = p["topics"].get("math", 0) + 1
-        save_progress(req.sid, p)
+        save_progress(sid, p)
         return {"reply": local, "uncertain": False, "error": False}
 
-    sessions = get_sessions(req.sid)
+    sessions = get_sessions(sid)
 
     if is_math(cmd):
         ans = await async_gemini_ask(sessions["math"], msg)
@@ -2607,9 +2657,9 @@ async def chat(req: ChatRequest, request: Request):
         if not is_err:
             p["questions"] += 1
             p["topics"]["math"] = p["topics"].get("math", 0) + 1
-            add_history(p, req.sid, "user", msg)
-            add_history(p, req.sid, "sivarr", ans)
-            save_progress(req.sid, p)
+            add_history(p, sid, "user", msg)
+            add_history(p, sid, "sivarr", ans)
+            save_progress(sid, p)
         return {"reply": ans, "uncertain": uncertain, "error": is_err}
 
     lib    = load_json(lpath())
@@ -2618,7 +2668,7 @@ async def chat(req: ChatRequest, request: Request):
     if cached:
         p["questions"] += 1
         p["topics"][topic] = p["topics"].get(topic, 0) + 1
-        save_progress(req.sid, p)
+        save_progress(sid, p)
         return {"reply": cached, "uncertain": False, "error": False}
 
     ans       = await async_gemini_ask(sessions["chat"], msg)
@@ -2631,38 +2681,37 @@ async def chat(req: ChatRequest, request: Request):
             save_json(lpath(), lib)
         p["questions"] += 1
         p["topics"][topic or "general"] = p["topics"].get(topic or "general", 0) + 1
-        add_history(p, req.sid, "user", msg)
-        add_history(p, req.sid, "sivarr", ans)
-        save_progress(req.sid, p)
+        add_history(p, sid, "user", msg)
+        add_history(p, sid, "sivarr", ans)
+        save_progress(sid, p)
 
     return {"reply": ans, "uncertain": uncertain, "error": is_err}
 
 
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest, request: Request):
-    key = get_client_key(request, req.sid)
+    sid, p = _chat_authorize(req.token)
+    key = get_client_key(request, sid)
     check_rate_limit(key, RATE_LIMIT_CHAT, "chat")
 
     msg = req.message
     if req.context:
         msg = f"{req.context}\n\nUser: {req.message}"
 
-    p = load_progress(req.sid)
-
     # Local math solver — stream the single result
     local = solve_local(msg)
     if local:
-        add_history(p, req.sid, "user", msg)
-        add_history(p, req.sid, "sivarr", local)
+        add_history(p, sid, "user", msg)
+        add_history(p, sid, "sivarr", local)
         p["questions"] += 1
-        save_progress(req.sid, p)
+        save_progress(sid, p)
         async def _math():
             yield f"data: {json.dumps({'token': local})}\n\n"
             yield "data: [DONE]\n\n"
         return StreamingResponse(_math(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
-    sessions = get_sessions(req.sid)
+    sessions = get_sessions(sid)
     loop = asyncio.get_running_loop()
     q: asyncio.Queue = asyncio.Queue()
 
@@ -2691,10 +2740,10 @@ async def chat_stream(req: ChatRequest, request: Request):
 
         full_text = "".join(full)
         if full_text and not _is_ai_error(full_text):
-            add_history(p, req.sid, "user", req.message)
-            add_history(p, req.sid, "sivarr", full_text)
+            add_history(p, sid, "user", req.message)
+            add_history(p, sid, "sivarr", full_text)
             p["questions"] += 1
-            save_progress(req.sid, p)
+            save_progress(sid, p)
 
         # Generate 3 follow-up suggestions (fast, non-blocking)
         suggestions: list[str] = []

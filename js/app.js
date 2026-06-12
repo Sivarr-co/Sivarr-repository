@@ -2063,10 +2063,11 @@ async function _chatStream(fullMsg, context) {
 
   let res;
   try {
+    const token = localStorage.getItem('sivarr_token') || '';
     res = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sid: S.sid, message: fullMsg, context })
+      body: JSON.stringify({ sid: S.sid, message: fullMsg, context, token })
     });
   } catch {
     _chatSetStatus(false);
@@ -2079,9 +2080,14 @@ async function _chatStream(fullMsg, context) {
   if (!res.ok) {
     _chatSetStatus(false);
     if (btn) btn.disabled = false;
-    if (res.status === 429) {
+    if (res.status === 401) {
+      addMsg('sivarr', 'Your session expired — please sign in again to keep chatting.', false, true);
+    } else if (res.status === 429) {
       const data = await res.json().catch(() => ({}));
-      addMsg('sivarr', `You've sent a lot of messages — please wait ${data.retryAfter || 60} seconds before trying again.`, false, true);
+      // Daily free-tier cap returns a descriptive `detail`; per-minute rate limit returns retryAfter.
+      const limitMsg = data.detail
+        || `You've sent a lot of messages — please wait ${data.retryAfter || 60} seconds before trying again.`;
+      addMsg('sivarr', limitMsg, false, true);
     } else {
       addMsg('sivarr', 'Could not reach Sivarr — check your connection and tap "Try again".', false, true);
       _lastFailedMsg = fullMsg;
@@ -3433,6 +3439,7 @@ async function dhAISuggest() {
   try {
     const r = await API('/api/chat', {
       sid: S.sid,
+      token: localStorage.getItem('sivarr_token') || '',
       message: `I'm writing a document. Here's what I have so far:\n\n"${content.slice(0,800)}"\n\nSuggest 2-3 improvements or additions I should make. Be specific and brief.`
     });
     const suggestion = document.createElement('blockquote');
