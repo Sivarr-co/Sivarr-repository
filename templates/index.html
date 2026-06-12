@@ -788,10 +788,12 @@ Sentry.onLoad(function() {
               <button class="lab-tab active" onclick="switchLabTabP('summary',this)">📋 Summary</button>
               <button class="lab-tab" onclick="switchLabTabP('notes',this)">📚 Notes</button>
               <button class="lab-tab" onclick="switchLabTabP('questions',this)">❓ Questions</button>
+              <button class="lab-tab" id="lab-tab-flash-p" onclick="switchLabTabP('flashcards',this)" style="display:none">🃏 Flashcards</button>
             </div>
-            <div id="lab-summary-p" class="lab-content"></div>
-            <div id="lab-notes-p"   class="lab-content" style="display:none"></div>
-            <div id="lab-questions-p" class="lab-content" style="display:none"></div>
+            <div id="lab-summary-p"    class="lab-content"></div>
+            <div id="lab-notes-p"      class="lab-content" style="display:none"></div>
+            <div id="lab-questions-p"  class="lab-content" style="display:none"></div>
+            <div id="lab-flashcards-p" class="lab-content" style="display:none"></div>
           </div>
         </div>
       </div>

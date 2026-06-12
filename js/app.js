@@ -8117,11 +8117,111 @@ function handleLabDropP(e) {
 }
 
 function switchLabTabP(tab, btn) {
-  ['summary','notes','questions'].forEach(t => {
+  ['summary','notes','questions','flashcards'].forEach(t => {
     const el = $(`lab-${t}-p`); if (el) el.style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('[onclick*="switchLabTabP"]').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  if (tab === 'flashcards') _flashRender('p');
+}
+
+// ── Flashcard mode ────────────────────────────────────────────
+let _flashCards  = [];  // [{q, a}]
+let _flashIdx    = 0;
+let _flashKnown  = new Set();
+let _flashSuffix = 'p';
+
+function _parseFlashcards(questionsText) {
+  if (!questionsText) return [];
+  const cards = [];
+  // Try numbered Q&A pairs: "1. Question\nAnswer: ..." or "1. Q: ...\nA: ..."
+  const blocks = questionsText.split(/\n\s*\n/).filter(Boolean);
+  for (const block of blocks) {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) continue;
+    // Strip leading "1." or "**1.**" numbering
+    let q = lines[0].replace(/^\*?\*?\d+[\.\)]\*?\*?\s*/, '').replace(/^\*\*Q:?\s*/i,'').replace(/\*\*$/,'').trim();
+    let a = lines.slice(1).join(' ').replace(/^A:?\s*/i,'').replace(/^Answer:?\s*/i,'').trim();
+    if (q && a) cards.push({ q, a });
+  }
+  // Fallback: look for Q:/A: pattern anywhere
+  if (!cards.length) {
+    const qMatches = [...questionsText.matchAll(/(?:^|\n)\s*(?:\d+[\.\)]?\s*)?(?:Q:|Question:?)\s*(.+?)(?:\n\s*(?:A:|Answer:?)\s*(.+?))?(?=\n\s*(?:\d+[\.\)]|\n|$))/gis)];
+    qMatches.forEach(m => { if (m[1] && m[2]) cards.push({ q: m[1].trim(), a: m[2].trim() }); });
+  }
+  return cards.slice(0, 30);
+}
+
+function _flashBuild(questionsText, suffix) {
+  _flashCards  = _parseFlashcards(questionsText);
+  _flashIdx    = 0;
+  _flashKnown  = new Set();
+  _flashSuffix = suffix || 'p';
+  // Show/hide the tab
+  const tabBtn = $(`lab-tab-flash-${_flashSuffix}`);
+  if (tabBtn) tabBtn.style.display = _flashCards.length ? '' : 'none';
+}
+
+function _flashRender(suffix) {
+  const sfx = suffix || _flashSuffix;
+  const el  = $(`lab-flashcards-${sfx}`);
+  if (!el || !_flashCards.length) return;
+
+  if (_flashIdx >= _flashCards.length) {
+    const total = _flashCards.length;
+    const known = _flashKnown.size;
+    el.innerHTML = `<div class="flash-done">
+      <div class="flash-done-emoji">${known === total ? '🏆' : '📚'}</div>
+      <div class="flash-done-title">${known === total ? 'Perfect round!' : `${known} / ${total} cards known`}</div>
+      <div class="flash-done-sub">${known < total ? `${total - known} card${total-known>1?'s':''} to review again.` : 'You nailed every card!'}</div>
+      <button class="flash-restart-btn" onclick="_flashRestart('${sfx}')">↻ Go again</button>
+    </div>`;
+    return;
+  }
+
+  const card  = _flashCards[_flashIdx];
+  const known = _flashKnown.size;
+  const total = _flashCards.length;
+  const pct   = Math.round((known / total) * 100);
+
+  el.innerHTML = `<div class="flash-wrap">
+    <div class="flash-progress"><strong>${known}</strong> / ${total} known · card ${_flashIdx + 1} of ${total}</div>
+    <div class="flash-progress-bar"><div class="flash-progress-fill" style="width:${pct}%"></div></div>
+    <div class="flash-card-scene" id="flash-scene-${sfx}" onclick="flashFlip('${sfx}')">
+      <div class="flash-card-inner">
+        <div class="flash-card-face front">
+          <div class="flash-card-label">Question</div>
+          <div class="flash-card-text">${esc(card.q)}</div>
+          <div class="flash-hint">Tap to reveal answer</div>
+        </div>
+        <div class="flash-card-face back">
+          <div class="flash-card-label">Answer</div>
+          <div class="flash-card-text">${esc(card.a)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="flash-btns">
+      <button class="flash-btn again" onclick="flashAnswer('again','${sfx}')">✗ Again</button>
+      <button class="flash-btn known" onclick="flashAnswer('known','${sfx}')">✓ Known</button>
+    </div>
+  </div>`;
+}
+
+function flashFlip(sfx) {
+  const scene = $(`flash-scene-${sfx}`);
+  if (scene) scene.classList.toggle('flipped');
+}
+
+function flashAnswer(verdict, sfx) {
+  if (verdict === 'known') _flashKnown.add(_flashIdx);
+  _flashIdx++;
+  _flashRender(sfx);
+}
+
+function _flashRestart(sfx) {
+  _flashIdx   = 0;
+  _flashKnown = new Set();
+  _flashRender(sfx);
 }
 
 function saveLabAsNoteP()  { _saveLabNote(); }
@@ -9160,6 +9260,8 @@ async function _processLabFile(file, target) {
     if (qst) qst.innerHTML = renderMarkdown(sections.questions);
     if (fnameEl) fnameEl.textContent = `📄 ${file.name}`;
     if (resultDiv) resultDiv.style.display = 'block';
+    // Build flashcards from questions section
+    if (isPanel) _flashBuild(sections.questions, 'p');
 
     if (dropZone) dropZone.innerHTML = `
       <div style="font-size:1.75rem;margin-bottom:.4rem">✅</div>
