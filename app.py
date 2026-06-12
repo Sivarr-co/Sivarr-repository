@@ -2243,7 +2243,12 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
     save_progress(sid, p)
 
     memory = build_memory(p)
-    get_sessions(sid, memory)
+    # AI chat session init must never block authentication — if Gemini is
+    # unavailable or misconfigured, login/register must still succeed.
+    try:
+        get_sessions(sid, memory)
+    except Exception as _ai_e:
+        log.warning(f"AI session init deferred (non-fatal) for {sid}: {_ai_e}")
 
     cleanup_expired_tokens()
     token = create_session_token(sid, user["name"], user["email"])
@@ -2293,7 +2298,11 @@ async def session_restore(data: dict):
         save_progress(sid, p)
 
     memory = build_memory(p)
-    get_sessions(sid, memory)
+    # AI chat session init must never block session restore.
+    try:
+        get_sessions(sid, memory)
+    except Exception as _ai_e:
+        log.warning(f"AI session init deferred (non-fatal) for {sid}: {_ai_e}")
 
     log.info(f"Session restored: {name} ({email})")
 
@@ -7005,6 +7014,46 @@ def _google_verify_state(state: str) -> bool:
         return False
 
 
+# ── Stateless Google exchange code (HMAC-signed, cross-worker safe) ──────────
+# The code carries only the user identity (no session token) and is signed with
+# the OAuth client secret. Any gunicorn worker can verify it without shared
+# storage — eliminating the DB / in-memory cross-worker handoff the opaque-xcode
+# design depended on. The session token is minted at exchange time so it never
+# travels in a URL; the short TTL bounds replay.
+
+def _google_xcode_key() -> bytes:
+    return (GOOGLE_CLIENT_SECRET or "sivarr-fallback").encode() + b":xcode-v1"
+
+
+def _google_make_xcode(sid: str, name: str, email: str) -> str:
+    """Create a 2-minute, HMAC-signed one-time code carrying the Google identity."""
+    import base64
+    payload = json.dumps(
+        {"sid": sid, "name": name, "email": email, "exp": int(time.time()) + 120},
+        separators=(",", ":"),
+    ).encode()
+    raw = base64.urlsafe_b64encode(payload).decode().rstrip("=")
+    sig = hmac.new(_google_xcode_key(), raw.encode(), "sha256").hexdigest()[:32]
+    return f"{raw}.{sig}"
+
+
+def _google_verify_xcode(code: str) -> dict | None:
+    """Verify a signed Google code; return {sid, name, email} or None."""
+    import base64
+    try:
+        raw, sig = code.split(".", 1)
+        expected = hmac.new(_google_xcode_key(), raw.encode(), "sha256").hexdigest()[:32]
+        if not hmac.compare_digest(sig, expected):
+            return None
+        pad = "=" * (-len(raw) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(raw + pad))
+        if int(payload.get("exp", 0)) < time.time():
+            return None
+        return {"sid": payload["sid"], "name": payload["name"], "email": payload["email"]}
+    except Exception:
+        return None
+
+
 def _store_google_xcode(xcode: str, token: str, sid: str, name: str, email: str) -> None:
     """Store a one-time Google exchange code carrying the full session identity.
     Storing sid/name/email in the code itself makes the exchange endpoint resilient
@@ -7145,14 +7194,13 @@ async def google_oauth_callback(code: str = "", error: str = "", state: str = ""
         except Exception:
             pass
 
-    sivarr_token = create_session_token(sid, user["name"], email)
     log.info(f"Google OAuth login: {user['name']} ({email})")
 
-    # Issue a short-lived one-time exchange code carrying full session identity.
-    # Storing sid/name/email in the code means the exchange endpoint can
-    # reconstruct the session even if the DB session write failed on this worker.
-    xcode = secrets.token_urlsafe(24)
-    _store_google_xcode(xcode, sivarr_token, sid, user["name"], email)
+    # Issue a stateless, HMAC-signed one-time code carrying only the identity.
+    # The exchange endpoint mints the session token server-side, so it never
+    # travels in a URL, and any gunicorn worker can verify the code without
+    # shared storage (no DB / in-memory cross-worker handoff to fail).
+    xcode = _google_make_xcode(sid, user["name"], email)
 
     return RedirectResponse(f"/app?google_code={xcode}")
 
@@ -7166,30 +7214,29 @@ async def google_token_exchange(code: str = ""):
     """
     if not code:
         raise HTTPException(400, "Missing code.")
-    xdata = _pop_google_xcode(code)
-    if not xdata:
-        raise HTTPException(400, "Code not found, already used, or expired. Please sign in again.")
 
-    tok   = xdata["token"]
-    x_sid   = xdata.get("sid", "")
-    x_name  = xdata.get("name", "")
-    x_email = xdata.get("email", "")
-
-    # Resolve the session — prefer DB/memory lookup, fall back to xcode payload.
-    entry = get_session_from_token(tok)
-    if entry:
-        sid   = entry["sid"]
-        name  = entry["name"]
-        email = entry["email"]
-    elif x_sid:
-        # Session wasn't persisted to DB (DB write failed on callback worker).
-        # Reconstruct it here using the data stored in the exchange code.
-        sid   = x_sid
-        name  = x_name
-        email = x_email
-        create_session_token_for_existing(tok, sid, name, email)
+    # Primary path: stateless HMAC-signed code — any worker can verify it with
+    # no shared storage. The session token is minted here, server-side.
+    ident = _google_verify_xcode(code)
+    if ident:
+        sid, name, email = ident["sid"], ident["name"], ident["email"]
+        token = create_session_token(sid, name, email)
     else:
-        raise HTTPException(400, "Session expired. Please sign in again.")
+        # Backward-compat: legacy server-stored opaque code (in-flight codes from
+        # a previous deploy). Safe to delete after one deploy cycle.
+        xdata = _pop_google_xcode(code)
+        if not xdata:
+            raise HTTPException(400, "Code not found, already used, or expired. Please sign in again.")
+        token = xdata["token"]
+        x_sid = xdata.get("sid", "")
+        entry = get_session_from_token(token)
+        if entry:
+            sid, name, email = entry["sid"], entry["name"], entry["email"]
+        elif x_sid:
+            sid, name, email = x_sid, xdata.get("name", ""), xdata.get("email", "")
+            create_session_token_for_existing(token, sid, name, email)
+        else:
+            raise HTTPException(400, "Session expired. Please sign in again.")
 
     p = load_progress(sid)
     now_ts = time.time()
@@ -7202,7 +7249,7 @@ async def google_token_exchange(code: str = ""):
 
     return {
         "sid": sid, "name": p.get("name", name), "email": p.get("email", email),
-        "token": tok,
+        "token": token,
         "sessions": p.get("sessions", 1), "difficulty": p.get("difficulty", "medium"),
         "topics": list(p.get("topics", {}).keys()), "weak": weak_topics(p),
         "questions": p.get("questions", 0), "quizzes": len(p.get("quizzes", [])),

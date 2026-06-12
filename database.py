@@ -565,18 +565,35 @@ def init_db() -> bool:
     conn = _get_conn()
     if not conn:
         return False
+    # Execute each DDL statement in its own transaction. Running the whole
+    # schema as one cur.execute() means a single failing statement rolls back
+    # everything — so one bad ALTER could silently prevent later CREATE TABLEs
+    # (e.g. google_exchange_codes) from ever being applied. Per-statement
+    # isolation keeps one failure from cascading. All statements are idempotent
+    # (CREATE/ALTER ... IF NOT EXISTS), so re-running is safe.
+    statements = [s.strip() for s in _SCHEMA.split(";") if s.strip()]
+    applied = failed = 0
     try:
-        with conn.cursor() as cur:
-            cur.execute(_SCHEMA)
-        conn.commit()
-        log.info("DB schema ready")
-        return True
-    except Exception as exc:
-        log.error(f"DB schema init failed: {exc}")
-        conn.rollback()
-        return False
+        for stmt in statements:
+            # Skip fragments that are only comments / whitespace.
+            if all(not ln.strip() or ln.strip().startswith("--") for ln in stmt.splitlines()):
+                continue
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(stmt)
+                conn.commit()
+                applied += 1
+            except Exception as exc:
+                conn.rollback()
+                failed += 1
+                log.warning(f"DB schema statement failed (continuing): {exc} | {stmt[:80]!r}")
     finally:
         _release(conn)
+    if failed:
+        log.error(f"DB schema ready with {failed} failed statement(s); {applied} applied")
+    else:
+        log.info(f"DB schema ready ({applied} statements)")
+    return failed == 0
 
 
 # ── Users ─────────────────────────────────────────────────────────
