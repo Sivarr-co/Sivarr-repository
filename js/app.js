@@ -391,7 +391,8 @@ async function doLogin(prefillEmail) {
     const status = e.status || 0;
     const detail = e.message || '';
     if (status === 401 && detail === 'google_only_account') {
-      if (err) err.textContent = `This account was created with Google. Please use the 'Continue with Google' button below to sign in.`;
+      _authOfferSetPassword(err, email,
+        `This account uses Google sign-in. Use 'Continue with Google' below — or set a password:`);
       if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; }
       return;
     }
@@ -407,6 +408,12 @@ async function doLogin(prefillEmail) {
       }
       if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; }
       clearSession();
+      return;
+    }
+    if (status === 409 && detail === 'account_is_passwordless') {
+      _authOfferSetPassword(err, email,
+        `This email is registered with Google. Sign in with Google — or set a password:`);
+      if (btn) { btn.disabled = false; btn.textContent = isReg ? 'Create account' : 'Sign in'; }
       return;
     }
     const text = status === 409 ? detail :
@@ -1321,6 +1328,30 @@ async function requestVerificationEmail(email) {
   } catch(e) {
     toast('Could not resend — try again in a moment.');
   }
+}
+
+// Let a passwordless (Google) account set an email/password via the reset flow.
+// Safe against takeover: the link is delivered to the account's real inbox, so
+// only the email owner can complete it.
+async function sendSetPasswordLink(email) {
+  try {
+    await API('/api/auth/forgot-password', { email });
+    toast('Check your inbox — we sent a link to set your password.');
+  } catch(e) {
+    toast('Could not send the link — try again shortly.');
+  }
+}
+
+// Render an inline "set a password" action under the auth error line.
+function _authOfferSetPassword(err, email, leadText) {
+  if (!err) return;
+  err.textContent = leadText + ' ';
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = 'Email me a link to set a password';
+  b.style.cssText = 'display:block;margin-top:6px;background:none;border:none;cursor:pointer;color:var(--teal);text-decoration:underline;padding:0;font-size:.82rem';
+  b.onclick = () => sendSetPasswordLink(email);
+  err.appendChild(b);
 }
 
 // ── Google Sign-In helpers ────────────────────────────────────────────────────

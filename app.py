@@ -2162,15 +2162,16 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
         if req.confirm_password and req.confirm_password != req.password:
             raise HTTPException(400, "Passwords do not match.")
 
-        # Enforce email uniqueness across JSON store
-        for u in users.values():
-            if u.get("email", "").lower() == email:
-                raise HTTPException(409, "An account with this email already exists. Sign in instead.")
-        # Also enforce in DB if available
-        if db.is_available():
+        # Reject duplicate emails — but distinguish a passwordless (Google) account.
+        # The owner can claim it by setting a password via an emailed link (the
+        # password-reset flow), so signal that case distinctly to the client.
+        existing = next((u for u in users.values() if u.get("email", "").lower() == email), None)
+        if not existing and db.is_available():
             existing = db.get_user_by_email(email)
-            if existing:
-                raise HTTPException(409, "An account with this email already exists. Sign in instead.")
+        if existing:
+            if not existing.get("password", ""):
+                raise HTTPException(409, "account_is_passwordless")
+            raise HTTPException(409, "An account with this email already exists. Sign in instead.")
 
         # Generate a random UUID-based SID (not derived from user-supplied data)
         sid    = uuid.uuid4().hex[:20]
