@@ -2565,7 +2565,8 @@ Sentry.onLoad(function() {
         <div class="view-head">
           <i class="ti ti-wallet vh-icon"></i>
           <span class="vh-title">Finance</span>
-          <div style="display:flex;gap:6px;margin-left:auto">
+          <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
+            <button class="fin-add-btn" id="fin-mono-btn" onclick="finSyncMono()" style="display:none;background:var(--accent2)18;color:var(--accent2);border:1px solid var(--accent2)40"><i class="ti ti-building-bank"></i> Sync Mono</button>
             <button class="fin-add-btn income" onclick="finAdd('income')"><i class="ti ti-plus"></i> Income</button>
             <button class="fin-add-btn expense" onclick="finAdd('expense')"><i class="ti ti-minus"></i> Expense</button>
           </div>

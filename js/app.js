@@ -6729,7 +6729,66 @@ function finInit() {
     const v = $(`fin-view-${t}`); if (v) v.style.display = t === 'overview' ? '' : 'none';
     const b = $(`fin-tab-${t}`);  if (b) b.classList.toggle('active', t === 'overview');
   });
+  // Show Mono sync button when bank is connected
+  const mb = $('fin-mono-btn');
+  if (mb) mb.style.display = _MONO_CONNECTED ? '' : 'none';
   finRenderOverview();
+}
+
+function _finGuessCategory(narration, type) {
+  const n = (narration || '').toLowerCase();
+  if (type === 'credit') {
+    if (/salary|payroll|wage/i.test(n))    return 'salary';
+    if (/freelance|contract|invoice/i.test(n)) return 'freelance';
+    if (/business|sales|revenue/i.test(n)) return 'business';
+    return 'other';
+  }
+  if (/airtime|data|mtn|airtel|glo|9mobile/i.test(n)) return 'data';
+  if (/fuel|petrol|diesel|gas station/i.test(n))       return 'transport';
+  if (/uber|bolt|taxi|ride|transport|bus/i.test(n))    return 'transport';
+  if (/food|eat|chicken|shoprite|spar|kfc|domino/i.test(n)) return 'food';
+  if (/electricity|nepa|ekedc|ibedc|eedc|phcn/i.test(n))   return 'utilities';
+  if (/water|waste|sanitation/i.test(n))               return 'utilities';
+  if (/rent|landlord|housing/i.test(n))                return 'housing';
+  if (/hospital|pharmacy|clinic|health|medical/i.test(n))  return 'health';
+  if (/school|tuition|fees|university|college/i.test(n))   return 'education';
+  if (/netflix|spotify|dstv|cinema|movie|game/i.test(n))   return 'entertainment';
+  return 'other';
+}
+
+async function finSyncMono() {
+  if (!_MONO_CONNECTED || !_MONO_ACCOUNT) {
+    toast('Connect your bank first in Integrations.'); return;
+  }
+  const txns = _MONO_ACCOUNT?.transactions || [];
+  if (!txns.length) { toast('No transactions found from Mono.'); return; }
+
+  const data    = _finData();
+  const existing = new Set((data.transactions || []).map(t => t.id));
+  let added = 0;
+
+  txns.forEach(t => {
+    const id = `mono_${(t.date||'').slice(0,10)}_${t.amount}_${(t.narration||'').slice(0,8).replace(/\s/g,'')}`;
+    if (existing.has(id)) return;
+    const type   = t.type === 'credit' ? 'income' : 'expense';
+    const amount = (t.amount || 0) / 100; // kobo → naira
+    if (amount <= 0) return;
+    data.transactions.push({
+      id,
+      type,
+      amount,
+      category: _finGuessCategory(t.narration || t.description, type),
+      note:     (t.narration || t.description || '').slice(0, 100),
+      date:     (t.date || new Date().toISOString()).slice(0, 10),
+    });
+    added++;
+  });
+
+  if (!added) { toast('All Mono transactions already imported.'); return; }
+  _finSave(data);
+  if (_finActiveTab === 'overview')     finRenderOverview();
+  if (_finActiveTab === 'transactions') finRenderTransactions();
+  toast(`${added} transaction${added > 1 ? 's' : ''} imported from Mono ✓`);
 }
 
 function finTab(tab, btn) {
