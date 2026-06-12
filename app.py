@@ -8395,7 +8395,6 @@ def _org_check(token: str) -> tuple[dict, str]:
 def _org_admin_check(token: str) -> tuple[dict, str]:
     """Like _org_check but also verifies admin/owner role."""
     sess, org_id = _org_check(token)
-    row = db.get_org_integration(org_id, "_role_check")  # not used; check via members
     # Check role via org_members
     conn = db._get_conn()
     if conn:
@@ -8429,7 +8428,7 @@ async def ps_connect(data: dict):
         raise HTTPException(400, "secret_key required.")
     if not (secret_key.startswith("sk_live_") or secret_key.startswith("sk_test_")):
         raise HTTPException(400, "Invalid Paystack key format.")
-    sess, org_id = _org_check(token)
+    sess, org_id = _org_admin_check(token)
     # Verify key works before saving
     try:
         result = await _ps_call(secret_key, "/balance")
@@ -8443,7 +8442,7 @@ async def ps_connect(data: dict):
 
 @app.delete("/api/org/paystack/disconnect")
 async def ps_disconnect(token: str = ""):
-    sess, org_id = _org_check(token)
+    sess, org_id = _org_admin_check(token)
     db.delete_org_integration(org_id, "paystack")
     return {"ok": True}
 
@@ -8464,7 +8463,7 @@ def _ps_key_for_org(org_id: str) -> str:
 
 @app.get("/api/org/paystack/overview")
 async def ps_overview(token: str = ""):
-    sess, org_id = _org_check(token)
+    sess, org_id = _org_admin_check(token)
     key = _ps_key_for_org(org_id)
     # Fetch in parallel
     import asyncio
@@ -8520,7 +8519,7 @@ async def ps_overview(token: str = ""):
 @app.get("/api/org/paystack/transactions")
 async def ps_transactions(token: str = "", page: int = 1, perPage: int = 20,
                            status: str = "", channel: str = ""):
-    sess, org_id = _org_check(token)
+    sess, org_id = _org_admin_check(token)
     key = _ps_key_for_org(org_id)
     params: dict = {"perPage": perPage, "page": page}
     if status:  params["status"]  = status
@@ -8549,7 +8548,7 @@ async def ps_transactions(token: str = "", page: int = 1, perPage: int = 20,
 
 @app.get("/api/org/paystack/balance")
 async def ps_balance(token: str = ""):
-    sess, org_id = _org_check(token)
+    sess, org_id = _org_admin_check(token)
     key = _ps_key_for_org(org_id)
     import asyncio
     bal_r, txn_r = await asyncio.gather(
@@ -8577,7 +8576,7 @@ async def ps_balance(token: str = ""):
 
 @app.get("/api/org/paystack/settlements")
 async def ps_settlements(token: str = "", page: int = 1):
-    sess, org_id = _org_check(token)
+    sess, org_id = _org_admin_check(token)
     key = _ps_key_for_org(org_id)
     r = await _ps_call(key, "/settlement", {"perPage": 20, "page": page})
     rows = []
@@ -8598,7 +8597,7 @@ async def ps_settlements(token: str = "", page: int = 1):
 
 @app.get("/api/org/paystack/customers")
 async def ps_customers(token: str = "", page: int = 1):
-    sess, org_id = _org_check(token)
+    sess, org_id = _org_admin_check(token)
     key = _ps_key_for_org(org_id)
     r = await _ps_call(key, "/customer", {"perPage": 20, "page": page})
     rows = []
@@ -8617,7 +8616,7 @@ async def ps_customers(token: str = "", page: int = 1):
 
 @app.get("/api/org/paystack/refunds")
 async def ps_refunds(token: str = ""):
-    sess, org_id = _org_check(token)
+    sess, org_id = _org_admin_check(token)
     key = _ps_key_for_org(org_id)
     import asyncio
     ref_r, dis_r = await asyncio.gather(
@@ -8650,7 +8649,7 @@ async def ps_refunds(token: str = ""):
 
 @app.get("/api/org/paystack/analytics")
 async def ps_analytics(token: str = ""):
-    sess, org_id = _org_check(token)
+    sess, org_id = _org_admin_check(token)
     key = _ps_key_for_org(org_id)
     r = await _ps_call(key, "/transaction", {"perPage": 100, "page": 1})
     txns = r.get("data", [])
