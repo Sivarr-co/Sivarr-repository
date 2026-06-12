@@ -590,80 +590,95 @@ function logout() {
 }
 
 function _applyLoginData(r) {
+  // ── Essential: set core session state and REVEAL THE DASHBOARD first.
+  //    This block must never be blocked by a cosmetic/enhancement failure
+  //    below — otherwise a server-authenticated login (email, session
+  //    restore, or Google) throws here and is reported to the user as a
+  //    failed login even though the token is already saved.
   S.sid   = r.sid;  S.name  = r.name;  S.email = r.email;
   S.diff  = r.difficulty; S.topics = r.topics; S.weak = r.weak;
   S.stats = { questions: r.questions, quizzes: r.quizzes, sessions: r.sessions, wrong: r.wrong_count };
   S.uploadedFiles = r.uploaded_files || [];
   S.plan  = r.plan || 'free';
 
-  const tbAv = $('tb-av'); if (tbAv) tbAv.textContent = r.name[0].toUpperCase();
-  const tbNm = $('tb-name'); if (tbNm) tbNm.textContent = r.name;
-  const snavAv   = $('snav-av');     if (snavAv)   snavAv.textContent   = r.name[0].toUpperCase();
-  const snavName = $('snav-name');   if (snavName) snavName.textContent = r.name;
-  const pdName   = $('pd-name');     if (pdName)   pdName.textContent   = r.name;
-  const pdMatric = $('pd-matric');   if (pdMatric) pdMatric.textContent = r.email;
-  const tbAvBig  = $('tb-av-big');   if (tbAvBig)  tbAvBig.textContent  = r.name[0].toUpperCase();
-  const mobAv    = $('mob-snav-av'); if (mobAv)    mobAv.textContent    = r.name[0].toUpperCase();
-  const mobName  = $('mob-snav-name'); if (mobName) mobName.textContent = r.name;
-  loadProfilePic();
-  snavToggle('ai', $('snav-sec-ai'));
-  updateDiff(r.difficulty);
-  updateSBStats();
-  renderTopics(r.topics, r.weak);
-  renderFileList();
-  loadWrong();
-
-  $('login-screen').style.display = 'none';
-  $('dashboard').style.display    = 'block';
+  const _ls = $('login-screen'); if (_ls) _ls.style.display = 'none';
+  const _db = $('dashboard');    if (_db) _db.style.display = 'block';
   document.body.classList.add('dashboard-active');
-  if (localStorage.getItem('sb_retracted') === '1') $('sidebar')?.classList.add('retracted');
-  const _postCreate = sessionStorage.getItem('sivarr_post_create');
-  if (_postCreate) {
-    sessionStorage.removeItem('sivarr_post_create');
-    nav(_postCreate, null);
-  } else {
-    nav('home', null);
-  }
 
-  const greet = $('welcome-greeting');
-  if (greet) {
-    const hr  = new Date().getHours();
-    const tod = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
-    greet.textContent = `${tod}, ${r.name.split(' ')[0]}`;
-  }
-  // Show/hide email verification banner
-  const vb = $('verify-banner');
-  if (vb) vb.style.display = r.email_verified === false ? 'flex' : 'none';
+  // ── Enhancement: profile chrome, panels, integrations, briefs. Wrapped
+  //    so any single failure here can't undo the successful login above.
+  try {
+    const initial = ((r.name || r.email || '?').trim().charAt(0) || '?').toUpperCase();
 
-  // Tag Sentry errors with the logged-in user (no PII beyond id/email)
-  if (window.Sentry) {
-    Sentry.setUser({ id: r.sid, email: r.email });
-  }
+    const tbAv = $('tb-av'); if (tbAv) tbAv.textContent = initial;
+    const tbNm = $('tb-name'); if (tbNm) tbNm.textContent = r.name;
+    const snavAv   = $('snav-av');     if (snavAv)   snavAv.textContent   = initial;
+    const snavName = $('snav-name');   if (snavName) snavName.textContent = r.name;
+    const pdName   = $('pd-name');     if (pdName)   pdName.textContent   = r.name;
+    const pdMatric = $('pd-matric');   if (pdMatric) pdMatric.textContent = r.email;
+    const tbAvBig  = $('tb-av-big');   if (tbAvBig)  tbAvBig.textContent  = initial;
+    const mobAv    = $('mob-snav-av'); if (mobAv)    mobAv.textContent    = initial;
+    const mobName  = $('mob-snav-name'); if (mobName) mobName.textContent = r.name;
+    loadProfilePic();
+    snavToggle('ai', $('snav-sec-ai'));
+    updateDiff(r.difficulty);
+    updateSBStats();
+    renderTopics(r.topics, r.weak);
+    renderFileList();
+    loadWrong();
 
-  chatCounterInit();
-  _contextSent  = false; // fresh context for each login session
-  _chatMsgCount = 0;
-  setTimeout(_buildNotifs, 1200);
-  loadAnnouncements();
-  setTimeout(() => briefCheck(), 800);
+    if (localStorage.getItem('sb_retracted') === '1') $('sidebar')?.classList.add('retracted');
+    const _postCreate = sessionStorage.getItem('sivarr_post_create');
+    if (_postCreate) {
+      sessionStorage.removeItem('sivarr_post_create');
+      nav(_postCreate, null);
+    } else {
+      nav('home', null);
+    }
 
-  // Seed localStorage from server spaces (server wins on login/restore)
-  if (r.spaces && r.spaces.length) {
-    seedSpacesFromServer(r.spaces);
+    const greet = $('welcome-greeting');
+    if (greet) {
+      const hr  = new Date().getHours();
+      const tod = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+      greet.textContent = `${tod}, ${(r.name || '').split(' ')[0]}`;
+    }
+    // Show/hide email verification banner
+    const vb = $('verify-banner');
+    if (vb) vb.style.display = r.email_verified === false ? 'flex' : 'none';
+
+    // Tag Sentry errors with the logged-in user (no PII beyond id/email)
+    if (window.Sentry) {
+      Sentry.setUser({ id: r.sid, email: r.email });
+    }
+
+    chatCounterInit();
+    _contextSent  = false; // fresh context for each login session
+    _chatMsgCount = 0;
+    setTimeout(_buildNotifs, 1200);
+    loadAnnouncements();
+    setTimeout(() => briefCheck(), 800);
+
+    // Seed localStorage from server spaces (server wins on login/restore)
+    if (r.spaces && r.spaces.length) {
+      seedSpacesFromServer(r.spaces);
+    }
+    setTimeout(() => spaceRenderSidebar(), 100);
+    // Handle Stripe payment return
+    setTimeout(() => agCheckPaymentReturn(), 500);
+    // Show onboarding for new users
+    if (!r.returning) setTimeout(() => siObMaybeStart(), 600);
+    // Accept any pending org invite from URL
+    setTimeout(_acceptPendingOrgInvite, 800);
+    // Load integration statuses
+    setTimeout(gcalCheckStatus,           1000);
+    setTimeout(githubCheckStatus,         1100);
+    setTimeout(billingLoadStatus,         1200);
+    setTimeout(monoCheckStatus,           1400);
+    setTimeout(_sendTaskReminderIfNeeded, 3000);
+  } catch (e) {
+    console.error('Sivarr: post-login UI setup failed (login still succeeded):', e);
+    if (window.Sentry) Sentry.captureException(e);
   }
-  setTimeout(() => spaceRenderSidebar(), 100);
-  // Handle Stripe payment return
-  setTimeout(() => agCheckPaymentReturn(), 500);
-  // Show onboarding for new users
-  if (!r.returning) setTimeout(() => siObMaybeStart(), 600);
-  // Accept any pending org invite from URL
-  setTimeout(_acceptPendingOrgInvite, 800);
-  // Load integration statuses
-  setTimeout(gcalCheckStatus,           1000);
-  setTimeout(githubCheckStatus,         1100);
-  setTimeout(billingLoadStatus,         1200);
-  setTimeout(monoCheckStatus,           1400);
-  setTimeout(_sendTaskReminderIfNeeded, 3000);
 }
 
 async function restoreSession(token) {
