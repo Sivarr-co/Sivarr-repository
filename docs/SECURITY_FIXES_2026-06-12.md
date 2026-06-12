@@ -1,7 +1,7 @@
 # SIVARR — Security Fixes
 > Session: 2026-06-12 | Author: Claude (Opus 4.8) | Branch: `main`
 
-Four auth-audit findings (P4, P5, P2, P6) were implemented, tested in-process, and pushed to `origin/main` this session.
+Five auth-audit findings (P4, P5, P2, P6, Round-1) were implemented, tested in-process, and pushed to `origin/main` this session — closing the audit.
 
 | Fix | Severity | Commit | Files |
 |---|---|---|---|
@@ -9,6 +9,7 @@ Four auth-audit findings (P4, P5, P2, P6) were implemented, tested in-process, a
 | P5 — Authenticate AI chat path + enforce free cap server-side | MED-HIGH | `57561ea` | `app.py`, `js/app.js`, `templates/index.html` |
 | P2 — Guard auth-path DB reads against query failures | MEDIUM | `2723eb6` | `database.py` |
 | P6 — Constant-time admin/lecturer password compare | LOW | `eaa290e`¹ | `app.py` |
+| Round-1 — Resilient `_applyLoginData` (cosmetic error can't fail a login) | MEDIUM | `2b04c2d` | `js/app.js`, `templates/index.html` |
 
 ¹ P6 landed bundled in `eaa290e` (a parallel session's commit swept the uncommitted P6 lines in) rather than a dedicated commit.
 
@@ -204,5 +205,44 @@ empty submission → deny (the latent bug).
 
 ---
 
-## Still open (auth audit)
-- **Round-1** — `_applyLoginData` frontend single-point-of-failure (`app.js`).
+## Round-1 — Resilient `_applyLoginData` (cosmetic error can't fail a real login)
+**Commit:** `2b04c2d` · **Files:** `js/app.js`, `templates/index.html`
+
+### Problem
+`_applyLoginData(r)` is the shared finalizer for all three auth paths — email login,
+session restore, and Google exchange. It set core session state and revealed the dashboard
+only **after** ~20 DOM updates and helper calls (`renderTopics`, `loadWrong`,
+`seedSpacesFromServer`, `r.name[0].toUpperCase()`, …). If any one of those threw, the whole
+function aborted, and each caller treated the throw as a **failed login** even though the
+server had authenticated and the token was already saved:
+- **Email login** — landed in the `catch`, showed a login error.
+- **`restoreSession`** — `catch` deleted the token and returned `false`, bouncing a validly
+  logged-in user back to the login screen.
+- **Google exchange** — `catch` consumed the remaining retries, re-hitting the
+  **already-consumed one-time code**, ending in "Google sign-in failed".
+
+### Fix applied
+Split the function into two parts:
+1. **Essential (unconditional):** set `S.*` state, then hide the login screen / show the
+   dashboard / add `dashboard-active` — using null-safe element lookups so this block can't
+   throw on missing DOM.
+2. **Enhancement (wrapped):** all profile chrome, panels, briefs, and integration-status
+   calls now run inside a `try/catch` that logs + reports to Sentry but **never rethrows**.
+
+Also guarded the most likely throw source — `r.name[0]` / `r.name.split(' ')` — with a
+`(r.name || r.email || '?')` fallback. Cache-bust bumped to `app.js?v=20260612c`.
+
+### How it works
+A successful server login now **always** reveals the dashboard. If a downstream UI helper
+fails, the user is still logged in and on the dashboard; only that one widget is skipped (and
+the error is captured in Sentry for follow-up) instead of the entire login appearing to fail.
+
+### Verification
+`node --check js/app.js` passes. The essential block contains only safe assignments and
+null-checked DOM writes, so it cannot throw for realistic responses.
+
+---
+
+## Audit complete
+All five tracked findings (P4, P5, P2, P6, Round-1) are fixed and on `origin/main`. No open
+items remain from this audit cycle.

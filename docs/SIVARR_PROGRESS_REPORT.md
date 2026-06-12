@@ -168,6 +168,7 @@ A structured audit of auth, payments, and access control, with fixes shipped in 
 | **P5 — chat auth + monetization** | `57561ea` | `/api/chat` + `/api/chat/stream` now require auth; free-tier daily cap enforced **server-side** (was client-only) |
 | **P2 — DB resilience** | `2723eb6` | 7 auth-path DB read functions guarded → flaky DB degrades to "not found" instead of 500'ing all auth |
 | **P6 — timing side-channel** | `eaa290e` | Admin + lecturer login now use constant-time `hmac.compare_digest` (was `!=`); also closed an unset-secret empty-password bypass |
+| **Round-1 — login resilience** | `2b04c2d` | `_applyLoginData` reveals the dashboard first, then wraps cosmetic work in try/catch → a UI helper error no longer makes a real login look failed across all 3 auth paths |
 
 > Detail on P4/P5 lives in `docs/SECURITY_FIXES_2026-06-12.md`. The auth root-cause analysis lives in the team's audit notes.
 
@@ -253,9 +254,9 @@ Security has been a recurring track, not a one-off:
   - **P5:** AI chat authenticated + server-side free cap (was unauthenticated + client-only cap → free unlimited AI + cross-account writes).
   - **P2:** 7 auth-path DB read functions guarded with query-level try/except → a flaky DB degrades to "not found" instead of 500'ing all auth.
   - **P6:** admin + lecturer login switched to constant-time `hmac.compare_digest` (was `!=`); closed an unset-secret empty-password bypass.
+  - **Round-1:** `_applyLoginData` reveals the dashboard first and wraps cosmetic work in try/catch → a UI-helper error no longer makes a server-authenticated login look failed.
 
-**Still open (from audit):**
-- **Round-1** — `_applyLoginData` frontend single-point-of-failure (a throw there makes a successful login look failed).
+**Still open (from audit):** none — all five tracked findings (P4, P5, P2, P6, Round-1) are fixed and pushed.
 
 ---
 
@@ -295,7 +296,7 @@ The roadmap defines **10 gaps** and sequences them into **8 sprints** by impact 
 Close the remaining audit items before scaling user count:
 - ~~**P2** — wrap DB read functions in query-level try/except (return safe defaults).~~ ✅ Done (`2723eb6`).
 - ~~**P6** — constant-time admin/lecturer password compare.~~ ✅ Done (`eaa290e`).
-- **Round-1** — make `_applyLoginData` resilient (one shared failure shouldn't fail all 3 login paths).
+- ~~**Round-1** — make `_applyLoginData` resilient (one shared failure shouldn't fail all 3 login paths).~~ ✅ Done (`2b04c2d`). **Audit cycle complete.**
 
 ### Strategic decisions still open (from roadmap §9)
 - Final Pro pricing; primary target user at 100 (students vs founders).
