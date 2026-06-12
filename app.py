@@ -3783,6 +3783,57 @@ async def submit_assignment(req: SubmitAssignmentRequest):
             return {"ok": True}
     raise HTTPException(404, "Assignment not found")
 
+# ── Student: get own submission(s) for a class ───────────────
+
+@app.get("/api/class/my-submissions")
+async def my_submissions(code: str, sid: str):
+    code = sanitize_text(code, 10).upper()
+    sid  = validate_sid(sid)
+    classes = load_classes()
+    if code not in classes:
+        raise HTTPException(404, "Class not found")
+    result = {}
+    for a in classes[code].get("assignments", []):
+        sub = next((s for s in a.get("submissions", []) if s["sid"] == sid), None)
+        if sub:
+            result[a["id"]] = {
+                "submitted": True,
+                "content":   sub.get("content", ""),
+                "date":      sub.get("date", ""),
+                "resubmitted": sub.get("resubmitted", False),
+                "grade":     sub.get("grade"),  # None until lecturer grades
+            }
+    return {"submissions": result}
+
+
+# ── Lecturer: grade a submission ──────────────────────────────
+
+@app.post("/api/class/grade")
+async def grade_submission(data: dict):
+    verify_lecturer(data.get("token", ""))
+    code          = sanitize_text(str(data.get("code", "")), 10).upper()
+    assignment_id = sanitize_text(str(data.get("assignment_id", "")), 60)
+    student_sid   = validate_sid(str(data.get("student_sid", "")))
+    score         = max(0, min(100, int(data.get("score", 0))))
+    feedback      = sanitize_text(str(data.get("feedback", "")), 800)
+    classes = load_classes()
+    if code not in classes:
+        raise HTTPException(404, "Class not found")
+    for a in classes[code].get("assignments", []):
+        if a["id"] == assignment_id:
+            sub = next((s for s in a.get("submissions", []) if s["sid"] == student_sid), None)
+            if not sub:
+                raise HTTPException(404, "Submission not found")
+            sub["grade"] = {
+                "score":    score,
+                "feedback": feedback,
+                "graded_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            }
+            save_classes(classes)
+            return {"ok": True, "score": score}
+    raise HTTPException(404, "Assignment not found")
+
+
 # ── Discussion ────────────────────────────────────────────────
 
 @app.post("/api/class/discuss")

@@ -1370,23 +1370,62 @@ function switchLecTab(tab, btn) {
 
   else if (tab === 'assignments-l') {
     content.innerHTML = `
-      <div style="margin-bottom:1rem">
+      <div style="margin-bottom:1.25rem">
+        <div style="font-weight:700;font-size:.88rem;margin-bottom:.75rem">Post New Assignment</div>
         <div class="form-group"><label>Title</label><input class="form-input" id="asn-title" placeholder="Assignment 1"></div>
         <div class="form-group"><label>Description</label><textarea class="form-input" id="asn-desc" style="min-height:60px" placeholder="What students need to do..."></textarea></div>
-        <div class="form-group"><label>Due Date</label><input class="form-input" id="asn-due" placeholder="e.g. Friday 23rd March"></div>
+        <div class="form-group"><label>Due Date</label><input class="form-input" id="asn-due" placeholder="e.g. 2026-07-15"></div>
         <button class="btn-sm" onclick="addAssignment('${cls.code}')">Post Assignment</button>
       </div>
-      ${(cls.assignments||[]).length ? (cls.assignments||[]).map(a => `
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:.875rem;margin-bottom:.5rem">
-          <div style="font-weight:600;font-size:.85rem">📋 ${esc(a.title)}</div>
-          ${(a.due||a.due_date) ? `<div style="font-size:.75rem;color:var(--yellow)">⏰ Due: ${esc(a.due||a.due_date)}</div>` : ''}
-          <div style="font-size:.75rem;color:var(--muted);margin-top:3px">${(a.submissions||[]).length} submission(s)</div>
-          ${(a.submissions||[]).length ? `<div style="margin-top:.5rem">${a.submissions.map(s => `
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 10px;margin-top:4px;font-size:.78rem">
-              <strong>${esc(s.name)}</strong> · ${s.date}<br><span style="color:var(--muted)">${esc((s.content||s.text||'').slice(0,100))}...</span>
-            </div>`).join('')}</div>` : ''}
-        </div>`).join('')
-      : '<div style="color:var(--muted);font-size:.82rem">No assignments yet.</div>'}`;
+      ${(cls.assignments||[]).length ? (cls.assignments||[]).map(a => {
+        const subs = a.submissions || [];
+        const graded = subs.filter(s => s.grade).length;
+        return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:.75rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-weight:700;font-size:.88rem">📋 ${esc(a.title)}</div>
+            <span style="font-size:.7rem;font-weight:700;padding:3px 8px;border-radius:8px;background:#4f6ef720;color:var(--accent)">${subs.length} submission${subs.length!==1?'s':''} · ${graded} graded</span>
+          </div>
+          ${(a.due||a.due_date) ? `<div style="font-size:.75rem;color:var(--yellow);margin-bottom:8px">⏰ Due: ${esc(a.due||a.due_date)}</div>` : ''}
+          ${subs.length ? subs.map(s => {
+            const g = s.grade;
+            const gradeCol = g ? (g.score>=70?'#22c55e':g.score>=50?'#f59e0b':'#f87171') : null;
+            return `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-top:6px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+                <span style="font-weight:700;font-size:.8rem">${esc(s.name)}</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  ${g ? `<span style="font-size:.75rem;font-weight:800;color:${gradeCol}">${g.score}%</span>` : ''}
+                  <button onclick="openGradeModal('${cls.code}','${a.id}','${s.sid}','${esc(s.name)}')"
+                    style="padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:none;color:var(--accent);font-size:.72rem;font-weight:700;cursor:pointer">
+                    ${g ? '✏️ Re-grade' : '✓ Grade'}
+                  </button>
+                </div>
+              </div>
+              <div style="font-size:.78rem;color:var(--muted);line-height:1.4">${esc((s.content||'').slice(0,200))}${(s.content||'').length>200?'…':''}</div>
+              ${g?.feedback ? `<div style="font-size:.72rem;color:var(--teal);margin-top:5px">Feedback: ${esc(g.feedback)}</div>` : ''}
+            </div>`;
+          }).join('') : '<div style="font-size:.78rem;color:var(--muted);padding:6px 0">No submissions yet.</div>'}
+        </div>`}).join('')
+      : '<div style="color:var(--muted);font-size:.82rem">No assignments posted yet.</div>'}
+      <!-- Grade modal -->
+      <div id="grade-modal-bg" style="display:none;position:fixed;inset:0;background:#00000060;z-index:1000;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.5rem;width:100%;max-width:400px">
+          <div style="font-weight:700;font-size:.95rem;margin-bottom:1rem">✓ Grade Submission — <span id="grade-modal-name"></span></div>
+          <div class="form-group">
+            <label>Score (0–100)</label>
+            <input class="form-input" id="grade-score-input" type="number" min="0" max="100" placeholder="e.g. 78">
+          </div>
+          <div class="form-group">
+            <label>Feedback (optional)</label>
+            <textarea class="form-input" id="grade-feedback-input" style="min-height:60px" placeholder="Good work on..."></textarea>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:.75rem">
+            <button onclick="saveGrade()" style="flex:1;padding:10px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer">Save Grade</button>
+            <button onclick="$('grade-modal-bg').style.display='none'" style="padding:10px 16px;border-radius:9px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;font-family:var(--font);font-size:.82rem">Cancel</button>
+          </div>
+        </div>
+      </div>`;
   }
 
   else if (tab === 'exams-l') {
@@ -1488,6 +1527,37 @@ async function saveClassLink(code) {
     toast('Class link saved ✓');
     if (LEC_CURRENT_CLASS) LEC_CURRENT_CLASS.class_link = link;
   } catch { toast('Failed to save link.'); }
+}
+
+let _gradeCtx = {};
+
+function openGradeModal(code, assignId, studentSid, studentName) {
+  _gradeCtx = { code, assignId, studentSid };
+  const nameEl = document.getElementById('grade-modal-name');
+  if (nameEl) nameEl.textContent = studentName;
+  const scoreEl = document.getElementById('grade-score-input');
+  if (scoreEl) scoreEl.value = '';
+  const fbEl = document.getElementById('grade-feedback-input');
+  if (fbEl) fbEl.value = '';
+  const bg = document.getElementById('grade-modal-bg');
+  if (bg) { bg.style.display = 'flex'; scoreEl?.focus(); }
+}
+
+async function saveGrade() {
+  const score    = parseInt(document.getElementById('grade-score-input')?.value);
+  const feedback = document.getElementById('grade-feedback-input')?.value.trim() || '';
+  if (isNaN(score) || score < 0 || score > 100) { toast('Enter a score between 0 and 100.'); return; }
+  try {
+    const r = await fetch('/api/class/grade', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: TOKEN, code: _gradeCtx.code, assignment_id: _gradeCtx.assignId, student_sid: _gradeCtx.studentSid, score, feedback }),
+    });
+    if (!r.ok) throw new Error((await r.json()).detail || 'Failed');
+    document.getElementById('grade-modal-bg').style.display = 'none';
+    toast(`Graded: ${score}% ✓`);
+    // Refresh assignments tab
+    if (LEC_CURRENT_CLASS) switchLecTab('assignments-l', null);
+  } catch(e) { toast(e.message || 'Could not save grade.'); }
 }
 
 async function addAssignment(code) {

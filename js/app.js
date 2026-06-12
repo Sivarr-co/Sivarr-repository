@@ -9782,20 +9782,12 @@ function renderClassTab(tab) {
   // ── Assignments / Tasks ────────────────────────────────────
   else if (tab === 'assignments') {
     const assigns = cls.assignments || [];
-    content.innerHTML = assigns.length
-      ? assigns.map(a => `
-          <div class="assign-item">
-            <div class="assign-title">${esc(a.title)}</div>
-            <div class="assign-desc">${esc(a.description)}</div>
-            <div class="assign-due">⏰ Due: ${esc(a.due_date)}</div>
-            <div style="margin-top:10px">
-              <textarea id="sub-${a.id}" class="notes-area" style="min-height:80px;margin-bottom:6px"
-                placeholder="Type your submission here..."></textarea>
-              <button class="btn-start" style="padding:8px 16px;font-size:.8rem"
-                onclick="submitAssignment('${cls.code}','${a.id}')">Submit</button>
-            </div>
-          </div>`).join('')
-      : '<div class="empty-state"><div class="es-icon">📋</div><div class="es-text">No assignments yet.</div></div>';
+    if (!assigns.length) {
+      content.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div><div class="es-text">No assignments yet.</div></div>';
+    } else {
+      content.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--muted);font-size:.82rem">Loading submissions…</div>';
+      loadAssignmentsWithStatus(cls, assigns, content);
+    }
   }
 
   // ── Class Chat (WhatsApp-style) ────────────────────────────
@@ -10272,19 +10264,85 @@ function renderExamModeUI(overlay) {
 
 
 
-async function submitAssignment(code, assignId) {
+async function loadAssignmentsWithStatus(cls, assigns, container) {
+  let mySubmissions = {};
+  try {
+    const r = await fetch(`/api/class/my-submissions?code=${encodeURIComponent(cls.code)}&sid=${encodeURIComponent(S.sid)}`);
+    if (r.ok) mySubmissions = (await r.json()).submissions || {};
+  } catch(_) {}
+
+  container.innerHTML = assigns.map(a => {
+    const sub  = mySubmissions[a.id];
+    const due  = a.due_date || a.due || '';
+    const overdue = due && new Date(due) < new Date() && !sub;
+    const dueColor = overdue ? '#f87171' : 'var(--muted)';
+
+    let statusBlock = '';
+    if (sub?.grade) {
+      const g = sub.grade;
+      const col = g.score >= 70 ? '#22c55e' : g.score >= 50 ? '#f59e0b' : '#f87171';
+      statusBlock = `
+        <div style="background:${col}12;border:1px solid ${col}40;border-radius:10px;padding:12px 14px;margin-top:10px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-family:var(--font);font-weight:800;font-size:1.1rem;color:${col}">${g.score}%</span>
+            <span style="font-size:.72rem;font-weight:700;color:${col}">Graded · ${g.graded_at}</span>
+          </div>
+          ${g.feedback ? `<div style="font-size:.8rem;color:var(--text2);line-height:1.5"><strong>Feedback:</strong> ${esc(g.feedback)}</div>` : ''}
+          <div style="font-size:.72rem;color:var(--muted);margin-top:6px">Your submission: "${esc((sub.content||'').slice(0,80))}${sub.content?.length>80?'…':''}"</div>
+        </div>`;
+    } else if (sub) {
+      statusBlock = `
+        <div style="background:var(--teal)10;border:1px solid var(--teal)40;border-radius:10px;padding:10px 14px;margin-top:10px">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+            <span style="color:var(--teal);font-weight:700;font-size:.82rem">✓ Submitted ${sub.resubmitted?'(updated)':''}</span>
+            <span style="font-size:.7rem;color:var(--muted)">${sub.date}</span>
+          </div>
+          <div style="font-size:.75rem;color:var(--text3)">Awaiting grade · "${esc((sub.content||'').slice(0,80))}${sub.content?.length>80?'…':''}"</div>
+          <details style="margin-top:8px">
+            <summary style="font-size:.75rem;color:var(--accent);cursor:pointer;font-weight:600">Update submission</summary>
+            <textarea id="sub-${a.id}" class="notes-area" style="min-height:80px;margin-top:8px;margin-bottom:6px"
+              placeholder="Type your updated submission...">${esc(sub.content||'')}</textarea>
+            <button class="btn-start" style="padding:6px 14px;font-size:.78rem"
+              onclick="submitAssignment('${cls.code}','${a.id}',true)">Update</button>
+          </details>
+        </div>`;
+    } else {
+      statusBlock = `
+        <div style="margin-top:10px">
+          <textarea id="sub-${a.id}" class="notes-area" style="min-height:80px;margin-bottom:6px"
+            placeholder="Type your submission here..."></textarea>
+          <button class="btn-start" style="padding:8px 16px;font-size:.8rem"
+            onclick="submitAssignment('${cls.code}','${a.id}')">Submit</button>
+        </div>`;
+    }
+
+    return `<div class="assign-item">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div class="assign-title">${esc(a.title)}</div>
+        ${!sub ? `<span style="font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:8px;background:${overdue?'#f8717118':'#6b728018'};color:${dueColor};flex-shrink:0">${overdue?'Overdue':'Pending'}</span>`
+          : sub.grade ? `<span style="font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:8px;background:#22c55e18;color:#22c55e;flex-shrink:0">Graded</span>`
+          : `<span style="font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:8px;background:var(--teal)18;color:var(--teal);flex-shrink:0">Submitted</span>`}
+      </div>
+      ${a.description ? `<div class="assign-desc">${esc(a.description)}</div>` : ''}
+      ${due ? `<div class="assign-due" style="color:${dueColor}">⏰ Due: ${esc(due)}</div>` : ''}
+      ${statusBlock}
+    </div>`;
+  }).join('');
+}
+
+async function submitAssignment(code, assignId, isUpdate = false) {
   const ta      = $(`sub-${assignId}`);
   const content = ta?.value.trim();
   if (!content) { toast('Write your submission first.'); return; }
   try {
     const r = await fetch('/api/class/submit', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ sid: S.sid, code, assignment_id: assignId, content })
     });
     if (!r.ok) throw new Error();
-    toast('Assignment submitted ✓');
-    if (ta) ta.value = '';
+    toast(isUpdate ? 'Submission updated ✓' : 'Assignment submitted ✓');
+    // Refresh assignments tab to show status
+    if (CURRENT_CLASS) switchClassTab('assignments');
   } catch { toast('Submission failed — try again.'); }
 }
 
