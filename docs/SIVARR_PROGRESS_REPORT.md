@@ -166,6 +166,7 @@ A structured audit of auth, payments, and access control, with fixes shipped in 
 | A1 / P1 — payment integrity | `8d3cd19` | Subscription verify now checks amount + currency + owner; idempotency via billing_history |
 | **P4 — access control** | `b941ce1` | 9 org Paystack endpoints moved from member-level → admin/owner gating |
 | **P5 — chat auth + monetization** | `57561ea` | `/api/chat` + `/api/chat/stream` now require auth; free-tier daily cap enforced **server-side** (was client-only) |
+| **P2 — DB resilience** | `2723eb6` | 7 auth-path DB read functions guarded → flaky DB degrades to "not found" instead of 500'ing all auth |
 
 > Detail on P4/P5 lives in `docs/SECURITY_FIXES_2026-06-12.md`. The auth root-cause analysis lives in the team's audit notes.
 
@@ -249,9 +250,9 @@ Security has been a recurring track, not a one-off:
   - Payment verify: amount + currency + owner + idempotency (anti-underpayment/replay).
   - **P4:** org Paystack endpoints admin/owner-gated (was any member → key takeover + financial-data exposure).
   - **P5:** AI chat authenticated + server-side free cap (was unauthenticated + client-only cap → free unlimited AI + cross-account writes).
+  - **P2:** 7 auth-path DB read functions guarded with query-level try/except → a flaky DB degrades to "not found" instead of 500'ing all auth.
 
 **Still open (from audit):**
-- **P2 (MEDIUM)** — DB read functions lack query-level try/except → can 500 all auth when the DB is flaky.
 - **P6 (LOW)** — admin login uses a non-constant-time password compare.
 - **Round-1** — `_applyLoginData` frontend single-point-of-failure (a throw there makes a successful login look failed).
 
@@ -291,7 +292,7 @@ The roadmap defines **10 gaps** and sequences them into **8 sprints** by impact 
 
 ### Track B — Security & reliability debt
 Close the remaining audit items before scaling user count:
-- **P2** — wrap DB read functions in query-level try/except (return safe defaults).
+- ~~**P2** — wrap DB read functions in query-level try/except (return safe defaults).~~ ✅ Done (`2723eb6`).
 - **P6** — constant-time admin/lecturer password compare.
 - **Round-1** — make `_applyLoginData` resilient (one shared failure shouldn't fail all 3 login paths).
 

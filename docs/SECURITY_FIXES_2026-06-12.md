@@ -1,12 +1,13 @@
 # SIVARR — Security Fixes
 > Session: 2026-06-12 | Author: Claude (Opus 4.8) | Branch: `main`
 
-Two auth-audit findings (P4, P5) were implemented, tested in-process, and pushed to `origin/main` this session.
+Three auth-audit findings (P4, P5, P2) were implemented, tested in-process, and pushed to `origin/main` this session.
 
 | Fix | Severity | Commit | Files |
 |---|---|---|---|
 | P4 — Org Paystack endpoints gated by admin/owner role | HIGH | `b941ce1` | `app.py` |
 | P5 — Authenticate AI chat path + enforce free cap server-side | MED-HIGH | `57561ea` | `app.py`, `js/app.js`, `templates/index.html` |
+| P2 — Guard auth-path DB reads against query failures | MEDIUM | `2723eb6` | `database.py` |
 
 ---
 
@@ -123,7 +124,50 @@ Test scaffolding was removed after the run. Not yet tested against live Railway 
 
 ---
 
+## P2 — Guard auth-path DB reads against query failures
+**Commit:** `2723eb6` · **File:** `database.py`
+
+### Problem
+The auth-critical read functions used `try/finally` (with `_release(conn)` in `finally`) but
+**no `except`**. They handled a *null connection* gracefully, but a **query-level** error —
+a missing table, or a mid-query DB failure — propagated out of the function. Because
+`login()`/signup/verify call these `db.*` functions unguarded, one flaky query `500`'d the
+entire authentication surface, even when the connection itself was fine.
+
+### Fix applied
+Added an `except Exception` that logs and returns the function's safe default, matching the
+existing `create_user` / `db_save_progress` pattern already in the file. Seven auth-path
+readers hardened:
+
+| Function | Safe default on error |
+|---|---|
+| `user_exists` | `False` |
+| `get_user` | `None` |
+| `get_db_session` | `None` |
+| `get_user_by_email` | `None` |
+| `get_reset_token` | `None` |
+| `get_email_verify_token` | `None` |
+| `is_email_verified` | `False` |
+
+### How it works
+A transient DB error now degrades to "not found" (`None`/`False`) instead of an exception, so
+auth stays up: login returns "invalid credentials" rather than a 500, and registration's
+`user_exists` check falls through to the insert (where the unique constraint still catches true
+duplicates). The error is logged for diagnosis.
+
+### Notes / leftovers
+- `db.is_available()` still returns `True` whenever `DATABASE_URL` is set (it does **not** ping
+  Postgres) — left as-is on purpose. The defensive defaults above are what actually keep auth
+  alive during a DB outage; making `is_available()` do a live ping would add latency to every call.
+- `db_load_progress` has the same `try/finally`-only shape but is already wrapped by
+  `app.load_progress`'s `try/except`, so it was left untouched.
+
+### Verification
+Tested with a fake connection whose cursor raises on `execute`: all 7 functions returned their
+safe default instead of propagating (7/7).
+
+---
+
 ## Still open (auth audit)
-- **P2 MEDIUM** — DB read fns lack query-level try/except → can 500 all auth when the DB is flaky.
 - **P6 LOW** — admin login uses a non-constant-time password compare.
 - **Round-1** — `_applyLoginData` frontend single-point-of-failure (`app.js`).
