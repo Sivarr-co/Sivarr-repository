@@ -1821,6 +1821,8 @@ function _recordActivity() {
     const yesterday = new Date(Date.now() - 86400000).toDateString();
     const streak = d.last === yesterday ? (d.streak || 0) + 1 : 1;
     localStorage.setItem(key, JSON.stringify({ last: today, streak }));
+    // Fire daily_open automation on first visit of the day
+    _autoFire('daily_open', { journalPrompt: "What's on my mind today? ", followUpTask: "Today's top priority" });
   } catch(_) {}
 }
 
@@ -3102,8 +3104,11 @@ async function glMarkDone(id) {
   try {
     await API('/api/goals/update', {sid:S.sid, id, progress: completed?100:g.progress, completed});
     g.completed = completed;
-    if (completed) { g.progress = 100; _calRemoveEvent(`goal_${id}`); }
-    else _calSyncGoal(g);
+    if (completed) {
+      g.progress = 100;
+      _calRemoveEvent(`goal_${id}`);
+      _autoFire('goal_progress', { goalTitle: g.title, journalPrompt: `I just completed my goal: "${g.title}". What did I learn? `, followUpTask: `Celebrate: ${g.title}` });
+    } else _calSyncGoal(g);
     glRender();
     toast(completed ? 'Goal completed! 🎉' : 'Goal reopened');
   } catch(e) { toast('Update failed.'); }
@@ -5027,6 +5032,7 @@ function pomComplete() {
     pomSaveStats(st);
     pomUpdateStatDisplay();
     toast(`Focus session complete! 🎉 ${POM_SESSION % 4 === 0 ? 'Time for a long break.' : 'Great work!'}`);
+    _autoFire('focus_complete', { mins: POM_MODES.focus.mins, journalPrompt: `Just finished a ${POM_MODES.focus.mins}-minute focus session. What did I accomplish? `, followUpTask: 'Follow up from focus session' });
     if (POM_SESSION % 4 === 0) pomSetMode('long', null);
     else pomSetMode('short', null);
   } else {
@@ -6393,6 +6399,9 @@ function habitToggle(idx) {
     habits[idx].completions.push(today);
     habits[idx].streak = (habits[idx].streak||0) + 1;
     habits[idx].best_streak = Math.max(habits[idx].best_streak||0, habits[idx].streak);
+    const streak = habits[idx].streak;
+    if (streak > 0 && streak % 7 === 0)
+      _autoFire('habit_streak', { habitTitle: habits[idx].title, streak, journalPrompt: `${streak}-day streak on "${habits[idx].title}"! How does it feel? `, followUpTask: `Keep the ${streak}-day streak: ${habits[idx].title}` });
   }
   localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
   _syncHabitsToServer(habits);
@@ -8637,6 +8646,7 @@ function moveSHTask(id, newStatus) {
     saveSHData(data);
     if (newStatus === 'done') {
       _recordActivity();
+      _autoFire('task_done', { taskTitle: task.title, journalPrompt: `Just completed: "${task.title}". Thoughts? `, followUpTask: `Review: ${task.title}` });
       // Auto-bump linked goal progress
       if (task.goalId && S.sid) {
         try {
@@ -13164,6 +13174,80 @@ function autoRenderList() {
 }
 
 function autoInit() { autoRenderList(); }
+
+// ── Automation execution engine ───────────────────────────────
+function _autoFire(trigger, context = {}) {
+  if (!S.sid) return;
+  const key   = `sivarr_automations_${S.sid}`;
+  const rules = JSON.parse(localStorage.getItem(key) || '[]');
+  rules.filter(r => r.enabled && r.trigger === trigger).forEach(r => _autoRunAction(r, context));
+}
+
+function _autoRunAction(rule, context) {
+  switch (rule.action) {
+    case 'notify_toast':
+      toast(`⚡ ${rule.name}`);
+      break;
+
+    case 'celebrate':
+      toast(`🎉 ${rule.name}`);
+      // Brief confetti burst using DOM
+      _autoCelebrate();
+      break;
+
+    case 'journal_prompt':
+      nav('journal', null);
+      setTimeout(() => {
+        const ta = $('journal-text');
+        if (ta && !ta.value) {
+          ta.value = context.journalPrompt || `Reflection triggered by: ${rule.name}. `;
+          ta.focus();
+        }
+      }, 400);
+      break;
+
+    case 'create_task': {
+      const data = getSHData();
+      data.tasks.unshift({
+        id:      Date.now(),
+        created: Date.now(),
+        title:   context.followUpTask || `Follow-up: ${rule.name}`,
+        status:  'todo',
+        done:    false,
+        priority: 'medium',
+      });
+      saveSHData(data);
+      toast(`✅ Task created: "${context.followUpTask || rule.name}"`);
+      break;
+    }
+
+    case 'log_activity':
+      _recordActivity();
+      toast(`📋 Activity logged — ${rule.name}`);
+      break;
+  }
+}
+
+function _autoCelebrate() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99999;overflow:hidden';
+  const emojis = ['🎉','✨','🎊','⭐','🏆'];
+  for (let i = 0; i < 18; i++) {
+    const el = document.createElement('div');
+    el.textContent = emojis[i % emojis.length];
+    el.style.cssText = `position:absolute;font-size:${1.5+Math.random()}rem;left:${Math.random()*100}%;top:-2rem;
+      animation:confettiFall ${1.2+Math.random()*1.2}s ease-in forwards;animation-delay:${Math.random()*0.5}s`;
+    overlay.appendChild(el);
+  }
+  document.body.appendChild(overlay);
+  if (!document.querySelector('#confetti-style')) {
+    const s = document.createElement('style');
+    s.id = 'confetti-style';
+    s.textContent = '@keyframes confettiFall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}';
+    document.head.appendChild(s);
+  }
+  setTimeout(() => overlay.remove(), 2500);
+}
 
 /* ══════════════════════════════════════════════════
    PHASE 7 — OPPORTUNITIES BOARD
