@@ -2271,20 +2271,20 @@ Sentry.onLoad(function() {
             <button class="siva-pill" onclick="nav('flux',null)">
               <i class="ti ti-checkbox"></i> My Tasks
             </button>
-            <button class="siva-pill" onclick="nav('quiz',null)">
-              <i class="ti ti-pencil"></i> Quick Quiz
+            <button class="siva-pill" onclick="nav('goals',null)">
+              <i class="ti ti-target"></i> Goals
             </button>
-            <button class="siva-pill" onclick="nav('studyplan',null)">
-              <i class="ti ti-map"></i> Study Plan
+            <button class="siva-pill" onclick="nav('finance',null)">
+              <i class="ti ti-wallet"></i> Finance
+            </button>
+            <button class="siva-pill" onclick="nav('skills',null)">
+              <i class="ti ti-atom"></i> Skills
             </button>
             <button class="siva-pill" onclick="nav('journal',null)">
               <i class="ti ti-writing"></i> Journal
             </button>
             <button class="siva-pill" onclick="aiTaskExtractor()" title="Paste text, AI extracts your tasks">
               <i class="ti ti-wand"></i> Extract Tasks
-            </button>
-            <button class="siva-pill" onclick="aiWriteAssist()" title="AI writing assistant">
-              <i class="ti ti-edit"></i> Write AI
             </button>
           </div>
 
@@ -2370,6 +2370,28 @@ Sentry.onLoad(function() {
                 <div class="habit-name">Daily reading</div>
                 <div class="habit-streak">🔥 0 day streak</div>
               </div>
+            </div>
+          </div>
+
+          <!-- Finance snapshot (hidden when no transactions) -->
+          <div id="home-finance-section" style="margin-bottom:14px;display:none">
+            <div class="h2col-card">
+              <div class="h-card-hd">
+                <span class="h-card-title">💰 Finance · This Month</span>
+                <button class="h-card-link" onclick="nav('finance',null)">Open →</button>
+              </div>
+              <div id="home-finance-body"></div>
+            </div>
+          </div>
+
+          <!-- Skills snapshot (hidden when no skills) -->
+          <div id="home-skills-section" style="margin-bottom:14px;display:none">
+            <div class="h2col-card">
+              <div class="h-card-hd">
+                <span class="h-card-title">🧠 Skills</span>
+                <button class="h-card-link" onclick="nav('skills',null)">All skills →</button>
+              </div>
+              <div id="home-skills-body"></div>
             </div>
           </div>
 

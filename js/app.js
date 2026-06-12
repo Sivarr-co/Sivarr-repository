@@ -5680,6 +5680,79 @@ async function loadHome() {
     }
   } catch(_) {}
 
+  // ── Finance snapshot ──────────────────────────────────────────
+  try {
+    const fs  = $('home-finance-section');
+    const fb  = $('home-finance-body');
+    if (fs && fb) {
+      const fin    = _finData();
+      const month  = today8601.slice(0, 7);
+      const mTxs   = (fin.transactions || []).filter(t => t.date.startsWith(month));
+      if (mTxs.length) {
+        fs.style.display = 'block';
+        const inc = mTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const exp = mTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        const bal = inc - exp;
+        const balCol = bal >= 0 ? 'var(--teal)' : '#f87171';
+        // Top spending category
+        const catTotals = {};
+        mTxs.filter(t => t.type === 'expense').forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.amount; });
+        const topCat = Object.entries(catTotals).sort((a, b) => b[1] - a[1])[0];
+        const topCatInfo = topCat ? _finCat('expense', topCat[0]) : null;
+        fb.innerHTML = `
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+            <div style="text-align:center">
+              <div style="font-family:var(--font);font-size:.95rem;font-weight:800;color:var(--teal)">${_finFmt(inc)}</div>
+              <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Income</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:var(--font);font-size:.95rem;font-weight:800;color:#f87171">${_finFmt(exp)}</div>
+              <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Expenses</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:var(--font);font-size:.95rem;font-weight:800;color:${balCol}">${_finFmt(Math.abs(bal))}</div>
+              <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">${bal >= 0 ? 'Surplus' : 'Deficit'}</div>
+            </div>
+          </div>
+          ${topCatInfo ? `<div style="font-size:.75rem;color:var(--text3)">Top spend: <strong style="color:var(--text2)">${topCatInfo.icon} ${topCatInfo.label}</strong> — ${_finFmt(topCat[1])}</div>` : ''}`;
+      } else {
+        fs.style.display = 'none';
+      }
+    }
+  } catch(_) {}
+
+  // ── Skills snapshot ───────────────────────────────────────────
+  try {
+    const ss = $('home-skills-section');
+    const sb = $('home-skills-body');
+    if (ss && sb) {
+      const skData   = _skData();
+      const skills   = (skData.skills || []);
+      const topSkills = [...skills].sort((a, b) => (b.level || 0) - (a.level || 0)).slice(0, 3);
+      if (topSkills.length) {
+        ss.style.display = 'block';
+        sb.innerHTML = topSkills.map(k => {
+          const lv  = _skLevel(k.level || 0);
+          const pct = k.level || 0;
+          return `<div onclick="nav('skills',null)" style="display:flex;align-items:center;gap:10px;padding:6px 0;cursor:pointer;border-bottom:1px solid var(--border)">
+            <span style="font-size:1.1rem;flex-shrink:0">${k.emoji || '💡'}</span>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+                <span style="font-size:.8rem;font-weight:600;color:var(--text)">${esc(k.name)}</span>
+                <span style="font-size:.68rem;color:var(--text3)">${lv.label} · ${pct}%</span>
+              </div>
+              <div style="height:4px;background:var(--border2);border-radius:3px;overflow:hidden">
+                <div style="height:4px;width:${pct}%;background:${lv.color};border-radius:3px;transition:width .4s"></div>
+              </div>
+            </div>
+          </div>`;
+        }).join('') + (skills.length > 3 ? `<div style="font-size:.72rem;color:var(--text3);padding:6px 0">+${skills.length - 3} more skill${skills.length-3>1?'s':''}</div>` : '');
+      } else {
+        ss.style.display = 'none';
+      }
+    }
+  } catch(_) {}
+
   // ── Active goals ───────────────────────────────────────────────
   try {
     const gs = $('home-goals-section');
