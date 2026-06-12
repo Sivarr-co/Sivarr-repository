@@ -153,6 +153,8 @@ BASE_URL           = os.environ.get("BASE_URL", "https://sivarr.up.railway.app")
 RESEND_API_KEY     = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM        = os.environ.get("RESEND_FROM_EMAIL", "Sivarr <noreply@sivarr.app>")
 RESEND_REPLY_TO    = os.environ.get("RESEND_REPLY_TO", "Connectsivarr@gmail.com")
+GMAIL_USER         = os.environ.get("GMAIL_USER", "")
+GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 CRON_SECRET        = os.environ.get("CRON_SECRET", "")
 VAPID_PRIVATE_KEY  = os.environ.get("VAPID_PRIVATE_KEY", "")
 VAPID_PUBLIC_KEY   = os.environ.get("VAPID_PUBLIC_KEY", "")
@@ -698,14 +700,18 @@ def delete_session_token(token: str) -> None:
 
 
 def send_email(to: str, subject: str, html_body: str) -> tuple[bool, str]:
-    """Send a transactional email via Resend. Returns (success, detail)."""
+    """Send a transactional email. Uses Gmail SMTP if configured, falls back to Resend."""
+    # ── Gmail SMTP (primary — no domain registration needed) ──────────────
+    if GMAIL_USER and GMAIL_APP_PASSWORD:
+        return _send_email_gmail(to, subject, html_body)
+    # ── Resend (fallback — requires verified sender domain) ───────────────
     if not RESEND_AVAILABLE:
-        msg = "resend package not installed"
-        log.warning(f"Email skipped ({msg}): '{subject}' → {to}")
+        msg = "No email provider configured (set GMAIL_USER + GMAIL_APP_PASSWORD)"
+        log.warning(f"Email skipped: '{subject}' → {to} | {msg}")
         return False, msg
     if not RESEND_API_KEY:
-        msg = "RESEND_API_KEY not set"
-        log.warning(f"Email skipped ({msg}): '{subject}' → {to}")
+        msg = "No email provider configured (set GMAIL_USER + GMAIL_APP_PASSWORD, or RESEND_API_KEY)"
+        log.warning(f"Email skipped: '{subject}' → {to} | {msg}")
         return False, msg
     try:
         _resend.api_key = RESEND_API_KEY
@@ -716,10 +722,34 @@ def send_email(to: str, subject: str, html_body: str) -> tuple[bool, str]:
             "subject":  subject,
             "html":     html_body,
         })
-        log.info(f"Email sent: '{subject}' → {to}")
+        log.info(f"Email sent via Resend: '{subject}' → {to}")
         return True, "ok"
     except Exception as exc:
-        log.error(f"Email send failed: {exc}")
+        log.error(f"Resend send failed: {exc}")
+        return False, str(exc)
+
+
+def _send_email_gmail(to: str, subject: str, html_body: str) -> tuple[bool, str]:
+    """Send via Gmail SMTP using an App Password. No domain registration required."""
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = f"Sivarr <{GMAIL_USER}>"
+        msg["To"]      = to
+        msg["Reply-To"] = RESEND_REPLY_TO
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            server.sendmail(GMAIL_USER, [to], msg.as_string())
+        log.info(f"Email sent via Gmail: '{subject}' → {to}")
+        return True, "ok"
+    except Exception as exc:
+        log.error(f"Gmail SMTP send failed: {exc}")
         return False, str(exc)
 
 
@@ -1677,13 +1707,13 @@ async def startup():
         except Exception as exc:
             log.warning(f"Scheduler start skipped: {exc}")
 
-        # Email configuration status — logged prominently so Railway logs surface misconfig fast
-        if not RESEND_AVAILABLE:
-            log.warning("Email: resend package not installed — all transactional emails are disabled")
-        elif not RESEND_API_KEY:
-            log.error("Email: RESEND_API_KEY env var is not set — all emails will be silently skipped")
+        # Email configuration status
+        if GMAIL_USER and GMAIL_APP_PASSWORD:
+            log.info(f"Email: Gmail SMTP ready. from={GMAIL_USER}")
+        elif RESEND_API_KEY:
+            log.info(f"Email: Resend ready. from={RESEND_FROM}")
         else:
-            log.info(f"Email: configured OK. from={RESEND_FROM}")
+            log.error("Email: no provider configured — set GMAIL_USER + GMAIL_APP_PASSWORD in Railway Variables")
 
         # Periodic rate-limit cleanup (runs forever)
         async def _cleanup_rate_hits():
@@ -2339,17 +2369,19 @@ async def test_email(data: dict):
     if not ADMIN_PASSWORD or not hmac.compare_digest(key, ADMIN_PASSWORD):
         raise HTTPException(403, "Wrong key.")
     target = to or "djhunterd712@gmail.com"
+    provider = "gmail" if (GMAIL_USER and GMAIL_APP_PASSWORD) else ("resend" if RESEND_API_KEY else "none")
     ok, detail = send_email(
         target,
         "Sivarr email test",
-        "<h2>Email is working ✓</h2><p>Resend is configured correctly on your Railway deployment.</p>"
+        "<h2>Email is working ✓</h2><p>Transactional email is configured correctly on your Railway deployment.</p>"
     )
     return {
         "sent": ok,
         "detail": detail,
-        "resend_available": RESEND_AVAILABLE,
-        "api_key_set": bool(RESEND_API_KEY),
-        "from": RESEND_FROM,
+        "provider": provider,
+        "gmail_configured": bool(GMAIL_USER and GMAIL_APP_PASSWORD),
+        "gmail_user": GMAIL_USER or "(not set)",
+        "resend_api_key_set": bool(RESEND_API_KEY),
         "to": target,
     }
 
