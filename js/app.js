@@ -2910,7 +2910,7 @@ function _glCheckinDue() {
 async function glLoad() {
   const cacheKey = `sivarr_goals_cache_${S.sid}`;
   try {
-    const r = await fetch(`/api/goals?sid=${S.sid}`);
+    const r = await fetch(`/api/goals?token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
     GL_GOALS = d.goals || [];
     localStorage.setItem(cacheKey, JSON.stringify(GL_GOALS));
@@ -3070,7 +3070,7 @@ async function glSaveGoal() {
   const goal_type = $('gl-type')?.value || 'okr';
   if (!title) { toast('Enter a goal title.'); return; }
   try {
-    const r = await API('/api/goals/add', {sid:S.sid, title, subject, target_score:target, deadline, goal_type});
+    const r = await API('/api/goals/add', {token:S.token, title, subject, target_score:target, deadline, goal_type});
     GL_GOALS.push(r.goal);
     if (deadline) _calSyncGoal(r.goal);
     glRender();
@@ -3088,7 +3088,7 @@ async function glUpdateProgress(id, current) {
   if (val === null) return;
   const pct = Math.min(Math.max(parseInt(val)||0, 0), 100);
   try {
-    await API('/api/goals/update', {sid:S.sid, id, progress:pct, completed: pct>=100});
+    await API('/api/goals/update', {token:S.token, id, progress:pct, completed: pct>=100});
     const g = GL_GOALS.find(x=>x.id===id);
     if (g) { g.progress = pct; g.completed = pct>=100; }
     glRender();
@@ -3102,7 +3102,7 @@ async function glMarkDone(id) {
   if (!g) return;
   const completed = !g.completed;
   try {
-    await API('/api/goals/update', {sid:S.sid, id, progress: completed?100:g.progress, completed});
+    await API('/api/goals/update', {token:S.token, id, progress: completed?100:g.progress, completed});
     g.completed = completed;
     if (completed) {
       g.progress = 100;
@@ -3117,7 +3117,7 @@ async function glMarkDone(id) {
 async function glDelete(id) {
   if (!await siModal.confirm('This goal will be permanently deleted.', { title:'Delete Goal', confirmLabel:'Delete', danger:true })) return;
   try {
-    await API('/api/goals/delete', {sid:S.sid, id});
+    await API('/api/goals/delete', {token:S.token, id});
     _calRemoveEvent(`goal_${id}`);
     GL_GOALS = GL_GOALS.filter(x=>x.id!==id);
     glRender();
@@ -3161,7 +3161,7 @@ async function glSaveKR(goalId) {
   const unit   = ($(`kr-unit-${goalId}`)?.value || '').trim();
   if (!title) { toast('Enter a Key Result name'); return; }
   try {
-    await API('/api/goals/kr/add', { sid: S.sid, goal_id: goalId, title, target, current: 0, unit });
+    await API('/api/goals/kr/add', { token: S.token, goal_id: goalId, title, target, current: 0, unit });
     await glLoad();
     toast('Key Result added ✓');
   } catch { toast('Could not add Key Result'); }
@@ -3169,7 +3169,7 @@ async function glSaveKR(goalId) {
 
 async function glUpdateKR(goalId, krId, current) {
   try {
-    await API('/api/goals/kr/update', { sid: S.sid, goal_id: goalId, kr_id: krId, current });
+    await API('/api/goals/kr/update', { token: S.token, goal_id: goalId, kr_id: krId, current });
     // Update local cache silently, then re-render
     const g = GL_GOALS.find(x => x.id === goalId);
     if (g) {
@@ -3188,7 +3188,7 @@ async function glUpdateKR(goalId, krId, current) {
 async function glDeleteKR(goalId, krId) {
   if (!await siModal.confirm('Delete this Key Result?', { title:'Delete Key Result', confirmLabel:'Delete', danger:true })) return;
   try {
-    await API('/api/goals/kr/delete', { sid: S.sid, goal_id: goalId, kr_id: krId });
+    await API('/api/goals/kr/delete', { token: S.token, goal_id: goalId, kr_id: krId });
     await glLoad();
   } catch { toast('Delete failed'); }
 }
@@ -3227,7 +3227,7 @@ async function glSaveEdit(id) {
   const deadline = $(`gl-edit-d-${id}`)?.value || '';
   if (!title) { toast('Goal title required'); return; }
   try {
-    await API('/api/goals/edit', { sid: S.sid, id, title, subject, deadline: deadline || null });
+    await API('/api/goals/edit', { token: S.token, id, title, subject, deadline: deadline || null });
     const g = GL_GOALS.find(x => x.id === id);
     if (g) { g.title = title; g.subject = subject; g.deadline = deadline || null; _calSyncGoal(g); }
     glRender();
@@ -4618,7 +4618,7 @@ let LH_ENROLLED = [];
 
 async function lhInit() {
   try {
-    const r = await fetch(`/api/learning-hub/enrolled?sid=${S.sid}`);
+    const r = await fetch(`/api/learning-hub/enrolled?token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
     LH_ENROLLED = d.enrolled || [];
   } catch(e) { LH_ENROLLED = JSON.parse(localStorage.getItem(`lh_enrolled_${S.sid}`) || '[]'); }
@@ -4750,7 +4750,7 @@ function lhOpenCourse(id) {
 async function lhEnroll(id) {
   LH_ENROLLED.push(id);
   localStorage.setItem(`lh_enrolled_${S.sid}`, JSON.stringify(LH_ENROLLED));
-  try { await API('/api/learning-hub/enroll', {sid:S.sid, course_id:id}); } catch(e) {}
+  try { await API('/api/learning-hub/enroll', {token:S.token, course_id:id}); } catch(e) {}
   lhRender();
   toast('Enrolled! 🎉 Start learning');
 }
@@ -16588,7 +16588,7 @@ async function siObSaveGoal() {
   // Create goal in the same way glSaveGoal does
   try {
     await API('/api/goals/add', {
-      sid: S.sid, title, subject,
+      token: S.token, title, subject,
       deadline: deadline || null,
       type: 'okr', target_score: null,
     });

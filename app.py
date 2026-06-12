@@ -5020,18 +5020,15 @@ async def unified_search(q: str = "", token: str = ""):
 
 @app.get("/api/goals")
 async def get_goals(sid: str = "", token: str = ""):
-    # Support both sid (web) and token (mobile)
-    if token:
-        sess = get_session_from_token(token)
-        if not sess:
-            raise HTTPException(401, "Invalid session.")
-        sid = sess["sid"]
-    sid = sanitize_text(sid, 100)
-    return {"goals": load_goals(sid)}
+    # Auth is by session token only; the `sid` query param is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    return {"goals": load_goals(sess["sid"])}
 
 @app.post("/api/goals/add")
 async def add_goal(data: dict):
-    sid       = sanitize_text(str(data.get("sid","")), 100)
+    sid, _    = _resolve_token(data)
     title     = sanitize_text(str(data.get("title","")), 100)
     subject   = sanitize_text(str(data.get("subject","")), 100)
     target    = int(data.get("target_score", 70))
@@ -5059,7 +5056,7 @@ async def add_goal(data: dict):
 
 @app.post("/api/goals/update")
 async def update_goal(data: dict):
-    sid      = sanitize_text(str(data.get("sid","")), 100)
+    sid, _   = _resolve_token(data)
     goal_id  = sanitize_text(str(data.get("id","")), 20)
     progress = int(data.get("progress", 0))
     completed = bool(data.get("completed", False))
@@ -5074,7 +5071,7 @@ async def update_goal(data: dict):
 
 @app.post("/api/goals/delete")
 async def delete_goal(data: dict):
-    sid     = sanitize_text(str(data.get("sid","")), 100)
+    sid, _  = _resolve_token(data)
     goal_id = sanitize_text(str(data.get("id","")), 20)
     goals   = [g for g in load_goals(sid) if g["id"] != goal_id]
     save_goals(sid, goals)
@@ -5083,7 +5080,7 @@ async def delete_goal(data: dict):
 
 @app.post("/api/goals/edit")
 async def edit_goal(data: dict):
-    sid     = sanitize_text(str(data.get("sid","")), 100)
+    sid, _  = _resolve_token(data)
     goal_id = sanitize_text(str(data.get("id","")), 20)
     goals   = load_goals(sid)
     for g in goals:
@@ -5110,7 +5107,7 @@ def _calc_goal_progress(g: dict) -> int:
 
 @app.post("/api/goals/kr/add")
 async def add_goal_kr(data: dict):
-    sid     = sanitize_text(str(data.get("sid","")), 100)
+    sid, _  = _resolve_token(data)
     goal_id = sanitize_text(str(data.get("goal_id","")), 20)
     title   = sanitize_text(str(data.get("title","")), 200)
     target  = float(data.get("target", 100))
@@ -5132,7 +5129,7 @@ async def add_goal_kr(data: dict):
 
 @app.post("/api/goals/kr/update")
 async def update_goal_kr(data: dict):
-    sid     = sanitize_text(str(data.get("sid","")), 100)
+    sid, _  = _resolve_token(data)
     goal_id = sanitize_text(str(data.get("goal_id","")), 20)
     kr_id   = sanitize_text(str(data.get("kr_id","")), 20)
     current = float(data.get("current", 0))
@@ -5153,7 +5150,7 @@ async def update_goal_kr(data: dict):
 
 @app.post("/api/goals/kr/delete")
 async def delete_goal_kr(data: dict):
-    sid     = sanitize_text(str(data.get("sid","")), 100)
+    sid, _  = _resolve_token(data)
     goal_id = sanitize_text(str(data.get("goal_id","")), 20)
     kr_id   = sanitize_text(str(data.get("kr_id","")), 20)
     goals   = load_goals(sid)
@@ -5168,9 +5165,9 @@ async def delete_goal_kr(data: dict):
 
 @app.post("/api/learning-hub/enroll")
 async def enroll_course(data: dict):
-    sid       = sanitize_text(str(data.get("sid", "")), 100)
+    sid, _    = _resolve_token(data)
     course_id = sanitize_text(str(data.get("course_id", "")), 50)
-    if not sid or not course_id:
+    if not course_id:
         raise HTTPException(400, "Missing fields.")
     p = load_progress(sid)
     enrolled = p.get("enrolled_courses", [])
@@ -5182,9 +5179,12 @@ async def enroll_course(data: dict):
 
 
 @app.get("/api/learning-hub/enrolled")
-async def get_enrolled(sid: str):
-    sid = sanitize_text(sid, 100)
-    p   = load_progress(sid)
+async def get_enrolled(sid: str = "", token: str = ""):
+    # Auth is by session token only; the `sid` query param is ignored (IDOR fix).
+    sess = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p = load_progress(sess["sid"])
     return {"enrolled": p.get("enrolled_courses", [])}
 
 
