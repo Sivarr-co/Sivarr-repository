@@ -3145,7 +3145,7 @@ body{{background:#08090d;color:#f0f1f5;font-family:'Outfit',sans-serif;min-heigh
 async def admin_login(req: AdminLoginRequest, request: Request):
     key = get_client_key(request)
     check_rate_limit(key, 5, "admin_login")  # Extra strict for admin
-    if req.password != ADMIN_PASSWORD:
+    if not (ADMIN_PASSWORD and hmac.compare_digest(req.password, ADMIN_PASSWORD)):
         log.warning(f"Failed admin login attempt from {key}")
         raise HTTPException(401, "Invalid password")
     log.info(f"Admin login successful from {key}")
@@ -3412,7 +3412,7 @@ def verify_lecturer(token: str):
 async def lecturer_login(req: LecturerLoginRequest, request: Request):
     key = get_client_key(request)
     check_rate_limit(key, 5, "lec_login")
-    if req.password != LECTURER_PASSWORD:
+    if not (LECTURER_PASSWORD and hmac.compare_digest(req.password, LECTURER_PASSWORD)):
         log.warning(f"Failed lecturer login: {req.name}")
         raise HTTPException(401, "Invalid password")
     log.info(f"Lecturer login: {req.name}")
@@ -4978,7 +4978,43 @@ async def unified_search(q: str = "", token: str = ""):
         except Exception:
             pass
 
-    return {"results": results[:25]}
+    # ── Skills ─────────────────────────────────────────────────
+    if db.is_available():
+        try:
+            sk_blob = db.get_user_blob(sid, "skills") or {}
+            for s in (sk_blob.get("skills") or []):
+                name = s.get("name", "")
+                cat  = s.get("category", "")
+                if q in name.lower() or q in cat.lower():
+                    results.append({
+                        "type":  "skill",
+                        "icon":  s.get("emoji", "🧠"),
+                        "title": name,
+                        "meta":  f'{s.get("level",0)}% · {cat}',
+                        "id":    s.get("id", ""),
+                    })
+        except Exception:
+            pass
+
+    # ── Finance transactions ────────────────────────────────────
+    if db.is_available():
+        try:
+            fin_blob = db.get_user_blob(sid, "finance") or {}
+            for t in (fin_blob.get("transactions") or []):
+                note = t.get("note", "")
+                cat  = t.get("category", "")
+                if q in note.lower() or q in cat.lower():
+                    results.append({
+                        "type":  "transaction",
+                        "icon":  "💰" if t.get("type") == "income" else "💸",
+                        "title": note or cat,
+                        "meta":  f'₦{t.get("amount",0):,.0f} · {t.get("date","")}',
+                        "id":    t.get("id", ""),
+                    })
+        except Exception:
+            pass
+
+    return {"results": results[:30]}
 
 @app.get("/api/goals")
 async def get_goals(sid: str = "", token: str = ""):
@@ -6897,13 +6933,40 @@ async def weekly_review(data: dict, request: Request):
         for g in goals
     ) if goals else "  - No active goals"
 
-    prompt = f"""You are Sivarr AI, the Sivarr AI assistant. Write a warm, insightful weekly review for {first_name} covering {week_range}.
+    # Skills context
+    skills_txt = ""
+    if db.is_available():
+        sk_blob = db.get_user_blob(sid, "skills") or {}
+        sk_list = (sk_blob.get("skills") or [])[:5]
+        if sk_list:
+            skills_txt = "\n".join(
+                f"  - {sanitize_text(str(s.get('name','?')),40)}: {s.get('level',0)}% proficiency, {s.get('sessions',0)} sessions"
+                for s in sk_list
+            )
+
+    # Finance context
+    finance_txt = ""
+    if db.is_available():
+        fin_blob = db.get_user_blob(sid, "finance") or {}
+        fin_txs  = (fin_blob.get("transactions") or [])
+        month    = str(week_end)[:7]
+        m_txs    = [t for t in fin_txs if str(t.get("date","")).startswith(month)]
+        if m_txs:
+            inc = sum(t.get("amount",0) for t in m_txs if t.get("type")=="income")
+            exp = sum(t.get("amount",0) for t in m_txs if t.get("type")=="expense")
+            finance_txt = f"  - This month: ₦{inc:,.0f} income, ₦{exp:,.0f} expenses, ₦{inc-exp:,.0f} net"
+
+    extras = ""
+    if skills_txt:  extras += f"\n- Skills tracked:\n{skills_txt}"
+    if finance_txt: extras += f"\n- Finance:\n{finance_txt}"
+
+    prompt = f"""You are Sivarr AI. Write a warm, insightful weekly review for {first_name} covering {week_range}.
 
 Data:
 - Tasks completed: {tasks_done} of {tasks_total}
 - Habits completion rate: {habits_pct}%
-- Goals progress:
-{goals_txt}
+- Goals:
+{goals_txt}{extras}
 {"- Dominant mood: " + mood if mood else ""}
 
 Format your response in exactly 4 labelled sections:
