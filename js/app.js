@@ -9175,6 +9175,7 @@ async function generateTaskStructure() {
   try {
     const r = await API('/api/chat', {
       sid: S.sid,
+      token: localStorage.getItem('sivarr_token') || '',
       message: `Break down this task into clear numbered steps a student can follow. Be concise. Task: "${text}"`
     });
     if (res) {
@@ -11753,7 +11754,7 @@ async function docAIGenerate() {
   const replaceBtn = $('doc-ai-replace');
   if (resultEl) { resultEl.style.display = 'block'; resultEl.textContent = 'Generating…'; }
   try {
-    const r = await API('/api/chat', { sid: S.sid, message: ctx, context: '' });
+    const r = await API('/api/chat', { sid: S.sid, token: localStorage.getItem('sivarr_token') || '', message: ctx, context: '' });
     _docAiText = r.reply || r.response || '';
     if (resultEl)   resultEl.textContent  = _docAiText;
     if (insertBtn)  insertBtn.style.display  = 'block';
