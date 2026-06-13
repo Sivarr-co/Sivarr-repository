@@ -97,9 +97,12 @@ def _dec_secret(s):
 _pool: pgpool.ThreadedConnectionPool | None = None
 
 # Pool size is env-tunable so it can be matched to the Supabase plan's connection
-# limit without a code change. Total server connections ≈ workers × DB_POOL_MAX.
+# limit without a code change. Client connections ≈ workers × DB_POOL_MAX, multiplexed
+# by the Supabase transaction pooler onto its server slots. Default 5 → 4 workers × 5 =
+# 20 client conns, sized for the free plan's pooler "Pool Size" of 15. Raise DB_POOL_MAX
+# after upgrading Supabase (Pro has a larger pool).
 _POOL_MIN = max(1, int(os.environ.get("DB_POOL_MIN", "1")))
-_POOL_MAX = max(_POOL_MIN, int(os.environ.get("DB_POOL_MAX", "10")))
+_POOL_MAX = max(_POOL_MIN, int(os.environ.get("DB_POOL_MAX", "5")))
 
 
 def is_available() -> bool:
