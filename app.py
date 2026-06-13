@@ -79,6 +79,7 @@ except ImportError:
     SENTRY_AVAILABLE = False
 
 import database as db
+import rcache  # optional Redis layer (rate limiting + shared cache); degrades gracefully
 import asyncio, json, time
 from collections import defaultdict
 
@@ -437,10 +438,14 @@ def get_client_key(request: Request, sid: str = "") -> str:
 def check_rate_limit(key: str, limit: int, endpoint: str) -> None:
     """Raise 429 if rate limit exceeded. Uses PostgreSQL when available (multi-worker safe)."""
     full_key = f"{endpoint}_{key}"
-    if db.is_available():
-        allowed = db.db_check_rate_limit(full_key, limit, RATE_LIMIT_WINDOW)
-    else:
-        allowed = limiter.is_allowed(full_key, limit)
+    # Redis first (atomic, keeps rate-limit traffic off Postgres); falls back to
+    # the DB limiter, then the per-worker in-memory limiter, if Redis is unavailable.
+    allowed = rcache.rate_allow(full_key, limit, RATE_LIMIT_WINDOW)
+    if allowed is None:
+        if db.is_available():
+            allowed = db.db_check_rate_limit(full_key, limit, RATE_LIMIT_WINDOW)
+        else:
+            allowed = limiter.is_allowed(full_key, limit)
     if not allowed:
         log.warning(f"Rate limit exceeded | key={key} | endpoint={endpoint}")
         raise HTTPException(
@@ -1721,6 +1726,9 @@ app.add_middleware(_SecurityHeadersMiddleware)
 _rcache: dict[str, tuple] = {}  # key → (payload, expires_at)
 
 def _rc_get(key: str):
+    # Redis when available (shared across workers/instances); else per-worker memory.
+    if rcache.available():
+        return rcache.cache_get(key)
     entry = _rcache.get(key)
     if entry and time.time() < entry[1]:
         return entry[0]
@@ -1728,9 +1736,15 @@ def _rc_get(key: str):
     return None
 
 def _rc_set(key: str, value, ttl: int = 60) -> None:
+    if rcache.available():
+        rcache.cache_set(key, value, ttl)
+        return
     _rcache[key] = (value, time.time() + ttl)
 
 def _rc_bust(prefix: str) -> None:
+    if rcache.available():
+        rcache.cache_bust(prefix)
+        return
     for k in list(_rcache):
         if k.startswith(prefix):
             _rcache.pop(k, None)
