@@ -43,7 +43,16 @@ if _DATABASE_URL.startswith("railway") and "://" in _DATABASE_URL:
 if _DATABASE_URL.startswith("postgres://"):
     _DATABASE_URL = _DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-_pool: pgpool.SimpleConnectionPool | None = None
+# ThreadedConnectionPool (lock-protected) — NOT SimpleConnectionPool. FastAPI runs
+# sync endpoints and asyncio.to_thread DB calls on a threadpool, so getconn/putconn
+# are called from multiple threads concurrently; SimpleConnectionPool has no internal
+# lock and corrupts its state under that (double-handed connections, PoolError) at load.
+_pool: pgpool.ThreadedConnectionPool | None = None
+
+# Pool size is env-tunable so it can be matched to the Supabase plan's connection
+# limit without a code change. Total server connections ≈ workers × DB_POOL_MAX.
+_POOL_MIN = max(1, int(os.environ.get("DB_POOL_MIN", "1")))
+_POOL_MAX = max(_POOL_MIN, int(os.environ.get("DB_POOL_MAX", "10")))
 
 
 def is_available() -> bool:
@@ -53,7 +62,7 @@ def is_available() -> bool:
 _pool_error: str = ""   # stores the last pool creation failure reason
 
 
-def _get_pool() -> pgpool.SimpleConnectionPool | None:
+def _get_pool() -> pgpool.ThreadedConnectionPool | None:
     global _pool, _pool_error
     if _pool is not None:
         return _pool
@@ -67,8 +76,8 @@ def _get_pool() -> pgpool.SimpleConnectionPool | None:
         variants.append(_DATABASE_URL + sep + "sslmode=disable")
     for url in variants:
         try:
-            _pool = pgpool.SimpleConnectionPool(
-                1, 8, url, connect_timeout=10,
+            _pool = pgpool.ThreadedConnectionPool(
+                _POOL_MIN, _POOL_MAX, url, connect_timeout=10,
                 keepalives=1, keepalives_idle=60,
                 keepalives_interval=10, keepalives_count=5,
             )
@@ -174,7 +183,7 @@ def _with_conn(label: str, fn, default):
 
 def pool_stats() -> dict:
     """Best-effort snapshot of pool usage for monitoring. Reads psycopg2
-    SimpleConnectionPool internals defensively (they're private but stable)."""
+    ThreadedConnectionPool internals defensively (they're private but stable)."""
     p = _pool
     if p is None:
         return {"in_use": 0, "idle": 0, "max": 0}
