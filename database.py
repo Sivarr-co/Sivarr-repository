@@ -64,7 +64,7 @@ def _get_pool() -> pgpool.SimpleConnectionPool | None:
     for url in variants:
         try:
             _pool = pgpool.SimpleConnectionPool(
-                1, 5, url, connect_timeout=10,
+                1, 8, url, connect_timeout=10,
                 keepalives=1, keepalives_idle=60,
                 keepalives_interval=10, keepalives_count=5,
             )
@@ -557,8 +557,21 @@ CREATE INDEX IF NOT EXISTS idx_opps_category ON opportunities(category);
 """
 
 
+_schema_ready = False  # set True once init_db succeeds in this process
+
+
 def init_db() -> bool:
-    """Create tables if they don't exist. Returns True on success."""
+    """Create tables if they don't exist. Returns True on success.
+
+    Idempotent and cheap to call repeatedly: once the schema has been applied
+    successfully in this process, subsequent calls short-circuit. Hot paths
+    (e.g. org_get) call this defensively against the cold-boot startup race —
+    without the guard each call re-ran all ~69 DDL statements (69 round-trips),
+    which on a cross-region DB added seconds to every request.
+    """
+    global _schema_ready
+    if _schema_ready:
+        return True
     if not is_available():
         log.info("DATABASE_URL not set — running on JSON file storage")
         return False
@@ -593,6 +606,7 @@ def init_db() -> bool:
         log.error(f"DB schema ready with {failed} failed statement(s); {applied} applied")
     else:
         log.info(f"DB schema ready ({applied} statements)")
+        _schema_ready = True  # steady state: future init_db() calls are no-ops
     return failed == 0
 
 

@@ -6017,16 +6017,21 @@ async def org_get(data: dict):
     sid, name = _resolve_token(data)
     if not db.is_available():
         raise HTTPException(503, "Database unavailable.")
-    db.init_db()  # idempotent — ensures tables exist if startup race occurred
-    org = db.get_org_by_member(sid)
+    db.init_db()  # cheap no-op once schema is ready; guards the cold-boot race
+    org = await asyncio.to_thread(db.get_org_by_member, sid)
     if not org:
         return {"org": None}
-    members  = db.get_org_members(org["id"])
-    tasks    = db.get_org_tasks(org["id"])
-    projects = db.get_org_projects(org["id"])
-    docs     = db.get_org_docs(org["id"])
-    goals    = db.get_org_goals(org["id"])
-    founder  = db.get_org_founder(org["id"])
+    # These six reads are independent — run them concurrently (each grabs its own
+    # pooled connection) instead of six sequential cross-region round-trips, and
+    # off the event loop so the worker stays responsive.
+    members, tasks, projects, docs, goals, founder = await asyncio.gather(
+        asyncio.to_thread(db.get_org_members,  org["id"]),
+        asyncio.to_thread(db.get_org_tasks,    org["id"]),
+        asyncio.to_thread(db.get_org_projects, org["id"]),
+        asyncio.to_thread(db.get_org_docs,     org["id"]),
+        asyncio.to_thread(db.get_org_goals,    org["id"]),
+        asyncio.to_thread(db.get_org_founder,  org["id"]),
+    )
     return {
         "org": {
             "id":          org["id"],
