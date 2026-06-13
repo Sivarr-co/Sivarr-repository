@@ -690,9 +690,25 @@ def get_session_from_token(token: str) -> dict | None:
     # Fallback: check DB and warm this worker's cache for subsequent requests
     if db.is_available():
         db_entry = db.get_db_session(token)
-        if db_entry:
-            _session_tokens[token] = db_entry
-        return db_entry
+        if not db_entry:
+            return None
+        # Normalise the DB row to the in-memory shape before caching. get_db_session
+        # returns a tz-aware "expires_at" (TIMESTAMPTZ); the in-memory cache + the
+        # stale-eviction sweep expect a naive-UTC "expires". Caching the raw DB shape
+        # makes the next lookup KeyError on entry["expires"] and the eviction sweep
+        # treat the entry as already-expired (v.get("expires", now) <= now) — both of
+        # which silently log the user out on reload. Map the key and drop the tzinfo.
+        exp = db_entry.get("expires_at")
+        if exp is not None and exp.tzinfo is not None:
+            exp = exp.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        entry = {
+            "sid":     db_entry["sid"],
+            "name":    db_entry["name"],
+            "email":   db_entry["email"],
+            "expires": exp,
+        }
+        _session_tokens[token] = entry
+        return entry
     return None
 
 
@@ -1633,8 +1649,8 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://plausible.io https://cdn.jsdelivr.net "
         "  https://js.sentry-cdn.com https://browser.sentry-cdn.com; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src 'self' https://fonts.gstatic.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+        "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; "
         "img-src 'self' data: blob: https:; "
         "media-src 'self' blob:; "
         "connect-src 'self' https://plausible.io https://o*.ingest.sentry.io "
