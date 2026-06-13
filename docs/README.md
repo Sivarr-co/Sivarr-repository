@@ -39,10 +39,13 @@ The genuinely new/fixed work across the sprints:
   backing `users` row) that left the agents marketplace empty.
 - **Sprint D** — verified the existing Month/Week/Day calendar; documentation only.
 
-### Known pre-existing issues flagged (not yet fixed)
-- Opportunities cards render `o.author`, but `/api/opportunities` returns
-  `submitted_by` (no `author`) → byline shows "undefined".
-- Old marketplace seed templates use `writing`/`finance` categories that match no
-  marketplace tab (appear only under "All").
+### Pre-existing issues — fixed (post-Sprint D)
+- Opportunities byline showed "undefined" (`o.author` vs API's `submitted_by`) →
+  now shows the `organisation` (which was previously never displayed).
+- Marketplace seed templates with `writing`/`finance` categories (no matching tab)
+  remapped to valid categories (`ai_prompts`/`workspace`), with an idempotent
+  UPDATE to correct any already-seeded rows.
+
+### Still open
 - Mood-chart and marketplace-FK fixes are logic-verified, not yet confirmed
   against the live production DB.

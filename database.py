@@ -3176,7 +3176,7 @@ _SEED_TEMPLATES = [
         "id": "seed_copy_assistant",
         "name": "Copy Assistant",
         "short_description": "Writes social captions, emails, product descriptions, and ad copy from a brief.",
-        "category": "writing",
+        "category": "ai_prompts",
         "price": 0.0,
         "price_ngn": 0.0,
         "thumbnail_color": "#4f6ef7",
@@ -3186,7 +3186,7 @@ _SEED_TEMPLATES = [
         "id": "seed_startup_analyst",
         "name": "Startup Analyst",
         "short_description": "Analyses your metrics and writes weekly founder briefings from your data.",
-        "category": "finance",
+        "category": "workspace",
         "price": 0.0,
         "price_ngn": 500.0,
         "thumbnail_color": "#22c55e",
@@ -3206,7 +3206,7 @@ _SEED_TEMPLATES = [
         "id": "seed_outreach_pro",
         "name": "Outreach Pro",
         "short_description": "Writes cold emails, follow-ups, and investor updates from bullet-point notes.",
-        "category": "writing",
+        "category": "ai_prompts",
         "price": 0.0,
         "price_ngn": 1200.0,
         "thumbnail_color": "#7c3aed",
@@ -3367,6 +3367,16 @@ def seed_marketplace_templates() -> None:
                     json.dumps(t["tags"]), int(t.get("download_count", 0) or 0),
                     float(t.get("avg_rating", 0.0) or 0.0),
                 ))
+
+            # Correct legacy seed-template categories that predate the valid
+            # marketplace tab set (writing/finance match no tab, so those
+            # templates only appeared under "All"). Idempotent: the AND guard
+            # makes it a no-op once corrected.
+            cur.execute("UPDATE agent_templates SET category = 'ai_prompts' "
+                        "WHERE id IN ('seed_copy_assistant','seed_outreach_pro') "
+                        "AND category = 'writing'")
+            cur.execute("UPDATE agent_templates SET category = 'workspace' "
+                        "WHERE id = 'seed_startup_analyst' AND category = 'finance'")
         conn.commit()
         log.info(f"Seeded {len(_SEED_TEMPLATES)} marketplace templates")
     except Exception as exc:

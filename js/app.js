@@ -7417,7 +7417,7 @@ async function commLoadOpportunities(category) {
           <div class="feed-av" style="background:var(--accent2,#7c3aed)">🎯</div>
           <div style="flex:1">
             <div class="feed-name">${esc(o.title)}</div>
-            <div class="feed-time">${esc(o.author)} · ${_timeAgo(o.created)}</div>
+            <div class="feed-time">${o.organisation ? esc(o.organisation) + ' · ' : ''}${_timeAgo(o.created)}</div>
           </div>
           <span class="feat-badge" style="background:var(--accent2,#7c3aed)22;color:var(--accent2,#7c3aed)">${esc(o.category)}</span>
         </div>
