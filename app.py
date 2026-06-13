@@ -4527,16 +4527,78 @@ async def study_deck(request: Request, sid: str = Form(...), file: UploadFile = 
 EXAM_RESULTS_PATH = DATA_DIR / "exam_results.json"
 EXAM_SESSIONS_PATH = DATA_DIR / "exam_sessions.json"
 
+# Exam results & sessions live in the generic `collections` table (DB-first), one
+# row per record keyed by f"{sid}_{exam_id}". Concurrent student submissions are
+# atomic per-record and never clobber one another — the old whole-file save lost
+# grades under concurrency. Legacy JSON files are migrated lazily on first access
+# (per worker) and used as a fallback only when no DB is configured.
+_exam_results_migrated = False
+_exam_sessions_migrated = False
+
+def _save_json_atomic(path, data):
+    tmp = str(path) + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    shutil.move(tmp, str(path))
+
+def _migrate_exam_results():
+    global _exam_results_migrated
+    if _exam_results_migrated or not db.is_available():
+        return
+    _exam_results_migrated = True
+    try:
+        if EXAM_RESULTS_PATH.exists() and db.coll_count("exam_results") == 0:
+            legacy = json.loads(EXAM_RESULTS_PATH.read_text(encoding="utf-8"))
+            for r in (legacy if isinstance(legacy, list) else []):
+                iid = f"{r.get('sid','')}_{r.get('exam_id','')}"
+                db.coll_put("exam_results", iid, r, owner=str(r.get("exam_id", "")))
+    except Exception as exc:
+        log.warning(f"exam_results file→DB migrate failed: {exc}")
+
+def _migrate_exam_sessions():
+    global _exam_sessions_migrated
+    if _exam_sessions_migrated or not db.is_available():
+        return
+    _exam_sessions_migrated = True
+    try:
+        if EXAM_SESSIONS_PATH.exists() and db.coll_count("exam_sessions") == 0:
+            legacy = json.loads(EXAM_SESSIONS_PATH.read_text(encoding="utf-8"))
+            for key, s in (legacy.items() if isinstance(legacy, dict) else []):
+                db.coll_put("exam_sessions", key, s, owner=str(s.get("sid", "")))
+    except Exception as exc:
+        log.warning(f"exam_sessions file→DB migrate failed: {exc}")
+
 def load_exam_results() -> list:
+    """ALL results (lecturer/admin/student full views). DB-first; file fallback."""
+    if db.is_available():
+        _migrate_exam_results()
+        return db.coll_list("exam_results")
     if EXAM_RESULTS_PATH.exists():
         try: return json.loads(EXAM_RESULTS_PATH.read_text(encoding="utf-8"))
         except: return []
     return []
 
-def save_exam_results(results: list):
-    tmp = str(EXAM_RESULTS_PATH) + ".tmp"
-    with open(tmp, "w") as f: json.dump(results, f, indent=2)
-    shutil.move(tmp, str(EXAM_RESULTS_PATH))
+def exam_result_exists(sid: str, exam_id: str) -> bool:
+    if db.is_available():
+        _migrate_exam_results()
+        return db.coll_get("exam_results", f"{sid}_{exam_id}") is not None
+    return any(r.get("sid") == sid and r.get("exam_id") == exam_id for r in load_exam_results())
+
+def save_exam_result(result: dict) -> None:
+    """Persist ONE result atomically — per-record upsert keyed by sid+exam_id."""
+    if db.is_available():
+        db.coll_put("exam_results",
+                    f"{result.get('sid','')}_{result.get('exam_id','')}",
+                    result, owner=str(result.get("exam_id", "")))
+        return
+    results = load_exam_results(); results.append(result)
+    _save_json_atomic(EXAM_RESULTS_PATH, results)
+
+def exam_results_for_exam(exam_id: str) -> list:
+    if db.is_available():
+        _migrate_exam_results()
+        return db.coll_list("exam_results", owner=exam_id)
+    return [r for r in load_exam_results() if r.get("exam_id") == exam_id]
 
 def load_exam_sessions() -> dict:
     if EXAM_SESSIONS_PATH.exists():
@@ -4544,10 +4606,25 @@ def load_exam_sessions() -> dict:
         except: return {}
     return {}
 
-def save_exam_sessions(sessions: dict):
-    tmp = str(EXAM_SESSIONS_PATH) + ".tmp"
-    with open(tmp, "w") as f: json.dump(sessions, f, indent=2)
-    shutil.move(tmp, str(EXAM_SESSIONS_PATH))
+def get_exam_session(sid: str, exam_id: str) -> dict | None:
+    if db.is_available():
+        _migrate_exam_sessions()
+        return db.coll_get("exam_sessions", f"{sid}_{exam_id}")
+    return load_exam_sessions().get(f"{sid}_{exam_id}")
+
+def put_exam_session(sid: str, exam_id: str, session: dict) -> None:
+    if db.is_available():
+        db.coll_put("exam_sessions", f"{sid}_{exam_id}", session, owner=sid)
+        return
+    s = load_exam_sessions(); s[f"{sid}_{exam_id}"] = session
+    _save_json_atomic(EXAM_SESSIONS_PATH, s)
+
+def delete_exam_session(sid: str, exam_id: str) -> None:
+    if db.is_available():
+        db.coll_delete("exam_sessions", f"{sid}_{exam_id}")
+        return
+    s = load_exam_sessions(); s.pop(f"{sid}_{exam_id}", None)
+    _save_json_atomic(EXAM_SESSIONS_PATH, s)
 
 
 AI_EXAM_PROMPT = """You are an expert university exam question generator.
@@ -4622,8 +4699,7 @@ async def start_exam(data: dict, request: Request):
         raise HTTPException(404, "Exam not found")
 
     # Check if already submitted
-    results = load_exam_results()
-    if any(r["sid"] == sid and r["exam_id"] == exam_id for r in results):
+    if exam_result_exists(sid, exam_id):
         raise HTTPException(409, "You have already submitted this exam")
 
     # Build shuffled question set for this student
@@ -4652,16 +4728,14 @@ async def start_exam(data: dict, request: Request):
         shuffled  = [{"question": q, "options": {"A":"True","B":"False","C":"Maybe","D":"None"},
                       "answer":"A", "explanation":"", "type":"mcq"} for q in selected]
 
-    # Store session
-    sessions = load_exam_sessions()
-    sessions[f"{sid}_{exam_id}"] = {
+    # Store session (atomic per-record write)
+    put_exam_session(sid, exam_id, {
         "sid": sid, "exam_id": exam_id, "code": code,
         "started_at": datetime.datetime.now().isoformat(),
         "duration":   exam.get("duration", 60),
         "questions":  shuffled,
         "answers":    {},
-    }
-    save_exam_sessions(sessions)
+    })
 
     # Return questions WITHOUT answers
     safe_q = [{k: v for k, v in q.items() if k != "answer" and k != "explanation"}
@@ -4684,9 +4758,7 @@ async def submit_exam(data: dict, request: Request):
     exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
     answers = data.get("answers", {})  # {question_index: "A"}
 
-    session_key = f"{sid}_{exam_id}"
-    sessions    = load_exam_sessions()
-    session     = sessions.get(session_key)
+    session = get_exam_session(sid, exam_id)
 
     if not session:
         raise HTTPException(404, "Exam session not found — may have expired")
@@ -4726,9 +4798,8 @@ async def submit_exam(data: dict, request: Request):
         time_taken = f"{elapsed // 60}m {elapsed % 60}s"
     except: pass
 
-    # Save result
-    results = load_exam_results()
-    results.append({
+    # Save result (atomic per-record upsert — concurrent submissions never clobber)
+    save_exam_result({
         "sid":        sid,
         "exam_id":    exam_id,
         "code":       session.get("code", ""),
@@ -4740,11 +4811,9 @@ async def submit_exam(data: dict, request: Request):
         "submitted_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "breakdown":  breakdown,
     })
-    save_exam_results(results)
 
     # Clean up session
-    del sessions[session_key]
-    save_exam_sessions(sessions)
+    delete_exam_session(sid, exam_id)
 
     return {
         "ok":        True,
@@ -4762,7 +4831,7 @@ async def submit_exam(data: dict, request: Request):
 async def get_exam_results(exam_id: str, token: str):
     """Lecturer gets all results for an exam with analytics."""
     verify_lecturer(token)
-    results = [r for r in load_exam_results() if r["exam_id"] == exam_id]
+    results = exam_results_for_exam(exam_id)
     if not results:
         return {"results": [], "analytics": {}}
 
