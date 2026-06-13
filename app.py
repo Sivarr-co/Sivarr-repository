@@ -6726,7 +6726,7 @@ Organization snapshot ({today}):
 - Open tasks: {len(open_tasks)} | Done: {len(done_tasks)} | Overdue: {len(overdue)} | High priority: {len(high_pri)}
 - Projects: {len(projects)} active
 - Goals: {len(active_goals)} active OKRs
-- MRR: ${founder.get('mrr', 0):,.0f} | Burn rate: ${founder.get('burn_rate', 0):,.0f}/mo | Runway: {round(founder['cash_balance']/founder['burn_rate']) if founder.get('burn_rate',0) > 0 and founder.get('cash_balance',0) > 0 else 'N/A'} months
+- MRR: ₦{founder.get('mrr', 0):,.0f} | Burn rate: ₦{founder.get('burn_rate', 0):,.0f}/mo | Runway: {round(founder['cash_balance']/founder['burn_rate']) if founder.get('burn_rate',0) > 0 and founder.get('cash_balance',0) > 0 else 'N/A'} months
 
 Top overdue tasks: {', '.join([t['title'] for t in overdue[:3]]) or 'None'}
 High priority: {', '.join([t['title'] for t in high_pri[:3]]) or 'None'}
