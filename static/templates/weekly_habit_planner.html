@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Task Manager — Sivarr Template</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --teal:#0D7A5F; --purple:#534AB7; --grad:linear-gradient(135deg,#0D7A5F,#534AB7);
+    --bg:#F9FAFB; --card:#fff; --ink:#101828; --muted:#667085; --line:#EAECF0;
+    --hi:#D92D20; --med:#DC6803; --lo:#0D7A5F;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:28px 30px 60px}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  h1{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .progress-wrap{min-width:220px}
+  .progress-top{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;background:var(--grad);border-radius:99px;transition:width .4s ease}
+  .grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px}
+  @media(max-width:860px){.grid{grid-template-columns:repeat(2,1fr)}}
+  .day{background:var(--card);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:180px}
+  .day.today{border-color:var(--teal);box-shadow:0 0 0 2px rgba(13,122,95,.12)}
+  .day-h{padding:11px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+  .day-name{font-weight:700;font-size:13px}
+  .day-count{font-size:11px;color:var(--muted);background:var(--bg);border-radius:99px;padding:2px 8px}
+  .tasks{flex:1;padding:8px;display:flex;flex-direction:column;gap:6px}
+  .task{display:flex;align-items:flex-start;gap:7px;font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:7px 8px;cursor:default;position:relative}
+  .task .pri{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+  .pri.high{background:var(--hi)} .pri.med{background:var(--med)} .pri.low{background:var(--lo)}
+  .task .txt{flex:1;line-height:1.4}
+  .task.done .txt{text-decoration:line-through;color:var(--muted)}
+  .task input[type=checkbox]{margin-top:2px;accent-color:var(--teal);cursor:pointer}
+  .task .del{opacity:0;border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1}
+  .task:hover .del{opacity:1}
+  .add{margin:6px 8px 10px;display:flex;gap:6px}
+  .add input{flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12px;font-family:inherit;outline:none}
+  .add input:focus{border-color:var(--teal)}
+  .add select{border:1px solid var(--line);border-radius:8px;font-size:11px;padding:0 4px;font-family:inherit;color:var(--muted)}
+  .add button{border:none;background:var(--grad);color:#fff;border-radius:8px;width:28px;font-size:16px;cursor:pointer;flex-shrink:0}
+  .legend{display:flex;gap:16px;margin-top:20px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
+</style>
+</head>
+<body>
+  <div class="head">
+    <div>
+      <h1>Weekly Task Manager</h1>
+      <div class="sub">Plan your week across days with color-coded priorities and live progress.</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-top"><span>Week progress</span><span id="pct">0%</span></div>
+      <div class="bar"><i id="barfill"></i></div>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="legend">
+    <span><i style="background:#D92D20"></i> High priority</span>
+    <span><i style="background:#DC6803"></i> Medium</span>
+    <span><i style="background:#0D7A5F"></i> Low</span>
+  </div>
+
+<script>
+  const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const todayIdx=(new Date().getDay()+6)%7; // Mon=0
+  const state=DAYS.map((d,i)=>({
+    name:d,
+    tasks: i===todayIdx
+      ? [{t:'Review weekly goals',p:'high',done:false},{t:'Deep work block',p:'med',done:true}]
+      : i===todayIdx+1 ? [{t:'Team check-in',p:'med',done:false}] : []
+  }));
+
+  function render(){
+    const grid=document.getElementById('grid');
+    grid.innerHTML=state.map((d,i)=>`
+      <div class="day ${i===todayIdx?'today':''}">
+        <div class="day-h">
+          <span class="day-name">${d.name.slice(0,3)}</span>
+          <span class="day-count">${d.tasks.filter(t=>t.done).length}/${d.tasks.length}</span>
+        </div>
+        <div class="tasks">
+          ${d.tasks.map((t,j)=>`
+            <div class="task ${t.done?'done':''}">
+              <input type="checkbox" ${t.done?'checked':''} onchange="toggle(${i},${j})">
+              <span class="pri ${t.p}"></span>
+              <span class="txt">${esc(t.t)}</span>
+              <button class="del" onclick="del(${i},${j})">×</button>
+            </div>`).join('')}
+        </div>
+        <div class="add">
+          <input placeholder="Add task…" onkeydown="if(event.key==='Enter')addTask(${i},this)">
+          <select><option value="low">Low</option><option value="med">Med</option><option value="high">High</option></select>
+          <button onclick="addTask(${i},this.parentNode.querySelector('input'))">+</button>
+        </div>
+      </div>`).join('');
+    updateProgress();
+  }
+  function addTask(i,input){
+    const t=input.value.trim(); if(!t)return;
+    const p=input.parentNode.querySelector('select').value;
+    state[i].tasks.push({t,p,done:false}); render();
+  }
+  function toggle(i,j){ state[i].tasks[j].done=!state[i].tasks[j].done; render(); }
+  function del(i,j){ state[i].tasks.splice(j,1); render(); }
+  function updateProgress(){
+    const all=state.flatMap(d=>d.tasks), done=all.filter(t=>t.done).length;
+    const pct=all.length?Math.round(done/all.length*100):0;
+    document.getElementById('pct').textContent=pct+'%';
+    document.getElementById('barfill').style.width=pct+'%';
+  }
+  function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  render();
+</script>
+</body>
+</html>

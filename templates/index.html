@@ -20,7 +20,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260602e">
+<link rel="stylesheet" href="/css/styles.css?v=20260613a">
 <!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
 <script type="module">
 import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
@@ -471,6 +471,10 @@ Sentry.onLoad(function() {
           <button class="si" data-panel="notes" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-notebook"></i></div>
             <span class="si-lb">Docs &amp; Notes</span>
+          </button>
+          <button class="si" data-panel="templates" onclick="sidebarNav(this)">
+            <div class="si-icon"><i class="ti ti-layout-grid"></i></div>
+            <span class="si-lb">Templates</span>
           </button>
         </div>
 
@@ -2446,54 +2450,133 @@ Sentry.onLoad(function() {
       </div>
 
       <!-- ── Templates Panel ── -->
+      <!-- ── TEMPLATES PANEL (Template Library) ── -->
       <div class="panel" id="panel-templates">
         <div class="view-head">
-          <i class="ti ti-template vh-icon"></i>
-          <span class="vh-title">Templates</span>
-          <button class="btn primary" onclick="tplToggleForm()" style="margin-left:auto">+ Create</button>
+          <i class="ti ti-layout-grid vh-icon"></i>
+          <span class="vh-title">Template Library</span>
+          <div class="tpl-search-wrap" style="margin-left:auto">
+            <i class="ti ti-search"></i>
+            <input type="text" id="templateSearch" placeholder="Search templates…" oninput="filterTemplates()">
+          </div>
         </div>
-        <div style="flex:1;overflow-y:auto;padding:1.5rem 24px">
+        <div class="tpl-scroll">
 
-          <!-- Create form -->
-          <div class="tpl-form" id="tpl-form">
-            <div style="font-family:var(--font);font-size:.85rem;font-weight:700;margin-bottom:.75rem">✦ New Template</div>
-            <input class="tpl-input" id="tpl-name" placeholder="Template name e.g. Weekly Study Routine">
-            <select class="tpl-input" id="tpl-category" style="cursor:pointer">
-              <option value="study">📚 Study</option>
-              <option value="productivity">⚡ Productivity</option>
-              <option value="project">📊 Project</option>
-              <option value="team">👥 Team</option>
-              <option value="personal">👤 Personal</option>
-            </select>
-            <textarea class="tpl-textarea" id="tpl-desc-input" placeholder="Describe what this template does and how to use it..."></textarea>
-            <input class="tpl-input" id="tpl-steps" placeholder="Steps (comma-separated) e.g. Set goals, Review notes, Take quiz">
-            <div style="display:flex;gap:8px;margin-top:4px">
-              <button onclick="tplCreate()"
-                style="flex:1;padding:9px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer">
-                Save Template
-              </button>
-              <button onclick="tplToggleForm()"
-                style="flex:1;padding:9px;border-radius:9px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer">
-                Cancel
-              </button>
+          <p class="tpl-lede">Ready-to-use templates. Preview, then duplicate to your workspace.</p>
+
+          <!-- Filter chips -->
+          <div class="tpl-filters">
+            <button class="tpl-chip active" onclick="setTemplateFilter('all', this)">All</button>
+            <button class="tpl-chip" onclick="setTemplateFilter('productivity', this)">Productivity</button>
+            <button class="tpl-chip" onclick="setTemplateFilter('finance', this)">Finance</button>
+            <button class="tpl-chip" onclick="setTemplateFilter('habits', this)">Habits</button>
+          </div>
+
+          <!-- Template grid -->
+          <div class="tpl-grid" id="templatesGrid">
+
+            <div class="tpl-card" data-cat="productivity" onclick="openTemplatePreview('Weekly Task Manager', 'Plan your week across days with priority tracking and focus blocks.', '/static/templates/weekly_habit_planner.html')">
+              <div class="tpl-preview tpl-preview--weekly">
+                <i class="ti ti-calendar-week"></i>
+                <div class="tpl-preview-overlay"><span class="tpl-preview-btn"><i class="ti ti-eye"></i> Preview</span></div>
+              </div>
+              <div class="tpl-card-body">
+                <div class="tpl-card-top">
+                  <span class="tpl-name">Weekly Task Manager</span>
+                  <span class="tpl-badge tpl-badge--popular">Popular</span>
+                </div>
+                <p class="tpl-desc">Plan your week across days with color-coded priorities, progress tracking, and focus time.</p>
+                <div class="tpl-tags"><span class="tpl-tag">Tasks</span><span class="tpl-tag">Weekly</span><span class="tpl-tag">Focus</span></div>
+                <div class="tpl-card-footer">
+                  <span class="tpl-type">Interactive</span>
+                  <button class="tpl-use-btn" onclick="event.stopPropagation(); useTemplate('Weekly Task Manager')">Use template</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="tpl-card" data-cat="productivity habits" onclick="openTemplatePreview('Daily Task Manager &amp; Habit Tracker', 'Combine daily tasks with habit streaks in a warm editorial layout.', '/static/templates/daily_task_manager.html')">
+              <div class="tpl-preview tpl-preview--daily">
+                <i class="ti ti-checklist"></i>
+                <div class="tpl-preview-overlay"><span class="tpl-preview-btn"><i class="ti ti-eye"></i> Preview</span></div>
+              </div>
+              <div class="tpl-card-body">
+                <div class="tpl-card-top">
+                  <span class="tpl-name">Daily Task Manager &amp; Habit Tracker</span>
+                  <span class="tpl-badge tpl-badge--new">New</span>
+                </div>
+                <p class="tpl-desc">Daily tasks with habit streaks, priority labels, and mood tagging in one view.</p>
+                <div class="tpl-tags"><span class="tpl-tag">Tasks</span><span class="tpl-tag">Habits</span><span class="tpl-tag">Daily</span></div>
+                <div class="tpl-card-footer">
+                  <span class="tpl-type">Interactive</span>
+                  <button class="tpl-use-btn" onclick="event.stopPropagation(); useTemplate('Daily Task Manager &amp; Habit Tracker')">Use template</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="tpl-card" data-cat="habits" onclick="openTemplatePreview('Habit Tracker', 'Monthly habit grid with streaks, completion rings, and daily check-ins.', '/static/templates/habit_tracker.html')">
+              <div class="tpl-preview tpl-preview--habit">
+                <i class="ti ti-flame"></i>
+                <div class="tpl-preview-overlay"><span class="tpl-preview-btn"><i class="ti ti-eye"></i> Preview</span></div>
+              </div>
+              <div class="tpl-card-body">
+                <div class="tpl-card-top">
+                  <span class="tpl-name">Habit Tracker</span>
+                  <span class="tpl-badge tpl-badge--popular">Popular</span>
+                </div>
+                <p class="tpl-desc">Monthly habit grid with streak tracking, completion rings, and daily mood check-ins.</p>
+                <div class="tpl-tags"><span class="tpl-tag">Habits</span><span class="tpl-tag">Monthly</span><span class="tpl-tag">Streaks</span></div>
+                <div class="tpl-card-footer">
+                  <span class="tpl-type">Interactive</span>
+                  <button class="tpl-use-btn" onclick="event.stopPropagation(); useTemplate('Habit Tracker')">Use template</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="tpl-card" data-cat="finance" onclick="openTemplatePreview('Monthly Budget Tracker', 'Track income, expenses, and categories with live chart visualisations.', '/static/templates/month_y_budget_tracker.html')">
+              <div class="tpl-preview tpl-preview--budget">
+                <i class="ti ti-wallet"></i>
+                <div class="tpl-preview-overlay"><span class="tpl-preview-btn"><i class="ti ti-eye"></i> Preview</span></div>
+              </div>
+              <div class="tpl-card-body">
+                <div class="tpl-card-top">
+                  <span class="tpl-name">Monthly Budget Tracker</span>
+                  <span class="tpl-badge tpl-badge--new">New</span>
+                </div>
+                <p class="tpl-desc">Track income, expenses, and savings with live charts and category breakdowns. Naira-ready.</p>
+                <div class="tpl-tags"><span class="tpl-tag">Finance</span><span class="tpl-tag">Budget</span><span class="tpl-tag">Charts</span></div>
+                <div class="tpl-card-footer">
+                  <span class="tpl-type">Interactive</span>
+                  <button class="tpl-use-btn" onclick="event.stopPropagation(); useTemplate('Monthly Budget Tracker')">Use template</button>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /templatesGrid -->
+        </div>
+
+        <!-- Preview Modal -->
+        <div class="tpl-modal-backdrop" id="tplModalBackdrop">
+          <div class="tpl-modal">
+            <div class="tpl-modal-header">
+              <div>
+                <div class="tpl-modal-title" id="tplModalTitle">Preview</div>
+                <div class="tpl-modal-desc" id="tplModalDesc"></div>
+              </div>
+              <div class="tpl-modal-actions">
+                <button class="tpl-modal-use-btn" onclick="useTemplateFromModal()"><i class="ti ti-plus"></i> Duplicate to Workspace</button>
+                <button class="tpl-modal-close" onclick="closeTemplatePreview()"><i class="ti ti-x"></i></button>
+              </div>
+            </div>
+            <div class="tpl-modal-body">
+              <div class="tpl-iframe-loader" id="tplIframeLoader">
+                <div class="tpl-spinner"></div><span>Loading preview…</span>
+              </div>
+              <!-- iframe injected by JS -->
             </div>
           </div>
-
-          <!-- Filter bar -->
-          <div class="tpl-filter-bar" id="tpl-filters">
-            <button class="tpl-filter active" onclick="tplSetCat('all',this)">All</button>
-            <button class="tpl-filter" onclick="tplSetCat('study',this)">📚 Study</button>
-            <button class="tpl-filter" onclick="tplSetCat('productivity',this)">⚡ Productivity</button>
-            <button class="tpl-filter" onclick="tplSetCat('project',this)">📊 Project</button>
-            <button class="tpl-filter" onclick="tplSetCat('team',this)">👥 Team</button>
-            <button class="tpl-filter" onclick="tplSetCat('personal',this)">👤 Personal</button>
-          </div>
-
-          <!-- Templates grid -->
-          <div id="tpl-list"></div>
-
         </div>
       </div>
+      <!-- ── END TEMPLATES PANEL ── -->
 
       <!-- ── Calendar Panel ── -->
       <div class="panel" id="panel-calendar">
@@ -4125,7 +4208,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260612f" defer></script>
+<script src="/js/app.js?v=20260613a" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

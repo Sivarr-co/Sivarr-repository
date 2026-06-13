@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Habit Tracker — Sivarr Template</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --teal:#0D7A5F; --purple:#534AB7; --grad:linear-gradient(135deg,#0D7A5F,#534AB7);
+    --bg:#F7F8FA; --card:#fff; --ink:#101828; --muted:#667085; --line:#EAECF0; --cell:#EEF1F4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:28px 30px 60px}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  h1{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .month{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px}
+  .stats{display:flex;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 18px;flex:1;min-width:130px}
+  .stat .v{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:2px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;overflow-x:auto}
+  table{border-collapse:collapse;width:100%}
+  th,td{text-align:center;font-size:11px}
+  th.habit-h,td.habit-c{text-align:left;position:sticky;left:0;background:var(--card);min-width:150px;padding-right:10px}
+  thead th{color:var(--muted);font-weight:600;padding-bottom:10px}
+  .habit-c{font-weight:600;font-size:13px;padding:7px 0}
+  .habit-c .s{display:block;font-size:11px;color:var(--muted);font-weight:500}
+  .cell{width:20px;height:20px;border-radius:6px;background:var(--cell);cursor:pointer;transition:.12s;margin:2px auto}
+  .cell.on{background:var(--teal)}
+  .cell.on:hover{background:#0a6650}
+  .cell:hover{outline:2px solid rgba(13,122,95,.25)}
+  td.ring-c{padding-left:10px}
+  .miniring{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;margin:0 auto}
+  .miniring div{width:21px;height:21px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:9px;font-weight:700;color:var(--teal)}
+  .add{margin-top:14px;display:flex;gap:8px}
+  .add input{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:13px;outline:none}
+  .add input:focus{border-color:var(--teal)}
+  .add button{border:none;background:var(--grad);color:#fff;border-radius:10px;padding:0 16px;font-weight:600;cursor:pointer}
+</style>
+</head>
+<body>
+  <div class="head">
+    <div>
+      <h1>Habit Tracker</h1>
+      <div class="sub">Tap any day to mark it done. Watch your streaks and completion rings grow.</div>
+    </div>
+    <div class="month" id="month"></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="v" id="s-rate">0%</div><div class="l">Avg. completion</div></div>
+    <div class="stat"><div class="v" id="s-best">0</div><div class="l">Best streak (days)</div></div>
+    <div class="stat"><div class="v" id="s-perfect">0</div><div class="l">Perfect days</div></div>
+    <div class="stat"><div class="v" id="s-habits">0</div><div class="l">Habits tracked</div></div>
+  </div>
+
+  <div class="panel">
+    <table id="tbl"></table>
+    <div class="add">
+      <input id="newhabit" placeholder="Add a habit and press Enter…" onkeydown="if(event.key==='Enter')addHabit()">
+      <button onclick="addHabit()">Add habit</button>
+    </div>
+  </div>
+
+<script>
+  const now=new Date();
+  const days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const todayD=now.getDate();
+  document.getElementById('month').textContent=now.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+
+  function seed(p){ return Array.from({length:days},(_,i)=> i<todayD && Math.random()<p ?1:0); }
+  let habits=[
+    {n:'Exercise',d:seed(.7)},
+    {n:'Read 20 min',d:seed(.8)},
+    {n:'Meditate',d:seed(.55)},
+    {n:'8 glasses water',d:seed(.85)},
+    {n:'Sleep by 11pm',d:seed(.6)},
+  ];
+
+  function streak(arr){let b=0,c=0;for(let i=0;i<todayD;i++){if(arr[i]){c++;b=Math.max(b,c);}else c=0;}return b;}
+  function render(){
+    let head='<thead><tr><th class="habit-h">Habit</th>';
+    for(let d=1;d<=days;d++) head+=`<th class="${d===todayD?'':''}">${d}</th>`;
+    head+='<th class="ring-c">%</th></tr></thead>';
+    let body='<tbody>';
+    habits.forEach((h,i)=>{
+      const done=h.d.slice(0,todayD).filter(Boolean).length;
+      const pct=todayD?Math.round(done/todayD*100):0;
+      body+=`<tr><td class="habit-c">${esc(h.n)}<span class="s">🔥 ${streak(h.d)}-day best</span></td>`;
+      for(let d=0;d<days;d++) body+=`<td><div class="cell ${h.d[d]?'on':''}" onclick="toggle(${i},${d})"></div></td>`;
+      body+=`<td class="ring-c"><div class="miniring" style="background:conic-gradient(var(--teal) ${pct}%, var(--cell) ${pct}%)"><div>${pct}</div></div></td></tr>`;
+    });
+    body+='</tbody>';
+    document.getElementById('tbl').innerHTML=head+body;
+    stats();
+  }
+  function toggle(i,d){ if(d>=todayD)return; habits[i].d[d]=habits[i].d[d]?0:1; render(); }
+  function addHabit(){
+    const el=document.getElementById('newhabit'),v=el.value.trim(); if(!v)return;
+    habits.push({n:v,d:Array(days).fill(0)}); el.value=''; render();
+  }
+  function stats(){
+    let total=0,done=0,best=0,perfect=0;
+    for(let d=0;d<todayD;d++){let dd=0;habits.forEach(h=>{total++;if(h.d[d]){done++;dd++;}});if(habits.length&&dd===habits.length)perfect++;}
+    habits.forEach(h=>best=Math.max(best,streak(h.d)));
+    document.getElementById('s-rate').textContent=(total?Math.round(done/total*100):0)+'%';
+    document.getElementById('s-best').textContent=best;
+    document.getElementById('s-perfect').textContent=perfect;
+    document.getElementById('s-habits').textContent=habits.length;
+  }
+  function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  render();
+</script>
+</body>
+</html>

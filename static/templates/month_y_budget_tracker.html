@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monthly Budget Tracker — Sivarr Template</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --teal:#0D7A5F; --purple:#534AB7; --grad:linear-gradient(135deg,#0D7A5F,#534AB7);
+    --bg:#F7F8FA; --card:#fff; --ink:#101828; --muted:#667085; --line:#EAECF0;
+    --green:#027A48; --red:#B42318;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:28px 30px 60px}
+  .wrap{max-width:960px;margin:0 auto}
+  h1{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:13px;margin:4px 0 22px}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
+  @media(max-width:680px){.cards{grid-template-columns:1fr}}
+  .c{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .c .l{font-size:12px;color:var(--muted);font-weight:600}
+  .c .v{font-family:'Syne',sans-serif;font-size:25px;font-weight:800;margin-top:6px}
+  .c.income .v{color:var(--green)} .c.expense .v{color:var(--red)}
+  .c.balance .v{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:680px){.cols{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .pt{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:14px}
+  .cat{margin-bottom:13px}
+  .cat-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+  .cat-top .amt{font-weight:600;color:var(--muted)}
+  .track{height:10px;border-radius:99px;background:#F2F4F7;overflow:hidden}
+  .track>i{display:block;height:100%;border-radius:99px;transition:width .5s ease}
+  .tx{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .tx:last-child{border-bottom:none}
+  .tx .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  .tx .tn{flex:1}
+  .tx .tc{font-size:11px;color:var(--muted)}
+  .tx .ta{font-weight:600}
+  .tx .ta.in{color:var(--green)} .tx .ta.out{color:var(--red)}
+  .add{display:grid;grid-template-columns:1.4fr 1fr .9fr auto;gap:8px;margin-top:14px}
+  @media(max-width:680px){.add{grid-template-columns:1fr 1fr}}
+  .add input,.add select{border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-family:inherit;font-size:13px;outline:none;background:var(--card)}
+  .add input:focus{border-color:var(--teal)}
+  .add button{border:none;background:var(--grad);color:#fff;border-radius:10px;padding:0 16px;font-weight:600;cursor:pointer;grid-column:1/-1}
+  @media(min-width:681px){.add button{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Monthly Budget Tracker</h1>
+  <div class="sub">Track income and expenses in Naira with live category breakdowns. <span id="mlabel"></span></div>
+
+  <div class="cards">
+    <div class="c income"><div class="l">Income</div><div class="v" id="v-in">₦0</div></div>
+    <div class="c expense"><div class="l">Expenses</div><div class="v" id="v-out">₦0</div></div>
+    <div class="c balance"><div class="l">Balance</div><div class="v" id="v-bal">₦0</div></div>
+  </div>
+
+  <div class="cols">
+    <div class="panel">
+      <div class="pt">Spending by category</div>
+      <div id="cats"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Transactions</div>
+      <div id="txlist"></div>
+      <div class="add">
+        <input id="t-name" placeholder="Description">
+        <input id="t-amt" type="number" placeholder="Amount ₦">
+        <select id="t-cat">
+          <option value="Income">Income</option>
+          <option value="Food">Food</option>
+          <option value="Transport">Transport</option>
+          <option value="Bills">Bills</option>
+          <option value="Shopping">Shopping</option>
+          <option value="Other">Other</option>
+        </select>
+        <button onclick="addTx()">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById('mlabel').textContent='— '+new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  const CATCOL={Income:'#027A48',Food:'#DC6803',Transport:'#534AB7',Bills:'#B42318',Shopping:'#0D7A5F',Other:'#667085'};
+  let tx=[
+    {n:'Salary',c:'Income',a:450000},
+    {n:'Rent',c:'Bills',a:-120000},
+    {n:'Groceries',c:'Food',a:-38500},
+    {n:'Bolt rides',c:'Transport',a:-15200},
+    {n:'Data & airtime',c:'Bills',a:-12000},
+    {n:'New headphones',c:'Shopping',a:-29900},
+  ];
+  const fmt=n=>'₦'+Math.abs(n).toLocaleString('en-NG');
+  function render(){
+    const income=tx.filter(t=>t.a>0).reduce((s,t)=>s+t.a,0);
+    const expense=tx.filter(t=>t.a<0).reduce((s,t)=>s+t.a,0);
+    document.getElementById('v-in').textContent=fmt(income);
+    document.getElementById('v-out').textContent=fmt(expense);
+    document.getElementById('v-bal').textContent=fmt(income+expense);
+
+    const byCat={};
+    tx.filter(t=>t.a<0).forEach(t=>byCat[t.c]=(byCat[t.c]||0)+Math.abs(t.a));
+    const max=Math.max(1,...Object.values(byCat));
+    const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+    document.getElementById('cats').innerHTML=cats.length?cats.map(([c,a])=>`
+      <div class="cat">
+        <div class="cat-top"><span>${c}</span><span class="amt">${fmt(a)}</span></div>
+        <div class="track"><i style="width:${a/max*100}%;background:${CATCOL[c]||'#667085'}"></i></div>
+      </div>`).join(''):'<div style="color:var(--muted);font-size:13px">No expenses yet.</div>';
+
+    document.getElementById('txlist').innerHTML=tx.map(t=>`
+      <div class="tx">
+        <span class="dot" style="background:${CATCOL[t.c]||'#667085'}"></span>
+        <div class="tn">${esc(t.n)}<div class="tc">${t.c}</div></div>
+        <span class="ta ${t.a>0?'in':'out'}">${t.a>0?'+':'-'}${fmt(t.a)}</span>
+      </div>`).join('');
+  }
+  function addTx(){
+    const n=document.getElementById('t-name').value.trim();
+    const raw=parseFloat(document.getElementById('t-amt').value);
+    const c=document.getElementById('t-cat').value;
+    if(!n||!raw||isNaN(raw))return;
+    const a=c==='Income'?Math.abs(raw):-Math.abs(raw);
+    tx.unshift({n,c,a});
+    document.getElementById('t-name').value='';document.getElementById('t-amt').value='';
+    render();
+  }
+  function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  render();
+</script>
+</body>
+</html>

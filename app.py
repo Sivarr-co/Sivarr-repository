@@ -1640,20 +1640,24 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "connect-src 'self' https://plausible.io https://o*.ingest.sentry.io "
         "  https://api.paystack.co https://api.flutterwave.com https://api.withmono.com "
         "  https://accounts.google.com https://api.github.com; "
-        "frame-src https://js.paystack.co https://checkout.flutterwave.com; "
+        "frame-src 'self' https://js.paystack.co https://checkout.flutterwave.com; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
         "form-action 'self';"
     )
+    # Same policy but allowing same-origin framing — for the Templates library
+    # preview iframes (served from /static/templates/). They must NOT be DENY'd.
+    _CSP_FRAME_SELF = _CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
 
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         h = response.headers
-        h["X-Frame-Options"]           = "DENY"
+        framable = request.url.path.startswith("/static/templates/")
+        h["X-Frame-Options"]           = "SAMEORIGIN" if framable else "DENY"
         h["X-Content-Type-Options"]    = "nosniff"
         h["Referrer-Policy"]           = "strict-origin-when-cross-origin"
         h["Permissions-Policy"]        = "camera=(), microphone=(), geolocation=()"
-        h["Content-Security-Policy"]   = self._CSP
+        h["Content-Security-Policy"]   = self._CSP_FRAME_SELF if framable else self._CSP
         # Only send HSTS over HTTPS (Railway always proxies via HTTPS)
         if request.headers.get("x-forwarded-proto") == "https":
             h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Task Manager & Habit Tracker — Sivarr Template</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --teal:#0D7A5F; --purple:#534AB7; --grad:linear-gradient(135deg,#0D7A5F,#534AB7);
+    --bg:#FBF8F4; --card:#fff; --ink:#27241D; --muted:#857C6E; --line:#ECE6DC;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:28px 30px 60px}
+  .wrap{max-width:920px;margin:0 auto}
+  .head{margin-bottom:8px}
+  .date{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--purple);font-weight:600}
+  h1{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;letter-spacing:-.02em;margin:4px 0}
+  .sub{color:var(--muted);font-size:13.5px}
+  .cols{display:grid;grid-template-columns:1.4fr 1fr;gap:22px;margin-top:24px}
+  @media(max-width:760px){.cols{grid-template-columns:1fr}}
+  .sec-t{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .sec-t .n{font-size:11px;color:var(--muted);font-family:'Plus Jakarta Sans';background:var(--card);border:1px solid var(--line);border-radius:99px;padding:2px 8px;font-weight:600}
+  .task{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:9px}
+  .task input{accent-color:var(--teal);width:17px;height:17px;cursor:pointer;flex-shrink:0}
+  .task .body{flex:1}
+  .task .t{font-weight:600;font-size:14px}
+  .task.done .t{text-decoration:line-through;color:var(--muted)}
+  .task .meta{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .chip{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:99px;text-transform:uppercase;letter-spacing:.03em}
+  .chip.high{background:#FEE4E2;color:#B42318} .chip.med{background:#FEF0C7;color:#B54708} .chip.low{background:#D1FADF;color:#027A48}
+  .addrow{display:flex;gap:8px;margin-top:4px}
+  .addrow input{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;background:var(--card)}
+  .addrow input:focus{border-color:var(--teal)}
+  .addrow button{border:none;background:var(--grad);color:#fff;border-radius:10px;padding:0 16px;font-weight:600;cursor:pointer}
+  .habit{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:9px}
+  .ring{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:13px;flex-shrink:0;font-weight:700;color:#fff}
+  .habit .hb{flex:1}
+  .habit .hn{font-weight:600;font-size:13.5px}
+  .habit .streak{font-size:11.5px;color:var(--muted)}
+  .dots{display:flex;gap:4px}
+  .dots i{width:13px;height:13px;border-radius:4px;background:var(--line);cursor:pointer;display:inline-block;transition:.15s}
+  .dots i.on{background:var(--teal)}
+  .mood{display:flex;gap:8px;margin-top:6px}
+  .mood button{font-size:22px;background:var(--card);border:1px solid var(--line);border-radius:12px;width:46px;height:46px;cursor:pointer;transition:.15s}
+  .mood button.sel{border-color:var(--purple);background:#F3F0FF;transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="date" id="today"></div>
+    <h1>Today</h1>
+    <div class="sub">Daily tasks, habit streaks, and a mood check — all in one calm view.</div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="sec-t">Tasks <span class="n" id="tcount"></span></div>
+      <div id="tasklist"></div>
+      <div class="addrow">
+        <input id="newtask" placeholder="Add a task and press Enter…" onkeydown="if(event.key==='Enter')addTask()">
+        <button onclick="addTask()">Add</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-t">Habits</div>
+      <div id="habitlist"></div>
+
+      <div class="sec-t" style="margin-top:22px">How are you feeling?</div>
+      <div class="mood" id="mood"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById('today').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  let tasks=[
+    {t:'Finish project proposal',p:'high',due:'10:00 AM',done:false},
+    {t:'Reply to client emails',p:'med',due:'Midday',done:true},
+    {t:'30-min reading',p:'low',due:'Evening',done:false},
+  ];
+  const habits=[
+    {n:'Drink water',streak:12,days:[1,1,1,1,1,0,0]},
+    {n:'Morning workout',streak:5,days:[1,1,0,1,1,0,0]},
+    {n:'No phone after 10pm',streak:3,days:[1,1,1,0,0,0,0]},
+  ];
+  const moods=['😄','🙂','😐','😔','😤'];
+  function renderTasks(){
+    document.getElementById('tcount').textContent=tasks.filter(t=>!t.done).length+' left';
+    document.getElementById('tasklist').innerHTML=tasks.map((t,i)=>`
+      <div class="task ${t.done?'done':''}">
+        <input type="checkbox" ${t.done?'checked':''} onchange="tasks[${i}].done=!tasks[${i}].done;renderTasks()">
+        <div class="body"><div class="t">${esc(t.t)}</div><div class="meta">${t.due}</div></div>
+        <span class="chip ${t.p}">${t.p}</span>
+      </div>`).join('');
+  }
+  function addTask(){
+    const el=document.getElementById('newtask'),v=el.value.trim(); if(!v)return;
+    tasks.push({t:v,p:'low',due:'Today',done:false}); el.value=''; renderTasks();
+  }
+  function renderHabits(){
+    document.getElementById('habitlist').innerHTML=habits.map((h,i)=>{
+      const pct=Math.round(h.days.filter(Boolean).length/7*100);
+      return `<div class="habit">
+        <div class="ring" style="background:conic-gradient(var(--teal) ${pct}%, #E7F3EF ${pct}%)"><div style="width:26px;height:26px;border-radius:50%;background:#fff;color:var(--teal);display:grid;place-items:center;font-size:10px">${pct}%</div></div>
+        <div class="hb"><div class="hn">${esc(h.n)}</div><div class="streak">🔥 ${h.streak}-day streak</div></div>
+        <div class="dots">${h.days.map((d,j)=>`<i class="${d?'on':''}" onclick="toggleHabit(${i},${j})"></i>`).join('')}</div>
+      </div>`;
+    }).join('');
+  }
+  function toggleHabit(i,j){ habits[i].days[j]=habits[i].days[j]?0:1; renderHabits(); }
+  function renderMood(){
+    document.getElementById('mood').innerHTML=moods.map((m,i)=>`<button onclick="selMood(${i})">${m}</button>`).join('');
+  }
+  function selMood(i){ document.querySelectorAll('#mood button').forEach((b,j)=>b.classList.toggle('sel',i===j)); }
+  function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  renderTasks();renderHabits();renderMood();
+</script>
+</body>
+</html>
