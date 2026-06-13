@@ -1565,6 +1565,20 @@ def parse_quiz_json(raw: str, topic: str) -> dict:
 app = FastAPI(title="Sivarr AI", version=VERSION)
 _START_TIME    = time.time()
 _health_cache: dict = {"result": None, "ts": 0.0}
+_db_health_cache: dict = {"info": None, "ts": 0.0}
+
+
+async def _cached_db_test(max_age: float = 5.0) -> dict:
+    """Live DB ping (db.db_test) cached for `max_age` seconds so frequent
+    health calls don't hammer the cross-region pooler. Shared by /health and
+    /api/health. Runs the blocking psycopg2 ping off the event loop."""
+    now = time.time()
+    if _db_health_cache["info"] is not None and now - _db_health_cache["ts"] < max_age:
+        return _db_health_cache["info"]
+    info = await asyncio.to_thread(db.db_test)
+    _db_health_cache["info"] = info
+    _db_health_cache["ts"]   = now
+    return info
 
 # Init Sentry before any middleware so it captures all errors
 if SENTRY_AVAILABLE and SENTRY_DSN:
@@ -1741,8 +1755,32 @@ async def startup():
 # ═══════════════════════════════════════════════════════════════
 
 _SEED_POSTS = [
+    # Nigerian-context seed posts (newest first). `likes` is a count — the seeder
+    # expands it into a JSONB array of placeholder sids so the feed shows real
+    # social proof; a real user's like appends on top of that base.
+    {"id": "seed_n01", "author": "Chidi Okeke", "category": "general", "likes": 14, "tags": ["habits", "journaling"],
+     "content": "Just hit 30 days of consistent journaling on Sivarr 🔥 The weekly AI review is genuinely changing how I reflect. Anyone else using the weekly review feature?"},
+    {"id": "seed_n02", "author": "Amara Nwosu", "category": "career", "likes": 27, "tags": ["opportunities", "remote-work"],
+     "content": "For anyone building in public from Lagos — the Opportunities board just dropped new remote roles from EU companies open to Nigerian applicants. Go check it. 🇳🇬"},
+    {"id": "seed_n03", "author": "Tunde Fashola", "category": "general", "likes": 42, "tags": ["productivity", "africa"],
+     "content": "Hot take: the problem with Nigerian productivity isn't motivation, it's systems. Most of us never had access to proper tools that fit our context. Sivarr is the first thing that feels like it was built for us."},
+    {"id": "seed_n04", "author": "Ngozi Adeyemi", "category": "qa", "likes": 9, "tags": ["spaces", "workflow"],
+     "content": "Question for the community — how are you all using the Spaces feature? I've set up a Personal space for my freelance work and an Org space for my agency. What's your setup?"},
+    {"id": "seed_n05", "author": "Emeka Chibueze", "category": "general", "likes": 19, "tags": ["agents", "nysc"],
+     "content": "Reminder: the Agents marketplace is live. I built a 'Daily NYSC Task Planner' and published it last week. Zero setup, just add it to your workspace."},
+    {"id": "seed_n06", "author": "Fatima Bello", "category": "career", "likes": 31, "tags": ["freelance", "goals"],
+     "content": "Three months in and I've closed 2 freelance clients using the Goals tracker to manage my pipeline. The Kanban board in the Org space is actually 🔥 for solo consultants."},
+    {"id": "seed_n07", "author": "Ade Williams", "category": "general", "likes": 38, "tags": ["offline", "nigeria"],
+     "content": "PSA: Sivarr works offline. Was in Abuja with terrible network last week and my tasks, notes and journal all synced when I got back to Lagos. Underrated for the Nigerian context."},
+    {"id": "seed_n08", "author": "Kemi Olatunji", "category": "study", "likes": 22, "tags": ["agents", "education"],
+     "content": "Shipped my first Sivarr agent today 🎉 A 'JAMB Study Planner' that breaks down any subject into a 60-day schedule. Free to use. Creators really do earn 90% on this platform which is wild."},
+    {"id": "seed_n09", "author": "Ibrahim Musa", "category": "general", "likes": 16, "tags": ["ai-brief", "habits"],
+     "content": "The daily AI brief has become my morning ritual. Wake up, open Sivarr, read the brief, know exactly what to focus on. It's replaced 3 separate apps for me."},
+    {"id": "seed_n10", "author": "Zainab Audu", "category": "general", "likes": 25, "tags": ["goals", "accountability"],
+     "content": "Anyone else find that setting a weekly goal and reviewing it on Monday morning is the most accountability you've ever had? No external coach needed when the AI review is this good."},
+    # ── original generic seeds (kept — extend, don't replace) ──
     {"id": "seed_1", "author": "Sivarr Team", "content": "Just launched my first feature after two weeks of debugging. Celebrate the small wins.", "category": "general"},
-    {"id": "seed_2", "author": "Sivarr Team", "content": "Anyone else use Sivarr AI for breaking down big projects? The task extraction is underrated.", "category": "q_and_a"},
+    {"id": "seed_2", "author": "Sivarr Team", "content": "Anyone else use Sivarr AI for breaking down big projects? The task extraction is underrated.", "category": "qa"},
     {"id": "seed_3", "author": "Sivarr Team", "content": "Tip: link your tasks to goals in the detail panel. Your weekly review gets way more useful.", "category": "general"},
     {"id": "seed_4", "author": "Sivarr Team", "content": "Built a study routine using the Pomodoro timer and daily plan combo. 3 weeks consistent.", "category": "study"},
     {"id": "seed_5", "author": "Sivarr Team", "content": "For Nigerian founders: Paystack webhooks + Sivarr Financials tab is a clean combo for tracking MRR.", "category": "general"},
@@ -1754,7 +1792,66 @@ _SEED_OPPS = [
     {"id": "opp_3", "title": "Tony Elumelu Foundation Grant", "description": "₦5M grant for early-stage African entrepreneurs. Applications open now.", "category": "grant", "organisation": "TEF", "location": "Africa-wide", "deadline": "", "url": "#"},
     {"id": "opp_4", "title": "UI/UX Design Internship", "description": "3-month paid internship at a product studio in Yaba, Lagos. Stipend provided.", "category": "internship", "organisation": "Studio Yaba", "location": "Lagos, Nigeria", "deadline": "", "url": "#"},
     {"id": "opp_5", "title": "Binance Africa Web3 Hackathon", "description": "Build on-chain tools for African markets. Prizes up to $50,000.", "category": "grant", "organisation": "Binance", "location": "Remote", "deadline": "", "url": "#"},
+    # ── Sprint C: Nigerian-context listings. Pay is folded into the description
+    # because the opportunities schema has no salary column. ──
+    {"id": "opp_001", "title": "Senior Backend Engineer (Remote)", "category": "job", "organisation": "Andela", "location": "Remote — Open to Nigeria", "deadline": "2026-07-15", "url": "#",
+     "description": "Build scalable microservices for global tech clients. Python/Go experience required. Pay: ₦800,000 – ₦1,200,000/month."},
+    {"id": "opp_002", "title": "ALX Africa Tech Scholarship 2026", "category": "scholarship", "organisation": "ALX Africa", "location": "Online", "deadline": "2026-07-01", "url": "#",
+     "description": "12-month software engineering program. No prior experience required. Nigerian applicants encouraged. Full scholarship — ₦0 tuition."},
+    {"id": "opp_003", "title": "Product Design Intern", "category": "internship", "organisation": "Flutterwave", "location": "Lagos, Nigeria (Hybrid)", "deadline": "2026-06-30", "url": "#",
+     "description": "6-month internship with Nigeria's leading fintech. Figma skills required. Stipend: ₦150,000/month."},
+    {"id": "opp_004", "title": "Data Analyst — Growth Team", "category": "job", "organisation": "Paystack", "location": "Lagos, Nigeria", "deadline": "2026-07-20", "url": "#",
+     "description": "Drive growth insights using SQL and Python. Help scale Africa's leading payment stack. Pay: ₦500,000 – ₦700,000/month."},
+    {"id": "opp_005", "title": "Google Africa Developer Scholarship", "category": "scholarship", "organisation": "Google / Pluralsight", "location": "Online", "deadline": "2026-08-01", "url": "#",
+     "description": "Mobile Web Specialist or Android Developer tracks. Open to all Nigerians 18+. Full scholarship."},
+    {"id": "opp_006", "title": "Technical Content Writer (Remote)", "category": "job", "organisation": "Hashnode", "location": "Remote — Global", "deadline": "Rolling", "url": "#",
+     "description": "Write in-depth technical tutorials on web development, AI, or DevOps. Nigerian writers welcome. Pay: $500 – $800/article."},
+    {"id": "opp_007", "title": "Business Development Intern", "category": "internship", "organisation": "Cowrywise", "location": "Lagos, Nigeria", "deadline": "2026-07-10", "url": "#",
+     "description": "Support the BD team in growing Cowrywise's B2B partnerships across Nigeria. Stipend: ₦120,000/month."},
+    {"id": "opp_008", "title": "Tony Elumelu Foundation Entrepreneurship Programme", "category": "grant", "organisation": "TEF", "location": "Pan-Africa", "deadline": "2026-09-01", "url": "#",
+     "description": "Annual programme for African entrepreneurs. Includes seed capital, mentorship, and training. $5,000 seed funding + mentorship."},
+    {"id": "opp_009", "title": "DevOps / Cloud Engineer", "category": "job", "organisation": "Kuda Bank", "location": "Lagos, Nigeria (Hybrid)", "deadline": "2026-07-25", "url": "#",
+     "description": "AWS-focused DevOps role at Nigeria's leading digital bank. Kubernetes and Terraform preferred. Pay: ₦600,000 – ₦900,000/month."},
+    {"id": "opp_010", "title": "Software Engineering Intern — Mobile", "category": "internship", "organisation": "Interswitch", "location": "Lagos, Nigeria", "deadline": "2026-07-05", "url": "#",
+     "description": "Work on mobile banking SDKs used by millions of Nigerians. React Native or Flutter a plus. Stipend: ₦100,000/month."},
+    {"id": "opp_011", "title": "UI/UX Designer — Consumer Products", "category": "job", "organisation": "OPay", "location": "Lagos, Nigeria", "deadline": "2026-08-15", "url": "#",
+     "description": "Design digital financial products for 30M+ Nigerian users. Portfolio required. Pay: ₦450,000 – ₦650,000/month."},
+    {"id": "opp_012", "title": "Access Bank Women in Tech Scholarship", "category": "scholarship", "organisation": "Access Bank + CcHUB", "location": "Lagos + Online", "deadline": "2026-07-31", "url": "#",
+     "description": "12-week intensive training for women in software development. No prior coding experience required. Full funding + ₦50,000/month stipend."},
+    {"id": "opp_013", "title": "AI / ML Engineer (Remote-first)", "category": "job", "organisation": "Recursion (African Hub)", "location": "Remote — Nigeria preferred", "deadline": "2026-08-01", "url": "#",
+     "description": "Work on drug-discovery ML models. Python, PyTorch, and bioinformatics background useful. Pay: $2,000 – $3,500/month."},
+    {"id": "opp_014", "title": "Marketing & Growth Intern", "category": "internship", "organisation": "Piggyvest", "location": "Lagos, Nigeria", "deadline": "2026-06-28", "url": "#",
+     "description": "Support growth and brand marketing at Nigeria's #1 personal finance app. Ideal for marketing students. Stipend: ₦90,000/month."},
+    {"id": "opp_015", "title": "MTN Nigeria Digital Skills Fund", "category": "scholarship", "organisation": "MTN Foundation", "location": "Online", "deadline": "Rolling", "url": "#",
+     "description": "Data science, cybersecurity, and cloud computing tracks. Available to 18–35 year olds across Nigeria. Full scholarship — ₦0 cost."},
 ]
+
+def _seed_post_to_storage(p, idx):
+    """Convert a _SEED_POSTS entry into the shape the API/frontend expect:
+    `body` (not `content`), `likes`/`replies` as arrays, ISO `created`."""
+    n = int(p.get("likes", 0) or 0)
+    created = datetime.datetime.utcnow() - datetime.timedelta(hours=idx * 2)
+    return {
+        "id": p["id"], "author": p.get("author", "Sivarr Team"), "sid": "",
+        "body": p.get("content", p.get("body", "")),
+        "category": p.get("category", "general"),
+        "tags": p.get("tags", []),
+        "likes": [f"seed_{p['id']}_{j}" for j in range(n)],
+        "replies": [],
+        "created": created.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+def _seed_opp_to_storage(o):
+    """Convert a _SEED_OPPS entry into the render shape (`desc`, `link`)."""
+    return {
+        "id": o["id"], "title": o["title"], "desc": o.get("description", ""),
+        "link": o.get("url", o.get("link", "")), "category": o.get("category", "other"),
+        "organisation": o.get("organisation", ""), "location": o.get("location", ""),
+        "deadline": o.get("deadline", ""), "submitted_by": "",
+        "created": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
 
 def _seed_community_and_opps():
     """Seed community posts and opportunities into the DB (or JSON fallback)."""
@@ -1763,18 +1860,18 @@ def _seed_community_and_opps():
         db.seed_opportunities(_SEED_OPPS)
         log.info("Community/opportunities seed check complete (DB)")
         return
-    # JSON fallback (no DB)
+    # JSON fallback (no DB) — store in the render-ready shape
     with _comm_lock:
         posts = _load_json_file(COMMUNITY_PATH, [])
     if not posts:
         with _comm_lock:
-            _save_json_file(COMMUNITY_PATH, _SEED_POSTS)
+            _save_json_file(COMMUNITY_PATH, [_seed_post_to_storage(p, i) for i, p in enumerate(_SEED_POSTS)])
         log.info("Seeded community posts (JSON)")
     with _opp_lock:
         opps = _load_json_file(OPPORTUNITIES_PATH, [])
     if not opps:
         with _opp_lock:
-            _save_json_file(OPPORTUNITIES_PATH, _SEED_OPPS)
+            _save_json_file(OPPORTUNITIES_PATH, [_seed_opp_to_storage(o) for o in _SEED_OPPS])
         log.info("Seeded opportunities (JSON)")
 
 

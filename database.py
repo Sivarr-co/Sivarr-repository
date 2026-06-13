@@ -2246,22 +2246,30 @@ def add_community_reply(post_id: str, reply: dict) -> bool:
 
 
 def seed_community_posts(posts: list) -> None:
-    """Insert seed posts only when the table is empty."""
+    """Idempotently insert seed posts (additive — extends existing data).
+
+    `likes` in each seed dict is a count; it is expanded into a JSONB array of
+    placeholder sids so the feed shows social proof while a real user's like
+    still appends correctly on top. Existing rows are never overwritten
+    (ON CONFLICT DO NOTHING), so this is safe to run on every startup.
+    """
     conn = _get_conn()
     if not conn:
         return
     try:
         import json as _json
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM community_posts")
-            if cur.fetchone()[0] > 0:
-                return
-            for p in posts:
+            for i, p in enumerate(posts):
+                n_likes = int(p.get("likes", 0) or 0)
+                likes   = [f"seed_{p['id']}_{j}" for j in range(n_likes)]
                 cur.execute(
-                    "INSERT INTO community_posts (id, author_name, body, category, created_at) "
-                    "VALUES (%s, %s, %s, %s, NOW() - INTERVAL '1 hour' * %s) ON CONFLICT (id) DO NOTHING",
+                    "INSERT INTO community_posts "
+                    "(id, author_name, body, category, tags, likes, created_at) "
+                    "VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, NOW() - INTERVAL '1 hour' * %s) "
+                    "ON CONFLICT (id) DO NOTHING",
                     (p["id"], p.get("author","Sivarr Team"), p.get("content", p.get("body","")),
-                     p.get("category","general"), posts.index(p) * 2)
+                     p.get("category","general"), _json.dumps(p.get("tags", [])),
+                     _json.dumps(likes), i * 2)
                 )
         conn.commit()
     except Exception as exc:
@@ -2327,15 +2335,17 @@ def create_opportunity(opp: dict) -> bool:
 
 
 def seed_opportunities(opps: list) -> None:
-    """Insert seed opportunities only when the table is empty."""
+    """Idempotently insert seed opportunities (additive — extends existing data).
+
+    Per-row ON CONFLICT DO NOTHING, so new seed listings are added even when the
+    table already holds earlier seeds or user submissions; existing rows are
+    never touched. Safe to run on every startup.
+    """
     conn = _get_conn()
     if not conn:
         return
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM opportunities")
-            if cur.fetchone()[0] > 0:
-                return
             for o in opps:
                 cur.execute(
                     "INSERT INTO opportunities (id, title, description, link, category, organisation, location, deadline) "
@@ -3222,39 +3232,140 @@ _SEED_TEMPLATES = [
         "thumbnail_color": "#ef4444",
         "tags": ["research", "summary", "reading"],
     },
+    # ── Sprint C: Nigerian-context marketplace templates ──
+    # category must be one of the frontend's tabs: workspace/academic/ai_prompts/
+    # goals/journal/study_decks. download_count + avg_rating drive popularity sort
+    # and the rating badge. price (USD) is kept at 0 so "Get" installs free — these
+    # are demo templates with no real deliverable; a non-zero price_ngn only shows a
+    # price tag in NGN view (matching the existing seed templates' pattern).
+    {
+        "id": "seed_nysc_planner",
+        "name": "Daily NYSC Task Planner",
+        "short_description": "Generates a daily task list for corps members from PPA duties, CDS schedule, and personal goals.",
+        "category": "workspace",
+        "price": 0.0, "price_ngn": 0.0,
+        "thumbnail_color": "#0D7A5F",
+        "tags": ["nysc", "tasks", "daily-planning"],
+        "download_count": 234, "avg_rating": 4.7,
+    },
+    {
+        "id": "seed_jamb_waec_planner",
+        "name": "JAMB/WAEC Study Planner",
+        "short_description": "Breaks any subject into a 60-day study schedule with daily targets and past-question recommendations.",
+        "category": "academic",
+        "price": 0.0, "price_ngn": 0.0,
+        "thumbnail_color": "#d97706",
+        "tags": ["jamb", "waec", "study", "education"],
+        "download_count": 891, "avg_rating": 4.9,
+    },
+    {
+        "id": "seed_freelance_pipeline",
+        "name": "Freelance Invoice & Pipeline Manager",
+        "short_description": "Track client proposals, invoices, and payments in one view, with AI reminders for follow-ups and overdue invoices.",
+        "category": "workspace",
+        "price": 0.0, "price_ngn": 1500.0,
+        "thumbnail_color": "#4f6ef7",
+        "tags": ["freelance", "invoice", "crm"],
+        "download_count": 127, "avg_rating": 4.5,
+    },
+    {
+        "id": "seed_lagos_commute",
+        "name": "Lagos Traffic & Commute Optimizer",
+        "short_description": "Plan your week around Lagos traffic — set your locations and get the best departure windows and remote-work days.",
+        "category": "workspace",
+        "price": 0.0, "price_ngn": 0.0,
+        "thumbnail_color": "#7c3aed",
+        "tags": ["lagos", "traffic", "commute"],
+        "download_count": 456, "avg_rating": 4.3,
+    },
+    {
+        "id": "seed_startup_okr",
+        "name": "Startup OKR Builder",
+        "short_description": "Generate quarterly OKRs for early-stage startups from your company description and growth goals. Syncs to your Org Space.",
+        "category": "goals",
+        "price": 0.0, "price_ngn": 2000.0,
+        "thumbnail_color": "#22c55e",
+        "tags": ["okr", "startup", "goals"],
+        "download_count": 89, "avg_rating": 4.6,
+    },
+    {
+        "id": "seed_naija_meal_planner",
+        "name": "Naija Meal Planner + Budget Tracker",
+        "short_description": "Plan weekly Nigerian meals with market prices from Lagos, Abuja, and Port Harcourt, and track food spend against your budget.",
+        "category": "workspace",
+        "price": 0.0, "price_ngn": 0.0,
+        "thumbnail_color": "#d85a30",
+        "tags": ["food", "budget", "nigeria"],
+        "download_count": 1203, "avg_rating": 4.8,
+    },
+    {
+        "id": "seed_interview_coach",
+        "name": "Tech Interview Prep Coach",
+        "short_description": "Daily DSA problems, system-design prompts, and behavioral drills. Tracks your prep streak and weak areas over time.",
+        "category": "academic",
+        "price": 0.0, "price_ngn": 1000.0,
+        "thumbnail_color": "#185FA5",
+        "tags": ["interview", "dsa", "tech-jobs"],
+        "download_count": 318, "avg_rating": 4.7,
+    },
+    {
+        "id": "seed_finance_tracker_ngn",
+        "name": "Personal Finance Tracker (₦)",
+        "short_description": "Log income and expenses in Naira and get AI savings recommendations, spending breakdowns, and monthly summaries.",
+        "category": "goals",
+        "price": 0.0, "price_ngn": 0.0,
+        "thumbnail_color": "#1D9E75",
+        "tags": ["finance", "savings", "naira"],
+        "download_count": 2147, "avg_rating": 4.9,
+    },
 ]
 
 
 def seed_marketplace_templates() -> None:
-    """Insert seed agent + templates if the templates table is empty. Safe to call on every startup."""
+    """Idempotently insert the seed agent + its templates (additive). Existing
+    rows are never overwritten (ON CONFLICT DO NOTHING). Safe on every startup."""
     conn = _get_conn()
     if not conn:
         return
     try:
+        total_dl   = sum(int(t.get("download_count", 0) or 0) for t in _SEED_TEMPLATES)
+        rated      = [float(t["avg_rating"]) for t in _SEED_TEMPLATES if t.get("avg_rating")]
+        agent_rate = round(sum(rated) / len(rated), 2) if rated else 0.0
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM agent_templates")
-            count = cur.fetchone()[0]
-            if count > 0:
-                return  # already seeded
-
-            # Create a seed agent row first (templates FK to agents)
+            # The seed agent's user_sid FKs to users(sid); without a matching
+            # users row the agent INSERT raises an IntegrityError and the whole
+            # seed rolls back (this is why the marketplace was coming up empty).
+            # Create the backing user first, idempotently.
             cur.execute("""
-                INSERT INTO agents (id, user_sid, display_name, bio, status, verified)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO NOTHING
-            """, (_SEED_AGENT_ID, _SEED_AGENT_ID, "Sivarr Team", "Official Sivarr workspace templates.", "active", True))
+                INSERT INTO users (sid, name)
+                VALUES (%s, %s)
+                ON CONFLICT (sid) DO NOTHING
+            """, (_SEED_AGENT_ID, "Sivarr Team"))
 
+            # Seed agent row (templates FK to agents).
+            cur.execute("""
+                INSERT INTO agents (id, user_sid, display_name, bio, status, verified,
+                                    total_downloads, avg_rating)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
+            """, (_SEED_AGENT_ID, _SEED_AGENT_ID, "Sivarr Team",
+                  "Official Sivarr workspace templates.", "active", True,
+                  total_dl, agent_rate))
+
+            # Insert each template idempotently — additive, so new seed templates
+            # land even when the table already holds earlier seeds.
             for t in _SEED_TEMPLATES:
                 cur.execute("""
                     INSERT INTO agent_templates
                         (id, agent_id, name, short_description, category, price, price_ngn,
                          thumbnail_color, tags, contents, included_items, status, download_count, avg_rating)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,'{}','[]','published',0,0.0)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,'{}','[]','published',%s,%s)
                     ON CONFLICT (id) DO NOTHING
                 """, (
                     t["id"], _SEED_AGENT_ID, t["name"], t["short_description"],
                     t["category"], t["price"], t["price_ngn"], t["thumbnail_color"],
-                    json.dumps(t["tags"]),
+                    json.dumps(t["tags"]), int(t.get("download_count", 0) or 0),
+                    float(t.get("avg_rating", 0.0) or 0.0),
                 ))
         conn.commit()
         log.info(f"Seeded {len(_SEED_TEMPLATES)} marketplace templates")
