@@ -1294,6 +1294,11 @@ def delete_user_cascade(sid: str) -> bool:
             cur.execute("DELETE FROM spaces       WHERE user_sid = %s", (sid,))
             cur.execute("DELETE FROM user_sessions WHERE sid = %s", (sid,))
             cur.execute("DELETE FROM user_progress WHERE sid = %s", (sid,))
+            # Personal data migrated into user_blobs (goals/tasks/journal/skills/
+            # finance) and the user's own exam data in collections — purge both so
+            # account deletion actually removes the user's PII (privacy/GDPR).
+            cur.execute("DELETE FROM user_blobs    WHERE sid = %s", (sid,))
+            cur.execute("DELETE FROM collections WHERE collection IN ('exam_results','exam_sessions') AND data->>'sid' = %s", (sid,))
             cur.execute("DELETE FROM users         WHERE sid = %s", (sid,))
         conn.commit()
         return True

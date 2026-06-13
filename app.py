@@ -4565,9 +4565,13 @@ Keep everything concise, clear and student-friendly. Use the actual content — 
 
 
 @app.post("/api/study-deck")
-async def study_deck(request: Request, sid: str = Form(...), file: UploadFile = File(...)):
+async def study_deck(request: Request, token: str = Form(""), file: UploadFile = File(...)):
     """Process uploaded lecture content and generate structured study material."""
-    sid = sanitize_text(sid, 100)
+    # Auth by session token (was: trusted a spoofable `sid` form field — IDOR fix).
+    sess = get_session_from_token(sanitize_text(token, 100))
+    if not sess:
+        raise HTTPException(401, "Sign in to use Study Deck.")
+    sid = sess["sid"]
     key = get_client_key(request, sid)
     check_rate_limit(key, 3, "study_deck")  # Strict limit — expensive operation
     _ai_meter(sid)
