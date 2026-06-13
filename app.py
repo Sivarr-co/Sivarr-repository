@@ -3539,7 +3539,7 @@ async def admin_session_kill(data: dict):
 async def admin_announcements_list(token: str):
     if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
-    data = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
+    data = load_announcements()
     return {"announcements": data}
 
 
@@ -3554,14 +3554,14 @@ async def admin_announcement_create(data: dict):
         atype = "info"
     if not text:
         raise HTTPException(400, "text required")
-    anns = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
+    anns = load_announcements()
     anns.append({
         "text":     text,
         "type":     atype,
         "lecturer": "Admin",
         "date":     datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
     })
-    ANN_PATH.write_text(json.dumps(anns, indent=2), encoding="utf-8")
+    save_announcements(anns)
     return {"ok": True}
 
 
@@ -3571,10 +3571,10 @@ async def admin_announcement_delete(data: dict):
     if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     idx  = int(data.get("index", -1))
-    anns = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
+    anns = load_announcements()
     if 0 <= idx < len(anns):
         anns.pop(idx)
-        ANN_PATH.write_text(json.dumps(anns, indent=2), encoding="utf-8")
+        save_announcements(anns)
     return {"ok": True}
 
 
@@ -3637,7 +3637,7 @@ async def lecturer_students(token: str):
 @app.get("/api/lecturer/announcements")
 async def get_announcements(token: str):
     verify_lecturer(token)
-    data = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
+    data = load_announcements()
     return {"announcements": data}
 
 
@@ -3651,14 +3651,14 @@ class AnnouncementRequest(BaseModel):
 @app.post("/api/lecturer/announcement")
 async def post_announcement(req: AnnouncementRequest):
     verify_lecturer(req.token)
-    data = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
+    data = load_announcements()
     data.append({
         "text":     sanitize_text(req.text, 500),
         "type":     req.type if req.type in ["info","warning","deadline","exam"] else "info",
         "lecturer": sanitize_text(req.lecturer, MAX_NAME_LEN),
         "date":     datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
     })
-    ANN_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    save_announcements(data)
     return {"ok": True}
 
 
@@ -3666,16 +3666,16 @@ async def post_announcement(req: AnnouncementRequest):
 async def delete_announcement(data: dict):
     verify_lecturer(data.get("token",""))
     idx  = int(data.get("index", -1))
-    anns = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
+    anns = load_announcements()
     if 0 <= idx < len(anns):
         anns.pop(idx)
-    ANN_PATH.write_text(json.dumps(anns, indent=2), encoding="utf-8")
+    save_announcements(anns)
     return {"ok": True}
 
 
 @app.get("/api/announcements/active")
 async def active_announcements():
-    data = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
+    data = load_announcements()
     return {"announcements": data[-5:]}
 
 
@@ -3688,20 +3688,20 @@ class TopicsRequest(BaseModel):
 async def save_class_topics(req: TopicsRequest):
     verify_lecturer(req.token)
     clean = [sanitize_text(t, 100) for t in req.topics if t]
-    TOPICS_PATH.write_text(json.dumps(clean, indent=2), encoding="utf-8")
+    save_topics(clean)
     return {"ok": True}
 
 
 @app.get("/api/lecturer/topics")
 async def get_class_topics():
-    data = json.loads(TOPICS_PATH.read_text(encoding="utf-8")) if TOPICS_PATH.exists() else []
+    data = load_topics()
     return {"topics": data}
 
 
 @app.post("/api/lecturer/exam")
 async def save_exam(data: dict):
     verify_lecturer(data.get("token",""))
-    exams = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
+    exams = load_exams()
     exam  = {
         "id":                   str(uuid.uuid4())[:10],
         "title":                sanitize_text(str(data.get("title","")), 200),
@@ -3712,14 +3712,14 @@ async def save_exam(data: dict):
         "created":              data.get("created", datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),
     }
     exams.append(exam)
-    EXAMS_PATH.write_text(json.dumps(exams, indent=2), encoding="utf-8")
+    save_exams(exams)
     return {"ok": True, "id": exam["id"]}
 
 
 @app.get("/api/lecturer/exams")
 async def get_exams(token: str):
     verify_lecturer(token)
-    exams = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
+    exams = load_exams()
     return {"exams": exams}
 
 
@@ -3727,10 +3727,10 @@ async def get_exams(token: str):
 async def delete_exam(data: dict):
     verify_lecturer(data.get("token",""))
     idx   = int(data.get("index", -1))
-    exams = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
+    exams = load_exams()
     if 0 <= idx < len(exams):
         exams.pop(idx)
-    EXAMS_PATH.write_text(json.dumps(exams, indent=2), encoding="utf-8")
+    save_exams(exams)
     return {"ok": True}
 
 
@@ -3799,22 +3799,115 @@ class AssignExamRequest(BaseModel):
 
 # ── Classes helper functions ──────────────────────────────────
 
-def load_classes() -> dict:
-    """Load all classes from JSON file."""
-    if CLASSES_PATH.exists():
-        try:
-            return json.loads(CLASSES_PATH.read_text(encoding="utf-8"))
-        except Exception:
-            return {}
+_coll_migrated: set = set()
+
+def _coll_load_map(coll: str, path) -> dict:
+    """Load a dict-keyed store ({code/id: record}) from the `collections` table,
+    DB-first with a one-time lazy file→DB migration. File fallback when no DB."""
+    if db.is_available():
+        if coll not in _coll_migrated:
+            _coll_migrated.add(coll)
+            try:
+                if path.exists() and db.coll_count(coll) == 0:
+                    legacy = json.loads(path.read_text(encoding="utf-8"))
+                    if isinstance(legacy, dict) and legacy:
+                        db.coll_replace_all(coll, legacy)
+            except Exception as exc:
+                log.warning(f"{coll} file→DB migrate failed: {exc}")
+        return db.coll_load_map(coll)
+    if path.exists():
+        try: return json.loads(path.read_text(encoding="utf-8"))
+        except Exception: return {}
     return {}
+
+def _coll_save_map(coll: str, path, mapping: dict) -> None:
+    if db.is_available():
+        db.coll_replace_all(coll, mapping)
+        return
+    _save_json_atomic(path, mapping)
+
+
+def _coll_load_list(coll: str, path, id_fn) -> list:
+    """Load an ordered list store from `collections`, DB-first with one-time lazy
+    file→DB migration. `id_fn(item, index)` yields a stable item_id. File fallback."""
+    if db.is_available():
+        if coll not in _coll_migrated:
+            _coll_migrated.add(coll)
+            try:
+                if path.exists() and db.coll_count(coll) == 0:
+                    legacy = json.loads(path.read_text(encoding="utf-8"))
+                    if isinstance(legacy, list) and legacy:
+                        db.coll_replace_all(coll, {id_fn(i, n): i for n, i in enumerate(legacy) if isinstance(i, dict)})
+            except Exception as exc:
+                log.warning(f"{coll} file→DB migrate failed: {exc}")
+        return db.coll_list(coll)
+    if path.exists():
+        try:
+            d = json.loads(path.read_text(encoding="utf-8"))
+            return d if isinstance(d, list) else []
+        except Exception: return []
+    return []
+
+def _coll_save_list(coll: str, path, items: list, id_fn) -> None:
+    if db.is_available():
+        db.coll_replace_all(coll, {id_fn(i, n): i for n, i in enumerate(items) if isinstance(i, dict)})
+        return
+    _save_json_atomic(path, items)
+
+
+def load_exams() -> list:
+    """All exams. DB-first via collections (keyed by exam id); file fallback."""
+    return _coll_load_list("exams", EXAMS_PATH, lambda e, n: str(e.get("id") or f"exam{n}"))
+
+def save_exams(exams: list):
+    _coll_save_list("exams", EXAMS_PATH, exams, lambda e, n: str(e.get("id") or f"exam{n}"))
+
+
+def load_topics() -> list:
+    """Class topics — a small global list of strings; stored as one collection row."""
+    if db.is_available():
+        if "topics" not in _coll_migrated:
+            _coll_migrated.add("topics")
+            try:
+                if TOPICS_PATH.exists() and db.coll_get("topics", "_all") is None:
+                    legacy = json.loads(TOPICS_PATH.read_text(encoding="utf-8"))
+                    if isinstance(legacy, list):
+                        db.coll_put("topics", "_all", {"items": legacy})
+            except Exception as exc:
+                log.warning(f"topics file→DB migrate failed: {exc}")
+        rec = db.coll_get("topics", "_all")
+        return rec.get("items", []) if isinstance(rec, dict) else []
+    if TOPICS_PATH.exists():
+        try:
+            d = json.loads(TOPICS_PATH.read_text(encoding="utf-8"))
+            return d if isinstance(d, list) else []
+        except Exception: return []
+    return []
+
+def save_topics(topics: list):
+    if db.is_available():
+        db.coll_put("topics", "_all", {"items": topics})
+        return
+    _save_json_atomic(TOPICS_PATH, topics)
+
+
+def load_announcements() -> list:
+    """Academic announcements (ordered). DB-first via collections; file fallback.
+    Positional item ids are fine — save replaces the whole collection in order, and
+    callers address announcements by list index, not id."""
+    return _coll_load_list("announcements", ANN_PATH, lambda a, n: f"ann{n}")
+
+def save_announcements(anns: list):
+    _coll_save_list("announcements", ANN_PATH, anns, lambda a, n: f"ann{n}")
+
+
+def load_classes() -> dict:
+    """All classes ({code: class}). DB-first via collections; file fallback."""
+    return _coll_load_map("classes", CLASSES_PATH)
 
 
 def save_classes(classes: dict):
-    """Save classes atomically using temp file."""
-    tmp = str(CLASSES_PATH) + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(classes, f, indent=2)
-    shutil.move(tmp, str(CLASSES_PATH))
+    _coll_save_map("classes", CLASSES_PATH, classes)
 
 
 def generate_class_code() -> str:
@@ -3963,7 +4056,7 @@ async def create_assignment(req: AssignmentRequest):
 async def assign_exam_to_class(req: AssignExamRequest):
     verify_lecturer(req.token)
     classes = load_classes()
-    exams   = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
+    exams   = load_exams()
     exam    = next((e for e in exams if e["id"] == req.exam_id), None)
     if not exam:
         raise HTTPException(404, "Exam not found")
@@ -4204,15 +4297,10 @@ async def get_discussion(code: str, since: str = ""):
 GROUPS_PATH = DATA_DIR / "groups.json"
 
 def load_groups() -> dict:
-    if GROUPS_PATH.exists():
-        try: return json.loads(GROUPS_PATH.read_text(encoding="utf-8"))
-        except: return {}
-    return {}
+    return _coll_load_map("groups", GROUPS_PATH)
 
 def save_groups(groups: dict):
-    tmp = str(GROUPS_PATH) + ".tmp"
-    with open(tmp, "w") as f: json.dump(groups, f, indent=2)
-    shutil.move(tmp, str(GROUPS_PATH))
+    _coll_save_map("groups", GROUPS_PATH, groups)
 
 
 @app.post("/api/group/create")
@@ -4391,7 +4479,7 @@ async def assign_exam_dynamic(code: str, req: AssignExamRequest):
     """Assign an exam to a class."""
     verify_lecturer(req.token)
     classes = load_classes()
-    exams   = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
+    exams   = load_exams()
     code    = code.upper()
     if code not in classes:
         raise HTTPException(404, "Class not found")
@@ -4693,7 +4781,7 @@ async def start_exam(data: dict, request: Request):
             raise HTTPException(403, "You are not enrolled in this class.")
 
     # Load exam
-    exams = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
+    exams = load_exams()
     exam  = next((e for e in exams if e["id"] == exam_id), None)
     if not exam:
         raise HTTPException(404, "Exam not found")

@@ -2234,6 +2234,40 @@ def coll_seed_from_list(collection: str, items: list, id_key: str = "id", owner_
     return n
 
 
+def coll_load_map(collection: str) -> dict:
+    """Return {item_id: data} for a collection, insertion order preserved."""
+    def _q(conn):
+        with conn.cursor() as cur:
+            cur.execute("SELECT item_id, data FROM collections WHERE collection=%s ORDER BY seq", (collection,))
+            return {r[0]: r[1] for r in cur.fetchall()}
+    return _with_conn(f"coll_load_map[{collection}]", _q, {})
+
+
+def coll_replace_all(collection: str, mapping: dict, owner_key: str | None = None) -> None:
+    """Atomically replace an entire collection from {item_id: data} in ONE
+    transaction (delete-all + insert-all). For low-write whole-collection stores
+    (classes/exams/topics/groups/announcements). Insert order = mapping order, so
+    seq preserves list ordering."""
+    import json as _json
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM collections WHERE collection=%s", (collection,))
+            for iid, data in mapping.items():
+                owner = str(data.get(owner_key) or "") if (owner_key and isinstance(data, dict)) else ""
+                cur.execute(
+                    "INSERT INTO collections (collection, item_id, owner, data) VALUES (%s,%s,%s,%s)",
+                    (collection, str(iid), owner, _json.dumps(data)))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"coll_replace_all[{collection}] failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
 # ── User profile ─────────────────────────────────────────────
 
 def update_user_profile(sid: str, name: str, phone: str) -> bool:
