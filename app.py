@@ -1679,7 +1679,11 @@ async def startup():
             ok = False
             for attempt in range(3):
                 try:
-                    ok = db.init_db()
+                    # init_db is blocking psycopg2 (69 DDL round-trips, ~40s when the
+                    # DB is reachable). Run it in a thread so the worker's event loop
+                    # stays free and /health responds in ms instead of freezing for
+                    # the whole schema init (which was timing out Railway's check).
+                    ok = await asyncio.to_thread(db.init_db)
                 except Exception as e:
                     log.warning(f"DB init attempt {attempt + 1} exception: {e}")
                 if ok:
@@ -1688,9 +1692,9 @@ async def startup():
                 await asyncio.sleep(2)
             if ok:
                 try:
-                    db.migrate_from_json(str(USERS_PATH), str(DATA_DIR))
-                    db.cleanup_db_sessions()
-                    db.seed_marketplace_templates()
+                    await asyncio.to_thread(db.migrate_from_json, str(USERS_PATH), str(DATA_DIR))
+                    await asyncio.to_thread(db.cleanup_db_sessions)
+                    await asyncio.to_thread(db.seed_marketplace_templates)
                 except Exception as e:
                     log.warning(f"DB post-init step failed: {e}")
                 log.info("Database ready")
