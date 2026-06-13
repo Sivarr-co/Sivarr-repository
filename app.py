@@ -249,6 +249,7 @@ def save_users(users: dict):
 # ── Rate limiting config ──────────────────────────────────────
 RATE_LIMIT_CHAT     = int(os.environ.get("RATE_LIMIT_CHAT", 20))      # max chat msgs per window
 FREE_DAILY_CHAT     = int(os.environ.get("FREE_DAILY_CHAT", 20))      # free-tier AI messages per day (server-enforced)
+AI_DAILY_FREE       = int(os.environ.get("AI_DAILY_FREE", 40))        # free-tier non-chat AI actions per day (study/write/review/etc.)
 RATE_LIMIT_QUIZ     = int(os.environ.get("RATE_LIMIT_QUIZ", 5))      # max quiz questions per window
 RATE_LIMIT_UPLOAD   = int(os.environ.get("RATE_LIMIT_UPLOAD", 5))     # max uploads per window
 RATE_LIMIT_WINDOW   = int(os.environ.get("RATE_LIMIT_WINDOW", 60))    # window in seconds
@@ -1327,14 +1328,48 @@ def gemini_once(prompt, temp=0.8, tokens=600):
         return None
 
 
+# ── AI circuit breaker ────────────────────────────────────────────────────────
+# Per-worker breaker: after repeated Gemini failures (outage / quota wall), stop
+# hammering the API for a short cooldown so failing calls don't tie up worker
+# threads and cascade into slow requests for everyone. In-memory per worker is
+# fine — each worker protects its own thread pool. All AI flows through the two
+# wrappers below, so this covers every endpoint at once.
+_AI_BREAKER = {"fails": 0, "open_until": 0.0}
+_AI_BREAK_THRESHOLD = int(os.environ.get("AI_BREAK_THRESHOLD", 8))   # consecutive fails to trip
+_AI_BREAK_COOLDOWN  = int(os.environ.get("AI_BREAK_COOLDOWN", 30))   # seconds to stay open
+
+
+def _ai_breaker_open() -> bool:
+    return time.time() < _AI_BREAKER["open_until"]
+
+
+def _ai_breaker_record(ok: bool) -> None:
+    if ok:
+        _AI_BREAKER["fails"] = 0
+        return
+    _AI_BREAKER["fails"] += 1
+    if _AI_BREAKER["fails"] >= _AI_BREAK_THRESHOLD:
+        _AI_BREAKER["open_until"] = time.time() + _AI_BREAK_COOLDOWN
+        _AI_BREAKER["fails"] = 0
+        log.error(f"AI circuit breaker OPEN for {_AI_BREAK_COOLDOWN}s after repeated Gemini failures")
+
+
 async def async_gemini_once(prompt, temp=0.8, tokens=600):
     """Non-blocking wrapper — runs gemini_once in a thread so the event loop stays free."""
-    return await asyncio.to_thread(gemini_once, prompt, temp, tokens)
+    if _ai_breaker_open():
+        return None
+    result = await asyncio.to_thread(gemini_once, prompt, temp, tokens)
+    _ai_breaker_record(result is not None)
+    return result
 
 
 async def async_gemini_ask(session, question):
     """Non-blocking wrapper — runs gemini_ask in a thread so the event loop stays free."""
-    return await asyncio.to_thread(gemini_ask, session, question)
+    if _ai_breaker_open():
+        return friendly_gemini_error(Exception("AI temporarily unavailable — please retry shortly."))
+    answer = await asyncio.to_thread(gemini_ask, session, question)
+    _ai_breaker_record(not _is_ai_error(answer))
+    return answer
 
 # ═══════════════════════════════════════════════════════════════
 #  MATH
@@ -1410,7 +1445,8 @@ _PROGRESS_DEFAULTS = {
     "quizzes": [], "wrong_answers": [], "chat_history": [],
     "difficulty": "medium", "name": "", "matric": "",
     "uploaded_files": [],
-    "chat_daily": {},   # {"date": "YYYY-MM-DD", "count": N} — free-tier daily AI usage
+    "chat_daily": {},   # {"date": "YYYY-MM-DD", "count": N} — free-tier daily chat usage
+    "ai_daily": {},     # {"date": "YYYY-MM-DD", "count": N} — free-tier daily non-chat AI usage
 }
 
 def load_progress(sid):
@@ -2763,6 +2799,31 @@ def _chat_authorize(token: str) -> tuple[str, dict]:
         dc["count"] += 1
         p["chat_daily"] = dc
     return sid, p
+
+
+def _ai_meter(sid: str) -> None:
+    """Per-user daily cap across the non-chat AI endpoints (study deck/plan, write
+    assist, task extraction, weekly review). Free tier only — paid plans unmetered.
+    Raises 429 when the day's allowance is spent. The 'ai_daily' counter is separate
+    from chat_daily and persisted immediately so it holds across requests/workers."""
+    if not sid:
+        return
+    p = load_progress(sid)
+    if _plan_is_active(p):
+        return
+    today = datetime.date.today().isoformat()
+    dc = p.get("ai_daily") or {}
+    if dc.get("date") != today:
+        dc = {"date": today, "count": 0}
+    if dc["count"] >= AI_DAILY_FREE:
+        raise HTTPException(
+            429,
+            f"You've reached today's free limit of {AI_DAILY_FREE} AI actions. "
+            f"Upgrade to Pro for unlimited AI.",
+        )
+    dc["count"] += 1
+    p["ai_daily"] = dc
+    save_progress(sid, p)
 
 
 @app.post("/api/chat")
@@ -4421,6 +4482,7 @@ async def study_deck(request: Request, sid: str = Form(...), file: UploadFile = 
     sid = sanitize_text(sid, 100)
     key = get_client_key(request, sid)
     check_rate_limit(key, 3, "study_deck")  # Strict limit — expensive operation
+    _ai_meter(sid)
 
     allowed = [".txt", ".pdf", ".md"]
     ext     = Path(file.filename).suffix.lower()
@@ -4771,6 +4833,7 @@ async def generate_study_plan(req: StudyPlanRequest, request: Request):
     sid = sess["sid"]
     key = get_client_key(request, sid)
     check_rate_limit(key, 5, "study_plan")
+    _ai_meter(sid)
 
     subject = sanitize_text(req.subject, 100)
     if not subject:
@@ -7043,6 +7106,7 @@ async def ai_extract_tasks(data: dict, request: Request):
     if not sess:
         raise HTTPException(401, "Invalid session.")
     check_rate_limit(get_client_key(request), 15, "ai_extract")
+    _ai_meter(sess["sid"])
     text = sanitize_text(str(data.get("text","")), 3000)
     if len(text.strip()) < 10:
         raise HTTPException(400, "Text too short.")
@@ -7077,6 +7141,7 @@ async def ai_write_assist(data: dict, request: Request):
     if not sess:
         raise HTTPException(401, "Invalid session.")
     check_rate_limit(get_client_key(request), 20, "ai_write")
+    _ai_meter(sess["sid"])
     text   = sanitize_text(str(data.get("text","")), 4000)
     action = sanitize_text(str(data.get("action","improve")), 20)
     tone   = sanitize_text(str(data.get("tone","professional")), 20)
@@ -7110,6 +7175,7 @@ async def weekly_review(data: dict, request: Request):
     """Generate a personalised AI weekly review digest."""
     sid, name = _resolve_token(data)
     check_rate_limit(get_client_key(request), 10, "weekly_review")
+    _ai_meter(sid)
     import datetime as _dt
     first_name    = name.split()[0] if name else "there"
     week_end      = _dt.date.today()
