@@ -6905,10 +6905,13 @@ async def analytics_mood(token: str = "", days: int = 30):
     entries = load_journal(sid)
 
     SCORE = {"great": 5, "good": 4, "okay": 3, "low": 2, "stressed": 1}
+    # The journal UI stores mood as an emoji; map it to the keyword the chart expects.
+    EMOJI = {"😊": "great", "🙂": "good", "😐": "okay", "😔": "low", "😤": "stressed"}
     result = []
     for e in entries:
         d = e.get("date", "")
         m = e.get("mood", "")
+        m = EMOJI.get(m, m)
         if d and d >= cutoff and m in SCORE:
             result.append({"date": d, "mood": m, "mood_score": SCORE[m]})
 

@@ -21,13 +21,17 @@ log = logging.getLogger("sivarr")
 
 SLOW_QUERY_MS = 200  # log any DB function that takes longer than this
 
+_slow_query_count = 0  # cumulative count of queries over SLOW_QUERY_MS (for /api/health)
+
 @contextmanager
 def _timed(label: str):
     """Context manager — logs a warning when a DB call exceeds SLOW_QUERY_MS."""
+    global _slow_query_count
     t = time.monotonic()
     yield
     ms = (time.monotonic() - t) * 1000
     if ms > SLOW_QUERY_MS:
+        _slow_query_count += 1
         log.warning(f"SLOW_QUERY [{ms:.0f}ms] {label}")
 
 _DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
@@ -116,6 +120,76 @@ def _release(conn):
         except Exception: pass
         return
     p.putconn(conn)
+
+
+def _discard(conn):
+    """Drop a dead/broken connection from the pool — never return it for reuse."""
+    p = _get_pool()
+    if not conn:
+        return
+    try:
+        if p:
+            p.putconn(conn, close=True)
+        else:
+            conn.close()
+    except Exception:
+        try: conn.close()
+        except Exception: pass
+
+
+def _with_conn(label: str, fn, default):
+    """Run fn(conn) with a single transparent retry on a dead pooled connection.
+
+    The Supabase transaction pooler (PgBouncer) culls server-side connections,
+    so a connection handed out by the pool can already be dead. The first query
+    then raises OperationalError/InterfaceError even though the DB is healthy.
+    We discard that connection and retry once on a fresh one. Any other error
+    (or a second failure) degrades to `default`, matching the rest of the layer.
+
+    `fn` must be idempotent — it may run twice. Used only for reads and
+    idempotent upserts (ON CONFLICT), never for non-idempotent writes.
+    """
+    for attempt in (0, 1):
+        conn = _get_conn()
+        if not conn:
+            return default
+        try:
+            return fn(conn)
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as exc:
+            _discard(conn)
+            conn = None
+            if attempt == 0:
+                log.warning(f"{label}: stale DB connection, retrying on a fresh one ({exc})")
+                continue
+            log.error(f"{label}: query failed after retry: {exc}")
+            return default
+        except Exception as exc:
+            log.error(f"{label}: query failed: {exc}")
+            return default
+        finally:
+            if conn is not None:
+                _release(conn)
+    return default
+
+
+def pool_stats() -> dict:
+    """Best-effort snapshot of pool usage for monitoring. Reads psycopg2
+    SimpleConnectionPool internals defensively (they're private but stable)."""
+    p = _pool
+    if p is None:
+        return {"in_use": 0, "idle": 0, "max": 0}
+    try:
+        return {
+            "in_use": len(getattr(p, "_used", {})),
+            "idle":   len(getattr(p, "_pool", [])),
+            "max":    getattr(p, "maxconn", 0),
+        }
+    except Exception:
+        return {"in_use": 0, "idle": 0, "max": 0}
+
+
+def slow_query_count() -> int:
+    return _slow_query_count
 
 
 def db_test() -> dict:
@@ -613,25 +687,15 @@ def init_db() -> bool:
 # ── Users ─────────────────────────────────────────────────────────
 
 def user_exists(sid: str) -> bool:
-    conn = _get_conn()
-    if not conn:
-        return False
-    try:
+    def _q(conn):
         with conn.cursor() as cur:
             cur.execute("SELECT 1 FROM users WHERE sid = %s", (sid,))
             return cur.fetchone() is not None
-    except Exception as exc:
-        log.error(f"user_exists query failed [{sid}]: {exc}")
-        return False
-    finally:
-        _release(conn)
+    return _with_conn(f"user_exists[{sid}]", _q, False)
 
 
 def get_user(sid: str) -> dict | None:
-    conn = _get_conn()
-    if not conn:
-        return None
-    try:
+    def _q(conn):
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT sid, name, matric, email, phone, password_hash FROM users WHERE sid = %s",
@@ -644,18 +708,11 @@ def get_user(sid: str) -> dict | None:
             "sid": row[0], "name": row[1], "matric": row[2],
             "email": row[3], "phone": row[4], "password": row[5],
         }
-    except Exception as exc:
-        log.error(f"get_user query failed [{sid}]: {exc}")
-        return None
-    finally:
-        _release(conn)
+    return _with_conn(f"get_user[{sid}]", _q, None)
 
 
 def create_user(user: dict) -> None:
-    conn = _get_conn()
-    if not conn:
-        return
-    try:
+    def _q(conn):
         with conn.cursor() as cur:
             cur.execute("""
                 INSERT INTO users (sid, name, matric, email, phone, password_hash)
@@ -667,35 +724,25 @@ def create_user(user: dict) -> None:
                 user.get("password", ""),
             ))
         conn.commit()
-    except Exception as exc:
-        log.error(f"create_user failed [{user.get('sid')}]: {exc}")
-        conn.rollback()
-    finally:
-        _release(conn)
+    _with_conn(f"create_user[{user.get('sid')}]", _q, None)
 
 
 # ── User Progress ──────────────────────────────────────────────────
 
 def db_load_progress(sid: str) -> dict | None:
-    conn = _get_conn()
-    if not conn:
-        return None
-    try:
+    def _q(conn):
         with conn.cursor() as cur:
             cur.execute("SELECT data FROM user_progress WHERE sid = %s", (sid,))
             row = cur.fetchone()
         if not row:
             return None
         return row[0] if isinstance(row[0], dict) else json.loads(row[0])
-    finally:
-        _release(conn)
+    return _with_conn(f"db_load_progress[{sid}]", _q, None)
 
 
 def db_save_progress(sid: str, data: dict) -> None:
-    conn = _get_conn()
-    if not conn:
-        return
-    try:
+    payload = json.dumps(data)
+    def _q(conn):
         with conn.cursor() as cur:
             cur.execute("""
                 INSERT INTO user_progress (sid, data, updated_at)
@@ -703,13 +750,9 @@ def db_save_progress(sid: str, data: dict) -> None:
                 ON CONFLICT (sid) DO UPDATE SET
                     data       = EXCLUDED.data,
                     updated_at = NOW()
-            """, (sid, json.dumps(data)))
+            """, (sid, payload))
         conn.commit()
-    except Exception as exc:
-        log.error(f"db_save_progress failed [{sid}]: {exc}")
-        conn.rollback()
-    finally:
-        _release(conn)
+    _with_conn(f"db_save_progress[{sid}]", _q, None)
 
 
 # ── Sessions ──────────────────────────────────────────────────────
@@ -734,25 +777,18 @@ def create_db_session(token: str, sid: str, name: str, email: str, expires_at) -
 
 
 def get_db_session(token: str) -> dict | None:
+    def _q(conn):
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT sid, name, email, expires_at FROM user_sessions
+                WHERE token = %s AND expires_at > NOW()
+            """, (token,))
+            row = cur.fetchone()
+        if not row:
+            return None
+        return {"sid": row[0], "name": row[1], "email": row[2], "expires_at": row[3]}
     with _timed("get_db_session"):
-        conn = _get_conn()
-        if not conn:
-            return None
-        try:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT sid, name, email, expires_at FROM user_sessions
-                    WHERE token = %s AND expires_at > NOW()
-                """, (token,))
-                row = cur.fetchone()
-            if not row:
-                return None
-            return {"sid": row[0], "name": row[1], "email": row[2], "expires_at": row[3]}
-        except Exception as exc:
-            log.error(f"get_db_session query failed: {exc}")
-            return None
-        finally:
-            _release(conn)
+        return _with_conn("get_db_session", _q, None)
 
 
 def delete_db_session(token: str) -> None:
@@ -808,24 +844,18 @@ def update_user(user: dict) -> None:
 
 
 def get_user_by_email(email: str) -> dict | None:
-    conn = _get_conn()
-    if not conn:
-        return None
-    try:
+    addr = email.lower().strip()
+    def _q(conn):
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT sid, name, email, phone, password_hash FROM users WHERE email = %s",
-                (email.lower().strip(),)
+                (addr,)
             )
             row = cur.fetchone()
         if not row:
             return None
         return {"sid": row[0], "name": row[1], "email": row[2], "phone": row[3], "password": row[4]}
-    except Exception as exc:
-        log.error(f"get_user_by_email query failed: {exc}")
-        return None
-    finally:
-        _release(conn)
+    return _with_conn("get_user_by_email", _q, None)
 
 
 # ── Password Reset & Email Verification Tokens ───────────────────
@@ -865,10 +895,7 @@ def get_reset_token(token: str) -> dict | None:
     entry = _reset_tokens_mem.get(token)
     if entry and not entry["used"] and datetime.datetime.utcnow() < entry["expires"]:
         return entry
-    conn = _get_conn()
-    if not conn:
-        return None
-    try:
+    def _q(conn):
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT sid, email, expires_at, used FROM password_reset_tokens WHERE token = %s",
@@ -881,11 +908,7 @@ def get_reset_token(token: str) -> dict | None:
         if used or datetime.datetime.utcnow() > expires_at.replace(tzinfo=None):
             return None
         return {"sid": sid, "email": email, "expires": expires_at}
-    except Exception as exc:
-        log.error(f"get_reset_token query failed: {exc}")
-        return None
-    finally:
-        _release(conn)
+    return _with_conn("get_reset_token", _q, None)
 
 
 def mark_reset_token_used(token: str) -> None:
@@ -934,10 +957,7 @@ def get_email_verify_token(token: str) -> dict | None:
     entry = _verify_tokens_mem.get(token)
     if entry and not entry["used"] and datetime.datetime.utcnow() < entry["expires"]:
         return entry
-    conn = _get_conn()
-    if not conn:
-        return None
-    try:
+    def _q(conn):
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT sid, email, expires_at, used FROM email_verify_tokens WHERE token = %s",
@@ -950,11 +970,7 @@ def get_email_verify_token(token: str) -> dict | None:
         if used or datetime.datetime.utcnow() > expires_at.replace(tzinfo=None):
             return None
         return {"sid": sid, "email": email}
-    except Exception as exc:
-        log.error(f"get_email_verify_token query failed: {exc}")
-        return None
-    finally:
-        _release(conn)
+    return _with_conn("get_email_verify_token", _q, None)
 
 
 def mark_email_verified(sid: str) -> None:
@@ -978,19 +994,12 @@ def mark_email_verified(sid: str) -> None:
 
 
 def is_email_verified(sid: str) -> bool:
-    conn = _get_conn()
-    if not conn:
-        return False
-    try:
+    def _q(conn):
         with conn.cursor() as cur:
             cur.execute("SELECT email_verified FROM users WHERE sid = %s", (sid,))
             row = cur.fetchone()
         return bool(row and row[0])
-    except Exception as exc:
-        log.error(f"is_email_verified query failed [{sid}]: {exc}")
-        return False
-    finally:
-        _release(conn)
+    return _with_conn(f"is_email_verified[{sid}]", _q, False)
 
 
 # ── Google OAuth exchange codes (multi-worker safe) ────────────────
