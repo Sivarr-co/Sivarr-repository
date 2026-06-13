@@ -43,6 +43,53 @@ if _DATABASE_URL.startswith("railway") and "://" in _DATABASE_URL:
 if _DATABASE_URL.startswith("postgres://"):
     _DATABASE_URL = _DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# ── Encryption-at-rest for stored third-party secret keys (org integrations) ──
+# Enabled when APP_ENCRYPTION_KEY is set (a Fernet key, or any passphrase we derive
+# one from). When unset, values are stored as-is so nothing breaks — a warning is
+# logged on first use. Reads are back-compatible: only "enc:"-prefixed values are
+# decrypted, so existing plaintext rows still work and re-encrypt on next save.
+try:
+    from cryptography.fernet import Fernet as _Fernet
+except Exception:
+    _Fernet = None
+
+def _build_cipher():
+    if _Fernet is None:
+        return None
+    raw = os.environ.get("APP_ENCRYPTION_KEY", "").strip()
+    if not raw:
+        return None
+    try:
+        return _Fernet(raw.encode())
+    except Exception:
+        import base64, hashlib
+        return _Fernet(base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest()))
+
+_cipher = _build_cipher()
+_enc_warned = False
+
+def _enc_secret(s: str) -> str:
+    global _enc_warned
+    if not s:
+        return s
+    if not _cipher:
+        if not _enc_warned:
+            _enc_warned = True
+            log.warning("APP_ENCRYPTION_KEY not set — third-party secrets stored UNENCRYPTED at rest.")
+        return s
+    try:
+        return "enc:" + _cipher.encrypt(s.encode()).decode()
+    except Exception:
+        return s
+
+def _dec_secret(s):
+    if not isinstance(s, str) or not s.startswith("enc:") or not _cipher:
+        return s
+    try:
+        return _cipher.decrypt(s[4:].encode()).decode()
+    except Exception:
+        return s
+
 # ThreadedConnectionPool (lock-protected) — NOT SimpleConnectionPool. FastAPI runs
 # sync endpoints and asyncio.to_thread DB calls on a threadpool, so getconn/putconn
 # are called from multiple threads concurrently; SimpleConnectionPool has no internal
@@ -2273,6 +2320,32 @@ def coll_replace_all(collection: str, mapping: dict, owner_key: str | None = Non
         _release(conn)
 
 
+def coll_array_append_unique(collection: str, item_id: str, field: str, value) -> None:
+    """Atomically append `value` to the JSON array data->field on ONE record, only
+    if not already present. Avoids the read-modify-write race when many users mutate
+    the same record's array concurrently (e.g. class enrollment 'students')."""
+    import json as _json
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE collections
+                   SET data = jsonb_set(data, %s, COALESCE(data->%s, '[]'::jsonb) || %s::jsonb),
+                       updated_at = NOW()
+                   WHERE collection=%s AND item_id=%s
+                     AND NOT (COALESCE(data->%s, '[]'::jsonb) @> %s::jsonb)""",
+                ("{" + field + "}", field, _json.dumps([value]),
+                 collection, str(item_id), field, _json.dumps(value)))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"coll_array_append_unique[{collection}/{item_id}] failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
 # ── User profile ─────────────────────────────────────────────
 
 def update_user_profile(sid: str, name: str, phone: str) -> bool:
@@ -3269,7 +3342,7 @@ def save_org_integration(org_id: str, provider: str, secret_key: str,
                     public_key = EXCLUDED.public_key,
                     meta = EXCLUDED.meta,
                     updated_at = NOW()
-            """, (org_id, provider, secret_key, public_key, json.dumps(meta or {})))
+            """, (org_id, provider, _enc_secret(secret_key), public_key, json.dumps(meta or {})))
         conn.commit()
         return True
     except Exception as exc:
@@ -3288,7 +3361,11 @@ def get_org_integration(org_id: str, provider: str) -> dict | None:
                 (org_id, provider)
             )
             row = cur.fetchone()
-            return dict(row) if row else None
+            if not row:
+                return None
+            d = dict(row)
+            d["secret_key"] = _dec_secret(d.get("secret_key", ""))
+            return d
     except Exception as exc:
         log.error(f"get_org_integration: {exc}"); return None
     finally:

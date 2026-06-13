@@ -4113,7 +4113,11 @@ async def join_class(req: JoinClassRequest, request: Request):
     if code not in classes:
         raise HTTPException(404, "Class not found. Check the code and try again.")
     cls = classes[code]
-    if sid not in cls["students"]:
+    if db.is_available():
+        # Atomic per-record append — concurrent joins to the same class no longer
+        # clobber each other (the old whole-map save lost enrollments under load).
+        db.coll_array_append_unique("classes", code, "students", sid)
+    elif sid not in cls.get("students", []):
         cls["students"].append(sid)
         save_classes(classes)
     return {
