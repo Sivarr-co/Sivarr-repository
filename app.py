@@ -223,7 +223,7 @@ def load_users() -> dict:
     """Load users from JSON file (DB is used directly per-user in login flow)."""
     if USERS_PATH.exists():
         try:
-            return json.loads(USERS_PATH.read_text())
+            return json.loads(USERS_PATH.read_text(encoding="utf-8"))
         except Exception:
             return {}
     return {}
@@ -379,7 +379,7 @@ class RateLimiter:
         """Load persisted rate limit state from disk."""
         if self._path and self._path.exists():
             try:
-                data = json.loads(self._path.read_text())
+                data = json.loads(self._path.read_text(encoding="utf-8"))
                 now  = time.time()
                 # Only load recent entries — discard old ones
                 self._counts = collections.defaultdict(list, {
@@ -549,7 +549,7 @@ def load_env():
     env = Path(".env")
     if not env.exists():
         return
-    for line in env.read_text().splitlines():
+    for line in env.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -1379,7 +1379,7 @@ def bpath():     return DATA_DIR / "bank.json"
 
 
 def load_json(p):
-    return json.loads(p.read_text()) if p.exists() else {}
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
 
 
 def save_json(p, data):
@@ -1410,7 +1410,7 @@ def load_progress(sid):
     p = ppath(sid)
     if p.exists():
         try:
-            return {**_PROGRESS_DEFAULTS, **json.loads(p.read_text())}
+            return {**_PROGRESS_DEFAULTS, **json.loads(p.read_text(encoding="utf-8"))}
         except Exception:
             pass
     return dict(_PROGRESS_DEFAULTS)
@@ -1485,7 +1485,7 @@ def get_all_students():
         if "backup" in f.name:
             continue
         try:
-            data    = json.loads(f.read_text())
+            data    = json.loads(f.read_text(encoding="utf-8"))
             quizzes = data.get("quizzes", [])
             avg     = (sum(q["score"] for q in quizzes) / len(quizzes) * 100) if quizzes else 0
             students.append({
@@ -1998,7 +1998,7 @@ def _start_scheduler():
             jnl_path = DATA_DIR / f"{sid}_journal.json"
             if jnl_path.exists():
                 try:
-                    jnl   = json.loads(jnl_path.read_text())
+                    jnl   = json.loads(jnl_path.read_text(encoding="utf-8"))
                     moods = [e.get("mood", "") for e in jnl
                              if e.get("date", "") >= str(today - _dt.timedelta(days=7)) and e.get("mood")]
                     if moods:
@@ -2204,7 +2204,7 @@ async def app_config():
 async def landing():
     """Public landing page — served to everyone at the root URL."""
     if Path("templates/landing.html").exists():
-        return Path("templates/landing.html").read_text()
+        return Path("templates/landing.html").read_text(encoding="utf-8")
     return RedirectResponse(url="/app", status_code=302)
 
 
@@ -2212,7 +2212,7 @@ async def landing():
 async def terms():
     p = Path("templates/legal/terms.html")
     if p.exists():
-        return p.read_text()
+        return p.read_text(encoding="utf-8")
     raise HTTPException(404, "Terms page not found")
 
 
@@ -2220,13 +2220,13 @@ async def terms():
 async def privacy():
     p = Path("templates/legal/privacy.html")
     if p.exists():
-        return p.read_text()
+        return p.read_text(encoding="utf-8")
     raise HTTPException(404, "Privacy page not found")
 
 
 def _serve_app() -> HTMLResponse:
     """Inject runtime config and return the main SPA HTML."""
-    html = Path("templates/index.html").read_text()
+    html = Path("templates/index.html").read_text(encoding="utf-8")
     config = json.dumps({
         "sentry_dsn":       SENTRY_DSN,
         "paystack_pk":      PAYSTACK_PUBLIC_KEY,
@@ -2260,7 +2260,7 @@ async def billing_callback(reference: str = "", trxref: str = "", plan: str = ""
 @app.get("/sw.js")
 async def service_worker():
     return Response(
-        content=Path("js/sw.js").read_text(),
+        content=Path("js/sw.js").read_text(encoding="utf-8"),
         media_type="application/javascript",
         headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-store, no-cache"},
     )
@@ -2286,13 +2286,13 @@ _BASIC_AUTH_CHALLENGE = Response(
 async def admin_page(request: Request):
     if not _admin_basic_auth(request):
         return _BASIC_AUTH_CHALLENGE
-    return Path("templates/admin.html").read_text()
+    return Path("templates/admin.html").read_text(encoding="utf-8")
 
 @app.get("/admin/metrics", response_class=HTMLResponse)
 async def admin_metrics_page(request: Request):
     if not _admin_basic_auth(request):
         return _BASIC_AUTH_CHALLENGE
-    return Path("templates/admin_metrics.html").read_text()
+    return Path("templates/admin_metrics.html").read_text(encoding="utf-8")
 
 
 @app.post("/api/login")
@@ -2907,7 +2907,7 @@ async def quiz_question(request: Request, sid: str, topic: str = "", difficulty:
         file_id = re.sub(r"[^a-z0-9]", "", file_id.lower())[:20]  # alnum only; file_id is interpolated into the path
         fpath = UPLOADS_DIR / f"{sid}_{file_id}.txt"
         if fpath.exists():
-            content = fpath.read_text()[:3000]
+            content = fpath.read_text(encoding="utf-8")[:3000]
             raw = await async_gemini_once(FILE_QUIZ_PROMPT.format(text=content, difficulty=difficulty), temp=0.9, tokens=300)
             if raw:
                 try:
@@ -3220,7 +3220,7 @@ async def create_share(request: Request, data: dict):
         "diff":    data.get("difficulty","medium") if data.get("difficulty") in ["easy","medium","hard"] else "medium",
         "created": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
-    (SHARES_DIR / f"{share_id}.json").write_text(json.dumps(share_data, indent=2))
+    (SHARES_DIR / f"{share_id}.json").write_text(json.dumps(share_data, indent=2), encoding="utf-8")
     log.info(f"Share created: {share_id} by {share_data['name']}")
     return {"share_id": share_id, "url": f"/share/{share_id}"}
 
@@ -3231,7 +3231,7 @@ async def view_share(share_id: str):
     share_path = SHARES_DIR / f"{share_id}.json"
     if not share_path.exists():
         return HTMLResponse("<h2>Share link not found.</h2>", status_code=404)
-    d   = json.loads(share_path.read_text())
+    d   = json.loads(share_path.read_text(encoding="utf-8"))
     pct = int((d.get("score",0) / 5) * 100)
     emoji = "🏆" if pct==100 else "🌟" if pct>=80 else "📝"
     return HTMLResponse(f"""<!DOCTYPE html>
@@ -3300,7 +3300,7 @@ def get_all_students_full():
             continue
         sid = f.stem.replace("_progress", "")
         try:
-            data    = json.loads(f.read_text())
+            data    = json.loads(f.read_text(encoding="utf-8"))
             quizzes = data.get("quizzes", [])
             avg     = (sum(q["score"] for q in quizzes) / len(quizzes) * 100) if quizzes else 0
             topics  = data.get("topics", {})
@@ -3462,7 +3462,7 @@ async def admin_session_kill(data: dict):
 async def admin_announcements_list(token: str):
     if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
-    data = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
+    data = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
     return {"announcements": data}
 
 
@@ -3477,14 +3477,14 @@ async def admin_announcement_create(data: dict):
         atype = "info"
     if not text:
         raise HTTPException(400, "text required")
-    anns = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
+    anns = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
     anns.append({
         "text":     text,
         "type":     atype,
         "lecturer": "Admin",
         "date":     datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
     })
-    ANN_PATH.write_text(json.dumps(anns, indent=2))
+    ANN_PATH.write_text(json.dumps(anns, indent=2), encoding="utf-8")
     return {"ok": True}
 
 
@@ -3494,10 +3494,10 @@ async def admin_announcement_delete(data: dict):
     if not _is_valid_admin_session(token):
         raise HTTPException(401, "Unauthorized")
     idx  = int(data.get("index", -1))
-    anns = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
+    anns = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
     if 0 <= idx < len(anns):
         anns.pop(idx)
-        ANN_PATH.write_text(json.dumps(anns, indent=2))
+        ANN_PATH.write_text(json.dumps(anns, indent=2), encoding="utf-8")
     return {"ok": True}
 
 
@@ -3517,7 +3517,7 @@ async def admin_cleanup_sessions(data: dict):
 
 @app.get("/lecturer", response_class=HTMLResponse)
 async def lecturer_page():
-    return Path("templates/lecturer.html").read_text()
+    return Path("templates/lecturer.html").read_text(encoding="utf-8")
 
 
 class LecturerLoginRequest(BaseModel):
@@ -3560,7 +3560,7 @@ async def lecturer_students(token: str):
 @app.get("/api/lecturer/announcements")
 async def get_announcements(token: str):
     verify_lecturer(token)
-    data = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
+    data = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
     return {"announcements": data}
 
 
@@ -3574,14 +3574,14 @@ class AnnouncementRequest(BaseModel):
 @app.post("/api/lecturer/announcement")
 async def post_announcement(req: AnnouncementRequest):
     verify_lecturer(req.token)
-    data = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
+    data = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
     data.append({
         "text":     sanitize_text(req.text, 500),
         "type":     req.type if req.type in ["info","warning","deadline","exam"] else "info",
         "lecturer": sanitize_text(req.lecturer, MAX_NAME_LEN),
         "date":     datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
     })
-    ANN_PATH.write_text(json.dumps(data, indent=2))
+    ANN_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return {"ok": True}
 
 
@@ -3589,16 +3589,16 @@ async def post_announcement(req: AnnouncementRequest):
 async def delete_announcement(data: dict):
     verify_lecturer(data.get("token",""))
     idx  = int(data.get("index", -1))
-    anns = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
+    anns = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
     if 0 <= idx < len(anns):
         anns.pop(idx)
-    ANN_PATH.write_text(json.dumps(anns, indent=2))
+    ANN_PATH.write_text(json.dumps(anns, indent=2), encoding="utf-8")
     return {"ok": True}
 
 
 @app.get("/api/announcements/active")
 async def active_announcements():
-    data = json.loads(ANN_PATH.read_text()) if ANN_PATH.exists() else []
+    data = json.loads(ANN_PATH.read_text(encoding="utf-8")) if ANN_PATH.exists() else []
     return {"announcements": data[-5:]}
 
 
@@ -3611,20 +3611,20 @@ class TopicsRequest(BaseModel):
 async def save_class_topics(req: TopicsRequest):
     verify_lecturer(req.token)
     clean = [sanitize_text(t, 100) for t in req.topics if t]
-    TOPICS_PATH.write_text(json.dumps(clean, indent=2))
+    TOPICS_PATH.write_text(json.dumps(clean, indent=2), encoding="utf-8")
     return {"ok": True}
 
 
 @app.get("/api/lecturer/topics")
 async def get_class_topics():
-    data = json.loads(TOPICS_PATH.read_text()) if TOPICS_PATH.exists() else []
+    data = json.loads(TOPICS_PATH.read_text(encoding="utf-8")) if TOPICS_PATH.exists() else []
     return {"topics": data}
 
 
 @app.post("/api/lecturer/exam")
 async def save_exam(data: dict):
     verify_lecturer(data.get("token",""))
-    exams = json.loads(EXAMS_PATH.read_text()) if EXAMS_PATH.exists() else []
+    exams = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
     exam  = {
         "id":                   str(uuid.uuid4())[:10],
         "title":                sanitize_text(str(data.get("title","")), 200),
@@ -3635,14 +3635,14 @@ async def save_exam(data: dict):
         "created":              data.get("created", datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),
     }
     exams.append(exam)
-    EXAMS_PATH.write_text(json.dumps(exams, indent=2))
+    EXAMS_PATH.write_text(json.dumps(exams, indent=2), encoding="utf-8")
     return {"ok": True, "id": exam["id"]}
 
 
 @app.get("/api/lecturer/exams")
 async def get_exams(token: str):
     verify_lecturer(token)
-    exams = json.loads(EXAMS_PATH.read_text()) if EXAMS_PATH.exists() else []
+    exams = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
     return {"exams": exams}
 
 
@@ -3650,10 +3650,10 @@ async def get_exams(token: str):
 async def delete_exam(data: dict):
     verify_lecturer(data.get("token",""))
     idx   = int(data.get("index", -1))
-    exams = json.loads(EXAMS_PATH.read_text()) if EXAMS_PATH.exists() else []
+    exams = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
     if 0 <= idx < len(exams):
         exams.pop(idx)
-    EXAMS_PATH.write_text(json.dumps(exams, indent=2))
+    EXAMS_PATH.write_text(json.dumps(exams, indent=2), encoding="utf-8")
     return {"ok": True}
 
 
@@ -3726,7 +3726,7 @@ def load_classes() -> dict:
     """Load all classes from JSON file."""
     if CLASSES_PATH.exists():
         try:
-            return json.loads(CLASSES_PATH.read_text())
+            return json.loads(CLASSES_PATH.read_text(encoding="utf-8"))
         except Exception:
             return {}
     return {}
@@ -3886,7 +3886,7 @@ async def create_assignment(req: AssignmentRequest):
 async def assign_exam_to_class(req: AssignExamRequest):
     verify_lecturer(req.token)
     classes = load_classes()
-    exams   = json.loads(EXAMS_PATH.read_text()) if EXAMS_PATH.exists() else []
+    exams   = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
     exam    = next((e for e in exams if e["id"] == req.exam_id), None)
     if not exam:
         raise HTTPException(404, "Exam not found")
@@ -4128,7 +4128,7 @@ GROUPS_PATH = DATA_DIR / "groups.json"
 
 def load_groups() -> dict:
     if GROUPS_PATH.exists():
-        try: return json.loads(GROUPS_PATH.read_text())
+        try: return json.loads(GROUPS_PATH.read_text(encoding="utf-8"))
         except: return {}
     return {}
 
@@ -4314,7 +4314,7 @@ async def assign_exam_dynamic(code: str, req: AssignExamRequest):
     """Assign an exam to a class."""
     verify_lecturer(req.token)
     classes = load_classes()
-    exams   = json.loads(EXAMS_PATH.read_text()) if EXAMS_PATH.exists() else []
+    exams   = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
     code    = code.upper()
     if code not in classes:
         raise HTTPException(404, "Class not found")
@@ -4451,7 +4451,7 @@ EXAM_SESSIONS_PATH = DATA_DIR / "exam_sessions.json"
 
 def load_exam_results() -> list:
     if EXAM_RESULTS_PATH.exists():
-        try: return json.loads(EXAM_RESULTS_PATH.read_text())
+        try: return json.loads(EXAM_RESULTS_PATH.read_text(encoding="utf-8"))
         except: return []
     return []
 
@@ -4462,7 +4462,7 @@ def save_exam_results(results: list):
 
 def load_exam_sessions() -> dict:
     if EXAM_SESSIONS_PATH.exists():
-        try: return json.loads(EXAM_SESSIONS_PATH.read_text())
+        try: return json.loads(EXAM_SESSIONS_PATH.read_text(encoding="utf-8"))
         except: return {}
     return {}
 
@@ -4538,7 +4538,7 @@ async def start_exam(data: dict, request: Request):
             raise HTTPException(403, "You are not enrolled in this class.")
 
     # Load exam
-    exams = json.loads(EXAMS_PATH.read_text()) if EXAMS_PATH.exists() else []
+    exams = json.loads(EXAMS_PATH.read_text(encoding="utf-8")) if EXAMS_PATH.exists() else []
     exam  = next((e for e in exams if e["id"] == exam_id), None)
     if not exam:
         raise HTTPException(404, "Exam not found")
@@ -4813,7 +4813,7 @@ GOALS_PATH = DATA_DIR / "goals.json"
 
 def load_goals(sid: str) -> list:
     p = DATA_DIR / f"{sid}_goals.json"
-    return json.loads(p.read_text()) if p.exists() else []
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
 
 def save_goals(sid: str, goals: list):
     p = DATA_DIR / f"{sid}_goals.json"
@@ -4822,7 +4822,7 @@ def save_goals(sid: str, goals: list):
 # ── Personal tasks — server-side mirror of localStorage ───────────────────────
 def load_tasks(sid: str) -> list:
     p = DATA_DIR / f"{sid}_tasks.json"
-    return json.loads(p.read_text()) if p.exists() else []
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
 
 def save_tasks(sid: str, tasks: list):
     p = DATA_DIR / f"{sid}_tasks.json"
@@ -4913,7 +4913,7 @@ async def restore_tasks(token: str = ""):
 # ── Personal docs — server-side mirror of localStorage ────────────────────────
 def load_docs(sid: str) -> list:
     p = DATA_DIR / f"{sid}_docs.json"
-    return json.loads(p.read_text()) if p.exists() else []
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
 
 def save_docs(sid: str, docs: list):
     p = DATA_DIR / f"{sid}_docs.json"
@@ -4947,7 +4947,7 @@ async def sync_docs(data: dict):
 # ── Personal habits — server-side mirror ──────────────────────
 def load_habits(sid: str) -> list:
     p = DATA_DIR / f"{sid}_habits.json"
-    return json.loads(p.read_text()) if p.exists() else []
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
 
 def save_habits(sid: str, habits: list):
     p = DATA_DIR / f"{sid}_habits.json"
@@ -4980,7 +4980,7 @@ async def sync_habits(data: dict):
 # ── Personal journal — server-side mirror ─────────────────────
 def load_journal(sid: str) -> list:
     p = DATA_DIR / f"{sid}_journal.json"
-    return json.loads(p.read_text()) if p.exists() else []
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
 
 def save_journal(sid: str, entries: list):
     p = DATA_DIR / f"{sid}_journal.json"
@@ -7195,7 +7195,7 @@ async def weekly_review_latest(token: str = ""):
     review_path = DATA_DIR / "weekly_reviews" / f"{sid}_{week_start}.json"
     if not review_path.exists():
         return {"review": None, "week_start": week_start}
-    data = json.loads(review_path.read_text())
+    data = json.loads(review_path.read_text(encoding="utf-8"))
     return {"review": data.get("review",""), "week_start": data.get("week_start", week_start)}
 
 
@@ -7969,7 +7969,7 @@ _opp_lock  = threading.Lock()
 def _load_json_file(path: Path, default):
     if path.exists():
         try:
-            return json.loads(path.read_text())
+            return json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             pass
     return default
@@ -7977,7 +7977,7 @@ def _load_json_file(path: Path, default):
 
 def _save_json_file(path: Path, data):
     tmp = str(path) + ".tmp"
-    Path(tmp).write_text(json.dumps(data, ensure_ascii=False))
+    Path(tmp).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     Path(tmp).replace(path)
 
 
@@ -9157,7 +9157,7 @@ async def org_progress_report(request: Request):
 
 def load_push_subs(sid: str) -> list:
     p = DATA_DIR / f"{sid}_push_subs.json"
-    return json.loads(p.read_text()) if p.exists() else []
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
 
 def save_push_subs(sid: str, subs: list):
     p = DATA_DIR / f"{sid}_push_subs.json"
@@ -9237,7 +9237,7 @@ async def track_event(data: dict):
 
     metrics_path = DATA_DIR / f"metrics_{today}.json"
     try:
-        metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8")) if metrics_path.exists() else {}
     except Exception:
         metrics = {}
 
@@ -9278,7 +9278,7 @@ async def admin_metrics(token: str, days: int = 14):
             dau_series[d] = 0
             continue
         try:
-            m = json.loads(mpath.read_text())
+            m = json.loads(mpath.read_text(encoding="utf-8"))
         except Exception:
             dau_series[d] = 0
             continue
@@ -9296,7 +9296,7 @@ async def admin_metrics(token: str, days: int = 14):
         mpath = DATA_DIR / f"metrics_{d}.json"
         if mpath.exists():
             try:
-                m = json.loads(mpath.read_text())
+                m = json.loads(mpath.read_text(encoding="utf-8"))
                 wau_sids.update(m.get("dau", []))
             except Exception:
                 pass

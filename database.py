@@ -1331,7 +1331,7 @@ def migrate_from_json(users_path: str, data_dir: str) -> tuple[int, int]:
             up = pathlib.Path(users_path)
             if up.exists():
                 try:
-                    users = json.loads(up.read_text())
+                    users = json.loads(up.read_text(encoding="utf-8"))
                     for sid, u in users.items():
                         cur.execute("""
                             INSERT INTO users (sid, name, matric, email, phone, password_hash)
@@ -1349,7 +1349,7 @@ def migrate_from_json(users_path: str, data_dir: str) -> tuple[int, int]:
             for f in pathlib.Path(data_dir).glob("*_progress.json"):
                 sid = f.stem.replace("_progress", "")
                 try:
-                    data = json.loads(f.read_text())
+                    data = json.loads(f.read_text(encoding="utf-8"))
                 except Exception:
                     continue
                 # Ensure parent user row exists (FK requirement)
