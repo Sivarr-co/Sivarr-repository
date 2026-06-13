@@ -2696,12 +2696,25 @@ async def request_verification_email(data: dict, request: Request, bg: Backgroun
 
 @app.get("/api/health")
 async def health():
+    # Honest health: do a LIVE DB ping (not just "is DATABASE_URL set"), and report
+    # Redis + pool state. Previously this always returned status:ok / db:is_available()
+    # so it stayed green even when Postgres was unreachable.
+    db_info = await asyncio.to_thread(db.db_test)
+    db_ok   = db_info.get("ping", False)
     return {
-        "status": "ok",
-        "db": db.is_available(),
+        "status":          "ok" if db_ok else "degraded",
+        "version":         VERSION,
+        "uptime_s":        int(time.time() - _START_TIME),
+        "db":              db_ok,
+        "db_ms":           db_info.get("latency_ms"),
+        "db_error":        db_info.get("error"),
+        "db_pool":         db.pool_stats(),
+        "redis":           rcache.available(),
+        "ai":              GEMINI_AVAILABLE,
         "active_sessions": len(_session_tokens),
-        "chat_sessions": len(_chat_sessions),
-        "version": VERSION,
+        "chat_sessions":   len(_chat_sessions),
+        "slow_queries":    db.slow_query_count(),
+        "time":            datetime.datetime.utcnow().isoformat() + "Z",
     }
 
 
