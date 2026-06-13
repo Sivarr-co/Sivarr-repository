@@ -637,6 +637,22 @@ CREATE TABLE IF NOT EXISTS opportunities (
 );
 CREATE INDEX IF NOT EXISTS idx_opps_created  ON opportunities(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_opps_category ON opportunities(category);
+
+-- Generic relational collections — replaces the global single-file JSON stores
+-- (exams, classes, groups, topics, announcements, exam_results, exam_sessions).
+-- One row per record => atomic per-record writes (no whole-file read-modify-write
+-- races), shared across workers/instances, and covered by Supabase backups.
+CREATE TABLE IF NOT EXISTS collections (
+    collection TEXT   NOT NULL,
+    item_id    TEXT   NOT NULL,
+    owner      TEXT   NOT NULL DEFAULT '',   -- optional scope (class_id, student sid, …)
+    data       JSONB  NOT NULL,
+    seq        BIGSERIAL,                     -- preserves insertion order for list views
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (collection, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_collections_owner ON collections(collection, owner);
+CREATE INDEX IF NOT EXISTS idx_collections_seq   ON collections(collection, seq);
 """
 
 
@@ -2116,6 +2132,106 @@ def get_user_blob(sid: str, key: str) -> dict | None:
         return row[0] if row else None
     finally:
         _release(conn)
+
+
+# ── Generic collections (relational global stores) ───────────
+# Per-record CRUD so concurrent writers no longer clobber a whole-file blob.
+
+def coll_list(collection: str, owner: str | None = None) -> list:
+    """All records' data for a collection, oldest-first. Optional owner filter."""
+    def _q(conn):
+        with conn.cursor() as cur:
+            if owner is None:
+                cur.execute("SELECT data FROM collections WHERE collection=%s ORDER BY seq", (collection,))
+            else:
+                cur.execute("SELECT data FROM collections WHERE collection=%s AND owner=%s ORDER BY seq", (collection, owner))
+            return [r[0] for r in cur.fetchall()]
+    return _with_conn(f"coll_list[{collection}]", _q, [])
+
+
+def coll_get(collection: str, item_id: str) -> dict | None:
+    def _q(conn):
+        with conn.cursor() as cur:
+            cur.execute("SELECT data FROM collections WHERE collection=%s AND item_id=%s", (collection, str(item_id)))
+            row = cur.fetchone()
+        return row[0] if row else None
+    return _with_conn(f"coll_get[{collection}]", _q, None)
+
+
+def coll_put(collection: str, item_id: str, data: dict, owner: str = "") -> None:
+    """Upsert one record (atomic)."""
+    import json as _json
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO collections (collection, item_id, owner, data, updated_at)
+                   VALUES (%s,%s,%s,%s,NOW())
+                   ON CONFLICT (collection, item_id)
+                   DO UPDATE SET data=EXCLUDED.data, owner=EXCLUDED.owner, updated_at=NOW()""",
+                (collection, str(item_id), owner, _json.dumps(data)))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"coll_put[{collection}/{item_id}] failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
+def coll_delete(collection: str, item_id: str) -> None:
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM collections WHERE collection=%s AND item_id=%s", (collection, str(item_id)))
+        conn.commit()
+    finally:
+        _release(conn)
+
+
+def coll_count(collection: str, owner: str | None = None) -> int:
+    def _q(conn):
+        with conn.cursor() as cur:
+            if owner is None:
+                cur.execute("SELECT COUNT(*) FROM collections WHERE collection=%s", (collection,))
+            else:
+                cur.execute("SELECT COUNT(*) FROM collections WHERE collection=%s AND owner=%s", (collection, owner))
+            return cur.fetchone()[0]
+    return _with_conn(f"coll_count[{collection}]", _q, 0)
+
+
+def coll_seed_from_list(collection: str, items: list, id_key: str = "id", owner_key: str | None = None) -> int:
+    """One-time idempotent bulk import of a legacy JSON list into a collection.
+    Skips rows whose item_id already exists. Returns rows inserted."""
+    import json as _json
+    conn = _get_conn()
+    if not conn:
+        return 0
+    n = 0
+    try:
+        with conn.cursor() as cur:
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                iid = str(it.get(id_key) or "")
+                if not iid:
+                    continue
+                owner = str(it.get(owner_key) or "") if owner_key else ""
+                cur.execute(
+                    """INSERT INTO collections (collection, item_id, owner, data)
+                       VALUES (%s,%s,%s,%s) ON CONFLICT (collection, item_id) DO NOTHING""",
+                    (collection, iid, owner, _json.dumps(it)))
+                n += cur.rowcount
+        conn.commit()
+    except Exception as exc:
+        log.error(f"coll_seed_from_list[{collection}] failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+    return n
 
 
 # ── User profile ─────────────────────────────────────────────
