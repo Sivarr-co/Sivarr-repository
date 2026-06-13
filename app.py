@@ -4890,22 +4890,49 @@ Make tasks specific and actionable. Each day must have 2-4 tasks."""
 # ── Goals ─────────────────────────────────────────────────────
 GOALS_PATH = DATA_DIR / "goals.json"
 
+
+def _load_user_list(sid: str, key: str) -> list:
+    """Load a per-user JSON list (goals/tasks/journal). DB-first via the user_blobs
+    table — atomic row writes, shared across workers/instances, included in Supabase
+    backups, and free of the whole-file read-modify-write races the per-user JSON
+    files had. Lazily migrates a legacy `{sid}_{key}.json` file into the DB on first
+    access. Falls back to the file only when no DB is configured."""
+    legacy = DATA_DIR / f"{sid}_{key}.json"
+    if db.is_available():
+        blob = db.get_user_blob(sid, key)
+        if isinstance(blob, list):
+            return blob
+        if legacy.exists():
+            try:
+                items = json.loads(legacy.read_text(encoding="utf-8"))
+                if isinstance(items, list):
+                    db.save_user_blob(sid, key, items)
+                    return items
+            except Exception as exc:
+                log.warning(f"{key} file→DB migrate failed for {sid[:8]}: {exc}")
+        return []
+    return json.loads(legacy.read_text(encoding="utf-8")) if legacy.exists() else []
+
+
+def _save_user_list(sid: str, key: str, items: list) -> None:
+    if db.is_available():
+        db.save_user_blob(sid, key, items)
+        return
+    save_json(DATA_DIR / f"{sid}_{key}.json", items)
+
+
 def load_goals(sid: str) -> list:
-    p = DATA_DIR / f"{sid}_goals.json"
-    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
+    return _load_user_list(sid, "goals")
 
 def save_goals(sid: str, goals: list):
-    p = DATA_DIR / f"{sid}_goals.json"
-    save_json(p, goals)
+    _save_user_list(sid, "goals", goals)
 
 # ── Personal tasks — server-side mirror of localStorage ───────────────────────
 def load_tasks(sid: str) -> list:
-    p = DATA_DIR / f"{sid}_tasks.json"
-    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
+    return _load_user_list(sid, "tasks")
 
 def save_tasks(sid: str, tasks: list):
-    p = DATA_DIR / f"{sid}_tasks.json"
-    save_json(p, tasks)
+    _save_user_list(sid, "tasks", tasks)
 
 @app.post("/api/tasks/sync")
 async def sync_tasks(data: dict):
@@ -5058,12 +5085,10 @@ async def sync_habits(data: dict):
 
 # ── Personal journal — server-side mirror ─────────────────────
 def load_journal(sid: str) -> list:
-    p = DATA_DIR / f"{sid}_journal.json"
-    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
+    return _load_user_list(sid, "journal")
 
 def save_journal(sid: str, entries: list):
-    p = DATA_DIR / f"{sid}_journal.json"
-    save_json(p, entries)
+    _save_user_list(sid, "journal", entries)
 
 @app.post("/api/journal/sync")
 async def sync_journal(data: dict):
