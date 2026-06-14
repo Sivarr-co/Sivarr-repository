@@ -4548,16 +4548,16 @@ function _syncJournalToServer(entries) {
 }
 
 async function stClearChat() {
-  if (!await siModal.confirm('All chat history will be permanently deleted.', { title:'Clear Chat History', confirmLabel:'Clear', danger:true })) return;
-  try {
-    await fetch('/api/clear-history', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({sid: S.sid})
-    });
-  } catch(e) {}
+  if (!await siModal.confirm('This clears the conversation on this device.', { title:'Clear Chat', confirmLabel:'Clear', danger:true })) return;
+  // Chat is held in the DOM for the current session only (nothing persisted
+  // client- or server-side), so clearing the thread is the whole job.
+  const msgs = $('msgs');
+  if (msgs) msgs.innerHTML = '';
+  const welcome = $('chat-welcome');
+  if (welcome) welcome.style.display = '';
   _contextSent  = false; // re-inject context on next message after a clear
   _chatMsgCount = 0;
-  toast('Chat history cleared ✓');
+  toast('Chat cleared ✓');
 }
 
 async function stClearWrong() {
@@ -4567,15 +4567,13 @@ async function stClearWrong() {
 }
 
 async function stResetProgress() {
-  if (!await siModal.confirm('This will permanently delete all stats, topics, and quiz history. This cannot be undone.', { title:'⚠️ Reset All Progress', confirmLabel:'Reset Everything', danger:true })) return;
-  try {
-    await fetch('/api/reset-progress', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({sid: S.sid})
-    });
-    toast('Progress reset. Reloading...');
-    setTimeout(() => { clearSession(); location.reload(); }, 1500);
-  } catch(e) { toast('Reset failed — try again.'); }
+  // NOTE: progress (stats/topics/quiz history) lives server-side; there is no
+  // endpoint to wipe it yet, so this only clears the local session + signs out.
+  // Server-side stats are NOT deleted. (Tracked as a follow-up: build a
+  // token-authed /api/reset-progress before promising a true reset.)
+  if (!await siModal.confirm('This signs you out and clears Sivarr on this device. Your account stats stay on the server.', { title:'Clear On This Device', confirmLabel:'Clear & Sign Out', danger:true })) return;
+  toast('Cleared on this device. Reloading...');
+  setTimeout(() => { clearSession(); location.reload(); }, 1200);
 }
 
 // Restore accent on load
