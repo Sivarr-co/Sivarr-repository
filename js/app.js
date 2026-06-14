@@ -9183,7 +9183,7 @@ async function _processLabFile(file, target) {
 
   try {
     const fd = new FormData();
-    fd.append('sid', S.sid);
+    fd.append('token', localStorage.getItem('sivarr_token') || '');
     fd.append('file', file);
     const r = await fetch('/api/study-deck', { method: 'POST', body: fd });
     if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Processing failed'); }
