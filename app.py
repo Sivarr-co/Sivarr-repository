@@ -3263,8 +3263,12 @@ def _extract_file_text(content: bytes, ext: str) -> str:
 
 
 @app.post("/api/upload")
-async def upload_file(request: Request, sid: str = Form(...), file: UploadFile = File(...)):
-    sid = validate_sid(sid)  # strips path-traversal chars; sid is interpolated into the upload path
+async def upload_file(request: Request, token: str = Form(""), file: UploadFile = File(...)):
+    # Auth by session token (was: trusted a spoofable `sid` form field — IDOR fix).
+    sess = get_session_from_token(sanitize_text(token, 100))
+    if not sess:
+        raise HTTPException(401, "Sign in to upload files.")
+    sid = validate_sid(sess["sid"])  # still sanitized — sid is interpolated into the upload path
     key = get_client_key(request, sid)
     check_rate_limit(key, RATE_LIMIT_UPLOAD, "upload")
 

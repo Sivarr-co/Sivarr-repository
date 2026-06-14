@@ -10934,7 +10934,7 @@ async function uploadFile(input) {
   zone.innerHTML = `<div class="uz-icon">⏳</div><div class="uz-text">Uploading ${file.name}...</div>`;
 
   const formData = new FormData();
-  formData.append('sid', S.sid);
+  formData.append('token', localStorage.getItem('sivarr_token') || '');
   formData.append('file', file);
 
   try {
