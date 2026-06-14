@@ -1680,6 +1680,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
+# Register font MIME types — Windows' mimetypes registry doesn't know these, so
+# StaticFiles would otherwise serve the self-hosted Tabler webfont as text/plain.
+import mimetypes as _mimetypes
+_mimetypes.add_type("font/woff2", ".woff2")
+_mimetypes.add_type("font/woff", ".woff")
+_mimetypes.add_type("font/ttf", ".ttf")
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/css",    StaticFiles(directory="css"),    name="css")
 app.mount("/js",     StaticFiles(directory="js"),     name="js")
@@ -1717,8 +1724,8 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://plausible.io https://cdn.jsdelivr.net "
         "  https://js.sentry-cdn.com https://browser.sentry-cdn.com; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
-        "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data: blob: https:; "
         "media-src 'self' blob:; "
         "connect-src 'self' https://plausible.io https://o*.ingest.sentry.io "
