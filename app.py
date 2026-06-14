@@ -724,20 +724,47 @@ def delete_session_token(token: str) -> None:
         db.delete_db_session(token)
 
 
+def _gmail_configured() -> bool:
+    return bool(GMAIL_USER and GMAIL_APP_PASSWORD)
+
+
+def _resend_configured() -> bool:
+    return bool(RESEND_AVAILABLE and RESEND_API_KEY)
+
+
 def send_email(to: str, subject: str, html_body: str) -> tuple[bool, str]:
-    """Send a transactional email. Uses Gmail SMTP if configured, falls back to Resend."""
-    # ── Gmail SMTP (primary — no domain registration needed) ──────────────
-    if GMAIL_USER and GMAIL_APP_PASSWORD:
-        return _send_email_gmail(to, subject, html_body)
-    # ── Resend (fallback — requires verified sender domain) ───────────────
-    if not RESEND_AVAILABLE:
-        msg = "No email provider configured (set GMAIL_USER + GMAIL_APP_PASSWORD)"
-        log.warning(f"Email skipped: '{subject}' → {to} | {msg}")
-        return False, msg
-    if not RESEND_API_KEY:
+    """Send a transactional email.
+
+    Gmail SMTP is the primary provider when configured (no domain registration
+    needed); Resend is the alternate. If the primary errors at send time (e.g.
+    Resend rejecting an unverified sender domain), we fall through to the other
+    provider when it's available, so a single misconfigured provider can't
+    silently drop verification/reset email.
+    """
+    # Ordered list of (name, fn) providers that are actually configured.
+    providers: list[tuple[str, "Callable[[str, str, str], tuple[bool, str]]"]] = []
+    if _gmail_configured():
+        providers.append(("gmail", _send_email_gmail))
+    if _resend_configured():
+        providers.append(("resend", _send_email_resend))
+
+    if not providers:
         msg = "No email provider configured (set GMAIL_USER + GMAIL_APP_PASSWORD, or RESEND_API_KEY)"
         log.warning(f"Email skipped: '{subject}' → {to} | {msg}")
         return False, msg
+
+    last_detail = ""
+    for name, fn in providers:
+        ok, detail = fn(to, subject, html_body)
+        if ok:
+            return True, "ok"
+        last_detail = f"{name}: {detail}"
+        log.warning(f"Email via {name} failed ('{subject}' → {to}): {detail} — trying next provider")
+    return False, last_detail
+
+
+def _send_email_resend(to: str, subject: str, html_body: str) -> tuple[bool, str]:
+    """Send via Resend. Requires a verified sender domain (RESEND_FROM_EMAIL)."""
     try:
         _resend.api_key = RESEND_API_KEY
         _resend.Emails.send({
@@ -2562,19 +2589,34 @@ async def test_email(data: dict):
     if not ADMIN_PASSWORD or not hmac.compare_digest(key, ADMIN_PASSWORD):
         raise HTTPException(403, "Wrong key.")
     target = to or "djhunterd712@gmail.com"
-    provider = "gmail" if (GMAIL_USER and GMAIL_APP_PASSWORD) else ("resend" if RESEND_API_KEY else "none")
+    provider = "gmail" if _gmail_configured() else ("resend" if _resend_configured() else "none")
     ok, detail = send_email(
         target,
         "Sivarr email test",
         "<h2>Email is working ✓</h2><p>Transactional email is configured correctly on your Railway deployment.</p>"
     )
+    # Map the most common failure modes to a one-line next action.
+    hint = ""
+    if not ok:
+        low = (detail or "").lower()
+        if provider == "none":
+            hint = "No provider configured. Fast unblock: set GMAIL_USER + GMAIL_APP_PASSWORD (Gmail App Password) in Railway."
+        elif "verify" in low or "domain" in low or "not verified" in low:
+            hint = (f"Resend is rejecting the sender domain in RESEND_FROM_EMAIL ({RESEND_FROM}). "
+                    "Either verify that domain in Resend (SPF/DKIM DNS), or set GMAIL_USER + GMAIL_APP_PASSWORD to switch to Gmail.")
+        elif "auth" in low or "login" in low or "password" in low or "username" in low:
+            hint = "Provider rejected credentials. Check GMAIL_APP_PASSWORD is a 16-char App Password (not your account password), or RESEND_API_KEY."
+        else:
+            hint = "Send failed — see 'detail'. Confirm the active provider's credentials in Railway Variables."
     return {
         "sent": ok,
         "detail": detail,
         "provider": provider,
-        "gmail_configured": bool(GMAIL_USER and GMAIL_APP_PASSWORD),
+        "hint": hint,
+        "gmail_configured": _gmail_configured(),
         "gmail_user": GMAIL_USER or "(not set)",
         "resend_api_key_set": bool(RESEND_API_KEY),
+        "resend_from": RESEND_FROM,
         "to": target,
     }
 
