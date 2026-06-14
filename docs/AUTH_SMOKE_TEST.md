@@ -10,7 +10,11 @@ regression. The original production complaint was: sign-in, sign-up, **and**
 Google all failing in a lockout loop — steps A, B, D, E, G are exactly that loop.
 
 ## Setup
-- `BASE` = your prod origin, e.g. `https://sivarr.app` (set it once below).
+- `BASE` = your prod origin. **Currently the Railway URL** —
+  `https://sivarr-repository-production.up.railway.app` — `BASE_URL` has NOT
+  been cut over to `sivarr.app` yet (the custom domain isn't routed). Test the
+  Railway URL until the cutover, and keep `BASE` == whatever `BASE_URL` is set
+  to (email/OAuth links use `BASE_URL`).
 - A **fresh** email you control (real inbox — verification + reset links go there).
   Use a `+tag` alias so you can repeat, e.g. `you+smoke1@gmail.com`.
 - A **real Google account** for the OAuth step (use one NOT already registered).
@@ -19,7 +23,7 @@ Google all failing in a lockout loop — steps A, B, D, E, G are exactly that lo
   `curl.exe` explicitly, or run these from Git Bash / WSL.
 
 ```bash
-BASE=https://sivarr.app          # ← set this
+BASE=https://sivarr-repository-production.up.railway.app   # ← current prod (Railway)
 EMAIL=you+smoke1@gmail.com       # ← a fresh real inbox
 PW='Smoke!2345'
 ```
