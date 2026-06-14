@@ -90,6 +90,12 @@ def _dec_secret(s):
     except Exception:
         return s
 
+
+def encryption_active() -> bool:
+    """True when APP_ENCRYPTION_KEY is set + the Fernet cipher built — i.e.
+    third-party/org secrets are encrypted at rest. Exposes no key material."""
+    return _cipher is not None
+
 # ThreadedConnectionPool (lock-protected) — NOT SimpleConnectionPool. FastAPI runs
 # sync endpoints and asyncio.to_thread DB calls on a threadpool, so getconn/putconn
 # are called from multiple threads concurrently; SimpleConnectionPool has no internal

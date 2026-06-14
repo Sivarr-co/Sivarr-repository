@@ -2710,6 +2710,7 @@ async def health():
         "db_error":        db_info.get("error"),
         "db_pool":         db.pool_stats(),
         "redis":           rcache.available(),
+        "secrets_encrypted": db.encryption_active(),
         "ai":              GEMINI_AVAILABLE,
         "active_sessions": len(_session_tokens),
         "chat_sessions":   len(_chat_sessions),
