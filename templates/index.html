@@ -4054,7 +4054,7 @@ Sentry.onLoad(function() {
         style="flex:1;padding:7px;border-radius:7px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-family:var(--font);font-size:.75rem;font-weight:700;cursor:pointer;transition:all .15s">
         ✦ Create New
       </button>
-      <button id="cntab-space" onclick="cnTab('space')"
+      <button id="cntab-space" onclick="$('cn-modal-bg').classList.remove('open'); openCreateSpaceModal()"
         style="flex:1;padding:7px;border-radius:7px;border:none;background:none;color:var(--muted);font-family:var(--font);font-size:.75rem;font-weight:700;cursor:pointer;transition:all .15s">
         🌐 Space
       </button>
@@ -4208,7 +4208,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260614a" defer></script>
+<script src="/js/app.js?v=20260614b" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

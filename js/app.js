@@ -11962,6 +11962,8 @@ async function orgInit() {
     ORG_DOCS     = r.docs     || [];
     ORG_GOALS    = r.goals    || [];
     ORG_FOUNDER  = r.founder  || {};
+    // Reflect the real organization name in the pinned sidebar Space row.
+    spaceRenderSidebar();
   } catch(e) {
     _orgShowSetup();
     if (e.status !== 404 && e.status !== 401 && e.status !== 403) {
@@ -13620,9 +13622,14 @@ function spaceRenderSidebar() {
   if (!list) return;
   const spaces = getSpaces();
 
-  // Ensure the Org hub entry exists
-  if (!spaces.find(s => s.id === 'org')) {
-    spaces.unshift({ id:'org', name:'Organisation Hub', type:'org', icon:'🏢' });
+  // Ensure the Org hub entry exists (one org per account — backend singleton).
+  // Use the real organization name once ORG has loaded; fall back until then.
+  const orgRow = spaces.find(s => s.id === 'org');
+  if (!orgRow) {
+    spaces.unshift({ id:'org', name:(ORG && ORG.name) || 'Organisation Hub', type:'org', icon:'🏢' });
+    saveSpaces(spaces);
+  } else if (ORG && ORG.name && orgRow.name !== ORG.name) {
+    orgRow.name = ORG.name;
     saveSpaces(spaces);
   }
 
@@ -13764,15 +13771,36 @@ function cspSelectType(type, el) {
   if (nameRow) { nameRow.style.display = 'block'; $('csp-name-input')?.focus(); }
   if (footer)  footer.style.display  = 'flex';
 }
-function cspCreate() {
+async function cspCreate() {
   const inp  = $('csp-name-input');
   const name = inp ? inp.value.trim() : '';
   if (!_cspType) { toast('Please select a space type.'); return; }
   if (!name) { inp && inp.focus(); return; }
   const type = _cspType;
   if (type === 'org') {
-    closeCreateSpaceModal();
-    nav('org');
+    // Org is a backend singleton: create (or open the existing) organization,
+    // then pin it beneath Spaces. The org row auto-renders via spaceRenderSidebar
+    // and picks up the real name once orgInit() loads ORG.
+    const token = localStorage.getItem('sivarr_token') || '';
+    try {
+      const r = await API('/api/org/create', { token, name });
+      if (r && r.ok) {
+        toast(`${r.name || name} workspace created! Loading…`);
+        sessionStorage.setItem('sivarr_post_create', 'org');
+        closeCreateSpaceModal();
+        setTimeout(() => location.reload(), 800);
+      }
+    } catch(e) {
+      if (e.status === 409) {
+        // Already have an org (one per account) — just open it.
+        toast('Loading your organization…');
+        closeCreateSpaceModal();
+        spaceRenderSidebar();
+        openSpace('org');
+        return;
+      }
+      toast(e.message || 'Could not create space');
+    }
     return;
   }
   const icon  = type === 'personal' ? '👤' : '🎓';
