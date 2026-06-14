@@ -4567,13 +4567,19 @@ async function stClearWrong() {
 }
 
 async function stResetProgress() {
-  // NOTE: progress (stats/topics/quiz history) lives server-side; there is no
-  // endpoint to wipe it yet, so this only clears the local session + signs out.
-  // Server-side stats are NOT deleted. (Tracked as a follow-up: build a
-  // token-authed /api/reset-progress before promising a true reset.)
-  if (!await siModal.confirm('This signs you out and clears Sivarr on this device. Your account stats stay on the server.', { title:'Clear On This Device', confirmLabel:'Clear & Sign Out', danger:true })) return;
-  toast('Cleared on this device. Reloading...');
-  setTimeout(() => { clearSession(); location.reload(); }, 1200);
+  // Wipes server-side learning stats (quizzes, topics, XP, streak, revision
+  // list) via the token-authed /api/reset-progress endpoint. Account,
+  // subscription and saved documents are kept. You stay signed in; we reload
+  // so the dashboard reflects the freshly-zeroed stats.
+  if (!await siModal.confirm('This permanently erases your stats, quiz history, XP and streak from your account. This cannot be undone. Your account, subscription and saved documents are kept.', { title:'Reset Progress', confirmLabel:'Reset Everything', danger:true })) return;
+  try {
+    await API('/api/reset-progress', { token: S.token });
+  } catch (e) {
+    toast('Could not reset progress. Please try again.');
+    return;
+  }
+  toast('Progress reset ✓ Reloading...');
+  setTimeout(() => location.reload(), 1000);
 }
 
 // Restore accent on load

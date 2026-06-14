@@ -1722,7 +1722,7 @@ app.add_middleware(_StaticCacheMiddleware)
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
     _CSP = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://plausible.io https://cdn.jsdelivr.net "
+        "script-src 'self' 'unsafe-inline' https://plausible.io "
         "  https://js.sentry-cdn.com https://browser.sentry-cdn.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
@@ -3271,6 +3271,25 @@ async def clear_wrong(data: dict):
     p["wrong_answers"] = wrong
     save_progress(sid, p)
     return {"ok": True, "remaining": len(wrong)}
+
+
+@app.post("/api/reset-progress")
+async def reset_progress(data: dict):
+    """Wipe the authenticated user's learning stats — quizzes, topics, XP,
+    streak, revision list, chat history and daily AI counters. PRESERVES
+    account identity (name/matric), subscription/billing, uploaded study
+    files and any other keys. Token-authed; body sid is ignored (IDOR-safe)."""
+    sid, _ = _resolve_token(data)
+    p = load_progress(sid)
+    # Fresh literals each call so no mutable default is shared across users.
+    p.update({
+        "sessions": 0, "questions": 0, "topics": {},
+        "quizzes": [], "wrong_answers": [], "chat_history": [],
+        "xp": 0, "streak": 0, "difficulty": "medium",
+        "chat_daily": {}, "ai_daily": {},
+    })
+    save_progress(sid, p)
+    return {"ok": True}
 
 
 # ── File Upload ───────────────────────────────────────────────
