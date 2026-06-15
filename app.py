@@ -19,6 +19,7 @@ import random
 import re
 import secrets
 import shutil
+import html
 import threading
 import time
 import traceback
@@ -861,6 +862,11 @@ def _email_verify_html(verify_url: str, name: str) -> str:
 
 
 def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role: str) -> str:
+    # Escape attacker-controlled values (org name + inviter's display name) — they are
+    # interpolated into HTML sent to arbitrary recipients (prevents HTML/phishing injection).
+    inviter_name = html.escape(inviter_name or "")
+    org_name     = html.escape(org_name or "")
+    role         = html.escape(role or "")
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
@@ -2629,7 +2635,10 @@ async def test_email(data: dict):
 
 
 @app.post("/api/auth/forgot-password")
-async def forgot_password(data: dict, bg: BackgroundTasks):
+async def forgot_password(data: dict, request: Request, bg: BackgroundTasks):
+    # Rate-limit to prevent reset-email flooding of a victim + email-quota exhaustion
+    # (mirrors the limit on /api/auth/request-verification).
+    check_rate_limit(get_client_key(request), RATE_LIMIT_VERIFY, "forgot_password")
     email = sanitize_text(str(data.get("email", "")), 200).lower().strip()
     if not email:
         raise HTTPException(400, "Email required.")
@@ -3076,6 +3085,55 @@ async def acad_att_mine(data: dict):
     return {"ok": True, "present": present, "total": total,
             "pct": round(present / total * 100) if total else 0,
             "open_session": _acad_open_session(code) is not None}
+
+
+# ── Announcements + web push + feed (built on the class bridge) ──
+def _acad_push_members(code: str, title: str, body: str, url: str = "/app") -> None:
+    """Fire a web push to every member of a class (best-effort)."""
+    for m in db.coll_list("acad_members", owner=code):
+        try:
+            send_push(m.get("sid", ""), title, body, url, f"acad_{code}")
+        except Exception:
+            pass
+
+
+@app.post("/api/acad/announce")
+async def acad_announce(data: dict, bg: BackgroundTasks):
+    """Owner posts an announcement; members get a web-push notification."""
+    sid, name = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_require_owner(code, sid)
+    text = sanitize_text(str(data.get("text", "")), 1000)
+    if not text:
+        raise HTTPException(400, "Announcement text is required.")
+    ann = {"id": uuid.uuid4().hex[:10], "code": code, "text": text,
+           "author": name, "ts": datetime.datetime.utcnow().isoformat()}
+    db.coll_put("acad_announcements", ann["id"], ann, owner=code)
+    bg.add_task(_acad_push_members, code, f"📢 {cls.get('name', 'Class')}", text, "/app")
+    return {"ok": True, "announcement": ann}
+
+
+@app.post("/api/acad/announce/delete")
+async def acad_announce_delete(data: dict):
+    """Owner removes an announcement."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    _acad_require_owner(code, sid)
+    db.coll_delete("acad_announcements", sanitize_text(str(data.get("id", "")), 20))
+    return {"ok": True}
+
+
+@app.post("/api/acad/feed")
+async def acad_feed(data: dict):
+    """Announcements for a class — visible to the owner or any member."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_class_or_404(code)
+    if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join this class to view its feed.")
+    anns = sorted(db.coll_list("acad_announcements", owner=code),
+                  key=lambda a: a.get("ts", ""), reverse=True)
+    return {"ok": True, "class_name": cls.get("name"), "announcements": anns[:50]}
 
 
 def _plan_is_active(p: dict) -> bool:
@@ -3592,6 +3650,12 @@ async def upload_file(request: Request, token: str = Form(""), file: UploadFile 
     ext     = Path(file.filename).suffix.lower()
     if ext not in allowed:
         raise HTTPException(400, "Use .txt, .pdf, or .md files only.")
+
+    # Reject oversized uploads via the declared length BEFORE reading the body into
+    # memory (defence-in-depth; the post-read check below still guards a lying header).
+    clen = request.headers.get("content-length")
+    if clen and clen.isdigit() and int(clen) > MAX_FILE_SIZE + 8192:
+        raise HTTPException(400, "File too large. Maximum size is 5MB.")
 
     content = await file.read()
 
@@ -4932,6 +4996,9 @@ async def study_deck(request: Request, token: str = Form(""), file: UploadFile =
     if ext not in allowed:
         raise HTTPException(400, "Use .txt, .pdf, or .md files only.")
 
+    clen = request.headers.get("content-length")
+    if clen and clen.isdigit() and int(clen) > MAX_FILE_SIZE + 8192:
+        raise HTTPException(400, "File too large. Maximum 5MB.")
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(400, "File too large. Maximum 5MB.")
@@ -6963,8 +7030,11 @@ async def org_update(data: dict):
 
 
 @app.post("/api/org/invite")
-async def org_invite(data: dict, bg: BackgroundTasks):
+async def org_invite(data: dict, request: Request, bg: BackgroundTasks):
     sid, uname = _resolve_token(data)
+    # Throttle invites: this endpoint emails an attacker-supplied address from our
+    # trusted domain, so cap it per inviter to prevent spam/phishing relay abuse.
+    check_rate_limit(get_client_key(request, sid), 10, "org_invite")
     if not db.is_available():
         raise HTTPException(503, "Database unavailable.")
     org = db.get_org_by_member(sid)

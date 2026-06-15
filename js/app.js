@@ -18042,7 +18042,7 @@ function lInit() {
   lSwitchTab('l-overview');
   lRenderMetrics();
   lRenderOverview();
-  if (d.classCode) { lRenderClassCode(d.classCode); lLoadRoster(); lLoadRegister(); }
+  if (d.classCode) { lRenderClassCode(d.classCode); lLoadRoster(); lLoadRegister(); lLoadAnnouncements(); }
 }
 function lRenderMetrics() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
@@ -18267,6 +18267,7 @@ function sInit() {
   sSyncModuleDropdowns();
   sUpdateCitationStats();
   sRenderMyClasses();
+  sLoadFeed();
 }
 function sAllSprint() { return [].concat(sSprintCards.to_review, sSprintCards.spaced_rep, sSprintCards.flashcard, sSprintCards.mastered); }
 function sPersistSprint() { adSave({ sprintCards: sAllSprint() }); }
@@ -18722,4 +18723,53 @@ async function sLoadMyAtt(code) {
     const el = document.getElementById('sAtt-' + code);
     if (r && el) el.textContent = `Attendance ${r.pct}% (${r.present}/${r.total})${r.open_session ? ' · session OPEN' : ''}`;
   } catch (e) {}
+}
+
+/* ── Announcements + class feed (built on the class bridge) ── */
+async function lPostAnnounce() {
+  const d = adData();
+  if (!d.classCode) { acToast('Publish the class first (Overview → Class Code)'); return; }
+  const ta = document.getElementById('lAnnounceInput');
+  const text = ta ? ta.value.trim() : '';
+  if (!text) return;
+  try {
+    const r = await acadAPI('/api/acad/announce', { code: d.classCode, text });
+    if (r && r.ok) { if (ta) ta.value = ''; acToast('Posted — students notified'); lLoadAnnouncements(); }
+  } catch (e) { acToast((e && e.message) || 'Could not post'); }
+}
+async function lLoadAnnouncements() {
+  const d = adData();
+  if (!d.classCode) return;
+  try { const r = await acadAPI('/api/acad/feed', { code: d.classCode }); if (r) lRenderAnnouncements(r.announcements || []); } catch (e) {}
+}
+function lRenderAnnouncements(anns) {
+  const el = document.getElementById('lAnnounceList');
+  if (!el) return;
+  el.innerHTML = anns.length
+    ? anns.map(a => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.text)}</div><div class="acad-priority-sub">${acEsc(String(a.ts).replace('T', ' ').slice(0, 16))}</div></div><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteAnnounce('${acEsc(a.id)}')">Delete</button></div>`).join('')
+    : '<div class="acad-priority-sub">No announcements yet.</div>';
+}
+async function lDeleteAnnounce(id) {
+  const d = adData();
+  try { await acadAPI('/api/acad/announce/delete', { code: d.classCode, id }); } catch (e) {}
+  lLoadAnnouncements();
+}
+async function sLoadFeed() {
+  const list = adData().joinedClasses || [];
+  const body = document.getElementById('sFeedBody');
+  if (!body || !list.length) return;
+  let all = [];
+  for (const c of list) {
+    try {
+      const r = await acadAPI('/api/acad/feed', { code: c.code });
+      if (r && r.announcements) all = all.concat(r.announcements.map(a => Object.assign({}, a, { _class: c.name || r.class_name || c.code })));
+    } catch (e) {}
+  }
+  all.sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')));
+  if (!all.length) return;
+  body.innerHTML = all.slice(0, 30).map(a => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.text)}</div><div class="acad-priority-sub">${acEsc(a._class)} · ${acEsc(String(a.ts).replace('T', ' ').slice(0, 16))}</div></div></div>`).join('');
+}
+function sEnableNotifs() {
+  if (typeof _pushSetup === 'function') { _pushSetup().then(() => acToast('Notifications on (if you allowed them)')); }
+  else acToast('Notifications unavailable on this device');
 }
