@@ -3690,6 +3690,15 @@ Sentry.onLoad(function() {
               </div>
             </div>
             <div class="acad-card" style="margin-top:14px;">
+              <div class="acad-card-header">
+                <span class="acad-card-title">Class Code</span>
+                <button class="acad-btn-teal acad-btn-sm" id="lClassPublishBtn" onclick="lPublishClass()">Publish class</button>
+              </div>
+              <div class="acad-card-body" id="lClassCodeBody">
+                <p class="acad-brief-desc" style="margin:0;">Publish this class to get a join code. Students enter it in their Academic space to join — your roster fills automatically.</p>
+              </div>
+            </div>
+            <div class="acad-card" style="margin-top:14px;">
               <div class="acad-card-header"><span class="acad-card-title">Recent Student Activity</span></div>
               <div class="acad-card-body" id="lRecentActivity">
                 <div class="acad-empty-state"><i class="ti ti-activity" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No recent activity</div></div>
@@ -3880,6 +3889,15 @@ Sentry.onLoad(function() {
                     <div id="sAIResultBody"></div>
                   </div>
                 </div>
+              </div>
+            </div>
+            <div class="acad-card" style="margin-top:14px;">
+              <div class="acad-card-header">
+                <span class="acad-card-title">My Classes</span>
+                <button class="acad-btn-teal acad-btn-sm" onclick="sJoinClass()">+ Join class</button>
+              </div>
+              <div class="acad-card-body" id="sMyClassesBody">
+                <div class="acad-empty-state"><i class="ti ti-school" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Not in any class yet. Enter a join code from your lecturer.</div></div>
               </div>
             </div>
             <div class="acad-card" style="margin-top:14px;">
@@ -4496,7 +4514,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260615b" defer></script>
+<script src="/js/app.js?v=20260615c" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

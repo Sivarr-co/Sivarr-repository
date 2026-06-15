@@ -2831,6 +2831,119 @@ async def spaces_delete(data: dict):
     return {"ok": True}
 
 
+# ══════════════════════════════════════════════════════════════════
+#  ACADEMIC CLASSES — shared lecturer<->student bridge (per-user spaces)
+#  A lightweight class owned by a lecturer academic space (owner = the
+#  creator's sid). Students link by a 6-char join code. Stored per-record
+#  in the `collections` table (concurrency-safe); the roster is keyed by
+#  owner=code so a single query returns a class's members. Distinct from
+#  the global LECTURER_PASSWORD class system.
+# ══════════════════════════════════════════════════════════════════
+
+def _acad_gen_code() -> str:
+    import string
+    chars = string.ascii_uppercase + string.digits
+    for _ in range(50):
+        code = "".join(random.choices(chars, k=6))
+        if not db.coll_get("acad_classes", code):
+            return code
+    return "".join(random.choices(chars, k=8))
+
+
+def _acad_class_or_404(code: str) -> dict:
+    cls = db.coll_get("acad_classes", code)
+    if not cls:
+        raise HTTPException(404, "Class not found. Check the join code.")
+    return cls
+
+
+def _acad_is_member(code: str, sid: str) -> bool:
+    return db.coll_get("acad_members", f"{code}:{sid}") is not None
+
+
+def _acad_require_owner(code: str, sid: str) -> dict:
+    cls = _acad_class_or_404(code)
+    if cls.get("owner_sid") != sid:
+        raise HTTPException(403, "Only the class owner can do that.")
+    return cls
+
+
+@app.post("/api/acad/class/create")
+async def acad_class_create(data: dict):
+    """Lecturer publishes a class from their academic space; returns a join code."""
+    sid, name = _resolve_token(data)
+    cname   = sanitize_text(str(data.get("name", "")), 100) or "My Class"
+    subject = sanitize_text(str(data.get("subject", "")), 100)
+    code = _acad_gen_code()
+    cls = {
+        "code": code, "owner_sid": sid, "owner_name": name,
+        "name": cname, "subject": subject,
+        "created": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "live": None,
+    }
+    db.coll_put("acad_classes", code, cls, owner=sid)
+    log.info(f"Acad class created: {cname} ({code}) by {sid[:12]}")
+    return {"ok": True, "code": code, "class": cls}
+
+
+@app.post("/api/acad/class/join")
+async def acad_class_join(data: dict):
+    """Student links their space to a class by code."""
+    sid, name = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_class_or_404(code)
+    if cls.get("owner_sid") == sid:
+        raise HTTPException(400, "You own this class — you're already in it.")
+    db.coll_put("acad_members", f"{code}:{sid}",
+                {"code": code, "sid": sid, "name": name,
+                 "joined": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")},
+                owner=code)
+    return {"ok": True, "class": {"code": code, "name": cls.get("name"),
+                                  "owner_name": cls.get("owner_name"), "subject": cls.get("subject")}}
+
+
+@app.post("/api/acad/class/get")
+async def acad_class_get(data: dict):
+    """Fetch a class + roster. Visible to the owner or any member."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_class_or_404(code)
+    is_owner = cls.get("owner_sid") == sid
+    if not is_owner and not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join this class to view it.")
+    roster = db.coll_list("acad_members", owner=code)
+    return {"ok": True, "class": cls, "is_owner": is_owner,
+            "members": roster, "member_count": len(roster)}
+
+
+@app.post("/api/acad/class/mine")
+async def acad_class_mine(data: dict):
+    """Classes owned by the caller (lecturer side)."""
+    sid, _ = _resolve_token(data)
+    return {"ok": True, "classes": db.coll_list("acad_classes", owner=sid)}
+
+
+@app.post("/api/acad/class/roster")
+async def acad_class_roster(data: dict):
+    """Owner-only roster of joined students."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    _acad_require_owner(code, sid)
+    return {"ok": True, "members": db.coll_list("acad_members", owner=code)}
+
+
+@app.post("/api/acad/class/leave")
+async def acad_class_leave(data: dict):
+    """Student leaves a class; an owner may remove a member via member_sid."""
+    sid, _ = _resolve_token(data)
+    code   = sanitize_text(str(data.get("code", "")), 12).upper()
+    target = sanitize_text(str(data.get("member_sid", "")), 40) or sid
+    if target != sid:
+        _acad_require_owner(code, sid)   # only the owner can remove others
+    db.coll_delete("acad_members", f"{code}:{target}")
+    return {"ok": True}
+
+
 def _plan_is_active(p: dict) -> bool:
     """True if the user holds a non-expired paid subscription."""
     sub  = p.get("subscription") or {}

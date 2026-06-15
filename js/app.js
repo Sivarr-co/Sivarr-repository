@@ -18042,6 +18042,7 @@ function lInit() {
   lSwitchTab('l-overview');
   lRenderMetrics();
   lRenderOverview();
+  if (d.classCode) { lRenderClassCode(d.classCode); lLoadRoster(); }
 }
 function lRenderMetrics() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
@@ -18265,6 +18266,7 @@ function sInit() {
   sRenderDeadlines();
   sSyncModuleDropdowns();
   sUpdateCitationStats();
+  sRenderMyClasses();
 }
 function sAllSprint() { return [].concat(sSprintCards.to_review, sSprintCards.spaced_rep, sSprintCards.flashcard, sSprintCards.mastered); }
 function sPersistSprint() { adSave({ sprintCards: sAllSprint() }); }
@@ -18582,4 +18584,64 @@ let _cspAcadRole = 'student';
 function acadSelectRole(role) {
   _cspAcadRole = role;
   document.querySelectorAll('.acad-role-card').forEach(c => c.classList.toggle('acad-role-card--active', c.dataset.role === role));
+}
+
+/* ── Academic class bridge (shared lecturer<->student class) ── */
+async function acadAPI(path, body = {}) {
+  return await API(path, { token: (window.S && S.token) || localStorage.getItem('sivarr_token') || '', ...body });
+}
+// Lecturer: publish/show class code + live roster
+async function lPublishClass() {
+  const d = adData();
+  if (d.classCode) { lRenderClassCode(d.classCode); return; }
+  const meta = getSpaces().find(s => s.id === _adId) || {};
+  try {
+    const r = await acadAPI('/api/acad/class/create', { name: meta.name || 'My Class' });
+    if (r && r.ok) { adSave({ classCode: r.code }); lRenderClassCode(r.code); lLoadRoster(); acToast('Class published — code ' + r.code); }
+  } catch (e) { acToast((e && e.message) || 'Could not publish class'); }
+}
+function lRenderClassCode(code) {
+  const btn = document.getElementById('lClassPublishBtn');
+  if (btn) btn.style.display = 'none';
+  const body = document.getElementById('lClassCodeBody');
+  if (body) body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><div style="font-size:28px;font-weight:800;letter-spacing:4px;color:var(--acad-accent);font-family:monospace;">${acEsc(code)}</div><button class="acad-btn-ghost acad-btn-sm" onclick="navigator.clipboard&&navigator.clipboard.writeText('${acEsc(code)}');acToast('Code copied')">Copy</button></div><p class="acad-brief-desc" style="margin-top:8px;">Share this code — joined students appear in your Students tab automatically.</p>`;
+}
+async function lLoadRoster() {
+  const d = adData();
+  if (!d.classCode) return;
+  try {
+    const r = await acadAPI('/api/acad/class/roster', { code: d.classCode });
+    if (r && r.members) {
+      const joined = r.members.map(m => ({ id: 'jm_' + m.sid, name: m.name, email: '', courses: [], attendance: 0, avg_score: null, last_active: m.joined, joinedVia: 'code' }));
+      const manual = (d.lStudents || []).filter(s => !s.joinedVia);
+      lData.students = manual.concat(joined);
+      lRenderMetrics(); lRenderStudents();
+    }
+  } catch (e) { /* offline / not owner */ }
+}
+// Student: join / list / leave classes
+async function sJoinClass() {
+  const code = await siModal.input('Join a class', 'Enter the 6-char code from your lecturer', '', { confirmLabel: 'Join' });
+  if (!code) return;
+  try {
+    const r = await acadAPI('/api/acad/class/join', { code: code.trim().toUpperCase() });
+    if (r && r.ok) {
+      const d = adData(); const list = d.joinedClasses || [];
+      if (!list.find(c => c.code === r.class.code)) list.push(r.class);
+      adSave({ joinedClasses: list });
+      sRenderMyClasses(); acToast('Joined ' + (r.class.name || 'class'));
+    }
+  } catch (e) { acToast((e && e.message) || 'Could not join — check the code'); }
+}
+function sRenderMyClasses() {
+  const body = document.getElementById('sMyClassesBody');
+  if (!body) return;
+  const list = adData().joinedClasses || [];
+  if (!list.length) return;
+  body.innerHTML = list.map(c => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(c.name || 'Class')}</div><div class="acad-priority-sub">${acEsc(c.subject || '')}${c.owner_name ? ' · ' + acEsc(c.owner_name) : ''} · code ${acEsc(c.code)}</div></div><button class="acad-action-btn acad-action-btn--red" onclick="sLeaveClass('${acEsc(c.code)}')">Leave</button></div>`).join('');
+}
+async function sLeaveClass(code) {
+  try { await acadAPI('/api/acad/class/leave', { code }); } catch (e) {}
+  const d = adData(); adSave({ joinedClasses: (d.joinedClasses || []).filter(c => c.code !== code) });
+  sRenderMyClasses(); acToast('Left class');
 }
