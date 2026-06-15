@@ -18042,7 +18042,7 @@ function lInit() {
   lSwitchTab('l-overview');
   lRenderMetrics();
   lRenderOverview();
-  if (d.classCode) { lRenderClassCode(d.classCode); lLoadRoster(); }
+  if (d.classCode) { lRenderClassCode(d.classCode); lLoadRoster(); lLoadRegister(); }
 }
 function lRenderMetrics() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
@@ -18612,7 +18612,7 @@ async function lLoadRoster() {
   try {
     const r = await acadAPI('/api/acad/class/roster', { code: d.classCode });
     if (r && r.members) {
-      const joined = r.members.map(m => ({ id: 'jm_' + m.sid, name: m.name, email: '', courses: [], attendance: 0, avg_score: null, last_active: m.joined, joinedVia: 'code' }));
+      const joined = r.members.map(m => ({ id: 'jm_' + m.sid, sid: m.sid, name: m.name, email: '', courses: [], attendance: 0, avg_score: null, last_active: m.joined, joinedVia: 'code' }));
       const manual = (d.lStudents || []).filter(s => !s.joinedVia);
       lData.students = manual.concat(joined);
       lRenderMetrics(); lRenderStudents();
@@ -18638,10 +18638,88 @@ function sRenderMyClasses() {
   if (!body) return;
   const list = adData().joinedClasses || [];
   if (!list.length) return;
-  body.innerHTML = list.map(c => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(c.name || 'Class')}</div><div class="acad-priority-sub">${acEsc(c.subject || '')}${c.owner_name ? ' · ' + acEsc(c.owner_name) : ''} · code ${acEsc(c.code)}</div></div><button class="acad-action-btn acad-action-btn--red" onclick="sLeaveClass('${acEsc(c.code)}')">Leave</button></div>`).join('');
+  body.innerHTML = list.map(c => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(c.name || 'Class')}</div><div class="acad-priority-sub">${acEsc(c.subject || '')}${c.owner_name ? ' · ' + acEsc(c.owner_name) : ''} · code ${acEsc(c.code)}</div><div class="acad-priority-sub" id="sAtt-${acEsc(c.code)}">Attendance —</div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" onclick="sCheckIn('${acEsc(c.code)}')"><i class="ti ti-user-check" aria-hidden="true"></i> Check in</button><button class="acad-action-btn acad-action-btn--red" onclick="sLeaveClass('${acEsc(c.code)}')">Leave</button></div></div></div>`).join('');
+  list.forEach(c => sLoadMyAtt(c.code));
 }
 async function sLeaveClass(code) {
   try { await acadAPI('/api/acad/class/leave', { code }); } catch (e) {}
   const d = adData(); adSave({ joinedClasses: (d.joinedClasses || []).filter(c => c.code !== code) });
   sRenderMyClasses(); acToast('Left class');
+}
+
+/* ── Live attendance (lecturer + student), built on the class bridge ── */
+let _lAttSession = null, _lAttPoll = null;
+async function lTakeAttendance() {
+  const d = adData();
+  if (!d.classCode) { acToast('Publish the class first (Overview → Class Code)'); return; }
+  try {
+    const r = await acadAPI('/api/acad/attendance/start', { code: d.classCode });
+    if (r && r.ok) { _lAttSession = r.session_id; lShowAttPanel(r.checkin_code); lPollAtt(); acToast('Attendance session started'); }
+  } catch (e) { acToast((e && e.message) || 'Could not start session'); }
+}
+function lShowAttPanel(code) {
+  const p = document.getElementById('lAttPanel');
+  if (!p) return;
+  p.style.display = 'block';
+  p.innerHTML = `<div class="acad-card-header"><span class="acad-card-title">Live Attendance</span><button class="acad-btn-ghost acad-btn-sm" onclick="lEndAttendance()">End session</button></div>
+    <div class="acad-card-body"><div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div><div class="acad-label">Check-in code</div><div style="font-size:32px;font-weight:800;letter-spacing:6px;font-family:monospace;color:var(--acad-accent);">${acEsc(code)}</div></div>
+      <div><div class="acad-label">Present</div><div style="font-size:32px;font-weight:800;color:var(--text);" id="lAttCount">0</div></div>
+    </div><div id="lAttList" style="margin-top:12px;"></div></div>`;
+}
+function lPollAtt() {
+  clearInterval(_lAttPoll);
+  const tick = async () => {
+    const d = adData();
+    if (!_lAttSession) { clearInterval(_lAttPoll); return; }
+    try {
+      const r = await acadAPI('/api/acad/attendance/session', { code: d.classCode, session_id: _lAttSession });
+      if (r) {
+        const c = document.getElementById('lAttCount'); if (c) c.textContent = `${r.present_count}/${r.total}`;
+        const l = document.getElementById('lAttList');
+        if (l) l.innerHTML = (r.records || []).map(x => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(x.name)}</div><div class="acad-priority-sub">${acEsc(String(x.ts).replace('T', ' ').slice(0, 16))}</div></div><span class="acad-tag ${x.status === 'late' ? 'acad-tag--orange' : 'acad-tag--teal'}">${acEsc(x.status)}</span></div>`).join('') || '<div class="acad-priority-sub">No check-ins yet.</div>';
+      }
+    } catch (e) { /* keep polling */ }
+  };
+  tick();
+  _lAttPoll = setInterval(tick, 4000);
+}
+async function lEndAttendance() {
+  clearInterval(_lAttPoll);
+  const d = adData();
+  try { await acadAPI('/api/acad/attendance/end', { code: d.classCode, session_id: _lAttSession }); } catch (e) {}
+  _lAttSession = null;
+  const p = document.getElementById('lAttPanel'); if (p) p.style.display = 'none';
+  acToast('Attendance saved to the register');
+  lLoadRegister();
+}
+async function lLoadRegister() {
+  const d = adData();
+  if (!d.classCode) return;
+  try {
+    const r = await acadAPI('/api/acad/attendance/register', { code: d.classCode });
+    if (r && r.rows) {
+      r.rows.forEach(row => {
+        const s = lData.students.find(x => x.sid === row.sid || x.id === 'jm_' + row.sid);
+        if (s) s.attendance = row.pct;
+      });
+      lRenderStudents();
+    }
+  } catch (e) { /* not owner / offline */ }
+}
+// Student check-in + attendance %
+async function sCheckIn(code) {
+  const cc = await siModal.input('Check in', 'Enter the check-in code from your lecturer', '', { confirmLabel: 'Check in' });
+  if (!cc) return;
+  try {
+    const r = await acadAPI('/api/acad/attendance/checkin', { code, checkin_code: cc.trim().toUpperCase() });
+    if (r && r.ok) { acToast('Checked in — ' + r.status); sLoadMyAtt(code); }
+  } catch (e) { acToast((e && e.message) || 'Check-in failed'); }
+}
+async function sLoadMyAtt(code) {
+  try {
+    const r = await acadAPI('/api/acad/attendance/mine', { code });
+    const el = document.getElementById('sAtt-' + code);
+    if (r && el) el.textContent = `Attendance ${r.pct}% (${r.present}/${r.total})${r.open_session ? ' · session OPEN' : ''}`;
+  } catch (e) {}
 }

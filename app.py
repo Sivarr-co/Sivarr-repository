@@ -2944,6 +2944,140 @@ async def acad_class_leave(data: dict):
     return {"ok": True}
 
 
+# ── Live attendance (built on the class bridge) ──────────────────
+#  Sessions in `acad_att_sessions` (owner=code); check-in records in
+#  `acad_att_records` (owner=session_id). Attendance % counts ended
+#  sessions only, so an in-progress session never penalises a student.
+ACAD_ATT_WINDOW_MIN = 30   # how long a check-in code stays valid
+ACAD_ATT_LATE_MIN   = 10   # checking in after this many minutes = "late"
+
+
+def _acad_session_expired(s: dict) -> bool:
+    try:
+        return datetime.datetime.utcnow() >= datetime.datetime.fromisoformat(s.get("expires", ""))
+    except Exception:
+        return True
+
+
+def _acad_open_session(code: str) -> dict | None:
+    for s in db.coll_list("acad_att_sessions", owner=code):
+        if s.get("open") and not _acad_session_expired(s):
+            return s
+    return None
+
+
+@app.post("/api/acad/attendance/start")
+async def acad_att_start(data: dict):
+    """Owner starts an attendance session → returns a check-in code."""
+    import string
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    _acad_require_owner(code, sid)
+    # Close any sessions still open for this class.
+    for s in db.coll_list("acad_att_sessions", owner=code):
+        if s.get("open"):
+            s["open"] = False
+            db.coll_put("acad_att_sessions", s["session_id"], s, owner=code)
+    now = datetime.datetime.utcnow()
+    sess = {
+        "session_id":   uuid.uuid4().hex[:12],
+        "code":         code,
+        "checkin_code": "".join(random.choices(string.ascii_uppercase + string.digits, k=5)),
+        "started":      now.isoformat(),
+        "expires":      (now + datetime.timedelta(minutes=ACAD_ATT_WINDOW_MIN)).isoformat(),
+        "open":         True,
+    }
+    db.coll_put("acad_att_sessions", sess["session_id"], sess, owner=code)
+    return {"ok": True, "session_id": sess["session_id"], "checkin_code": sess["checkin_code"], "expires": sess["expires"]}
+
+
+@app.post("/api/acad/attendance/checkin")
+async def acad_att_checkin(data: dict):
+    """Member checks in with the live code → present (or late)."""
+    sid, name = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cc   = sanitize_text(str(data.get("checkin_code", "")), 12).upper()
+    _acad_class_or_404(code)
+    if not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join the class first.")
+    sess = _acad_open_session(code)
+    if not sess:
+        raise HTTPException(400, "No attendance session is open right now.")
+    if sess.get("checkin_code") != cc:
+        raise HTTPException(400, "Wrong check-in code.")
+    now = datetime.datetime.utcnow()
+    try:
+        late = (now - datetime.datetime.fromisoformat(sess["started"])).total_seconds() > ACAD_ATT_LATE_MIN * 60
+    except Exception:
+        late = False
+    status = "late" if late else "present"
+    db.coll_put("acad_att_records", f"{sess['session_id']}:{sid}",
+                {"session_id": sess["session_id"], "code": code, "sid": sid, "name": name,
+                 "ts": now.isoformat(), "status": status},
+                owner=sess["session_id"])
+    return {"ok": True, "status": status}
+
+
+@app.post("/api/acad/attendance/session")
+async def acad_att_session(data: dict):
+    """Owner polls the live roster for an active session."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    _acad_require_owner(code, sid)
+    session_id = sanitize_text(str(data.get("session_id", "")), 20)
+    recs   = db.coll_list("acad_att_records", owner=session_id)
+    roster = db.coll_list("acad_members", owner=code)
+    return {"ok": True, "records": recs, "present_count": len(recs), "total": len(roster)}
+
+
+@app.post("/api/acad/attendance/end")
+async def acad_att_end(data: dict):
+    """Owner ends a session (records become part of the register)."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    _acad_require_owner(code, sid)
+    session_id = sanitize_text(str(data.get("session_id", "")), 20)
+    sess = db.coll_get("acad_att_sessions", session_id)
+    if sess:
+        sess["open"] = False
+        sess["ended"] = datetime.datetime.utcnow().isoformat()
+        db.coll_put("acad_att_sessions", session_id, sess, owner=code)
+    return {"ok": True, "present_count": len(db.coll_list("acad_att_records", owner=session_id))}
+
+
+@app.post("/api/acad/attendance/register")
+async def acad_att_register(data: dict):
+    """Owner-only register: per-student attendance % across ended sessions."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    _acad_require_owner(code, sid)
+    sessions = [s for s in db.coll_list("acad_att_sessions", owner=code) if not s.get("open")]
+    total = len(sessions)
+    present: dict = {}
+    for s in sessions:
+        for r in db.coll_list("acad_att_records", owner=s["session_id"]):
+            present[r["sid"]] = present.get(r["sid"], 0) + 1
+    rows = [{"sid": m["sid"], "name": m["name"], "present": present.get(m["sid"], 0),
+             "total": total, "pct": round(present.get(m["sid"], 0) / total * 100) if total else 0}
+            for m in db.coll_list("acad_members", owner=code)]
+    return {"ok": True, "sessions": total, "rows": rows}
+
+
+@app.post("/api/acad/attendance/mine")
+async def acad_att_mine(data: dict):
+    """Member's own attendance % for a class + whether a session is open now."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    if not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join the class first.")
+    sessions = [s for s in db.coll_list("acad_att_sessions", owner=code) if not s.get("open")]
+    total = len(sessions)
+    present = sum(1 for s in sessions if db.coll_get("acad_att_records", f"{s['session_id']}:{sid}"))
+    return {"ok": True, "present": present, "total": total,
+            "pct": round(present / total * 100) if total else 0,
+            "open_session": _acad_open_session(code) is not None}
+
+
 def _plan_is_active(p: dict) -> bool:
     """True if the user holds a non-expired paid subscription."""
     sub  = p.get("subscription") or {}
