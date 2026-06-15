@@ -3598,210 +3598,482 @@ Sentry.onLoad(function() {
            ACADEMIC SPACE
            ══════════════════════════════════════════════════════ -->
       <div class="panel sp-panel" id="panel-academic">
+<!-- ══ ACADEMIC SPACE v3 — Dual-Role Dashboard (Lecturer + Student) ══ -->
+        <div class="sp-scroll" style="padding:0 4px">
 
-        <div class="sp-hero sp-hero-amber">
-          <div class="sp-hero-icon sp-ic-amber"><i class="ti ti-school"></i></div>
-          <div class="sp-hero-info">
-            <div class="sp-hero-name" id="ac-space-name">Academic</div>
-            <div class="sp-hero-meta"><span id="ac-course-count">0</span> active courses · Exam in <span id="ac-exam-days">—</span> days</div>
+        <!-- ── SPACE TOPBAR ── -->
+        <div class="acad-topbar">
+          <div class="acad-topbar-left">
+            <div class="acad-role-pill" id="acadRolePill">
+              <span id="acadRoleIcon">🎓</span>
+              <span id="acadRoleName">Academic</span>
+            </div>
+            <div class="acad-space-name-label" id="acadSpaceNameLabel">Academic Space</div>
           </div>
-          <div class="sp-hero-actions">
-            <button class="sp-btn-ghost" onclick="spRenameByType('academic')"><i class="ti ti-pencil"></i><span class="btn-lbl"> Rename</span></button>
-            <button class="sp-btn-primary sp-btn-amber" onclick="acAddCourse()"><i class="ti ti-plus"></i><span class="btn-lbl"> Add course</span></button>
+          <div class="acad-topbar-right">
+            <div class="acad-search-bar">
+              <i class="ti ti-search" aria-hidden="true"></i>
+              <input type="text" placeholder="Search this space…" id="acadSearchInput" />
+            </div>
+            <button class="acad-topbar-btn" onclick="acRenameByType ? spRenameByType('academic') : null" title="Rename space">
+              <i class="ti ti-pencil" aria-hidden="true"></i>
+            </button>
           </div>
         </div>
 
-        <div class="sp-tabs" id="ac-tabs">
-          <button class="sp-tab sp-tab-amber on" id="ac-tab-overview"  onclick="spTab('ac','overview',this)"><i class="ti ti-layout-dashboard"></i>Overview</button>
-          <button class="sp-tab sp-tab-amber" id="ac-tab-courses"      onclick="spTab('ac','courses',this)"><i class="ti ti-books"></i>Courses</button>
-          <button class="sp-tab sp-tab-amber" id="ac-tab-deck"         onclick="spTab('ac','deck',this)"><i class="ti ti-cards"></i>Study Deck</button>
-          <button class="sp-tab sp-tab-amber" id="ac-tab-quiz"         onclick="spTab('ac','quiz',this)"><i class="ti ti-pencil"></i>Quiz</button>
-          <button class="sp-tab sp-tab-amber" id="ac-tab-planner"      onclick="spTab('ac','planner',this)"><i class="ti ti-map"></i>Planner</button>
-          <button class="sp-tab sp-tab-amber" id="ac-tab-timer"        onclick="spTab('ac','timer',this)"><i class="ti ti-clock"></i>Timer</button>
-          <button class="sp-tab sp-tab-amber" id="ac-tab-groups"       onclick="spTab('ac','groups',this)"><i class="ti ti-users"></i>Study Groups</button>
+        <!-- ── WELCOME BANNER ── -->
+        <div class="acad-welcome-banner" id="acadWelcomeBanner">
+          <div>
+            <div class="acad-welcome-eyebrow" id="acadWelcomeEyebrow">Academic Space</div>
+            <div class="acad-welcome-headline" id="acadWelcomeHeadline">Welcome back.</div>
+            <div class="acad-welcome-sub" id="acadWelcomeSub"></div>
+            <div class="acad-welcome-ctas" id="acadWelcomeCTAs"></div>
+          </div>
+          <div class="acad-welcome-stat-cluster" id="acadWelcomeStats"></div>
         </div>
 
-        <!-- OVERVIEW -->
-        <div class="sp-pane on" id="ac-pane-overview">
-          <div class="sp-scroll">
-            <div class="sp-stat-row">
-              <div class="sp-stat"><div class="sp-stat-lbl">Cards reviewed</div><div class="sp-stat-val sp-val-amber" id="ac-cards-today">0</div></div>
-              <div class="sp-stat"><div class="sp-stat-lbl">Quiz accuracy</div><div class="sp-stat-val sp-val-amber" id="ac-quiz-acc">—</div></div>
-              <div class="sp-stat"><div class="sp-stat-lbl">Study streak</div><div class="sp-stat-val sp-val-amber" id="ac-study-streak">0🔥</div></div>
-              <div class="sp-stat"><div class="sp-stat-lbl">Exam countdown</div><div class="sp-stat-val sp-val-amber" id="ac-exam-countdown">—</div></div>
+        <!-- ══════ LECTURER DASHBOARD ══════ -->
+        <div id="acadLecturerDash" style="display:none;">
+
+          <div class="acad-metric-row">
+            <div class="acad-metric-card">
+              <div class="acad-metric-icon acad-icon-purple"><i class="ti ti-users" aria-hidden="true"></i></div>
+              <div class="acad-metric-label">Total Students</div>
+              <div class="acad-metric-value" id="lm-students">—</div>
             </div>
-            <div class="sp-grid2">
-              <div class="sp-card">
-                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-books"></i>Courses</span><span class="sp-card-link" onclick="spTab('ac','courses',null)">All →</span></div>
-                <div id="ac-courses-widget"><div class="sp-empty">No courses yet.</div></div>
+            <div class="acad-metric-card">
+              <div class="acad-metric-icon acad-icon-teal"><i class="ti ti-notebook" aria-hidden="true"></i></div>
+              <div class="acad-metric-label">Active Courses</div>
+              <div class="acad-metric-value" id="lm-courses">—</div>
+            </div>
+            <div class="acad-metric-card">
+              <div class="acad-metric-icon acad-icon-orange"><i class="ti ti-clipboard-check" aria-hidden="true"></i></div>
+              <div class="acad-metric-label">Pending Submissions</div>
+              <div class="acad-metric-value" id="lm-submissions">—</div>
+            </div>
+            <div class="acad-metric-card">
+              <div class="acad-metric-icon acad-icon-gold"><i class="ti ti-chart-bar" aria-hidden="true"></i></div>
+              <div class="acad-metric-label">Avg. Class Score</div>
+              <div class="acad-metric-value" id="lm-score">—<span>%</span></div>
+            </div>
+          </div>
+
+          <div class="acad-tab-bar" id="lecturerTabBar">
+            <button class="acad-tab active" data-tab="l-overview"    onclick="lSwitchTab('l-overview')">Overview</button>
+            <button class="acad-tab" data-tab="l-courses"     onclick="lSwitchTab('l-courses')">Courses</button>
+            <button class="acad-tab" data-tab="l-students"    onclick="lSwitchTab('l-students')">Students</button>
+            <button class="acad-tab" data-tab="l-assessments" onclick="lSwitchTab('l-assessments')">Assessments</button>
+            <button class="acad-tab" data-tab="l-analytics"   onclick="lSwitchTab('l-analytics')">Analytics</button>
+            <button class="acad-tab" data-tab="l-aitools"     onclick="lSwitchTab('l-aitools')"><i class="ti ti-bolt" aria-hidden="true" style="font-size:12px;"></i> AI Tools</button>
+          </div>
+
+          <!-- L: OVERVIEW -->
+          <div class="acad-tab-content active" id="tab-l-overview">
+            <div class="acad-split-3">
+              <div class="acad-card acad-col-span-1">
+                <div class="acad-card-header">
+                  <span class="acad-card-title">Today's Schedule</span>
+                  <button class="acad-btn-ghost acad-btn-sm" onclick="lAddClass()">+ Add</button>
+                </div>
+                <div class="acad-card-body" id="lScheduleList">
+                  <div class="acad-empty-state"><i class="ti ti-calendar" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No classes today</div></div>
+                </div>
               </div>
-              <div class="sp-card">
-                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-map"></i>Today's plan</span><span class="sp-card-link" onclick="spTab('ac','planner',null)">Full plan →</span></div>
-                <div id="ac-plan-widget"><div class="sp-empty">No study plan yet.</div></div>
+              <div class="acad-card acad-col-span-2">
+                <div class="acad-card-header">
+                  <span class="acad-card-title">Submission Queue</span>
+                  <span class="acad-card-badge" id="lSubmissionCount">0 pending</span>
+                </div>
+                <div class="acad-card-body" id="lSubmissionQueue">
+                  <div class="acad-empty-state"><i class="ti ti-inbox" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No pending submissions</div></div>
+                </div>
               </div>
             </div>
-            <div class="sp-grid2">
-              <div class="sp-card">
-                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-cards"></i>Study deck</span><span class="sp-card-link" onclick="spTab('ac','deck',null)">Review →</span></div>
-                <div id="ac-deck-widget"><div class="sp-empty">No flashcards yet.</div></div>
+            <div class="acad-card" style="margin-top:14px;">
+              <div class="acad-card-header"><span class="acad-card-title">Recent Student Activity</span></div>
+              <div class="acad-card-body" id="lRecentActivity">
+                <div class="acad-empty-state"><i class="ti ti-activity" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No recent activity</div></div>
               </div>
-              <div class="sp-card">
-                <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-sparkles" style="color:var(--amber3)"></i>Sivarr insights</span></div>
-                <div id="ac-insights-widget">
-                  <div class="sp-insight-strip sp-insight-amber">Start adding courses to unlock study insights.</div>
+            </div>
+          </div>
+
+          <!-- L: COURSES -->
+          <div class="acad-tab-content" id="tab-l-courses" style="display:none;">
+            <div class="acad-tab-toolbar">
+              <input class="acad-search-inline" type="text" placeholder="Search courses…" oninput="lFilterCourses(this.value)" />
+              <button class="acad-btn-teal" onclick="lCreateCourse()">+ New Course</button>
+            </div>
+            <div class="acad-course-grid" id="lCourseGrid">
+              <div class="acad-course-card acad-course-card--add" onclick="lCreateCourse()">
+                <i class="ti ti-plus" style="font-size:24px;opacity:.4;" aria-hidden="true"></i><div>Create your first course</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- L: STUDENTS -->
+          <div class="acad-tab-content" id="tab-l-students" style="display:none;">
+            <div class="acad-tab-toolbar">
+              <input class="acad-search-inline" type="text" placeholder="Search students…" oninput="lFilterStudents(this.value)" />
+              <div style="display:flex;gap:6px;">
+                <select class="acad-select" onchange="lFilterByCourse(this.value)" id="lStudentCourseFilter"><option value="">All courses</option></select>
+                <button class="acad-btn-ghost" onclick="lExportRoster()"><i class="ti ti-download" aria-hidden="true"></i> Export</button>
+                <button class="acad-btn-teal" onclick="lInviteStudent()">+ Invite Student</button>
+              </div>
+            </div>
+            <div class="acad-card">
+              <table class="acad-data-grid" id="lStudentTable">
+                <thead><tr><th>Student</th><th>Course(s)</th><th>Attendance</th><th>Avg. Score</th><th>Last Active</th><th>Status</th><th></th></tr></thead>
+                <tbody id="lStudentTableBody"><tr><td colspan="7" class="acad-table-empty">No students enrolled yet. Invite students to get started.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- L: ASSESSMENTS -->
+          <div class="acad-tab-content" id="tab-l-assessments" style="display:none;">
+            <div class="acad-tab-toolbar">
+              <div class="acad-segment-ctrl" id="lAssessmentView">
+                <button class="acad-seg active" data-seg="quizzes"     onclick="lAssessSegment('quizzes')">Quizzes</button>
+                <button class="acad-seg"        data-seg="assignments" onclick="lAssessSegment('assignments')">Assignments</button>
+                <button class="acad-seg"        data-seg="grading"     onclick="lAssessSegment('grading')">Grading</button>
+              </div>
+              <button class="acad-btn-teal" id="lAssessCreateBtn" onclick="lCreateAssessment()">+ New Quiz</button>
+            </div>
+            <div id="lAssess-quizzes" class="acad-assess-panel">
+              <div class="acad-card">
+                <div class="acad-card-header"><span class="acad-card-title">Quiz Bank</span><span class="acad-card-badge" id="lQuizCount">0 quizzes</span></div>
+                <div class="acad-card-body" id="lQuizList"><div class="acad-empty-state"><i class="ti ti-help" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No quizzes yet. Create your first quiz.</div></div></div>
+              </div>
+            </div>
+            <div id="lAssess-assignments" class="acad-assess-panel" style="display:none;">
+              <div class="acad-card">
+                <div class="acad-card-header"><span class="acad-card-title">Assignments</span><span class="acad-card-badge" id="lAssignCount">0 assignments</span></div>
+                <div class="acad-card-body" id="lAssignList"><div class="acad-empty-state"><i class="ti ti-file-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No assignments yet.</div></div></div>
+              </div>
+            </div>
+            <div id="lAssess-grading" class="acad-assess-panel" style="display:none;">
+              <div class="acad-split">
+                <div class="acad-card">
+                  <div class="acad-card-header"><span class="acad-card-title">Pending Grading</span></div>
+                  <div class="acad-card-body" id="lGradingQueue"><div class="acad-empty-state"><i class="ti ti-check" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>All caught up — nothing to grade.</div></div></div>
+                </div>
+                <div class="acad-card">
+                  <div class="acad-card-header"><span class="acad-card-title">SIVARR AI Auto-Mark</span><span class="acad-ai-badge">AI</span></div>
+                  <div class="acad-card-body">
+                    <p class="acad-brief-desc">Upload a submission batch and SIVARR AI will grade against your rubric, flagging edge cases for your review.</p>
+                    <button class="acad-generate-btn" onclick="lAutoMark()"><i class="ti ti-bolt" aria-hidden="true"></i> Run Auto-Mark</button>
+                    <div id="lAutoMarkResult" style="display:none;"></div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- COURSES -->
-        <div class="sp-pane" id="ac-pane-courses">
-          <div class="sp-toolbar">
-            <button class="sp-btn-primary sp-btn-amber" onclick="acAddCourse()"><i class="ti ti-plus"></i>Add course</button>
-            <div style="flex:1"></div>
-            <button class="sp-tool-btn sp-tool-amber-active" id="ac-filter-all" onclick="acFilterCourses('all',this)">All</button>
-            <button class="sp-tool-btn" id="ac-filter-active" onclick="acFilterCourses('active',this)">Active</button>
-            <button class="sp-tool-btn" id="ac-filter-done" onclick="acFilterCourses('done',this)">Done</button>
+          <!-- L: ANALYTICS -->
+          <div class="acad-tab-content" id="tab-l-analytics" style="display:none;">
+            <div class="acad-split">
+              <div class="acad-card">
+                <div class="acad-card-header">
+                  <span class="acad-card-title">Score Distribution</span>
+                  <select class="acad-select acad-select-sm" onchange="lLoadDistribution(this.value)" id="lDistCourseFilter"><option value="">All courses</option></select>
+                </div>
+                <div class="acad-card-body"><div id="lDistributionChart" style="min-height:160px;"><div class="acad-empty-state" style="padding:32px 0;"><i class="ti ti-chart-bar" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No score data yet</div></div></div></div>
+              </div>
+              <div class="acad-card">
+                <div class="acad-card-header"><span class="acad-card-title">Attendance Rate</span></div>
+                <div class="acad-card-body"><div id="lAttendanceChart" style="min-height:160px;"><div class="acad-empty-state" style="padding:32px 0;"><i class="ti ti-calendar-stats" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No attendance data yet</div></div></div></div>
+              </div>
+            </div>
+            <div class="acad-card" style="margin-top:14px;">
+              <div class="acad-card-header"><span class="acad-card-title">At-Risk Students</span><span class="acad-card-badge acad-badge-red" id="lAtRiskCount">0 flagged</span></div>
+              <div class="acad-card-body" id="lAtRiskList"><div class="acad-empty-state"><i class="ti ti-shield-check" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No at-risk students identified</div></div></div>
+            </div>
           </div>
-          <div class="sp-scroll"><div class="sp-courses-grid" id="ac-courses-grid"></div></div>
-        </div>
 
-        <!-- STUDY DECK -->
-        <div class="sp-pane" id="ac-pane-deck">
-          <div class="sp-scroll">
-            <div class="sp-grid2">
+          <!-- L: AI TOOLS -->
+          <div class="acad-tab-content" id="tab-l-aitools" style="display:none;">
+            <div class="acad-ai-tools-grid">
+              <div class="acad-card">
+                <div class="acad-card-header"><span class="acad-card-title">Lesson Plan Generator</span><span class="acad-ai-badge">SIVARR AI</span></div>
+                <div class="acad-card-body">
+                  <textarea class="acad-ai-textarea" id="lLessonTopic" placeholder="Enter topic, learning objectives, duration…&#10;e.g. 'Introduction to Bayesian Networks, 90 mins, undergraduate level'"></textarea>
+                  <button class="acad-generate-btn" onclick="lGenerateLessonPlan()"><i class="ti ti-bolt" aria-hidden="true"></i> Generate Lesson Plan</button>
+                  <div id="lLessonPlanResult" class="acad-ai-result" style="display:none;"></div>
+                </div>
+              </div>
+              <div class="acad-card">
+                <div class="acad-card-header"><span class="acad-card-title">Quiz Question Generator</span><span class="acad-ai-badge">SIVARR AI</span></div>
+                <div class="acad-card-body">
+                  <textarea class="acad-ai-textarea" id="lQuizTopic" placeholder="Topic + difficulty level + question type…&#10;e.g. 'Markov chains, hard, 5 MCQ + 2 short answer'"></textarea>
+                  <button class="acad-generate-btn" onclick="lGenerateQuizQuestions()"><i class="ti ti-bolt" aria-hidden="true"></i> Generate Questions</button>
+                  <div id="lQuizQuestionsResult" class="acad-ai-result" style="display:none;"></div>
+                </div>
+              </div>
+              <div class="acad-card acad-col-span-full">
+                <div class="acad-card-header"><span class="acad-card-title">Batch Feedback Generator</span><span class="acad-ai-badge">SIVARR AI</span></div>
+                <div class="acad-card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                  <div>
+                    <label class="acad-label">Submission or student notes</label>
+                    <textarea class="acad-ai-textarea" id="lFeedbackInput" placeholder="Paste student submission text or notes here…"></textarea>
+                  </div>
+                  <div>
+                    <label class="acad-label">Rubric / marking criteria</label>
+                    <textarea class="acad-ai-textarea" id="lRubricInput" placeholder="Paste your rubric or marking criteria here…"></textarea>
+                  </div>
+                  <button class="acad-generate-btn" style="grid-column:1/-1;" onclick="lGenerateFeedback()"><i class="ti ti-bolt" aria-hidden="true"></i> Generate Personalised Feedback</button>
+                  <div id="lFeedbackResult" class="acad-ai-result" style="display:none;grid-column:1/-1;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- end acadLecturerDash -->
+
+        <!-- ══════ STUDENT DASHBOARD ══════ -->
+        <div id="acadStudentDash" style="display:none;">
+
+          <div class="acad-metric-row">
+            <div class="acad-metric-card">
+              <div class="acad-metric-icon acad-icon-teal"><i class="ti ti-bolt" aria-hidden="true"></i></div>
+              <div class="acad-metric-label">AI Questions Asked</div>
+              <div class="acad-metric-value" id="sm-questions">—</div>
+            </div>
+            <div class="acad-metric-card">
+              <div class="acad-metric-icon acad-icon-purple"><i class="ti ti-trophy" aria-hidden="true"></i></div>
+              <div class="acad-metric-label">Quizzes Mastered</div>
+              <div class="acad-metric-value" id="sm-quizzes">—</div>
+            </div>
+            <div class="acad-metric-card">
+              <div class="acad-metric-icon acad-icon-orange"><i class="ti ti-flame" aria-hidden="true"></i></div>
+              <div class="acad-metric-label">Study Streak</div>
+              <div class="acad-metric-value" id="sm-streak">—<span> days</span></div>
+            </div>
+            <div class="acad-metric-card">
+              <div class="acad-metric-icon acad-icon-gold"><i class="ti ti-school" aria-hidden="true"></i></div>
+              <div class="acad-metric-label">CGPA Projection</div>
+              <div class="acad-metric-value" id="sm-cgpa">—<span>/5.0</span></div>
+            </div>
+          </div>
+
+          <div class="acad-tab-bar" id="studentTabBar">
+            <button class="acad-tab active" data-tab="s-overview"  onclick="sSwitchTab('s-overview')">Overview</button>
+            <button class="acad-tab" data-tab="s-vault"      onclick="sSwitchTab('s-vault')">Lecture Vault</button>
+            <button class="acad-tab" data-tab="s-sprint"     onclick="sSwitchTab('s-sprint')">Exam Sprint</button>
+            <button class="acad-tab" data-tab="s-research"   onclick="sSwitchTab('s-research')">Research</button>
+            <button class="acad-tab" data-tab="s-groups"     onclick="sSwitchTab('s-groups')">Study Groups</button>
+            <button class="acad-tab" data-tab="s-tutor"      onclick="sSwitchTab('s-tutor')"><i class="ti ti-bolt" aria-hidden="true" style="font-size:12px;"></i> AI Tutor</button>
+          </div>
+
+          <!-- S: OVERVIEW -->
+          <div class="acad-tab-content active" id="tab-s-overview">
+            <div class="acad-split">
+              <div class="acad-card">
+                <div class="acad-card-header"><span class="acad-card-title">Today's Academic Priorities</span><span class="acad-card-badge" id="sPriorityCount">0 due</span></div>
+                <div class="acad-card-body" id="sPriorityList"><div class="acad-empty-state"><i class="ti ti-check" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>All clear — nothing due today</div></div></div>
+              </div>
+              <div class="acad-card">
+                <div class="acad-card-header"><span class="acad-card-title">AI Daily Study Briefing</span><span class="acad-ai-badge">SIVARR AI</span></div>
+                <div class="acad-card-body">
+                  <p class="acad-brief-desc">Get a personalised briefing from your modules, open tasks, and a recommended flashcard sprint.</p>
+                  <button class="acad-generate-btn" id="sGenerateBtn" onclick="sGenerateBriefing()"><i class="ti ti-bolt" aria-hidden="true"></i> Generate Today's Briefing</button>
+                  <div class="acad-ai-result" id="sAIResult" style="display:none;">
+                    <div class="acad-ai-result-header"><div class="acad-ai-dot"></div><span class="acad-ai-result-title">SIVARR AI · Study Brief</span></div>
+                    <div id="sAIResultBody"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="acad-card" style="margin-top:14px;">
+              <div class="acad-card-header"><span class="acad-card-title">Upcoming Deadlines</span><button class="acad-btn-ghost acad-btn-sm" onclick="sAddDeadline()">+ Add</button></div>
+              <div class="acad-deadline-strip" id="sDeadlineStrip"><div class="acad-empty-state"><i class="ti ti-calendar" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No upcoming deadlines</div></div></div>
+            </div>
+          </div>
+
+          <!-- S: LECTURE VAULT -->
+          <div class="acad-tab-content" id="tab-s-vault" style="display:none;">
+            <div class="acad-tab-toolbar">
+              <input class="acad-search-inline" type="text" placeholder="Search modules…" oninput="sFilterModules(this.value)" />
+              <button class="acad-btn-teal" onclick="sAddModule()">+ Add Module</button>
+            </div>
+            <div class="acad-card">
+              <table class="acad-data-grid" id="sModuleTable">
+                <thead><tr><th>Module</th><th>Code</th><th>Next Exam</th><th>Lecturer</th><th>Attendance</th><th>Status</th><th>Resources</th><th></th></tr></thead>
+                <tbody id="sModuleTableBody"><tr><td colspan="8" class="acad-table-empty">No modules yet. Add your first module to get started.</td></tr></tbody>
+              </table>
+            </div>
+            <div class="acad-card" style="margin-top:14px;">
+              <div class="acad-card-header"><span class="acad-card-title">Lecture Notes Archive</span><button class="acad-btn-ghost acad-btn-sm" onclick="sUploadNotes()"><i class="ti ti-upload" aria-hidden="true"></i> Upload Notes</button></div>
+              <div class="acad-notes-grid" id="sNotesGrid"><div class="acad-empty-state"><i class="ti ti-file" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No notes uploaded yet</div></div></div>
+            </div>
+          </div>
+
+          <!-- S: EXAM SPRINT -->
+          <div class="acad-tab-content" id="tab-s-sprint" style="display:none;">
+            <div class="acad-tab-toolbar">
               <div>
-                <div class="sp-deck-filter" id="ac-deck-filter"></div>
-                <div class="sp-flashcard" id="ac-flashcard" onclick="acFlipCard()">
-                  <div class="sp-flashcard-inner" id="ac-flashcard-inner">
-                    <div class="sp-card-front">
-                      <div class="sp-fc-counter" id="ac-fc-counter">Card 0 of 0</div>
-                      <div class="sp-fc-question" id="ac-fc-question">Add a course and create flashcards to start reviewing.</div>
-                      <div class="sp-fc-flip">Tap to flip</div>
+                <div style="font-size:13px;font-weight:700;color:var(--text);">Exam Sprint Framework</div>
+                <div class="acad-brief-desc" id="sSprintSub" style="margin:2px 0 0;">Active revision board</div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <select class="acad-select" id="sSprintModule" onchange="sFilterSprintByModule(this.value)"><option value="">All modules</option></select>
+                <button class="acad-btn-teal" onclick="sAddSprintCard()">+ Add Card</button>
+              </div>
+            </div>
+            <div class="acad-kanban" id="sKanban">
+              <div class="acad-kanban-col" data-col="to_review">
+                <div class="acad-kanban-col-header"><span class="acad-col-title"><i class="ti ti-list" aria-hidden="true"></i> To Review</span><span class="acad-col-count" id="sColCount-to_review">0</span></div>
+                <div class="acad-kanban-cards" id="sCards-to_review"></div>
+                <div class="acad-col-add"><button class="acad-add-card-btn" onclick="sAddSprintCard('to_review')">+ Add card</button></div>
+              </div>
+              <div class="acad-kanban-col" data-col="spaced_rep">
+                <div class="acad-kanban-col-header"><span class="acad-col-title"><i class="ti ti-refresh" aria-hidden="true"></i> Spaced Repetition</span><span class="acad-col-count" id="sColCount-spaced_rep">0</span></div>
+                <div class="acad-kanban-cards" id="sCards-spaced_rep"></div>
+                <div class="acad-col-add"><button class="acad-add-card-btn" onclick="sAddSprintCard('spaced_rep')">+ Add card</button></div>
+              </div>
+              <div class="acad-kanban-col" data-col="flashcard">
+                <div class="acad-kanban-col-header"><span class="acad-col-title"><i class="ti ti-cards" aria-hidden="true"></i> Flashcard Drill</span><span class="acad-col-count" id="sColCount-flashcard">0</span></div>
+                <div class="acad-kanban-cards" id="sCards-flashcard"></div>
+                <div class="acad-col-add"><button class="acad-add-card-btn" onclick="sAddSprintCard('flashcard')">+ Add card</button></div>
+              </div>
+              <div class="acad-kanban-col" data-col="mastered">
+                <div class="acad-kanban-col-header"><span class="acad-col-title"><i class="ti ti-check" aria-hidden="true"></i> Mastered</span><span class="acad-col-count acad-col-count--teal" id="sColCount-mastered">0</span></div>
+                <div class="acad-kanban-cards" id="sCards-mastered"></div>
+                <div class="acad-col-add"><button class="acad-add-card-btn" onclick="sAddSprintCard('mastered')">+ Add card</button></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- S: RESEARCH -->
+          <div class="acad-tab-content" id="tab-s-research" style="display:none;">
+            <div class="acad-research-layout">
+              <div class="acad-research-main">
+                <div class="acad-card" style="margin-bottom:14px;">
+                  <div class="acad-card-header">
+                    <span class="acad-card-title">Research &amp; Citation Engine</span>
+                    <div style="display:flex;gap:5px;">
+                      <span class="acad-source-badge acad-source-badge--teal">Google Scholar</span>
+                      <span class="acad-source-badge acad-source-badge--purple">Semantic Scholar</span>
                     </div>
-                    <div class="sp-card-back">
-                      <div class="sp-fc-answer" id="ac-fc-answer"></div>
+                  </div>
+                  <div class="acad-card-body">
+                    <p class="acad-brief-desc">Paste a URL, DOI, or paper title — SIVARR AI auto-generates a formal citation.</p>
+                    <div class="acad-research-input-row">
+                      <input class="acad-research-input" id="sCiteInput" type="text" placeholder="Paste URL, DOI, or paper title…" onkeydown="if(event.key==='Enter') sGenerateCitation()" />
+                      <button class="acad-research-btn" onclick="sGenerateCitation()"><i class="ti ti-bolt" aria-hidden="true"></i> Generate</button>
+                    </div>
+                    <div class="acad-cite-format-row">
+                      <span class="acad-brief-desc" style="margin:0;">Format:</span>
+                      <button class="acad-format-btn active" data-fmt="apa"       onclick="sSetFormat(this,'apa')">APA 7th</button>
+                      <button class="acad-format-btn"        data-fmt="ieee"      onclick="sSetFormat(this,'ieee')">IEEE</button>
+                      <button class="acad-format-btn"        data-fmt="mla"       onclick="sSetFormat(this,'mla')">MLA 9th</button>
+                      <button class="acad-format-btn"        data-fmt="vancouver" onclick="sSetFormat(this,'vancouver')">Vancouver</button>
                     </div>
                   </div>
                 </div>
-                <div class="sp-deck-rate-row" id="ac-rate-row" style="display:none">
-                  <button class="sp-rate-btn sp-rate-again" onclick="acRateCard('again')">Again</button>
-                  <button class="sp-rate-btn sp-rate-hard"  onclick="acRateCard('hard')">Hard</button>
-                  <button class="sp-rate-btn sp-rate-good"  onclick="acRateCard('good')">Good</button>
-                  <button class="sp-rate-btn sp-rate-easy"  onclick="acRateCard('easy')">Easy</button>
-                </div>
-              </div>
-              <div>
-                <div class="sp-card" style="margin-bottom:14px">
-                  <div class="sp-card-head"><span class="sp-card-title">Session stats</span></div>
-                  <div class="sp-deck-stats">
-                    <div class="sp-dstat"><span id="ac-ds-done">0</span><small>Done</small></div>
-                    <div class="sp-dstat"><span id="ac-ds-left">0</span><small>Left</small></div>
-                    <div class="sp-dstat"><span id="ac-ds-acc">—</span><small>Accuracy</small></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;">
+                  <span style="font-size:13px;font-weight:700;color:var(--text);">Literature Matrix</span>
+                  <div style="display:flex;gap:6px;">
+                    <input class="acad-search-inline" style="width:150px;" type="text" placeholder="Filter…" oninput="sFilterCitations(this.value)" />
+                    <button class="acad-btn-ghost acad-btn-sm" onclick="sExportBib()"><i class="ti ti-download" aria-hidden="true"></i> .bib</button>
                   </div>
                 </div>
-                <div class="sp-card">
-                  <div class="sp-card-head"><span class="sp-card-title"><i class="ti ti-plus"></i> Add card</span></div>
-                  <input class="sp-input" id="ac-card-q" placeholder="Question…" style="margin-bottom:8px">
-                  <input class="sp-input" id="ac-card-a" placeholder="Answer…" style="margin-bottom:10px">
-                  <button class="sp-btn-primary sp-btn-amber" style="width:100%" onclick="acAddCard()">Add to deck</button>
+                <div id="sCitationList"><div class="acad-empty-state"><i class="ti ti-file-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No references yet. Generate your first citation above.</div></div></div>
+              </div>
+              <div class="acad-research-sidebar">
+                <div class="acad-card" style="margin-bottom:12px;">
+                  <div class="acad-card-header"><span class="acad-card-title">Matrix Overview</span></div>
+                  <div class="acad-card-body">
+                    <div class="acad-stat-row"><span>Total</span><span id="sStatTotal">0</span></div>
+                    <div class="acad-stat-row"><span>AI-generated</span><span id="sStatAuto" style="color:var(--teal);">0</span></div>
+                    <div class="acad-stat-row"><span>Manual</span><span id="sStatManual">0</span></div>
+                  </div>
+                </div>
+                <div class="acad-card">
+                  <div class="acad-card-header"><span class="acad-card-title">Connected Indexes</span></div>
+                  <div class="acad-card-body" style="display:flex;flex-direction:column;gap:8px;">
+                    <div class="acad-index-row acad-index-row--active"><i class="ti ti-search acad-index-icon" aria-hidden="true"></i><div><div class="acad-index-name">Google Scholar</div><div class="acad-index-status">Active</div></div><div class="acad-online-dot"></div></div>
+                    <div class="acad-index-row acad-index-row--active"><i class="ti ti-book acad-index-icon" aria-hidden="true"></i><div><div class="acad-index-name">Semantic Scholar</div><div class="acad-index-status">Active</div></div><div class="acad-online-dot"></div></div>
+                    <div class="acad-index-row acad-index-row--inactive"><i class="ti ti-building-bank acad-index-icon" aria-hidden="true"></i><div><div class="acad-index-name">JSTOR</div><div class="acad-index-status">Not connected</div></div><button class="acad-btn-ghost acad-btn-sm" onclick="sConnectIndex('jstor')">Connect</button></div>
+                    <div class="acad-index-row acad-index-row--inactive"><i class="ti ti-heartbeat acad-index-icon" aria-hidden="true"></i><div><div class="acad-index-name">PubMed</div><div class="acad-index-status">Not connected</div></div><button class="acad-btn-ghost acad-btn-sm" onclick="sConnectIndex('pubmed')">Connect</button></div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- QUIZ -->
-        <div class="sp-pane" id="ac-pane-quiz">
-          <div class="sp-scroll">
-            <div class="sp-quiz-wrap" id="ac-quiz-config">
-              <div class="sp-card" style="max-width:440px;margin:0 auto">
-                <div class="sp-card-title" style="margin-bottom:16px;font-size:1rem">Configure quiz</div>
-                <label class="sp-label">Course</label>
-                <select class="sp-select" id="ac-quiz-course" style="margin-bottom:12px">
-                  <option value="">All courses</option>
-                </select>
-                <label class="sp-label">Difficulty</label>
-                <div class="sp-diff-row" style="margin-bottom:12px">
-                  <button class="sp-diff-btn sp-diff-active" onclick="acSetDiff('easy',this)">Easy</button>
-                  <button class="sp-diff-btn" onclick="acSetDiff('medium',this)">Medium</button>
-                  <button class="sp-diff-btn" onclick="acSetDiff('hard',this)">Hard</button>
+          <!-- S: STUDY GROUPS -->
+          <div class="acad-tab-content" id="tab-s-groups" style="display:none;">
+            <div class="acad-tab-toolbar">
+              <input class="acad-search-inline" type="text" placeholder="Search groups…" oninput="sFilterGroups(this.value)" />
+              <button class="acad-btn-teal" onclick="sCreateGroup()">+ Create Group</button>
+            </div>
+            <div class="acad-groups-grid" id="sGroupsGrid"><div class="acad-empty-state"><i class="ti ti-users" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No study groups yet. Create one or ask a classmate to invite you.</div></div></div>
+          </div>
+
+          <!-- S: AI TUTOR -->
+          <div class="acad-tab-content" id="tab-s-tutor" style="display:none;">
+            <div class="acad-ai-tutor-layout">
+              <div class="acad-card acad-tutor-chat-card">
+                <div class="acad-card-header">
+                  <span class="acad-card-title">SIVARR AI Tutor</span>
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <span class="acad-ai-badge">AI</span>
+                    <select class="acad-select acad-select-sm" id="sTutorModule" onchange="sTutorSetModule(this.value)"><option value="">All modules</option></select>
+                  </div>
                 </div>
-                <button class="sp-btn-primary sp-btn-amber" style="width:100%" onclick="acStartQuiz()"><i class="ti ti-pencil"></i> Start quiz</button>
+                <div class="acad-tutor-messages" id="sTutorMessages">
+                  <div class="acad-tutor-msg acad-tutor-msg--ai">
+                    <div class="acad-tutor-avatar"><i class="ti ti-bolt" aria-hidden="true"></i></div>
+                    <div class="acad-tutor-bubble">Hi! I'm your SIVARR AI Tutor. Ask me anything about your modules, request concept explanations, or say &quot;quiz me on [topic]&quot; to start a practice session.</div>
+                  </div>
+                </div>
+                <div class="acad-tutor-input-row">
+                  <input class="acad-research-input" id="sTutorInput" type="text" placeholder="Ask a question, or say 'quiz me on…'" onkeydown="if(event.key==='Enter') sSendTutorMessage()" />
+                  <button class="acad-research-btn" onclick="sSendTutorMessage()"><i class="ti ti-send" aria-hidden="true"></i></button>
+                </div>
+                <div class="acad-tutor-quick-prompts">
+                  <button class="acad-format-btn" onclick="sTutorQuick('Explain this concept simply: ')">Explain a concept</button>
+                  <button class="acad-format-btn" onclick="sTutorQuick('Quiz me on ')">Quiz me</button>
+                  <button class="acad-format-btn" onclick="sTutorQuick('Summarise the key points from ')">Summarise notes</button>
+                  <button class="acad-format-btn" onclick="sTutorQuick('Create a mind map for ')">Mind map</button>
+                </div>
               </div>
-            </div>
-            <div class="sp-quiz-active" id="ac-quiz-active" style="display:none">
-              <div class="sp-quiz-prog-bar"><div id="ac-quiz-prog-fill" style="width:0%;background:var(--amber3)"></div></div>
-              <div class="sp-quiz-counter" id="ac-quiz-counter">Question 1</div>
-              <div class="sp-quiz-question" id="ac-quiz-q"></div>
-              <div class="sp-quiz-options" id="ac-quiz-opts"></div>
-              <div class="sp-quiz-nav">
-                <button class="sp-btn-ghost" onclick="acQuizSkip()">Skip</button>
-                <button class="sp-btn-primary sp-btn-amber" onclick="acQuizNext()">Next →</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- PLANNER -->
-        <div class="sp-pane" id="ac-pane-planner">
-          <div class="sp-toolbar">
-            <span style="font-size:.84rem;font-weight:600;color:var(--fg)" id="ac-plan-name">Study Plan</span>
-            <span style="font-size:.76rem;color:var(--muted);margin-left:8px" id="ac-plan-sub">Generated by Sivarr</span>
-            <div style="flex:1"></div>
-            <button class="sp-btn-primary sp-btn-amber" onclick="acGenPlan()"><i class="ti ti-wand"></i> Generate plan</button>
-          </div>
-          <div class="sp-scroll">
-            <div id="ac-plan-content">
-              <div class="sp-card" style="max-width:420px;margin:0 auto">
-                <div class="sp-card-title" style="margin-bottom:14px">Generate a study plan</div>
-                <label class="sp-label">Subject / Exam</label>
-                <input class="sp-input" id="ac-plan-subject" placeholder="e.g. Data Structures Final" style="margin-bottom:10px">
-                <label class="sp-label">Exam date</label>
-                <input class="sp-input" type="date" id="ac-plan-date" style="margin-bottom:10px">
-                <label class="sp-label">Hours per day</label>
-                <input class="sp-input" type="number" id="ac-plan-hrs" value="2" min="1" max="12" style="margin-bottom:14px">
-                <button class="sp-btn-primary sp-btn-amber" style="width:100%" onclick="acCreatePlan()"><i class="ti ti-wand"></i> Create plan</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TIMER -->
-        <div class="sp-pane" id="ac-pane-timer">
-          <div class="sp-scroll" style="align-items:center">
-            <div class="sp-timer-wrap">
-              <div class="sp-timer-modes">
-                <button class="sp-tmode-btn sp-tmode-active" id="ac-mode-focus"  onclick="acSetMode('focus',this)">Focus</button>
-                <button class="sp-tmode-btn" id="ac-mode-short"  onclick="acSetMode('short',this)">Short break</button>
-                <button class="sp-tmode-btn" id="ac-mode-long"   onclick="acSetMode('long',this)">Long break</button>
-              </div>
-              <div class="sp-timer-display" id="ac-timer-display">25:00</div>
-              <div class="sp-timer-label" id="ac-timer-label">Focus session</div>
-              <div class="sp-timer-btns">
-                <button class="sp-btn-primary sp-btn-amber sp-timer-start" id="ac-timer-start" onclick="acTimerToggle()">Start</button>
-                <button class="sp-btn-ghost" onclick="acTimerReset()">Reset</button>
-              </div>
-              <div class="sp-timer-stats">
-                <div class="sp-tstat"><div class="sp-tstat-val" id="ac-t-today">0</div><div class="sp-tstat-lbl">Today</div></div>
-                <div class="sp-tstat"><div class="sp-tstat-val" id="ac-t-total">0</div><div class="sp-tstat-lbl">Total</div></div>
-                <div class="sp-tstat"><div class="sp-tstat-val" id="ac-t-mins">0</div><div class="sp-tstat-lbl">Minutes</div></div>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div class="acad-card">
+                  <div class="acad-card-header"><span class="acad-card-title">Pomodoro Timer</span></div>
+                  <div class="acad-card-body" style="text-align:center;">
+                    <div class="acad-pomo-mode-bar">
+                      <button class="acad-seg active" id="pomoFocus"  onclick="sPomoSet(25,'Focus')">Focus</button>
+                      <button class="acad-seg"        id="pomoShort"  onclick="sPomoSet(5,'Short break')">Short break</button>
+                      <button class="acad-seg"        id="pomoLong"   onclick="sPomoSet(15,'Long break')">Long break</button>
+                    </div>
+                    <div class="acad-pomo-display" id="sPomoDisplay">25:00</div>
+                    <div class="acad-pomo-label" id="sPomoLabel">Focus session</div>
+                    <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+                      <button class="acad-btn-teal" style="padding:8px 24px;" id="sPomoPlayBtn" onclick="sPomoToggle()"><i class="ti ti-player-play" aria-hidden="true"></i> Start</button>
+                      <button class="acad-btn-ghost" style="padding:8px 16px;" onclick="sPomoReset()"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="acad-pomo-sessions" id="sPomoSessions">Session 1 of 4</div>
+                  </div>
+                </div>
+                <div class="acad-card">
+                  <div class="acad-card-header"><span class="acad-card-title">Quick Flashcard Sprint</span><span class="acad-card-badge" id="sSprintCardCount">0 cards</span></div>
+                  <div class="acad-card-body" style="text-align:center;">
+                    <div id="sFlashcardDisplay" style="min-height:100px;display:flex;align-items:center;justify-content:center;"><div class="acad-empty-state"><i class="ti ti-cards" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No flashcards in your Sprint yet</div></div></div>
+                    <div id="sFlashcardActions" style="display:none;margin-top:10px;gap:6px;justify-content:center;">
+                      <button class="acad-action-btn acad-action-btn--red" onclick="sFlashcardRespond('again')">Again</button>
+                      <button class="acad-action-btn acad-action-btn--orange" onclick="sFlashcardRespond('hard')">Hard</button>
+                      <button class="acad-action-btn acad-action-btn--teal" onclick="sFlashcardRespond('good')">Good</button>
+                      <button class="acad-action-btn" onclick="sFlashcardRespond('easy')">Easy</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- STUDY GROUPS -->
-        <div class="sp-pane" id="ac-pane-groups">
-          <div class="sp-toolbar">
-            <button class="sp-btn-primary sp-btn-amber" onclick="acNewGroup()"><i class="ti ti-plus"></i>Create group</button>
-            <div style="flex:1"></div>
-            <button class="sp-btn-ghost" onclick="acJoinGroup()"><i class="ti ti-door-enter"></i>Join by ID</button>
-          </div>
-          <div class="sp-scroll"><div class="sp-groups-grid" id="ac-groups-grid"></div></div>
-        </div>
+        </div><!-- end acadStudentDash -->
 
+        </div><!-- /sp-scroll -->
       </div><!-- /panel-academic -->
 
       <!-- ══════════════════════════════════════════════════════
@@ -3829,6 +4101,21 @@ Sentry.onLoad(function() {
               <div class="csp-type-icon" style="background:var(--amber2)"><i class="ti ti-school" style="color:var(--amber3)"></i></div>
               <div class="csp-type-name">Academic</div>
               <div class="csp-type-desc">Courses, flashcards, quiz &amp; timer</div>
+            </div>
+          </div>
+          <div id="acadRoleStep" style="display:none;margin-top:16px">
+            <label class="sp-label" style="display:block;margin-bottom:8px">I am a…</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="acad-role-card acad-role-card--active" data-role="student" onclick="acadSelectRole('student')">
+                <div class="acad-role-icon">🎓</div>
+                <div class="acad-role-name">Student</div>
+                <div class="acad-role-desc">Study tools, revision, AI tutor, research</div>
+              </div>
+              <div class="acad-role-card" data-role="lecturer" onclick="acadSelectRole('lecturer')">
+                <div class="acad-role-icon">📋</div>
+                <div class="acad-role-name">Lecturer</div>
+                <div class="acad-role-desc">Courses, roster, assessments, analytics</div>
+              </div>
             </div>
           </div>
           <div id="csp-name-row" style="display:none">
@@ -4208,7 +4495,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260614b" defer></script>
+<script src="/js/app.js?v=20260615a" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
