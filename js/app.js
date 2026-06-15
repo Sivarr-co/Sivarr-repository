@@ -18062,6 +18062,7 @@ function lSwitchTab(tabId) {
   if (tabId === 'l-courses') lRenderCourses();
   if (tabId === 'l-students') lRenderStudents();
   if (tabId === 'l-analytics') lRenderAnalytics();
+  if (tabId === 'l-assessments') { lAssessSegment(_lAssessSeg); lRenderAssessLists(); }
 }
 function lRenderOverview() {
   const sched = document.getElementById('lScheduleList');
@@ -18128,7 +18129,9 @@ function lRenderAnalytics() {
       <div style="font-size:9.5px;color:var(--text4);">${labels[i]}</div></div>`).join('')}
   </div>`;
 }
+let _lAssessSeg = 'quizzes';
 function lAssessSegment(seg) {
+  _lAssessSeg = seg;
   document.querySelectorAll('#lAssessmentView .acad-seg').forEach(b => b.classList.remove('active'));
   document.querySelector(`#lAssessmentView [data-seg="${seg}"]`)?.classList.add('active');
   document.querySelectorAll('#tab-l-assessments .acad-assess-panel').forEach(p => p.style.display = 'none');
@@ -18136,6 +18139,24 @@ function lAssessSegment(seg) {
   if (panel) panel.style.display = 'block';
   const btn = document.getElementById('lAssessCreateBtn');
   if (btn) { btn.textContent = seg === 'quizzes' ? '+ New Quiz' : seg === 'assignments' ? '+ New Assignment' : ''; btn.style.display = seg === 'grading' ? 'none' : 'block'; }
+}
+function lRenderAssessLists() {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('lQuizCount', `${lData.quizzes.length} quizzes`);
+  set('lAssignCount', `${lData.assignments.length} assignments`);
+  const ql = document.getElementById('lQuizList');
+  if (ql) ql.innerHTML = lData.quizzes.length
+    ? lData.quizzes.map(q => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(q.title)}</div><div class="acad-priority-sub">${acEsc(q.course || '—')}${q.questions ? ' · ' + acEsc(q.questions) + ' Qs' : ''}</div></div><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteAssess('quiz','${q.id}')">Delete</button></div>`).join('')
+    : `<div class="acad-empty-state"><i class="ti ti-help" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No quizzes yet. Create your first quiz.</div></div>`;
+  const al = document.getElementById('lAssignList');
+  if (al) al.innerHTML = lData.assignments.length
+    ? lData.assignments.map(a => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.title)}</div><div class="acad-priority-sub">${acEsc(a.course || '—')}${a.due ? ' · due ' + acEsc(a.due) : ''}</div></div><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteAssess('assign','${a.id}')">Delete</button></div>`).join('')
+    : `<div class="acad-empty-state"><i class="ti ti-file-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No assignments yet.</div></div>`;
+}
+function lDeleteAssess(kind, id) {
+  if (kind === 'quiz') { lData.quizzes = lData.quizzes.filter(q => q.id !== id); adSave({ lQuizzes: lData.quizzes }); }
+  else { lData.assignments = lData.assignments.filter(a => a.id !== id); adSave({ lAssignments: lData.assignments }); }
+  lRenderAssessLists();
 }
 async function lCallAI(resultId, prompt, btn, resetLabel) {
   const el = document.getElementById(resultId);
@@ -18176,11 +18197,51 @@ async function lCreateCourse() {
   acToast('Course created');
 }
 function lOpenCourse() { acToast('Course detail coming soon'); }
-function lInviteStudent() { acToast('Invite link coming soon'); }
+const _lClamp = (v) => Math.max(0, Math.min(100, parseInt(v) || 0));
+async function lInviteStudent() {
+  const f = await siModal.form('Add student', [
+    { id: 'name', label: 'Name', placeholder: 'e.g. Ada Obi', required: true },
+    { id: 'email', label: 'Email', placeholder: 'optional' },
+    { id: 'courses', label: 'Course code(s)', placeholder: 'comma-separated' },
+    { id: 'attendance', label: 'Attendance %', placeholder: '0-100' },
+    { id: 'avg_score', label: 'Avg score %', placeholder: '0-100' },
+  ]);
+  if (!f || !f.name) return;
+  lData.students.push({
+    id: 'st_' + Date.now(), name: f.name, email: f.email || '',
+    courses: (f.courses || '').split(',').map(s => s.trim()).filter(Boolean),
+    attendance: _lClamp(f.attendance), avg_score: f.avg_score ? _lClamp(f.avg_score) : null,
+    last_active: 'just now',
+  });
+  adSave({ lStudents: lData.students });
+  lRenderMetrics(); lRenderStudents(); lRenderAnalytics();
+  acToast('Student added');
+}
 function lViewStudent() { acToast('Student detail coming soon'); }
-function lExportRoster() { acToast('Exporting roster…'); }
+function lExportRoster() {
+  if (!lData.students.length) { acToast('No students to export'); return; }
+  const rows = [['Name', 'Email', 'Courses', 'Attendance', 'AvgScore']].concat(
+    lData.students.map(s => [s.name, s.email || '', (s.courses || []).join('|'), s.attendance ?? '', s.avg_score ?? '']));
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'sivarr-roster.csv'; a.click();
+}
 function lAddClass() { acToast('Schedule editor coming soon'); }
-function lCreateAssessment() { acToast('Assessment builder coming soon'); }
+async function lCreateAssessment() {
+  if (_lAssessSeg === 'grading') return;
+  const isQuiz = _lAssessSeg === 'quizzes';
+  const f = await siModal.form(isQuiz ? 'New quiz' : 'New assignment', [
+    { id: 'title', label: 'Title', placeholder: isQuiz ? 'e.g. Week 3 Quiz' : 'e.g. Essay 1', required: true },
+    { id: 'course', label: 'Course code', placeholder: 'optional' },
+    { id: 'extra', label: isQuiz ? 'Number of questions' : 'Due date (YYYY-MM-DD)', placeholder: 'optional' },
+  ]);
+  if (!f || !f.title) return;
+  if (isQuiz) { lData.quizzes.push({ id: 'q_' + Date.now(), title: f.title, course: f.course || '', questions: f.extra || '' }); adSave({ lQuizzes: lData.quizzes }); }
+  else { lData.assignments.push({ id: 'a_' + Date.now(), title: f.title, course: f.course || '', due: f.extra || '' }); adSave({ lAssignments: lData.assignments }); }
+  lRenderAssessLists();
+  acToast(isQuiz ? 'Quiz created' : 'Assignment created');
+}
 function lLoadDistribution() { lRenderAnalytics(); }
 
 /* ════════ STUDENT ════════ */
@@ -18356,6 +18417,25 @@ function sMoveCard(id, fromCol) {
   const [card] = sSprintCards[fromCol].splice(i, 1);
   card.column = next; sSprintCards[next].push(card);
   sPersistSprint(); sRenderKanban(); sRenderMetrics();
+}
+// AI-generate Q/A flashcards into the Flashcard Drill column (uses /api/chat).
+async function sGenAIFlashcards() {
+  const topic = await siModal.input('AI flashcards', 'Topic or concept to drill', '', { confirmLabel: 'Generate' });
+  if (!topic) return;
+  acToast('Generating flashcards…');
+  const raw = await acadAsk(`Generate 6 concise study flashcards for: "${topic}". Return ONLY lines in EXACTLY this format, one per line, with no numbering or extra text:\nQ: <question> :: A: <answer>`, 'flashcard_gen');
+  if (!raw) { acToast('Could not reach SIVARR AI'); return; }
+  const cards = [];
+  raw.split(/\r?\n/).forEach(line => {
+    const m = line.match(/Q:\s*(.+?)\s*::\s*A:\s*(.+)/i);
+    if (m) cards.push({ id: 'k_' + Date.now() + '_' + cards.length, title: m[1].trim(), answer: m[2].trim(), column: 'flashcard', module: '' });
+  });
+  if (!cards.length) { acToast('No cards parsed — try a clearer topic'); return; }
+  sSprintCards.flashcard.push(...cards);
+  sPersistSprint(); sRenderKanban();
+  const d = adData(); adSave({ aiQuestions: (d.aiQuestions || 0) + 1 });
+  sLoadFlashcards();
+  acToast(`${cards.length} flashcards added to Flashcard Drill`);
 }
 // ── Research / Citations ──
 function sSetFormat(btn, fmt) { document.querySelectorAll('#tab-s-research .acad-format-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); sCiteFormat = fmt; }

@@ -3915,6 +3915,7 @@ Sentry.onLoad(function() {
               </div>
               <div style="display:flex;gap:6px;">
                 <select class="acad-select" id="sSprintModule" onchange="sFilterSprintByModule(this.value)"><option value="">All modules</option></select>
+                <button class="acad-btn-ghost" onclick="sGenAIFlashcards()"><i class="ti ti-bolt" aria-hidden="true"></i> AI cards</button>
                 <button class="acad-btn-teal" onclick="sAddSprintCard()">+ Add Card</button>
               </div>
             </div>
@@ -4495,7 +4496,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260615a" defer></script>
+<script src="/js/app.js?v=20260615b" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
