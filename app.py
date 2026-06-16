@@ -3136,6 +3136,114 @@ async def acad_feed(data: dict):
     return {"ok": True, "class_name": cls.get("name"), "announcements": anns[:50]}
 
 
+# ── Gradebook: shared assignments + submissions + grading ────────
+#  acad_assignments (owner=code) · acad_submissions (owner=assignment_id,
+#  item_id="{aid}:{sid}").
+@app.post("/api/acad/assignment/create")
+async def acad_assignment_create(data: dict, bg: BackgroundTasks):
+    """Owner posts a class assignment (members notified)."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_require_owner(code, sid)
+    title = sanitize_text(str(data.get("title", "")), 200)
+    if not title:
+        raise HTTPException(400, "Assignment title is required.")
+    a = {"id": uuid.uuid4().hex[:10], "code": code, "title": title,
+         "due": sanitize_text(str(data.get("due", "")), 40),
+         "points": sanitize_text(str(data.get("points", "")), 10),
+         "created": datetime.datetime.utcnow().isoformat()}
+    db.coll_put("acad_assignments", a["id"], a, owner=code)
+    bg.add_task(_acad_push_members, code, f"📝 {cls.get('name', 'Class')}: new assignment", title, "/app")
+    return {"ok": True, "assignment": a}
+
+
+@app.post("/api/acad/assignment/list")
+async def acad_assignment_list(data: dict):
+    """Class assignments — owner or member."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_class_or_404(code)
+    if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join this class first.")
+    items = sorted(db.coll_list("acad_assignments", owner=code), key=lambda a: a.get("created", ""), reverse=True)
+    return {"ok": True, "assignments": items}
+
+
+@app.post("/api/acad/assignment/delete")
+async def acad_assignment_delete(data: dict):
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    _acad_require_owner(code, sid)
+    aid = sanitize_text(str(data.get("id", "")), 20)
+    db.coll_delete("acad_assignments", aid)
+    return {"ok": True}
+
+
+@app.post("/api/acad/submit")
+async def acad_submit(data: dict):
+    """Member submits work for an assignment (re-submit overwrites)."""
+    sid, name = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    if not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join the class first.")
+    aid = sanitize_text(str(data.get("assignment_id", "")), 20)
+    if not db.coll_get("acad_assignments", aid):
+        raise HTTPException(404, "Assignment not found.")
+    db.coll_put("acad_submissions", f"{aid}:{sid}",
+                {"assignment_id": aid, "code": code, "sid": sid, "name": name,
+                 "text": sanitize_text(str(data.get("text", "")), 5000),
+                 "ts": datetime.datetime.utcnow().isoformat(),
+                 "graded": False, "grade": "", "feedback": ""},
+                owner=aid)
+    return {"ok": True}
+
+
+@app.post("/api/acad/submissions")
+async def acad_submissions(data: dict):
+    """Owner: all submissions for an assignment."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    _acad_require_owner(code, sid)
+    aid = sanitize_text(str(data.get("assignment_id", "")), 20)
+    return {"ok": True, "submissions": db.coll_list("acad_submissions", owner=aid)}
+
+
+@app.post("/api/acad/grade")
+async def acad_grade(data: dict, bg: BackgroundTasks):
+    """Owner grades a submission; the student is notified."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_require_owner(code, sid)
+    aid = sanitize_text(str(data.get("assignment_id", "")), 20)
+    target = sanitize_text(str(data.get("sid", "")), 40)
+    sub = db.coll_get("acad_submissions", f"{aid}:{target}")
+    if not sub:
+        raise HTTPException(404, "Submission not found.")
+    sub["grade"]    = sanitize_text(str(data.get("grade", "")), 20)
+    sub["feedback"] = sanitize_text(str(data.get("feedback", "")), 2000)
+    sub["graded"]   = True
+    db.coll_put("acad_submissions", f"{aid}:{target}", sub, owner=aid)
+    bg.add_task(send_push, target, f"✅ {cls.get('name', 'Class')}: graded",
+                f"You scored {sub['grade']}", "/app", f"acad_{code}")
+    return {"ok": True}
+
+
+@app.post("/api/acad/grades/mine")
+async def acad_grades_mine(data: dict):
+    """Member: their submission + grade for each class assignment."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    if not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join the class first.")
+    out = []
+    for a in db.coll_list("acad_assignments", owner=code):
+        sub = db.coll_get("acad_submissions", f"{a['id']}:{sid}")
+        out.append({"assignment_id": a["id"], "title": a.get("title"), "due": a.get("due"),
+                    "submitted": sub is not None, "graded": bool(sub and sub.get("graded")),
+                    "grade": (sub or {}).get("grade", ""), "feedback": (sub or {}).get("feedback", "")})
+    return {"ok": True, "items": out}
+
+
 def _plan_is_active(p: dict) -> bool:
     """True if the user holds a non-expired paid subscription."""
     sub  = p.get("subscription") or {}

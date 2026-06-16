@@ -18140,6 +18140,9 @@ function lAssessSegment(seg) {
   if (panel) panel.style.display = 'block';
   const btn = document.getElementById('lAssessCreateBtn');
   if (btn) { btn.textContent = seg === 'quizzes' ? '+ New Quiz' : seg === 'assignments' ? '+ New Assignment' : ''; btn.style.display = seg === 'grading' ? 'none' : 'block'; }
+  const hasClass = !!adData().classCode;
+  if (seg === 'assignments' && hasClass) lLoadClassAssignments();
+  if (seg === 'grading') lLoadGrading();
 }
 function lRenderAssessLists() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -18238,10 +18241,17 @@ async function lCreateAssessment() {
     { id: 'extra', label: isQuiz ? 'Number of questions' : 'Due date (YYYY-MM-DD)', placeholder: 'optional' },
   ]);
   if (!f || !f.title) return;
-  if (isQuiz) { lData.quizzes.push({ id: 'q_' + Date.now(), title: f.title, course: f.course || '', questions: f.extra || '' }); adSave({ lQuizzes: lData.quizzes }); }
-  else { lData.assignments.push({ id: 'a_' + Date.now(), title: f.title, course: f.course || '', due: f.extra || '' }); adSave({ lAssignments: lData.assignments }); }
+  if (isQuiz) { lData.quizzes.push({ id: 'q_' + Date.now(), title: f.title, course: f.course || '', questions: f.extra || '' }); adSave({ lQuizzes: lData.quizzes }); lRenderAssessLists(); acToast('Quiz created'); return; }
+  // Assignment: post to the class (shared) when published, else keep local.
+  if (adData().classCode) {
+    try { await acadAPI('/api/acad/assignment/create', { code: adData().classCode, title: f.title, due: f.extra || '', points: f.course || '' }); acToast('Assignment posted to class'); lLoadClassAssignments(); }
+    catch (e) { acToast((e && e.message) || 'Could not post assignment'); }
+    return;
+  }
+  lData.assignments.push({ id: 'a_' + Date.now(), title: f.title, course: f.course || '', due: f.extra || '' });
+  adSave({ lAssignments: lData.assignments });
   lRenderAssessLists();
-  acToast(isQuiz ? 'Quiz created' : 'Assignment created');
+  acToast('Assignment created');
 }
 function lLoadDistribution() { lRenderAnalytics(); }
 
@@ -18268,6 +18278,7 @@ function sInit() {
   sUpdateCitationStats();
   sRenderMyClasses();
   sLoadFeed();
+  sLoadAssignments();
 }
 function sAllSprint() { return [].concat(sSprintCards.to_review, sSprintCards.spaced_rep, sSprintCards.flashcard, sSprintCards.mastered); }
 function sPersistSprint() { adSave({ sprintCards: sAllSprint() }); }
@@ -18772,4 +18783,71 @@ async function sLoadFeed() {
 function sEnableNotifs() {
   if (typeof _pushSetup === 'function') { _pushSetup().then(() => acToast('Notifications on (if you allowed them)')); }
   else acToast('Notifications unavailable on this device');
+}
+
+/* ── Gradebook: shared class assignments + submissions + grading ── */
+async function lLoadClassAssignments() {
+  const d = adData();
+  const el = document.getElementById('lAssignList');
+  if (!el || !d.classCode) return;
+  try {
+    const r = await acadAPI('/api/acad/assignment/list', { code: d.classCode });
+    const items = (r && r.assignments) || [];
+    const cnt = document.getElementById('lAssignCount'); if (cnt) cnt.textContent = `${items.length} assignments`;
+    el.innerHTML = items.length
+      ? items.map(a => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.title)}</div><div class="acad-priority-sub">${a.due ? 'due ' + acEsc(a.due) : ''}${a.points ? ' · ' + acEsc(a.points) + ' pts' : ''}</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" onclick="lAssessSegment('grading')">Grade</button><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteClassAssignment('${acEsc(a.id)}')">Delete</button></div></div>`).join('')
+      : '<div class="acad-priority-sub">No class assignments yet.</div>';
+  } catch (e) {}
+}
+async function lDeleteClassAssignment(id) {
+  const d = adData();
+  try { await acadAPI('/api/acad/assignment/delete', { code: d.classCode, id }); } catch (e) {}
+  lLoadClassAssignments();
+}
+async function lLoadGrading() {
+  const d = adData();
+  const el = document.getElementById('lGradingQueue');
+  if (!el || !d.classCode) return;
+  try {
+    const r = await acadAPI('/api/acad/assignment/list', { code: d.classCode });
+    const items = (r && r.assignments) || [];
+    let html = '';
+    for (const a of items) {
+      const sr = await acadAPI('/api/acad/submissions', { code: d.classCode, assignment_id: a.id });
+      const subs = (sr && sr.submissions) || [];
+      if (!subs.length) continue;
+      html += `<div style="margin-bottom:10px;"><div class="acad-card-title" style="margin-bottom:6px;">${acEsc(a.title)}</div>`;
+      html += subs.map(s => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(s.name)} ${s.graded ? '<span class="acad-tag acad-tag--teal">' + acEsc(s.grade) + '</span>' : ''}</div><div class="acad-priority-sub">${acEsc(String(s.text || '').slice(0, 140))}</div><div class="acad-priority-actions"><input class="acad-search-inline" style="width:64px;" id="g-${a.id}-${s.sid}" placeholder="Grade" value="${acEsc(s.grade || '')}"><button class="acad-action-btn acad-action-btn--teal" onclick="lSubmitGrade('${a.id}','${s.sid}')">Save</button></div></div></div>`).join('');
+      html += '</div>';
+    }
+    el.innerHTML = html || '<div class="acad-priority-sub">No submissions to grade yet.</div>';
+  } catch (e) {}
+}
+async function lSubmitGrade(aid, sid) {
+  const d = adData();
+  const inp = document.getElementById(`g-${aid}-${sid}`);
+  const grade = inp ? inp.value.trim() : '';
+  try { await acadAPI('/api/acad/grade', { code: d.classCode, assignment_id: aid, sid, grade }); acToast('Grade saved — student notified'); lLoadGrading(); }
+  catch (e) { acToast((e && e.message) || 'Could not save grade'); }
+}
+// Student: class assignments + submit + grades
+async function sLoadAssignments() {
+  const list = adData().joinedClasses || [];
+  const body = document.getElementById('sAssignmentsBody');
+  if (!body || !list.length) return;
+  let rows = [];
+  for (const c of list) {
+    try {
+      const g = await acadAPI('/api/acad/grades/mine', { code: c.code });
+      if (g && g.items) g.items.forEach(it => rows.push(Object.assign({}, it, { code: c.code, cls: c.name || c.code })));
+    } catch (e) {}
+  }
+  if (!rows.length) return;
+  body.innerHTML = rows.map(it => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(it.title)}</div><div class="acad-priority-sub">${acEsc(it.cls)}${it.due ? ' · due ' + acEsc(it.due) : ''} · ${it.graded ? 'Graded: ' + acEsc(it.grade) : it.submitted ? 'Submitted' : 'Not submitted'}</div>${it.graded && it.feedback ? '<div class="acad-priority-sub">Feedback: ' + acEsc(it.feedback) + '</div>' : ''}</div><button class="acad-action-btn acad-action-btn--teal" onclick="sSubmitAssignment('${acEsc(it.code)}','${acEsc(it.assignment_id)}')">${it.submitted ? 'Resubmit' : 'Submit'}</button></div>`).join('');
+}
+async function sSubmitAssignment(code, aid) {
+  const text = await siModal.input('Submit assignment', 'Paste your work or a link', '', { confirmLabel: 'Submit' });
+  if (!text) return;
+  try { await acadAPI('/api/acad/submit', { code, assignment_id: aid, text }); acToast('Submitted'); sLoadAssignments(); }
+  catch (e) { acToast((e && e.message) || 'Submit failed'); }
 }
