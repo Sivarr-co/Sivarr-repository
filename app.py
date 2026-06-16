@@ -4847,9 +4847,14 @@ async def leave_class(data: dict):
     sid, _  = _resolve_token(data)   # IDOR fix: sid from session token, body sid ignored
     code    = sanitize_text(str(data.get("code", "")), 10).upper()
     classes = load_classes()
-    if code in classes and sid in classes[code]["students"]:
-        classes[code]["students"].remove(sid)
-        save_classes(classes)
+    if code in classes:
+        if db.is_available():
+            # Atomic per-record removal — mirrors the atomic join so concurrent
+            # leaves/joins on the same class no longer clobber the whole map.
+            db.coll_array_remove("classes", code, "students", sid)
+        elif sid in classes[code].get("students", []):
+            classes[code]["students"].remove(sid)
+            save_classes(classes)
     return {"ok": True}
 
 # ── Student: Get their classes ────────────────────────────────
@@ -5044,9 +5049,13 @@ async def join_group(data: dict):
     gid = sanitize_text(str(data.get("group_id","")), 20)
     groups = load_groups()
     if gid not in groups: raise HTTPException(404, "Group not found")
-    if sid not in groups[gid]["members"]:
+    if db.is_available():
+        # Atomic per-record append — concurrent joins to the same group no longer
+        # clobber each other (matches the class-join fix).
+        db.coll_array_append_unique("groups", gid, "members", sid)
+    elif sid not in groups[gid]["members"]:
         groups[gid]["members"].append(sid)
-    save_groups(groups)
+        save_groups(groups)
     return {"ok": True, "name": groups[gid]["name"]}
 
 

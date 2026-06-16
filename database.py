@@ -2355,6 +2355,30 @@ def coll_array_append_unique(collection: str, item_id: str, field: str, value) -
         _release(conn)
 
 
+def coll_array_remove(collection: str, item_id: str, field: str, value) -> None:
+    """Atomically remove all occurrences of `value` from the JSON array
+    data->field on ONE record. Mirror of coll_array_append_unique — avoids the
+    read-modify-write race when many users mutate the same record's array
+    concurrently (e.g. class enrollment 'students' on leave)."""
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE collections
+                   SET data = jsonb_set(data, %s, COALESCE(data->%s, '[]'::jsonb) - %s),
+                       updated_at = NOW()
+                   WHERE collection=%s AND item_id=%s""",
+                ("{" + field + "}", field, str(value), collection, str(item_id)))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"coll_array_remove[{collection}/{item_id}] failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
 # ── User profile ─────────────────────────────────────────────
 
 def update_user_profile(sid: str, name: str, phone: str) -> bool:
