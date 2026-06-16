@@ -3244,6 +3244,113 @@ async def acad_grades_mine(data: dict):
     return {"ok": True, "items": out}
 
 
+# ── Live session + in-class polls (built on the class bridge) ────
+@app.post("/api/acad/live/set")
+async def acad_live_set(data: dict, bg: BackgroundTasks):
+    """Owner marks the class live with a join link; members notified."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_require_owner(code, sid)
+    cls["live"] = {"link": sanitize_text(str(data.get("link", "")), 500),
+                   "title": sanitize_text(str(data.get("title", "")), 200) or "Live class",
+                   "started": datetime.datetime.utcnow().isoformat()}
+    db.coll_put("acad_classes", code, cls, owner=cls.get("owner_sid", sid))
+    bg.add_task(_acad_push_members, code, f"🔴 {cls.get('name', 'Class')} is live", cls["live"]["title"], cls["live"]["link"] or "/app")
+    return {"ok": True, "live": cls["live"]}
+
+
+@app.post("/api/acad/live/clear")
+async def acad_live_clear(data: dict):
+    """Owner ends the live session."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_require_owner(code, sid)
+    cls["live"] = None
+    db.coll_put("acad_classes", code, cls, owner=cls.get("owner_sid", sid))
+    return {"ok": True}
+
+
+@app.post("/api/acad/poll/create")
+async def acad_poll_create(data: dict, bg: BackgroundTasks):
+    """Owner opens a poll for the class."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_require_owner(code, sid)
+    q = sanitize_text(str(data.get("question", "")), 300)
+    opts = [sanitize_text(str(o), 120) for o in (data.get("options") or []) if str(o).strip()][:6]
+    if not q or len(opts) < 2:
+        raise HTTPException(400, "A question and at least 2 options are required.")
+    poll = {"id": uuid.uuid4().hex[:10], "code": code, "question": q, "options": opts,
+            "open": True, "created": datetime.datetime.utcnow().isoformat()}
+    db.coll_put("acad_polls", poll["id"], poll, owner=code)
+    bg.add_task(_acad_push_members, code, f"📊 {cls.get('name', 'Class')}: new poll", q, "/app")
+    return {"ok": True, "poll": poll}
+
+
+def _acad_poll_tally(poll: dict) -> dict:
+    votes = db.coll_list("acad_poll_votes", owner=poll["id"])
+    counts = [0] * len(poll.get("options", []))
+    for v in votes:
+        i = v.get("option", -1)
+        if 0 <= i < len(counts):
+            counts[i] += 1
+    return {"id": poll["id"], "question": poll["question"], "options": poll["options"],
+            "counts": counts, "total": len(votes), "open": poll.get("open", True)}
+
+
+@app.post("/api/acad/poll/list")
+async def acad_poll_list(data: dict):
+    """Open polls for a class (with tallies) — owner or member."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_class_or_404(code)
+    if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join this class first.")
+    polls = [p for p in db.coll_list("acad_polls", owner=code) if p.get("open")]
+    polls.sort(key=lambda p: p.get("created", ""), reverse=True)
+    mine = {}
+    for p in polls:
+        v = db.coll_get("acad_poll_votes", f"{p['id']}:{sid}")
+        if v:
+            mine[p["id"]] = v.get("option")
+    return {"ok": True, "polls": [_acad_poll_tally(p) for p in polls], "my_votes": mine}
+
+
+@app.post("/api/acad/poll/vote")
+async def acad_poll_vote(data: dict):
+    """Member votes (one vote per poll; re-voting moves the vote)."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    if not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join the class first.")
+    pid = sanitize_text(str(data.get("poll_id", "")), 20)
+    poll = db.coll_get("acad_polls", pid)
+    if not poll or not poll.get("open"):
+        raise HTTPException(400, "Poll is closed.")
+    try:
+        idx = int(data.get("option_index", -1))
+    except Exception:
+        idx = -1
+    if not (0 <= idx < len(poll.get("options", []))):
+        raise HTTPException(400, "Invalid option.")
+    db.coll_put("acad_poll_votes", f"{pid}:{sid}", {"poll_id": pid, "sid": sid, "option": idx}, owner=pid)
+    return {"ok": True, "results": _acad_poll_tally(poll)}
+
+
+@app.post("/api/acad/poll/close")
+async def acad_poll_close(data: dict):
+    """Owner closes a poll."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    _acad_require_owner(code, sid)
+    pid = sanitize_text(str(data.get("poll_id", "")), 20)
+    poll = db.coll_get("acad_polls", pid)
+    if poll:
+        poll["open"] = False
+        db.coll_put("acad_polls", pid, poll, owner=code)
+    return {"ok": True}
+
+
 def _plan_is_active(p: dict) -> bool:
     """True if the user holds a non-expired paid subscription."""
     sub  = p.get("subscription") or {}

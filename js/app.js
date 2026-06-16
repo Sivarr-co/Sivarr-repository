@@ -18042,7 +18042,7 @@ function lInit() {
   lSwitchTab('l-overview');
   lRenderMetrics();
   lRenderOverview();
-  if (d.classCode) { lRenderClassCode(d.classCode); lLoadRoster(); lLoadRegister(); lLoadAnnouncements(); }
+  if (d.classCode) { lRenderClassCode(d.classCode); lLoadRoster(); lLoadRegister(); lLoadAnnouncements(); lLoadLive(); lLoadPolls(); }
 }
 function lRenderMetrics() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
@@ -18279,6 +18279,7 @@ function sInit() {
   sRenderMyClasses();
   sLoadFeed();
   sLoadAssignments();
+  sLoadLivePolls();
 }
 function sAllSprint() { return [].concat(sSprintCards.to_review, sSprintCards.spaced_rep, sSprintCards.flashcard, sSprintCards.mastered); }
 function sPersistSprint() { adSave({ sprintCards: sAllSprint() }); }
@@ -18850,4 +18851,96 @@ async function sSubmitAssignment(code, aid) {
   if (!text) return;
   try { await acadAPI('/api/acad/submit', { code, assignment_id: aid, text }); acToast('Submitted'); sLoadAssignments(); }
   catch (e) { acToast((e && e.message) || 'Submit failed'); }
+}
+
+/* ── Live session + in-class polls (built on the class bridge) ── */
+async function lGoLive() {
+  const d = adData();
+  if (!d.classCode) { acToast('Publish the class first (Overview → Class Code)'); return; }
+  const link = await siModal.input('Go live', 'Paste the meeting link (Zoom / Meet / Jitsi)', '', { confirmLabel: 'Go live' });
+  if (link === null || link === undefined) return;
+  try { await acadAPI('/api/acad/live/set', { code: d.classCode, link: link || '', title: 'Live class' }); acToast('Class is live — students notified'); lLoadLive(); }
+  catch (e) { acToast((e && e.message) || 'Could not go live'); }
+}
+async function lEndLive() {
+  const d = adData();
+  try { await acadAPI('/api/acad/live/clear', { code: d.classCode }); } catch (e) {}
+  acToast('Live session ended'); lLoadLive();
+}
+async function lLoadLive() {
+  const d = adData();
+  if (!d.classCode) return;
+  try {
+    const r = await acadAPI('/api/acad/class/get', { code: d.classCode });
+    const el = document.getElementById('lLiveStatus');
+    if (el) {
+      const live = r && r.class && r.class.live;
+      el.innerHTML = live
+        ? `🔴 Live: ${acEsc(live.title || 'Live class')} ${live.link ? '· <a href="' + acEsc(live.link) + '" target="_blank" style="color:var(--acad-accent)">link</a> ' : ''}· <button class="acad-action-btn acad-action-btn--red" onclick="lEndLive()">End</button>`
+        : 'Not live.';
+    }
+  } catch (e) {}
+}
+async function lCreatePoll() {
+  const d = adData();
+  if (!d.classCode) { acToast('Publish the class first'); return; }
+  const f = await siModal.form('New poll', [
+    { id: 'q', label: 'Question', placeholder: 'e.g. Which topic next?', required: true },
+    { id: 'o1', label: 'Option 1', required: true },
+    { id: 'o2', label: 'Option 2', required: true },
+    { id: 'o3', label: 'Option 3 (optional)' },
+    { id: 'o4', label: 'Option 4 (optional)' },
+  ]);
+  if (!f || !f.q) return;
+  const options = [f.o1, f.o2, f.o3, f.o4].filter(x => x && x.trim());
+  if (options.length < 2) { acToast('Add at least 2 options'); return; }
+  try { await acadAPI('/api/acad/poll/create', { code: d.classCode, question: f.q, options }); acToast('Poll opened'); lLoadPolls(); }
+  catch (e) { acToast((e && e.message) || 'Could not create poll'); }
+}
+async function lLoadPolls() {
+  const d = adData();
+  if (!d.classCode) return;
+  try { const r = await acadAPI('/api/acad/poll/list', { code: d.classCode }); lRenderPolls((r && r.polls) || [], true); } catch (e) {}
+}
+function lRenderPolls(polls, owner) {
+  const el = document.getElementById('lPollList');
+  if (!el) return;
+  el.innerHTML = polls.length ? polls.map(p => {
+    const max = Math.max(1, ...p.counts);
+    return `<div class="acad-card" style="margin-top:8px;"><div class="acad-card-body"><div class="acad-priority-title" style="margin-bottom:6px;">${acEsc(p.question)} <span class="acad-priority-sub">(${p.total} votes)</span></div>${p.options.map((o, i) => `<div style="margin-bottom:4px;"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);"><span>${acEsc(o)}</span><span>${p.counts[i]}</span></div><div class="acad-attend-bar" style="width:100%;height:6px;"><div class="acad-attend-fill" style="width:${Math.round(p.counts[i] / max * 100)}%;background:var(--acad-accent);"></div></div></div>`).join('')}${owner ? `<button class="acad-action-btn acad-action-btn--red" style="margin-top:6px;" onclick="lClosePoll('${p.id}')">Close poll</button>` : ''}</div></div>`;
+  }).join('') : '<div class="acad-priority-sub">No active polls.</div>';
+}
+async function lClosePoll(pid) {
+  const d = adData();
+  try { await acadAPI('/api/acad/poll/close', { code: d.classCode, poll_id: pid }); } catch (e) {}
+  lLoadPolls();
+}
+// Student: live banner + vote on polls
+async function sLoadLivePolls() {
+  const list = adData().joinedClasses || [];
+  const body = document.getElementById('sLivePollsBody');
+  if (!body || !list.length) return;
+  let html = '';
+  for (const c of list) {
+    try {
+      const g = await acadAPI('/api/acad/class/get', { code: c.code });
+      const live = g && g.class && g.class.live;
+      if (live) html += `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">🔴 ${acEsc(c.name || c.code)} is live</div><div class="acad-priority-sub">${acEsc(live.title || '')}</div></div>${live.link ? `<a class="acad-action-btn acad-action-btn--teal" href="${acEsc(live.link)}" target="_blank">Join</a>` : ''}</div>`;
+      const pr = await acadAPI('/api/acad/poll/list', { code: c.code });
+      const polls = (pr && pr.polls) || [];
+      const mine = (pr && pr.my_votes) || {};
+      polls.forEach(p => {
+        const max = Math.max(1, ...p.counts);
+        const voted = mine[p.id] !== undefined;
+        html += `<div class="acad-card" style="margin-top:8px;"><div class="acad-card-body"><div class="acad-priority-title" style="margin-bottom:6px;">${acEsc(p.question)}</div>${p.options.map((o, i) => voted
+          ? `<div style="margin-bottom:4px;"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);"><span>${acEsc(o)}${mine[p.id] === i ? ' ✓' : ''}</span><span>${p.counts[i]}</span></div><div class="acad-attend-bar" style="width:100%;height:6px;"><div class="acad-attend-fill" style="width:${Math.round(p.counts[i] / max * 100)}%;background:var(--acad-accent);"></div></div></div>`
+          : `<button class="acad-action-btn" style="display:block;width:100%;text-align:left;margin-bottom:4px;" onclick="sVote('${c.code}','${p.id}',${i})">${acEsc(o)}</button>`).join('')}</div></div>`;
+      });
+    } catch (e) {}
+  }
+  if (html) body.innerHTML = html;
+}
+async function sVote(code, pid, idx) {
+  try { await acadAPI('/api/acad/poll/vote', { code, poll_id: pid, option_index: idx }); sLoadLivePolls(); }
+  catch (e) { acToast((e && e.message) || 'Vote failed'); }
 }

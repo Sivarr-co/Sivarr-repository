@@ -3707,6 +3707,12 @@ Sentry.onLoad(function() {
               </div>
             </div>
             <div class="acad-card" style="margin-top:14px;">
+              <div class="acad-card-header"><span class="acad-card-title">Live Session &amp; Polls</span>
+                <div style="display:flex;gap:6px;"><button class="acad-btn-teal acad-btn-sm" onclick="lGoLive()">Go live</button><button class="acad-btn-ghost acad-btn-sm" onclick="lCreatePoll()">+ Poll</button></div>
+              </div>
+              <div class="acad-card-body"><div id="lLiveStatus" class="acad-priority-sub" style="margin-bottom:8px;">Not live.</div><div id="lPollList"></div></div>
+            </div>
+            <div class="acad-card" style="margin-top:14px;">
               <div class="acad-card-header"><span class="acad-card-title">Recent Student Activity</span></div>
               <div class="acad-card-body" id="lRecentActivity">
                 <div class="acad-empty-state"><i class="ti ti-activity" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No recent activity</div></div>
@@ -3917,6 +3923,10 @@ Sentry.onLoad(function() {
             <div class="acad-card" style="margin-top:14px;">
               <div class="acad-card-header"><span class="acad-card-title">Assignments</span></div>
               <div class="acad-card-body" id="sAssignmentsBody"><div class="acad-empty-state"><i class="ti ti-file-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No assignments yet. Join a class to see and submit work.</div></div></div>
+            </div>
+            <div class="acad-card" style="margin-top:14px;">
+              <div class="acad-card-header"><span class="acad-card-title">Live &amp; Polls</span></div>
+              <div class="acad-card-body" id="sLivePollsBody"><div class="acad-empty-state"><i class="ti ti-broadcast" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Nothing live right now.</div></div></div>
             </div>
             <div class="acad-card" style="margin-top:14px;">
               <div class="acad-card-header"><span class="acad-card-title">Upcoming Deadlines</span><button class="acad-btn-ghost acad-btn-sm" onclick="sAddDeadline()">+ Add</button></div>
@@ -4532,7 +4542,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260616a" defer></script>
+<script src="/js/app.js?v=20260616b" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
