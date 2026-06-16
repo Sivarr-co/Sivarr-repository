@@ -20,7 +20,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260615a">
+<link rel="stylesheet" href="/css/styles.css?v=20260616a">
 <!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
 <script type="module">
 import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
@@ -517,6 +517,11 @@ Sentry.onLoad(function() {
           <button class="si" data-panel="opportunities" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-briefcase"></i></div>
             <span class="si-lb">Opportunities</span>
+          </button>
+          <button class="si" data-panel="marketplace" onclick="sidebarNav(this)">
+            <div class="si-icon"><i class="ti ti-building-store"></i></div>
+            <span class="si-lb">Marketplace</span>
+            <span class="si-new-badge">New</span>
           </button>
           <button class="si" data-panel="library" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-plug-connected"></i></div>
@@ -4242,6 +4247,66 @@ Sentry.onLoad(function() {
       </div>
 
       <!-- ══════════════════════════════════════════════════
+           MARKETPLACE PANEL (Extensions / Integrations / Templates)
+      ══════════════════════════════════════════════════ -->
+      <div class="panel" id="panel-marketplace">
+        <div class="mkt-header">
+          <div>
+            <div class="mkt-eyebrow">Sivarr Marketplace <span class="mkt-preview-badge">Preview</span></div>
+            <div class="mkt-title">Extensions, Integrations &amp; Templates</div>
+            <div class="mkt-sub">Power up your spaces. Built by the community — 90% to creators.</div>
+          </div>
+          <button class="mkt-publish-btn" onclick="mktOpenPublish()"><i class="ti ti-upload" aria-hidden="true"></i> Publish</button>
+        </div>
+        <div class="mkt-filter-row">
+          <div class="mkt-search"><i class="ti ti-search" aria-hidden="true"></i><input type="text" placeholder="Search marketplace…" oninput="mktSearch(this.value)"/></div>
+          <div class="mkt-type-tabs" id="mktTypeTabs">
+            <button class="mkt-type-tab active" data-type="all" onclick="mktSetType('all',this)">All</button>
+            <button class="mkt-type-tab" data-type="extension" onclick="mktSetType('extension',this)">Extensions</button>
+            <button class="mkt-type-tab" data-type="integration" onclick="mktSetType('integration',this)">Integrations</button>
+            <button class="mkt-type-tab" data-type="template" onclick="mktSetType('template',this)">Templates</button>
+          </div>
+          <select class="mkt-sort" onchange="mktSetSort(this.value)">
+            <option value="featured">Featured</option>
+            <option value="popular">Most installed</option>
+            <option value="free">Free only</option>
+          </select>
+        </div>
+        <div class="mkt-subnav">
+          <button class="mkt-subnav-btn active" onclick="mktSetView('browse',this)">Browse</button>
+          <button class="mkt-subnav-btn" onclick="mktSetView('installed',this)">Installed <span class="mkt-count-badge" id="mktInstalledCount">0</span></button>
+          <button class="mkt-subnav-btn" onclick="mktSetView('published',this)">My Listings</button>
+        </div>
+        <div id="mktView-browse">
+          <div class="mkt-featured-strip" id="mktFeaturedStrip"></div>
+          <div class="mkt-category-row" id="mktCategoryRow">
+            <button class="mkt-cat-pill active" data-cat="" onclick="mktSetCategory('',this)">All categories</button>
+            <button class="mkt-cat-pill" data-cat="productivity" onclick="mktSetCategory('productivity',this)">Productivity</button>
+            <button class="mkt-cat-pill" data-cat="academic" onclick="mktSetCategory('academic',this)">Academic</button>
+            <button class="mkt-cat-pill" data-cat="finance" onclick="mktSetCategory('finance',this)">Finance</button>
+            <button class="mkt-cat-pill" data-cat="work" onclick="mktSetCategory('work',this)">Work</button>
+            <button class="mkt-cat-pill" data-cat="communication" onclick="mktSetCategory('communication',this)">Communication</button>
+            <button class="mkt-cat-pill" data-cat="developer" onclick="mktSetCategory('developer',this)">Developer</button>
+          </div>
+          <div class="mkt-grid" id="mktGrid"></div>
+        </div>
+        <div id="mktView-installed" style="display:none">
+          <div class="mkt-installed-header"><div class="mkt-section-title">Installed items</div><div class="mkt-brief-desc">Manage your installed extensions and templates.</div></div>
+          <div id="mktInstalledList"></div>
+        </div>
+        <div id="mktView-published" style="display:none">
+          <div class="mkt-metric-row">
+            <div class="mkt-metric-card"><div class="mkt-metric-label">Total installs</div><div class="mkt-metric-value" id="creatorTotalInstalls">—</div></div>
+            <div class="mkt-metric-card"><div class="mkt-metric-label">Active listings</div><div class="mkt-metric-value" id="creatorListingCount">—</div></div>
+            <div class="mkt-metric-card"><div class="mkt-metric-label">Avg. rating</div><div class="mkt-metric-value" id="creatorAvgRating">—</div></div>
+            <div class="mkt-metric-card"><div class="mkt-metric-label">Revenue (90%)</div><div class="mkt-metric-value" id="creatorRevenue">₦0</div></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div class="mkt-section-title">My listings</div><button class="mkt-btn-teal" onclick="mktOpenPublish()"><i class="ti ti-plus" aria-hidden="true"></i> New listing</button></div>
+          <div id="creatorListings"><div class="mkt-empty-state"><i class="ti ti-upload" style="font-size:32px;opacity:.2" aria-hidden="true"></i><div>No listings yet</div><div style="font-size:11px;margin-top:2px">Publish your first extension or template</div><button class="mkt-btn-teal" style="margin-top:12px" onclick="mktOpenPublish()"><i class="ti ti-upload" aria-hidden="true"></i> Publish something</button></div></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════
            AGENTS MARKETPLACE PANEL
            All sub-views rendered inside #ag-view by JS
       ══════════════════════════════════════════════════ -->
@@ -4338,6 +4403,77 @@ Sentry.onLoad(function() {
 
         </div>
       </div><!-- /panel-review -->
+
+<!-- ══ MARKETPLACE ITEM DETAIL MODAL ══ -->
+<div id="mktDetailModal" class="mkt-modal-overlay" style="display:none" onclick="mktCloseDetail(event)">
+  <div class="mkt-modal">
+    <button class="mkt-modal-close" onclick="mktCloseDetail()" aria-label="Close"><i class="ti ti-x" aria-hidden="true"></i></button>
+    <div class="mkt-modal-header">
+      <div class="mkt-modal-icon" id="mktDetailIcon"></div>
+      <div><div class="mkt-modal-name" id="mktDetailName"></div><div class="mkt-modal-author" id="mktDetailAuthor"></div><div class="mkt-modal-meta-row" id="mktDetailMeta"></div></div>
+      <div class="mkt-modal-actions" id="mktDetailActions"></div>
+    </div>
+    <div class="mkt-modal-tabs">
+      <button class="mkt-modal-tab active" onclick="mktDetailTab('overview',this)">Overview</button>
+      <button class="mkt-modal-tab" onclick="mktDetailTab('reviews',this)">Reviews</button>
+      <button class="mkt-modal-tab" onclick="mktDetailTab('changelog',this)">Changelog</button>
+    </div>
+    <div id="mktDetailContent"></div>
+  </div>
+</div>
+
+<!-- ══ MARKETPLACE PUBLISH MODAL ══ -->
+<div id="mktPublishModal" class="mkt-modal-overlay" style="display:none" onclick="mktClosePublish(event)">
+  <div class="mkt-modal">
+    <button class="mkt-modal-close" onclick="mktClosePublish()" aria-label="Close"><i class="ti ti-x" aria-hidden="true"></i></button>
+    <div class="mkt-modal-name" style="margin-bottom:20px">Publish to Marketplace</div>
+    <div class="mkt-field">
+      <label>Item type</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div class="mkt-publish-type-card" onclick="mktSelectPublishType('extension',this)"><i class="ti ti-puzzle" style="font-size:20px" aria-hidden="true"></i><div style="font-size:12px;font-weight:700;margin-top:6px">Extension</div></div>
+        <div class="mkt-publish-type-card" onclick="mktSelectPublishType('integration',this)"><i class="ti ti-plug" style="font-size:20px" aria-hidden="true"></i><div style="font-size:12px;font-weight:700;margin-top:6px">Integration</div></div>
+        <div class="mkt-publish-type-card" onclick="mktSelectPublishType('template',this)"><i class="ti ti-layout-grid" style="font-size:20px" aria-hidden="true"></i><div style="font-size:12px;font-weight:700;margin-top:6px">Template</div></div>
+      </div>
+    </div>
+    <div class="mkt-field"><label for="pubName">Name</label><input type="text" id="pubName" placeholder="A clear, descriptive name"/></div>
+    <div class="mkt-field"><label for="pubDesc">Description</label><textarea id="pubDesc" style="min-height:70px" placeholder="What does it do? Who is it for?"></textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="mkt-field"><label for="pubCategory">Category</label><select id="pubCategory"><option value="">Select…</option><option value="productivity">Productivity</option><option value="academic">Academic</option><option value="finance">Finance</option><option value="work">Work</option><option value="communication">Communication</option><option value="developer">Developer</option></select></div>
+      <div class="mkt-field"><label for="pubPrice">Pricing</label><select id="pubPrice"><option value="free">Free</option><option value="paid">Paid</option><option value="freemium">Freemium</option></select></div>
+    </div>
+    <div class="mkt-field" id="pubPriceField" style="display:none"><label for="pubAmount">Price (₦)</label><input type="number" id="pubAmount" placeholder="e.g. 2500"/><span style="font-size:10.5px;color:var(--muted2);margin-top:4px">You receive 90% · Sivarr takes 10%</span></div>
+    <div class="mkt-field"><label for="pubRepo">GitHub repo or package URL</label><input type="url" id="pubRepo" placeholder="https://github.com/you/your-item"/></div>
+    <button class="mkt-generate-btn" style="margin-top:8px" onclick="mktSubmitPublish()"><i class="ti ti-upload" aria-hidden="true"></i> Submit for Review</button>
+    <div style="font-size:10.5px;color:var(--muted2);margin-top:8px;text-align:center">Reviewed by the Sivarr team before going live · usually within 48 hours</div>
+  </div>
+</div>
+
+<!-- ══ SPACE SETTINGS MODAL ══ -->
+<div id="spaceSettingsModal" class="mkt-modal-overlay" style="display:none" onclick="closeSpaceSettings(event)">
+  <div class="mkt-modal" style="max-width:520px">
+    <button class="mkt-modal-close" onclick="closeSpaceSettings()" aria-label="Close"><i class="ti ti-x" aria-hidden="true"></i></button>
+    <div class="mkt-modal-name" id="spaceSettingsTitle">Space settings</div>
+    <div class="mkt-item-author" id="spaceSettingsSubtitle" style="margin-bottom:18px"></div>
+    <div class="mkt-modal-tabs">
+      <button class="mkt-modal-tab active" onclick="spaceSettingsTab('extensions',this)"><i class="ti ti-puzzle" aria-hidden="true"></i> Extensions</button>
+      <button class="mkt-modal-tab" onclick="spaceSettingsTab('integrations',this)"><i class="ti ti-plug" aria-hidden="true"></i> Integrations</button>
+      <button class="mkt-modal-tab" onclick="spaceSettingsTab('danger',this)"><i class="ti ti-settings" aria-hidden="true"></i> Space</button>
+    </div>
+    <div id="spaceSettingsTab-extensions">
+      <div class="mkt-brief-desc" style="margin-bottom:14px">Enable installed extensions for this Space. (Injection into the dashboard is coming soon.)</div>
+      <div id="spaceSettingsExtList"><div class="mkt-empty-state" style="padding:20px 0"><div>No extensions installed yet.</div><button class="mkt-btn-ghost" style="margin-top:8px" onclick="closeSpaceSettings();nav('marketplace')">Browse Extensions</button></div></div>
+    </div>
+    <div id="spaceSettingsTab-integrations" style="display:none">
+      <div class="mkt-brief-desc" style="margin-bottom:14px">Connect external tools from the Integrations panel, then choose which apply here.</div>
+      <div id="spaceSettingsIntList"><div class="mkt-empty-state" style="padding:20px 0"><div>Manage connections in Integrations.</div><button class="mkt-btn-ghost" style="margin-top:8px" onclick="closeSpaceSettings();nav('library')">Open Integrations</button></div></div>
+    </div>
+    <div id="spaceSettingsTab-danger" style="display:none">
+      <div class="mkt-field"><label for="spaceRenameInput">Space name</label><input type="text" id="spaceRenameInput" placeholder="Space name"/></div>
+      <button class="mkt-btn-teal" style="margin-bottom:20px" onclick="spaceRename()">Save name</button>
+      <div style="border-top:1px solid var(--border);padding-top:16px"><div class="mkt-section-label" style="color:#f87171;margin-bottom:8px">Danger zone</div><button class="mkt-btn-ghost mkt-btn-danger" onclick="spaceDelete()"><i class="ti ti-trash" aria-hidden="true"></i> Delete this Space</button></div>
+    </div>
+  </div>
+</div>
 
 </main>
   </div>
@@ -4542,7 +4678,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260616b" defer></script>
+<script src="/js/app.js?v=20260616c" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

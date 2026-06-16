@@ -2840,6 +2840,40 @@ async def spaces_delete(data: dict):
     return {"ok": True}
 
 
+# ── Marketplace (Preview): best-effort stubs. Browse/install state is client-side
+#  (localStorage) in the Preview; these accept writes so server persistence can be
+#  wired later without a frontend change. All token-gated, no new tables. ──
+@app.post("/api/marketplace/install")
+async def marketplace_install(data: dict):
+    _resolve_token(data)
+    return {"ok": True}
+
+
+@app.post("/api/marketplace/uninstall")
+async def marketplace_uninstall(data: dict):
+    _resolve_token(data)
+    return {"ok": True}
+
+
+@app.post("/api/marketplace/my-listings")
+async def marketplace_my_listings(data: dict):
+    _resolve_token(data)
+    return {"ok": True, "listings": []}
+
+
+@app.post("/api/marketplace/reviews")
+async def marketplace_review(data: dict):
+    _resolve_token(data)
+    return {"ok": True}
+
+
+@app.post("/api/marketplace/publish")
+async def marketplace_publish(data: dict):
+    """Queue a listing for Sivarr team review (Preview: accepted, not yet stored)."""
+    _resolve_token(data)
+    return {"ok": True, "message": "Submitted for review"}
+
+
 # ══════════════════════════════════════════════════════════════════
 #  ACADEMIC CLASSES — shared lecturer<->student bridge (per-user spaces)
 #  A lightweight class owned by a lecturer academic space (owner = the

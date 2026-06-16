@@ -7543,3 +7543,155 @@ body.theme-transitioning *::after {
 .acad-select-sm { padding:4px 8px !important; font-size:10.5px !important; }
 .acad-notes-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; padding:14px 16px; }
 .acad-assess-panel { display:block; }
+
+/* ═══════════════════════════════════════════
+   SIVARR — Marketplace (Extensions/Integrations/Templates)
+   Brand-mapped: alias spec vars → Sivarr theme vars. Prefix .mkt- .sset-
+═══════════════════════════════════════════ */
+#panel-marketplace, .mkt-modal-overlay {
+  --bg-card: var(--card);
+  --text-primary: var(--text);
+  --text-secondary: var(--muted);
+  --text-muted: var(--muted2);
+  --border-color: var(--border);
+  --accent: var(--teal);
+}
+
+/* Header */
+.mkt-header { display:flex; align-items:flex-start; justify-content:space-between; padding:4px 0 18px; flex-wrap:wrap; gap:12px; }
+.mkt-eyebrow { font-size:10px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--muted2); margin-bottom:5px; display:flex; align-items:center; gap:8px; }
+.mkt-preview-badge { font-size:9px; font-weight:800; letter-spacing:.08em; padding:2px 7px; border-radius:5px; background:rgba(83,74,183,.14); color:var(--accent2); border:1px solid rgba(83,74,183,.3); }
+.mkt-title { font-size:20px; font-weight:800; color:var(--text); letter-spacing:-.3px; margin-bottom:4px; }
+.mkt-sub { font-size:12px; color:var(--muted); }
+.mkt-brief-desc { font-size:11px; color:var(--muted2); line-height:1.5; }
+
+/* Buttons */
+.mkt-btn-teal { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; background:rgba(15,219,173,.1); border:1px solid rgba(15,219,173,.25); border-radius:8px; color:var(--teal); font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; transition:background .15s; }
+.mkt-btn-teal:hover { background:rgba(15,219,173,.18); }
+.mkt-btn-ghost { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; background:transparent; border:1px solid var(--border); border-radius:8px; color:var(--muted); font-size:11.5px; cursor:pointer; font-family:inherit; transition:all .15s; }
+.mkt-btn-ghost:hover { border-color:var(--border2); color:var(--text); }
+.mkt-btn-danger { color:#f87171 !important; border-color:rgba(239,68,68,.2) !important; }
+.mkt-btn-danger:hover { background:rgba(239,68,68,.08) !important; }
+.mkt-btn-sm { padding:4px 10px !important; font-size:10.5px !important; }
+.mkt-publish-btn { display:inline-flex; align-items:center; gap:6px; padding:9px 18px; background:linear-gradient(135deg,var(--accent2),var(--teal)); border:none; border-radius:10px; color:#fff; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; }
+.mkt-generate-btn { width:100%; padding:11px; background:linear-gradient(135deg,var(--accent2),var(--teal)); border:none; border-radius:10px; font-size:12.5px; font-weight:700; color:#fff; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:7px; transition:opacity .15s; }
+.mkt-generate-btn:hover { opacity:.9; }
+
+/* Filter row */
+.mkt-filter-row { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.mkt-type-tabs { display:flex; gap:3px; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:3px; }
+.mkt-type-tab { padding:5px 13px; border-radius:7px; font-size:12px; font-weight:500; color:var(--muted); background:transparent; border:none; cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap; }
+.mkt-type-tab.active { background:rgba(15,219,173,.1); color:var(--teal); font-weight:600; }
+.mkt-search { display:flex; align-items:center; gap:7px; background:var(--card); border:1px solid var(--border); border-radius:9px; padding:0 12px; height:34px; flex:1; max-width:280px; }
+.mkt-search input { background:transparent; border:none; outline:none; color:var(--text); font-size:12px; width:100%; font-family:inherit; }
+.mkt-search input::placeholder { color:var(--muted2); }
+.mkt-search i { color:var(--muted2); font-size:13px; }
+.mkt-sort { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--muted); font-size:11.5px; font-family:inherit; outline:none; cursor:pointer; }
+
+/* Subnav */
+.mkt-subnav { display:flex; border-bottom:1px solid var(--border); margin-bottom:18px; }
+.mkt-subnav-btn { padding:8px 16px; background:transparent; border:none; border-bottom:2px solid transparent; color:var(--muted); font-size:12px; font-weight:500; cursor:pointer; font-family:inherit; transition:all .15s; display:flex; align-items:center; gap:6px; }
+.mkt-subnav-btn.active { color:var(--teal); border-bottom-color:var(--teal); }
+.mkt-count-badge { font-size:9.5px; font-weight:700; padding:1px 6px; border-radius:4px; background:rgba(15,219,173,.1); color:var(--teal); border:1px solid rgba(15,219,173,.2); }
+
+/* Category pills */
+.mkt-category-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+.mkt-cat-pill { padding:5px 12px; border-radius:999px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:11px; cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap; }
+.mkt-cat-pill.active { background:rgba(15,219,173,.1); border-color:rgba(15,219,173,.25); color:var(--teal); }
+.mkt-cat-pill--official { background:rgba(83,74,183,.12); border-color:rgba(83,74,183,.3); color:var(--accent2); }
+
+/* Featured */
+.mkt-featured-strip { margin-bottom:20px; }
+.mkt-featured-label { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted2); margin-bottom:10px; }
+.mkt-featured-cards { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+.mkt-featured-card { display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 16px; cursor:pointer; flex-shrink:0; transition:border-color .15s; min-width:180px; }
+.mkt-featured-card:hover { border-color:var(--border2); }
+
+/* Grid + cards */
+.mkt-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+.mkt-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; cursor:pointer; transition:border-color .15s, transform .1s; display:flex; flex-direction:column; }
+.mkt-card:hover { border-color:var(--border2); transform:translateY(-2px); }
+.mkt-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.mkt-item-icon { font-size:28px; line-height:1; }
+.mkt-item-type-badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; letter-spacing:.06em; }
+.mkt-type-extension { background:rgba(15,219,173,.1); color:var(--teal); border:1px solid rgba(15,219,173,.2); }
+.mkt-type-integration { background:rgba(83,74,183,.12); color:var(--accent2); border:1px solid rgba(83,74,183,.25); }
+.mkt-type-template { background:rgba(245,158,11,.1); color:#fb923c; border:1px solid rgba(245,158,11,.2); }
+.mkt-item-name { font-size:13px; font-weight:700; color:var(--text); margin-bottom:2px; }
+.mkt-item-author { font-size:10.5px; color:var(--muted2); margin-bottom:6px; }
+.mkt-item-desc { font-size:11px; color:var(--muted); line-height:1.45; flex:1; }
+.mkt-card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:12px; gap:6px; }
+.mkt-item-stats { display:flex; gap:8px; font-size:10px; color:var(--muted2); }
+.mkt-install-btn { padding:5px 12px; background:var(--teal); color:#08231d; border:none; border-radius:7px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap; transition:opacity .15s; flex-shrink:0; }
+.mkt-install-btn:hover { opacity:.85; }
+.mkt-install-btn--installed { background:rgba(15,219,173,.1); color:var(--teal); border:1px solid rgba(15,219,173,.2); }
+.mkt-install-btn.mkt-btn-lg { padding:9px 20px; font-size:12.5px; }
+
+/* Installed list */
+.mkt-installed-header { margin-bottom:14px; }
+.mkt-section-title { font-size:13px; font-weight:700; color:var(--text); }
+.mkt-section-label { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted2); margin-bottom:8px; }
+.mkt-installed-row { display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--card); border:1px solid var(--border); border-radius:12px; margin-bottom:8px; transition:border-color .15s; }
+.mkt-installed-row:hover { border-color:var(--border2); }
+.mkt-meta-stat { font-size:11px; color:var(--muted2); }
+
+/* Creator metrics */
+.mkt-metric-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+@media (max-width:800px){ .mkt-metric-row { grid-template-columns:repeat(2,1fr); } }
+.mkt-metric-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+.mkt-metric-label { font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted2); margin-bottom:6px; }
+.mkt-metric-value { font-size:22px; font-weight:800; color:var(--text); letter-spacing:-.5px; line-height:1; }
+.mkt-metric-sub { font-size:10.5px; color:var(--muted); margin-top:4px; }
+
+/* Reviews */
+.mkt-reviews-section { display:flex; flex-direction:column; gap:16px; }
+.mkt-review-form { background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:12px; padding:16px; }
+.mkt-star-row { display:flex; gap:4px; margin-bottom:8px; }
+.mkt-star { background:transparent; border:none; font-size:20px; color:rgba(255,255,255,.2); cursor:pointer; padding:0; transition:color .15s; font-family:inherit; }
+.mkt-star--active { color:#f59e0b; }
+.mkt-star:hover { color:#f59e0b; }
+.mkt-review-input { width:100%; min-height:72px; margin:8px 0; resize:vertical; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:9px; padding:10px 12px; color:var(--text); font-size:12px; font-family:inherit; outline:none; }
+.mkt-review-item { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:8px; }
+.mkt-review-header { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.mkt-review-avatar { width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg,var(--accent2),#7209b7); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; flex-shrink:0; }
+.mkt-review-author { font-size:12px; font-weight:600; color:var(--text); }
+.mkt-review-stars { font-size:11px; color:#f59e0b; margin-top:1px; }
+.mkt-review-date { font-size:10px; color:var(--muted2); margin-left:auto; }
+.mkt-review-body { font-size:12px; color:var(--muted); line-height:1.5; }
+
+/* Publish type cards */
+.mkt-publish-type-card { padding:14px; border:1.5px solid var(--border); border-radius:10px; cursor:pointer; text-align:center; transition:all .15s; color:var(--muted); }
+.mkt-publish-type-card:hover { border-color:var(--border2); }
+.mkt-publish-type-card.active { border-color:var(--teal); background:rgba(15,219,173,.06); color:var(--text); }
+
+/* Detail / publish / settings modals */
+.mkt-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; }
+.mkt-modal { background:var(--card); border:1px solid var(--border2); border-radius:18px; width:100%; max-width:600px; max-height:85vh; overflow-y:auto; padding:28px; position:relative; }
+.mkt-modal-close { position:absolute; top:16px; right:16px; width:28px; height:28px; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--muted); font-size:14px; font-family:inherit; }
+.mkt-modal-header { display:flex; align-items:flex-start; gap:14px; margin-bottom:20px; flex-wrap:wrap; }
+.mkt-modal-icon { font-size:40px; line-height:1; flex-shrink:0; }
+.mkt-modal-name { font-size:18px; font-weight:800; color:var(--text); margin-bottom:3px; }
+.mkt-modal-author { font-size:11px; color:var(--muted2); margin-bottom:6px; }
+.mkt-modal-meta-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.mkt-modal-actions { margin-left:auto; flex-shrink:0; }
+.mkt-modal-tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:16px; }
+.mkt-modal-tab { padding:7px 14px; background:transparent; border:none; border-bottom:2px solid transparent; color:var(--muted); font-size:12px; font-weight:500; cursor:pointer; font-family:inherit; transition:all .15s; display:flex; align-items:center; gap:5px; }
+.mkt-modal-tab.active { color:var(--teal); border-bottom-color:var(--teal); }
+.mkt-detail-tags { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.mkt-field { display:flex; flex-direction:column; margin-bottom:12px; }
+.mkt-field label { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted2); margin-bottom:5px; }
+.mkt-field input, .mkt-field select, .mkt-field textarea { background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:9px; padding:9px 12px; color:var(--text); font-size:12.5px; font-family:inherit; outline:none; }
+.mkt-field input:focus, .mkt-field select:focus, .mkt-field textarea:focus { border-color:var(--teal); }
+
+/* Space settings toggles */
+.sset-toggle-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+.sset-toggle-row:last-child { border-bottom:none; }
+.sset-toggle { position:relative; display:inline-block; width:36px; height:20px; flex-shrink:0; cursor:pointer; }
+.sset-toggle input { position:absolute; opacity:0; width:100%; height:100%; cursor:pointer; margin:0; z-index:1; }
+.sset-toggle-track { position:absolute; inset:0; background:rgba(255,255,255,.1); border-radius:999px; transition:background .2s; border:1px solid var(--border); }
+.sset-toggle input:checked + .sset-toggle-track { background:rgba(15,219,173,.3); border-color:rgba(15,219,173,.4); }
+.sset-toggle-track::after { content:''; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:rgba(255,255,255,.5); transition:transform .2s; }
+.sset-toggle input:checked + .sset-toggle-track::after { transform:translateX(16px); background:var(--teal); }
+
+/* Empty state */
+.mkt-empty-state { text-align:center; padding:40px 16px; display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--muted2); font-size:12px; }

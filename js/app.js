@@ -7910,6 +7910,7 @@ function nav(name, btn) {
   if (name === 'journal')   { journalInit(); return; }
   if (name === 'community') { communityInit(); return; }
   if (name === 'library')   { integrationsRender(); return; }
+  if (name === 'marketplace') { mktInit(); return; }
   if (name === 'stats')         loadStats();
   if (name === 'more')          syncMore();
   if (name === 'leaderboard')   loadLeaderboard();
@@ -18027,7 +18028,7 @@ function acadInit(space) {
     sInit();
   }
 }
-function acadOpenSettings() { acToast('Space settings coming soon'); }
+function acadOpenSettings() { if (typeof openSpaceSettings === 'function') openSpaceSettings(window.currentAcademicSpace); else acToast('Space settings coming soon'); }
 
 /* ════════ LECTURER ════════ */
 let lData = { courses: [], students: [], quizzes: [], assignments: [], submissions: [] };
@@ -18944,3 +18945,303 @@ async function sVote(code, pid, idx) {
   try { await acadAPI('/api/acad/poll/vote', { code, poll_id: pid, option_index: idx }); sLoadLivePolls(); }
   catch (e) { acToast((e && e.message) || 'Vote failed'); }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   SIVARR — Marketplace (Extensions / Integrations / Templates)
+   Adapted to Sivarr: nav() switcher, toast(), localStorage persistence,
+   integrations deep-link to the real panel, injection deferred. PREVIEW.
+═══════════════════════════════════════════════════════════ */
+function mktEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function mktToast(m){ if (typeof toast === 'function') toast(m); }
+
+let mktItems = [];
+let mktInstalled = [];                 // [{id, installed_at}]
+let mktFilter = { type:'all', category:'', sort:'featured', search:'', view:'browse' };
+let mktCurrentItem = null;
+let mktPublishType = null;
+let mktReviewStar = 0;
+let mktAllReviews = {};                 // { itemId: [review,...] }
+let mktExtEnabled = {};                 // { spaceId: [extId,...] }
+let mktSpaceCur = null;
+
+const MKT_INSTALLED_KEY = 'sivarr_mkt_installed';
+const MKT_EXT_KEY       = 'sivarr_mkt_ext_enabled';
+
+const INT_CATALOGUE = [
+  { id:'google-calendar', name:'Google Calendar', icon:'📅', desc:'Sync events and deadlines',      category:'productivity' },
+  { id:'google-drive',    name:'Google Drive',    icon:'💾', desc:'Attach and browse files',        category:'productivity' },
+  { id:'notion',          name:'Notion',          icon:'📝', desc:'Import pages and databases',      category:'productivity' },
+  { id:'slack',           name:'Slack',           icon:'💬', desc:'Send notifications to channels',  category:'communication' },
+  { id:'github',          name:'GitHub',          icon:'🐙', desc:'Link repos and track issues',     category:'developer' },
+  { id:'paystack',        name:'Paystack',        icon:'💳', desc:'Financial data (read-only)',      category:'finance' },
+  { id:'zoom',            name:'Zoom',            icon:'🎥', desc:'Schedule and join meetings',      category:'communication' },
+  { id:'trello',          name:'Trello',          icon:'📋', desc:'Import boards and cards',         category:'productivity' },
+];
+
+function mktSeedItems() {
+  const ext = (id,name,icon,author,category,desc,rating,installs,price,official) =>
+    ({ id, type:'extension', name, icon, author, category, desc, rating, installs, price, official });
+  const tmpl = (id,name,icon,author,category,desc,rating,installs,official,tt) =>
+    ({ id, type:'template', name, icon, author, category, desc, rating, installs, price:0, official, tmpl_type:tt });
+  return [
+    ext('ext-pomodoro','Pomodoro Pro','⏱','Sivarr','productivity','Advanced Pomodoro with ambient sounds and session logging.',4.8,2400,0,true),
+    ext('ext-mindmap','Mind Map Builder','🧠','Sivarr','productivity','Drag-and-drop mind mapping inside any Space.',4.6,1800,0,true),
+    ext('ext-flashcards','Smart Flashcards','📇','Sivarr','academic','AI-powered spaced-repetition flashcards.',4.9,3200,0,true),
+    ext('ext-habit','Habit Streak Widget','🔥','Kehinde A.','productivity','A visual habit streak widget for any Space.',4.5,980,0,false),
+    ext('ext-kanban-plus','Kanban Plus','📊','Tunde O.','productivity','Enhanced Kanban with swimlanes and WIP limits.',4.7,1200,1500,false),
+    ext('ext-citation','Citation Engine','📚','Sivarr','academic','APA/MLA/IEEE citations via Scholar.',4.8,2100,0,true),
+    ext('ext-finance-dash','Finance Dashboard','💰','Adaeze N.','finance','Expense tracker + budget widget in ₦.',4.4,750,2500,false),
+    ext('ext-code-runner','Code Runner','⚡','Emeka J.','developer','Run Python/JS/SQL snippets inline.',4.6,640,0,false),
+    ...INT_CATALOGUE.map(i => ({ ...i, type:'integration', author:'Sivarr', official:true, rating:4.7, installs:1200, price:0 })),
+    tmpl('tmpl-academic-student','Academic OS — Student','🎓','Sivarr','academic','Student dashboard: Lecture Vault, Exam Sprint, Research.',4.9,4100,true,'space'),
+    tmpl('tmpl-academic-lect','Academic OS — Lecturer','📋','Sivarr','academic','Lecturer dashboard: courses, roster, AI tools.',4.8,1900,true,'space'),
+    tmpl('tmpl-startup','Startup OS','🚀','Sivarr','work','OKRs, sprint board, team comms, investor tracker.',4.7,2300,true,'space'),
+    tmpl('tmpl-freelance','Freelance Hub','💼','Chioma E.','work','Client tracker, invoice log, project board.',4.6,1400,false,'space'),
+    tmpl('tmpl-weekly-review','Weekly Review','🔄','Sivarr','productivity','Structured weekly review doc.',4.8,3100,true,'doc'),
+    tmpl('tmpl-budget','Monthly Budget','💳','Sivarr','finance','Naira-first budget tracker.',4.7,1700,true,'tracker'),
+  ];
+}
+
+// ── Init ──
+function mktInit() {
+  if (!mktItems.length) mktItems = mktSeedItems();
+  try { mktInstalled = JSON.parse(localStorage.getItem(MKT_INSTALLED_KEY) || '[]'); } catch(e) { mktInstalled = []; }
+  try { mktExtEnabled = JSON.parse(localStorage.getItem(MKT_EXT_KEY) || '{}'); } catch(e) { mktExtEnabled = {}; }
+  mktFilter = { type:'all', category:'', sort:'featured', search:'', view:'browse' };
+  mktRenderFeatured();
+  mktRenderGrid();
+  mktUpdateInstalledCount();
+}
+function mktSaveInstalled(){ localStorage.setItem(MKT_INSTALLED_KEY, JSON.stringify(mktInstalled)); }
+function mktSaveExt(){ localStorage.setItem(MKT_EXT_KEY, JSON.stringify(mktExtEnabled)); }
+
+// ── Filtering ──
+function mktGetFiltered() {
+  return mktItems.filter(i => {
+    if (mktFilter.type !== 'all' && i.type !== mktFilter.type) return false;
+    if (mktFilter.category && i.category !== mktFilter.category) return false;
+    if (mktFilter.search && !(i.name + i.desc + i.author).toLowerCase().includes(mktFilter.search.toLowerCase())) return false;
+    if (mktFilter.sort === 'free' && i.price !== 0) return false;
+    return true;
+  }).sort((a,b) => mktFilter.sort === 'popular' ? b.installs - a.installs : (b.official?1:0) - (a.official?1:0));
+}
+
+function mktRenderFeatured() {
+  const strip = document.getElementById('mktFeaturedStrip');
+  if (!strip) return;
+  const f = mktItems.filter(i => i.official).slice(0, 4);
+  strip.innerHTML = `<div class="mkt-featured-label">Featured</div><div class="mkt-featured-cards">${f.map(i => `<div class="mkt-featured-card" onclick="mktOpenDetail('${i.id}')"><div class="mkt-item-icon">${i.icon}</div><div><div class="mkt-item-name">${mktEsc(i.name)}</div><span class="mkt-item-type-badge mkt-type-${i.type}">${i.type}</span></div></div>`).join('')}</div>`;
+}
+
+function mktItemBtn(i) {
+  if (i.type === 'integration') return `<button class="mkt-install-btn mkt-install-btn--installed" onclick="event.stopPropagation();nav('library')">Connect →</button>`;
+  if (i.type === 'template')    return `<button class="mkt-install-btn" onclick="event.stopPropagation();mktUseTemplate('${i.id}')">Use</button>`;
+  const inst = mktInstalled.find(x => x.id === i.id);
+  return `<button class="mkt-install-btn ${inst?'mkt-install-btn--installed':''}" onclick="event.stopPropagation();${inst?`mktUninstall('${i.id}')`:`mktInstall('${i.id}')`}">${inst?'Installed ✓':i.price>0?'₦'+i.price.toLocaleString():'Install'}</button>`;
+}
+
+function mktRenderGrid() {
+  const grid = document.getElementById('mktGrid');
+  if (!grid) return;
+  const items = mktGetFiltered();
+  if (!items.length) { grid.innerHTML = `<div class="mkt-empty-state" style="grid-column:1/-1"><i class="ti ti-search" style="font-size:28px;opacity:.2"></i><div>No items match your search</div></div>`; return; }
+  grid.innerHTML = items.map(i => `<div class="mkt-card" onclick="mktOpenDetail('${i.id}')"><div class="mkt-card-top"><div class="mkt-item-icon">${i.icon}</div><span class="mkt-item-type-badge mkt-type-${i.type}">${i.type}</span></div><div class="mkt-item-name">${mktEsc(i.name)}</div><div class="mkt-item-author">${i.official?'✦ Sivarr Official':mktEsc(i.author)}</div><div class="mkt-item-desc">${mktEsc(i.desc)}</div><div class="mkt-card-footer"><div class="mkt-item-stats"><span>★ ${i.rating}</span><span>${i.installs.toLocaleString()}</span></div>${mktItemBtn(i)}</div></div>`).join('');
+}
+
+function mktRenderInstalled() {
+  const list = document.getElementById('mktInstalledList');
+  if (!list) return;
+  const items = mktInstalled.map(x => mktItems.find(i => i.id === x.id)).filter(Boolean);
+  if (!items.length) { list.innerHTML = `<div class="mkt-empty-state"><i class="ti ti-puzzle" style="font-size:32px;opacity:.2"></i><div>Nothing installed yet</div></div>`; return; }
+  list.innerHTML = items.map(i => `<div class="mkt-installed-row"><div class="mkt-item-icon" style="font-size:20px">${i.icon}</div><div style="flex:1"><div class="mkt-item-name">${mktEsc(i.name)}</div><div class="mkt-item-author">${i.type} · ${i.official?'Sivarr':mktEsc(i.author)}</div></div><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="mktUninstall('${i.id}')">Remove</button></div>`).join('');
+}
+function mktUpdateInstalledCount() { const el = document.getElementById('mktInstalledCount'); if (el) el.textContent = mktInstalled.length; }
+
+// ── Filter actions ──
+function mktSetType(t, btn) { mktFilter.type = t; document.querySelectorAll('#mktTypeTabs .mkt-type-tab').forEach(b => b.classList.remove('active')); if (btn) btn.classList.add('active'); mktRenderGrid(); }
+function mktSetCategory(c, btn) { mktFilter.category = c; document.querySelectorAll('#mktCategoryRow .mkt-cat-pill').forEach(b => b.classList.remove('active')); if (btn) btn.classList.add('active'); mktRenderGrid(); }
+function mktSearch(v) { mktFilter.search = v; mktRenderGrid(); }
+function mktSetSort(v) { mktFilter.sort = v; mktRenderGrid(); }
+function mktSetView(view, btn) {
+  mktFilter.view = view;
+  document.querySelectorAll('.mkt-subnav-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  ['browse','installed','published'].forEach(v => { const el = document.getElementById(`mktView-${v}`); if (el) el.style.display = v === view ? 'block' : 'none'; });
+  if (view === 'installed') mktRenderInstalled();
+  if (view === 'published') creatorInit();
+}
+
+// ── Install / use ──
+function mktInstall(id) {
+  const item = mktItems.find(i => i.id === id);
+  if (!item || mktInstalled.find(i => i.id === id)) return;
+  mktInstalled.push({ id, installed_at: new Date().toISOString() });
+  mktSaveInstalled(); mktUpdateInstalledCount(); mktRenderGrid();
+  mktToast(`${item.name} installed`);
+  fetch('/api/marketplace/install', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), item_id:id }) }).catch(()=>{});
+}
+function mktUninstall(id) {
+  const item = mktItems.find(i => i.id === id);
+  mktInstalled = mktInstalled.filter(i => i.id !== id);
+  mktSaveInstalled(); mktUpdateInstalledCount(); mktRenderGrid();
+  if (mktFilter.view === 'installed') mktRenderInstalled();
+  mktToast(`${item ? item.name : 'Item'} removed`);
+  fetch('/api/marketplace/uninstall', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), item_id:id }) }).catch(()=>{});
+}
+function mktUseTemplate(id) {
+  const item = mktItems.find(i => i.id === id);
+  mktToast(`"${item ? item.name : 'Template'}" — one-click duplication is coming soon`);
+}
+
+// ── Detail modal ──
+function mktOpenDetail(id) {
+  const item = mktItems.find(i => i.id === id);
+  if (!item) return;
+  mktCurrentItem = item;
+  const modal = document.getElementById('mktDetailModal');
+  if (!modal) return;
+  document.getElementById('mktDetailIcon').textContent = item.icon;
+  document.getElementById('mktDetailName').textContent = item.name;
+  document.getElementById('mktDetailAuthor').textContent = item.official ? '✦ Sivarr Official' : item.author;
+  document.getElementById('mktDetailMeta').innerHTML = `<span class="mkt-item-type-badge mkt-type-${item.type}">${item.type}</span><span class="mkt-meta-stat">★ ${item.rating}</span><span class="mkt-meta-stat">${item.installs.toLocaleString()} installs</span><span class="mkt-meta-stat">${item.price>0?'₦'+item.price.toLocaleString():'Free'}</span>`;
+  document.getElementById('mktDetailActions').innerHTML = item.type === 'integration'
+    ? `<button class="mkt-install-btn mkt-btn-lg" onclick="mktCloseDetail();nav('library')">Open Integrations →</button>`
+    : item.type === 'template'
+    ? `<button class="mkt-install-btn mkt-btn-lg" onclick="mktUseTemplate('${item.id}')">Use template</button>`
+    : (() => { const inst = mktInstalled.find(i => i.id === item.id); return `<button class="mkt-install-btn ${inst?'mkt-install-btn--installed':''} mkt-btn-lg" onclick="${inst?`mktUninstall('${item.id}')`:`mktInstall('${item.id}')`};mktCloseDetail()">${inst?'✓ Installed — Remove':item.price>0?'Buy · ₦'+item.price.toLocaleString():'Install free'}</button>`; })();
+  document.querySelectorAll('#mktDetailModal .mkt-modal-tab').forEach(b => b.classList.remove('active'));
+  document.querySelector('#mktDetailModal .mkt-modal-tab')?.classList.add('active');
+  mktDetailTab('overview', null);
+  modal.style.display = 'flex';
+}
+function mktCloseDetail(e) {
+  if (e && e.target !== document.getElementById('mktDetailModal')) return;
+  const m = document.getElementById('mktDetailModal'); if (m) m.style.display = 'none';
+  mktCurrentItem = null;
+}
+function mktDetailTab(tab, btn) {
+  document.querySelectorAll('#mktDetailModal .mkt-modal-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const content = document.getElementById('mktDetailContent');
+  if (!content || !mktCurrentItem) return;
+  if (tab === 'reviews') { mktRenderReviews(mktCurrentItem.id); return; }
+  if (tab === 'changelog') { content.innerHTML = `<div class="mkt-empty-state" style="padding:20px 0"><div>No changelog entries yet</div></div>`; return; }
+  content.innerHTML = `<p class="mkt-item-desc" style="font-size:13px;line-height:1.6;margin-bottom:12px">${mktEsc(mktCurrentItem.desc)}</p><div class="mkt-detail-tags"><span class="mkt-cat-pill" style="cursor:default">${mktCurrentItem.category}</span>${mktCurrentItem.official?'<span class="mkt-cat-pill mkt-cat-pill--official" style="cursor:default">Official</span>':''}</div>`;
+}
+
+// ── Reviews ──
+function mktRenderReviews(itemId) {
+  const content = document.getElementById('mktDetailContent');
+  if (!content) return;
+  const reviews = mktAllReviews[itemId] || [];
+  content.innerHTML = `<div class="mkt-reviews-section"><div class="mkt-review-form"><div class="mkt-section-label" style="margin-bottom:8px">Leave a review</div><div class="mkt-star-row" id="mktStarRow">${[1,2,3,4,5].map(n=>`<button class="mkt-star" data-val="${n}" onclick="mktSetStar(${n})">★</button>`).join('')}</div><textarea class="mkt-review-input" id="mktReviewText" placeholder="What do you think? How did you use it?"></textarea><button class="mkt-btn-teal mkt-btn-sm" onclick="mktSubmitReview('${itemId}')"><i class="ti ti-send" aria-hidden="true"></i> Submit review</button></div><div id="mktReviewsList">${reviews.length?reviews.map(r=>`<div class="mkt-review-item"><div class="mkt-review-header"><div class="mkt-review-avatar">${mktEsc((r.author||'U')[0].toUpperCase())}</div><div><div class="mkt-review-author">${mktEsc(r.author)}</div><div class="mkt-review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div></div><div class="mkt-review-date">${mktEsc(r.date)}</div></div><div class="mkt-review-body">${mktEsc(r.body)}</div></div>`).join(''):`<div class="mkt-empty-state" style="padding:20px 0"><div>No reviews yet. Be the first!</div></div>`}</div></div>`;
+  mktReviewStar = 0;
+}
+function mktSetStar(v) { mktReviewStar = v; document.querySelectorAll('.mkt-star').forEach(s => s.classList.toggle('mkt-star--active', parseInt(s.dataset.val) <= v)); }
+function mktSubmitReview(itemId) {
+  const text = (document.getElementById('mktReviewText')?.value || '').trim();
+  if (!text || mktReviewStar === 0) { mktToast('Pick a star rating and write a review'); return; }
+  const review = { item_id:itemId, rating:mktReviewStar, body:text, author:(window.S && S.name) || 'You', date:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) };
+  if (!mktAllReviews[itemId]) mktAllReviews[itemId] = [];
+  mktAllReviews[itemId].unshift(review);
+  mktRenderReviews(itemId);
+  mktToast('Review submitted — thank you!');
+  fetch('/api/marketplace/reviews', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), ...review }) }).catch(()=>{});
+}
+
+// ── Publish modal ──
+function mktOpenPublish() { const m = document.getElementById('mktPublishModal'); if (m) m.style.display = 'flex'; }
+function mktClosePublish(e) { if (e && e.target !== document.getElementById('mktPublishModal')) return; const m = document.getElementById('mktPublishModal'); if (m) m.style.display = 'none'; }
+function mktSelectPublishType(t, btn) { mktPublishType = t; document.querySelectorAll('.mkt-publish-type-card').forEach(c => c.classList.remove('active')); if (btn) btn.classList.add('active'); }
+function mktSubmitPublish() {
+  const name = (document.getElementById('pubName')?.value || '').trim();
+  const desc = (document.getElementById('pubDesc')?.value || '').trim();
+  if (!name || !desc || !mktPublishType) { mktToast('Fill in name, description, and pick a type'); return; }
+  mktToast("Submitted for review — you'll hear back within 48 hours");
+  mktClosePublish();
+  fetch('/api/marketplace/publish', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), type:mktPublishType, name, description:desc, category:document.getElementById('pubCategory')?.value, pricing:document.getElementById('pubPrice')?.value, price:parseInt(document.getElementById('pubAmount')?.value||'0'), repo_url:document.getElementById('pubRepo')?.value }) }).catch(()=>{});
+}
+
+// ── Creator dashboard (My Listings) — honest empty until real listings exist ──
+let creatorListings = [];
+async function creatorInit() {
+  try { const r = await fetch('/api/marketplace/my-listings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token') }) }); if (r.ok) { const d = await r.json(); creatorListings = d.listings || []; } } catch(e) {}
+  const set = (id,v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const installs = creatorListings.reduce((s,l)=>s+(l.installs||0),0);
+  set('creatorTotalInstalls', installs || '—');
+  set('creatorListingCount', creatorListings.length || '—');
+  set('creatorAvgRating', creatorListings.length ? '★ '+(creatorListings.reduce((s,l)=>s+(l.rating||0),0)/creatorListings.length).toFixed(1) : '—');
+  set('creatorRevenue', '₦' + Math.round(creatorListings.reduce((s,l)=>s+((l.price||0)*(l.installs||0)*0.9),0)).toLocaleString());
+  // listings list stays as empty-state until real data exists
+}
+
+// ── Space Settings modal (wired to acadOpenSettings gear) ──
+function openSpaceSettings(space) {
+  mktSpaceCur = space || (window.currentAcademicSpace || null);
+  const modal = document.getElementById('spaceSettingsModal');
+  if (!modal) return;
+  document.getElementById('spaceSettingsTitle').textContent = (mktSpaceCur?.name || 'Space') + ' settings';
+  document.getElementById('spaceSettingsSubtitle').textContent = mktSpaceCur?.type || '';
+  const rn = document.getElementById('spaceRenameInput'); if (rn) rn.value = mktSpaceCur?.name || '';
+  spaceSettingsTab('extensions', document.querySelector('#spaceSettingsModal .mkt-modal-tab'));
+  modal.style.display = 'flex';
+}
+function closeSpaceSettings(e) { if (e && e.target !== document.getElementById('spaceSettingsModal')) return; const m = document.getElementById('spaceSettingsModal'); if (m) m.style.display = 'none'; }
+function spaceSettingsTab(tab, btn) {
+  document.querySelectorAll('#spaceSettingsModal .mkt-modal-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  ['extensions','integrations','danger'].forEach(t => { const el = document.getElementById(`spaceSettingsTab-${t}`); if (el) el.style.display = t === tab ? 'block' : 'none'; });
+  if (tab === 'extensions') spaceSettingsRenderExtensions();
+  if (tab === 'integrations') spaceSettingsRenderIntegrations();
+}
+function spaceSettingsRenderExtensions() {
+  const list = document.getElementById('spaceSettingsExtList');
+  if (!list || !mktSpaceCur) return;
+  const sid = mktSpaceCur.id;
+  const exts = mktInstalled.map(x => mktItems.find(i => i.id === x.id)).filter(i => i && i.type === 'extension');
+  if (!exts.length) return; // keep empty state
+  const enabled = mktExtEnabled[sid] || [];
+  list.innerHTML = exts.map(i => `<div class="sset-toggle-row"><div class="mkt-item-icon" style="font-size:16px">${i.icon}</div><div style="flex:1"><div class="mkt-item-name" style="font-size:12px">${mktEsc(i.name)}</div><div class="mkt-item-author">Adds a tab (coming soon)</div></div><label class="sset-toggle"><input type="checkbox" ${enabled.includes(i.id)?'checked':''} onchange="mktExtToggle('${i.id}','${sid}',this.checked)"/><span class="sset-toggle-track"></span></label></div>`).join('');
+}
+function spaceSettingsRenderIntegrations() {
+  const list = document.getElementById('spaceSettingsIntList');
+  if (!list) return; // keep empty state with the "Connect Integrations" link
+}
+function mktExtToggle(extId, spaceId, enable) {
+  if (!mktExtEnabled[spaceId]) mktExtEnabled[spaceId] = [];
+  mktExtEnabled[spaceId] = enable ? [...new Set([...mktExtEnabled[spaceId], extId])] : mktExtEnabled[spaceId].filter(i => i !== extId);
+  mktSaveExt();
+  const item = mktItems.find(i => i.id === extId);
+  mktToast(`${item ? item.name : 'Extension'} ${enable ? 'enabled' : 'disabled'} for this Space`);
+}
+function spaceRename() {
+  const val = (document.getElementById('spaceRenameInput')?.value || '').trim();
+  if (!val || !mktSpaceCur) return;
+  try {
+    const spaces = getSpaces();
+    const sp = spaces.find(s => s.id === mktSpaceCur.id);
+    if (sp) { sp.name = val; saveSpaces(spaces); syncSpaceMeta(sp); spaceRenderSidebar(); }
+    mktSpaceCur.name = val;
+    ['ac-space-name','acadSpaceNameLabel'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = val; });
+    document.getElementById('spaceSettingsTitle').textContent = val + ' settings';
+    mktToast('Space renamed');
+  } catch(e) { mktToast('Could not rename'); }
+}
+function spaceDelete() {
+  if (!mktSpaceCur) return;
+  if (!confirm(`Delete "${mktSpaceCur.name}"? This cannot be undone.`)) return;
+  const id = mktSpaceCur.id;
+  try {
+    saveSpaces(getSpaces().filter(s => s.id !== id));
+    spaceRenderSidebar();
+    fetch('/api/spaces/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), space_id:id }) }).catch(()=>{});
+  } catch(e) {}
+  closeSpaceSettings();
+  mktToast('Space deleted');
+  if (typeof nav === 'function') nav('home');
+}
+
+// Publish price field visibility
+document.addEventListener('change', function(e) {
+  if (e.target && e.target.id === 'pubPrice') { const f = document.getElementById('pubPriceField'); if (f) f.style.display = e.target.value === 'paid' ? 'block' : 'none'; }
+});
