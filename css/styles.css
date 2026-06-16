@@ -7695,3 +7695,10 @@ body.theme-transitioning *::after {
 
 /* Empty state */
 .mkt-empty-state { text-align:center; padding:40px 16px; display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--muted2); font-size:12px; }
+
+/* ── Phase 4a: injected extension tabs ── */
+.ext-tab-shell { padding:20px 0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px; max-width:480px; margin:0 auto; }
+.ext-tab-icon { font-size:36px; margin-bottom:4px; }
+.ext-tab-name { font-size:16px; font-weight:700; color:var(--text); }
+.ext-tab-desc { font-size:12px; color:var(--muted); line-height:1.5; }
+.ext-pomo-display { font-size:52px; font-weight:800; color:var(--text); letter-spacing:-2px; margin:14px 0 4px; font-variant-numeric:tabular-nums; }

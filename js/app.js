@@ -18044,6 +18044,7 @@ function lInit() {
   lRenderMetrics();
   lRenderOverview();
   if (d.classCode) { lRenderClassCode(d.classCode); lLoadRoster(); lLoadRegister(); lLoadAnnouncements(); lLoadLive(); lLoadPolls(); }
+  extInjectIntoSpace(window.currentAcademicSpace, 'lecturerTabBar', 'acadLecturerDash', 'lSwitchTab');
 }
 function lRenderMetrics() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
@@ -18281,6 +18282,7 @@ function sInit() {
   sLoadFeed();
   sLoadAssignments();
   sLoadLivePolls();
+  extInjectIntoSpace(window.currentAcademicSpace, 'studentTabBar', 'acadStudentDash', 'sSwitchTab');
 }
 function sAllSprint() { return [].concat(sSprintCards.to_review, sSprintCards.spaced_rep, sSprintCards.flashcard, sSprintCards.mastered); }
 function sPersistSprint() { adSave({ sprintCards: sAllSprint() }); }
@@ -18983,7 +18985,7 @@ function mktSeedItems() {
     ({ id, type:'extension', name, icon, author, category, desc, rating, installs, price, official });
   const tmpl = (id,name,icon,author,category,desc,rating,installs,official,tt) =>
     ({ id, type:'template', name, icon, author, category, desc, rating, installs, price:0, official, tmpl_type:tt });
-  return [
+  const items = [
     ext('ext-pomodoro','Pomodoro Pro','⏱','Sivarr','productivity','Advanced Pomodoro with ambient sounds and session logging.',4.8,2400,0,true),
     ext('ext-mindmap','Mind Map Builder','🧠','Sivarr','productivity','Drag-and-drop mind mapping inside any Space.',4.6,1800,0,true),
     ext('ext-flashcards','Smart Flashcards','📇','Sivarr','academic','AI-powered spaced-repetition flashcards.',4.9,3200,0,true),
@@ -19000,13 +19002,34 @@ function mktSeedItems() {
     tmpl('tmpl-weekly-review','Weekly Review','🔄','Sivarr','productivity','Structured weekly review doc.',4.8,3100,true,'doc'),
     tmpl('tmpl-budget','Monthly Budget','💳','Sivarr','finance','Naira-first budget tracker.',4.7,1700,true,'tracker'),
   ];
+  const INJ = {
+    'ext-pomodoro':{label:'Pomodoro',icon:'ti-clock'}, 'ext-mindmap':{label:'Mind Map',icon:'ti-hierarchy'},
+    'ext-flashcards':{label:'Flashcards',icon:'ti-cards'}, 'ext-habit':{label:'Habit Streak',icon:'ti-flame'},
+    'ext-kanban-plus':{label:'Kanban+',icon:'ti-layout-kanban'}, 'ext-citation':{label:'Citations',icon:'ti-file-text'},
+    'ext-finance-dash':{label:'Finance',icon:'ti-coin'}, 'ext-code-runner':{label:'Code Runner',icon:'ti-code'},
+  };
+  items.forEach(i => { if (i.type === 'extension' && INJ[i.id]) i.inject = Object.assign({ type:'tab' }, INJ[i.id]); });
+  return items;
 }
 
 // ── Init ──
-function mktInit() {
+// Lazy-load seed items + per-space enabled exts from localStorage (used by the
+// injection engine even when the Marketplace panel was never opened this session).
+function mktEnsureLoaded() {
   if (!mktItems.length) mktItems = mktSeedItems();
-  try { mktInstalled = JSON.parse(localStorage.getItem(MKT_INSTALLED_KEY) || '[]'); } catch(e) { mktInstalled = []; }
   try { mktExtEnabled = JSON.parse(localStorage.getItem(MKT_EXT_KEY) || '{}'); } catch(e) { mktExtEnabled = {}; }
+}
+// Server is the source of truth for installs (Postgres); localStorage is a cache/fallback.
+async function mktLoadInstalled() {
+  try {
+    const r = await fetch('/api/marketplace/installed', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token') }) });
+    if (r.ok) { const d = await r.json(); if (d && Array.isArray(d.installed)) { mktInstalled = d.installed.map(x => ({ id:x.id, installed_at:x.ts || '' })); mktSaveInstalled(); return; } }
+  } catch(e) {}
+  try { mktInstalled = JSON.parse(localStorage.getItem(MKT_INSTALLED_KEY) || '[]'); } catch(e) { mktInstalled = []; }
+}
+async function mktInit() {
+  mktEnsureLoaded();
+  await mktLoadInstalled();
   mktFilter = { type:'all', category:'', sort:'featured', search:'', view:'browse' };
   mktRenderFeatured();
   mktRenderGrid();
@@ -19134,8 +19157,18 @@ function mktRenderReviews(itemId) {
   const content = document.getElementById('mktDetailContent');
   if (!content) return;
   const reviews = mktAllReviews[itemId] || [];
-  content.innerHTML = `<div class="mkt-reviews-section"><div class="mkt-review-form"><div class="mkt-section-label" style="margin-bottom:8px">Leave a review</div><div class="mkt-star-row" id="mktStarRow">${[1,2,3,4,5].map(n=>`<button class="mkt-star" data-val="${n}" onclick="mktSetStar(${n})">★</button>`).join('')}</div><textarea class="mkt-review-input" id="mktReviewText" placeholder="What do you think? How did you use it?"></textarea><button class="mkt-btn-teal mkt-btn-sm" onclick="mktSubmitReview('${itemId}')"><i class="ti ti-send" aria-hidden="true"></i> Submit review</button></div><div id="mktReviewsList">${reviews.length?reviews.map(r=>`<div class="mkt-review-item"><div class="mkt-review-header"><div class="mkt-review-avatar">${mktEsc((r.author||'U')[0].toUpperCase())}</div><div><div class="mkt-review-author">${mktEsc(r.author)}</div><div class="mkt-review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div></div><div class="mkt-review-date">${mktEsc(r.date)}</div></div><div class="mkt-review-body">${mktEsc(r.body)}</div></div>`).join(''):`<div class="mkt-empty-state" style="padding:20px 0"><div>No reviews yet. Be the first!</div></div>`}</div></div>`;
+  content.innerHTML = `<div class="mkt-reviews-section"><div class="mkt-review-form"><div class="mkt-section-label" style="margin-bottom:8px">Leave a review</div><div class="mkt-star-row" id="mktStarRow">${[1,2,3,4,5].map(n=>`<button class="mkt-star" data-val="${n}" onclick="mktSetStar(${n})">★</button>`).join('')}</div><textarea class="mkt-review-input" id="mktReviewText" placeholder="What do you think? How did you use it?"></textarea><button class="mkt-btn-teal mkt-btn-sm" onclick="mktSubmitReview('${itemId}')"><i class="ti ti-send" aria-hidden="true"></i> Submit review</button></div><div id="mktReviewsList">${_mktReviewsListHTML(reviews)}</div></div>`;
   mktReviewStar = 0;
+  mktLoadReviews(itemId);
+}
+function _mktReviewsListHTML(reviews) {
+  return reviews.length ? reviews.map(r => `<div class="mkt-review-item"><div class="mkt-review-header"><div class="mkt-review-avatar">${mktEsc((r.author||'U')[0].toUpperCase())}</div><div><div class="mkt-review-author">${mktEsc(r.author)}</div><div class="mkt-review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div></div><div class="mkt-review-date">${mktEsc(r.date)}</div></div><div class="mkt-review-body">${mktEsc(r.body)}</div></div>`).join('') : `<div class="mkt-empty-state" style="padding:20px 0"><div>No reviews yet. Be the first!</div></div>`;
+}
+async function mktLoadReviews(itemId) {
+  try {
+    const r = await fetch('/api/marketplace/reviews/list', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), item_id:itemId }) });
+    if (r.ok) { const d = await r.json(); if (d && Array.isArray(d.reviews)) { mktAllReviews[itemId] = d.reviews; const el = document.getElementById('mktReviewsList'); if (el && mktCurrentItem && mktCurrentItem.id === itemId) el.innerHTML = _mktReviewsListHTML(d.reviews); } }
+  } catch(e) {}
 }
 function mktSetStar(v) { mktReviewStar = v; document.querySelectorAll('.mkt-star').forEach(s => s.classList.toggle('mkt-star--active', parseInt(s.dataset.val) <= v)); }
 function mktSubmitReview(itemId) {
@@ -19144,9 +19177,12 @@ function mktSubmitReview(itemId) {
   const review = { item_id:itemId, rating:mktReviewStar, body:text, author:(window.S && S.name) || 'You', date:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) };
   if (!mktAllReviews[itemId]) mktAllReviews[itemId] = [];
   mktAllReviews[itemId].unshift(review);
-  mktRenderReviews(itemId);
+  const listEl = document.getElementById('mktReviewsList'); if (listEl) listEl.innerHTML = _mktReviewsListHTML(mktAllReviews[itemId]);
+  const ta = document.getElementById('mktReviewText'); if (ta) ta.value = '';
+  mktReviewStar = 0; document.querySelectorAll('.mkt-star').forEach(s => s.classList.remove('mkt-star--active'));
   mktToast('Review submitted — thank you!');
-  fetch('/api/marketplace/reviews', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), ...review }) }).catch(()=>{});
+  fetch('/api/marketplace/reviews', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), ...review }) })
+    .then(() => mktLoadReviews(itemId)).catch(()=>{});
 }
 
 // ── Publish modal ──
@@ -19213,6 +19249,7 @@ function mktExtToggle(extId, spaceId, enable) {
   mktSaveExt();
   const item = mktItems.find(i => i.id === extId);
   mktToast(`${item ? item.name : 'Extension'} ${enable ? 'enabled' : 'disabled'} for this Space`);
+  if (typeof extReinjectCurrent === 'function' && window.currentAcademicSpace && window.currentAcademicSpace.id === spaceId) extReinjectCurrent();
 }
 function spaceRename() {
   const val = (document.getElementById('spaceRenameInput')?.value || '').trim();
@@ -19245,3 +19282,75 @@ function spaceDelete() {
 document.addEventListener('change', function(e) {
   if (e.target && e.target.id === 'pubPrice') { const f = document.getElementById('pubPriceField'); if (f) f.style.display = e.target.value === 'paid' ? 'block' : 'none'; }
 });
+
+/* ── Phase 4a: Extension injection into Space dashboards ─────────
+   Enabling an installed extension for a space adds a real tab to that
+   space's dashboard. Reuses the existing .acad-tab / .acad-tab-content
+   machinery and the space's own switcher (sSwitchTab / lSwitchTab),
+   so injected tabs behave exactly like built-in ones. ─────────── */
+function extInjectIntoSpace(space, tabBarId, containerId, switchFn) {
+  const tabBar = document.getElementById(tabBarId);
+  const container = document.getElementById(containerId);
+  if (!space || !tabBar || !container) return;
+  mktEnsureLoaded();
+  // Clear any prior injected nodes (idempotent re-render).
+  tabBar.querySelectorAll('[data-injected]').forEach(e => e.remove());
+  container.querySelectorAll('.acad-tab-content[data-injected]').forEach(e => e.remove());
+  const enabled = mktExtEnabled[space.id] || [];
+  enabled.forEach(extId => {
+    const item = mktItems.find(i => i.id === extId);
+    if (!item || item.type !== 'extension' || !item.inject) return;
+    const tabId = 'xt-' + extId;
+    const btn = document.createElement('button');
+    btn.className = 'acad-tab';
+    btn.dataset.injected = '1';
+    btn.dataset.tab = tabId;
+    btn.innerHTML = `<i class="ti ${item.inject.icon}" aria-hidden="true" style="font-size:12px;"></i> ${mktEsc(item.inject.label)}`;
+    btn.onclick = () => { if (typeof window[switchFn] === 'function') window[switchFn](tabId); };
+    tabBar.appendChild(btn);
+    const pane = document.createElement('div');
+    pane.className = 'acad-tab-content';
+    pane.dataset.injected = '1';
+    pane.id = 'tab-' + tabId;
+    pane.style.display = 'none';
+    pane.innerHTML = extGetTabHTML(item);
+    container.appendChild(pane);
+  });
+}
+
+// Re-inject the currently open academic space (used after toggling in Space Settings).
+function extReinjectCurrent() {
+  const sp = window.currentAcademicSpace;
+  if (!sp) return;
+  if (acadRole === 'lecturer') extInjectIntoSpace(sp, 'lecturerTabBar', 'acadLecturerDash', 'lSwitchTab');
+  else extInjectIntoSpace(sp, 'studentTabBar', 'acadStudentDash', 'sSwitchTab');
+}
+
+function extGetTabHTML(item) {
+  const shell = (inner) => `<div class="ext-tab-shell"><div class="ext-tab-icon">${item.icon}</div><div class="ext-tab-name">${mktEsc(item.name)}</div><div class="ext-tab-desc">${mktEsc(item.desc)}</div>${inner}</div>`;
+  if (item.id === 'ext-pomodoro') {
+    return shell(`<div class="ext-pomo-display" id="extPomo-${item.id}">25:00</div><div style="display:flex;gap:8px;justify-content:center;margin-top:8px"><button class="mkt-btn-teal" onclick="extPomoStart('${item.id}')"><i class="ti ti-player-play" aria-hidden="true"></i> Start</button><button class="mkt-btn-ghost" onclick="extPomoReset('${item.id}')"><i class="ti ti-refresh" aria-hidden="true"></i></button></div>`);
+  }
+  const empties = {
+    'ext-mindmap':'ti-hierarchy', 'ext-flashcards':'ti-cards', 'ext-kanban-plus':'ti-layout-kanban',
+    'ext-citation':'ti-file-text', 'ext-finance-dash':'ti-coin', 'ext-code-runner':'ti-code', 'ext-habit':'ti-flame',
+  };
+  const ic = empties[item.id] || 'ti-puzzle';
+  return shell(`<div class="mkt-empty-state" style="margin-top:14px"><i class="ti ${ic}" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>This extension's workspace is coming soon.</div></div>`);
+}
+
+let extPomoTimers = {};
+function extPomoStart(extId) {
+  if (extPomoTimers[extId]) { clearInterval(extPomoTimers[extId]); delete extPomoTimers[extId]; }
+  let mins = 24, secs = 59;
+  const el = document.getElementById(`extPomo-${extId}`);
+  extPomoTimers[extId] = setInterval(() => {
+    if (secs === 0) { if (mins === 0) { clearInterval(extPomoTimers[extId]); delete extPomoTimers[extId]; mktToast('Pomodoro complete!'); return; } mins--; secs = 59; } else secs--;
+    if (el) el.textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  }, 1000);
+}
+function extPomoReset(extId) {
+  if (extPomoTimers[extId]) { clearInterval(extPomoTimers[extId]); delete extPomoTimers[extId]; }
+  const el = document.getElementById(`extPomo-${extId}`);
+  if (el) el.textContent = '25:00';
+}
