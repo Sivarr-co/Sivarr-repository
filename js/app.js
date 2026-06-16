@@ -19111,9 +19111,30 @@ function mktUninstall(id) {
   mktToast(`${item ? item.name : 'Item'} removed`);
   fetch('/api/marketplace/uninstall', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), item_id:id }) }).catch(()=>{});
 }
-function mktUseTemplate(id) {
+async function mktUseTemplate(id) {
   const item = mktItems.find(i => i.id === id);
-  mktToast(`"${item ? item.name : 'Template'}" — one-click duplication is coming soon`);
+  if (!item) return;
+  const name = (typeof siModal !== 'undefined' && siModal.input)
+    ? await siModal.input('Create space from template', 'Name your new space', item.name, { confirmLabel: 'Create space' })
+    : prompt('Name your new space', item.name);
+  if (!name || !name.trim()) return;
+  // Academic templates → academic space (with role); everything else → personal.
+  let type = 'personal', role = null;
+  if (item.id === 'tmpl-academic-student') { type = 'academic'; role = 'student'; }
+  else if (item.id === 'tmpl-academic-lect') { type = 'academic'; role = 'lecturer'; }
+  else if (item.category === 'academic') { type = 'academic'; role = 'student'; }
+  const sid = `sp_${Date.now()}`;
+  const space = { id: sid, name: name.trim(), type, icon: type === 'academic' ? '🎓' : '👤', from_template: item.id };
+  if (role) space.academic_role = role;
+  try {
+    const spaces = getSpaces(); spaces.push(space); saveSpaces(spaces);
+    if (typeof syncSpaceMeta === 'function') syncSpaceMeta(space);
+    if (typeof spaceRenderSidebar === 'function') spaceRenderSidebar();
+    mktCloseDetail();
+    mktToast(`"${space.name}" created from ${item.name}`);
+    if (typeof openSpace === 'function') openSpace(sid);
+  } catch(e) { mktToast('Could not create the space'); }
+  fetch('/api/marketplace/install', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), item_id:id }) }).catch(()=>{});
 }
 
 // ── Detail modal ──
@@ -19239,9 +19260,23 @@ function spaceSettingsRenderExtensions() {
   const enabled = mktExtEnabled[sid] || [];
   list.innerHTML = exts.map(i => `<div class="sset-toggle-row"><div class="mkt-item-icon" style="font-size:16px">${i.icon}</div><div style="flex:1"><div class="mkt-item-name" style="font-size:12px">${mktEsc(i.name)}</div><div class="mkt-item-author">Adds a tab (coming soon)</div></div><label class="sset-toggle"><input type="checkbox" ${enabled.includes(i.id)?'checked':''} onchange="mktExtToggle('${i.id}','${sid}',this.checked)"/><span class="sset-toggle-track"></span></label></div>`).join('');
 }
+let mktSpaceInts = {};
+function mktLoadSpaceInts() { try { mktSpaceInts = JSON.parse(localStorage.getItem('sivarr_space_integrations') || '{}'); } catch(e) { mktSpaceInts = {}; } }
 function spaceSettingsRenderIntegrations() {
   const list = document.getElementById('spaceSettingsIntList');
-  if (!list) return; // keep empty state with the "Connect Integrations" link
+  if (!list || !mktSpaceCur) return;
+  mktLoadSpaceInts();
+  const enabled = mktSpaceInts[mktSpaceCur.id] || [];
+  list.innerHTML = INT_CATALOGUE.map(c => `<div class="sset-toggle-row"><div class="mkt-item-icon" style="font-size:16px">${c.icon}</div><div style="flex:1"><div class="mkt-item-name" style="font-size:12px">${mktEsc(c.name)}</div><div class="mkt-item-author">${mktEsc(c.desc)}</div></div><label class="sset-toggle"><input type="checkbox" ${enabled.includes(c.id)?'checked':''} onchange="spaceIntToggle('${c.id}','${mktSpaceCur.id}',this.checked)"/><span class="sset-toggle-track"></span></label></div>`).join('')
+    + `<div class="mkt-brief-desc" style="margin-top:10px">Connect accounts in the <a onclick="closeSpaceSettings();nav('library')" style="color:var(--teal);cursor:pointer">Integrations</a> panel — toggles here choose which apply to this Space.</div>`;
+}
+function spaceIntToggle(intId, spaceId, enable) {
+  mktLoadSpaceInts();
+  if (!mktSpaceInts[spaceId]) mktSpaceInts[spaceId] = [];
+  mktSpaceInts[spaceId] = enable ? [...new Set([...mktSpaceInts[spaceId], intId])] : mktSpaceInts[spaceId].filter(i => i !== intId);
+  localStorage.setItem('sivarr_space_integrations', JSON.stringify(mktSpaceInts));
+  const c = INT_CATALOGUE.find(i => i.id === intId);
+  mktToast(`${c ? c.name : 'Integration'} ${enable ? 'enabled' : 'disabled'} for this Space`);
 }
 function mktExtToggle(extId, spaceId, enable) {
   if (!mktExtEnabled[spaceId]) mktExtEnabled[spaceId] = [];
