@@ -33,7 +33,10 @@
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { Rate, Trend, Counter } from 'k6/metrics';
-import { randomItem } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
+
+// Inlined from k6-utils/randomItem — keeps the script self-contained (no runtime
+// fetch of https://jslib.k6.io, which fails on networks that block/can't verify it).
+function randomItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 const BASE = (__ENV.BASE_URL || '').replace(/\/$/, '');
 if (!BASE) throw new Error('BASE_URL is required (point at STAGING, not prod).');

@@ -3092,8 +3092,10 @@ async def acad_att_checkin(data: dict):
     sid, name = _resolve_token(data)
     code = sanitize_text(str(data.get("code", "")), 12).upper()
     cc   = sanitize_text(str(data.get("checkin_code", "")), 12).upper()
-    _acad_class_or_404(code)
-    if not _acad_is_member(code, sid):
+    cls = _acad_class_or_404(code)
+    # Owner can check in too (so a single account testing both roles, or a lecturer
+    # marking themselves present, isn't blocked). Otherwise must be a joined member.
+    if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
         raise HTTPException(403, "Join the class first.")
     sess = _acad_open_session(code)
     if not sess:

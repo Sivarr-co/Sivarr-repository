@@ -17739,7 +17739,7 @@ function _reviewPopulateStats() {
 }
 
 async function reviewGenerate() {
-  if (!S.sid || !S.token) { toast('Sign in to generate your review.'); return; }
+  if (!S.sid || !S.token) { toast('Journal your week to have a review.'); return; }
   const btn = $('review-gen-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin .8s linear infinite"></i> Generating…'; }
 
