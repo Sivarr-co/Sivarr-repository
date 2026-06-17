@@ -11995,6 +11995,7 @@ async function orgInit() {
   orgChatRender();
   founderRender();
   _founderTabVisibility();
+  hostMountExtensions({ id: 'org', type: 'org' });
 }
 
 function _orgRenderLogo() {
@@ -13672,6 +13673,7 @@ function openSpace(id) {
   const spaces = getSpaces();
   const sp = spaces.find(s => s.id === id);
   if (!sp) return;
+  window.currentSpace = sp;   // track the open space (any type) for extension mounting
 
   // Highlight active row (reuse .si.on style)
   document.querySelectorAll('.sp-si').forEach(el => el.classList.remove('on'));
@@ -13739,6 +13741,7 @@ function spMoreMenu(id, btn) {
   menu.style.top  = r.bottom + 4 + 'px';
   menu.style.left = r.left + 'px';
   menu.innerHTML = `
+    <div class="ctx-item" onclick="openSpaceSettingsById('${id}')"><i class="ti ti-settings"></i> Settings &amp; extensions</div>
     <div class="ctx-item" onclick="spRename('${id}')"><i class="ti ti-pencil"></i> Rename</div>
     ${sp.id !== 'org' ? `<div class="ctx-item ctx-danger" onclick="spDelete('${id}')"><i class="ti ti-trash"></i> Delete</div>` : ''}
   `;
@@ -13849,6 +13852,7 @@ function psInit(id) {
   // Show first pane
   spTab('ps', 'overview', document.querySelector('#panel-personal .sp-tab'));
   psRenderOverview();
+  hostMountExtensions(window.currentSpace || { id: id || 'personal', type: 'personal' });
 }
 
 function psData() { return getSpaceData(_psId || 'personal'); }
@@ -18062,7 +18066,7 @@ function lInit() {
   lRenderMetrics();
   lRenderOverview();
   if (d.classCode) { lRenderClassCode(d.classCode); lLoadRoster(); lLoadRegister(); lLoadAnnouncements(); lLoadLive(); lLoadPolls(); }
-  extInjectIntoSpace(window.currentAcademicSpace, 'lecturerTabBar', 'acadLecturerDash', 'lSwitchTab');
+  hostMountExtensions(window.currentAcademicSpace);
 }
 function lRenderMetrics() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
@@ -18300,7 +18304,7 @@ function sInit() {
   sLoadFeed();
   sLoadAssignments();
   sLoadLivePolls();
-  extInjectIntoSpace(window.currentAcademicSpace, 'studentTabBar', 'acadStudentDash', 'sSwitchTab');
+  hostMountExtensions(window.currentAcademicSpace);
 }
 function sAllSprint() { return [].concat(sSprintCards.to_review, sSprintCards.spaced_rep, sSprintCards.flashcard, sSprintCards.mastered); }
 function sPersistSprint() { adSave({ sprintCards: sAllSprint() }); }
@@ -19250,9 +19254,14 @@ async function creatorInit() {
   // listings list stays as empty-state until real data exists
 }
 
-// ── Space Settings modal (wired to acadOpenSettings gear) ──
+// ── Space Settings modal (sidebar ⋮ menu for any space + academic gear) ──
+function openSpaceSettingsById(id) {
+  document.querySelectorAll('.ctx-menu').forEach(m => m.remove());
+  const sp = getSpaces().find(s => s.id === id);
+  if (sp) openSpaceSettings(sp);
+}
 function openSpaceSettings(space) {
-  mktSpaceCur = space || (window.currentAcademicSpace || null);
+  mktSpaceCur = space || window.currentSpace || window.currentAcademicSpace || null;
   const modal = document.getElementById('spaceSettingsModal');
   if (!modal) return;
   document.getElementById('spaceSettingsTitle').textContent = (mktSpaceCur?.name || 'Space') + ' settings';
@@ -19302,7 +19311,9 @@ function mktExtToggle(extId, spaceId, enable) {
   mktSaveExt();
   const item = mktItems.find(i => i.id === extId);
   mktToast(`${item ? item.name : 'Extension'} ${enable ? 'enabled' : 'disabled'} for this Space`);
-  if (typeof extReinjectCurrent === 'function' && window.currentAcademicSpace && window.currentAcademicSpace.id === spaceId) extReinjectCurrent();
+  // Live-remount if the toggled space is the one currently open (any type).
+  const cur = window.currentSpace || window.currentAcademicSpace;
+  if (typeof extReinjectCurrent === 'function' && cur && cur.id === spaceId) extReinjectCurrent();
 }
 function spaceRename() {
   const val = (document.getElementById('spaceRenameInput')?.value || '').trim();
@@ -19336,47 +19347,72 @@ document.addEventListener('change', function(e) {
   if (e.target && e.target.id === 'pubPrice') { const f = document.getElementById('pubPriceField'); if (f) f.style.display = e.target.value === 'paid' ? 'block' : 'none'; }
 });
 
-/* ── Phase 4a: Extension injection into Space dashboards ─────────
-   Enabling an installed extension for a space adds a real tab to that
-   space's dashboard. Reuses the existing .acad-tab / .acad-tab-content
-   machinery and the space's own switcher (sSwitchTab / lSwitchTab),
-   so injected tabs behave exactly like built-in ones. ─────────── */
-function extInjectIntoSpace(space, tabBarId, containerId, switchFn) {
-  const tabBar = document.getElementById(tabBarId);
-  const container = document.getElementById(containerId);
-  if (!space || !tabBar || !container) return;
+/* ── Extension host: registry + generic mount across ALL space types ──
+   A space "host descriptor" tells the injector how that dashboard's tab
+   system works (tab/pane classes, id conventions, switcher, show/hide
+   strategy). One code path mounts the extensions enabled for a space
+   (mktExtEnabled[spaceId]) into Personal, Academic, or Org — instead of
+   the old academic-only hardcoding. Add a new space type = add a host. */
+const SPACE_HOSTS = {
+  'academic:student':  { barId:'studentTabBar',  containerId:'acadStudentDash',  tabClass:'acad-tab', paneClass:'acad-tab-content', paneIdPrefix:'tab-',     switch:'sSwitchTab', inlineHide:true },
+  'academic:lecturer': { barId:'lecturerTabBar', containerId:'acadLecturerDash', tabClass:'acad-tab', paneClass:'acad-tab-content', paneIdPrefix:'tab-',     switch:'lSwitchTab', inlineHide:true },
+  'personal':          { barSel:'#panel-personal .sp-tabs', containerSel:'#panel-personal', tabClass:'sp-tab', paneClass:'sp-pane', paneIdPrefix:'ps-pane-', switch:'spTabPersonalHost', inlineHide:false },
+  'org':               { barSel:'#panel-org .os-tabs',         containerSel:'#panel-org',      tabClass:'os-tab', tabIdPrefix:'os-tab-', paneClass:'os-pane', paneIdPrefix:'os-pane-', switch:'orgTab', inlineHide:false },
+};
+// Personal space uses spTab(prefix,pane,btn); wrap it so the generic injector can call switch(name,btn).
+function spTabPersonalHost(name, btn) { if (typeof spTab === 'function') spTab('ps', name, btn); }
+// Registry: per-extension mount rules (which space types; optional custom render).
+// Default: mounts everywhere ('*'), rendered by extGetTabHTML.
+const EXT_REGISTRY = {
+  'ext-pomodoro':    { spaceTypes:['*'] }, 'ext-mindmap':     { spaceTypes:['*'] },
+  'ext-flashcards':  { spaceTypes:['*'] }, 'ext-habit':       { spaceTypes:['*'] },
+  'ext-kanban-plus': { spaceTypes:['*'] }, 'ext-citation':    { spaceTypes:['*'] },
+  'ext-finance-dash':{ spaceTypes:['*'] }, 'ext-code-runner': { spaceTypes:['*'] },
+};
+function _hostKeyFor(space) {
+  if (!space) return null;
+  if (space.type === 'academic') return 'academic:' + ((typeof acadRole !== 'undefined' && acadRole === 'lecturer') ? 'lecturer' : 'student');
+  if (space.type === 'personal') return 'personal';
+  if (space.type === 'org') return 'org';
+  return null;
+}
+// Mount the extensions enabled for `space` into whatever dashboard hosts it.
+function hostMountExtensions(space) {
+  const key = _hostKeyFor(space);
+  if (key) extInjectIntoSpace(key, space);
+}
+function extInjectIntoSpace(hostKey, space) {
+  const h = SPACE_HOSTS[hostKey];
+  if (!h || !space) return;
+  const bar = h.barId ? document.getElementById(h.barId) : document.querySelector(h.barSel);
+  const container = h.containerId ? document.getElementById(h.containerId) : document.querySelector(h.containerSel);
+  if (!bar || !container) return;
   mktEnsureLoaded();
-  // Clear any prior injected nodes (idempotent re-render).
-  tabBar.querySelectorAll('[data-injected]').forEach(e => e.remove());
-  container.querySelectorAll('.acad-tab-content[data-injected]').forEach(e => e.remove());
-  const enabled = mktExtEnabled[space.id] || [];
-  enabled.forEach(extId => {
+  // Idempotent: clear prior injected nodes before re-rendering.
+  bar.querySelectorAll('[data-injected]').forEach(e => e.remove());
+  container.querySelectorAll('.' + h.paneClass + '[data-injected]').forEach(e => e.remove());
+  (mktExtEnabled[space.id] || []).forEach(extId => {
     const item = mktItems.find(i => i.id === extId);
     if (!item || item.type !== 'extension' || !item.inject) return;
-    const tabId = 'xt-' + extId;
+    const reg = EXT_REGISTRY[extId] || {};
+    if (reg.spaceTypes && !reg.spaceTypes.includes('*') && !reg.spaceTypes.includes(space.type)) return;
+    const name = 'xt-' + extId;
     const btn = document.createElement('button');
-    btn.className = 'acad-tab';
-    btn.dataset.injected = '1';
-    btn.dataset.tab = tabId;
+    btn.className = h.tabClass; btn.dataset.injected = '1'; btn.dataset.tab = name;
+    if (h.tabIdPrefix) btn.id = h.tabIdPrefix + name;
     btn.innerHTML = `<i class="ti ${item.inject.icon}" aria-hidden="true" style="font-size:12px;"></i> ${mktEsc(item.inject.label)}`;
-    btn.onclick = () => { if (typeof window[switchFn] === 'function') window[switchFn](tabId); };
-    tabBar.appendChild(btn);
+    btn.onclick = () => { if (typeof window[h.switch] === 'function') window[h.switch](name, btn); };
+    bar.appendChild(btn);
     const pane = document.createElement('div');
-    pane.className = 'acad-tab-content';
-    pane.dataset.injected = '1';
-    pane.id = 'tab-' + tabId;
-    pane.style.display = 'none';
-    pane.innerHTML = extGetTabHTML(item);
+    pane.className = h.paneClass; pane.dataset.injected = '1'; pane.id = h.paneIdPrefix + name;
+    if (h.inlineHide) pane.style.display = 'none';
+    pane.innerHTML = (reg.render ? reg.render(item, space) : extGetTabHTML(item));
     container.appendChild(pane);
   });
 }
-
-// Re-inject the currently open academic space (used after toggling in Space Settings).
+// Re-inject the currently open space (any type) — used after toggling in Space Settings.
 function extReinjectCurrent() {
-  const sp = window.currentAcademicSpace;
-  if (!sp) return;
-  if (acadRole === 'lecturer') extInjectIntoSpace(sp, 'lecturerTabBar', 'acadLecturerDash', 'lSwitchTab');
-  else extInjectIntoSpace(sp, 'studentTabBar', 'acadStudentDash', 'sSwitchTab');
+  hostMountExtensions(window.currentSpace || window.currentAcademicSpace);
 }
 
 function extGetTabHTML(item) {
