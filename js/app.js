@@ -18992,7 +18992,7 @@ const MKT_INSTALLED_KEY = 'sivarr_mkt_installed';
 const MKT_EXT_KEY       = 'sivarr_mkt_ext_enabled';
 
 const INT_CATALOGUE = [
-  { id:'google-calendar', name:'Google Calendar', icon:'📅', desc:'Sync events and deadlines',      category:'productivity' },
+  { id:'google-calendar', name:'Google Calendar', icon:'📅', desc:'Sync events and deadlines',      category:'productivity', provides:['calendar'] },
   { id:'google-drive',    name:'Google Drive',    icon:'💾', desc:'Attach and browse files',        category:'productivity' },
   { id:'notion',          name:'Notion',          icon:'📝', desc:'Import pages and databases',      category:'productivity' },
   { id:'slack',           name:'Slack',           icon:'💬', desc:'Send notifications to channels',  category:'communication' },
@@ -19016,6 +19016,7 @@ function mktSeedItems() {
     ext('ext-citation','Citation Engine','📚','Sivarr','academic','APA/MLA/IEEE citations via Scholar.',4.8,2100,0,true),
     ext('ext-finance-dash','Finance Dashboard','💰','Adaeze N.','finance','Expense tracker + budget widget in ₦.',4.4,750,2500,false),
     ext('ext-code-runner','Code Runner','⚡','Emeka J.','developer','Run Python/JS/SQL snippets inline.',4.6,640,0,false),
+    ext('ext-calendar','Calendar','📅','Sivarr','productivity','Your Google Calendar — upcoming events in any space.',4.8,0,0,true),
     ...INT_CATALOGUE.map(i => ({ ...i, type:'integration', author:'Sivarr', official:true, rating:4.7, installs:1200, price:0 })),
     tmpl('tmpl-academic-student','Academic OS — Student','🎓','Sivarr','academic','Student dashboard: Lecture Vault, Exam Sprint, Research.',4.9,4100,true,'space'),
     tmpl('tmpl-academic-lect','Academic OS — Lecturer','📋','Sivarr','academic','Lecturer dashboard: courses, roster, AI tools.',4.8,1900,true,'space'),
@@ -19029,6 +19030,7 @@ function mktSeedItems() {
     'ext-flashcards':{label:'Flashcards',icon:'ti-cards'}, 'ext-habit':{label:'Habit Streak',icon:'ti-flame'},
     'ext-kanban-plus':{label:'Kanban+',icon:'ti-layout-kanban'}, 'ext-citation':{label:'Citations',icon:'ti-file-text'},
     'ext-finance-dash':{label:'Finance',icon:'ti-coin'}, 'ext-code-runner':{label:'Code Runner',icon:'ti-code'},
+    'ext-calendar':{label:'Calendar',icon:'ti-calendar'},
   };
   items.forEach(i => { if (i.type === 'extension' && INJ[i.id]) i.inject = Object.assign({ type:'tab' }, INJ[i.id]); });
   return items;
@@ -19368,6 +19370,7 @@ const EXT_REGISTRY = {
   'ext-flashcards':  { spaceTypes:['*'], render:(item)=>extFcShell(item) }, 'ext-habit': { spaceTypes:['*'] },
   'ext-kanban-plus': { spaceTypes:['*'] }, 'ext-citation':    { spaceTypes:['*'], render:(item)=>extCiteShell(item) },
   'ext-finance-dash':{ spaceTypes:['*'] }, 'ext-code-runner': { spaceTypes:['*'] },
+  'ext-calendar':    { spaceTypes:['*'], render:(item)=>extCalShell(item) },
 };
 function _hostKeyFor(space) {
   if (!space) return null;
@@ -19525,3 +19528,51 @@ async function extCiteGen() {
 }
 function extCiteCopy(i) { const items = (extData(_extSpaceId(), 'ext-citation').items) || []; const c = items[i]; if (c && navigator.clipboard) { navigator.clipboard.writeText(c.text); mktToast('Copied'); } }
 function extCiteDel(i) { const sid = _extSpaceId(); const items = (extData(sid, 'ext-citation').items) || []; items.splice(i, 1); extSave(sid, 'ext-citation', { items }); extCiteRender(); }
+
+/* ── Integration capability spine ────────────────────────────────────
+   Integrations 'provide' capabilities (INT_CATALOGUE[].provides); extensions
+   consume them via spaceHasCapability(cap). Real connection state is per
+   provider (e.g. Google Calendar = OAuth refresh token on the server). The
+   Calendar extension below is the first real consumer: it shows the user's
+   actual Google Calendar events in ANY space. ───────────────────────── */
+function intCapProviders(cap) { return INT_CATALOGUE.filter(i => (i.provides || []).includes(cap)); }
+async function spaceHasCapability(cap) {
+  if (cap === 'calendar') {
+    try {
+      const r = await fetch('/api/integrations/gcal/status?token=' + encodeURIComponent(localStorage.getItem('sivarr_token') || ''));
+      if (r.ok) return !!(await r.json()).connected;
+    } catch (e) {}
+    return false;
+  }
+  return false;
+}
+
+// Calendar extension — real consumer of the 'calendar' capability (Google Calendar).
+function extCalShell(item) {
+  setTimeout(extCalLoad, 0);
+  return `<div class="ext-tab-shell" style="max-width:600px"><div class="ext-tab-icon">${item.icon}</div><div class="ext-tab-name">${mktEsc(item.name)}</div><div class="ext-tab-desc">${mktEsc(item.desc)}</div><div id="extcal-root" style="width:100%;margin-top:14px"><div class="mkt-empty-state"><div>Loading…</div></div></div>`;
+}
+async function extCalLoad() {
+  const root = document.getElementById('extcal-root');
+  if (!root) return;
+  const tok = encodeURIComponent(localStorage.getItem('sivarr_token') || '');
+  const connected = await spaceHasCapability('calendar');
+  if (!connected) {
+    root.innerHTML = `<div class="mkt-empty-state"><i class="ti ti-calendar" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>Google Calendar isn't connected.</div><a class="mkt-btn-teal" style="margin-top:10px;text-decoration:none" href="/auth/google/calendar?token=${tok}"><i class="ti ti-plug" aria-hidden="true"></i> Connect Google Calendar</a></div>`;
+    return;
+  }
+  let events = [];
+  try {
+    const r = await fetch('/api/integrations/gcal/events?token=' + tok + '&time_min=' + encodeURIComponent(new Date().toISOString()));
+    if (r.ok) events = (await r.json()).events || [];
+  } catch (e) {}
+  if (!events.length) {
+    root.innerHTML = `<div class="mkt-empty-state"><i class="ti ti-calendar" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No upcoming events.</div></div>`;
+    return;
+  }
+  root.innerHTML = events.slice(0, 15).map(ev => {
+    const d = ev.start ? new Date(ev.start) : null;
+    const when = (d && !isNaN(d)) ? d.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: ev.allDay ? undefined : '2-digit', minute: ev.allDay ? undefined : '2-digit' }) : '';
+    return `<div class="mkt-installed-row"><div class="mkt-item-icon" style="font-size:16px">📅</div><div style="flex:1"><div class="mkt-item-name">${mktEsc(ev.title)}</div><div class="mkt-item-author">${mktEsc(when)}${ev.allDay ? ' · all day' : ''}</div></div>${ev.htmlLink ? `<a class="mkt-btn-ghost mkt-btn-sm" style="text-decoration:none" href="${mktEsc(ev.htmlLink)}" target="_blank">Open</a>` : ''}</div>`;
+  }).join('');
+}
