@@ -19365,8 +19365,8 @@ function spTabPersonalHost(name, btn) { if (typeof spTab === 'function') spTab('
 // Default: mounts everywhere ('*'), rendered by extGetTabHTML.
 const EXT_REGISTRY = {
   'ext-pomodoro':    { spaceTypes:['*'] }, 'ext-mindmap':     { spaceTypes:['*'] },
-  'ext-flashcards':  { spaceTypes:['*'] }, 'ext-habit':       { spaceTypes:['*'] },
-  'ext-kanban-plus': { spaceTypes:['*'] }, 'ext-citation':    { spaceTypes:['*'] },
+  'ext-flashcards':  { spaceTypes:['*'], render:(item)=>extFcShell(item) }, 'ext-habit': { spaceTypes:['*'] },
+  'ext-kanban-plus': { spaceTypes:['*'] }, 'ext-citation':    { spaceTypes:['*'], render:(item)=>extCiteShell(item) },
   'ext-finance-dash':{ spaceTypes:['*'] }, 'ext-code-runner': { spaceTypes:['*'] },
 };
 function _hostKeyFor(space) {
@@ -19443,3 +19443,85 @@ function extPomoReset(extId) {
   const el = document.getElementById(`extPomo-${extId}`);
   if (el) el.textContent = '25:00';
 }
+
+/* ── Real extensions: per-space storage + Flashcards + Citations ─────
+   Make installed extensions actually work in ANY space. Data persists in
+   the space's own blob (getSpaceData/setSpaceData → _ext[extId]); Citations
+   reuse the existing acadAsk(/api/chat) engine. One space open at a time, so
+   a single root id per extension is safe across host types. ───────── */
+function _extSpaceId() {
+  return (window.currentSpace && window.currentSpace.id)
+      || (window.currentAcademicSpace && window.currentAcademicSpace.id)
+      || 'personal';
+}
+function extData(spaceId, extId) { const d = getSpaceData(spaceId) || {}; return (d._ext && d._ext[extId]) || {}; }
+function extSave(spaceId, extId, val) { const d = getSpaceData(spaceId) || {}; d._ext = d._ext || {}; d._ext[extId] = val; setSpaceData(spaceId, d); }
+
+// ── Flashcards (self-contained spaced drill) ──
+let _extFcIdx = 0, _extFcFlip = false;
+function extFcShell(item) {
+  _extFcIdx = 0; _extFcFlip = false;
+  return `<div class="ext-tab-shell" style="max-width:600px"><div class="ext-tab-icon">${item.icon}</div><div class="ext-tab-name">${mktEsc(item.name)}</div><div class="ext-tab-desc">${mktEsc(item.desc)}</div><div id="extfc-root" style="width:100%;margin-top:14px">${extFcInner()}</div></div>`;
+}
+function extFcInner() {
+  const cards = (extData(_extSpaceId(), 'ext-flashcards').cards) || [];
+  const top = `<div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px"><button class="mkt-btn-teal" onclick="extFcAdd()"><i class="ti ti-plus" aria-hidden="true"></i> Add card</button>${cards.length ? `<button class="mkt-btn-ghost mkt-btn-danger" onclick="extFcDelete()"><i class="ti ti-trash" aria-hidden="true"></i> Delete</button>` : ''}</div>`;
+  if (!cards.length) return top + `<div class="mkt-empty-state"><i class="ti ti-cards" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No flashcards yet. Add your first card.</div></div>`;
+  const i = ((_extFcIdx % cards.length) + cards.length) % cards.length;
+  const c = cards[i];
+  return top + `<div onclick="extFcFlip()" style="cursor:pointer;border:1px solid var(--border);border-radius:14px;padding:28px 18px;min-height:120px;display:flex;align-items:center;justify-content:center;text-align:center;background:var(--card)"><div><div class="acad-label" style="margin-bottom:8px">${_extFcFlip ? 'Answer' : 'Question'}</div><div style="font-size:15px;font-weight:600;color:var(--text)">${mktEsc(_extFcFlip ? (c.a || '—') : c.q)}</div><div style="font-size:10px;color:var(--muted2);margin-top:10px">tap to flip</div></div></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px"><button class="mkt-btn-ghost mkt-btn-sm" onclick="extFcNav(-1)">‹ Prev</button><span style="font-size:11px;color:var(--muted)">${i + 1} / ${cards.length}</span><button class="mkt-btn-ghost mkt-btn-sm" onclick="extFcNav(1)">Next ›</button></div>`;
+}
+function extFcRender() { const r = document.getElementById('extfc-root'); if (r) r.innerHTML = extFcInner(); }
+function extFcFlip() { _extFcFlip = !_extFcFlip; extFcRender(); }
+function extFcNav(d) { _extFcFlip = false; _extFcIdx += d; extFcRender(); }
+async function extFcAdd() {
+  const f = await siModal.form('Add flashcard', [
+    { id: 'q', label: 'Question', required: true },
+    { id: 'a', label: 'Answer', required: true },
+  ]);
+  if (!f || !f.q) return;
+  const sid = _extSpaceId();
+  const cards = (extData(sid, 'ext-flashcards').cards) || [];
+  cards.push({ q: f.q, a: f.a || '' });
+  extSave(sid, 'ext-flashcards', { cards });
+  _extFcIdx = cards.length - 1; _extFcFlip = false; extFcRender();
+}
+function extFcDelete() {
+  const sid = _extSpaceId();
+  const cards = (extData(sid, 'ext-flashcards').cards) || [];
+  if (!cards.length) return;
+  const i = ((_extFcIdx % cards.length) + cards.length) % cards.length;
+  cards.splice(i, 1);
+  extSave(sid, 'ext-flashcards', { cards });
+  _extFcFlip = false; extFcRender();
+}
+
+// ── Citations (AI via acadAsk) ──
+let _extCiteFmt = 'APA';
+function extCiteShell(item) {
+  return `<div class="ext-tab-shell" style="max-width:640px"><div class="ext-tab-icon">${item.icon}</div><div class="ext-tab-name">${mktEsc(item.name)}</div><div class="ext-tab-desc">${mktEsc(item.desc)}</div><div id="extcite-root" style="width:100%;margin-top:14px">${extCiteInner()}</div></div>`;
+}
+function extCiteInner() {
+  const items = (extData(_extSpaceId(), 'ext-citation').items) || [];
+  const fmts = ['APA', 'MLA', 'IEEE', 'Harvard'].map(f => `<button class="mkt-cat-pill ${_extCiteFmt === f ? 'active' : ''}" onclick="extCiteFmt('${f}')">${f}</button>`).join('');
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${fmts}</div><div style="display:flex;gap:8px;margin-bottom:12px"><input id="extcite-q" class="mkt-review-input" style="min-height:0;flex:1" placeholder="Paste a title, URL, or DOI…"><button class="mkt-btn-teal" onclick="extCiteGen()"><i class="ti ti-bolt" aria-hidden="true"></i> Cite</button></div><div>${items.length ? items.map((c, idx) => `<div class="mkt-review-item"><div class="mkt-review-body">${mktEsc(c.text)}</div><div style="display:flex;gap:6px;margin-top:6px;align-items:center"><span class="mkt-cat-pill" style="cursor:default">${mktEsc(c.fmt)}</span><button class="mkt-btn-ghost mkt-btn-sm" onclick="extCiteCopy(${idx})">Copy</button><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extCiteDel(${idx})">Delete</button></div></div>`).join('') : `<div class="mkt-empty-state"><i class="ti ti-file-text" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No citations yet.</div></div>`}</div>`;
+}
+function extCiteRender() { const r = document.getElementById('extcite-root'); if (r) r.innerHTML = extCiteInner(); }
+function extCiteFmt(f) { _extCiteFmt = f; extCiteRender(); }
+async function extCiteGen() {
+  const inp = document.getElementById('extcite-q');
+  const q = inp ? inp.value.trim() : '';
+  if (!q) return;
+  if (inp) { inp.value = 'Generating…'; inp.disabled = true; }
+  let text = '';
+  try { text = await acadAsk(`Generate a ${_extCiteFmt} citation for: "${q}". Return ONLY the formatted citation, no commentary.`, 'citation_engine'); } catch (e) {}
+  if (inp) inp.disabled = false;
+  if (!text) { mktToast('Citation failed — try again'); if (inp) inp.value = q; return; }
+  const sid = _extSpaceId();
+  const items = (extData(sid, 'ext-citation').items) || [];
+  items.unshift({ text: String(text).trim(), fmt: _extCiteFmt });
+  extSave(sid, 'ext-citation', { items });
+  extCiteRender();
+}
+function extCiteCopy(i) { const items = (extData(_extSpaceId(), 'ext-citation').items) || []; const c = items[i]; if (c && navigator.clipboard) { navigator.clipboard.writeText(c.text); mktToast('Copied'); } }
+function extCiteDel(i) { const sid = _extSpaceId(); const items = (extData(sid, 'ext-citation').items) || []; items.splice(i, 1); extSave(sid, 'ext-citation', { items }); extCiteRender(); }
