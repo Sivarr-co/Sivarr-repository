@@ -445,6 +445,10 @@ body.offline .layout {
   cursor: pointer; transition: var(--transition);
 }
 .sb-spaces-add:hover { border-color: var(--teal); color: var(--teal); }
+.sb-spaces-head { cursor: pointer; user-select: none; }
+.sb-spaces-caret { font-size: .8rem; color: var(--text4); transition: transform .18s; }
+#sgi-spaces.collapsed { display: none; }
+.sb-spaces-head.collapsed .sb-spaces-caret { transform: rotate(-90deg); }
 
 .sp-row {
   display: flex; align-items: center; gap: 8px;

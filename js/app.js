@@ -13647,6 +13647,24 @@ function spaceRenderSidebar() {
       </span>
     </button>`;
   }).join('');
+
+  // Restore the Spaces dropdown collapse state.
+  try {
+    const collapsed = localStorage.getItem('sivarr_spaces_collapsed') === '1';
+    const grp = $('sgi-spaces'), head = $('sb-spaces-head');
+    if (grp)  grp.classList.toggle('collapsed', collapsed);
+    if (head) head.classList.toggle('collapsed', collapsed);
+  } catch(e) {}
+}
+
+// Collapse/expand the sidebar Spaces dropdown (persisted).
+function spacesToggle() {
+  const grp = $('sgi-spaces'), head = $('sb-spaces-head');
+  if (!grp) return;
+  const collapsed = !grp.classList.contains('collapsed');
+  grp.classList.toggle('collapsed', collapsed);
+  if (head) head.classList.toggle('collapsed', collapsed);
+  try { localStorage.setItem('sivarr_spaces_collapsed', collapsed ? '1' : '0'); } catch(e) {}
 }
 
 // ── Open a space ─────────────────────────────────────────────
