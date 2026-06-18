@@ -3244,7 +3244,7 @@ function glAskSivaGoal(id) {
     ? ' Key results: ' + krs.map(k => `${k.title} (${k.current}/${k.target}${k.unit?' '+k.unit:''})`).join(', ') + '.'
     : '';
   const prompt = `My goal: "${g.title}"${g.subject?' ('+g.subject+')':''}. Progress: ${g.progress||0}%${health?', status: '+health.label:''}.${krSummary}${g.deadline?` Deadline: ${g.deadline}.`:''} Help me stay on track — what should I focus on next?`;
-  nav('sivarr');
+  nav('chat');
   setTimeout(() => {
     const ci = $('ci');
     if (ci) { ci.value = prompt; ci.focus(); }
@@ -5114,15 +5114,11 @@ let _spType = null;
 
 const SP_PERSONAL_TABS = [
   { key:'task-tracker', icon:'✅', label:'Task Tracker', route:'flux'        },
-  { key:'document-hub', icon:'📄', label:'Document Hub', route:'documenthub' },
-  { key:'meetings',     icon:'📅', label:'Meetings',      route:'studygroups' },
   { key:'content-hub',  icon:'🧠', label:'Content Hub',  route:'contenthub'  },
 ];
 const SP_ORG_TABS = [
   { key:'goals',       icon:'🎯', label:'Goals',     route:'goals'       },
-  { key:'team',        icon:'👥', label:'Team',       route:'studygroups' },
   { key:'knowledge',   icon:'📚', label:'Knowledge',  route:'notes'       },
-  { key:'org-insights',icon:'📊', label:'Insights',   route:'progress'    },
 ];
 
 function spGetAll() {
@@ -5284,30 +5280,19 @@ const CMD_ITEMS = [
   { icon:'💬', label:'Chat',          tag:'AI',        action:() => nav('chat',null) },
   { icon:'📝', label:'Quiz',          tag:'AI',        action:() => nav('quiz',null) },
   { icon:'🧪', label:'Study Deck',    tag:'AI',        action:() => nav('lab',null) },
-  { icon:'📚', label:'Courses',       tag:'Academics', action:() => { nav('courses',null); loadClasses(); } },
-  { icon:'🎓', label:'Learning Hub',  tag:'Academics', action:() => nav('learninghub',null) },
   { icon:'📢', label:'Announcements', tag:'Academics', action:() => nav('announcements',null) },
   { icon:'✅', label:'Tasks',         tag:'Planner',   action:() => nav('flux',null) },
   { icon:'📓', label:'Notes',         tag:'Planner',   action:() => nav('notes',null) },
   { icon:'🗺️', label:'Study Plan',   tag:'Planner',   action:() => nav('studyplan',null) },
-  { icon:'⏱', label:'Study Timer',   tag:'Planner',   action:() => nav('pomodoro',null) },
-  { icon:'👥', label:'Study Groups',  tag:'Planner',   action:() => nav('studygroups',null) },
   { icon:'📝', label:'Quizzes',       tag:'Assessments',action:() => nav('quiz',null) },
-  { icon:'📊', label:'Progress',      tag:'Insights',  action:() => nav('progress',null) },
   { icon:'🎯', label:'Goals',         tag:'Spaces',    action:() => nav('goals',null) },
   { icon:'🧠', label:'Skills',        tag:'Life',      action:() => nav('skills',null) },
   { icon:'💰', label:'Finance',       tag:'Life',      action:() => nav('finance',null) },
   { icon:'📋', label:'Weekly Review', tag:'Life',      action:() => nav('review',null) },
-  { icon:'📄', label:'Document Hub',  tag:'Spaces',    action:() => nav('documenthub',null) },
   { icon:'🧠', label:'Content Hub',   tag:'Spaces',    action:() => nav('contenthub',null) },
   { icon:'⚙️', label:'Settings',      tag:'',          action:() => nav('settings',null) },
   { icon:'➕', label:'Create New',    tag:'',          action:() => cnOpen() },
   // Org panels
-  { icon:'👥', label:'Team',          tag:'Org',       action:() => nav('team',null) },
-  { icon:'💬', label:'Team Chat',     tag:'Org',       action:() => nav('orgchat',null) },
-  { icon:'🗂', label:'Projects',      tag:'Org',       action:() => nav('projects',null) },
-  { icon:'🪪', label:'People & HR',   tag:'Org',       action:() => nav('hr',null) },
-  { icon:'⚡', label:'Automations',   tag:'Org',       action:() => nav('automations',null) },
   { icon:'🎯', label:'Opportunities', tag:'Connect',   action:() => nav('opportunities',null) },
   { icon:'🧑', label:'My Profile',    tag:'',          action:() => nav('profile',null) },
   // Actions
@@ -7689,21 +7674,11 @@ function navMobAI(feature) {
     'ask-notes':       () => { setTimeout(() => $('attach-btn')?.click(), 300); },
     'study-help':      () => { setTimeout(() => { const ci = $('ci'); if (ci) { ci.value = 'Help me plan and structure my study tasks'; ci.focus(); }}, 300); },
     'study-plan':      () => { setTimeout(() => { const ci = $('ci'); if (ci) { ci.value = 'Create a personalised weekly study plan for me'; ci.focus(); }}, 300); },
-    'weak-areas':      () => { setTimeout(() => getSuggestions && getSuggestions(), 400); },
     'recommendations': () => { setTimeout(() => getSuggestions && getSuggestions(), 400); },
   };
   if (prompts[feature]) prompts[feature]();
 }
 
-// Navigate to courses and open exam entry tab
-function navMobExamEntry() {
-  nav('courses', null);
-  closeMobileSidebar();
-  setTimeout(() => {
-    const examTab = document.querySelector('.ctab[onclick*="exam-entry"]');
-    if (examTab) examTab.click();
-  }, 350);
-}
 
 // Swipe left to close sidebar
 
@@ -7755,8 +7730,6 @@ const SNAV_ROUTE = {
   'generate-quiz':   () => nav('quiz', null),
   'study-help-ai':   () => { nav('chat', null); setTimeout(() => { const ci=$('ci'); if(ci){ci.value='Help me build a study plan';ci.focus();} }, 300); },
   // Academics
-  'courses':         () => { nav('courses', null); setTimeout(() => loadClasses(), 200); },
-  'materials':       () => nav('learninghub', null),
   'announcements':   () => nav('announcements', null),
   // Planner
   'tasks':           () => nav('flux', null),
@@ -7764,27 +7737,17 @@ const SNAV_ROUTE = {
   'study-deck':      () => nav('lab', null),
   'study-plan':      () => nav('studyplan', null),
   'studyplan':       () => nav('studyplan', null),
-  'pomodoro':        () => nav('pomodoro', null),
-  'study-timer':     () => nav('pomodoro', null),
-  'study-groups':    () => nav('studygroups', null),
   // Assessments
   'quizzes':         () => nav('quiz', null),
-  'exams':           () => { nav('courses', null); setTimeout(() => { const b=document.querySelector('.ctab[onclick*="exam-entry"]'); if(b)b.click(); }, 350); },
   'results':         () => nav('stats', null),
   // Insights
-  'progress':        () => nav('progress', null),
-  'weak-areas':      () => { nav('progress', null); setTimeout(() => { const wa=$('weak-section'); if(wa)wa.scrollIntoView({behavior:'smooth'}); }, 400); },
   'recommendations': () => { nav('chat', null); setTimeout(() => getSuggestions(), 400); },
   // Spaces - Personal
   'task-tracker':    () => nav('flux', null),
-  'document-hub':    () => nav('documenthub', null),
-  'meetings':        () => nav('studygroups', null),
   'content-hub':     () => nav('contenthub', null),
   // Spaces - Org
   'goals':           () => nav('goals', null),
-  'team':            () => nav('studygroups', null),
   'knowledge':       () => nav('notes', null),
-  'org-insights':    () => nav('progress', null),
   // Global
   'create-new':      () => { cnOpen(); },
   'settings':        () => nav('settings', null),
@@ -7915,7 +7878,6 @@ function nav(name, btn) {
   if (name === 'more')          syncMore();
   if (name === 'leaderboard')   loadLeaderboard();
   if (name === 'flux')          loadStudyHelp();
-  if (name === 'courses')       loadClasses();
   if (name === 'announcements') annLoad();
   if (name === 'studyplan') {
     $('sp-date') && ($('sp-date').min = new Date().toISOString().split('T')[0]);
@@ -7923,12 +7885,7 @@ function nav(name, btn) {
   }
   if (name === 'contenthub') chInit();
   if (name === 'settings')   stInit();
-  if (name === 'progress')    loadProgress();
   if (name === 'goals')       glLoad();
-  if (name === 'documenthub') dhInit();
-  if (name === 'learninghub') lhInit();
-  if (name === 'studygroups') sgInit();
-  if (name === 'pomodoro')    pomInit();
   if (name === 'quiz' && !S.quizActive) {
     const qd = $('qd-label'); if (qd) qd.textContent = S.diff.charAt(0).toUpperCase()+S.diff.slice(1);
   }
@@ -7969,17 +7926,11 @@ function navTab(name, btn) {
   if (name === 'leaderboard')   loadLeaderboard();
   if (name === 'notes')         docInit();
   if (name === 'flux')          loadStudyHelp();
-  if (name === 'courses')       loadClasses();
   if (name === 'announcements') annLoad();
   if (name === 'studyplan') { const d = new Date(); d.setDate(d.getDate()+14); $('sp-date') && ($('sp-date').min = new Date().toISOString().split('T')[0]); }
   if (name === 'contenthub') chInit();
   if (name === 'settings')   stInit();
-  if (name === 'progress')    loadProgress();
   if (name === 'goals')       glLoad();
-  if (name === 'documenthub') dhInit();
-  if (name === 'learninghub') lhInit();
-  if (name === 'studygroups') sgInit();
-  if (name === 'pomodoro')    pomInit();
   if (name === 'quiz' && !S.quizActive) {
     const qd = $('qd-label'); if (qd) qd.textContent = S.diff.charAt(0).toUpperCase()+S.diff.slice(1);
   }
