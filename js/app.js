@@ -19368,7 +19368,7 @@ function spTabPersonalHost(name, btn) { if (typeof spTab === 'function') spTab('
 const EXT_REGISTRY = {
   'ext-pomodoro':    { spaceTypes:['*'] }, 'ext-mindmap':     { spaceTypes:['*'] },
   'ext-flashcards':  { spaceTypes:['*'], render:(item)=>extFcShell(item) }, 'ext-habit': { spaceTypes:['*'] },
-  'ext-kanban-plus': { spaceTypes:['*'] }, 'ext-citation':    { spaceTypes:['*'], render:(item)=>extCiteShell(item) },
+  'ext-kanban-plus': { spaceTypes:['*'], render:(item)=>extKbShell(item) }, 'ext-citation':    { spaceTypes:['*'], render:(item)=>extCiteShell(item) },
   'ext-finance-dash':{ spaceTypes:['*'] }, 'ext-code-runner': { spaceTypes:['*'] },
   'ext-calendar':    { spaceTypes:['*'], render:(item)=>extCalShell(item) },
 };
@@ -19575,4 +19575,45 @@ async function extCalLoad() {
     const when = (d && !isNaN(d)) ? d.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: ev.allDay ? undefined : '2-digit', minute: ev.allDay ? undefined : '2-digit' }) : '';
     return `<div class="mkt-installed-row"><div class="mkt-item-icon" style="font-size:16px">📅</div><div style="flex:1"><div class="mkt-item-name">${mktEsc(ev.title)}</div><div class="mkt-item-author">${mktEsc(when)}${ev.allDay ? ' · all day' : ''}</div></div>${ev.htmlLink ? `<a class="mkt-btn-ghost mkt-btn-sm" style="text-decoration:none" href="${mktEsc(ev.htmlLink)}" target="_blank">Open</a>` : ''}</div>`;
   }).join('');
+}
+
+/* ── Real extension: Kanban+ (self-contained per-space board) ── */
+function extKbCols() { const d = extData(_extSpaceId(), 'ext-kanban-plus'); return d.cols || { todo: [], doing: [], done: [] }; }
+function extKbShell(item) {
+  return `<div class="ext-tab-shell" style="max-width:820px;align-items:stretch"><div style="text-align:center"><div class="ext-tab-icon">${item.icon}</div><div class="ext-tab-name">${mktEsc(item.name)}</div><div class="ext-tab-desc">${mktEsc(item.desc)}</div></div><div id="extkb-root" style="width:100%;margin-top:14px">${extKbInner()}</div></div>`;
+}
+function extKbInner() {
+  const cols = extKbCols();
+  const COL = [['todo', 'To do'], ['doing', 'Doing'], ['done', 'Done']];
+  return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">${COL.map(([k, label]) => `
+    <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;min-height:160px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border)"><span style="font-size:12px;font-weight:700;color:var(--text)">${label}</span><span class="mkt-count-badge">${(cols[k] || []).length}</span></div>
+      <div style="padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">${(cols[k] || []).map(c => `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:9px">
+          <div style="font-size:12px;color:var(--text);margin-bottom:6px">${mktEsc(c.title)}</div>
+          <div style="display:flex;gap:5px">${k !== 'done' ? `<button class="mkt-btn-ghost mkt-btn-sm" onclick="extKbMove('${c.id}')">Move →</button>` : ''}<button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extKbDel('${c.id}')">✕</button></div>
+        </div>`).join('') || '<div class="mkt-brief-desc" style="padding:6px">No cards.</div>'}</div>
+      <div style="padding:8px;border-top:1px solid var(--border)"><button class="mkt-btn-ghost mkt-btn-sm" style="width:100%" onclick="extKbAdd('${k}')">+ Add</button></div>
+    </div>`).join('')}</div>`;
+}
+function extKbRender() { const r = document.getElementById('extkb-root'); if (r) r.innerHTML = extKbInner(); }
+async function extKbAdd(col) {
+  const title = await siModal.input('New card', 'Card title', '', { confirmLabel: 'Add' });
+  if (!title) return;
+  const sid = _extSpaceId(); const cols = extKbCols();
+  (cols[col] = cols[col] || []).push({ id: 'k_' + Date.now(), title });
+  extSave(sid, 'ext-kanban-plus', { cols }); extKbRender();
+}
+function extKbMove(id) {
+  const order = ['todo', 'doing', 'done']; const sid = _extSpaceId(); const cols = extKbCols();
+  for (let i = 0; i < order.length - 1; i++) {
+    const k = order[i], arr = cols[k] || []; const idx = arr.findIndex(c => c.id === id);
+    if (idx > -1) { const [card] = arr.splice(idx, 1); (cols[order[i + 1]] = cols[order[i + 1]] || []).push(card); break; }
+  }
+  extSave(sid, 'ext-kanban-plus', { cols }); extKbRender();
+}
+function extKbDel(id) {
+  const sid = _extSpaceId(); const cols = extKbCols();
+  ['todo', 'doing', 'done'].forEach(k => { cols[k] = (cols[k] || []).filter(c => c.id !== id); });
+  extSave(sid, 'ext-kanban-plus', { cols }); extKbRender();
 }
