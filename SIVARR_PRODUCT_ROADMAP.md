@@ -666,7 +666,7 @@ ADMIN_PASSWORD             = (strong password)
 
 # Email (required for signup to work)
 RESEND_API_KEY             = re_xxxxxxxxxxxxx
-RESEND_FROM_EMAIL          = SIVARR <noreply@sivarr.app>
+RESEND_FROM_EMAIL          = SIVARR <noreply@sivarr.com>
 RESEND_REPLY_TO            = connectsivarr@gmail.com
 
 # Google OAuth (required for "Sign in with Google")
@@ -682,7 +682,7 @@ PAYSTACK_PUBLIC_KEY        = pk_live_xxxxx
 
 # Optional but recommended
 SENTRY_DSN                 = (error tracking)
-PLAUSIBLE_DOMAIN           = sivarr.app (or your domain)
+PLAUSIBLE_DOMAIN           = sivarr.com (or your domain)
 STRIPE_SECRET_KEY          = sk_live_xxxxx (for agent marketplace)
 STRIPE_WEBHOOK_SECRET      = whsec_xxxxx
 ```

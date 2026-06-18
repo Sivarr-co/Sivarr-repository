@@ -12,7 +12,7 @@ Google all failing in a lockout loop — steps A, B, D, E, G are exactly that lo
 ## Setup
 - `BASE` = your prod origin. **Currently the Railway URL** —
   `https://sivarr-repository-production.up.railway.app` — `BASE_URL` has NOT
-  been cut over to `sivarr.app` yet (the custom domain isn't routed). Test the
+  been cut over to `sivarr.com` yet (the custom domain isn't routed). Test the
   Railway URL until the cutover, and keep `BASE` == whatever `BASE_URL` is set
   to (email/OAuth links use `BASE_URL`).
 - A **fresh** email you control (real inbox — verification + reset links go there).

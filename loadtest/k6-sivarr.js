@@ -13,10 +13,10 @@
 //   registers a pool of synthetic users and reads/writes their data.
 //
 //   # smoke (10 VUs, 30s) — prove the script + target work
-//   k6 run -e BASE_URL=https://staging.sivarr.app -e PROFILE=smoke loadtest/k6-sivarr.js
+//   k6 run -e BASE_URL=https://staging.sivarr.com -e PROFILE=smoke loadtest/k6-sivarr.js
 //
 //   # full ramp to 1000 concurrent
-//   k6 run -e BASE_URL=https://staging.sivarr.app -e PROFILE=peak loadtest/k6-sivarr.js
+//   k6 run -e BASE_URL=https://staging.sivarr.com -e PROFILE=peak loadtest/k6-sivarr.js
 //
 //   # include the AI endpoints in the mix (expect 429s once daily caps hit)
 //   k6 run -e BASE_URL=... -e PROFILE=peak -e INCLUDE_AI=1 loadtest/k6-sivarr.js

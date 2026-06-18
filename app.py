@@ -153,7 +153,7 @@ if not LECTURER_PASSWORD:
     print("CRITICAL: LECTURER_PASSWORD env var is not set. Lecturer login is disabled.", file=sys.stderr)
 BASE_URL           = os.environ.get("BASE_URL", "https://sivarr.up.railway.app")
 RESEND_API_KEY     = os.environ.get("RESEND_API_KEY", "")
-RESEND_FROM        = os.environ.get("RESEND_FROM_EMAIL", "Sivarr <noreply@sivarr.app>")
+RESEND_FROM        = os.environ.get("RESEND_FROM_EMAIL", "Sivarr <noreply@sivarr.com>")
 RESEND_REPLY_TO    = os.environ.get("RESEND_REPLY_TO", "Connectsivarr@gmail.com")
 GMAIL_USER         = os.environ.get("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
@@ -1700,7 +1700,7 @@ app.mount("/js",     StaticFiles(directory="js"),     name="js")
 _cors_origins = list({o.strip() for o in [
     BASE_URL.rstrip('/'),
     "https://sivarr.up.railway.app",
-    "https://sivarr.app",
+    "https://sivarr.com",
 ] if o.strip()})
 app.add_middleware(
     CORSMiddleware,
@@ -6945,7 +6945,7 @@ async def paystack_initialize(data: dict):
     reference   = f"siv_{uuid.uuid4().hex[:16]}"
 
     payload = {
-        "email":       email or f"buyer_{sid}@sivarr.app",
+        "email":       email or f"buyer_{sid}@sivarr.com",
         "amount":      amount_kobo,
         "currency":    "NGN",
         "reference":   reference,
@@ -8813,7 +8813,7 @@ async def billing_subscribe(data: dict):
         email = load_progress(sid).get("email","")
     reference = f"sivbill_{uuid.uuid4().hex[:16]}"
     payload = {
-        "email":        email or f"user_{sid}@sivarr.app",
+        "email":        email or f"user_{sid}@sivarr.com",
         "amount":       plan["amount_ngn"] * 100,
         "currency":     "NGN",
         "reference":    reference,

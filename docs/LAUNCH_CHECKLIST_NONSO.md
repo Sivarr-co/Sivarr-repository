@@ -12,9 +12,9 @@
 ### A1. 🔴 Email for real users (Resend domain + paid tier)
 Right now prod sends via the Resend **sandbox** sender (`onboarding@resend.dev`) which
 ONLY delivers to your own Resend account address. Real users get nothing.
-1. resend.com/domains → add **`sivarr.app`** → add the shown **SPF + DKIM TXT** records to your DNS.
+1. resend.com/domains → add **`sivarr.com`** → add the shown **SPF + DKIM TXT** records to your DNS.
 2. Wait for "Verified".
-3. Railway → Variables → set **`RESEND_FROM_EMAIL = noreply@sivarr.app`** (off the sandbox).
+3. Railway → Variables → set **`RESEND_FROM_EMAIL = noreply@sivarr.com`** (off the sandbox).
 4. Move Resend to a **paid tier** (free = 100 emails/day; a 1000 launch needs ~50k/mo).
 5. Test: register a brand-new email → confirm the **verification email arrives**, click it, sign in.
    (Pipe already proven; this is the domain + volume step.)

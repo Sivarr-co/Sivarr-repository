@@ -10,20 +10,20 @@ never prod** — it provisions synthetic users and reads/writes their data.
 2. A **staging** deploy with its **own database** (don't share prod's).
 3. Before running, sanity-check the target is healthy:
    ```
-   curl https://staging.sivarr.app/api/health
+   curl https://staging.sivarr.com/api/health
    ```
    Want `db:true` and — once `REDIS_URL` is set — `redis:true`.
 
 ## Run
 ```bash
 # 1. smoke test first (10 VUs, 30s) — proves script + target
-k6 run -e BASE_URL=https://staging.sivarr.app -e PROFILE=smoke loadtest/k6-sivarr.js
+k6 run -e BASE_URL=https://staging.sivarr.com -e PROFILE=smoke loadtest/k6-sivarr.js
 
 # 2. full ramp to 1000 concurrent
-k6 run -e BASE_URL=https://staging.sivarr.app -e PROFILE=peak loadtest/k6-sivarr.js
+k6 run -e BASE_URL=https://staging.sivarr.com -e PROFILE=peak loadtest/k6-sivarr.js
 
 # 3. (optional) include the AI endpoints — expect 429s as daily caps hit
-k6 run -e BASE_URL=https://staging.sivarr.app -e PROFILE=peak -e INCLUDE_AI=1 loadtest/k6-sivarr.js
+k6 run -e BASE_URL=https://staging.sivarr.com -e PROFILE=peak -e INCLUDE_AI=1 loadtest/k6-sivarr.js
 ```
 
 Profiles: `smoke` (10), `ramp` (→1000 over ~11m, default), `peak` (→1000 fast,

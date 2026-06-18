@@ -18,7 +18,7 @@ Var names are exact (`app.py` / `config.py` / `database.py` / `rcache.py`).
 - [ ] **`BASE_URL`** — the **prod** origin. Wrong value silently breaks email
       verify links, password-reset links, and the Google OAuth redirect.
       Currently the **Railway URL** (`sivarr-repository-production.up.railway.app`);
-      NOT yet cut over to `sivarr.app`. When you switch the custom domain: update
+      NOT yet cut over to `sivarr.com`. When you switch the custom domain: update
       `BASE_URL`, the Google OAuth authorized redirect URIs, and re-run the auth
       smoke test against the new origin.
 - [ ] **`APP_ENCRYPTION_KEY`** ⚠️ — activates secrets-at-rest (Fernet). **Unset =

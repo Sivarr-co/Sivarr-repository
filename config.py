@@ -97,7 +97,7 @@ if not LECTURER_PASSWORD:
 
 BASE_URL          = os.environ.get("BASE_URL", "https://sivarr.up.railway.app")
 RESEND_API_KEY    = os.environ.get("RESEND_API_KEY", "")
-RESEND_FROM       = os.environ.get("RESEND_FROM_EMAIL", "Sivarr <noreply@sivarr.app>")
+RESEND_FROM       = os.environ.get("RESEND_FROM_EMAIL", "Sivarr <noreply@sivarr.com>")
 RESEND_REPLY_TO   = os.environ.get("RESEND_REPLY_TO", "Connectsivarr@gmail.com")
 
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
