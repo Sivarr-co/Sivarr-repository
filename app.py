@@ -3900,6 +3900,41 @@ async def reset_progress(data: dict):
     return {"ok": True}
 
 
+@app.post("/api/chat/clear")
+async def chat_clear(data: dict):
+    """Clear only the authenticated user's chat history (token-authed, IDOR-safe)."""
+    sid, _ = _resolve_token(data)
+    p = load_progress(sid)
+    p["chat_history"] = []
+    save_progress(sid, p)
+    return {"ok": True}
+
+
+@app.post("/api/account/delete")
+async def account_delete(data: dict):
+    """Self-serve account deletion — deletes the CALLER's own data (token-authed;
+    body sid ignored). Distinct from the admin delete endpoint."""
+    sid, _ = _resolve_token(data)
+    users = load_users()
+    users.pop(sid, None)
+    save_users(users)
+    try:
+        pf = ppath(sid)
+        if pf.exists():
+            pf.unlink()
+    except Exception:
+        pass
+    if db.is_available():
+        try:
+            db.delete_user_cascade(sid)
+        except Exception as e:
+            log.error(f"account_delete cascade failed: {e}")
+    for t in [t for t, v in _session_tokens.items() if v.get("sid") == sid]:
+        delete_session_token(t)
+    log.info(f"User self-deleted account {sid[:12]}")
+    return {"ok": True}
+
+
 # ── File Upload ───────────────────────────────────────────────
 
 _FILE_MAGIC: dict[str, bytes] = {

@@ -4122,6 +4122,7 @@ function stInit() {
 
   // Org settings (Blueprint Stage 3) — shown only when the user is in an org
   if (typeof orgSettingsInit === 'function') orgSettingsInit();
+  if (typeof stExtrasRestore === 'function') stExtrasRestore();
 }
 
 function stUpdateUsage() {
@@ -18327,4 +18328,49 @@ async function orgSettingsLoadAudit() {
   el.innerHTML = rows.length
     ? rows.slice(0, 20).map(a => `<div style="font-size:.74rem;color:var(--muted);padding:3px 0"><strong style="color:var(--text)">${esc(a.actor || '')}</strong> — ${esc(a.action || '')} <span style="opacity:.6">· ${esc(String(a.ts || '').replace('T', ' ').slice(0, 16))}</span></div>`).join('')
     : `<div style="font-size:.76rem;color:var(--muted)">No admin activity yet.</div>`;
+}
+
+/* ── Stage 3: data controls + notification channels + timezone ── */
+function stExtrasRestore() {
+  [['inapp', 'st-notifch-inapp'], ['email', 'st-notifch-email']].forEach(([k, id]) => {
+    const el = document.getElementById(id); if (!el) return;
+    if (localStorage.getItem('sivarr_notifch_' + k) === 'off') el.classList.remove('on'); else el.classList.add('on');
+  });
+  const tz = document.getElementById('st-tz-select');
+  if (tz) {
+    const saved = localStorage.getItem('sivarr_timezone'); if (saved) tz.value = saved;
+    tz.onchange = () => { try { localStorage.setItem('sivarr_timezone', tz.value); } catch (e) {} if (typeof toast === 'function') toast('Timezone saved'); };
+  }
+}
+function stToggleNotifCh(btn, key) {
+  const on = !btn.classList.contains('on');
+  btn.classList.toggle('on', on);
+  try { localStorage.setItem('sivarr_notifch_' + key, on ? 'on' : 'off'); } catch (e) {}
+}
+async function stExportData() {
+  if (typeof toast === 'function') toast('Preparing your data…');
+  try {
+    const sid = S.sid;
+    const g = k => { try { return JSON.parse(localStorage.getItem(`sivarr_${k}_${sid}`) || 'null'); } catch (e) { return null; } };
+    const body = { token: localStorage.getItem('sivarr_token'), habits: g('habits') || [], journal: g('journal') || [], finance: g('finance') || {}, skills: g('skills') || [] };
+    const r = await fetch('/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error('export failed');
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'sivarr-data.zip'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    if (typeof toast === 'function') toast('Data exported');
+  } catch (e) { if (typeof toast === 'function') toast('Export failed — try again'); }
+}
+async function stClearChat() {
+  if (!confirm('Clear your chat history? This cannot be undone.')) return;
+  try { await acadAPI('/api/chat/clear', {}); if (typeof toast === 'function') toast('Chat history cleared'); }
+  catch (e) { if (typeof toast === 'function') toast('Could not clear chat'); }
+}
+async function stDeleteAccount() {
+  if (!confirm('Delete your account permanently? All your data will be removed.')) return;
+  if (!confirm('This is final — there is no undo. Delete everything?')) return;
+  try { await acadAPI('/api/account/delete', {}); } catch (e) {}
+  try { localStorage.clear(); } catch (e) {}
+  location.href = '/';
 }

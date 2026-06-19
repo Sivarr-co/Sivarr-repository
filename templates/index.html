@@ -1577,6 +1577,18 @@ Sentry.onLoad(function() {
                 <div class="st-label" style="margin-bottom:4px">Phone</div>
                 <input class="st-input" id="st-phone-input" type="tel" placeholder="+234 800 000 0000">
               </div>
+              <div>
+                <div class="st-label" style="margin-bottom:4px">Timezone</div>
+                <select class="st-input" id="st-tz-select">
+                  <option value="Africa/Lagos">Africa/Lagos (WAT)</option>
+                  <option value="Africa/Accra">Africa/Accra (GMT)</option>
+                  <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
+                  <option value="Africa/Johannesburg">Africa/Johannesburg (SAST)</option>
+                  <option value="Europe/London">Europe/London</option>
+                  <option value="America/New_York">America/New_York</option>
+                  <option value="UTC">UTC</option>
+                </select>
+              </div>
               <button onclick="stSaveProfile()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:9px;padding:9px 20px;color:#fff;font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer;transition:opacity .2s;width:100%"
                 onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
                 Save Profile
@@ -1630,6 +1642,19 @@ Sentry.onLoad(function() {
               <div class="st-row">
                 <span class="st-label">Quiz results</span>
                 <button class="st-toggle on" id="st-notif-quiz" onclick="stToggleNotif(this,'quiz')"></button>
+              </div>
+              <div class="st-label" style="margin:12px 0 4px;font-size:.7rem;letter-spacing:.04em;opacity:.8">CHANNELS</div>
+              <div class="st-row">
+                <span class="st-label">In-app</span>
+                <button class="st-toggle on" id="st-notifch-inapp" onclick="stToggleNotifCh(this,'inapp')"></button>
+              </div>
+              <div class="st-row">
+                <span class="st-label">Email</span>
+                <button class="st-toggle on" id="st-notifch-email" onclick="stToggleNotifCh(this,'email')"></button>
+              </div>
+              <div class="st-row" style="opacity:.55">
+                <span class="st-label">WhatsApp <span style="font-size:.62rem;color:var(--muted)">· coming soon</span></span>
+                <button class="st-toggle" id="st-notifch-whatsapp" disabled title="WhatsApp integration coming soon"></button>
               </div>
             </div>
           </div>
@@ -1771,6 +1796,21 @@ Sentry.onLoad(function() {
               <button class="st-btn danger" onclick="stClearChat()">🗑️ Clear chat history</button>
               <button class="st-btn danger" onclick="stClearWrong()">🗑️ Clear revision list</button>
               <button class="st-btn danger" onclick="stResetProgress()">⚠️ Reset all progress</button>
+            </div>
+          </div>
+
+          <!-- Data & Privacy (Blueprint Stage 3) -->
+          <div class="st-section" id="st-sec-data">
+            <div class="st-section-hd" onclick="stToggleSection('data')">
+              <div class="st-section-icon" style="background:#60a5fa20">🔒</div>
+              <div class="st-section-title">Data &amp; Privacy</div>
+              <i class="ti ti-chevron-down st-section-chevron"></i>
+            </div>
+            <div class="st-section-body">
+              <button onclick="stExportData()" style="width:100%;background:transparent;border:1px solid var(--border);border-radius:9px;padding:9px;color:var(--text);font-family:var(--font);font-size:.82rem;font-weight:600;cursor:pointer;margin-bottom:8px"><i class="ti ti-download"></i> Export my data (ZIP)</button>
+              <button onclick="stClearChat()" style="width:100%;background:transparent;border:1px solid var(--border);border-radius:9px;padding:9px;color:var(--text);font-family:var(--font);font-size:.82rem;font-weight:600;cursor:pointer;margin-bottom:8px"><i class="ti ti-eraser"></i> Clear chat history</button>
+              <button onclick="stDeleteAccount()" style="width:100%;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:9px;padding:9px;color:#f87171;font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer"><i class="ti ti-trash"></i> Delete my account</button>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:8px;opacity:.75">Deleting your account is permanent and removes all your data.</div>
             </div>
           </div>
 
@@ -4413,7 +4453,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260619c" defer></script>
+<script src="/js/app.js?v=20260619d" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
