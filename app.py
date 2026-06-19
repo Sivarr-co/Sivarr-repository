@@ -7319,7 +7319,7 @@ async def user_onboarding(data: dict):
 
 @app.post("/api/org/update")
 async def org_update(data: dict):
-    sid, _ = _resolve_token(data)
+    sid, actor = _resolve_token(data)
     if not db.is_available():
         raise HTTPException(503, "Database unavailable.")
     org = db.get_org_by_member(sid)
@@ -7338,7 +7338,90 @@ async def org_update(data: dict):
     if not updates:
         raise HTTPException(400, "Nothing to update.")
     db.update_org(org["id"], sid, updates)
+    _org_audit(org["id"], sid, actor, "Updated organisation profile")
     return {"ok": True, **updates}
+
+
+# ── Org settings: member role/remove + audit log (Blueprint Stage 3) ──
+def _org_audit(org_id: str, actor_sid: str, actor_name: str, action: str):
+    """Append an admin action to the org audit log (collections, owner=org_id)."""
+    try:
+        aid = uuid.uuid4().hex[:12]
+        db.coll_put("org_audit", aid,
+                    {"id": aid, "ts": datetime.datetime.utcnow().isoformat(),
+                     "actor_sid": actor_sid, "actor": actor_name or "", "action": action},
+                    owner=org_id)
+    except Exception as exc:
+        log.error(f"org audit failed: {exc}")
+
+
+def _org_member_sid(m: dict) -> str:
+    return m.get("sid") or m.get("user_sid") or ""
+
+
+@app.post("/api/org/member/role")
+async def org_member_role(data: dict):
+    sid, actor = _resolve_token(data)
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org:
+        raise HTTPException(404, "You don't belong to an organization.")
+    if org.get("owner_sid") != sid:
+        raise HTTPException(403, "Only the owner can change member roles.")
+    target = sanitize_text(str(data.get("sid", "")), 40)
+    role   = sanitize_text(str(data.get("role", "")), 20)
+    if role not in ("admin", "manager", "member", "guest"):
+        raise HTTPException(400, "Invalid role.")
+    if target == org.get("owner_sid"):
+        raise HTTPException(400, "The owner's role can't be changed.")
+    if not db.set_org_member_role(org["id"], target, role):
+        raise HTTPException(404, "Member not found.")
+    members = db.get_org_members(org["id"])
+    tname = next((m.get("name") for m in members if _org_member_sid(m) == target), target[:8])
+    _org_audit(org["id"], sid, actor, f"Set {tname}'s role to {role}")
+    return {"ok": True}
+
+
+@app.post("/api/org/member/remove")
+async def org_member_remove(data: dict):
+    sid, actor = _resolve_token(data)
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org:
+        raise HTTPException(404, "You don't belong to an organization.")
+    if org.get("member_role") not in ("owner", "admin"):
+        raise HTTPException(403, "Only owners and admins can remove members.")
+    target = sanitize_text(str(data.get("sid", "")), 40)
+    if target == sid:
+        raise HTTPException(400, "You can't remove yourself.")
+    tgt = next((m for m in db.get_org_members(org["id"]) if _org_member_sid(m) == target), None)
+    if not tgt:
+        raise HTTPException(404, "Member not found.")
+    trole = tgt.get("role", "member")
+    if trole == "owner":
+        raise HTTPException(400, "The owner can't be removed.")
+    if org.get("member_role") == "admin" and trole in ("admin", "manager"):
+        raise HTTPException(403, "Admins can only remove members and guests.")
+    if not db.remove_org_member(org["id"], target):
+        raise HTTPException(404, "Member not found.")
+    _org_audit(org["id"], sid, actor, f"Removed {tgt.get('name', target[:8])} ({trole})")
+    return {"ok": True}
+
+
+@app.post("/api/org/audit")
+async def org_audit_list(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    org = db.get_org_by_member(sid)
+    if not org:
+        raise HTTPException(404, "You don't belong to an organization.")
+    if org.get("member_role") not in ("owner", "admin"):
+        raise HTTPException(403, "Only owners and admins can view the audit log.")
+    rows = sorted(db.coll_list("org_audit", owner=org["id"]), key=lambda a: a.get("ts", ""), reverse=True)
+    return {"ok": True, "audit": rows[:100]}
 
 
 @app.post("/api/org/invite")

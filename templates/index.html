@@ -1774,6 +1774,32 @@ Sentry.onLoad(function() {
             </div>
           </div>
 
+          <!-- Organisation (Blueprint Stage 3) — shown only when the user is in an org -->
+          <div class="st-section" id="st-sec-org" style="display:none">
+            <div class="st-section-hd" onclick="stToggleSection('org')">
+              <div class="st-section-icon" style="background:#0FDBAD20">🏢</div>
+              <div class="st-section-title">Organisation</div>
+              <i class="ti ti-chevron-down st-section-chevron"></i>
+            </div>
+            <div class="st-section-body">
+              <div id="st-org-profile" style="display:none">
+                <div class="st-label" style="margin-bottom:4px">Organisation name</div>
+                <input class="st-input" id="st-org-name" type="text" placeholder="Organisation name">
+                <div class="st-label" style="margin:8px 0 4px">Description</div>
+                <input class="st-input" id="st-org-desc" type="text" placeholder="What does your org do?">
+                <button onclick="orgSettingsSaveProfile()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:9px;padding:9px 20px;color:#fff;font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer;width:100%;margin-top:8px">Save Organisation</button>
+              </div>
+              <div class="st-label" style="margin:14px 0 6px">Members <span id="st-org-mcount" style="font-size:.7rem;color:var(--muted)"></span></div>
+              <div id="st-org-members"><div style="font-size:.78rem;color:var(--muted)">Loading…</div></div>
+              <button id="st-org-invite" style="display:none;width:100%;background:transparent;border:1px solid var(--border);border-radius:9px;padding:8px;color:var(--muted);font-family:var(--font);font-size:.8rem;font-weight:600;cursor:pointer;margin-top:8px" onclick="orgSettingsInvite()"><i class="ti ti-user-plus"></i> Invite member</button>
+              <div id="st-org-audit-wrap" style="display:none">
+                <div class="st-label" style="margin:16px 0 6px">Recent admin activity</div>
+                <div id="st-org-audit"></div>
+              </div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:12px;opacity:.7">Departments &amp; org invoices coming soon.</div>
+            </div>
+          </div>
+
           <div style="text-align:center;padding:1rem 0;font-size:.72rem;color:var(--muted)">
             Sivarr AI · Built with 🔥 for students
           </div>
@@ -4387,7 +4413,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260619b" defer></script>
+<script src="/js/app.js?v=20260619c" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

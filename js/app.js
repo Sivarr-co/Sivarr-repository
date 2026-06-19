@@ -4119,6 +4119,9 @@ function stInit() {
   // Usage bars + plan details
   stUpdateUsage();
   stLoadBillingHistory();
+
+  // Org settings (Blueprint Stage 3) — shown only when the user is in an org
+  if (typeof orgSettingsInit === 'function') orgSettingsInit();
 }
 
 function stUpdateUsage() {
@@ -18257,3 +18260,71 @@ function cmdRecentHTML() {
   return rows ? `<div class="cmd-section-label">Recent</div>${rows}` : '';
 }
 function cmdRunNamed(name) { cmdDismiss(); if (typeof nav === 'function') nav(name); }
+
+/* ── Stage 3: Org settings (members/roles/remove + audit) — gated, shown only in an org ── */
+let _orgSet = null;
+async function orgSettingsInit() {
+  const sec = document.getElementById('st-sec-org');
+  if (!sec) return;
+  let r = null; try { r = await acadAPI('/api/org/get', {}); } catch (e) {}
+  if (!r || !r.org) { sec.style.display = 'none'; return; }
+  _orgSet = { org: r.org, members: r.members || [], role: r.org.member_role || 'member', isOwner: r.org.owner_sid === S.sid };
+  sec.style.display = '';
+  const prof = document.getElementById('st-org-profile');
+  if (prof) prof.style.display = _orgSet.isOwner ? '' : 'none';
+  if (_orgSet.isOwner) {
+    const n = document.getElementById('st-org-name'); if (n) n.value = r.org.name || '';
+    const d = document.getElementById('st-org-desc'); if (d) d.value = r.org.description || '';
+  }
+  orgSettingsRenderMembers();
+  const canInvite = ['owner', 'admin', 'manager'].includes(_orgSet.role);
+  const inv = document.getElementById('st-org-invite'); if (inv) inv.style.display = canInvite ? '' : 'none';
+  const canAudit = ['owner', 'admin'].includes(_orgSet.role);
+  const aw = document.getElementById('st-org-audit-wrap'); if (aw) aw.style.display = canAudit ? '' : 'none';
+  if (canAudit) orgSettingsLoadAudit();
+}
+function orgSettingsRenderMembers() {
+  const el = document.getElementById('st-org-members'); if (!el || !_orgSet) return;
+  const mc = document.getElementById('st-org-mcount'); if (mc) mc.textContent = `(${_orgSet.members.length})`;
+  const roles = ['admin', 'manager', 'member', 'guest'];
+  el.innerHTML = _orgSet.members.map(m => {
+    const msid = m.sid || m.user_sid || '';
+    const role = m.role || 'member';
+    const isOwnerRow = role === 'owner';
+    const canManage = _orgSet.isOwner && !isOwnerRow;
+    const canRemove = !isOwnerRow && msid !== S.sid && (_orgSet.role === 'owner' || (_orgSet.role === 'admin' && role !== 'admin' && role !== 'manager'));
+    const roleCtl = canManage
+      ? `<select onchange="orgSettingsSetRole('${msid}',this.value)" style="padding:3px 6px;font-size:.72rem;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text)">${roles.map(rr => `<option value="${rr}" ${rr === role ? 'selected' : ''}>${rr}</option>`).join('')}</select>`
+      : `<span style="font-size:.7rem;color:var(--muted);text-transform:capitalize">${esc(role)}</span>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.name || msid.slice(0, 8))}${isOwnerRow ? ' 👑' : ''}</div></div>${roleCtl}${canRemove ? `<button onclick="orgSettingsRemove('${msid}','${esc((m.name || '').replace(/'/g, ''))}')" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:.9rem" title="Remove member">✕</button>` : ''}</div>`;
+  }).join('');
+}
+async function orgSettingsSaveProfile() {
+  const name = (document.getElementById('st-org-name')?.value || '').trim();
+  const desc = (document.getElementById('st-org-desc')?.value || '').trim();
+  try { await acadAPI('/api/org/update', { name, description: desc }); toast('Organisation updated'); }
+  catch (e) { toast((e && e.message) || 'Could not update'); }
+}
+async function orgSettingsSetRole(sid, role) {
+  try { await acadAPI('/api/org/member/role', { sid, role }); toast('Role updated'); orgSettingsInit(); }
+  catch (e) { toast((e && e.message) || 'Could not change role'); }
+}
+async function orgSettingsRemove(sid, name) {
+  if (!confirm(`Remove ${name || 'this member'} from the organisation?`)) return;
+  try { await acadAPI('/api/org/member/remove', { sid }); toast('Member removed'); orgSettingsInit(); }
+  catch (e) { toast((e && e.message) || 'Could not remove'); }
+}
+async function orgSettingsInvite() {
+  const email = await siModal.input('Invite member', 'their email address', '', { confirmLabel: 'Send invite' });
+  if (!email) return;
+  try { await acadAPI('/api/org/invite', { email }); toast('Invite sent'); }
+  catch (e) { toast((e && e.message) || 'Could not invite'); }
+}
+async function orgSettingsLoadAudit() {
+  const el = document.getElementById('st-org-audit'); if (!el) return;
+  let r = null; try { r = await acadAPI('/api/org/audit', {}); } catch (e) {}
+  const rows = (r && r.audit) || [];
+  el.innerHTML = rows.length
+    ? rows.slice(0, 20).map(a => `<div style="font-size:.74rem;color:var(--muted);padding:3px 0"><strong style="color:var(--text)">${esc(a.actor || '')}</strong> — ${esc(a.action || '')} <span style="opacity:.6">· ${esc(String(a.ts || '').replace('T', ' ').slice(0, 16))}</span></div>`).join('')
+    : `<div style="font-size:.76rem;color:var(--muted)">No admin activity yet.</div>`;
+}

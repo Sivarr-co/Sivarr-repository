@@ -21,9 +21,14 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 **Verified:** VM founder-gate 3/3 (owner shows, admin/member hidden); PROD browser pass — academic active tab computed `border-bottom 2px / radius 0 / transparent bg` (underline, not pill), all 3 bars `overflow-x:auto`, Org 12 / Personal 7 / Academic 6 tabs, **0 console errors**, app.js v=20260619a / styles v=20260619a live.
 **Folded into Stage 6** (content-level, not the tab system): per-tab empty-state + CTA polish. **Doc:** tab-behaviour rule = all space tab-bars use `.{os,sp,acad}-tab` sharing the unified CSS; new spaces/extensions reuse a host descriptor in `SPACE_HOSTS`.
 
-## Stage 2 — Edit & reduce the sidebar  🟡
-Done: Spaces dropdown collapse, orphan-panel removal, ⌘K reaches all, icon-only collapsed CSS.
-To-do: cut to <12 visible, collapsible sections per group, recently-used in search, merge Docs&Notes/Document Hub.
+## Stage 2 — Edit & reduce the sidebar  ✅ DONE (`388687f`, 2026-06-19)
+**Decision (Hunter):** collapsible sections, Life+Connect collapsed by default.
+**Shipped:**
+- [x] Work/Life/Connect labels → collapsible headers (caret), persisted per-section (`sbSecToggle`/`sbRestoreSections`); Life+Connect collapsed by default, Work open → ~8 always-visible (under <12 target). Nothing removed; expand + ⌘K still reach all.
+- [x] ⌘K "Recent" section (top, empty query) of last 6 visited destinations (`cmdPushRecent` in `nav()`, `cmdRecentHTML`; real sidebar dests only, dedup).
+- [x] Icon-only collapsed sidebar already existed; Document Hub already removed in orphan cleanup (merge moot).
+- [ ] Deferred (needs analytics): remove zero-usage items.
+**Verified:** VM harness 7/7 (defaults, toggle/persist, recents dedup/order, unknown guard). Cache-bust app.js/styles v=20260619b.
 
 ## Stage 3 — General & organisation settings  🟡 (thinnest part)
 Done: `panel-settings` (basic) + per-space Settings modal.

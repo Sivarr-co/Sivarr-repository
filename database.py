@@ -2659,6 +2659,50 @@ def update_org(org_id: str, owner_sid: str, updates: dict) -> bool:
         _release(conn)
 
 
+def set_org_member_role(org_id: str, target_sid: str, role: str) -> bool:
+    """Change a member's role. Never touches the owner row (owner is immutable here)."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE org_members SET role = %s WHERE org_id = %s AND user_sid = %s AND role <> 'owner'",
+                (role, org_id, target_sid),
+            )
+            changed = cur.rowcount
+        conn.commit()
+        return changed > 0
+    except Exception as exc:
+        log.error(f"set_org_member_role failed: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def remove_org_member(org_id: str, target_sid: str) -> bool:
+    """Remove a member from an org. Never removes the owner row."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM org_members WHERE org_id = %s AND user_sid = %s AND role <> 'owner'",
+                (org_id, target_sid),
+            )
+            removed = cur.rowcount
+        conn.commit()
+        return removed > 0
+    except Exception as exc:
+        log.error(f"remove_org_member failed: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
 def get_all_orgs() -> list:
     """Return all orgs — used by cron jobs to iterate every org."""
     conn = _get_conn()
