@@ -42,9 +42,14 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 - [x] Verified: VM 12/12 (owner/admin/member gating, owner-row protection); PROD pass — settings opens, section wired, hidden-without-org, 0 errors. app.js v=20260619c.
 **Still to-do (deferred):** departments/sub-teams; org invoice history; personal data controls (export ZIP / delete account / clear history); notification channels (email/WhatsApp/in-app — WhatsApp pending Stage 5/7); timezone; formal Guest role + permissions-model doc. **Note:** org section render with real members needs an owner session to browser-verify (logic VM-verified).
 
-## Stage 4 — Org Space extensions  🟡 (infra done, content missing)
-Done: extension infra (marketplace, install/uninstall, injection, registry, generic host); Founder mode (investor pipeline + milestones).
-To-do: real **Startup OS** (investor CRM, runway calc, roadmap, metrics), **Agency OS** (client workspace, brief intake, revision tracker, invoices); post-install onboarding checklist.
+## Stage 4 — Org Space extensions  🔵 IN PROGRESS (Agency OS done `83d7d98`, 2026-06-19)
+**Decisions (Hunter):** package Founder mode AS Startup OS (don't rebuild — it already has investor CRM + runway + milestones + metrics); build Agency OS first.
+**Shipped:**
+- [x] **Agency OS** extension (real, on existing infra): Clients (add/list/remove), Pipeline kanban (Brief→In progress→Review→Delivered; add/move/delete), Revisions (↻ per card + summary), invoices "coming soon". Per-space persistence (`_ext['ext-agency-os']`); registered in seed/inject/registry; mounts via generic host. VM 10/10 + PROD pass (mounts in a space, pipeline renders, 0 errors). app.js v=20260619e.
+**To-do (next slices):**
+- [ ] Package **Startup OS** = Founder mode + gaps (metrics dashboard, roadmap link to Projects) + onboarding checklist.
+- [ ] Org-space **"Add Extension"** entry point (open marketplace filtered to extensions from within the Org space) + **post-install onboarding checklist**.
+- [ ] (later) Agency OS invoices; Marketing/Ecom/Company OS only after validation.
 
 ## Stage 5 — Templates & Integrations redesign  🟡
 Done: Marketplace Templates tab; real integrations — Google Calendar, GitHub, Paystack, Flutterwave, Mono.
