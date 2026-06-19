@@ -90,9 +90,15 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 - [x] Verified: VM 5/5 (POST url, token+reason body, success toast, empty-reason + signed-out no-ops); endpoints prod-live (401-gated, not 404/500); **prod browser pass** — opened a real template, Report button renders, **0 console errors**. Cache-bust `v=20260619k`.
 **NOTED for later:** admin reports-queue **UI** (endpoint ready); auto-takedown thresholds.
 
-## Stage 10 — Finalise payment plans  🟡 (engine done)
-Done: Paystack/Flutterwave subscribe+verify (amount/currency/idempotency), billing_history, NAIRA_RATE.
-To-do (needs Hunter's pricing decisions): tier naming (code free/pro/team vs Blueprint Free/Pro/Business/Enterprise), Free limits, founding-user offer, prorated upgrade/downgrade, dunning/retry, invoice UI, gating matrix, upgrade prompts.
+## Stage 10 — Finalise payment plans  🟡 PAUSED (pending Hunter pricing) — invoices done (`3a7b1c5`)
+Done: Paystack/Flutterwave subscribe+verify (amount/currency/idempotency), billing_history, NAIRA_RATE, `SIVARR_PLANS` (free/pro/team), server-enforced free-tier caps (`FREE_DAILY_CHAT`/`AI_DAILY_FREE`).
+**Shipped this pass (pricing-independent):**
+- [x] **Downloadable invoices** from billing history — per-row "Invoice" button → `stDownloadInvoice()` builds a self-contained printable HTML invoice (billed-to from `S.name/S.email`, plan/date/amount/reference/gateway, Print/Save-as-PDF). VM 4/4, code live `v=20260619l`.
+**PAUSED — needs Hunter's decisions (chosen 2026-06-19: pause + decide pricing later):**
+- [ ] Tier structure + names (kept open: 3× Free/Pro/Team vs 4× Free/Pro/Business/Enterprise) — **deferred**.
+- [ ] Final price numbers (monthly/annual), Free-tier limits, founding-user offer.
+- [ ] Prorated upgrade/downgrade, dunning/retry, gating matrix, upgrade prompts.
+**Resume:** once Hunter supplies tiers + numbers, edit `SIVARR_PLANS`, then build gating matrix → upgrade prompts → prorate → dunning. (Engine-on-placeholders was offered and declined for now.)
 
 ## Stage 11 — Test → launch 1,000  ❌ (mostly Hunter infra)
 = `docs/LAUNCH_CHECKLIST_NONSO.md` (email domain, k6 load test, Supabase Pro, ≥2 instances+CDN, VAPID) + closed testing + waitlist. Strictly last.
