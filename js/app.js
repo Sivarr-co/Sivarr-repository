@@ -13697,6 +13697,9 @@ async function agOpenTemplate(id) {
             <button class="ag-detail-secondary" onclick="agOpenAgentProfile('${t.agent_id}')">
               View agent profile
             </button>
+            <button class="ag-detail-report" onclick="agReportTemplate('${id}')" title="Report this template for review">
+              <i class="ti ti-flag"></i> Report
+            </button>
           </div>
 
           <!-- Right column -->
@@ -13720,6 +13723,24 @@ async function agOpenTemplate(id) {
   } catch {
     v.innerHTML = '<div class="ag-empty"><div class="ag-empty-icon">😕</div><p>Failed to load template.</p></div>';
   }
+}
+
+// Stage 9 safety: let a signed-in user report/flag a template for moderation.
+async function agReportTemplate(id) {
+  if (!S.token) { (typeof showToast === 'function' ? showToast : toast)('Sign in to report a template.'); return; }
+  const reason = (typeof siModal !== 'undefined' && siModal.input)
+    ? await siModal.input('Report template', 'spam / unsafe / stolen / broken…', '', { description: 'Tell us why you’re reporting this template. Our team will review it.', confirmLabel: 'Submit report' })
+    : prompt('Why are you reporting this template?');
+  if (!reason || !reason.trim()) return;
+  const notify = (m) => (typeof showToast === 'function' ? showToast : toast)(m);
+  try {
+    const r = await fetch(`/api/agents/templates/${id}/report`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: S.token, reason: reason.trim() }),
+    });
+    const d = await r.json();
+    notify(d && d.ok ? 'Report submitted — thank you. Our team will review it.' : (d.detail || 'Could not submit report.'));
+  } catch { notify('Could not submit report.'); }
 }
 
 function agDefaultIncluded(contents) {

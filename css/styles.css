@@ -5468,6 +5468,13 @@ body.theme-transitioning *::after {
   font-size:.82rem; font-weight:600; cursor:pointer; transition:var(--transition);
 }
 .ag-detail-secondary:hover { border-color:var(--accent); color:var(--accent); }
+.ag-detail-report {
+  width:100%; margin-top:8px; padding:8px; border:1px solid transparent; border-radius:10px;
+  background:none; color:var(--muted); font-family:var(--font);
+  font-size:.76rem; font-weight:600; cursor:pointer; transition:var(--transition);
+  display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.ag-detail-report:hover { color:var(--red,#dc2626); border-color:var(--red,#dc2626); }
 .ag-detail-card {
   background:var(--bg2); border:1px solid var(--border); border-radius:14px;
   padding:16px; margin-bottom:14px;

@@ -6495,6 +6495,40 @@ async def ag_check_owned(template_id: str, token: str = ""):
     return {"owned": db.check_download(entry["sid"], template_id)}
 
 
+# ── Safety: report / flag a template (Stage 9) ────────────────
+@app.post("/api/agents/templates/{template_id}/report")
+async def ag_report_template(template_id: str, data: dict):
+    """A signed-in user flags a marketplace template for moderation review.
+    Stored in the `agent_reports` collection (owner = template_id). One row per
+    reporter+template (re-reporting updates the reason). Admin reviews via
+    /api/admin/agents/reports."""
+    sid, name = _resolve_token(data)
+    template_id = sanitize_text(template_id, 60)
+    reason = sanitize_text(str(data.get("reason", "")), 500)
+    if not reason:
+        raise HTTPException(400, "A reason is required.")
+    if not db.is_available():
+        raise HTTPException(503, "DB unavailable.")
+    db.coll_put("agent_reports", f"{template_id}:{sid}", {
+        "template_id": template_id,
+        "reporter_sid": sid,
+        "reporter_name": name,
+        "reason": reason,
+        "status": "open",
+        "ts": datetime.datetime.now().isoformat(),
+    }, owner=template_id)
+    return {"ok": True}
+
+
+@app.get("/api/admin/agents/reports")
+async def ag_admin_list_reports(token: str = ""):
+    if not _is_valid_admin_session(sanitize_text(token, 100)):
+        raise HTTPException(401, "Unauthorized")
+    if not db.is_available():
+        return {"reports": []}
+    return {"reports": db.coll_list("agent_reports")}
+
+
 # ── Agent application ─────────────────────────────────────────
 
 @app.post("/api/agents/apply")
