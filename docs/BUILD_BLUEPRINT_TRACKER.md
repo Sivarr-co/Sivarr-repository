@@ -30,7 +30,11 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 - [ ] Deferred (needs analytics): remove zero-usage items.
 **Verified:** VM harness 7/7 (defaults, toggle/persist, recents dedup/order, unknown guard). Cache-bust app.js/styles v=20260619b.
 
-## Stage 3 — General & organisation settings  🔵 IN PROGRESS (org slice done `afb8940`, 2026-06-19)
+## Stage 3 — General & organisation settings  ✅ DONE (`afb8940` + `47147b8`, 2026-06-19)
+**Completion slice (`47147b8`):** Data & Privacy section (Export ZIP via `/api/export`, Clear chat via new `/api/chat/clear`, self-serve Delete account via new `/api/account/delete` — distinct from admin delete); notification **channels** (in-app/email on; WhatsApp coming-soon); **timezone** in Profile; `docs/PERMISSIONS.md` (Owner/Admin/Manager/Member/Guest matrix + server invariants). VM 8/8 + PROD pass (section/tz/channels present, 0 errors), app.js v=20260619d.
+**Deferred (org-backend-heavy → later):** departments/sub-teams, org invoice history, connected-accounts summary.
+
+### (earlier) org slice `afb8940`
 **Found already built (personal):** Profile, Appearance + accent picker, Notifications (category toggles), Billing (plan/usage/history/cancel). Decision (Hunter): build **Org settings first**; dependent items as shells.
 **Shipped (org settings slice):**
 - [x] Backend: `set_org_member_role`/`remove_org_member` (owner row immutable); `/api/org/member/role` (owner), `/api/org/member/remove` (owner/admin, role-aware), `/api/org/audit` (owner/admin); `_org_audit()` → collections `org_audit`; org/update audited.
