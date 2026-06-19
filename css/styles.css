@@ -7706,3 +7706,32 @@ body.theme-transitioning *::after {
 .ext-tab-name { font-size:16px; font-weight:700; color:var(--text); }
 .ext-tab-desc { font-size:12px; color:var(--muted); line-height:1.5; }
 .ext-pomo-display { font-size:52px; font-weight:800; color:var(--text); letter-spacing:-2px; margin:14px 0 4px; font-variant-numeric:tabular-nums; }
+
+/* ═══════════════════════════════════════════════════════════
+   STAGE 1 — Unified tab visual language across all three spaces
+   Org (.os-tab) · Academic (.acad-tab) · Personal (.sp-tab) share ONE look:
+   flat horizontal-scroll bar + animated active underline. Each space keeps its
+   own JS switcher and accent colour. CSS-only — no markup/switcher change.
+   (Academic was the pill outlier; brought into the underline language here.)
+═══════════════════════════════════════════════════════════ */
+.os-tabs, .sp-tabs, .acad-tab-bar {
+  display:flex; gap:2px; padding:0 16px; width:auto; margin-bottom:0;
+  background:transparent; border:none; border-bottom:1px solid var(--border);
+  border-radius:0; overflow-x:auto; flex-wrap:nowrap; flex-shrink:0; scrollbar-width:none;
+}
+.os-tabs::-webkit-scrollbar, .sp-tabs::-webkit-scrollbar, .acad-tab-bar::-webkit-scrollbar { display:none; }
+.os-tab, .sp-tab, .acad-tab {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:10px 14px; border:none; border-radius:0; background:transparent;
+  color:var(--muted); font-size:.82rem; font-weight:500; cursor:pointer;
+  white-space:nowrap; border-bottom:2px solid transparent; margin-bottom:-1px;
+  transition:color .18s ease, border-color .18s ease;
+}
+.os-tab:hover:not(.on), .sp-tab:hover:not(.on), .acad-tab:hover:not(.active) {
+  color:var(--fg); background:transparent;
+}
+/* Academic active → accent underline (was a pill); Org/Personal active rules already underline */
+.acad-tab.active {
+  background:transparent; border:none; border-bottom:2px solid var(--acad-accent);
+  color:var(--acad-accent); font-weight:600; border-radius:0;
+}

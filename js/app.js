@@ -11041,7 +11041,8 @@ function _founderTabVisibility() {
   const tab = $('os-tab-founder');
   if (!tab || !ORG) return;
   const role = ORG.member_role || '';
-  tab.style.display = (role === 'owner' || role === 'admin') ? '' : 'none';
+  // Blueprint Stage 1: Founder tab is owner-only (not all members, not admins).
+  tab.style.display = (role === 'owner') ? '' : 'none';
 }
 
 function founderRender() {
