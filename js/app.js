@@ -17697,6 +17697,7 @@ function mktSeedItems() {
     ext('ext-code-runner','Code Runner','⚡','Emeka J.','developer','Run Python/JS/SQL snippets inline.',4.6,640,0,false),
     ext('ext-calendar','Calendar','📅','Sivarr','productivity','Your Google Calendar — upcoming events in any space.',4.8,0,0,true),
     ext('ext-agency-os','Agency OS','🎨','Sivarr','work','Client workspace, brief→delivery pipeline, and revision tracking for agencies.',4.8,0,0,true),
+    ext('ext-trading-journal','Trading Journal','📈','Sivarr','finance','Log trades, journal your psychology, size positions, and track win-rate & R:R.',4.9,0,0,true),
     ...INT_CATALOGUE.map(i => ({ ...i, type:'integration', author:'Sivarr', official:true, rating:4.7, installs:1200, price:0 })),
     tmpl('tmpl-academic-student','Academic OS — Student','🎓','Sivarr','academic','Student dashboard: Lecture Vault, Exam Sprint, Research.',4.9,4100,true,'space'),
     tmpl('tmpl-academic-lect','Academic OS — Lecturer','📋','Sivarr','academic','Lecturer dashboard: courses, roster, AI tools.',4.8,1900,true,'space'),
@@ -17712,6 +17713,7 @@ function mktSeedItems() {
     'ext-finance-dash':{label:'Finance',icon:'ti-coin'}, 'ext-code-runner':{label:'Code Runner',icon:'ti-code'},
     'ext-calendar':{label:'Calendar',icon:'ti-calendar'},
     'ext-agency-os':{label:'Agency OS',icon:'ti-briefcase'},
+    'ext-trading-journal':{label:'Trading Journal',icon:'ti-chart-candle'},
   };
   items.forEach(i => { if (i.type === 'extension' && INJ[i.id]) i.inject = Object.assign({ type:'tab' }, INJ[i.id]); });
   return items;
@@ -18067,6 +18069,7 @@ const EXT_REGISTRY = {
   'ext-finance-dash':{ spaceTypes:['*'] }, 'ext-code-runner': { spaceTypes:['*'] },
   'ext-calendar':    { spaceTypes:['*'], render:(item)=>extCalShell(item) },
   'ext-agency-os':   { spaceTypes:['*'], render:(item)=>extAgShell(item) },
+  'ext-trading-journal': { spaceTypes:['*'], render:(item)=>extTjShell(item) },
 };
 function _hostKeyFor(space) {
   if (!space) return null;
@@ -18506,6 +18509,181 @@ function extAgRevisions() {
   const withRev = all.filter(c => (c.revisions || 0) > 0).sort((a, b) => b.revisions - a.revisions);
   if (!withRev.length) return `<div class="mkt-empty-state"><i class="ti ti-refresh" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No revisions logged yet — use ↻ on a project card.</div></div>`;
   return withRev.map(c => `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${mktEsc(c.title)}</div><div class="mkt-item-author">${mktEsc(c.client || c.col)}</div></div><span class="mkt-count-badge">${c.revisions} rev</span></div>`).join('') + `<div style="font-size:.7rem;color:var(--muted);margin-top:10px;opacity:.7">Invoices coming soon.</div>`;
+}
+
+/* ── Stage 7: Trading Journal (Personal extension) — trades · journal · risk · stats ──
+   In-app core (per Hunter): manual + CSV entry, P&L/R tracking, position sizing,
+   psychology journaling, win-rate/R:R stats + equity curve. External ingestion
+   (MT5/MT4 EA, TradingView webhook, broker API) and WhatsApp reports are NOTED for
+   later — they need external infra + the WhatsApp integration (currently a stub). */
+function extTjData() {
+  const d = extData(_extSpaceId(), 'ext-trading-journal');
+  return { trades: d.trades || [], settings: d.settings || { account: 1000, riskPct: 1 } };
+}
+function extTjSave(v) { extSave(_extSpaceId(), 'ext-trading-journal', v); }
+let _extTjSeg = 'trades';
+const _tjNum = (v) => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+// Derive R-multiple, P&L and outcome from a trade's prices/size.
+function _tjDerive(t) {
+  const entry = _tjNum(t.entry), exit = _tjNum(t.exit), stop = _tjNum(t.stop), size = _tjNum(t.size);
+  const long = (t.dir || 'long') === 'long';
+  let r = null, pnl = null;
+  if (entry != null && exit != null) {
+    const moveFor = long ? (exit - entry) : (entry - exit);
+    if (size != null) pnl = +(moveFor * size).toFixed(2);
+    if (stop != null) {
+      const risk = long ? (entry - stop) : (stop - entry);
+      if (risk > 0) r = +(moveFor / risk).toFixed(2);
+    }
+  }
+  let outcome = 'be';
+  // R is the normalized truth; prefer it (small forex P&L can round to 0). Fall back to P&L.
+  const basis = (r != null) ? r : (pnl != null ? pnl : 0);
+  if (basis > 0) outcome = 'win'; else if (basis < 0) outcome = 'loss';
+  return { r, pnl, outcome };
+}
+function extTjShell(item) {
+  return `<div class="ext-tab-shell" style="max-width:900px;align-items:stretch"><div style="text-align:center"><div class="ext-tab-icon">${item.icon}</div><div class="ext-tab-name">${mktEsc(item.name)}</div><div class="ext-tab-desc">${mktEsc(item.desc)}</div></div><div id="exttj-root" style="width:100%;margin-top:14px">${extTjInner()}</div></div>`;
+}
+function extTjInner() {
+  const segs = [['trades', 'Trades'], ['journal', 'Journal'], ['risk', 'Risk'], ['stats', 'Stats']];
+  const bar = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px;flex-wrap:wrap">${segs.map(([k, l]) => `<button class="mkt-cat-pill ${_extTjSeg === k ? 'active' : ''}" onclick="extTjSetSeg('${k}')">${l}</button>`).join('')}</div>`;
+  const body = _extTjSeg === 'journal' ? extTjJournal() : _extTjSeg === 'risk' ? extTjRisk() : _extTjSeg === 'stats' ? extTjStats() : extTjTrades();
+  return bar + body;
+}
+function extTjRender() { const r = document.getElementById('exttj-root'); if (r) r.innerHTML = extTjInner(); }
+function extTjSetSeg(s) { _extTjSeg = s; extTjRender(); }
+function _tjRBadge(t) {
+  const d = _tjDerive(t);
+  const col = d.outcome === 'win' ? 'var(--green,#16a34a)' : d.outcome === 'loss' ? 'var(--red,#dc2626)' : 'var(--muted)';
+  const arrow = (t.dir || 'long') === 'long' ? '↑' : '↓';
+  const rTxt = d.r != null ? `${d.r > 0 ? '+' : ''}${d.r}R` : (d.pnl != null ? `${d.pnl > 0 ? '+' : ''}${d.pnl}` : '—');
+  return { col, arrow, rTxt, d };
+}
+function extTjTrades() {
+  const d = extTjData();
+  const top = `<div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px;flex-wrap:wrap"><button class="mkt-btn-teal" onclick="extTjAddTrade()"><i class="ti ti-plus" aria-hidden="true"></i> Add trade</button><button class="mkt-btn-ghost" onclick="extTjImport()"><i class="ti ti-upload" aria-hidden="true"></i> Import CSV</button></div>`;
+  if (!d.trades.length) return top + `<div class="mkt-empty-state"><i class="ti ti-chart-candle" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No trades yet — add your first or import a CSV.</div></div>`;
+  const rows = d.trades.slice().reverse().map(t => {
+    const b = _tjRBadge(t);
+    return `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${b.arrow} ${mktEsc(t.symbol || '—')} <span style="font-size:9.5px;color:var(--muted);font-weight:500">${mktEsc(t.dir || 'long')}</span></div><div class="mkt-item-author">${mktEsc(t.date || '')}${t.emotion ? ' · ' + mktEsc(t.emotion) : ''}</div></div><span style="font-weight:700;font-size:12px;color:${b.col};margin-right:10px">${b.rTxt}</span><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extTjDel('${t.id}')">✕</button></div>`;
+  }).join('');
+  return top + rows;
+}
+async function extTjAddTrade() {
+  const f = await siModal.form('Log a trade', [
+    { id: 'symbol', label: 'Symbol', placeholder: 'e.g. EURUSD, BTCUSD', required: true },
+    { id: 'dir', label: 'Direction', type: 'select', options: [{ value: 'long', label: 'Long' }, { value: 'short', label: 'Short' }], default: 'long' },
+    { id: 'entry', label: 'Entry price', type: 'number', placeholder: 'e.g. 1.1000' },
+    { id: 'exit', label: 'Exit price', type: 'number', placeholder: 'e.g. 1.1050' },
+    { id: 'stop', label: 'Stop price (for R-multiple)', type: 'number', placeholder: 'optional' },
+    { id: 'size', label: 'Size / units / lots', type: 'number', placeholder: 'optional (for P&L)' },
+    { id: 'emotion', label: 'Emotion / psychology', placeholder: 'e.g. confident, FOMO, revenge' },
+    { id: 'date', label: 'Date', type: 'date' },
+    { id: 'notes', label: 'Notes / thesis / lesson', type: 'textarea', placeholder: 'What was the setup? What did you learn?' },
+  ], { confirmLabel: 'Save trade' });
+  if (!f || !f.symbol) return;
+  const d = extTjData();
+  d.trades.push({ id: 't_' + Date.now(), symbol: f.symbol.toUpperCase(), dir: f.dir || 'long', entry: f.entry || '', exit: f.exit || '', stop: f.stop || '', size: f.size || '', emotion: f.emotion || '', date: f.date || new Date().toISOString().slice(0, 10), notes: f.notes || '' });
+  extTjSave(d); extTjRender();
+}
+function extTjDel(id) { const d = extTjData(); d.trades = d.trades.filter(t => t.id !== id); extTjSave(d); extTjRender(); }
+async function extTjImport() {
+  const csv = await siModal.input('Import trades (CSV)', 'symbol,dir,entry,exit,stop,size,emotion,date', '', {
+    type: 'text',
+    confirmLabel: 'Import',
+    description: 'Paste one trade per line: symbol,dir,entry,exit,stop,size,emotion,date — only symbol is required.',
+  });
+  // input() is single-line; accept comma rows separated by " ; " too. For multi-line use the textarea form.
+  if (!csv) return;
+  const lines = csv.split(/[\n;]+/).map(s => s.trim()).filter(Boolean);
+  if (!lines.length) return;
+  const d = extTjData(); let n = 0;
+  lines.forEach(line => {
+    const c = line.split(',').map(s => s.trim());
+    if (!c[0]) return;
+    d.trades.push({ id: 't_' + Date.now() + '_' + (n++), symbol: c[0].toUpperCase(), dir: (c[1] || 'long').toLowerCase() === 'short' ? 'short' : 'long', entry: c[2] || '', exit: c[3] || '', stop: c[4] || '', size: c[5] || '', emotion: c[6] || '', date: c[7] || new Date().toISOString().slice(0, 10), notes: '' });
+  });
+  extTjSave(d); extTjRender();
+  if (typeof toast === 'function') toast(`${n} trade${n !== 1 ? 's' : ''} imported`);
+}
+function extTjJournal() {
+  const d = extTjData();
+  const journaled = d.trades.filter(t => (t.notes && t.notes.trim()) || (t.emotion && t.emotion.trim()));
+  // Emotion frequency summary
+  const freq = {};
+  d.trades.forEach(t => { const e = (t.emotion || '').trim().toLowerCase(); if (e) freq[e] = (freq[e] || 0) + 1; });
+  const chips = Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([e, n]) => `<span class="mkt-cat-pill" style="cursor:default">${mktEsc(e)} · ${n}</span>`).join('');
+  const head = chips ? `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px">${chips}</div>` : '';
+  if (!journaled.length) return head + `<div class="mkt-empty-state"><i class="ti ti-notebook" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No journal entries yet — add notes or an emotion when logging a trade.</div></div>`;
+  return head + journaled.slice().reverse().map(t => {
+    const b = _tjRBadge(t);
+    return `<div class="mkt-installed-row" style="align-items:flex-start"><div style="flex:1"><div class="mkt-item-name">${mktEsc(t.symbol || '—')} <span style="color:${b.col};font-weight:700">${b.rTxt}</span></div>${t.emotion ? `<div class="mkt-item-author">${mktEsc(t.emotion)}</div>` : ''}${t.notes ? `<div class="mkt-brief-desc" style="margin-top:4px">${mktEsc(t.notes)}</div>` : ''}</div><span style="font-size:9.5px;color:var(--muted)">${mktEsc(t.date || '')}</span></div>`;
+  }).join('');
+}
+function extTjRisk() {
+  const d = extTjData();
+  const s = d.settings;
+  return `<div class="mkt-card" style="max-width:420px;margin:0 auto;padding:16px">
+    <div class="mkt-item-name" style="margin-bottom:4px">Position-size calculator</div>
+    <div class="mkt-brief-desc" style="margin-bottom:12px">Risk a fixed % per trade. Position size = (account × risk%) ÷ price distance to stop.</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <label class="si-modal-label">Account balance</label><input id="tj-acct" class="si-modal-input" type="number" value="${mktEsc(String(s.account))}">
+      <label class="si-modal-label">Risk per trade (%)</label><input id="tj-risk" class="si-modal-input" type="number" value="${mktEsc(String(s.riskPct))}">
+      <label class="si-modal-label">Entry price</label><input id="tj-entry" class="si-modal-input" type="number" placeholder="e.g. 1.1000">
+      <label class="si-modal-label">Stop price</label><input id="tj-stop" class="si-modal-input" type="number" placeholder="e.g. 1.0980">
+    </div>
+    <button class="mkt-btn-teal" style="width:100%;margin-top:12px" onclick="extTjCalc()">Calculate</button>
+    <div id="tj-calc-result" style="margin-top:12px"></div>
+  </div>`;
+}
+function extTjCalc() {
+  const acct = _tjNum((document.getElementById('tj-acct') || {}).value);
+  const riskPct = _tjNum((document.getElementById('tj-risk') || {}).value);
+  const entry = _tjNum((document.getElementById('tj-entry') || {}).value);
+  const stop = _tjNum((document.getElementById('tj-stop') || {}).value);
+  const out = document.getElementById('tj-calc-result');
+  if (acct == null || riskPct == null) { if (out) out.innerHTML = `<div class="mkt-brief-desc" style="color:var(--red,#dc2626)">Enter account balance and risk %.</div>`; return; }
+  // Persist account/risk defaults
+  const d = extTjData(); d.settings = { account: acct, riskPct }; extTjSave(d);
+  const riskAmt = +(acct * riskPct / 100).toFixed(2);
+  let sizeLine = '';
+  if (entry != null && stop != null && Math.abs(entry - stop) > 0) {
+    const dist = Math.abs(entry - stop);
+    const size = +(riskAmt / dist).toFixed(2);
+    sizeLine = `<div class="mkt-installed-row"><div style="flex:1" class="mkt-item-name">Position size</div><span style="font-weight:700">${size} units</span></div><div class="mkt-installed-row"><div style="flex:1" class="mkt-item-name">Stop distance</div><span>${+dist.toFixed(5)}</span></div>`;
+  } else {
+    sizeLine = `<div class="mkt-brief-desc">Add entry + stop to get a position size.</div>`;
+  }
+  if (out) out.innerHTML = `<div class="mkt-installed-row"><div style="flex:1" class="mkt-item-name">Risk amount</div><span style="font-weight:700">${riskAmt}</span></div>${sizeLine}`;
+}
+function extTjStats() {
+  const d = extTjData();
+  const ts = d.trades.map(t => Object.assign({}, t, _tjDerive(t)));
+  const n = ts.length;
+  if (!n) return `<div class="mkt-empty-state"><i class="ti ti-chart-bar" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No stats yet — log some trades.</div></div>`;
+  const wins = ts.filter(t => t.outcome === 'win').length;
+  const losses = ts.filter(t => t.outcome === 'loss').length;
+  const decided = wins + losses;
+  const winRate = decided ? Math.round(wins / decided * 100) : 0;
+  const rVals = ts.filter(t => t.r != null).map(t => t.r);
+  const totalR = rVals.reduce((a, b) => a + b, 0);
+  const avgR = rVals.length ? +(totalR / rVals.length).toFixed(2) : null;
+  const pnlVals = ts.filter(t => t.pnl != null).map(t => t.pnl);
+  const totalPnl = pnlVals.reduce((a, b) => a + b, 0);
+  const stat = (label, val) => `<div style="flex:1;min-width:90px;background:rgba(127,127,127,.05);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--text)">${val}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">${label}</div></div>`;
+  const grid = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">${stat('Trades', n)}${stat('Win rate', winRate + '%')}${stat('Avg R', avgR != null ? avgR : '—')}${stat('Total R', rVals.length ? (totalR > 0 ? '+' : '') + (+totalR.toFixed(2)) : '—')}${stat('Net P&L', pnlVals.length ? (totalPnl > 0 ? '+' : '') + (+totalPnl.toFixed(2)) : '—')}</div>`;
+  // Equity curve from cumulative R (chronological)
+  let curve = '';
+  if (rVals.length > 1) {
+    let cum = 0; const pts = ts.filter(t => t.r != null).map(t => (cum += t.r));
+    const min = Math.min(0, ...pts), max = Math.max(0, ...pts), range = (max - min) || 1;
+    const W = 320, H = 90, step = W / (pts.length - 1);
+    const coords = pts.map((p, i) => `${(i * step).toFixed(1)},${(H - ((p - min) / range) * H).toFixed(1)}`).join(' ');
+    const zeroY = (H - ((0 - min) / range) * H).toFixed(1);
+    curve = `<div class="mkt-item-name" style="margin-bottom:6px">Equity curve (cumulative R)</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:90px;overflow:visible"><line x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}" stroke="var(--border)" stroke-dasharray="3 3"/><polyline points="${coords}" fill="none" stroke="var(--teal,#0ea5a4)" stroke-width="2"/></svg>`;
+  }
+  return grid + curve;
 }
 
 /* ── Stage 4: Org "Add Extension" entry + post-install onboarding checklist ── */
