@@ -17730,6 +17730,7 @@ function mktInstall(id) {
   mktSaveInstalled(); mktUpdateInstalledCount(); mktRenderGrid();
   mktToast(`${item.name} installed`);
   fetch('/api/marketplace/install', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), item_id:id }) }).catch(()=>{});
+  if (item.type === 'extension' && typeof extShowOnboarding === 'function') extShowOnboarding(item);
 }
 function mktUninstall(id) {
   const item = mktItems.find(i => i.id === id);
@@ -18415,4 +18416,29 @@ function extAgRevisions() {
   const withRev = all.filter(c => (c.revisions || 0) > 0).sort((a, b) => b.revisions - a.revisions);
   if (!withRev.length) return `<div class="mkt-empty-state"><i class="ti ti-refresh" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No revisions logged yet — use ↻ on a project card.</div></div>`;
   return withRev.map(c => `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${mktEsc(c.title)}</div><div class="mkt-item-author">${mktEsc(c.client || c.col)}</div></div><span class="mkt-count-badge">${c.revisions} rev</span></div>`).join('') + `<div style="font-size:.7rem;color:var(--muted);margin-top:10px;opacity:.7">Invoices coming soon.</div>`;
+}
+
+/* ── Stage 4: Org "Add Extension" entry + post-install onboarding checklist ── */
+function orgAddExtension() {
+  const sp = (typeof getSpaces === 'function' ? getSpaces().find(s => s.id === 'org') : null)
+          || { id: 'org', name: (typeof ORG === 'object' && ORG && ORG.name) || 'Organisation', type: 'org' };
+  if (typeof openSpaceSettings === 'function') { openSpaceSettings(sp); if (typeof spaceSettingsTab === 'function') spaceSettingsTab('extensions', document.querySelector('#spaceSettingsModal .mkt-modal-tab')); }
+  else if (typeof nav === 'function') { nav('marketplace'); }
+}
+function extShowOnboarding(item) {
+  const m = document.getElementById('mktDetailModal');
+  const c = document.getElementById('mktDetailContent');
+  if (!m || !c) { mktToast(`${item.name} installed — enable it in any space via ⋮ → Settings & extensions`); return; }
+  if (typeof mktCurrentItem !== 'undefined') mktCurrentItem = item;
+  document.getElementById('mktDetailIcon').textContent = item.icon || '🧩';
+  document.getElementById('mktDetailName').textContent = `${item.name} installed`;
+  document.getElementById('mktDetailAuthor').textContent = 'Get started';
+  document.getElementById('mktDetailMeta').innerHTML = '';
+  document.getElementById('mktDetailActions').innerHTML = `<button class="mkt-install-btn mkt-btn-lg" onclick="mktCloseDetail()">Done</button>`;
+  c.innerHTML = `<div class="mkt-reviews-section"><div class="mkt-section-label" style="margin-bottom:8px">Set up ${mktEsc(item.name)}</div>
+    <div class="mkt-onboard-step">✅ Installed</div>
+    <div class="mkt-onboard-step">▢ <strong>Enable it in a space</strong> — open any space → ⋮ → <em>Settings &amp; extensions</em> → toggle ${mktEsc(item.name)} on.</div>
+    <div class="mkt-onboard-step">▢ <strong>Open the space</strong> — a new <em>${mktEsc(item.name)}</em> tab appears in that space.</div>
+    <div style="margin-top:12px"><button class="mkt-btn-teal" onclick="mktCloseDetail(); if(typeof orgAddExtension==='function') orgAddExtension();">Enable in my Org</button></div></div>`;
+  m.style.display = 'flex';
 }

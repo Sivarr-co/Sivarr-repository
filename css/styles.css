@@ -7741,3 +7741,8 @@ body.theme-transitioning *::after {
 .sb-sec-caret { font-size:.8rem; color:var(--text4); transition:transform .18s; }
 .sb-nav-group.collapsed { display:none; }
 .sb-sec-caret.collapsed { transform:rotate(-90deg); }
+
+/* ── Stage 4: extension onboarding steps ── */
+.mkt-onboard-step { font-size:.82rem; color:var(--muted); padding:6px 0; border-bottom:1px solid var(--border); line-height:1.5; }
+.mkt-onboard-step:last-child { border-bottom:none; }
+.mkt-onboard-step strong { color:var(--text); }
