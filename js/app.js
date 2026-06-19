@@ -953,7 +953,16 @@ function integrationsRender() {
     },
   ];
 
-  grid.innerHTML = integrations.map(i => `
+  // Stage 8: standardized per-category layout. Each integration declares a category;
+  // cards render under a full-width category header in a fixed order. The card markup
+  // itself is the single unified pattern shared across every integration.
+  const INT_CAT = {
+    google: 'Identity', gcal: 'Calendar', github: 'Developer',
+    paystack: 'Payments & Finance', flutterwave: 'Payments & Finance', mono: 'Payments & Finance',
+    whatsapp: 'Communication',
+  };
+  const CAT_ORDER = ['Identity', 'Calendar', 'Developer', 'Payments & Finance', 'Communication'];
+  const card = (i) => `
     <div class="int-card ${i.connected ? 'connected' : ''}">
       <div class="int-header">
         <div class="int-logo" style="background:${i.bg};color:${i.bg==='#fff'?'#000':'#fff'}">${i.logo}</div>
@@ -968,7 +977,11 @@ function integrationsRender() {
           ? `<button class="int-btn ${i.connected ? 'connected-btn' : ''}" onclick="(${i.action.toString()})()">${i.connected ? '✓ ' : ''}${esc(i.actionLabel)}</button>`
           : `<button class="int-btn connected-btn" disabled>✓ ${esc(i.actionLabel)}</button>`
       }
-    </div>`).join('');
+    </div>`;
+  const byCat = {};
+  integrations.forEach(i => { const c = INT_CAT[i.id] || 'Other'; (byCat[c] = byCat[c] || []).push(i); });
+  const cats = CAT_ORDER.filter(c => byCat[c]).concat(Object.keys(byCat).filter(c => !CAT_ORDER.includes(c)));
+  grid.innerHTML = cats.map(c => `<div class="int-cat-head">${esc(c)}</div>` + byCat[c].map(card).join('')).join('');
 }
 
 // ─────────────────────────────────────────────────────────────

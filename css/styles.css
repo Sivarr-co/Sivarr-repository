@@ -578,6 +578,8 @@ body.offline .layout {
 
 /* Integration cards in Library */
 .int-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:24px; }
+.int-cat-head { grid-column:1/-1; font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-top:10px; padding-bottom:2px; border-bottom:1px solid var(--border); }
+.int-cat-head:first-child { margin-top:0; }
 .int-card {
   border:1.5px solid var(--border); border-radius:12px; padding:16px;
   display:flex; flex-direction:column; gap:8px; background:var(--bg2);
