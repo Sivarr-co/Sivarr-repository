@@ -16778,10 +16778,11 @@ function lAssessSegment(seg) {
   const panel = document.getElementById(`lAssess-${seg}`);
   if (panel) panel.style.display = 'block';
   const btn = document.getElementById('lAssessCreateBtn');
-  if (btn) { btn.textContent = seg === 'quizzes' ? '+ New Quiz' : seg === 'assignments' ? '+ New Assignment' : ''; btn.style.display = seg === 'grading' ? 'none' : 'block'; }
+  if (btn) { btn.textContent = seg === 'quizzes' ? '+ New Quiz' : seg === 'assignments' ? '+ New Assignment' : seg === 'exams' ? '+ New Exam' : ''; btn.style.display = seg === 'grading' ? 'none' : 'block'; }
   const hasClass = !!adData().classCode;
   if (seg === 'assignments' && hasClass) lLoadClassAssignments();
   if (seg === 'grading') lLoadGrading();
+  if (seg === 'exams') lLoadExams();
 }
 function lRenderAssessLists() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -16800,6 +16801,68 @@ function lDeleteAssess(kind, id) {
   if (kind === 'quiz') { lData.quizzes = lData.quizzes.filter(q => q.id !== id); adSave({ lQuizzes: lData.quizzes }); }
   else { lData.assignments = lData.assignments.filter(a => a.id !== id); adSave({ lAssignments: lData.assignments }); }
   lRenderAssessLists();
+}
+
+// ── Exam Builder (Stage 6) ──────────────────────────────────
+// Frontend rebuilt on the intact backend: free-text question bank, where each
+// student is served `questions_per_student` random questions under a timer.
+// Endpoints: GET /api/lecturer/exams · POST /api/lecturer/exam · /exam/delete ·
+// assign via POST /api/class/assign-exam.
+let _lExams = [];
+async function lLoadExams() {
+  const list = document.getElementById('lExamList');
+  const token = (window.S && S.token) || localStorage.getItem('sivarr_token') || '';
+  try {
+    const r = await fetch(`/api/lecturer/exams?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    lRenderExams(d.exams || []);
+  } catch (e) {
+    if (list) list.innerHTML = `<div class="acad-empty-state"><i class="ti ti-alert-triangle" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Couldn't load exams — try again.</div></div>`;
+  }
+}
+function lRenderExams(exams) {
+  _lExams = exams || [];
+  const cEl = document.getElementById('lExamCount');
+  if (cEl) cEl.textContent = `${_lExams.length} exam${_lExams.length !== 1 ? 's' : ''}`;
+  const list = document.getElementById('lExamList');
+  if (!list) return;
+  list.innerHTML = _lExams.length
+    ? _lExams.map((e, i) => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title || 'Untitled exam')}</div><div class="acad-priority-sub">${(e.questions || []).length} Qs · ${e.questions_per_student || 0}/student · ${e.duration || 0} min</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" onclick="lAssignExam('${acEsc(e.id)}')">Assign</button><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteExam(${i})">Delete</button></div></div>`).join('')
+    : `<div class="acad-empty-state"><i class="ti ti-file-pencil" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No exams yet. Build your first exam.</div></div>`;
+}
+async function lCreateExam() {
+  const f = await siModal.form('New exam', [
+    { id: 'title', label: 'Exam title', placeholder: 'e.g. Mid-Semester Biology', required: true },
+    { id: 'duration', label: 'Duration (minutes)', type: 'number', placeholder: '60', default: '60' },
+    { id: 'qps', label: 'Questions per student', type: 'number', placeholder: '30', default: '30' },
+    { id: 'bank', label: 'Question bank — one question per line', type: 'textarea', placeholder: 'Explain photosynthesis.\nDefine osmosis.\nState Newton’s first law.' },
+  ], { confirmLabel: 'Create exam' });
+  if (!f || !f.title) return;
+  const questions = (f.bank || '').split('\n').map(s => s.trim()).filter(Boolean);
+  if (!questions.length) { acToast('Add at least one question to the bank'); return; }
+  try {
+    await acadAPI('/api/lecturer/exam', {
+      title: f.title,
+      questions,
+      questions_per_student: parseInt(f.qps) || 30,
+      duration: parseInt(f.duration) || 60,
+      lecturer: (window.S && S.name) || '',
+    });
+    acToast('Exam created');
+    lLoadExams();
+  } catch (e) { acToast((e && e.message) || 'Could not create exam'); }
+}
+async function lDeleteExam(index) {
+  const ok = await siModal.confirm('Delete this exam? This cannot be undone.', { title: 'Delete exam', confirmLabel: 'Delete', danger: true });
+  if (!ok) return;
+  try { await acadAPI('/api/lecturer/exam/delete', { index }); acToast('Exam deleted'); lLoadExams(); }
+  catch (e) { acToast('Could not delete exam'); }
+}
+async function lAssignExam(examId) {
+  const code = adData().classCode;
+  if (!code) { acToast('Publish a class first (Overview → Publish class)'); return; }
+  try { await acadAPI('/api/class/assign-exam', { code, exam_id: examId }); acToast('Exam assigned to class ' + code); }
+  catch (e) { acToast((e && e.message) || 'Could not assign exam'); }
 }
 async function lCallAI(resultId, prompt, btn, resetLabel) {
   const el = document.getElementById(resultId);
@@ -16873,6 +16936,7 @@ function lExportRoster() {
 function lAddClass() { acToast('Schedule editor coming soon'); }
 async function lCreateAssessment() {
   if (_lAssessSeg === 'grading') return;
+  if (_lAssessSeg === 'exams') { lCreateExam(); return; }
   const isQuiz = _lAssessSeg === 'quizzes';
   const f = await siModal.form(isQuiz ? 'New quiz' : 'New assignment', [
     { id: 'title', label: 'Title', placeholder: isQuiz ? 'e.g. Week 3 Quiz' : 'e.g. Essay 1', required: true },
