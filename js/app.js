@@ -17619,6 +17619,7 @@ function mktSeedItems() {
     ext('ext-finance-dash','Finance Dashboard','💰','Adaeze N.','finance','Expense tracker + budget widget in ₦.',4.4,750,2500,false),
     ext('ext-code-runner','Code Runner','⚡','Emeka J.','developer','Run Python/JS/SQL snippets inline.',4.6,640,0,false),
     ext('ext-calendar','Calendar','📅','Sivarr','productivity','Your Google Calendar — upcoming events in any space.',4.8,0,0,true),
+    ext('ext-agency-os','Agency OS','🎨','Sivarr','work','Client workspace, brief→delivery pipeline, and revision tracking for agencies.',4.8,0,0,true),
     ...INT_CATALOGUE.map(i => ({ ...i, type:'integration', author:'Sivarr', official:true, rating:4.7, installs:1200, price:0 })),
     tmpl('tmpl-academic-student','Academic OS — Student','🎓','Sivarr','academic','Student dashboard: Lecture Vault, Exam Sprint, Research.',4.9,4100,true,'space'),
     tmpl('tmpl-academic-lect','Academic OS — Lecturer','📋','Sivarr','academic','Lecturer dashboard: courses, roster, AI tools.',4.8,1900,true,'space'),
@@ -17633,6 +17634,7 @@ function mktSeedItems() {
     'ext-kanban-plus':{label:'Kanban+',icon:'ti-layout-kanban'}, 'ext-citation':{label:'Citations',icon:'ti-file-text'},
     'ext-finance-dash':{label:'Finance',icon:'ti-coin'}, 'ext-code-runner':{label:'Code Runner',icon:'ti-code'},
     'ext-calendar':{label:'Calendar',icon:'ti-calendar'},
+    'ext-agency-os':{label:'Agency OS',icon:'ti-briefcase'},
   };
   items.forEach(i => { if (i.type === 'extension' && INJ[i.id]) i.inject = Object.assign({ type:'tab' }, INJ[i.id]); });
   return items;
@@ -17973,6 +17975,7 @@ const EXT_REGISTRY = {
   'ext-kanban-plus': { spaceTypes:['*'], render:(item)=>extKbShell(item) }, 'ext-citation':    { spaceTypes:['*'], render:(item)=>extCiteShell(item) },
   'ext-finance-dash':{ spaceTypes:['*'] }, 'ext-code-runner': { spaceTypes:['*'] },
   'ext-calendar':    { spaceTypes:['*'], render:(item)=>extCalShell(item) },
+  'ext-agency-os':   { spaceTypes:['*'], render:(item)=>extAgShell(item) },
 };
 function _hostKeyFor(space) {
   if (!space) return null;
@@ -18373,4 +18376,43 @@ async function stDeleteAccount() {
   try { await acadAPI('/api/account/delete', {}); } catch (e) {}
   try { localStorage.clear(); } catch (e) {}
   location.href = '/';
+}
+
+/* ── Stage 4: Agency OS (Org extension) — clients · brief→delivery pipeline · revisions ── */
+function extAgData() { const d = extData(_extSpaceId(), 'ext-agency-os'); return { clients: d.clients || [], pipeline: d.pipeline || { brief: [], doing: [], review: [], done: [] } }; }
+function extAgSave(v) { extSave(_extSpaceId(), 'ext-agency-os', v); }
+let _extAgSeg = 'pipeline';
+function extAgShell(item) {
+  return `<div class="ext-tab-shell" style="max-width:900px;align-items:stretch"><div style="text-align:center"><div class="ext-tab-icon">${item.icon}</div><div class="ext-tab-name">${mktEsc(item.name)}</div><div class="ext-tab-desc">${mktEsc(item.desc)}</div></div><div id="extag-root" style="width:100%;margin-top:14px">${extAgInner()}</div></div>`;
+}
+function extAgInner() {
+  const segs = [['clients', 'Clients'], ['pipeline', 'Pipeline'], ['revisions', 'Revisions']];
+  const bar = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px">${segs.map(([k, l]) => `<button class="mkt-cat-pill ${_extAgSeg === k ? 'active' : ''}" onclick="extAgSetSeg('${k}')">${l}</button>`).join('')}</div>`;
+  return bar + (_extAgSeg === 'clients' ? extAgClients() : _extAgSeg === 'revisions' ? extAgRevisions() : extAgPipeline());
+}
+function extAgRender() { const r = document.getElementById('extag-root'); if (r) r.innerHTML = extAgInner(); }
+function extAgSetSeg(s) { _extAgSeg = s; extAgRender(); }
+function extAgClients() {
+  const d = extAgData();
+  const top = `<div style="display:flex;justify-content:center;margin-bottom:12px"><button class="mkt-btn-teal" onclick="extAgAddClient()"><i class="ti ti-plus" aria-hidden="true"></i> Add client</button></div>`;
+  if (!d.clients.length) return top + `<div class="mkt-empty-state"><i class="ti ti-users" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No clients yet.</div></div>`;
+  return top + d.clients.map(c => `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${mktEsc(c.name)}</div><div class="mkt-item-author">${mktEsc(c.status || 'active')}</div></div><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extAgDelClient('${c.id}')">Remove</button></div>`).join('');
+}
+async function extAgAddClient() { const name = await siModal.input('New client', 'Client / company name', '', { confirmLabel: 'Add' }); if (!name) return; const d = extAgData(); d.clients.push({ id: 'c_' + Date.now(), name, status: 'active' }); extAgSave(d); extAgRender(); }
+function extAgDelClient(id) { const d = extAgData(); d.clients = d.clients.filter(c => c.id !== id); extAgSave(d); extAgRender(); }
+function extAgPipeline() {
+  const d = extAgData();
+  const COL = [['brief', 'Brief'], ['doing', 'In progress'], ['review', 'Review'], ['done', 'Delivered']];
+  return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">${COL.map(([k, label]) => `<div style="background:rgba(127,127,127,.05);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;min-height:150px"><div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-bottom:1px solid var(--border)"><span style="font-size:11px;font-weight:700;color:var(--text)">${label}</span><span class="mkt-count-badge">${(d.pipeline[k] || []).length}</span></div><div style="padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">${(d.pipeline[k] || []).map(c => `<div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:8px"><div style="font-size:11.5px;font-weight:600;color:var(--text);margin-bottom:3px">${mktEsc(c.title)}</div><div style="font-size:9.5px;color:var(--muted)">${mktEsc(c.client || '')}${c.revisions ? ` · ${c.revisions} rev` : ''}</div><div style="display:flex;gap:5px;margin-top:6px">${k !== 'done' ? `<button class="mkt-btn-ghost mkt-btn-sm" onclick="extAgMove('${c.id}')">Move →</button>` : ''}<button class="mkt-btn-ghost mkt-btn-sm" onclick="extAgRev('${c.id}')" title="Log a revision">↻</button><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extAgDel('${c.id}')">✕</button></div></div>`).join('') || '<div class="mkt-brief-desc" style="padding:6px">—</div>'}</div><div style="padding:8px;border-top:1px solid var(--border)"><button class="mkt-btn-ghost mkt-btn-sm" style="width:100%" onclick="extAgAddCard('${k}')">+ Add</button></div></div>`).join('')}</div>`;
+}
+async function extAgAddCard(col) { const title = await siModal.input('New project', 'Project / brief title', '', { confirmLabel: 'Add' }); if (!title) return; const d = extAgData(); (d.pipeline[col] = d.pipeline[col] || []).push({ id: 'p_' + Date.now(), title, client: '', revisions: 0 }); extAgSave(d); extAgRender(); }
+function extAgMove(id) { const order = ['brief', 'doing', 'review', 'done']; const d = extAgData(); for (let i = 0; i < order.length - 1; i++) { const arr = d.pipeline[order[i]] || []; const idx = arr.findIndex(c => c.id === id); if (idx > -1) { const [c] = arr.splice(idx, 1); (d.pipeline[order[i + 1]] = d.pipeline[order[i + 1]] || []).push(c); break; } } extAgSave(d); extAgRender(); }
+function extAgRev(id) { const d = extAgData(); ['brief', 'doing', 'review', 'done'].forEach(k => (d.pipeline[k] || []).forEach(c => { if (c.id === id) c.revisions = (c.revisions || 0) + 1; })); extAgSave(d); extAgRender(); }
+function extAgDel(id) { const d = extAgData(); ['brief', 'doing', 'review', 'done'].forEach(k => d.pipeline[k] = (d.pipeline[k] || []).filter(c => c.id !== id)); extAgSave(d); extAgRender(); }
+function extAgRevisions() {
+  const d = extAgData(); const all = [];
+  ['brief', 'doing', 'review', 'done'].forEach(k => (d.pipeline[k] || []).forEach(c => all.push(Object.assign({ col: k }, c))));
+  const withRev = all.filter(c => (c.revisions || 0) > 0).sort((a, b) => b.revisions - a.revisions);
+  if (!withRev.length) return `<div class="mkt-empty-state"><i class="ti ti-refresh" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No revisions logged yet — use ↻ on a project card.</div></div>`;
+  return withRev.map(c => `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${mktEsc(c.title)}</div><div class="mkt-item-author">${mktEsc(c.client || c.col)}</div></div><span class="mkt-count-badge">${c.revisions} rev</span></div>`).join('') + `<div style="font-size:.7rem;color:var(--muted);margin-top:10px;opacity:.7">Invoices coming soon.</div>`;
 }
