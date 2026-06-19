@@ -30,9 +30,13 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 - [ ] Deferred (needs analytics): remove zero-usage items.
 **Verified:** VM harness 7/7 (defaults, toggle/persist, recents dedup/order, unknown guard). Cache-bust app.js/styles v=20260619b.
 
-## Stage 3 — General & organisation settings  🟡 (thinnest part)
-Done: `panel-settings` (basic) + per-space Settings modal.
-To-do: notification prefs, appearance accents, connected-accounts summary, data export ZIP, billing/plan screen; ORG settings (members/roles, departments, invoices, audit log); permissions model (Owner/Admin/Member/Guest) enforced.
+## Stage 3 — General & organisation settings  🔵 IN PROGRESS (org slice done `afb8940`, 2026-06-19)
+**Found already built (personal):** Profile, Appearance + accent picker, Notifications (category toggles), Billing (plan/usage/history/cancel). Decision (Hunter): build **Org settings first**; dependent items as shells.
+**Shipped (org settings slice):**
+- [x] Backend: `set_org_member_role`/`remove_org_member` (owner row immutable); `/api/org/member/role` (owner), `/api/org/member/remove` (owner/admin, role-aware), `/api/org/audit` (owner/admin); `_org_audit()` → collections `org_audit`; org/update audited.
+- [x] Frontend: gated "Organisation" section in Settings (only when in an org) — org profile edit (owner), member list + role-select (owner) + remove (role-aware), recent admin-activity, invite. Permission gating mirrors server.
+- [x] Verified: VM 12/12 (owner/admin/member gating, owner-row protection); PROD pass — settings opens, section wired, hidden-without-org, 0 errors. app.js v=20260619c.
+**Still to-do (deferred):** departments/sub-teams; org invoice history; personal data controls (export ZIP / delete account / clear history); notification channels (email/WhatsApp/in-app — WhatsApp pending Stage 5/7); timezone; formal Guest role + permissions-model doc. **Note:** org section render with real members needs an owner session to browser-verify (logic VM-verified).
 
 ## Stage 4 — Org Space extensions  🟡 (infra done, content missing)
 Done: extension infra (marketplace, install/uninstall, injection, registry, generic host); Founder mode (investor pipeline + milestones).
