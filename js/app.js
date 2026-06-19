@@ -5425,7 +5425,7 @@ function cmdRenderResults(q) {
     groups[g].push({ ...item, _idx: idx });
   });
 
-  res.innerHTML = Object.entries(groups).map(([group, groupItems]) => `
+  res.innerHTML = (!q ? cmdRecentHTML() : '') + Object.entries(groups).map(([group, groupItems]) => `
     <div class="cmd-section-label">${group}</div>
     ${groupItems.map(item => `
       <button class="cmd-item" data-idx="${item._idx}" onclick="cmdRun(${item._idx})">
@@ -7845,6 +7845,7 @@ function sidebarNav(btn) {
 
 // ═══════════════════════════ NAV ════════════════════════════════
 function nav(name, btn) {
+  if (typeof cmdPushRecent === 'function') cmdPushRecent(name);
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn, .mn-btn').forEach(b => b.classList.remove('active'));
   const p = document.getElementById(`panel-${name}`);
@@ -18214,3 +18215,45 @@ function extKbDel(id) {
   ['todo', 'doing', 'done'].forEach(k => { cols[k] = (cols[k] || []).filter(c => c.id !== id); });
   extSave(sid, 'ext-kanban-plus', { cols }); extKbRender();
 }
+
+/* ── Stage 2: collapsible sidebar sections (persisted; Life+Connect collapsed by default) ── */
+function sbSecToggle(groupId, key) {
+  const g = document.getElementById(groupId);
+  if (!g) return;
+  const collapsed = !g.classList.contains('collapsed');
+  g.classList.toggle('collapsed', collapsed);
+  const c = document.getElementById('sbcaret-' + key);
+  if (c) c.classList.toggle('collapsed', collapsed);
+  try { localStorage.setItem('sivarr_sb_' + key, collapsed ? '1' : '0'); } catch (e) {}
+}
+function sbRestoreSections() {
+  const defs = { work: '0', grow: '1', connect: '1' };  // Life(grow)+Connect collapsed by default
+  [['sgi-work', 'work'], ['sgi-grow', 'grow'], ['sgi-connect', 'connect']].forEach(([gid, key]) => {
+    let v = null; try { v = localStorage.getItem('sivarr_sb_' + key); } catch (e) {}
+    if (v === null) v = defs[key];
+    const collapsed = (v === '1');
+    const g = document.getElementById(gid); if (g) g.classList.toggle('collapsed', collapsed);
+    const c = document.getElementById('sbcaret-' + key); if (c) c.classList.toggle('collapsed', collapsed);
+  });
+}
+try { sbRestoreSections(); } catch (e) {}
+
+/* ── Stage 2: recently-used destinations in ⌘K (top of palette on empty query) ── */
+function cmdPushRecent(name) {
+  if (!name || !document.querySelector(`.si[data-panel="${name}"]`)) return; // only real sidebar destinations
+  let r = []; try { r = JSON.parse(localStorage.getItem('sivarr_cmd_recent') || '[]'); } catch (e) {}
+  r = [name, ...r.filter(n => n !== name)].slice(0, 6);
+  try { localStorage.setItem('sivarr_cmd_recent', JSON.stringify(r)); } catch (e) {}
+}
+function cmdRecentHTML() {
+  let r = []; try { r = JSON.parse(localStorage.getItem('sivarr_cmd_recent') || '[]'); } catch (e) {}
+  const rows = r.map(name => {
+    const btn = document.querySelector(`.si[data-panel="${name}"]`);
+    if (!btn) return '';
+    const label = btn.querySelector('.si-lb')?.textContent || name;
+    const icon  = btn.querySelector('.si-icon')?.innerHTML || '';
+    return `<button class="cmd-item" onclick="cmdRunNamed('${name}')"><div class="cmd-item-icon">${icon}</div><div style="flex:1;min-width:0"><div class="cmd-item-label">${esc(label)}</div></div><span class="cmd-item-tag">Recent</span></button>`;
+  }).filter(Boolean).join('');
+  return rows ? `<div class="cmd-section-label">Recent</div>${rows}` : '';
+}
+function cmdRunNamed(name) { cmdDismiss(); if (typeof nav === 'function') nav(name); }

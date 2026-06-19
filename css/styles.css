@@ -7735,3 +7735,9 @@ body.theme-transitioning *::after {
   background:transparent; border:none; border-bottom:2px solid var(--acad-accent);
   color:var(--acad-accent); font-weight:600; border-radius:0;
 }
+
+/* ── Stage 2: collapsible sidebar sections ── */
+.sb-sec-head { cursor:pointer; user-select:none; }
+.sb-sec-caret { font-size:.8rem; color:var(--text4); transition:transform .18s; }
+.sb-nav-group.collapsed { display:none; }
+.sb-sec-caret.collapsed { transform:rotate(-90deg); }

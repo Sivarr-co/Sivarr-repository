@@ -20,7 +20,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260619a">
+<link rel="stylesheet" href="/css/styles.css?v=20260619b">
 <!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
 <script type="module">
 import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
@@ -454,7 +454,9 @@ Sentry.onLoad(function() {
         </div>
 
         <!-- Work -->
-        <div class="sb-section-label">Work</div>
+        <div class="sb-section-row sb-sec-head" onclick="sbSecToggle('sgi-work','work')">
+          <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;"><i class="ti ti-chevron-down sb-sec-caret" id="sbcaret-work" aria-hidden="true"></i>Work</span>
+        </div>
         <div class="sb-nav-group" id="sgi-work">
           <button class="si" data-panel="flux" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-checkbox"></i></div>
@@ -479,7 +481,9 @@ Sentry.onLoad(function() {
         </div>
 
         <!-- Life -->
-        <div class="sb-section-label">Life</div>
+        <div class="sb-section-row sb-sec-head" onclick="sbSecToggle('sgi-grow','grow')">
+          <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;"><i class="ti ti-chevron-down sb-sec-caret" id="sbcaret-grow" aria-hidden="true"></i>Life</span>
+        </div>
         <div class="sb-nav-group" id="sgi-grow">
           <button class="si" data-panel="skills" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-atom"></i></div>
@@ -508,7 +512,9 @@ Sentry.onLoad(function() {
         </div>
 
         <!-- Connect -->
-        <div class="sb-section-label">Connect</div>
+        <div class="sb-section-row sb-sec-head" onclick="sbSecToggle('sgi-connect','connect')">
+          <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;"><i class="ti ti-chevron-down sb-sec-caret" id="sbcaret-connect" aria-hidden="true"></i>Connect</span>
+        </div>
         <div class="sb-nav-group" id="sgi-connect">
           <button class="si" data-panel="community" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-users"></i></div>
@@ -4381,7 +4387,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260619a" defer></script>
+<script src="/js/app.js?v=20260619b" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
