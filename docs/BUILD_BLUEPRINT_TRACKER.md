@@ -58,9 +58,12 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 - [x] Verified: VM 5/5 (freelance→agency-os; academic-student→flashcards+citation+role; weekly-review→no-auto-ext; WhatsApp card present; int-soon class present). node --check OK. Cache-bust v=20260619g.
 **NOTED for the post-stages polish pass (per Hunter):** real WhatsApp Meta-API wiring (gated on sivarr.com cutover + Meta app); per-integration **settings panel** + live **health/last-sync** indicator; template **preview** before create; **paid templates** purchase flow (gated on Stage-10 pricing); `tmpl-startup` → real **Org** create (Startup OS = org Founder mode; currently lands a personal space).
 
-## Stage 6 — Academic & Personal actually work  🟡→🟢
-Done: Academic v3 (classes, study deck, quiz, planner, timer, groups, lecturer attendance/grading/assignments/live/polls); Personal tasks/goals/habits/journal/finance/analytics persist.
-To-do: exam builder (old one deleted), calendar drag-drop scheduling, SIVA personal daily briefing on real data, charts-from-real-data polish.
+## Stage 6 — Academic & Personal actually work  ✅ DONE (`7f6c859`, 2026-06-19)
+**Found already built:** Academic v3 (classes, study deck, quiz, planner, timer, groups, lecturer attendance/grading/assignments/live/polls); Personal tasks/goals/habits/journal/finance/analytics persist; **SIVA personal daily briefing on real data** (`/api/home/briefing`); calendar (`calRender`); real-data charts (mood chart fixed earlier); per-tab empty states (leaderboard/notes/docs/flashcards).
+**Shipped (the one real gap — exam builder):**
+- [x] **Lecturer Exam Builder** rebuilt as an **Exams segment** in the Assessments tab, on the **intact backend** (decision Hunter: match existing free-text question-bank model — no backend changes). Add/list/delete exams (title, duration, questions-per-student, one-question-per-line bank), Assign-to-class. Wires `GET /api/lecturer/exams`, `POST /api/lecturer/exam`, `/api/lecturer/exam/delete`, `/api/class/assign-exam`.
+- [x] Verified: VM 7/7 (render/count/Assign+Delete/create+question-parse/delete-index/assign-payload/seg-label); **prod browser pass** — `v=20260619h` live, Exams seg+panel render, `lAssessSegment('exams')` shows panel + "+ New Exam", **0 console errors**.
+**NOTED for the post-stages polish pass (per Hunter):** calendar **drag-drop** scheduling (calRender is click/form-based today); richer **MCQ + auto-grade** exam model (deferred — would change the exam backend + student take-flow); per-tab empty-state CTA polish (folded from Stage 1).
 
 ## Stage 7 — Trading Journal extension (Personal)  ❌ (largest new build)
 MT5/MT4 EA, TradingView webhook, broker API, CSV+Claude parse; journal + psychology + risk calc + rules adherence; SIVA pattern detection, WhatsApp reports. Depends on extension infra (have) + WhatsApp integration (missing).
