@@ -9,16 +9,17 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 
 ---
 
-## Stage 1 — Redesign tab layout (Org / Academic / Personal)  🔵 IN PROGRESS
-**Already in code:** Org `os-tab`/`orgTab` (12 tabs incl. Founder + Financials); Academic **v3 dual-role** `acad-tab` (`sSwitchTab`/`lSwitchTab`); Personal `sp-tab`/`spTab('ps',…)`; extension-injection tab slot via `SPACE_HOSTS` (generic host) ✅.
-**Gaps / to-do:**
-- [ ] Unify to one shared tab visual component (3 systems today: os-/acad-/sp-) — SCOPE TBD (visual-unify vs full refactor)
-- [ ] Org: Founder tab → owner-only (exists, not conditional); confirm tab order; Extensions slot appears on install
-- [ ] Mobile overflow / horizontal scroll for tab bars
-- [ ] Active-tab underline animation consistent with sidebar
-- [ ] Each tab has a real empty state + CTA (not blank)
-- [ ] Document tab-behaviour rules so extensions follow the pattern
-**Open decisions (asked Hunter):** unify scope; keep Academic v3 tabs vs Blueprint's flat list; Personal OS templates as tabs vs space-type.
+## Stage 1 — Redesign tab layout (Org / Academic / Personal)  ✅ DONE (`b9bf8be`, 2026-06-19)
+**Decisions (Hunter):** visual-unify scope (keep the 3 JS switchers + injection host); KEEP Academic v3 dual-role tabs; Personal OS = extensions/space-type (not new tabs).
+**Shipped:**
+- [x] One shared tab **visual language** across `.os-tab` / `.acad-tab` / `.sp-tab` — flat horizontal-scroll bar + animated active underline. Academic (was pills) brought into the underline language. CSS-only; switchers + accents + injection host untouched.
+- [x] Mobile **overflow / horizontal scroll** on all three bars (`overflow-x:auto`).
+- [x] Active-tab **underline animation** (.18s transition) consistent across spaces.
+- [x] Founder tab → **owner-only** (`_founderTabVisibility`, was owner+admin).
+- [x] Org tab order: Tasks before Goals (blueprint order).
+- [x] Extensions tab slot: already provided by `SPACE_HOSTS` injection (Stage-4 infra).
+**Verified:** VM founder-gate 3/3 (owner shows, admin/member hidden); PROD browser pass — academic active tab computed `border-bottom 2px / radius 0 / transparent bg` (underline, not pill), all 3 bars `overflow-x:auto`, Org 12 / Personal 7 / Academic 6 tabs, **0 console errors**, app.js v=20260619a / styles v=20260619a live.
+**Folded into Stage 6** (content-level, not the tab system): per-tab empty-state + CTA polish. **Doc:** tab-behaviour rule = all space tab-bars use `.{os,sp,acad}-tab` sharing the unified CSS; new spaces/extensions reuse a host descriptor in `SPACE_HOSTS`.
 
 ## Stage 2 — Edit & reduce the sidebar  🟡
 Done: Spaces dropdown collapse, orphan-panel removal, ⌘K reaches all, icon-only collapsed CSS.
