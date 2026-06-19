@@ -4201,6 +4201,7 @@ function stUpdateUsage() {
   if (cancel) cancel.style.display = (isPaid && status !== 'cancelled') ? '' : 'none';
 }
 
+let _stBillingHistory = [];
 async function stLoadBillingHistory() {
   const token = localStorage.getItem('sivarr_token') || '';
   if (!token) return;
@@ -4211,19 +4212,53 @@ async function stLoadBillingHistory() {
     const wrap = $('st-billing-history');
     if (!list || !wrap) return;
     if (!d.history || d.history.length === 0) { wrap.style.display = 'none'; return; }
+    _stBillingHistory = d.history;
     wrap.style.display = '';
-    list.innerHTML = d.history.map(h => `
+    list.innerHTML = d.history.map((h, i) => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.78rem">
         <div>
           <div style="font-weight:600">${esc(h.plan)}</div>
           <div style="color:var(--muted);margin-top:2px">${esc(h.date)} · ${esc(h.gateway || 'Paystack')}</div>
         </div>
-        <div style="text-align:right">
-          <div style="font-weight:700;color:var(--accent)">${esc(h.amount)}</div>
-          <div style="color:var(--muted);font-size:.7rem">${esc(h.reference || '')}</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="text-align:right">
+            <div style="font-weight:700;color:var(--accent)">${esc(h.amount)}</div>
+            <div style="color:var(--muted);font-size:.7rem">${esc(h.reference || '')}</div>
+          </div>
+          <button class="int-btn" style="padding:5px 9px;font-size:.72rem" onclick="stDownloadInvoice(${i})" title="Download invoice"><i class="ti ti-download" aria-hidden="true"></i> Invoice</button>
         </div>
       </div>`).join('');
   } catch(_) {}
+}
+// Stage 10: generate a self-contained, printable HTML invoice from a billing record.
+function stDownloadInvoice(i) {
+  const h = _stBillingHistory[i];
+  if (!h) return;
+  const who = (typeof S !== 'undefined' && S.name) || '';
+  const email = (typeof S !== 'undefined' && S.email) || '';
+  const ref = h.reference || ('SVR-' + Date.now());
+  const inv = `<!doctype html><html><head><meta charset="utf-8"><title>Sivarr invoice ${esc(ref)}</title>
+<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;max-width:640px;margin:40px auto;padding:0 24px}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0ea5a4;padding-bottom:16px;margin-bottom:24px}
+.brand{font-size:1.5rem;font-weight:800;color:#0ea5a4}.muted{color:#666;font-size:.85rem}
+table{width:100%;border-collapse:collapse;margin:20px 0}td,th{text-align:left;padding:10px 0;border-bottom:1px solid #eee;font-size:.9rem}
+.tot{font-size:1.2rem;font-weight:800;text-align:right;margin-top:8px}.r{text-align:right}
+@media print{body{margin:0}.noprint{display:none}}</style></head>
+<body>
+<div class="hd"><div><div class="brand">Sivarr</div><div class="muted">sivarr.com</div></div>
+<div class="r"><div style="font-weight:700">INVOICE</div><div class="muted">${esc(ref)}</div><div class="muted">${esc(h.date || '')}</div></div></div>
+<div class="muted">Billed to</div><div style="font-weight:600;margin-bottom:4px">${esc(who || 'Sivarr customer')}</div>${email ? `<div class="muted">${esc(email)}</div>` : ''}
+<table><thead><tr><th>Description</th><th class="r">Amount</th></tr></thead>
+<tbody><tr><td>${esc(h.plan || 'Subscription')} — Sivarr plan</td><td class="r">${esc(h.amount || '')}</td></tr></tbody></table>
+<div class="tot">Total: ${esc(h.amount || '')}</div>
+<div class="muted" style="margin-top:24px">Paid via ${esc(h.gateway || 'Paystack')}. Thank you for using Sivarr.</div>
+<button class="noprint" onclick="window.print()" style="margin-top:24px;padding:10px 20px;background:#0ea5a4;color:#fff;border:0;border-radius:8px;font-weight:700;cursor:pointer">Print / Save as PDF</button>
+</body></html>`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([inv], { type: 'text/html' }));
+  a.download = `sivarr-invoice-${ref}.html`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
 async function billingCancelConfirm() {
