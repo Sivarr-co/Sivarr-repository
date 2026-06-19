@@ -46,10 +46,9 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 **Decisions (Hunter):** package Founder mode AS Startup OS (don't rebuild — it already has investor CRM + runway + milestones + metrics); build Agency OS first.
 **Shipped:**
 - [x] **Agency OS** extension (real, on existing infra): Clients (add/list/remove), Pipeline kanban (Brief→In progress→Review→Delivered; add/move/delete), Revisions (↻ per card + summary), invoices "coming soon". Per-space persistence (`_ext['ext-agency-os']`); registered in seed/inject/registry; mounts via generic host. VM 10/10 + PROD pass (mounts in a space, pipeline renders, 0 errors). app.js v=20260619e.
-**To-do (next slices):**
-- [ ] Package **Startup OS** = Founder mode + gaps (metrics dashboard, roadmap link to Projects) + onboarding checklist.
-- [ ] Org-space **"Add Extension"** entry point (open marketplace filtered to extensions from within the Org space) + **post-install onboarding checklist**.
-- [ ] (later) Agency OS invoices; Marketing/Ecom/Company OS only after validation.
+**Also shipped (`d6b8665`):** Org hero **"Extensions" button** → Space Settings (extensions) = the in-Org Add-Extension entry; **post-install onboarding** 3-step checklist (`extShowOnboarding` hooked into `mktInstall`). VM 3/3.
+**Status:** Stage 4 ✅ for the build path (extension infra + Agency OS + Startup OS via Founder mode + Add-Extension entry + onboarding).
+**NOTED for the post-stages polish pass (per Hunter):** Startup OS metrics dashboard (users/retention) + roadmap link to Projects; Agency OS invoices; Marketing/Ecom/Company OS (build only after validation per blueprint).
 
 ## Stage 5 — Templates & Integrations redesign  🟡
 Done: Marketplace Templates tab; real integrations — Google Calendar, GitHub, Paystack, Flutterwave, Mono.
