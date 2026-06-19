@@ -940,6 +940,17 @@ function integrationsRender() {
       action: () => monoConnect(),
       actionLabel: _MONO_CONNECTED ? 'Connected' : 'Connect',
     },
+    {
+      id: 'whatsapp',
+      name: 'WhatsApp Business',
+      logo: '💬',
+      bg: '#25D366',
+      connected: false,
+      comingSoon: true,
+      statusText: 'Reports, alerts & SIVA briefings — coming soon',
+      action: () => toast('WhatsApp Business is coming soon — it will power SIVA reports, alerts & trading summaries.'),
+      actionLabel: 'Coming soon',
+    },
   ];
 
   grid.innerHTML = integrations.map(i => `
@@ -951,9 +962,11 @@ function integrationsRender() {
           <div class="int-status ${i.connected ? 'ok' : ''}">${esc(i.statusText)}</div>
         </div>
       </div>
-      ${i.action
-        ? `<button class="int-btn ${i.connected ? 'connected-btn' : ''}" onclick="(${i.action.toString()})()">${i.connected ? '✓ ' : ''}${esc(i.actionLabel)}</button>`
-        : `<button class="int-btn connected-btn" disabled>✓ ${esc(i.actionLabel)}</button>`
+      ${i.comingSoon
+        ? `<button class="int-btn int-soon" onclick="(${i.action.toString()})()">${esc(i.actionLabel)}</button>`
+        : i.action
+          ? `<button class="int-btn ${i.connected ? 'connected-btn' : ''}" onclick="(${i.action.toString()})()">${i.connected ? '✓ ' : ''}${esc(i.actionLabel)}</button>`
+          : `<button class="int-btn connected-btn" disabled>✓ ${esc(i.actionLabel)}</button>`
       }
     </div>`).join('');
 }
@@ -17758,6 +17771,19 @@ async function mktUseTemplate(id) {
   try {
     const spaces = getSpaces(); spaces.push(space); saveSpaces(spaces);
     if (typeof syncSpaceMeta === 'function') syncSpaceMeta(space);
+    // Pre-populate the new space with the template's fitting FREE extensions, so a
+    // "Freelance Hub" lands you in a space with Agency OS already on, etc. (paid
+    // extensions are never auto-enabled — they require purchase via the marketplace).
+    const TMPL_EXTS = {
+      'tmpl-freelance':        ['ext-agency-os'],
+      'tmpl-academic-student': ['ext-flashcards', 'ext-citation'],
+    };
+    const preExts = TMPL_EXTS[item.id] || [];
+    if (preExts.length && typeof mktExtEnabled !== 'undefined') {
+      if (!mktExtEnabled[sid]) mktExtEnabled[sid] = [];
+      mktExtEnabled[sid] = [...new Set([...mktExtEnabled[sid], ...preExts])];
+      if (typeof mktSaveExt === 'function') mktSaveExt();
+    }
     if (typeof spaceRenderSidebar === 'function') spaceRenderSidebar();
     mktCloseDetail();
     mktToast(`"${space.name}" created from ${item.name}`);

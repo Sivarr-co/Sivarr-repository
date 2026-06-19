@@ -594,6 +594,8 @@ body.offline .layout {
   font-family:var(--font); font-size:.78rem; font-weight:600; cursor:pointer;
 }
 .int-btn.connected-btn { background:var(--teal2); color:var(--teal); border-color:var(--teal); }
+.int-btn.int-soon { background:transparent; color:var(--muted); border-style:dashed; cursor:help; }
+.int-btn.int-soon:hover { border-color:var(--muted); }
 .int-btn:hover { border-color:var(--teal); }
 
 /* Sidebar collapsed (tablet) */
