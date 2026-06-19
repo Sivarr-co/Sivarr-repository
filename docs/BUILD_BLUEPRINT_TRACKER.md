@@ -65,8 +65,16 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 - [x] Verified: VM 7/7 (render/count/Assign+Delete/create+question-parse/delete-index/assign-payload/seg-label); **prod browser pass** — `v=20260619h` live, Exams seg+panel render, `lAssessSegment('exams')` shows panel + "+ New Exam", **0 console errors**.
 **NOTED for the post-stages polish pass (per Hunter):** calendar **drag-drop** scheduling (calRender is click/form-based today); richer **MCQ + auto-grade** exam model (deferred — would change the exam backend + student take-flow); per-tab empty-state CTA polish (folded from Stage 1).
 
-## Stage 7 — Trading Journal extension (Personal)  ❌ (largest new build)
-MT5/MT4 EA, TradingView webhook, broker API, CSV+Claude parse; journal + psychology + risk calc + rules adherence; SIVA pattern detection, WhatsApp reports. Depends on extension infra (have) + WhatsApp integration (missing).
+## Stage 7 — Trading Journal extension (Personal)  ✅ CORE DONE (`cbeead4`, 2026-06-19)
+**Decision (Hunter):** build the **in-app core now**; external ingestion + WhatsApp later.
+**Shipped (on the existing extension infra, mirrors Agency OS — blob persistence + generic host mount):**
+- [x] **Trades**: manual Add-trade form + single-line CSV import; per-trade direction, derived **R-multiple / P&L / win-loss**, emotion + date; delete.
+- [x] **Journal**: trades with notes/emotion + emotion-frequency summary chips.
+- [x] **Risk**: position-size calculator (account × risk% ÷ stop distance), persists account/risk defaults.
+- [x] **Stats**: trades / win-rate / avg R / total R / net P&L tiles + cumulative-R **equity curve** (inline SVG).
+- [x] Seeded (`ext-trading-journal`, finance) + injected (Trading Journal tab) + `EXT_REGISTRY`.
+- [x] Verified: VM 11/11 (derive long/short/loser, add + CSV import, journal, stats+curve, risk calc, delete, seed+registry); fixed R-over-rounded-P&L for win/loss. **Prod browser pass** — `v=20260619i`, all 4 tabs render, derive math correct, **0 console errors**.
+**NOTED for later (need external infra + the WhatsApp integration, currently a stub):** MT5/MT4 EA, TradingView webhook, broker API, AI CSV/statement parse (`/api/chat`), SIVA pattern detection, WhatsApp trade reports, rules-adherence scoring.
 
 ## Stage 8 — Integration layout standardization  ❌
 Unified linked-item pattern, merged activity feed, per-category layouts (finance/calendar/dev/comms). Depends on Stage 5.
