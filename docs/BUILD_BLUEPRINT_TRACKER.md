@@ -83,9 +83,12 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 - [x] Verified: VM 4/4 + **prod browser pass** — 5 headers in order, 7 cards, headers full-width, **0 console errors**.
 **NOTED for later (Stage 8 depth):** merged cross-integration **activity feed**; richer per-category **detail layouts** (calendar agenda / dev commits / finance transactions) — need live per-integration data aggregation.
 
-## Stage 9 — Agents marketplace  🟡 (verify + complete)
-Done: `panel-agents` browse/marketplace.
-To-do (verify first): creator submission + approval queue, creator dashboard, revenue split + payout, reviews, safety/takedown.
+## Stage 9 — Agents marketplace  ✅ DONE (`410a147`, 2026-06-19)
+**Found already built (verified on prod — renders cards, 0 errors):** full marketplace — browse/featured/search/filter (`agRenderMarketplace`), template detail + Stripe/Paystack checkout + free install, **creator application** (`agSubmitApplication` → `/api/agents/apply`), **creator dashboard** (overview/templates/earnings/reviews/settings), **template builder** (`agOpenBuilder`/`agSaveTemplate`), **reviews** (`agLeaveReview`), **revenue split + payouts** (`/api/agents/me/earnings`+`/payouts`, Stripe Connect). Admin moderation already exists: `/api/admin/templates/{id}/approve` (approval queue) + agent **suspend** (takedown).
+**Shipped (the real gap — user-facing safety):**
+- [x] **Report / flag a template**: `POST /api/agents/templates/{id}/report` (signed-in, stored in `agent_reports` collection, status "open") + `GET /api/admin/agents/reports` (admin queue). Frontend **"⚑ Report"** button on the template detail → `agReportTemplate()`.
+- [x] Verified: VM 5/5 (POST url, token+reason body, success toast, empty-reason + signed-out no-ops); endpoints prod-live (401-gated, not 404/500); **prod browser pass** — opened a real template, Report button renders, **0 console errors**. Cache-bust `v=20260619k`.
+**NOTED for later:** admin reports-queue **UI** (endpoint ready); auto-takedown thresholds.
 
 ## Stage 10 — Finalise payment plans  🟡 (engine done)
 Done: Paystack/Flutterwave subscribe+verify (amount/currency/idempotency), billing_history, NAIRA_RATE.
