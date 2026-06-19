@@ -50,9 +50,13 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 **Status:** Stage 4 ✅ for the build path (extension infra + Agency OS + Startup OS via Founder mode + Add-Extension entry + onboarding).
 **NOTED for the post-stages polish pass (per Hunter):** Startup OS metrics dashboard (users/retention) + roadmap link to Projects; Agency OS invoices; Marketing/Ecom/Company OS (build only after validation per blueprint).
 
-## Stage 5 — Templates & Integrations redesign  🟡
-Done: Marketplace Templates tab; real integrations — Google Calendar, GitHub, Paystack, Flutterwave, Mono.
-To-do: template preview + **real install/duplicate** (currently a toast), free/paid purchase, 5 real priority templates; integrations grid connected/not/upgrade states, **WhatsApp Business**, per-integration settings + health status.
+## Stage 5 — Templates & Integrations redesign  ✅ DONE (`88c8a7a`, 2026-06-19)
+**Found already built:** Marketplace Templates tab; real integrations grid with connected/not-connected/upgrade states + per-integration actions (Google OAuth, Google Calendar, GitHub, Paystack, Flutterwave, Mono); `mktUseTemplate` already creates a **real space** from a template (academic→academic w/ role; else personal) — the summary's "it's a toast" was stale.
+**Shipped:**
+- [x] Templates now **pre-populate** the new space with the template's fitting **FREE** extensions (Freelance Hub → Agency OS; Academic OS Student → Flashcards + Citation), via `TMPL_EXTS` map → `mktExtEnabled` + `mktSaveExt`. Paid extensions are never auto-enabled (purchase still required).
+- [x] **WhatsApp Business** integration card (coming-soon state, `.int-soon` dashed button) added to the integrations grid — the visible surface for SIVA reports/alerts + Stage-7 trading summaries.
+- [x] Verified: VM 5/5 (freelance→agency-os; academic-student→flashcards+citation+role; weekly-review→no-auto-ext; WhatsApp card present; int-soon class present). node --check OK. Cache-bust v=20260619g.
+**NOTED for the post-stages polish pass (per Hunter):** real WhatsApp Meta-API wiring (gated on sivarr.com cutover + Meta app); per-integration **settings panel** + live **health/last-sync** indicator; template **preview** before create; **paid templates** purchase flow (gated on Stage-10 pricing); `tmpl-startup` → real **Org** create (Startup OS = org Founder mode; currently lands a personal space).
 
 ## Stage 6 — Academic & Personal actually work  🟡→🟢
 Done: Academic v3 (classes, study deck, quiz, planner, timer, groups, lecturer attendance/grading/assignments/live/polls); Personal tasks/goals/habits/journal/finance/analytics persist.
