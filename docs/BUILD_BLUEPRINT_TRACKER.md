@@ -76,8 +76,12 @@ Started 2026-06-19. HEAD at start: `83339c0`.
 - [x] Verified: VM 11/11 (derive long/short/loser, add + CSV import, journal, stats+curve, risk calc, delete, seed+registry); fixed R-over-rounded-P&L for win/loss. **Prod browser pass** — `v=20260619i`, all 4 tabs render, derive math correct, **0 console errors**.
 **NOTED for later (need external infra + the WhatsApp integration, currently a stub):** MT5/MT4 EA, TradingView webhook, broker API, AI CSV/statement parse (`/api/chat`), SIVA pattern detection, WhatsApp trade reports, rules-adherence scoring.
 
-## Stage 8 — Integration layout standardization  ❌
-Unified linked-item pattern, merged activity feed, per-category layouts (finance/calendar/dev/comms). Depends on Stage 5.
+## Stage 8 — Integration layout standardization  ✅ DONE (`5cfb0a6`, 2026-06-19)
+**Found already built:** the integration card is a single unified pattern (logo/name/status/action) shared across all integrations.
+**Shipped:**
+- [x] **Per-category layout**: integrations grid now grouped under full-width category headers in a fixed order — **Identity → Calendar → Developer → Payments & Finance → Communication** (`INT_CAT`/`CAT_ORDER` in `integrationsRender`, `.int-cat-head` spans the grid). Cache-bust `v=20260619j`.
+- [x] Verified: VM 4/4 + **prod browser pass** — 5 headers in order, 7 cards, headers full-width, **0 console errors**.
+**NOTED for later (Stage 8 depth):** merged cross-integration **activity feed**; richer per-category **detail layouts** (calendar agenda / dev commits / finance transactions) — need live per-integration data aggregation.
 
 ## Stage 9 — Agents marketplace  🟡 (verify + complete)
 Done: `panel-agents` browse/marketplace.
