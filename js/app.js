@@ -18536,7 +18536,14 @@ async function stClearChat() {
 async function stDeleteAccount() {
   if (!confirm('Delete your account permanently? All your data will be removed.')) return;
   if (!confirm('This is final — there is no undo. Delete everything?')) return;
-  try { await acadAPI('/api/account/delete', {}); } catch (e) {}
+  try {
+    await acadAPI('/api/account/delete', {});
+  } catch (e) {
+    // Server delete failed — the account still exists, so do NOT clear local state
+    // or redirect (that would falsely look like a successful deletion).
+    if (typeof toast === 'function') toast((e && e.message) || 'Could not delete your account — please try again.');
+    return;
+  }
   try { localStorage.clear(); } catch (e) {}
   location.href = '/';
 }
