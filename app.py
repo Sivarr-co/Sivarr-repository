@@ -632,6 +632,12 @@ def _clear_failed_login(email: str) -> None:
 SESSION_TTL_DAYS  = 30             # auth token lifetime
 SESSION_REVALIDATE_SECONDS = 30    # how often a cached session is re-checked against the DB
                                    # (bounds how long a revoked session lingers per worker)
+# P3b: httpOnly session cookie. Set on every token-issuing path and read by
+# _BearerTokenMiddleware as a fallback, so SSE/EventSource (can't set headers)
+# and cookie-only clients authenticate WITHOUT ?token= in the URL. Secure is
+# disabled in local dev (http) so the cookie still works there.
+SESSION_COOKIE    = "sivarr_session"
+_COOKIE_SECURE    = os.environ.get("RAILWAY_ENVIRONMENT", "production") != "development"
 CHAT_SESSION_TTL  = 4 * 3600      # evict idle AI sessions after 4 hours
 _PRIV_SESSION_TTL_S = 7200  # 2 hours in seconds
 
@@ -726,6 +732,22 @@ def create_session_token(sid: str, name: str, email: str) -> str:
     if db.is_available():
         db.create_db_session(token, sid, name, email, expires)
     return token
+
+
+def _set_session_cookie(response: Response, token: str) -> None:
+    """P3b: store the session token in an httpOnly+SameSite cookie. httpOnly
+    keeps it out of reach of JS (XSS exfil); the cookie is auto-sent on
+    same-origin requests incl. SSE/EventSource. Additive — the Bearer header
+    and ?token= query param still work during the migration."""
+    response.set_cookie(
+        key=SESSION_COOKIE, value=token,
+        max_age=SESSION_TTL_DAYS * 86400,
+        httponly=True, secure=_COOKIE_SECURE, samesite="lax", path="/",
+    )
+
+
+def _clear_session_cookie(response: Response) -> None:
+    response.delete_cookie(SESSION_COOKIE, path="/", samesite="lax", secure=_COOKIE_SECURE)
 
 
 def create_session_token_for_existing(token: str, sid: str, name: str, email: str) -> None:
@@ -1863,17 +1885,22 @@ import urllib.parse as _urlparse
 class _BearerTokenMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         auth = request.headers.get("authorization", "")
-        if auth[:7].lower() == "bearer ":
-            tok = auth[7:].strip()
-            if tok:
-                qs = request.scope.get("query_string", b"")
-                try:
-                    has_token = "token" in _urlparse.parse_qs(qs.decode("latin-1"))
-                except Exception:
-                    has_token = b"token=" in qs
-                if not has_token:
-                    add = b"token=" + _urlparse.quote(tok, safe="").encode()
-                    request.scope["query_string"] = (qs + b"&" + add) if qs else add
+        tok = auth[7:].strip() if auth[:7].lower() == "bearer " else ""
+        # P3b: fall back to the httpOnly session cookie. Lets SSE/EventSource
+        # (which can't set an Authorization header) and cookie-only clients
+        # authenticate without ?token= in the URL. Precedence: explicit ?token=
+        # query > Bearer header > cookie.
+        if not tok:
+            tok = request.cookies.get(SESSION_COOKIE, "")
+        if tok:
+            qs = request.scope.get("query_string", b"")
+            try:
+                has_token = "token" in _urlparse.parse_qs(qs.decode("latin-1"))
+            except Exception:
+                has_token = b"token=" in qs
+            if not has_token:
+                add = b"token=" + _urlparse.quote(tok, safe="").encode()
+                request.scope["query_string"] = (qs + b"&" + add) if qs else add
         return await call_next(request)
 
 app.add_middleware(_BearerTokenMiddleware)
@@ -2534,7 +2561,7 @@ async def admin_metrics_page(request: Request):
 
 
 @app.post("/api/login")
-async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
+async def login(req: LoginRequest, request: Request, bg: BackgroundTasks, response: Response):
     key = get_client_key(request)
     check_rate_limit(key, RATE_LIMIT_LOGIN, "login")
 
@@ -2653,6 +2680,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
 
     spaces = db.get_all_spaces_with_data(sid) if db.is_available() else []
 
+    _set_session_cookie(response, token)
     return {
         "sid": sid, "name": user["name"], "email": user["email"],
         "token": token,
@@ -2667,7 +2695,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks):
 
 
 @app.post("/api/session/restore")
-async def session_restore(data: dict):
+async def session_restore(data: dict, response: Response):
     """
     Restore a session from a saved token — no password re-entry needed.
     Called on page reload when the client has a stored token.
@@ -2704,6 +2732,7 @@ async def session_restore(data: dict):
 
     spaces = db.get_all_spaces_with_data(sid) if db.is_available() else []
 
+    _set_session_cookie(response, token)
     return {
         "sid": sid, "name": p.get("name", name), "email": p.get("email", email),
         "token": token,
@@ -2718,11 +2747,12 @@ async def session_restore(data: dict):
 
 
 @app.post("/api/logout")
-async def logout(data: dict):
+async def logout(data: dict, response: Response):
     """Invalidate a session token."""
     token = sanitize_text(str(data.get("token", "")), 100)
     if token:
         delete_session_token(token)
+    _clear_session_cookie(response)
     return {"ok": True}
 
 
@@ -8960,7 +8990,7 @@ async def google_oauth_callback(code: str = "", error: str = "", state: str = ""
 
 
 @app.get("/api/auth/google/exchange")
-async def google_token_exchange(code: str = ""):
+async def google_token_exchange(response: Response, code: str = ""):
     """Exchange a one-time code for a session token and full login data.
 
     Returns the same shape as /api/login so the client can call _applyLoginData
@@ -9001,6 +9031,7 @@ async def google_token_exchange(code: str = ""):
 
     spaces = db.get_all_spaces_with_data(sid) if db.is_available() else []
 
+    _set_session_cookie(response, token)
     return {
         "sid": sid, "name": p.get("name", name), "email": p.get("email", email),
         "token": token,

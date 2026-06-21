@@ -3,8 +3,8 @@
 // rewrites every same-origin /api/ fetch: any `?token=` is stripped from the URL
 // and moved to `Authorization: Bearer <token>` (backend accepts it transparently).
 // Stops token leakage into server/proxy logs, browser history, and Referer headers.
-// NOTE: EventSource (SSE) can't set headers — those streams keep a query-param
-// token until the cookie-auth migration (P3b).
+// NOTE: EventSource (SSE) can't set headers, so those streams now authenticate
+// via the httpOnly session cookie (P3b) — no token in the URL either.
 (function () {
   const _origFetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
@@ -5277,7 +5277,10 @@ function sgConnectStream() {
   if (!SG_ACTIVE) return;
   sgStopLive();
   try {
-    SG_SSE = new EventSource(`/api/group/chat/stream?token=${encodeURIComponent(S.token||'')}&group_id=${encodeURIComponent(SG_ACTIVE.id)}&last_id=${SG_LAST_ID}`);
+    // P3b: auth rides on the httpOnly session cookie (sent automatically on
+    // same-origin EventSource) — no ?token= in the URL. Falls back to polling
+    // via onerror if the stream can't authenticate.
+    SG_SSE = new EventSource(`/api/group/chat/stream?group_id=${encodeURIComponent(SG_ACTIVE.id)}&last_id=${SG_LAST_ID}`);
     SG_SSE.onmessage = (e) => { try { sgAppendMsg(JSON.parse(e.data)); } catch(_){} };
     SG_SSE.onerror = () => {
       // SSE unavailable (e.g. no DB) → switch to polling once, don't thrash reconnects
@@ -11868,7 +11871,9 @@ function _ocConnectSSE() {
   const token = localStorage.getItem('sivarr_token') || '';
   if (!token || !ORG) return;
 
-  _OC_SSE = new EventSource(`/api/org/chat/stream?token=${encodeURIComponent(token)}&last_id=${_OC_LAST_ID}`);
+  // P3b: auth via the httpOnly session cookie — token no longer in the URL.
+  // (token presence above is just a logged-in guard; cookie carries the auth.)
+  _OC_SSE = new EventSource(`/api/org/chat/stream?last_id=${_OC_LAST_ID}`);
   _OC_SSE.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
