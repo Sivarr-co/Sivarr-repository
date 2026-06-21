@@ -17203,15 +17203,13 @@ function lDeleteAssess(kind, id) {
 // ── Exam Builder (Stage 6) ──────────────────────────────────
 // Frontend rebuilt on the intact backend: free-text question bank, where each
 // student is served `questions_per_student` random questions under a timer.
-// Endpoints: GET /api/lecturer/exams · POST /api/lecturer/exam · /exam/delete ·
-// assign via POST /api/class/assign-exam.
+// Endpoints (v3-native, normal session token): POST /api/acad/exam/list ·
+// /create · /delete · assign via POST /api/acad/exam/assign.
 let _lExams = [];
 async function lLoadExams() {
   const list = document.getElementById('lExamList');
-  const token = (window.S && S.token) || localStorage.getItem('sivarr_token') || '';
   try {
-    const r = await fetch(`/api/lecturer/exams?token=${encodeURIComponent(token)}`);
-    const d = await r.json();
+    const d = await acadAPI('/api/acad/exam/list');
     lRenderExams(d.exams || []);
   } catch (e) {
     if (list) list.innerHTML = `<div class="acad-empty-state"><i class="ti ti-alert-triangle" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Couldn't load exams — try again.</div></div>`;
@@ -17224,7 +17222,7 @@ function lRenderExams(exams) {
   const list = document.getElementById('lExamList');
   if (!list) return;
   list.innerHTML = _lExams.length
-    ? _lExams.map((e, i) => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title || 'Untitled exam')}</div><div class="acad-priority-sub">${(e.questions || []).length} Qs · ${e.questions_per_student || 0}/student · ${e.duration || 0} min</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" onclick="lAssignExam('${acEsc(e.id)}')">Assign</button><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteExam(${i})">Delete</button></div></div>`).join('')
+    ? _lExams.map((e, i) => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title || 'Untitled exam')}</div><div class="acad-priority-sub">${(e.questions || []).length} Qs · ${e.questions_per_student || 0}/student · ${e.duration || 0} min</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" onclick="lAssignExam('${acEsc(e.id)}')">Assign</button><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteExam('${acEsc(e.id)}')">Delete</button></div></div>`).join('')
     : `<div class="acad-empty-state"><i class="ti ti-file-pencil" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No exams yet. Build your first exam.</div></div>`;
 }
 async function lCreateExam() {
@@ -17238,7 +17236,7 @@ async function lCreateExam() {
   const questions = (f.bank || '').split('\n').map(s => s.trim()).filter(Boolean);
   if (!questions.length) { acToast('Add at least one question to the bank'); return; }
   try {
-    await acadAPI('/api/lecturer/exam', {
+    await acadAPI('/api/acad/exam/create', {
       title: f.title,
       questions,
       questions_per_student: parseInt(f.qps) || 30,
@@ -17249,16 +17247,16 @@ async function lCreateExam() {
     lLoadExams();
   } catch (e) { acToast((e && e.message) || 'Could not create exam'); }
 }
-async function lDeleteExam(index) {
+async function lDeleteExam(examId) {
   const ok = await siModal.confirm('Delete this exam? This cannot be undone.', { title: 'Delete exam', confirmLabel: 'Delete', danger: true });
   if (!ok) return;
-  try { await acadAPI('/api/lecturer/exam/delete', { index }); acToast('Exam deleted'); lLoadExams(); }
+  try { await acadAPI('/api/acad/exam/delete', { exam_id: examId }); acToast('Exam deleted'); lLoadExams(); }
   catch (e) { acToast('Could not delete exam'); }
 }
 async function lAssignExam(examId) {
   const code = adData().classCode;
   if (!code) { acToast('Publish a class first (Overview → Publish class)'); return; }
-  try { await acadAPI('/api/class/assign-exam', { code, exam_id: examId }); acToast('Exam assigned to class ' + code); }
+  try { await acadAPI('/api/acad/exam/assign', { code, exam_id: examId }); acToast('Exam assigned to class ' + code); }
   catch (e) { acToast((e && e.message) || 'Could not assign exam'); }
 }
 async function lCallAI(resultId, prompt, btn, resetLabel) {

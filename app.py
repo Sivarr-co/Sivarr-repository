@@ -3437,6 +3437,81 @@ async def acad_assignment_delete(data: dict):
     return {"ok": True}
 
 
+# ── Acad exams (Stage 6 rebuild) ───────────────────────────────
+# v3-native exam bank: per-lecturer (owner=sid), normal session token — fixes
+# the verify_lecturer()/lec_-token 401 that blocked the v3 Exam Builder. The old
+# /api/lecturer/exam* (global LECTURER_PASSWORD bank) is left intact for the
+# legacy /lecturer dashboard. Owner-scoped + id-based (no index-delete race).
+
+@app.post("/api/acad/exam/create")
+async def acad_exam_create(data: dict):
+    """Lecturer creates an exam in their own bank (normal session token)."""
+    sid, name = _resolve_token(data)
+    title = sanitize_text(str(data.get("title", "")), 200)
+    if not title:
+        raise HTTPException(400, "Exam title is required.")
+    questions = [sanitize_text(str(q), 500) for q in data.get("questions", [])[:100] if str(q).strip()]
+    if not questions:
+        raise HTTPException(400, "Add at least one question to the bank.")
+    exam = {
+        "id":                   uuid.uuid4().hex[:10],
+        "owner_sid":            sid,
+        "title":                title,
+        "questions":            questions,
+        "questions_per_student": min(max(int(data.get("questions_per_student", 30)), 1), 100),
+        "duration":             min(max(int(data.get("duration", 60)), 1), 300),
+        "lecturer":             sanitize_text(str(data.get("lecturer", name)), MAX_NAME_LEN),
+        "created":              datetime.datetime.utcnow().isoformat(),
+    }
+    db.coll_put("acad_exams", exam["id"], exam, owner=sid)
+    return {"ok": True, "exam": exam}
+
+
+@app.post("/api/acad/exam/list")
+async def acad_exam_list(data: dict):
+    """The caller's own exam bank."""
+    sid, _ = _resolve_token(data)
+    exams = sorted(db.coll_list("acad_exams", owner=sid),
+                   key=lambda e: e.get("created", ""), reverse=True)
+    return {"ok": True, "exams": exams}
+
+
+@app.post("/api/acad/exam/delete")
+async def acad_exam_delete(data: dict):
+    """Delete one of your own exams by id (owner-scoped)."""
+    sid, _ = _resolve_token(data)
+    exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+    exam = db.coll_get("acad_exams", exam_id)
+    if not exam or exam.get("owner_sid") != sid:
+        raise HTTPException(404, "Exam not found.")
+    db.coll_delete("acad_exams", exam_id)
+    return {"ok": True}
+
+
+@app.post("/api/acad/exam/assign")
+async def acad_exam_assign(data: dict, bg: BackgroundTasks):
+    """Assign one of your exams to a class you own; members are notified."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_require_owner(code, sid)
+    exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+    exam = db.coll_get("acad_exams", exam_id)
+    if not exam or exam.get("owner_sid") != sid:
+        raise HTTPException(404, "Exam not found.")
+    rec = {
+        "id":                   f"{code}:{exam_id}",
+        "code":                 code,
+        "exam_id":              exam_id,
+        "title":                exam["title"],
+        "questions_per_student": exam.get("questions_per_student", 30),
+        "duration":             exam.get("duration", 60),
+        "assigned":             datetime.datetime.utcnow().isoformat(),
+    }
+    db.coll_put("acad_class_exams", rec["id"], rec, owner=code)
+    bg.add_task(_acad_push_members, code, f"📝 {cls.get('name', 'Class')}: new exam", exam["title"], "/app")
+    return {"ok": True, "assignment": rec}
+
+
 @app.post("/api/acad/submit")
 async def acad_submit(data: dict):
     """Member submits work for an assignment (re-submit overwrites)."""
