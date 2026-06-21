@@ -36,6 +36,9 @@ Var names are exact (`app.py` / `config.py` / `database.py` / `rcache.py`).
       `GMAIL_APP_PASSWORD`. No email ⇒ new users can't verify ⇒ locked out.
 - [ ] **`ADMIN_PASSWORD`**, **`LECTURER_PASSWORD`** — set intentionally. Empty =
       that login is disabled by design (the P6 fix), which may be what you want.
+- [ ] **`ADMIN_TOTP_SECRET`** (optional, recommended) — base32 secret that turns on
+      2FA for admin login (password + 6-digit authenticator code). Generate with
+      `python scripts/admin_totp_setup.py`. Unset = password-only (backward compatible).
 
 ### REQUIRED IF monetizing (payments)
 - [ ] `PAYSTACK_SECRET_KEY` + `PAYSTACK_PUBLIC_KEY` (secret also verifies the

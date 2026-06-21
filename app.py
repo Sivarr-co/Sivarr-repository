@@ -136,6 +136,11 @@ for d in [DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR]:
 
 ADMIN_PASSWORD     = os.environ.get("ADMIN_PASSWORD", "")
 LECTURER_PASSWORD  = os.environ.get("LECTURER_PASSWORD", "")
+# P4: optional TOTP 2FA on admin login. When set (base32 secret), admin login
+# requires a valid 6-digit authenticator code in addition to ADMIN_PASSWORD.
+# Unset = backward-compatible password-only login. Generate via
+# scripts/admin_totp_setup.py.
+ADMIN_TOTP_SECRET  = os.environ.get("ADMIN_TOTP_SECRET", "").strip().replace(" ", "")
 if not ADMIN_PASSWORD:
     import sys
     print("CRITICAL: ADMIN_PASSWORD env var is not set. Admin login is disabled.", file=sys.stderr)
@@ -654,6 +659,31 @@ def _is_valid_admin_session(token: str) -> bool:
         return False
     expected = _hmac_sign(f"admin:{ts}", ADMIN_PASSWORD or "unset")
     return hmac.compare_digest(sig, expected)
+
+
+def _totp_verify(secret_b32: str, code: str, window: int = 1) -> bool:
+    """RFC 6238 TOTP check — SHA1, 6 digits, 30s step. `window` tolerates ±N
+    steps of clock drift between server and authenticator. Stdlib only (no
+    pyotp dependency). Returns False on any malformed input."""
+    import base64
+    code = (code or "").strip().replace(" ", "")
+    if not (secret_b32 and code.isdigit() and len(code) == 6):
+        return False
+    try:
+        s = secret_b32.strip().replace(" ", "").upper()
+        s += "=" * ((8 - len(s) % 8) % 8)   # restore base32 padding
+        key = base64.b32decode(s)
+        step = int(time.time()) // 30
+        for off in range(-window, window + 1):
+            counter = (step + off).to_bytes(8, "big")
+            mac = hmac.new(key, counter, hashlib.sha1).digest()
+            o = mac[-1] & 0x0F
+            val = (int.from_bytes(mac[o:o + 4], "big") & 0x7FFFFFFF) % 1_000_000
+            if hmac.compare_digest(f"{val:06d}", code):
+                return True
+    except Exception:
+        return False
+    return False
 
 
 def _create_lecturer_session() -> str:
@@ -2378,6 +2408,7 @@ class DifficultyRequest(BaseModel):
 
 class AdminLoginRequest(BaseModel):
     password: str
+    totp: str = ""   # 6-digit 2FA code; required only when ADMIN_TOTP_SECRET is set
 
 # ── Routes ────────────────────────────────────────────────────
 
@@ -4204,6 +4235,12 @@ async def admin_login(req: AdminLoginRequest, request: Request):
     if not (ADMIN_PASSWORD and hmac.compare_digest(req.password, ADMIN_PASSWORD)):
         log.warning(f"Failed admin login attempt from {key}")
         raise HTTPException(401, "Invalid password")
+    # P4: second factor. Enforced only when ADMIN_TOTP_SECRET is configured, so
+    # existing deployments keep working until 2FA is turned on. The per-attempt
+    # rate limit above (5) also bounds TOTP brute-force.
+    if ADMIN_TOTP_SECRET and not _totp_verify(ADMIN_TOTP_SECRET, req.totp):
+        log.warning(f"Admin login: invalid/missing 2FA code from {key}")
+        raise HTTPException(401, "Invalid or missing 2FA code")
     log.info(f"Admin login successful from {key}")
     token = _create_admin_session()
     return {"ok": True, "token": token}

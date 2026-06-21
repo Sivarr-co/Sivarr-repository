@@ -440,6 +440,12 @@ tbody tr:hover td{background:var(--hover)}
       <input id="pw" type="password" placeholder="••••••••••••"
         onkeydown="if(event.key==='Enter')doAdminLogin()">
     </div>
+    <div class="field" id="totp-field" style="display:none">
+      <label>2FA Code</label>
+      <input id="totp" type="text" inputmode="numeric" autocomplete="one-time-code"
+        maxlength="6" placeholder="123456"
+        onkeydown="if(event.key==='Enter')doAdminLogin()">
+    </div>
     <button class="grad-btn" id="login-btn" onclick="doAdminLogin()">Access Dashboard</button>
     <div class="l-err" id="l-err"></div>
   </div>
@@ -807,23 +813,34 @@ let _currentSection = 'overview';
 
 /* ── Auth ─────────────────────────────────────────── */
 async function doAdminLogin() {
-  const pw  = document.getElementById('pw').value.trim();
-  const btn = document.getElementById('login-btn');
-  const err = document.getElementById('l-err');
+  const pw   = document.getElementById('pw').value.trim();
+  const totp = document.getElementById('totp').value.trim();
+  const btn  = document.getElementById('login-btn');
+  const err  = document.getElementById('l-err');
   if (!pw) { err.textContent = 'Enter the admin password.'; return; }
   btn.disabled = true; btn.textContent = 'Verifying…';
   try {
     const r = await fetch('/api/admin/login', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({password: pw})
+      body: JSON.stringify({password: pw, totp})
     });
-    if (!r.ok) throw new Error('bad');
+    if (!r.ok) {
+      let detail = '';
+      try { detail = (await r.json()).detail || ''; } catch {}
+      if (/2fa/i.test(detail)) {
+        // Reveal the 2FA field on first prompt (MFA is enabled server-side).
+        document.getElementById('totp-field').style.display = 'block';
+        document.getElementById('totp').focus();
+        throw new Error('Enter your 6-digit 2FA code.');
+      }
+      throw new Error('Incorrect password. Try again.');
+    }
     const d = await r.json();
     TOKEN = d.token;
     sessionStorage.setItem('sivarr_admin_token', TOKEN);
     showDash();
-  } catch {
-    err.textContent = 'Incorrect password. Try again.';
+  } catch (e) {
+    err.textContent = e.message || 'Incorrect password. Try again.';
     btn.disabled = false; btn.textContent = 'Access Dashboard';
   }
 }
