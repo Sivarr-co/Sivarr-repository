@@ -141,6 +141,8 @@ LECTURER_PASSWORD  = os.environ.get("LECTURER_PASSWORD", "")
 # Unset = backward-compatible password-only login. Generate via
 # scripts/admin_totp_setup.py.
 ADMIN_TOTP_SECRET  = os.environ.get("ADMIN_TOTP_SECRET", "").strip().replace(" ", "")
+# P4b: same optional TOTP 2FA for the (shared) lecturer login. Unset = password-only.
+LECTURER_TOTP_SECRET = os.environ.get("LECTURER_TOTP_SECRET", "").strip().replace(" ", "")
 if not ADMIN_PASSWORD:
     import sys
     print("CRITICAL: ADMIN_PASSWORD env var is not set. Admin login is disabled.", file=sys.stderr)
@@ -4523,6 +4525,7 @@ async def lecturer_page():
 class LecturerLoginRequest(BaseModel):
     name: str
     password: str
+    totp: str = ""   # 6-digit 2FA code; required only when LECTURER_TOTP_SECRET is set
 
 
 def verify_lecturer(token: str):
@@ -4538,6 +4541,11 @@ async def lecturer_login(req: LecturerLoginRequest, request: Request):
     if not (LECTURER_PASSWORD and hmac.compare_digest(req.password, LECTURER_PASSWORD)):
         log.warning(f"Failed lecturer login: {req.name}")
         raise HTTPException(401, "Invalid password")
+    # P4b: second factor, enforced only when LECTURER_TOTP_SECRET is configured.
+    # The 5/attempt rate limit above also bounds TOTP brute-force.
+    if LECTURER_TOTP_SECRET and not _totp_verify(LECTURER_TOTP_SECRET, req.totp):
+        log.warning(f"Lecturer login: invalid/missing 2FA code from {key}")
+        raise HTTPException(401, "Invalid or missing 2FA code")
     log.info(f"Lecturer login: {req.name}")
     token = _create_lecturer_session()
     return {"ok": True, "token": token}

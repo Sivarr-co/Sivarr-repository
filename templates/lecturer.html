@@ -219,6 +219,12 @@ textarea.form-input{min-height:100px;resize:vertical}
       <input id="lec-pw" type="password" placeholder="Lecturer password"
         onkeydown="if(event.key==='Enter') doLecturerLogin()">
     </div>
+    <div class="field" id="lec-totp-field" style="display:none">
+      <label>2FA Code</label>
+      <input id="lec-totp" type="text" inputmode="numeric" autocomplete="one-time-code"
+        maxlength="6" placeholder="123456"
+        onkeydown="if(event.key==='Enter') doLecturerLogin()">
+    </div>
     <button class="btn-grad" id="lec-login-btn" onclick="doLecturerLogin()">Access Dashboard</button>
     <div class="err" id="lec-err"></div>
     <div class="back-link"><a href="/">← Back to Student Login</a></div>
@@ -612,6 +618,7 @@ const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 async function doLecturerLogin() {
   const name = $('lec-name').value.trim();
   const pw   = $('lec-pw').value.trim();
+  const totp = $('lec-totp') ? $('lec-totp').value.trim() : '';
   const err  = $('lec-err');
   const btn  = $('lec-login-btn');
 
@@ -624,9 +631,19 @@ async function doLecturerLogin() {
     const r = await fetch('/api/lecturer/login', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ name, password: pw })
+      body: JSON.stringify({ name, password: pw, totp })
     });
-    if (!r.ok) throw new Error('Invalid password');
+    if (!r.ok) {
+      let detail = '';
+      try { detail = (await r.json()).detail || ''; } catch {}
+      if (/2fa/i.test(detail)) {
+        // Reveal the 2FA field on first prompt (MFA is enabled server-side).
+        $('lec-totp-field').style.display = 'block';
+        $('lec-totp').focus();
+        throw new Error('Enter your 6-digit 2FA code.');
+      }
+      throw new Error('Incorrect password. Try again.');
+    }
     const d = await r.json();
     TOKEN = d.token;
     NAME  = name;
@@ -634,7 +651,7 @@ async function doLecturerLogin() {
     localStorage.setItem('sivarr_lec_name',  NAME);
     showDash();
   } catch(e) {
-    err.textContent = 'Incorrect password. Try again.';
+    err.textContent = e.message || 'Incorrect password. Try again.';
     btn.disabled = false; btn.textContent = 'Access Dashboard';
   }
 }

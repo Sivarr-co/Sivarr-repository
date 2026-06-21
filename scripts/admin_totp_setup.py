@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """
-Admin 2FA (TOTP) setup helper — Security Roadmap P4.
+Admin / lecturer 2FA (TOTP) setup helper — Security Roadmap P4.
 
-Generates the base32 secret you put in the ADMIN_TOTP_SECRET env var, plus the
-otpauth:// URI to add to an authenticator app (Google Authenticator, Authy,
-1Password, etc.). Stdlib-only TOTP (matches app.py's _totp_verify) — no pyotp.
+Generates the base32 secret you put in the ADMIN_TOTP_SECRET (P4a) OR
+LECTURER_TOTP_SECRET (P4b) env var, plus the otpauth:// URI to add to an
+authenticator app (Google Authenticator, Authy, 1Password, etc.). Stdlib-only
+TOTP (matches app.py's _totp_verify) — no pyotp. Generate a separate secret
+for each (use --account to label them distinctly in the authenticator).
 
 Generate a new secret:
     python scripts/admin_totp_setup.py
     python scripts/admin_totp_setup.py --account ops@sivarr.com --issuer Sivarr
+    python scripts/admin_totp_setup.py --account lecturer --issuer Sivarr   # for LECTURER_TOTP_SECRET
 
 Verify a code against a secret (sanity-check before flipping the env var):
     python scripts/admin_totp_setup.py --verify 123456 --secret JBSWY3DPEHPK3PXP
