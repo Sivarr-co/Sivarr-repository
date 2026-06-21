@@ -2416,8 +2416,11 @@ async def privacy():
     raise HTTPException(404, "Privacy page not found")
 
 
-def _serve_app() -> HTMLResponse:
-    """Inject runtime config and return the main SPA HTML."""
+_APP_HTML_CACHE: str | None = None
+
+
+def _build_app_html() -> str:
+    """Read the SPA template and inject static runtime config."""
     html = Path("templates/index.html").read_text(encoding="utf-8")
     config = json.dumps({
         "sentry_dsn":       SENTRY_DSN,
@@ -2427,8 +2430,20 @@ def _serve_app() -> HTMLResponse:
         "plausible_domain": PLAUSIBLE_DOMAIN,
     })
     inject = f'<script>window.SIVARR_CONFIG={config};</script>'
-    html = html.replace('<meta charset="UTF-8">', f'<meta charset="UTF-8">\n{inject}', 1)
-    return HTMLResponse(html)
+    return html.replace('<meta charset="UTF-8">', f'<meta charset="UTF-8">\n{inject}', 1)
+
+
+def _serve_app() -> HTMLResponse:
+    """Return the main SPA HTML. The injected config is all static (env-derived
+    at startup), so the templated HTML is built once and cached in memory —
+    avoids re-reading 288 KB from disk + replace() on every /app request.
+    Dev re-reads each time so template edits show without a restart."""
+    global _APP_HTML_CACHE
+    if os.environ.get("RAILWAY_ENVIRONMENT", "production") == "development":
+        return HTMLResponse(_build_app_html())
+    if _APP_HTML_CACHE is None:
+        _APP_HTML_CACHE = _build_app_html()
+    return HTMLResponse(_APP_HTML_CACHE)
 
 
 @app.get("/app", response_class=HTMLResponse)
