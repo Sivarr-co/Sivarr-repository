@@ -23,7 +23,7 @@
 | Self-hosted critical deps | ✅ | Tabler icons + DOMPurify are now self-hosted under `/static/vendor/` (resolves the old jsdelivr `CRYPT_E_NO_REVOCATION_CHECK` blank-icon bug). |
 | HSTS / security headers | ✅ | `Strict-Transport-Security: max-age=31536000; includeSubDomains`. |
 | **Logo asset weight** | 🚩 | `static/sivarrai.png` is **256 KB** but is only ever rendered at 16–24 px. PNG is already compressed, so gzip won't help. **Fix:** resize to ~48 px @2x or ship an SVG → saves ~250 KB on every cold load. |
-| **No resource hints** | 🚩 | No `preconnect`/`preload`/`dns-prefetch` for `fonts.googleapis.com`, `fonts.gstatic.com`, `esm.sh`, `js.sentry-cdn.com`. **Fix:** add `<link rel="preconnect">` for fonts + esm.sh → faster first paint. |
+| Resource hints | ✅ | `preconnect` for `fonts.googleapis.com` + `fonts.gstatic.com` (crossorigin); `dns-prefetch` for `esm.sh` + `js.sentry-cdn.com`. Added to `<head>` for faster first paint. |
 | **TipTap from esm.sh** | 🚩 | Docs/Notes editor imports `@tiptap/*` from `https://esm.sh` at module load. External CDN = single point of failure for the Docs editor (same risk class as the old jsdelivr issue). **Fix:** self-host the TipTap bundle under `/static/vendor/`. |
 | Index served uncached | 🟡 | `_serve_app()` re-reads 288 KB from disk + does a string `.replace()` on **every** `/app` request. Minor, but cache the templated HTML in memory at startup. |
 | Sentry session replay | 🟡 | `replaysSessionSampleRate: 0.1` + replay bundle adds weight via `js.sentry-cdn.com`. Fine for launch; revisit sampling if first-paint budget is tight. |
