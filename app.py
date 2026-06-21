@@ -987,7 +987,7 @@ def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role
 
 
 def _email_welcome_html(name: str) -> str:
-    url = "https://sivarr-repository-production.up.railway.app/"
+    url = f"{BASE_URL.rstrip('/')}/"
     first = name.split()[0] if name else name
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
