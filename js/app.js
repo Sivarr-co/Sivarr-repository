@@ -1,3 +1,29 @@
+// ═══════════════════════ AUTH TRANSPORT ══════════════════════
+// Send the session token in the Authorization header, never in the URL. This
+// rewrites every same-origin /api/ fetch: any `?token=` is stripped from the URL
+// and moved to `Authorization: Bearer <token>` (backend accepts it transparently).
+// Stops token leakage into server/proxy logs, browser history, and Referer headers.
+// NOTE: EventSource (SSE) can't set headers — those streams keep a query-param
+// token until the cookie-auth migration (P3b).
+(function () {
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    try {
+      if (typeof input === 'string' && input.includes('/api/')) {
+        const u   = new URL(input, location.origin);
+        const tok = localStorage.getItem('sivarr_token') || u.searchParams.get('token') || '';
+        if (u.searchParams.has('token')) u.searchParams.delete('token');
+        init = init || {};
+        const headers = new Headers(init.headers || {});
+        if (tok && !headers.has('Authorization')) headers.set('Authorization', 'Bearer ' + tok);
+        init.headers = headers;
+        return _origFetch(u.pathname + u.search + u.hash, init);
+      }
+    } catch (_) { /* fall through to a normal fetch */ }
+    return _origFetch(input, init);
+  };
+})();
+
 // ═══════════════════════════ STATE ═══════════════════════════
 const S = {
   sid: null, name: '', email: '', diff: 'medium',
@@ -4114,13 +4140,14 @@ function stInit() {
     if (av) { av.style.backgroundImage = `url(${saved})`; av.style.backgroundSize = 'cover'; $('st-avatar-letter').style.display = 'none'; }
   }
 
-  // Theme toggle
-  const themeToggle = $('st-theme-toggle');
-  if (themeToggle) {
-    const isDark = !document.body.classList.contains('light');
-    if (isDark) themeToggle.classList.add('on');
-    else themeToggle.classList.remove('on');
-  }
+  // ── Appearance controls (theme mode / density / font size) ──
+  const _mode = localStorage.getItem('sivarr_theme_mode') || (localStorage.getItem('sivarr_theme') === 'dark' ? 'dark' : 'light');
+  _stSyncSeg('st-theme-seg', 'mode', _mode);
+  const _dens = localStorage.getItem('sivarr_density') || 'cozy';
+  _stSyncSeg('st-density-seg', 'density', _dens);
+  const _fs = parseInt(localStorage.getItem('sivarr_font_scale')) || 100;
+  const _fsr = $('st-fontscale'); if (_fsr) _fsr.value = _fs;
+  const _fsl = $('st-fontscale-label'); if (_fsl) _fsl.textContent = _fs + '%';
 
   // Notification toggles
   ['ann','streak','quiz'].forEach(key => {
@@ -4132,15 +4159,21 @@ function stInit() {
     }
   });
 
-  // Accent colour — mark the correct dot as selected
-  const savedAccent = localStorage.getItem('sivarr_accent');
-  if (savedAccent) {
-    document.querySelectorAll('.st-accent-dot').forEach(d => {
-      // compare hex values case-insensitively
-      const bg = d.style.background.replace(/\s/g,'').toLowerCase();
-      d.classList.toggle('sel', bg === savedAccent.toLowerCase());
-    });
-  }
+  // ── Colour wheel — restore from saved accent ──
+  stWheelInit();
+  const _acc  = localStorage.getItem('sivarr_accent')  || '#0FDBAD';
+  const _acc2 = localStorage.getItem('sivarr_accent2') || '#534AB7';
+  const _hsl = _hexToHsl(_acc);
+  _stWheelH = _hsl.h; _stWheelS = _hsl.s; _stWheelL = _hsl.l;
+  _stWheelCommit(false);
+  const _hi = $('st-hex-input');     if (_hi) _hi.value = _acc.replace('#', '').toUpperCase();
+  const _nc = $('st-native-color');  if (_nc) _nc.value = _acc;
+  const _h2 = $('st-hex2-input');    if (_h2) _h2.value = _acc2.replace('#', '').toUpperCase();
+  const _n2 = $('st-native-color2'); if (_n2) _n2.value = _acc2;
+  document.querySelectorAll('.st-accent-dot').forEach(d => {
+    const bg = (d.style.background || '').replace(/\s/g, '').toLowerCase();
+    d.classList.toggle('sel', bg === _acc.toLowerCase());
+  });
 
   // Usage bars + plan details
   stUpdateUsage();
@@ -4149,6 +4182,11 @@ function stInit() {
   // Org settings (Blueprint Stage 3) — shown only when the user is in an org
   if (typeof orgSettingsInit === 'function') orgSettingsInit();
   if (typeof stExtrasRestore === 'function') stExtrasRestore();
+
+  // Sub-nav: mirror Organisation visibility, then enable scroll-spy
+  const _orgSec = $('st-sec-org'), _orgNav = $('st-subnav-org');
+  if (_orgNav && _orgSec) _orgNav.style.display = (_orgSec.style.display === 'none') ? 'none' : '';
+  _stScrollSpyInit();
 }
 
 function stUpdateUsage() {
@@ -4379,21 +4417,67 @@ const _ACCENT_MAP = {
   '#8b5cf6': { teal:'#8b5cf6', teal2:'rgba(139,92,246,.12)',   teal3:'rgba(139,92,246,.22)',  teal4:'#7c3aed', purple:'#ec4899', purple2:'rgba(236,72,153,.1)',   glow:'0 0 20px rgba(139,92,246,.3)' },
 };
 
+// ─── Colour maths (shared by accent presets + colour wheel) ───
+function _hexToRgb(hex) {
+  hex = (hex || '').replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  const n = parseInt(hex || '0', 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+function _rgba(hex, a) { const { r, g, b } = _hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; }
+function _hexToHsl(hex) {
+  let { r, g, b } = _hexToRgb(hex); r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  let h, s, l = (mx + mn) / 2;
+  if (mx === mn) { h = s = 0; }
+  else {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    switch (mx) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      default: h = (r - g) / d + 4;
+    }
+    h *= 60;
+  }
+  return { h, s, l };
+}
+function _hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360; s = Math.max(0, Math.min(1, s)); l = Math.max(0, Math.min(1, l));
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r, g, b;
+  if (h < 60)       { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else              { r = c; g = 0; b = x; }
+  const to = v => ('0' + Math.round((v + m) * 255).toString(16)).slice(-2);
+  return '#' + to(r) + to(g) + to(b);
+}
+// Auto-derive a pleasing secondary/gradient colour from a primary
+function _deriveSecondary(hex) {
+  const { h, s, l } = _hexToHsl(hex);
+  return _hslToHex(h + 150, Math.max(0.45, s * 0.9), Math.min(0.62, Math.max(0.42, l)));
+}
+
 function _applyAccentColor(color, color2) {
   const r = document.documentElement.style;
-  const m = _ACCENT_MAP[color] || {};
-  const c1 = m.teal    || color;
-  const c2 = m.purple  || color2 || '#534AB7';
+  const m = _ACCENT_MAP[color] || null;
+  const c1 = (m && m.teal)   || color;
+  const c2 = (m && m.purple) || color2 || _deriveSecondary(c1);
   r.setProperty('--accent',    c1);
   r.setProperty('--accent2',   c2);
   r.setProperty('--teal',      c1);
-  r.setProperty('--teal2',     m.teal2   || `${c1}20`);
-  r.setProperty('--teal3',     m.teal3   || `${c1}33`);
-  r.setProperty('--teal4',     m.teal4   || c1);
+  r.setProperty('--teal2',     (m && m.teal2) || _rgba(c1, .12));
+  r.setProperty('--teal3',     (m && m.teal3) || _rgba(c1, .22));
+  r.setProperty('--teal4',     (m && m.teal4) || c1);
   r.setProperty('--purple',    c2);
-  r.setProperty('--purple2',   m.purple2 || `${c2}20`);
-  r.setProperty('--glow-teal', m.glow    || `0 0 20px ${c1}44`);
-  r.setProperty('--glow-purple', `0 0 20px ${c2}44`);
+  r.setProperty('--purple2',   (m && m.purple2) || _rgba(c2, .12));
+  r.setProperty('--glow-teal', (m && m.glow)    || `0 0 20px ${_rgba(c1, .3)}`);
+  r.setProperty('--glow-purple', `0 0 20px ${_rgba(c2, .3)}`);
   r.setProperty('--ai-grad',   `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`);
 }
 
@@ -4404,6 +4488,186 @@ function stSetAccent(color, color2, el) {
   localStorage.setItem('sivarr_accent',  color);
   localStorage.setItem('sivarr_accent2', color2 || '');
   toast('Accent colour updated ✓');
+}
+
+// ═══════════ APPEARANCE: colour wheel + theme modes + density ═══════════
+
+function _normHex(v) {
+  if (!v) return null;
+  v = String(v).trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{3}$/.test(v)) v = v.split('').map(c => c + c).join('');
+  if (!/^[0-9a-fA-F]{6}$/.test(v)) return null;
+  return '#' + v.toLowerCase();
+}
+
+// Central colour application — persists + syncs every control
+function stApplyColor(hex, secondary, syncWheel) {
+  hex = _normHex(hex); if (!hex) return;
+  const sec = secondary ? _normHex(secondary)
+                        : (localStorage.getItem('sivarr_accent2') || _deriveSecondary(hex));
+  _applyAccentColor(hex, sec);
+  localStorage.setItem('sivarr_accent',  hex);
+  localStorage.setItem('sivarr_accent2', sec);
+  // sync swatches
+  document.querySelectorAll('.st-accent-dot').forEach(d => {
+    const bg = (d.style.background || '').replace(/\s/g, '').toLowerCase();
+    d.classList.toggle('sel', bg === hex.toLowerCase());
+  });
+  // sync hex + native inputs
+  const hi = $('st-hex-input');     if (hi) hi.value = hex.replace('#', '').toUpperCase();
+  const nc = $('st-native-color');  if (nc) nc.value = hex;
+  const h2 = $('st-hex2-input');    if (h2) h2.value = sec.replace('#', '').toUpperCase();
+  const n2 = $('st-native-color2'); if (n2) n2.value = sec;
+  if (syncWheel) {
+    const { h, s, l } = _hexToHsl(hex);
+    _stWheelH = h; _stWheelS = s; _stWheelL = l;
+    _stWheelCommit(false);
+  }
+}
+
+function stHexInput(v) {
+  const hex = _normHex(v);
+  if (!hex) { toast('Enter a valid hex colour'); return; }
+  stApplyColor(hex, null, true);
+}
+function stSetSecondary(v) {
+  const hex = _normHex(v);
+  if (!hex) { toast('Invalid colour'); return; }
+  const primary = localStorage.getItem('sivarr_accent') || '#0fdbad';
+  stApplyColor(primary, hex, false);
+}
+function stPickPreset(c1, c2, el) { stApplyColor(c1, c2, true); toast('Theme colour updated ✓'); }
+function stResetAppearance() { stApplyColor('#0FDBAD', '#534AB7', true); toast('Reset to Sivarr default'); }
+
+// ── Colour wheel (hue/sat ring + lightness slider) ──
+let _stWheelH = 160, _stWheelS = 1, _stWheelL = 0.5;
+function stWheelInit() {
+  const w = $('st-wheel');
+  if (!w || w.dataset.bound) return;
+  w.dataset.bound = '1';
+  const onMove = (e) => {
+    const rect = w.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    const dx = e.clientX - cx, dy = e.clientY - cy;
+    const R = rect.width / 2;
+    const r = Math.min(Math.hypot(dx, dy), R);
+    _stWheelS = R ? r / R : 0;
+    const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+    _stWheelH = ((ang + 90) % 360 + 360) % 360;
+    _stWheelCommit(true);
+  };
+  w.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    try { w.setPointerCapture(e.pointerId); } catch (_) {}
+    onMove(e);
+    const mv = (ev) => onMove(ev);
+    const up = () => { w.removeEventListener('pointermove', mv); w.removeEventListener('pointerup', up); w.removeEventListener('pointercancel', up); };
+    w.addEventListener('pointermove', mv);
+    w.addEventListener('pointerup', up);
+    w.addEventListener('pointercancel', up);
+  });
+}
+function _stWheelThumb() {
+  const w = $('st-wheel'), t = $('st-wheel-thumb');
+  if (!w || !t) return;
+  const R = w.clientWidth / 2;
+  const ang = (_stWheelH - 90) * Math.PI / 180;
+  t.style.left = (R + Math.cos(ang) * _stWheelS * R) + 'px';
+  t.style.top  = (R + Math.sin(ang) * _stWheelS * R) + 'px';
+  t.style.background = _hslToHex(_stWheelH, _stWheelS, _stWheelL);
+}
+function _stUpdateLightSlider() {
+  const sl = $('st-light-slider'); if (!sl) return;
+  const hue = _hslToHex(_stWheelH, _stWheelS, 0.5);
+  sl.style.background = `linear-gradient(90deg, #000, ${hue}, #fff)`;
+  sl.value = Math.round(_stWheelL * 100);
+}
+// broadcast=true → also persist/apply the colour app-wide
+function _stWheelCommit(broadcast) {
+  _stWheelThumb();
+  _stUpdateLightSlider();
+  const hex = _hslToHex(_stWheelH, _stWheelS, _stWheelL);
+  const hi = $('st-hex-input');    if (hi) hi.value = hex.replace('#', '').toUpperCase();
+  const nc = $('st-native-color'); if (nc) nc.value = hex;
+  if (broadcast) stApplyColor(hex, null, false);
+}
+function stWheelLight(v) {
+  _stWheelL = Math.max(0, Math.min(1, (parseInt(v) || 50) / 100));
+  _stWheelCommit(true);
+}
+
+// ── Theme modes (light / dark / system) ──
+function _resolveTheme(mode) {
+  if (mode === 'system') return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  return mode === 'dark' ? 'dark' : 'light';
+}
+function _syncThemeIcons(eff) {
+  const nowDark = eff === 'dark';
+  const sw = $('pd-toggle-sw');    if (sw) sw.classList.toggle('on', nowDark);
+  const icon = $('pd-theme-icon'); if (icon) icon.className = nowDark ? 'ti ti-moon pd-icon' : 'ti ti-sun pd-icon';
+  const label = $('pd-theme-label'); if (label) label.textContent = nowDark ? 'Dark Mode' : 'Light Mode';
+  const themeIcon = $('theme-icon'); if (themeIcon) themeIcon.className = nowDark ? 'ti ti-moon' : 'ti ti-sun';
+}
+function _stSyncSeg(segId, attr, val) {
+  const seg = $(segId); if (!seg) return;
+  seg.querySelectorAll('.st-seg-btn').forEach(b => b.classList.toggle('active', b.dataset[attr] === val));
+}
+function stApplyThemeMode(mode) {
+  mode = ['light', 'dark', 'system'].includes(mode) ? mode : 'light';
+  localStorage.setItem('sivarr_theme_mode', mode);
+  const eff = _resolveTheme(mode);
+  const html = document.documentElement;
+  document.body.classList.add('theme-transitioning');
+  setTimeout(() => document.body.classList.remove('theme-transitioning'), 300);
+  if (eff === 'dark') html.setAttribute('data-theme', 'dark');
+  else html.removeAttribute('data-theme');
+  localStorage.setItem('sivarr_theme', eff);   // legacy key kept in sync
+  const sa = localStorage.getItem('sivarr_accent');
+  if (sa) _applyAccentColor(sa, localStorage.getItem('sivarr_accent2') || '');
+  _syncThemeIcons(eff);
+  _stSyncSeg('st-theme-seg', 'mode', mode);
+}
+function stSetThemeMode(mode) {
+  stApplyThemeMode(mode);
+  toast('Theme: ' + mode.charAt(0).toUpperCase() + mode.slice(1));
+}
+
+// ── UI density + font size ──
+function stSetDensity(d) {
+  d = d === 'compact' ? 'compact' : 'cozy';
+  if (d === 'cozy') document.documentElement.removeAttribute('data-density');
+  else document.documentElement.setAttribute('data-density', d);
+  localStorage.setItem('sivarr_density', d);
+  _stSyncSeg('st-density-seg', 'density', d);
+}
+function stSetFontScale(v) {
+  v = Math.max(85, Math.min(120, parseInt(v) || 100));
+  document.documentElement.style.setProperty('--font-scale', (v / 100));
+  localStorage.setItem('sivarr_font_scale', v);
+  const l = $('st-fontscale-label'); if (l) l.textContent = v + '%';
+  const r = $('st-fontscale'); if (r && +r.value !== v) r.value = v;
+}
+
+// ── Settings sub-nav: scroll-spy + jump ──
+let _stSpyObs = null;
+function _stScrollSpyInit() {
+  const root = $('st-content'); if (!root) return;
+  if (_stSpyObs) _stSpyObs.disconnect();
+  const items = [...document.querySelectorAll('.st-subnav-item')];
+  _stSpyObs = new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        const id = en.target.id.replace('st-sec-', '');
+        items.forEach(it => it.classList.toggle('active', it.dataset.sec === id));
+      }
+    });
+  }, { root, rootMargin: '-8% 0px -72% 0px', threshold: 0 });
+  document.querySelectorAll('#st-content .st-section').forEach(s => _stSpyObs.observe(s));
+}
+function stGoSection(id, el) {
+  const t = $('st-sec-' + id), root = $('st-content');
+  if (t && root) root.scrollTo({ top: Math.max(0, t.offsetTop - 12), behavior: 'smooth' });
+  document.querySelectorAll('.st-subnav-item').forEach(it => it.classList.toggle('active', it === el || it.dataset.sec === id));
 }
 
 async function stChangePassword() {
@@ -4905,6 +5169,9 @@ function updateVoiceBtn(active) {
 
 let SG_ACTIVE   = null;
 let SG_INTERVAL = null;
+let SG_SSE      = null;          // EventSource for the active group
+let SG_LAST_ID  = 0;            // highest message id rendered (SSE/poll cursor)
+let SG_SEEN     = new Set();    // rendered message ids — dedupe across SSE + poll
 
 async function sgInit() {
   await sgLoadRooms();
@@ -4974,22 +5241,30 @@ async function sgJoin() {
 
 function sgOpenChat(gid, gname) {
   SG_ACTIVE = {id:gid, name:gname};
+  SG_LAST_ID = 0;
+  SG_SEEN = new Set();
   $('sg-list-view').style.display = 'none';
   $('sg-chat-view').style.display = 'flex';
   const av = $('sg-chat-av'); if (av) av.textContent = gname[0].toUpperCase();
   const nm = $('sg-chat-name'); if (nm) nm.textContent = gname;
   const id = $('sg-chat-id'); if (id) id.textContent = `ID: ${gid}`;
-  sgLoadMessages();
-  clearInterval(SG_INTERVAL);
-  SG_INTERVAL = setInterval(sgLoadMessages, 4000);
+  const box = $('sg-messages'); if (box) box.innerHTML = '';
+  // Initial history, then go live (SSE, with a polling fallback when DB/SSE is unavailable)
+  sgLoadMessages(true).then(() => sgConnectStream());
 }
 
 function sgBackToList() {
-  clearInterval(SG_INTERVAL);
+  sgStopLive();
   SG_ACTIVE = null;
   $('sg-chat-view').style.display = 'none';
   $('sg-list-view').style.display = 'block';
   sgLoadRooms();
+}
+
+// Tear down whichever live transport is active (SSE or poll)
+function sgStopLive() {
+  if (SG_SSE) { try { SG_SSE.close(); } catch(_){} SG_SSE = null; }
+  if (SG_INTERVAL) { clearInterval(SG_INTERVAL); SG_INTERVAL = null; }
 }
 
 function sgCopyId() {
@@ -4997,29 +5272,65 @@ function sgCopyId() {
   navigator.clipboard.writeText(SG_ACTIVE.id).then(()=>toast('Group ID copied ✓'));
 }
 
-async function sgLoadMessages() {
+// Live transport: prefer SSE; on error fall back to 4s polling so messages still flow.
+function sgConnectStream() {
+  if (!SG_ACTIVE) return;
+  sgStopLive();
+  try {
+    SG_SSE = new EventSource(`/api/group/chat/stream?token=${encodeURIComponent(S.token||'')}&group_id=${encodeURIComponent(SG_ACTIVE.id)}&last_id=${SG_LAST_ID}`);
+    SG_SSE.onmessage = (e) => { try { sgAppendMsg(JSON.parse(e.data)); } catch(_){} };
+    SG_SSE.onerror = () => {
+      // SSE unavailable (e.g. no DB) → switch to polling once, don't thrash reconnects
+      if (SG_SSE) { try { SG_SSE.close(); } catch(_){} SG_SSE = null; }
+      if (!SG_INTERVAL && SG_ACTIVE) SG_INTERVAL = setInterval(() => sgLoadMessages(false), 4000);
+    };
+  } catch(_) {
+    if (!SG_INTERVAL) SG_INTERVAL = setInterval(() => sgLoadMessages(false), 4000);
+  }
+}
+
+async function sgLoadMessages(replace = false) {
   if (!SG_ACTIVE) return;
   try {
     const r = await fetch(`/api/group/messages?group_id=${encodeURIComponent(SG_ACTIVE.id)}&token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
-    sgRenderMessages(d.messages || []);
+    sgRenderMessages(d.messages || [], replace);
   } catch(e) {}
 }
 
-function sgRenderMessages(msgs) {
+// Build one message bubble element
+function sgBuildMsg(m) {
+  const mine = m.sender === S.sid;
+  const el = document.createElement('div');
+  el.className = `sg-msg ${mine ? 'mine' : 'theirs'}`;
+  el.dataset.id = m.id != null ? String(m.id) : '';
+  el.innerHTML = `${!mine ? `<div class="sg-sender">${esc(m.sender_name||'Student')}</div>` : ''}
+    <div class="sg-bubble">${esc(m.text||'')}</div>`;
+  return el;
+}
+
+// Append a single message if unseen (used by SSE + polling). Dedupes by id.
+function sgAppendMsg(m) {
+  if (!SG_ACTIVE) return;
+  const box = $('sg-messages'); if (!box) return;
+  const key = m.id != null ? String(m.id) : `${m.sender}:${m.text}:${m.date}`;
+  if (SG_SEEN.has(key)) return;
+  SG_SEEN.add(key);
+  if (typeof m.id === 'number' && m.id > SG_LAST_ID) SG_LAST_ID = m.id;
+  const empty = box.querySelector('.sg-empty'); if (empty) empty.remove();
+  const atBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 60;
+  box.appendChild(sgBuildMsg(m));
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+function sgRenderMessages(msgs, replace = false) {
   const el = $('sg-messages'); if (!el) return;
-  const atBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 60;
-  el.innerHTML = msgs.length
-    ? msgs.map(m => {
-        const mine = m.sender === S.sid || m.sender_name === S.name;
-        return `
-          <div class="sg-msg ${mine?'mine':'theirs'}">
-            ${!mine ? `<div class="sg-sender">${esc(m.sender_name||'Student')}</div>` : ''}
-            <div class="sg-bubble">${esc(m.text||'')}</div>
-          </div>`;
-      }).join('')
-    : `<div style="text-align:center;padding:2rem;color:var(--muted);font-size:.82rem">No messages yet. Say hello! 👋</div>`;
-  if (atBottom) el.scrollTop = el.scrollHeight;
+  if (replace) { el.innerHTML = ''; SG_SEEN = new Set(); SG_LAST_ID = 0; }
+  if (!msgs.length && !el.children.length) {
+    el.innerHTML = `<div class="sg-empty" style="text-align:center;padding:2rem;color:var(--muted);font-size:.82rem">No messages yet. Say hello! 👋</div>`;
+    return;
+  }
+  msgs.forEach(sgAppendMsg);
 }
 
 async function sgSend() {
@@ -5029,9 +5340,11 @@ async function sgSend() {
   if (!text) return;
   input.value = '';
   try {
-    await API('/api/group/message', {group_id:SG_ACTIVE.id, token:S.token, text, sender_name:S.name});
-    sgLoadMessages();
-  } catch(e) { toast('Send failed — try again.'); }
+    // Server stores atomically and the live feed (SSE/poll) echoes it back to
+    // everyone — including us — so we don't append optimistically (avoids dupes).
+    await API('/api/group/message', {group_id:SG_ACTIVE.id, token:S.token, text});
+    if (SG_INTERVAL) sgLoadMessages(false);  // polling fallback: pull immediately
+  } catch(e) { input.value = text; toast('Send failed — try again.'); }
 }
 
 // ═══════════════════════ POMODORO ══════════════════════════
@@ -7911,6 +8224,9 @@ function sidebarNav(btn) {
 // ═══════════════════════════ NAV ════════════════════════════════
 function nav(name, btn) {
   if (typeof cmdPushRecent === 'function') cmdPushRecent(name);
+  // Leaving the org space — tear down the live SSE + presence (it is kept alive
+  // across all org tabs, so only a full nav-away should close it).
+  if (name !== 'org' && name !== 'orgchat' && typeof _ocDisconnectSSE === 'function') _ocDisconnectSSE();
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn, .mn-btn').forEach(b => b.classList.remove('active'));
   const p = document.getElementById(`panel-${name}`);
@@ -9550,33 +9866,12 @@ document.addEventListener('click', e => {
   if (menu && !menu.contains(e.target)) closeProfile();
 });
 
+// Topbar / profile-menu quick toggle — flips between light and dark
+// (resolving "system" to its current effective theme first)
 function toggleThemeFromMenu() {
-  const html   = document.documentElement;
-  const isDark = html.getAttribute('data-theme') === 'dark';
-
-  // Smooth colour transition
-  document.body.classList.add('theme-transitioning');
-  setTimeout(() => document.body.classList.remove('theme-transitioning'), 300);
-
-  if (isDark) html.removeAttribute('data-theme');
-  else        html.setAttribute('data-theme', 'dark');
-  const nowDark = !isDark;
-
-  const sw        = $('pd-toggle-sw');
-  const icon      = $('pd-theme-icon');
-  const label     = $('pd-theme-label');
-  const themeIcon = $('theme-icon');
-
-  if (sw)        sw.classList.toggle('on', nowDark);
-  if (icon)      icon.className = nowDark ? 'ti ti-moon pd-icon'  : 'ti ti-sun pd-icon';
-  if (label)     label.textContent = nowDark ? 'Dark Mode' : 'Light Mode';
-  if (themeIcon) themeIcon.className = nowDark ? 'ti ti-moon' : 'ti ti-sun';
-
-  // Re-apply accent so it uses the right dark/light tint values
-  const savedAccent = localStorage.getItem('sivarr_accent');
-  if (savedAccent) _applyAccentColor(savedAccent, localStorage.getItem('sivarr_accent2') || '');
-
-  localStorage.setItem('sivarr_theme', nowDark ? 'dark' : 'light');
+  const mode = localStorage.getItem('sivarr_theme_mode') || (localStorage.getItem('sivarr_theme') === 'dark' ? 'dark' : 'light');
+  const eff  = _resolveTheme(mode);
+  stApplyThemeMode(eff === 'dark' ? 'light' : 'dark');
 }
 
 function toggleTheme() { toggleThemeFromMenu(); }
@@ -9584,12 +9879,20 @@ function toggleTheme() { toggleThemeFromMenu(); }
 // Apply saved theme on load
 window.addEventListener('DOMContentLoaded', () => {
   sbRestoreCollapse();
-  if (localStorage.getItem('sivarr_theme') === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
-    const sw        = $('pd-toggle-sw');    if (sw)        sw.classList.add('on');
-    const icon      = $('pd-theme-icon');   if (icon)      icon.className = 'ti ti-moon pd-icon';
-    const label     = $('pd-theme-label');  if (label)     label.textContent = 'Dark Mode';
-    const themeIcon = $('theme-icon');      if (themeIcon) themeIcon.className = 'ti ti-moon';
+  // Apply saved appearance: theme mode (light/dark/system), density, font size
+  const mode = localStorage.getItem('sivarr_theme_mode') || (localStorage.getItem('sivarr_theme') === 'dark' ? 'dark' : 'light');
+  stApplyThemeMode(mode);
+  const dens = localStorage.getItem('sivarr_density');
+  if (dens === 'compact') document.documentElement.setAttribute('data-density', 'compact');
+  const fs = parseInt(localStorage.getItem('sivarr_font_scale'));
+  if (fs) document.documentElement.style.setProperty('--font-scale', (fs / 100));
+  // Keep "system" mode reactive to OS theme changes
+  if (window.matchMedia) {
+    try {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (localStorage.getItem('sivarr_theme_mode') === 'system') stApplyThemeMode('system');
+      });
+    } catch (_) {}
   }
 });
 
@@ -10627,6 +10930,9 @@ async function orgInit() {
     ORG_FOUNDER  = r.founder  || {};
     // Reflect the real organization name in the pinned sidebar Space row.
     spaceRenderSidebar();
+    // Go live on org-space entry so announcements + chat arrive on ANY tab,
+    // not just while the Chat tab is open.
+    _ocEnsureLive();
   } catch(e) {
     _orgShowSetup();
     if (e.status !== 404 && e.status !== 401 && e.status !== 403) {
@@ -10747,8 +11053,10 @@ function orgTab(tab, btn) {
   else {
     const b = $('os-tab-' + tab); if (b) b.classList.add('on');
   }
-  if (tab === 'chat')  { orgChatInit(); }
-  else               { _ocDisconnectSSE(); }
+  // SSE stays live across all org tabs (so announcements arrive everywhere);
+  // the Chat tab just refreshes its view. Teardown happens on leaving the space.
+  if (tab === 'chat') { orgChatInit(); }
+  else                { _ocEnsureLive(); }
   if (tab === 'goals')    orgRenderGoals();
   if (tab === 'founder')  founderRender();
   if (tab === 'announce') {
@@ -11438,9 +11746,17 @@ function _ocColour(name) {
 function orgChatInit() {
   if (!ORG) return;
   _ocLoadChannels();
-  _ocConnectSSE();
-  _ocStartPresence();
+  _ocEnsureLive();
   orgChatRender();
+}
+
+// Idempotent: bring up the org SSE + presence if they aren't already running.
+// Called both on org-space entry (so announcements/chat arrive on every tab) and
+// when the Chat tab opens — without forcing a redundant reconnect.
+function _ocEnsureLive() {
+  if (!ORG) return;
+  if (!_OC_SSE || _OC_SSE.readyState === 2) _ocConnectSSE();  // 2 = CLOSED
+  if (!_OC_PRESENCE) _ocStartPresence();
 }
 
 async function _ocLoadChannels() {
@@ -11557,7 +11873,12 @@ function _ocConnectSSE() {
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === 'announcement') {
-        if (_ANN_LIST !== undefined) { _ANN_LIST.unshift(msg.ann); annRender(); }
+        // Dedupe by id — the poster already has it from annLoad(); others get it live here
+        if (_ANN_LIST !== undefined && msg.ann && !_ANN_LIST.some(a => a.id === msg.ann.id)) {
+          _ANN_LIST.unshift(msg.ann);
+          annRender();
+          const dot = $('sb-inbox-dot'); if (dot) dot.style.display = '';
+        }
         return;
       }
       // Track the cursor so reconnects don't re-deliver old messages
@@ -11617,6 +11938,8 @@ async function orgChatRender() {
   try {
     const r = await API('/api/org/messages', { token, channel: _OC_CHANNEL });
     const msgs = r.messages || [];
+    // Seed the SSE cursor past this history so the live stream only appends NEW messages
+    msgs.forEach(m => { if (m.id && m.id > _OC_LAST_ID) _OC_LAST_ID = m.id; });
     if (!msgs.length) {
       box.innerHTML = `<div class="oc-chat-empty">No messages in #${esc(_OC_CHANNEL)} yet.<br>Be the first to say something.</div>`;
       return;

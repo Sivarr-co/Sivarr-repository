@@ -20,7 +20,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260619l">
+<link rel="stylesheet" href="/css/styles.css?v=20260620b">
 <!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
 <script type="module">
 import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
@@ -1544,14 +1544,24 @@ Sentry.onLoad(function() {
           <i class="ti ti-settings vh-icon"></i>
           <span class="vh-title">Settings</span>
         </div>
-        <div style="flex:1;overflow-y:auto;padding:1.5rem 24px">
+        <div class="st-layout">
+          <nav class="st-subnav" id="st-subnav">
+            <button class="st-subnav-item active" data-sec="profile" onclick="stGoSection('profile',this)"><i class="ti ti-user"></i> Profile</button>
+            <button class="st-subnav-item" data-sec="appearance" onclick="stGoSection('appearance',this)"><i class="ti ti-palette"></i> Appearance</button>
+            <button class="st-subnav-item" data-sec="notifications" onclick="stGoSection('notifications',this)"><i class="ti ti-bell"></i> Notifications</button>
+            <button class="st-subnav-item" data-sec="security" onclick="stGoSection('security',this)"><i class="ti ti-lock"></i> Security</button>
+            <button class="st-subnav-item" data-sec="plan" onclick="stGoSection('plan',this)"><i class="ti ti-bolt"></i> My Plan</button>
+            <button class="st-subnav-item" data-sec="export" onclick="stGoSection('export',this)"><i class="ti ti-package"></i> Import &amp; Export</button>
+            <button class="st-subnav-item" data-sec="data" onclick="stGoSection('data',this)"><i class="ti ti-shield-lock"></i> Data &amp; Privacy</button>
+            <button class="st-subnav-item" id="st-subnav-org" data-sec="org" onclick="stGoSection('org',this)" style="display:none"><i class="ti ti-building"></i> Organisation</button>
+          </nav>
+          <div class="st-content" id="st-content">
 
           <!-- Profile -->
           <div class="st-section open" id="st-sec-profile">
-            <div class="st-section-hd" onclick="stToggleSection('profile')">
+            <div class="st-section-hd">
               <div class="st-section-icon" style="background:#4f6ef720">👤</div>
               <div class="st-section-title">Profile</div>
-              <i class="ti ti-chevron-down st-section-chevron"></i>
             </div>
             <div class="st-section-body">
               <div style="display:flex;align-items:center;gap:12px;margin-bottom:.25rem">
@@ -1597,29 +1607,99 @@ Sentry.onLoad(function() {
           </div>
 
           <!-- Appearance -->
-          <div class="st-section" id="st-sec-appearance">
-            <div class="st-section-hd" onclick="stToggleSection('appearance')">
+          <div class="st-section open" id="st-sec-appearance">
+            <div class="st-section-hd">
               <div class="st-section-icon" style="background:#a78bfa20">🎨</div>
               <div class="st-section-title">Appearance</div>
-              <i class="ti ti-chevron-down st-section-chevron"></i>
             </div>
             <div class="st-section-body">
-              <div class="st-row">
-                <span class="st-label">Dark Mode</span>
-                <button class="st-toggle" id="st-theme-toggle" onclick="stToggleTheme(this)"></button>
-              </div>
-              <div>
-                <div class="st-label" style="margin-bottom:8px">Accent Colour</div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap" id="st-accent-picker">
-                  <div class="st-accent-dot sel" style="background:#4f6ef7" onclick="stSetAccent('#4f6ef7','#7c3aed',this)" title="Indigo"></div>
-                  <div class="st-accent-dot" style="background:#06b6d4" onclick="stSetAccent('#06b6d4','#0284c7',this)" title="Cyan"></div>
-                  <div class="st-accent-dot" style="background:#10b981" onclick="stSetAccent('#10b981','#059669',this)" title="Emerald"></div>
-                  <div class="st-accent-dot" style="background:#f59e0b" onclick="stSetAccent('#f59e0b','#d97706',this)" title="Amber"></div>
-                  <div class="st-accent-dot" style="background:#ef4444" onclick="stSetAccent('#ef4444','#dc2626',this)" title="Red"></div>
-                  <div class="st-accent-dot" style="background:#ec4899" onclick="stSetAccent('#ec4899','#db2777',this)" title="Pink"></div>
-                  <div class="st-accent-dot" style="background:#8b5cf6" onclick="stSetAccent('#8b5cf6','#7c3aed',this)" title="Violet"></div>
+
+              <!-- Theme mode -->
+              <div class="st-field">
+                <span class="st-label">Theme</span>
+                <div class="st-seg" id="st-theme-seg">
+                  <button class="st-seg-btn" data-mode="light"  onclick="stSetThemeMode('light')"><i class="ti ti-sun"></i> Light</button>
+                  <button class="st-seg-btn" data-mode="dark"   onclick="stSetThemeMode('dark')"><i class="ti ti-moon"></i> Dark</button>
+                  <button class="st-seg-btn" data-mode="system" onclick="stSetThemeMode('system')"><i class="ti ti-device-laptop"></i> System</button>
                 </div>
               </div>
+
+              <!-- Density -->
+              <div class="st-field">
+                <span class="st-label">Density</span>
+                <div class="st-seg" id="st-density-seg">
+                  <button class="st-seg-btn" data-density="compact" onclick="stSetDensity('compact')"><i class="ti ti-baseline-density-medium"></i> Compact</button>
+                  <button class="st-seg-btn" data-density="cozy"    onclick="stSetDensity('cozy')"><i class="ti ti-baseline-density-small"></i> Cozy</button>
+                </div>
+              </div>
+
+              <!-- Font size -->
+              <div class="st-field">
+                <span class="st-label">Text size · <span id="st-fontscale-label">100%</span></span>
+                <div class="st-fontsize-row">
+                  <span style="font-size:.78rem;color:var(--text3)">A</span>
+                  <input type="range" id="st-fontscale" class="st-range" min="85" max="120" step="5" value="100" oninput="stSetFontScale(this.value)">
+                  <span style="font-size:1.15rem;color:var(--text3)">A</span>
+                </div>
+              </div>
+
+              <div class="st-divider"></div>
+
+              <!-- Quick-start preset swatches -->
+              <div class="st-field">
+                <span class="st-label">Brand colour · quick start</span>
+                <div class="st-presets" id="st-accent-picker">
+                  <button class="st-accent-dot" style="background:#0FDBAD" onclick="stPickPreset('#0FDBAD','#534AB7',this)" title="Sivarr"></button>
+                  <button class="st-accent-dot" style="background:#4f6ef7" onclick="stPickPreset('#4f6ef7','#7c3aed',this)" title="Indigo"></button>
+                  <button class="st-accent-dot" style="background:#06b6d4" onclick="stPickPreset('#06b6d4','#0284c7',this)" title="Cyan"></button>
+                  <button class="st-accent-dot" style="background:#10b981" onclick="stPickPreset('#10b981','#059669',this)" title="Emerald"></button>
+                  <button class="st-accent-dot" style="background:#f59e0b" onclick="stPickPreset('#f59e0b','#d97706',this)" title="Amber"></button>
+                  <button class="st-accent-dot" style="background:#ef4444" onclick="stPickPreset('#ef4444','#f97316',this)" title="Red"></button>
+                  <button class="st-accent-dot" style="background:#ec4899" onclick="stPickPreset('#ec4899','#8b5cf6',this)" title="Pink"></button>
+                  <button class="st-accent-dot" style="background:#8b5cf6" onclick="stPickPreset('#8b5cf6','#ec4899',this)" title="Violet"></button>
+                </div>
+              </div>
+
+              <!-- Colour wheel -->
+              <div class="st-wheel-wrap">
+                <div class="st-wheel-col">
+                  <div class="st-wheel" id="st-wheel"><div class="st-wheel-thumb" id="st-wheel-thumb"></div></div>
+                  <input type="range" class="st-light-slider" id="st-light-slider" min="0" max="100" value="50" oninput="stWheelLight(this.value)" title="Lightness">
+                </div>
+                <div class="st-wheel-side">
+                  <div class="st-preview" id="st-color-preview">
+                    <div class="st-preview-sidebar"><span class="st-preview-dot"></span><span class="st-preview-dot"></span><span class="st-preview-dot"></span></div>
+                    <div class="st-preview-main">
+                      <div class="st-preview-grad"></div>
+                      <button class="st-preview-btn" type="button">Button</button>
+                    </div>
+                  </div>
+                  <div>
+                    <span class="st-label" style="font-size:11px;display:block;margin-bottom:5px">Primary</span>
+                    <div class="st-hex-row">
+                      <span class="st-hex-pound">#</span>
+                      <input type="text" id="st-hex-input" class="st-hex-input" maxlength="7" value="0FDBAD" onchange="stHexInput(this.value)" onkeydown="if(event.key==='Enter')stHexInput(this.value)">
+                      <label class="st-eyedrop" title="System colour picker">
+                        <i class="ti ti-color-picker"></i>
+                        <input type="color" id="st-native-color" value="#0fdbad" oninput="stHexInput(this.value)" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <span class="st-label" style="font-size:11px;display:block;margin-bottom:5px">Secondary · gradient</span>
+                    <div class="st-hex-row">
+                      <span class="st-hex-pound">#</span>
+                      <input type="text" id="st-hex2-input" class="st-hex-input" maxlength="7" value="534AB7" onchange="stSetSecondary(this.value)" onkeydown="if(event.key==='Enter')stSetSecondary(this.value)">
+                      <label class="st-eyedrop" title="Secondary colour">
+                        <i class="ti ti-color-picker"></i>
+                        <input type="color" id="st-native-color2" value="#534ab7" oninput="stSetSecondary(this.value)" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">
+                      </label>
+                    </div>
+                  </div>
+                  <button class="st-reset-btn" onclick="stResetAppearance()"><i class="ti ti-rotate-2"></i> Reset to default</button>
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -1785,32 +1865,19 @@ Sentry.onLoad(function() {
             </div>
           </div>
 
-          <!-- Data & Privacy -->
-          <div class="st-section" id="st-sec-data">
-            <div class="st-section-hd" onclick="stToggleSection('data')">
-              <div class="st-section-icon" style="background:#ef444420">🗑️</div>
-              <div class="st-section-title">Data &amp; Privacy</div>
-              <i class="ti ti-chevron-down st-section-chevron"></i>
-            </div>
-            <div class="st-section-body">
-              <button class="st-btn danger" onclick="stClearChat()">🗑️ Clear chat history</button>
-              <button class="st-btn danger" onclick="stClearWrong()">🗑️ Clear revision list</button>
-              <button class="st-btn danger" onclick="stResetProgress()">⚠️ Reset all progress</button>
-            </div>
-          </div>
-
-          <!-- Data & Privacy (Blueprint Stage 3) -->
-          <div class="st-section" id="st-sec-data">
-            <div class="st-section-hd" onclick="stToggleSection('data')">
+          <!-- Data & Privacy (merged) -->
+          <div class="st-section open" id="st-sec-data">
+            <div class="st-section-hd">
               <div class="st-section-icon" style="background:#60a5fa20">🔒</div>
               <div class="st-section-title">Data &amp; Privacy</div>
-              <i class="ti ti-chevron-down st-section-chevron"></i>
             </div>
             <div class="st-section-body">
-              <button onclick="stExportData()" style="width:100%;background:transparent;border:1px solid var(--border);border-radius:9px;padding:9px;color:var(--text);font-family:var(--font);font-size:.82rem;font-weight:600;cursor:pointer;margin-bottom:8px"><i class="ti ti-download"></i> Export my data (ZIP)</button>
-              <button onclick="stClearChat()" style="width:100%;background:transparent;border:1px solid var(--border);border-radius:9px;padding:9px;color:var(--text);font-family:var(--font);font-size:.82rem;font-weight:600;cursor:pointer;margin-bottom:8px"><i class="ti ti-eraser"></i> Clear chat history</button>
-              <button onclick="stDeleteAccount()" style="width:100%;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:9px;padding:9px;color:#f87171;font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer"><i class="ti ti-trash"></i> Delete my account</button>
-              <div style="font-size:.7rem;color:var(--muted);margin-top:8px;opacity:.75">Deleting your account is permanent and removes all your data.</div>
+              <button class="st-btn danger" onclick="stClearChat()"><i class="ti ti-eraser" style="margin-right:6px"></i>Clear chat history</button>
+              <button class="st-btn danger" onclick="stClearWrong()"><i class="ti ti-eraser" style="margin-right:6px"></i>Clear revision list</button>
+              <button class="st-btn danger" onclick="stResetProgress()"><i class="ti ti-alert-triangle" style="margin-right:6px"></i>Reset all progress</button>
+              <div class="st-divider"></div>
+              <button onclick="stDeleteAccount()" style="width:100%;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:9px;padding:9px;color:#f87171;font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center"><i class="ti ti-trash"></i> Delete my account</button>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:8px;opacity:.75">Deleting your account is permanent and removes all your data. Your full data export lives in <strong>Import &amp; Export</strong> above.</div>
             </div>
           </div>
 
@@ -1844,7 +1911,8 @@ Sentry.onLoad(function() {
             Sivarr AI · Built with 🔥 for students
           </div>
 
-        </div>
+          </div><!-- /.st-content -->
+        </div><!-- /.st-layout -->
       </div>
 
       <!-- ── Goals Panel ── -->

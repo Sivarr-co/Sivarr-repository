@@ -884,6 +884,30 @@ def delete_db_session(token: str) -> None:
         _release(conn)
 
 
+def delete_sessions_for_sid(sid: str, except_token: str | None = None) -> int:
+    """Revoke every session for a user (optionally keeping one current token).
+    Used on password change/reset so stolen sessions stop working everywhere."""
+    conn = _get_conn()
+    if not conn:
+        return 0
+    try:
+        with conn.cursor() as cur:
+            if except_token:
+                cur.execute("DELETE FROM user_sessions WHERE sid = %s AND token <> %s", (sid, except_token))
+            else:
+                cur.execute("DELETE FROM user_sessions WHERE sid = %s", (sid,))
+            n = cur.rowcount
+        conn.commit()
+        return n
+    except Exception as exc:
+        log.error(f"delete_sessions_for_sid: {exc}")
+        try: conn.rollback()
+        except Exception: pass
+        return 0
+    finally:
+        _release(conn)
+
+
 def cleanup_db_sessions() -> int:
     """Delete expired sessions. Returns number removed."""
     conn = _get_conn()
@@ -3348,6 +3372,41 @@ def delete_org_announcement(ann_id: str) -> bool:
         conn.commit(); return True
     except Exception as exc:
         log.error(f"delete_org_announcement: {exc}"); conn.rollback(); return False
+    finally:
+        _release(conn)
+
+
+def db_now():
+    """Return the database server's current timestamp (used as a real-time cursor
+    baseline so all Gunicorn workers compare against the same clock)."""
+    conn = _get_conn()
+    if not conn: return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT NOW()")
+            return cur.fetchone()[0]
+    except Exception as exc:
+        log.error(f"db_now: {exc}"); return None
+    finally:
+        _release(conn)
+
+
+def get_org_announcements_since(org_id: str, since, limit: int = 20) -> list:
+    """Announcements created strictly after `since` (a DB timestamp), oldest first.
+    Used by the org SSE stream to push new announcements to everyone live."""
+    if since is None:
+        return []
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM org_announcements WHERE org_id=%s AND created_at > %s ORDER BY created_at ASC LIMIT %s",
+                (org_id, since, limit)
+            )
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_org_announcements_since: {exc}"); return []
     finally:
         _release(conn)
 

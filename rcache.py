@@ -67,6 +67,42 @@ def rate_allow(key: str, limit: int, window: int):
         return None
 
 
+# ── Shared counters (account lockout, etc.) ──────────────────────────────────
+# Cross-worker failed-login tracking. Returns None when Redis is unavailable so
+# callers fall back to the in-memory counter.
+def get_int(key: str):
+    if not available():
+        return None
+    try:
+        v = _client.get(f"lk:{key}")
+        return int(v) if v is not None else 0
+    except Exception:
+        return None
+
+
+def bump(key: str, ttl: int):
+    """Atomic INCR with a TTL set on the first hit. Returns the new count, or None."""
+    if not available():
+        return None
+    try:
+        rk = f"lk:{key}"
+        n = _client.incr(rk)
+        if n == 1:
+            _client.expire(rk, ttl)
+        return n
+    except Exception:
+        return None
+
+
+def clear(key: str) -> None:
+    if not available():
+        return
+    try:
+        _client.delete(f"lk:{key}")
+    except Exception:
+        pass
+
+
 # ── Shared response cache ────────────────────────────────────────────────────
 def cache_get(key: str):
     if not available():

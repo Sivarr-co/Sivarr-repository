@@ -84,19 +84,10 @@ import rcache  # optional Redis layer (rate limiting + shared cache); degrades g
 import asyncio, json, time
 from collections import defaultdict
 
-# ── Real-time chat: in-memory SSE queues per org ──────────────
-_ORG_SSE: dict[str, list[asyncio.Queue]] = defaultdict(list)
-
-async def _sse_broadcast(org_id: str, payload: str):
-    dead = []
-    for q in list(_ORG_SSE.get(org_id, [])):
-        try:
-            q.put_nowait(payload)
-        except asyncio.QueueFull:
-            dead.append(q)
-    for q in dead:
-        try: _ORG_SSE[org_id].remove(q)
-        except ValueError: pass
+# Real-time chat + announcements are delivered by DB-polling SSE streams
+# (/api/org/chat/stream, /api/group/chat/stream), which work across all Gunicorn
+# workers. The old in-memory per-org broadcast queue was process-local and so only
+# reached clients on the same worker — it has been removed.
 
 # ── Presence: last-seen per user per org (in-memory) ─────────
 _PRESENCE: dict[str, dict] = defaultdict(dict)  # org_id → {sid: {name, ts}}
@@ -427,13 +418,26 @@ class RateLimiter:
 limiter = RateLimiter()
 
 
+# How many proxies sit in front of the app (Railway = 1; add 1 for Cloudflare, etc.).
+# The client can spoof the *leftmost* X-Forwarded-For entries, so we trust only the
+# IP appended by our own outermost proxy — the Nth entry from the right.
+_TRUSTED_PROXY_HOPS = max(1, int(os.environ.get("TRUSTED_PROXY_HOPS", "1")))
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        parts = [p.strip() for p in xff.split(",") if p.strip()]
+        if parts:
+            idx = len(parts) - _TRUSTED_PROXY_HOPS
+            return parts[idx] if 0 <= idx < len(parts) else parts[0]
+    return request.client.host if request.client else "unknown"
+
 def get_client_key(request: Request, sid: str = "") -> str:
-    """Get a unique key for rate limiting — prefer student ID, fall back to IP."""
+    """Get a unique key for rate limiting — prefer student ID, fall back to IP.
+    Uses the proxy-appended client IP (spoof-resistant), not the raw leftmost XFF."""
     if sid:
         return f"student_{sid}"
-    forwarded = request.headers.get("x-forwarded-for")
-    ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
-    return f"ip_{ip}"
+    return f"ip_{_client_ip(request)}"
 
 
 def check_rate_limit(key: str, limit: int, endpoint: str) -> None:
@@ -581,7 +585,15 @@ LOGIN_LOCK_MINUTES  = 15
 
 
 def _check_account_lockout(email: str) -> None:
-    """Raise 429 if the account is currently locked out."""
+    """Raise 429 if the account is currently locked out.
+    Uses Redis when available (shared across all workers); falls back to the
+    per-worker in-memory counter otherwise."""
+    n = rcache.get_int(f"faillock:{email}")
+    if n is not None:                       # Redis is the source of truth
+        if n >= LOGIN_LOCK_ATTEMPTS:
+            raise HTTPException(429, f"Account locked after too many failed attempts. Try again in {LOGIN_LOCK_MINUTES} minute(s).")
+        return
+    # ── In-memory fallback (no Redis) ──
     rec = _failed_logins.get(email)
     if not rec:
         return
@@ -595,6 +607,12 @@ def _check_account_lockout(email: str) -> None:
 
 
 def _record_failed_login(email: str) -> None:
+    n = rcache.bump(f"faillock:{email}", LOGIN_LOCK_MINUTES * 60)
+    if n is not None:                       # counted in Redis (shared)
+        if n >= LOGIN_LOCK_ATTEMPTS:
+            log.warning(f"Account locked after {LOGIN_LOCK_ATTEMPTS} failed attempts: {email}")
+        return
+    # ── In-memory fallback (no Redis) ──
     rec = _failed_logins.setdefault(email, {"count": 0, "locked_until": None})
     rec["count"] += 1
     if rec["count"] >= LOGIN_LOCK_ATTEMPTS:
@@ -603,9 +621,12 @@ def _record_failed_login(email: str) -> None:
 
 
 def _clear_failed_login(email: str) -> None:
+    rcache.clear(f"faillock:{email}")       # no-op when Redis unavailable
     _failed_logins.pop(email, None)
 
 SESSION_TTL_DAYS  = 30             # auth token lifetime
+SESSION_REVALIDATE_SECONDS = 30    # how often a cached session is re-checked against the DB
+                                   # (bounds how long a revoked session lingers per worker)
 CHAT_SESSION_TTL  = 4 * 3600      # evict idle AI sessions after 4 hours
 _PRIV_SESSION_TTL_S = 7200  # 2 hours in seconds
 
@@ -670,7 +691,8 @@ def _evict_stale_chat_sessions():
 def create_session_token(sid: str, name: str, email: str) -> str:
     token   = secrets.token_urlsafe(32)
     expires = datetime.datetime.utcnow() + datetime.timedelta(days=SESSION_TTL_DAYS)
-    _session_tokens[token] = {"sid": sid, "name": name, "email": email, "expires": expires}
+    _session_tokens[token] = {"sid": sid, "name": name, "email": email, "expires": expires,
+                              "checked": datetime.datetime.utcnow()}
     if db.is_available():
         db.create_db_session(token, sid, name, email, expires)
     return token
@@ -679,9 +701,38 @@ def create_session_token(sid: str, name: str, email: str) -> str:
 def create_session_token_for_existing(token: str, sid: str, name: str, email: str) -> None:
     """Register an already-issued token on this worker (cross-worker session recovery)."""
     expires = datetime.datetime.utcnow() + datetime.timedelta(days=SESSION_TTL_DAYS)
-    _session_tokens[token] = {"sid": sid, "name": name, "email": email, "expires": expires}
+    _session_tokens[token] = {"sid": sid, "name": name, "email": email, "expires": expires,
+                              "checked": datetime.datetime.utcnow()}
     if db.is_available():
         db.create_db_session(token, sid, name, email, expires)
+
+
+def delete_all_sessions(sid: str, except_token: str | None = None) -> None:
+    """Revoke every session for a user (optionally keeping the current one).
+    Called on password change/reset. The DB delete is authoritative across workers;
+    other workers drop their cached copy within SESSION_REVALIDATE_SECONDS via the
+    re-check in get_session_from_token."""
+    if db.is_available():
+        db.delete_sessions_for_sid(sid, except_token)
+    # Purge this worker's in-memory cache immediately.
+    for tok in [t for t, e in list(_session_tokens.items())
+                if e.get("sid") == sid and t != except_token]:
+        _session_tokens.pop(tok, None)
+
+
+def _persist_password(sid: str, hashed: str) -> None:
+    """Update a user's password in BOTH stores. login() reads the JSON user file
+    first (load_users) and only falls back to the DB, so a DB-only update would
+    leave the OLD password working after a reset/change. Keep them in sync."""
+    if db.is_available():
+        db.update_user_password(sid, hashed)
+    try:
+        users = load_users()
+        if sid in users:
+            users[sid]["password"] = hashed
+            save_users(users)
+    except Exception as exc:
+        log.error(f"_persist_password file sync failed for {sid}: {exc}")
 
 
 def get_session_from_token(token: str) -> dict | None:
@@ -690,10 +741,20 @@ def get_session_from_token(token: str) -> dict | None:
     # Check in-memory first
     entry = _session_tokens.get(token)
     if entry:
-        if datetime.datetime.utcnow() < entry["expires"]:
-            return entry
-        del _session_tokens[token]
-        return None
+        if datetime.datetime.utcnow() >= entry["expires"]:
+            del _session_tokens[token]
+            return None
+        # Periodically re-validate against the DB so a session revoked on another
+        # worker (e.g. password reset) stops working within SESSION_REVALIDATE_SECONDS
+        # instead of lingering in this worker's cache until its 30-day TTL.
+        if db.is_available():
+            checked = entry.get("checked")
+            if checked is None or (datetime.datetime.utcnow() - checked).total_seconds() > SESSION_REVALIDATE_SECONDS:
+                if db.get_db_session(token) is None:
+                    del _session_tokens[token]
+                    return None
+                entry["checked"] = datetime.datetime.utcnow()
+        return entry
     # Fallback: check DB and warm this worker's cache for subsequent requests
     if db.is_available():
         db_entry = db.get_db_session(token)
@@ -713,6 +774,7 @@ def get_session_from_token(token: str) -> dict | None:
             "name":    db_entry["name"],
             "email":   db_entry["email"],
             "expires": exp,
+            "checked": datetime.datetime.utcnow(),
         }
         _session_tokens[token] = entry
         return entry
@@ -1762,6 +1824,30 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(_SecurityHeadersMiddleware)
 
+# Accept the session token from the `Authorization: Bearer` header and inject it
+# into the query string, so the existing ~64 `token` query-param endpoints read it
+# WITHOUT the token ever appearing in the URL (logs / proxy logs / Referer / history).
+# The query param still works as a fallback during migration. SSE/EventSource keeps
+# using a query param for now (moves to cookie auth in the P3(b) sprint).
+import urllib.parse as _urlparse
+class _BearerTokenMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        auth = request.headers.get("authorization", "")
+        if auth[:7].lower() == "bearer ":
+            tok = auth[7:].strip()
+            if tok:
+                qs = request.scope.get("query_string", b"")
+                try:
+                    has_token = "token" in _urlparse.parse_qs(qs.decode("latin-1"))
+                except Exception:
+                    has_token = b"token=" in qs
+                if not has_token:
+                    add = b"token=" + _urlparse.quote(tok, safe="").encode()
+                    request.scope["query_string"] = (qs + b"&" + add) if qs else add
+        return await call_next(request)
+
+app.add_middleware(_BearerTokenMiddleware)
+
 # ── Per-worker in-memory response cache with TTL ─────────────────
 _rcache: dict[str, tuple] = {}  # key → (payload, expires_at)
 
@@ -2682,8 +2768,11 @@ async def change_password(data: dict):
     if not bcrypt.checkpw(current_pw.encode(), stored.encode()):
         raise HTTPException(400, "Current password is incorrect.")
     hashed = bcrypt.hashpw(new_pw.encode(), bcrypt.gensalt()).decode()
-    db.update_user_password(sid, hashed)
-    return {"ok": True, "message": "Password updated successfully."}
+    _persist_password(sid, hashed)   # both stores — login reads the file first
+    # Revoke every OTHER session for this user (a stolen token elsewhere dies),
+    # but keep the current device signed in.
+    delete_all_sessions(sid, except_token=token)
+    return {"ok": True, "message": "Password updated successfully. Other devices have been signed out."}
 
 
 @app.post("/api/auth/reset-password")
@@ -2698,8 +2787,11 @@ async def reset_password(data: dict):
     if not rec:
         raise HTTPException(400, "Reset link is invalid or has expired.")
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-    db.update_user_password(rec["sid"], hashed)
+    _persist_password(rec["sid"], hashed)   # both stores — login reads the file first
     db.mark_reset_token_used(token)
+    # Reset is unauthenticated (email link) — revoke ALL existing sessions so any
+    # attacker holding a stolen token is locked out the moment the owner resets.
+    delete_all_sessions(rec["sid"])
     return {"ok": True, "message": "Password updated. You can now sign in."}
 
 
@@ -5104,35 +5196,91 @@ async def list_groups(sid: str = "", token: str = ""):
         raise HTTPException(401, "Invalid session.")
     sid    = sess["sid"]
     groups = load_groups()
-    member_of = [
-        {"id": gid, "name": g["name"], "member_count": len(g["members"]),
-         "last_msg": g["messages"][-1]["message"][:50] if g["messages"] else "",
-         "last_date": g["messages"][-1]["date"] if g["messages"] else g["created_at"]}
-        for gid, g in groups.items() if sid in g["members"]
-    ]
+    member_of = []
+    for gid, g in groups.items():
+        if sid not in g.get("members", []):
+            continue
+        last_text, last_date = "", g.get("created_at", "")
+        if db.is_available():
+            # Live messages live in org_messages (grp_<gid>); pull the most recent for the preview
+            rows = await asyncio.to_thread(db.get_org_messages, _grp_oid(gid), "main", 1)
+            if rows:
+                last_text = (rows[-1].get("content") or "")[:50]
+                ca = rows[-1].get("created_at")
+                last_date = ca.isoformat() if hasattr(ca, "isoformat") else str(ca or last_date)
+        elif g.get("messages"):
+            lm = g["messages"][-1]
+            last_text = (lm.get("text") or lm.get("message") or "")[:50]  # tolerate legacy `message` key
+            last_date = lm.get("date", last_date)
+        member_of.append({
+            "id": gid, "name": g["name"], "member_count": len(g.get("members", [])),
+            "last_msg": last_text, "last_date": last_date,
+        })
     return {"groups": member_of}
+
+
+# ── Study-group chat helpers ──────────────────────────────────
+# Group messages are stored in the same atomic `org_messages` table as org chat
+# (org_id namespaced as "grp_<gid>"). This gives study groups the same guarantees
+# as org chat: per-row INSERTs (no lost messages under concurrency) and a feed
+# every Gunicorn worker can read — so a message sent by one member is received by
+# every other member, on every device, via DB-poll SSE. Group *metadata* (name,
+# members) stays in the `groups` collection.
+def _grp_oid(gid: str) -> str:
+    return f"grp_{gid}"
+
+def _grp_msg_from_row(r: dict) -> dict:
+    """Normalize an org_messages row → the shape the group chat frontend expects."""
+    ca = r.get("created_at")
+    return {
+        "id":          r.get("id"),
+        "sender":      r.get("author_sid"),
+        "sender_name": r.get("author_name"),
+        "text":        r.get("content"),
+        "date":        ca.isoformat() if hasattr(ca, "isoformat") else str(ca or ""),
+    }
+
+def _grp_msg_normalize(m: dict) -> dict:
+    """Normalize a legacy file-stored group message (handles old `message`/`name` keys)."""
+    return {
+        "id":          m.get("id"),
+        "sender":      m.get("sid") or m.get("sender"),
+        "sender_name": m.get("sender_name") or m.get("name") or "Student",
+        "text":        m.get("text") if m.get("text") is not None else m.get("message", ""),
+        "date":        m.get("date", ""),
+    }
 
 
 @app.post("/api/group/message")
 async def send_group_message(data: dict, request: Request):
     sid, tok_name = _resolve_token(data)   # IDOR fix: identity from session token, not body
     gid     = sanitize_text(str(data.get("group_id","")), 20)
-    message = sanitize_text(str(data.get("message","")), 1000)
+    # Accept both `text` (current frontend) and `message` (legacy) so content is never dropped.
+    content = sanitize_text(str(data.get("text") or data.get("message") or "").strip(), 1000)
     name    = sanitize_text(str(tok_name or "Student"), MAX_NAME_LEN)
+    if not content: raise HTTPException(400, "Message content required.")
     groups  = load_groups()
     if gid not in groups: raise HTTPException(404, "Group not found")
     if sid not in groups[gid]["members"]: raise HTTPException(403, "Not a member")
+
+    # Atomic per-row store (cross-worker safe; no read-modify-write race on groups.json).
+    if db.is_available():
+        row = await asyncio.to_thread(db.send_org_message, _grp_oid(gid), "main", sid, name, content)
+        if not row: raise HTTPException(500, "Failed to send message.")
+        return {"ok": True, "msg": _grp_msg_from_row(row)}
+
+    # File fallback (no DB): legacy append, stored in the normalized shape.
     msg = {
-        "id":      str(uuid.uuid4())[:8],
-        "sid":     sid,
-        "name":    name,
-        "message": message,
-        "date":    datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "id":          str(uuid.uuid4())[:8],
+        "sid":         sid,
+        "sender_name": name,
+        "text":        content,
+        "date":        datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
-    groups[gid]["messages"].append(msg)
+    groups[gid].setdefault("messages", []).append(msg)
     groups[gid]["messages"] = groups[gid]["messages"][-300:]
     save_groups(groups)
-    return {"ok": True, "msg": msg}
+    return {"ok": True, "msg": {**_grp_msg_normalize(msg)}}
 
 
 @app.get("/api/group/messages")
@@ -5146,7 +5294,47 @@ async def get_group_messages(group_id: str, sid: str = "", token: str = ""):
     groups = load_groups()
     if gid not in groups: raise HTTPException(404, "Group not found")
     if sid not in groups[gid]["members"]: raise HTTPException(403, "Not a member")
-    return {"messages": groups[gid]["messages"][-100:], "name": groups[gid]["name"]}
+    if db.is_available():
+        rows = await asyncio.to_thread(db.get_org_messages, _grp_oid(gid), "main", 100)
+        return {"messages": [_grp_msg_from_row(r) for r in rows], "name": groups[gid]["name"]}
+    msgs = [_grp_msg_normalize(m) for m in groups[gid].get("messages", [])[-100:]]
+    return {"messages": msgs, "name": groups[gid]["name"]}
+
+
+@app.get("/api/group/chat/stream")
+async def group_chat_stream(token: str = "", group_id: str = "", last_id: int = 0, request: Request = None):
+    """SSE for study-group chat — DB-polls org_messages so every worker (and so
+    every connected member) sees the same live feed."""
+    entry = get_session_from_token(sanitize_text(token, 100))
+    if not entry: raise HTTPException(401, "Invalid token.")
+    sid = entry["sid"]
+    gid = sanitize_text(group_id, 20)
+    if not db.is_available(): raise HTTPException(503, "DB unavailable.")
+    groups = load_groups()
+    if gid not in groups: raise HTTPException(404, "Group not found")
+    if sid not in groups[gid]["members"]: raise HTTPException(403, "Not a member")
+    oid = _grp_oid(gid)
+    cursor = max(0, int(last_id))
+
+    async def stream():
+        nonlocal cursor
+        while True:
+            if request and await request.is_disconnected():
+                break
+            rows = await asyncio.to_thread(db.get_org_messages_since, oid, cursor)
+            if rows:
+                for r in rows:
+                    cursor = r["id"]
+                    yield f"data: {json.dumps(_grp_msg_from_row(r))}\n\n"
+            else:
+                yield ": ping\n\n"
+            await asyncio.sleep(2)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no","Connection":"keep-alive"},
+    )
 
 
 # ── Dynamic class routes (lecturer management) ───────────────
@@ -7754,23 +7942,45 @@ async def org_chat_stream(token: str = "", last_id: int = 0, request: Request = 
 
     async def stream():
         nonlocal cursor
+        # Announcement cursor: baseline to the DB clock so we only push announcements
+        # created *after* this connection (existing ones load via /api/org/announcements).
+        ann_cursor = await asyncio.to_thread(db.db_now)
         while True:
             if request and await request.is_disconnected():
                 break
+            sent = False
+            # ── New chat messages ──
             msgs = await asyncio.to_thread(db.get_org_messages_since, org_id, cursor)
-            if msgs:
-                for msg in msgs:
-                    cursor = msg["id"]
-                    payload = {
-                        "id":          msg["id"],
-                        "channel":     msg["channel"],
-                        "content":     msg["content"],
-                        "author_sid":  msg["author_sid"],
-                        "author_name": msg["author_name"],
-                        "created_at":  msg["created_at"].isoformat() if hasattr(msg["created_at"], "isoformat") else str(msg["created_at"]),
+            for msg in msgs:
+                cursor = msg["id"]
+                payload = {
+                    "id":          msg["id"],
+                    "channel":     msg["channel"],
+                    "content":     msg["content"],
+                    "author_sid":  msg["author_sid"],
+                    "author_name": msg["author_name"],
+                    "created_at":  msg["created_at"].isoformat() if hasattr(msg["created_at"], "isoformat") else str(msg["created_at"]),
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+                sent = True
+            # ── New announcements (org-wide) ──
+            if ann_cursor is not None:
+                anns = await asyncio.to_thread(db.get_org_announcements_since, org_id, ann_cursor)
+                for a in anns:
+                    ann_cursor = a["created_at"]
+                    ann = {
+                        "id":          a["id"],
+                        "org_id":      a.get("org_id", org_id),
+                        "title":       a["title"],
+                        "body":        a.get("body", ""),
+                        "author_sid":  a.get("author_sid", ""),
+                        "author_name": a.get("author_name", ""),
+                        "pinned":      a.get("pinned", False),
+                        "created_at":  a["created_at"].isoformat() if hasattr(a["created_at"], "isoformat") else str(a["created_at"]),
                     }
-                    yield f"data: {json.dumps(payload)}\n\n"
-            else:
+                    yield f"data: {json.dumps({'type': 'announcement', 'ann': ann})}\n\n"
+                    sent = True
+            if not sent:
                 yield ": ping\n\n"
             await asyncio.sleep(2)
 
@@ -9760,7 +9970,8 @@ async def org_announce(data: dict, bg: BackgroundTasks):
     ann = {"id": ann_id, "org_id": org_id, "title": title, "body": body,
            "author_sid": sid, "author_name": author_name,
            "pinned": pinned, "created_at": datetime.datetime.utcnow().isoformat()}
-    await _sse_broadcast(org_id, json.dumps({"type": "announcement", "ann": ann}))
+    # Live delivery to every member is handled by the org SSE stream, which DB-polls
+    # org_announcements so it works across all Gunicorn workers (in-memory broadcast did not).
 
     # ── Email all org members (except the author) ─────────────────
     members = db.get_org_members(org_id)

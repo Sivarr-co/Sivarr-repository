@@ -106,6 +106,18 @@ Done: Paystack/Flutterwave subscribe+verify (amount/currency/idempotency), billi
 
 ---
 
+## Post-stage batch — Appearance + realtime chat + session hardening  🔵 (2026-06-20, committing now)
+Cross-cutting work on top of Stages 1–9; not a single blueprint stage.
+**Shipped (syntax-clean: `py_compile` + `node --check`; NOT browser-verified yet):**
+- [x] **Settings → Appearance overhaul** — settings subnav + scroll-spy (`stGoSection`), theme mode light/dark/system (`stSetThemeMode`/`_resolveTheme`), density (`stSetDensity`), font-scale (`stSetFontScale`), HSL **colour wheel** + hex inputs + auto-derived secondary (`stApplyColor`/`_deriveSecondary`/`stWheel*`), presets + reset. ~147 lines of `.st-*` CSS. `styles.css` bumped `v=20260620b`.
+- [x] **Realtime group chat (SSE)** — `GET /api/group/chat/stream` (auth + membership gate, DB-poll `get_org_messages_since` @ database.py:3079, disconnect + heartbeat); frontend `sgConnectStream`/`sgStopLive` lifecycle on group open/close.
+- [x] **Session-revocation hardening** (continues [security roadmap] P3b) — `delete_all_sessions` + `_persist_password` in password-change/reset (app.py:2771–2794; login reads file first), `_client_ip` XFF, rcache rate-limit helpers (`get_int`/`bump`/`clear`).
+- [x] **Docs:** `docs/LAUNCH_WALKTHROUGH.md` (surface-by-surface readiness map; flags 256KB logo PNG, missing preconnect hints, TipTap via esm.sh CDN); `scripts/smoke_security.py` (multi-worker staging security smoke test).
+**⚠ Cache-bust note:** `app.js` left at `v=20260620a` (== HEAD) per Hunter — new JS won't bust for users cached on `20260620a`; **bump before deploy** (more JS work in progress).
+**TODO:** browser-verify Appearance panel + live group-chat stream; run `smoke_security.py` against staging.
+
+---
+
 ### Cross-cutting prerequisites (Hunter)
 - Final **pricing numbers** (gates Stage 10)
 - **sivarr.com** cutover: BASE_URL + Resend DKIM + Google OAuth authorized domain/redirect (gates Stage 5 calendar/whatsapp + 11)
