@@ -705,6 +705,7 @@ function _applyLoginData(r) {
     setTimeout(githubCheckStatus,         1100);
     setTimeout(billingLoadStatus,         1200);
     setTimeout(monoCheckStatus,           1400);
+    setTimeout(mtCheckStatus,             1600);
     setTimeout(_sendTaskReminderIfNeeded, 3000);
   } catch (e) {
     console.error('Sivarr: post-login UI setup failed (login still succeeded):', e);
@@ -972,6 +973,16 @@ function integrationsRender() {
       actionLabel: _MONO_CONNECTED ? 'Connected' : 'Connect',
     },
     {
+      id: 'metatrader',
+      name: 'MetaTrader',
+      logo: '📈',
+      bg: '#1c64f2',
+      connected: _MT_CONNECTED,
+      statusText: _MT_CONNECTED ? `MT account ${_MT_STATUS.login || ''} · ${(_MT_STATUS.platform || 'mt5').toUpperCase()}` : 'Link MT4/MT5 → live balance, positions & trades',
+      action: () => mtConnect(),
+      actionLabel: _MT_CONNECTED ? 'Connected' : 'Connect',
+    },
+    {
       id: 'whatsapp',
       name: 'WhatsApp Business',
       logo: '💬',
@@ -990,9 +1001,9 @@ function integrationsRender() {
   const INT_CAT = {
     google: 'Identity', gcal: 'Calendar', github: 'Developer',
     paystack: 'Payments & Finance', flutterwave: 'Payments & Finance', mono: 'Payments & Finance',
-    whatsapp: 'Communication',
+    metatrader: 'Trading', whatsapp: 'Communication',
   };
-  const CAT_ORDER = ['Identity', 'Calendar', 'Developer', 'Payments & Finance', 'Communication'];
+  const CAT_ORDER = ['Identity', 'Calendar', 'Developer', 'Payments & Finance', 'Trading', 'Communication'];
   const card = (i) => `
     <div class="int-card ${i.connected ? 'connected' : ''}">
       <div class="int-header">
@@ -5662,29 +5673,41 @@ document.addEventListener('click', e => {
 // ═══════════════════════ COMMAND PALETTE ════════════════════
 
 const CMD_ITEMS = [
-  // Panels
-  { icon:'💬', label:'Chat',          tag:'AI',        action:() => nav('chat',null) },
-  { icon:'📝', label:'Quiz',          tag:'AI',        action:() => nav('quiz',null) },
-  { icon:'🧪', label:'Study Deck',    tag:'AI',        action:() => nav('lab',null) },
-  { icon:'📢', label:'Announcements', tag:'Academics', action:() => nav('announcements',null) },
-  { icon:'✅', label:'Tasks',         tag:'Planner',   action:() => nav('flux',null) },
-  { icon:'📓', label:'Notes',         tag:'Planner',   action:() => nav('notes',null) },
-  { icon:'🗺️', label:'Study Plan',   tag:'Planner',   action:() => nav('studyplan',null) },
-  { icon:'📝', label:'Quizzes',       tag:'Assessments',action:() => nav('quiz',null) },
-  { icon:'🎯', label:'Goals',         tag:'Spaces',    action:() => nav('goals',null) },
-  { icon:'🧠', label:'Skills',        tag:'Life',      action:() => nav('skills',null) },
-  { icon:'💰', label:'Finance',       tag:'Life',      action:() => nav('finance',null) },
-  { icon:'📋', label:'Weekly Review', tag:'Life',      action:() => nav('review',null) },
-  { icon:'🧠', label:'Content Hub',   tag:'Spaces',    action:() => nav('contenthub',null) },
-  { icon:'⚙️', label:'Settings',      tag:'',          action:() => nav('settings',null) },
-  { icon:'➕', label:'Create New',    tag:'',          action:() => cnOpen() },
-  // Org panels
-  { icon:'🎯', label:'Opportunities', tag:'Connect',   action:() => nav('opportunities',null) },
-  { icon:'🧑', label:'My Profile',    tag:'',          action:() => nav('profile',null) },
-  // Actions
-  { icon:'🎤', label:'Voice Input',   tag:'Action',    action:() => { nav('chat',null); setTimeout(toggleVoice, 300); } },
-  { icon:'🌙', label:'Toggle Theme',  tag:'Action',    action:() => toggleThemeFromMenu() },
-  { icon:'🚪', label:'Sign Out',      tag:'Action',    action:() => logout() },
+  // ── Pinned (mirrors the sidebar) ──
+  { icon:'✨', label:'Sivarr AI',     tag:'Pinned',  keywords:'chat assistant ai', action:() => nav('chat',null) },
+  { icon:'🏠', label:'Home',          tag:'Pinned',  keywords:'dashboard',         action:() => nav('home',null) },
+  { icon:'📥', label:'Inbox',         tag:'Pinned',  keywords:'announcements messages notifications', action:() => nav('announcements',null) },
+  // ── Work ──
+  { icon:'✅', label:'Tasks',         tag:'Work',    keywords:'flux todo to-do',   action:() => nav('flux',null) },
+  { icon:'🎯', label:'Goals',         tag:'Work',    keywords:'objectives',        action:() => nav('goals',null) },
+  { icon:'📅', label:'Calendar',      tag:'Work',    keywords:'events schedule',   action:() => nav('calendar',null) },
+  { icon:'📓', label:'Docs & Notes',  tag:'Work',    keywords:'notes documents',   action:() => nav('notes',null) },
+  { icon:'🧩', label:'Templates',     tag:'Work',    keywords:'',                  action:() => nav('templates',null) },
+  // ── Life ──
+  { icon:'🧠', label:'Skills',        tag:'Life',    keywords:'',                  action:() => nav('skills',null) },
+  { icon:'💰', label:'Finance',       tag:'Life',    keywords:'money budget',      action:() => nav('finance',null) },
+  { icon:'🔥', label:'Habits',        tag:'Life',    keywords:'streak',            action:() => nav('habits',null) },
+  { icon:'✍️', label:'Journal',       tag:'Life',    keywords:'diary mood',        action:() => nav('journal',null) },
+  { icon:'📊', label:'Analytics',     tag:'Life',    keywords:'stats insights',    action:() => nav('stats',null) },
+  { icon:'📋', label:'Weekly Review', tag:'Life',    keywords:'',                  action:() => nav('review',null) },
+  // ── Connect ──
+  { icon:'👥', label:'Community',     tag:'Connect', keywords:'social feed',       action:() => nav('community',null) },
+  { icon:'💼', label:'Opportunities', tag:'Connect', keywords:'jobs',              action:() => nav('opportunities',null) },
+  { icon:'🛍️', label:'Marketplace',  tag:'Connect', keywords:'store extensions',  action:() => nav('marketplace',null) },
+  { icon:'🔌', label:'Integrations',  tag:'Connect', keywords:'library plug apps connect', action:() => nav('library',null) },
+  { icon:'🤖', label:'Agents',        tag:'Connect', keywords:'ai bots',           action:() => nav('agents',null) },
+  // ── More tools ──
+  { icon:'📝', label:'Quiz',          tag:'Tools',   keywords:'quizzes test',      action:() => nav('quiz',null) },
+  { icon:'🧪', label:'Study Deck',    tag:'Tools',   keywords:'lab flashcards',    action:() => nav('lab',null) },
+  { icon:'🗺️', label:'Study Plan',   tag:'Tools',   keywords:'',                  action:() => nav('studyplan',null) },
+  { icon:'🧠', label:'Content Hub',   tag:'Tools',   keywords:'',                  action:() => nav('contenthub',null) },
+  { icon:'🧑', label:'My Profile',    tag:'',        keywords:'account',           action:() => nav('profile',null) },
+  { icon:'⚙️', label:'Settings',      tag:'',        keywords:'preferences',       action:() => nav('settings',null) },
+  { icon:'➕', label:'Create New',    tag:'',        keywords:'add new space',     action:() => cnOpen() },
+  // ── Actions ──
+  { icon:'🎤', label:'Voice Input',   tag:'Action',  keywords:'',                  action:() => { nav('chat',null); setTimeout(toggleVoice, 300); } },
+  { icon:'🌙', label:'Toggle Theme',  tag:'Action',  keywords:'dark light',        action:() => toggleThemeFromMenu() },
+  { icon:'🚪', label:'Sign Out',      tag:'Action',  keywords:'logout',            action:() => logout() },
 ];
 
 let CMD_OPEN    = false;
@@ -5726,7 +5749,7 @@ function cmdSearch() {
   const jnl   = JSON.parse(localStorage.getItem(`sivarr_journal_${S.sid}`) || '[]');
 
   const panelItems = CMD_ITEMS.filter(item =>
-    !q || item.label.toLowerCase().includes(q) || (item.tag || '').toLowerCase().includes(q)
+    !q || item.label.toLowerCase().includes(q) || (item.tag || '').toLowerCase().includes(q) || (item.keywords || '').toLowerCase().includes(q)
   ).map(i => ({ ...i, type: 'panel' }));
 
   const noteItems = q
@@ -15936,6 +15959,99 @@ function monoRender() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  METATRADER INTEGRATION (via MetaApi bridge)
+//  Links a user's MT4/MT5 account → live balance, open positions and
+//  trade history, consumed by the Trading Journal extension's Live tab.
+// ═══════════════════════════════════════════════════════════════
+
+let _MT_CONNECTED = false;
+let _MT_STATUS    = {};      // { login, server, platform }
+let _MT_ACCOUNT   = null;    // last /account payload (info, positions, deals, state)
+let _MT_POLL      = null;    // poll timer while an account is still deploying
+
+async function mtCheckStatus() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try {
+    const r = await fetch(`/api/integrations/metatrader/status?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _MT_CONNECTED = !!d.connected;
+    _MT_STATUS = d;
+    if (typeof integrationsRender === 'function') integrationsRender();
+    if (_MT_CONNECTED) mtLoadAccount();
+  } catch (_) {}
+}
+
+async function mtLoadAccount() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token || !_MT_CONNECTED) return null;
+  try {
+    const r = await fetch(`/api/integrations/metatrader/account?token=${encodeURIComponent(token)}`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    _MT_ACCOUNT = d;
+    // While MetaApi is still deploying/syncing the broker connection, poll.
+    if (d.state === 'pending') {
+      if (!_MT_POLL) _MT_POLL = setInterval(mtLoadAccount, 12000);
+    } else if (_MT_POLL) {
+      clearInterval(_MT_POLL); _MT_POLL = null;
+    }
+    if (typeof extTjRender === 'function' && _extTjSeg === 'live') extTjRender();
+    return d;
+  } catch (_) { return null; }
+}
+
+async function mtConnect() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) { toast('Sign in first.'); return; }
+  if (_MT_CONNECTED) {
+    if (await siModal.confirm(`Disconnect MetaTrader account ${_MT_STATUS.login || ''}? Your journal entries stay; only the live link is removed.`,
+        { title: 'Disconnect MetaTrader', confirmLabel: 'Disconnect', danger: true })) {
+      await mtDisconnect();
+    }
+    return;
+  }
+  const f = await siModal.form('Connect MetaTrader', [
+    { id: 'platform', label: 'Platform', type: 'select',
+      options: [{ value: 'mt5', label: 'MetaTrader 5' }, { value: 'mt4', label: 'MetaTrader 4' }], default: 'mt5' },
+    { id: 'login',    label: 'Account number (login)', placeholder: 'e.g. 51234567', required: true },
+    { id: 'password', label: 'Investor (read-only) password', type: 'password', placeholder: 'Use your read-only password', required: true },
+    { id: 'server',   label: 'Broker server', placeholder: 'e.g. ICMarketsSC-Demo', required: true },
+  ], {
+    confirmLabel: 'Connect',
+    description: 'Sivarr links your account read-only through MetaApi. Tip: use your broker’s <b>investor (read-only) password</b> so trades can never be placed. We never store your password.',
+  });
+  if (!f || !f.login || !f.password || !f.server) return;
+  try {
+    toast('Linking your MetaTrader account…');
+    const r = await API('/api/integrations/metatrader/connect', {
+      token, login: f.login, password: f.password, server: f.server,
+      platform: f.platform || 'mt5',
+    });
+    if (r.ok) {
+      _MT_CONNECTED = true;
+      _MT_STATUS = { login: f.login, server: f.server, platform: f.platform || 'mt5' };
+      toast('MetaTrader linked — syncing your account (this can take a minute).');
+      if (typeof integrationsRender === 'function') integrationsRender();
+      mtLoadAccount();
+    }
+  } catch (e) {
+    toast(e.message || 'Could not link MetaTrader account.');
+  }
+}
+
+async function mtDisconnect() {
+  const token = localStorage.getItem('sivarr_token') || '';
+  if (!token) return;
+  try { await API('/api/integrations/metatrader/disconnect', { token }); } catch (_) {}
+  _MT_CONNECTED = false; _MT_STATUS = {}; _MT_ACCOUNT = null;
+  if (_MT_POLL) { clearInterval(_MT_POLL); _MT_POLL = null; }
+  if (typeof integrationsRender === 'function') integrationsRender();
+  if (typeof extTjRender === 'function') extTjRender();
+  toast('MetaTrader disconnected.');
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  ORG ANNOUNCEMENTS
 // ═══════════════════════════════════════════════════════════════
 
@@ -19019,6 +19135,9 @@ function _tjDerive(t) {
       if (risk > 0) r = +(moveFor / risk).toFixed(2);
     }
   }
+  // Trades imported from a broker (e.g. MetaTrader) carry realized P&L directly
+  // rather than entry/stop prices — honor it so stats and badges still work.
+  if (pnl == null && _tjNum(t.pnlOverride) != null) pnl = _tjNum(t.pnlOverride);
   let outcome = 'be';
   // R is the normalized truth; prefer it (small forex P&L can round to 0). Fall back to P&L.
   const basis = (r != null) ? r : (pnl != null ? pnl : 0);
@@ -19029,13 +19148,23 @@ function extTjShell(item) {
   return `<div class="ext-tab-shell" style="max-width:900px;align-items:stretch"><div style="text-align:center"><div class="ext-tab-icon">${item.icon}</div><div class="ext-tab-name">${mktEsc(item.name)}</div><div class="ext-tab-desc">${mktEsc(item.desc)}</div></div><div id="exttj-root" style="width:100%;margin-top:14px">${extTjInner()}</div></div>`;
 }
 function extTjInner() {
-  const segs = [['trades', 'Trades'], ['journal', 'Journal'], ['risk', 'Risk'], ['stats', 'Stats']];
-  const bar = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px;flex-wrap:wrap">${segs.map(([k, l]) => `<button class="mkt-cat-pill ${_extTjSeg === k ? 'active' : ''}" onclick="extTjSetSeg('${k}')">${l}</button>`).join('')}</div>`;
-  const body = _extTjSeg === 'journal' ? extTjJournal() : _extTjSeg === 'risk' ? extTjRisk() : _extTjSeg === 'stats' ? extTjStats() : extTjTrades();
+  const segs = [['live', 'Live'], ['trades', 'Trades'], ['journal', 'Journal'], ['risk', 'Risk'], ['stats', 'Stats']];
+  const liveDot = _MT_CONNECTED ? '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green,#16a34a);margin-left:4px;vertical-align:middle"></span>' : '';
+  const bar = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px;flex-wrap:wrap">${segs.map(([k, l]) => `<button class="mkt-cat-pill ${_extTjSeg === k ? 'active' : ''}" onclick="extTjSetSeg('${k}')">${l}${k === 'live' ? liveDot : ''}</button>`).join('')}</div>`;
+  const body = _extTjSeg === 'live' ? extTjLive()
+    : _extTjSeg === 'journal' ? extTjJournal()
+    : _extTjSeg === 'risk' ? extTjRisk()
+    : _extTjSeg === 'stats' ? extTjStats()
+    : extTjTrades();
   return bar + body;
 }
 function extTjRender() { const r = document.getElementById('exttj-root'); if (r) r.innerHTML = extTjInner(); }
-function extTjSetSeg(s) { _extTjSeg = s; extTjRender(); }
+function extTjSetSeg(s) {
+  _extTjSeg = s;
+  extTjRender();
+  // Refresh live data on demand when the user opens the Live tab.
+  if (s === 'live' && _MT_CONNECTED && typeof mtLoadAccount === 'function') mtLoadAccount();
+}
 function _tjRBadge(t) {
   const d = _tjDerive(t);
   const col = d.outcome === 'win' ? 'var(--green,#16a34a)' : d.outcome === 'loss' ? 'var(--red,#dc2626)' : 'var(--muted)';
@@ -19167,6 +19296,113 @@ function extTjStats() {
     curve = `<div class="mkt-item-name" style="margin-bottom:6px">Equity curve (cumulative R)</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:90px;overflow:visible"><line x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}" stroke="var(--border)" stroke-dasharray="3 3"/><polyline points="${coords}" fill="none" stroke="var(--teal,#0ea5a4)" stroke-width="2"/></svg>`;
   }
   return grid + curve;
+}
+
+// ── Live tab: pull the connected MetaTrader account and visualize it ──
+function _tjMoney(v, cur) {
+  const n = parseFloat(v);
+  if (!isFinite(n)) return '—';
+  const s = (n > 0 ? '+' : '') + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return cur ? `${s} ${cur}` : s;
+}
+function extTjLive() {
+  // Not configured / not connected → connect prompt.
+  if (!_MT_CONNECTED) {
+    return `<div class="mkt-card" style="max-width:440px;margin:0 auto;padding:20px;text-align:center">
+      <div style="font-size:30px">📈</div>
+      <div class="mkt-item-name" style="margin:6px 0 4px">Connect MetaTrader</div>
+      <div class="mkt-brief-desc" style="margin-bottom:14px">Link your MT4/MT5 account to see your live balance, equity, open positions and trade history — and import closed trades straight into this journal.</div>
+      <button class="mkt-btn-teal" onclick="mtConnect()"><i class="ti ti-plug-connected" aria-hidden="true"></i> Connect MetaTrader</button>
+    </div>`;
+  }
+  const a = _MT_ACCOUNT;
+  // Connected but still deploying/syncing on MetaApi's side.
+  if (!a || a.state === 'pending') {
+    return `<div class="mkt-empty-state"><i class="ti ti-loader-2 ps-spin" style="font-size:26px;opacity:.35" aria-hidden="true"></i>
+      <div>Syncing ${mktEsc(_MT_STATUS.login || 'your account')} (${(_MT_STATUS.platform || 'mt5').toUpperCase()})…</div>
+      <div class="mkt-brief-desc" style="margin-top:4px">MetaApi is connecting to your broker — this can take a minute on first link.</div>
+      <button class="mkt-btn-ghost mkt-btn-sm" style="margin-top:10px" onclick="mtLoadAccount()">Refresh</button></div>`;
+  }
+  const info = a.info || {};
+  const cur  = info.currency || '';
+  const positions = a.positions || [];
+  const deals     = (a.deals || []).filter(d => d.entry === 'out');  // closed legs carry the realized P&L
+
+  // ── Account summary tiles ──
+  const stat = (label, val, color) => `<div style="flex:1;min-width:96px;background:rgba(127,127,127,.05);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center"><div style="font-size:16px;font-weight:700;color:${color || 'var(--text)'}">${val}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">${label}</div></div>`;
+  const equityCol = (parseFloat(info.equity) >= parseFloat(info.balance)) ? 'var(--green,#16a34a)' : 'var(--red,#dc2626)';
+  const tiles = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+    ${stat('Balance', `${(+info.balance || 0).toLocaleString()} ${cur}`)}
+    ${stat('Equity', `${(+info.equity || 0).toLocaleString()} ${cur}`, equityCol)}
+    ${stat('Free margin', `${(+info.freeMargin || 0).toLocaleString()}`)}
+    ${stat('Leverage', info.leverage ? `1:${info.leverage}` : '—')}
+  </div>`;
+
+  // ── Header row: who / refresh / import ──
+  const head = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <div><span class="mkt-item-name">${mktEsc(info.name || _MT_STATUS.login || 'Account')}</span>
+      <span class="mkt-item-author">${mktEsc(_MT_STATUS.server || '')} · ${(_MT_STATUS.platform || 'mt5').toUpperCase()}</span></div>
+    <div style="display:flex;gap:6px">
+      <button class="mkt-btn-ghost mkt-btn-sm" onclick="mtLoadAccount()"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+      <button class="mkt-btn-teal mkt-btn-sm" onclick="extTjImportLive()"${deals.length ? '' : ' disabled'}><i class="ti ti-download" aria-hidden="true"></i> Import ${deals.length} closed</button>
+    </div></div>`;
+
+  // ── Open positions ──
+  let posHtml = `<div class="mkt-item-name" style="margin:14px 0 6px">Open positions (${positions.length})</div>`;
+  if (!positions.length) {
+    posHtml += `<div class="mkt-brief-desc">No open positions right now.</div>`;
+  } else {
+    posHtml += positions.map(p => {
+      const col = (+p.profit >= 0) ? 'var(--green,#16a34a)' : 'var(--red,#dc2626)';
+      const arrow = p.type === 'buy' ? '↑' : '↓';
+      return `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${arrow} ${mktEsc(p.symbol)} <span style="font-size:9.5px;color:var(--muted);font-weight:500">${mktEsc(p.type)} ${mktEsc(String(p.volume))}</span></div><div class="mkt-item-author">@ ${mktEsc(String(p.openPrice))} → ${mktEsc(String(p.current))}</div></div><span style="font-weight:700;font-size:12px;color:${col}">${_tjMoney(p.profit, cur)}</span></div>`;
+    }).join('');
+  }
+
+  // ── Realized P&L curve from closed deals (chronological) ──
+  let curve = '';
+  if (deals.length > 1) {
+    const sorted = deals.slice().sort((x, y) => new Date(x.time) - new Date(y.time));
+    let cum = 0; const pts = sorted.map(d => (cum += (+d.profit || 0) + (+d.swap || 0) + (+d.commission || 0)));
+    const min = Math.min(0, ...pts), max = Math.max(0, ...pts), range = (max - min) || 1;
+    const W = 320, H = 90, step = W / (pts.length - 1);
+    const coords = pts.map((p, i) => `${(i * step).toFixed(1)},${(H - ((p - min) / range) * H).toFixed(1)}`).join(' ');
+    const zeroY = (H - ((0 - min) / range) * H).toFixed(1);
+    const endCol = cum >= 0 ? 'var(--green,#16a34a)' : 'var(--red,#dc2626)';
+    curve = `<div class="mkt-item-name" style="margin:14px 0 6px">Realized P&L (${deals.length} closed · ${_tjMoney(cum, cur)})</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:90px;overflow:visible"><line x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}" stroke="var(--border)" stroke-dasharray="3 3"/><polyline points="${coords}" fill="none" stroke="${endCol}" stroke-width="2"/></svg>`;
+  }
+
+  return head + tiles + curve + posHtml;
+}
+
+// Import the connected account's closed deals into the local journal (dedupe by deal id).
+function extTjImportLive() {
+  const a = _MT_ACCOUNT;
+  if (!a || !a.deals) { toast('No live trades to import yet.'); return; }
+  const closed = a.deals.filter(d => d.entry === 'out');
+  if (!closed.length) { toast('No closed trades in range.'); return; }
+  const d = extTjData();
+  const have = new Set(d.trades.map(t => t.mtId).filter(Boolean));
+  let n = 0;
+  closed.forEach(deal => {
+    const key = 'mt_' + (deal.id || `${deal.symbol}_${deal.time}`);
+    if (have.has(key)) return;
+    const pnl = (+deal.profit || 0) + (+deal.swap || 0) + (+deal.commission || 0);
+    d.trades.push({
+      id: 't_' + Date.now() + '_' + (n++),
+      mtId: key,
+      symbol: (deal.symbol || '').toUpperCase(),
+      // A closing deal of a SELL position closes a long entry, and vice-versa.
+      dir: deal.type === 'sell' ? 'long' : 'short',
+      entry: '', exit: String(deal.price || ''), stop: '', size: String(deal.volume || ''),
+      pnlOverride: +pnl.toFixed(2),
+      emotion: '', date: (deal.time || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
+      notes: 'Imported from MetaTrader',
+    });
+  });
+  extTjSave(d);
+  toast(n ? `${n} trade${n !== 1 ? 's' : ''} imported from MetaTrader` : 'Already up to date — no new trades.');
+  if (n) { _extTjSeg = 'trades'; extTjRender(); }
 }
 
 /* ── Stage 4: Org "Add Extension" entry + post-install onboarding checklist ── */
