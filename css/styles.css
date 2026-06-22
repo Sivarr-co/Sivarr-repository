@@ -517,8 +517,56 @@ body.offline .layout {
 }
 .sb-icon-action:hover { background: var(--bg3); color: var(--text1); }
 
+/* ── Command-center: header actions + rail toggle ─── */
+.sb-head-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.sb-rail-btn {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  border: 1px solid var(--border); background: var(--bg3);
+  color: var(--text3); font-size: .88rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: var(--transition);
+}
+.sb-rail-btn:hover { border-color: var(--teal); color: var(--teal); background: var(--teal2); }
+
+/* ── Command-center: Today snapshot ─── */
+.sb-today {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+  margin: 4px 0 10px; padding: 8px 4px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.sb-today-stat {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  border: none; background: transparent; cursor: pointer; padding: 4px 2px;
+  border-radius: 8px; transition: background .15s; min-width: 0;
+}
+.sb-today-stat:hover { background: var(--bg2); }
+.sb-today-value {
+  font-family: var(--font); font-size: .95rem; font-weight: 800; color: var(--text1);
+  display: flex; align-items: center; gap: 3px; line-height: 1;
+}
+.sb-today-flame i { color: var(--amber3, #f59e0b); font-size: .9rem; }
+.sb-today-next { font-size: .78rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-today-label { font-size: .62rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text4); }
+
+/* ── Command-center: inline nav stats ─── */
+.si-stat {
+  font-size: 11px; font-weight: 600; color: var(--text4); flex-shrink: 0;
+  white-space: nowrap;
+}
+.si-stat:empty { display: none; }
+.si-stat-info    { color: var(--teal); }
+.si-stat-success { color: var(--green3, #3fb950); }
+.si-stat-danger  { color: var(--red3, #e2554f); }
+
 /* ── Collapsed sidebar (tablet) ─── */
 .sidebar.collapsed { width: 52px; }
+.sidebar.collapsed .sb-today,
+.sidebar.collapsed .si-stat,
+.sidebar.collapsed .sb-ws,
+.sidebar.collapsed .sb-head-actions .sb-new-btn { display: none !important; }
+.sidebar.collapsed .sb-header { justify-content: center; }
+.sidebar.collapsed .sb-head-actions { width: auto; justify-content: center; }
 .sidebar.collapsed .si-lb, .sidebar.collapsed .sb-section-label,
 .sidebar.collapsed .sb-section-row .sb-section-label,
 .sidebar.collapsed .sub-nav, .sidebar.collapsed .si-ch,

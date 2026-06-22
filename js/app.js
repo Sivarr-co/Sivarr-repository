@@ -654,6 +654,10 @@ function _applyLoginData(r) {
     loadWrong();
 
     if (localStorage.getItem('sb_retracted') === '1') $('sidebar')?.classList.add('retracted');
+    if (localStorage.getItem('sb_collapsed') === '1') {
+      $('sidebar')?.classList.add('collapsed');
+      const _ri = $('sb-rail-icon'); if (_ri) _ri.className = 'ti ti-layout-sidebar-left-expand';
+    }
     const _postCreate = sessionStorage.getItem('sivarr_post_create');
     if (_postCreate) {
       sessionStorage.removeItem('sivarr_post_create');
@@ -689,6 +693,7 @@ function _applyLoginData(r) {
       seedSpacesFromServer(r.spaces);
     }
     setTimeout(() => spaceRenderSidebar(), 100);
+    setTimeout(() => sbRenderStats(), 120);
     // Handle Stripe payment return
     setTimeout(() => agCheckPaymentReturn(), 500);
     // Show onboarding for new users
@@ -7979,6 +7984,81 @@ function toggleSidebar() {
   localStorage.setItem('sb_retracted', retracted ? '1' : '0');
 }
 
+// ── Command-center: rail collapse (64px icons-only), persisted ──
+function sbToggleRail() {
+  const sb = $('sidebar');
+  if (!sb) return;
+  const collapsed = sb.classList.toggle('collapsed');
+  localStorage.setItem('sb_collapsed', collapsed ? '1' : '0');
+  const ic = $('sb-rail-icon');
+  if (ic) ic.className = 'ti ' + (collapsed ? 'ti-layout-sidebar-left-expand' : 'ti-layout-sidebar-left-collapse');
+  const btn = ic && ic.closest('.sb-rail-btn');
+  if (btn) btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+}
+
+// ── Command-center: parse the next upcoming event today → display label ──
+function _sbNextEvent(events, today) {
+  const todays = (events || []).filter(e => (e.date || '').startsWith(today));
+  if (!todays.length) return null;
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const toMin = (t) => {
+    const m = String(t || '').match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+    if (!m) return -1;                       // all-day / unparseable → sort first
+    let h = parseInt(m[1], 10); const min = parseInt(m[2], 10);
+    const ap = (m[3] || '').toLowerCase();
+    if (ap === 'pm' && h < 12) h += 12;
+    if (ap === 'am' && h === 12) h = 0;
+    return h * 60 + min;
+  };
+  const sorted = todays.map(e => ({ e, m: toMin(e.time) })).sort((a, b) => a.m - b.m);
+  const next = sorted.find(x => x.m >= nowMin) || sorted[0];
+  return next.e.time || 'All day';
+}
+
+// ── Command-center: populate Today snapshot + inline nav stats from live data ──
+function sbRenderStats() {
+  try {
+    if (typeof S === 'undefined' || !S || !S.sid) return;
+    const today  = new Date().toISOString().split('T')[0];
+    const tasks  = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]');
+    const goals  = JSON.parse(localStorage.getItem(`sivarr_goals_${S.sid}`)  || '[]');
+    const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || '[]');
+    const events = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || '[]');
+
+    // Tasks due = open tasks due today or overdue
+    const tasksDue = tasks.filter(t => !t.done && t.due_date && t.due_date <= today).length;
+    // Activity streak (the headline streak used on Home)
+    const streak = (typeof _getActivityStreak === 'function') ? _getActivityStreak() : 0;
+    // Next event today
+    const nextLabel = _sbNextEvent(events, today);
+    // Average progress across active goals
+    const active = goals.filter(g => !g.completed);
+    const goalsAvg = active.length
+      ? Math.round(active.reduce((s, g) => s + (g.progress || 0), 0) / active.length)
+      : null;
+    // 28-day habit completion rate (mirrors the Habits page formula)
+    let habitRate = null;
+    if (habits.length) {
+      const range = [];
+      for (let d = 27; d >= 0; d--) { const dt = new Date(); dt.setDate(dt.getDate() - d); range.push(dt.toISOString().split('T')[0]); }
+      const done = habits.reduce((s, h) => s + range.filter(ds => (h.completions || []).includes(ds)).length, 0);
+      habitRate = Math.round((done / (habits.length * 28)) * 100);
+    }
+
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    // Today snapshot
+    set('sb-today-tasks',  tasksDue);
+    set('sb-today-streak', streak);
+    set('sb-today-next',   nextLabel || '—');
+    // Inline nav stats (blank string → CSS :empty hides them)
+    set('sbstat-tasks',  tasksDue ? `${tasksDue} due` : '');
+    set('sbstat-goals',  goalsAvg  !== null ? `${goalsAvg}% avg` : '');
+    set('sbstat-habits', habitRate !== null ? `${habitRate}%`    : '');
+    // sbstat-stats (Analytics trend): no clean week-over-week source yet — left blank (follow-up)
+  } catch (e) { /* non-fatal — sidebar still works without stats */ }
+}
+
 // ── Fullscreen toggle ──────────────────────────────────────────
 function toggleFullscreen() {
   if (!document.fullscreenElement) {
@@ -8239,6 +8319,7 @@ function nav(name, btn) {
   _updateMobileNav(name);
   syncSnavFromPanel(name);
   _trackNav(name);
+  if (typeof sbRenderStats === 'function') sbRenderStats();
 
   // ── Paywall guards ──
   const _GUARDED = { org: 'Pro', orgchat: 'Pro', team: 'Pro', projects: 'Pro', founder: 'Team' };

@@ -25,7 +25,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260621a">
+<link rel="stylesheet" href="/css/styles.css?v=20260622a">
 <!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
 <script type="module">
 import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
@@ -434,12 +434,34 @@ Sentry.onLoad(function() {
           </div>
           <span class="sb-ws-name">Sivarr</span>
         </div>
-        <button class="sb-new-btn" onclick="cmdOpen()" title="Search or create (⌘K)">
-          <i class="ti ti-search"></i>
-        </button>
+        <div class="sb-head-actions">
+          <button class="sb-new-btn" onclick="cmdOpen()" title="Search or create (⌘K)">
+            <i class="ti ti-search"></i>
+          </button>
+          <button class="sb-rail-btn" onclick="sbToggleRail()" title="Collapse sidebar" aria-label="Collapse sidebar">
+            <i class="ti ti-layout-sidebar-left-collapse" id="sb-rail-icon"></i>
+          </button>
+        </div>
       </div>
 
       <div class="sb-scroll">
+
+        <!-- Today at a glance -->
+        <div class="sb-today" id="sb-today" role="group" aria-label="Today at a glance">
+          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=flux]'))" title="Tasks due">
+            <span class="sb-today-value" id="sb-today-tasks">0</span>
+            <span class="sb-today-label">Due</span>
+          </button>
+          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=habits]'))" title="Activity streak">
+            <span class="sb-today-value sb-today-flame"><i class="ti ti-flame" aria-hidden="true"></i><span id="sb-today-streak">0</span></span>
+            <span class="sb-today-label">Streak</span>
+          </button>
+          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=calendar]'))" title="Next event">
+            <span class="sb-today-value sb-today-next" id="sb-today-next">—</span>
+            <span class="sb-today-label">Next</span>
+          </button>
+        </div>
+
 
         <!-- Pinned -->
         <div class="sb-nav-group">
@@ -466,10 +488,12 @@ Sentry.onLoad(function() {
           <button class="si" data-panel="flux" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-checkbox"></i></div>
             <span class="si-lb">Tasks</span>
+            <span class="si-stat si-stat-info" id="sbstat-tasks"></span>
           </button>
           <button class="si" data-panel="goals" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-target"></i></div>
             <span class="si-lb">Goals</span>
+            <span class="si-stat" id="sbstat-goals"></span>
           </button>
           <button class="si" data-panel="calendar" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-calendar"></i></div>
@@ -501,6 +525,7 @@ Sentry.onLoad(function() {
           <button class="si" data-panel="habits" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-flame"></i></div>
             <span class="si-lb">Habits</span>
+            <span class="si-stat" id="sbstat-habits"></span>
           </button>
           <button class="si" data-panel="journal" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-writing"></i></div>
@@ -509,6 +534,7 @@ Sentry.onLoad(function() {
           <button class="si" data-panel="stats" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-chart-bar"></i></div>
             <span class="si-lb">Analytics</span>
+            <span class="si-stat" id="sbstat-stats"></span>
           </button>
           <button class="si" data-panel="review" onclick="sidebarNav(this)">
             <div class="si-icon"><i class="ti ti-calendar-stats"></i></div>
@@ -4534,7 +4560,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260621a" defer></script>
+<script src="/js/app.js?v=20260622a" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
