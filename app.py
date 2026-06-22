@@ -180,6 +180,18 @@ MONO_PUBLIC_KEY   = os.environ.get("MONO_PUBLIC_KEY", "")
 MONO_AVAILABLE    = bool(MONO_SECRET_KEY)
 MONO_API          = "https://api.withmono.com"
 
+# ── MetaApi (MetaTrader MT4/MT5 bridge) ──────────────────────
+# MetaTrader has no direct retail REST API; MetaApi.cloud bridges to a user's
+# broker account. We only pass the broker password to MetaApi at provisioning
+# time (MetaApi stores it) — we never persist it ourselves. We keep the returned
+# MetaApi account id + region for read-only balance/positions/history pulls.
+METAAPI_TOKEN     = os.environ.get("METAAPI_TOKEN", "")
+METAAPI_AVAILABLE = bool(METAAPI_TOKEN)
+METAAPI_REGION    = os.environ.get("METAAPI_REGION", "new-york")  # default deploy region
+METAAPI_PROVISION = "https://mt-provisioning-api-v1.agiliumtrade.ai"
+def _metaapi_client_host(region: str) -> str:
+    return f"https://mt-client-api-v1.{region or METAAPI_REGION}.agiliumtrade.ai"
+
 # ── Google OAuth + Calendar ───────────────────────────────────
 GOOGLE_CLIENT_ID       = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET   = os.environ.get("GOOGLE_CLIENT_SECRET", "")
@@ -10101,6 +10113,239 @@ async def mono_status(token: str = ""):
         raise HTTPException(401, "Invalid session.")
     p = load_progress(sess["sid"])
     return {"connected": bool(p.get("mono_account_id",""))}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  METATRADER (via MetaApi.cloud bridge)
+# ═══════════════════════════════════════════════════════════════
+
+def _metaapi_headers():
+    return {"auth-token": METAAPI_TOKEN, "Content-Type": "application/json"}
+
+
+@app.post("/api/integrations/metatrader/connect")
+async def metatrader_connect(data: dict):
+    """Provision the user's MT4/MT5 account on MetaApi and store the read-only handle.
+
+    The broker password is forwarded to MetaApi once (it stores it) and is NEVER
+    persisted on our side. We keep only the MetaApi account id + region + the
+    non-secret login/server/platform for display and subsequent data pulls.
+    """
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not METAAPI_AVAILABLE or not HTTPX_AVAILABLE:
+        raise HTTPException(503, "MetaTrader integration not configured.")
+
+    login    = sanitize_text(str(data.get("login", "")), 40)
+    server   = sanitize_text(str(data.get("server", "")), 120)
+    platform = sanitize_text(str(data.get("platform", "mt5")), 8).lower()
+    password = str(data.get("password", ""))  # forwarded as-is, never stored/sanitized away
+    name     = sanitize_text(str(data.get("name", "")), 60) or f"MT-{login}"
+    if platform not in ("mt4", "mt5"):
+        platform = "mt5"
+    if not login or not server or not password:
+        raise HTTPException(400, "login, password and server are required.")
+
+    payload = {
+        "name": name,
+        "type": "cloud-g2",
+        "login": login,
+        "password": password,
+        "server": server,
+        "platform": platform,
+        "magic": 0,
+        "application": "Sivarr",
+        "region": METAAPI_REGION,
+    }
+    try:
+        async with _httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(
+                f"{METAAPI_PROVISION}/users/current/accounts",
+                json=payload, headers=_metaapi_headers(),
+            )
+            result = r.json() if r.content else {}
+    except Exception as exc:
+        log.error(f"MetaApi connect error: {exc}")
+        raise HTTPException(502, "MetaApi unreachable.")
+    if r.status_code not in (200, 201):
+        msg = (result or {}).get("message") or "MetaApi rejected the account credentials."
+        raise HTTPException(400, msg)
+
+    account_id = result.get("id") or result.get("_id", "")
+    if not account_id:
+        raise HTTPException(502, "MetaApi did not return an account id.")
+
+    # Resolve the deploy region for the client-API host (defensive: fall back to default).
+    region = METAAPI_REGION
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            ar = await client.get(
+                f"{METAAPI_PROVISION}/users/current/accounts/{account_id}",
+                headers=_metaapi_headers(),
+            )
+            if ar.status_code == 200:
+                region = (ar.json() or {}).get("region", region) or region
+    except Exception:
+        pass
+
+    sid = sess["sid"]
+    p = load_progress(sid)
+    p["metaapi_account_id"] = account_id
+    p["metaapi_region"]     = region
+    p["mt_login"]           = login
+    p["mt_server"]          = server
+    p["mt_platform"]        = platform
+    save_progress(sid, p)
+    # The account takes ~1-5 min to deploy + sync. Frontend polls /account.
+    return {"ok": True, "account_id": account_id, "state": result.get("state", "DEPLOYING")}
+
+
+@app.get("/api/integrations/metatrader/status")
+async def metatrader_status(token: str = ""):
+    """Return whether this user has linked a MetaTrader account (+ display meta)."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p = load_progress(sess["sid"])
+    return {
+        "available": METAAPI_AVAILABLE,
+        "connected": bool(p.get("metaapi_account_id", "")),
+        "login":     p.get("mt_login", ""),
+        "server":    p.get("mt_server", ""),
+        "platform":  p.get("mt_platform", ""),
+    }
+
+
+def _mt_norm_position(pos: dict) -> dict:
+    t = str(pos.get("type", "")).upper()
+    return {
+        "id":        pos.get("id", ""),
+        "symbol":    pos.get("symbol", ""),
+        "type":      "buy" if "BUY" in t else "sell" if "SELL" in t else t.lower(),
+        "volume":    pos.get("volume", 0),
+        "openPrice": pos.get("openPrice", 0),
+        "current":   pos.get("currentPrice", 0),
+        "profit":    pos.get("profit", 0),
+        "swap":      pos.get("swap", 0),
+        "time":      pos.get("time", ""),
+    }
+
+
+def _mt_norm_deal(deal: dict) -> dict:
+    t = str(deal.get("type", "")).upper()
+    return {
+        "id":      deal.get("id", ""),
+        "symbol":  deal.get("symbol", ""),
+        "type":    "buy" if "BUY" in t else "sell" if "SELL" in t else t.lower(),
+        "entry":   str(deal.get("entryType", "")).replace("DEAL_ENTRY_", "").lower(),  # in|out
+        "volume":  deal.get("volume", 0),
+        "price":   deal.get("price", 0),
+        "profit":  deal.get("profit", 0),
+        "swap":    deal.get("swap", 0),
+        "commission": deal.get("commission", 0),
+        "time":    deal.get("time", ""),
+    }
+
+
+@app.get("/api/integrations/metatrader/account")
+async def metatrader_account(token: str = "", days: int = 90):
+    """Fetch live account info, open positions and recent closed deals from MetaApi.
+
+    Returns a normalized shape the Trading Journal extension can visualize. While the
+    account is still deploying/syncing the client API 404/503s — we surface that as a
+    'pending' state rather than an error so the UI can poll.
+    """
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not METAAPI_AVAILABLE or not HTTPX_AVAILABLE:
+        raise HTTPException(503, "MetaTrader integration not configured.")
+    p = load_progress(sess["sid"])
+    account_id = p.get("metaapi_account_id", "")
+    if not account_id:
+        raise HTTPException(403, "MetaTrader not connected.")
+    region = p.get("metaapi_region", METAAPI_REGION)
+    host   = _metaapi_client_host(region)
+    base   = f"{host}/users/current/accounts/{account_id}"
+    days   = max(1, min(int(days or 90), 365))
+    end    = datetime.datetime.utcnow()
+    start  = end - datetime.timedelta(days=days)
+    fmt    = "%Y-%m-%dT%H:%M:%S.000Z"
+    headers = {"auth-token": METAAPI_TOKEN}
+    try:
+        async with _httpx.AsyncClient(timeout=20) as client:
+            info_r, pos_r, deals_r = await asyncio.gather(
+                client.get(f"{base}/account-information", headers=headers),
+                client.get(f"{base}/positions", headers=headers),
+                client.get(
+                    f"{base}/history-deals/time/{start.strftime(fmt)}/{end.strftime(fmt)}",
+                    headers=headers),
+                return_exceptions=True,
+            )
+    except Exception as exc:
+        log.error(f"MetaApi account fetch error: {exc}")
+        raise HTTPException(502, "MetaApi unreachable.")
+
+    def _ok(resp):
+        return (not isinstance(resp, Exception)) and getattr(resp, "status_code", 0) == 200
+
+    if not _ok(info_r):
+        # Still deploying / connecting to broker, or transient — let the UI poll.
+        return {"connected": True, "state": "pending",
+                "login": p.get("mt_login", ""), "server": p.get("mt_server", ""),
+                "platform": p.get("mt_platform", "")}
+
+    info  = info_r.json() or {}
+    positions = pos_r.json() if _ok(pos_r) else []
+    deals     = deals_r.json() if _ok(deals_r) else []
+    if isinstance(deals, dict):
+        deals = deals.get("deals") or deals.get("data") or []
+
+    return {
+        "connected": True,
+        "state": "ready",
+        "login": p.get("mt_login", ""),
+        "server": p.get("mt_server", ""),
+        "platform": p.get("mt_platform", ""),
+        "info": {
+            "name":       info.get("name", ""),
+            "balance":    info.get("balance", 0),
+            "equity":     info.get("equity", 0),
+            "margin":     info.get("margin", 0),
+            "freeMargin": info.get("freeMargin", 0),
+            "marginLevel": info.get("marginLevel", 0),
+            "leverage":   info.get("leverage", 0),
+            "currency":   info.get("currency", ""),
+        },
+        "positions": [_mt_norm_position(x) for x in (positions if isinstance(positions, list) else [])],
+        "deals":     [_mt_norm_deal(x) for x in (deals if isinstance(deals, list) else [])],
+    }
+
+
+@app.post("/api/integrations/metatrader/disconnect")
+async def metatrader_disconnect(data: dict):
+    """Unlink the MetaTrader account (best-effort undeploy on MetaApi, then forget locally)."""
+    token = data.get("token", "")
+    sess  = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    p = load_progress(sid)
+    account_id = p.get("metaapi_account_id", "")
+    if account_id and METAAPI_AVAILABLE and HTTPX_AVAILABLE:
+        try:
+            async with _httpx.AsyncClient(timeout=20) as client:
+                await client.delete(
+                    f"{METAAPI_PROVISION}/users/current/accounts/{account_id}",
+                    headers=_metaapi_headers())
+        except Exception as exc:
+            log.warning(f"MetaApi undeploy failed (forgetting locally anyway): {exc}")
+    for k in ("metaapi_account_id", "metaapi_region", "mt_login", "mt_server", "mt_platform"):
+        p.pop(k, None)
+    save_progress(sid, p)
+    return {"ok": True}
 
 
 # ═══════════════════════════════════════════════════════════════

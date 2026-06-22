@@ -58,6 +58,11 @@ Var names are exact (`app.py` / `config.py` / `database.py` / `rcache.py`).
 - [ ] `SENTRY_DSN` (errors), `PLAUSIBLE_DOMAIN` (analytics),
       `VAPID_PUBLIC_KEY`/`_PRIVATE_KEY`/`_EMAIL` (web push), `CRON_SECRET`,
       `GITHUB_CLIENT_ID`/`_SECRET`, `MONO_*`, `STRIPE_*`.
+- [ ] `METAAPI_TOKEN` (+ optional `METAAPI_REGION`, default `new-york`) — enables
+      the **MetaTrader** integration (Trading Journal “Live” tab pulls balance,
+      open positions & trade history via MetaApi.cloud). Users connect with their
+      MT login/server + **investor (read-only) password**; that password is
+      forwarded to MetaApi once and never stored by Sivarr.
 
 ---
 
