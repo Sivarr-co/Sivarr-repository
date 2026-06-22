@@ -693,7 +693,7 @@ function _applyLoginData(r) {
       seedSpacesFromServer(r.spaces);
     }
     setTimeout(() => spaceRenderSidebar(), 100);
-    setTimeout(() => sbRenderStats(), 120);
+    setTimeout(() => { favRenderSidebar(); sbRenderStats(); }, 120);
     // Handle Stripe payment return
     setTimeout(() => agCheckPaymentReturn(), 500);
     // Show onboarding for new users
@@ -5674,41 +5674,89 @@ document.addEventListener('click', e => {
 
 const CMD_ITEMS = [
   // ── Pinned (mirrors the sidebar) ──
-  { icon:'✨', label:'Sivarr AI',     tag:'Pinned',  keywords:'chat assistant ai', action:() => nav('chat',null) },
-  { icon:'🏠', label:'Home',          tag:'Pinned',  keywords:'dashboard',         action:() => nav('home',null) },
-  { icon:'📥', label:'Inbox',         tag:'Pinned',  keywords:'announcements messages notifications', action:() => nav('announcements',null) },
+  { icon:'✨', label:'Sivarr AI',     tag:'Pinned',  panel:'chat',          keywords:'chat assistant ai', action:() => nav('chat',null) },
+  { icon:'🏠', label:'Home',          tag:'Pinned',  panel:'home',          keywords:'dashboard',         action:() => nav('home',null) },
+  { icon:'📥', label:'Inbox',         tag:'Pinned',  panel:'announcements', keywords:'announcements messages notifications', action:() => nav('announcements',null) },
   // ── Work ──
-  { icon:'✅', label:'Tasks',         tag:'Work',    keywords:'flux todo to-do',   action:() => nav('flux',null) },
-  { icon:'🎯', label:'Goals',         tag:'Work',    keywords:'objectives',        action:() => nav('goals',null) },
-  { icon:'📅', label:'Calendar',      tag:'Work',    keywords:'events schedule',   action:() => nav('calendar',null) },
-  { icon:'📓', label:'Docs & Notes',  tag:'Work',    keywords:'notes documents',   action:() => nav('notes',null) },
-  { icon:'🧩', label:'Templates',     tag:'Work',    keywords:'',                  action:() => nav('templates',null) },
+  { icon:'✅', label:'Tasks',         tag:'Work',    panel:'flux',          keywords:'flux todo to-do',   action:() => nav('flux',null) },
+  { icon:'🎯', label:'Goals',         tag:'Work',    panel:'goals',         keywords:'objectives',        action:() => nav('goals',null) },
+  { icon:'📅', label:'Calendar',      tag:'Work',    panel:'calendar',      keywords:'events schedule',   action:() => nav('calendar',null) },
+  { icon:'📓', label:'Docs & Notes',  tag:'Work',    panel:'notes',         keywords:'notes documents',   action:() => nav('notes',null) },
+  { icon:'🧩', label:'Templates',     tag:'Work',    panel:'templates',     keywords:'',                  action:() => nav('templates',null) },
   // ── Life ──
-  { icon:'🧠', label:'Skills',        tag:'Life',    keywords:'',                  action:() => nav('skills',null) },
-  { icon:'💰', label:'Finance',       tag:'Life',    keywords:'money budget',      action:() => nav('finance',null) },
-  { icon:'🔥', label:'Habits',        tag:'Life',    keywords:'streak',            action:() => nav('habits',null) },
-  { icon:'✍️', label:'Journal',       tag:'Life',    keywords:'diary mood',        action:() => nav('journal',null) },
-  { icon:'📊', label:'Analytics',     tag:'Life',    keywords:'stats insights',    action:() => nav('stats',null) },
-  { icon:'📋', label:'Weekly Review', tag:'Life',    keywords:'',                  action:() => nav('review',null) },
+  { icon:'🧠', label:'Skills',        tag:'Life',    panel:'skills',        keywords:'',                  action:() => nav('skills',null) },
+  { icon:'💰', label:'Finance',       tag:'Life',    panel:'finance',       keywords:'money budget',      action:() => nav('finance',null) },
+  { icon:'🔥', label:'Habits',        tag:'Life',    panel:'habits',        keywords:'streak',            action:() => nav('habits',null) },
+  { icon:'✍️', label:'Journal',       tag:'Life',    panel:'journal',       keywords:'diary mood',        action:() => nav('journal',null) },
+  { icon:'📊', label:'Analytics',     tag:'Life',    panel:'stats',         keywords:'stats insights',    action:() => nav('stats',null) },
+  { icon:'📋', label:'Weekly Review', tag:'Life',    panel:'review',        keywords:'',                  action:() => nav('review',null) },
   // ── Connect ──
-  { icon:'👥', label:'Community',     tag:'Connect', keywords:'social feed',       action:() => nav('community',null) },
-  { icon:'💼', label:'Opportunities', tag:'Connect', keywords:'jobs',              action:() => nav('opportunities',null) },
-  { icon:'🛍️', label:'Marketplace',  tag:'Connect', keywords:'store extensions',  action:() => nav('marketplace',null) },
-  { icon:'🔌', label:'Integrations',  tag:'Connect', keywords:'library plug apps connect', action:() => nav('library',null) },
-  { icon:'🤖', label:'Agents',        tag:'Connect', keywords:'ai bots',           action:() => nav('agents',null) },
+  { icon:'👥', label:'Community',     tag:'Connect', panel:'community',     keywords:'social feed',       action:() => nav('community',null) },
+  { icon:'💼', label:'Opportunities', tag:'Connect', panel:'opportunities', keywords:'jobs',              action:() => nav('opportunities',null) },
+  { icon:'🛍️', label:'Marketplace',  tag:'Connect', panel:'marketplace',   keywords:'store extensions',  action:() => nav('marketplace',null) },
+  { icon:'🔌', label:'Integrations',  tag:'Connect', panel:'library',       keywords:'library plug apps connect', action:() => nav('library',null) },
+  { icon:'🤖', label:'Agents',        tag:'Connect', panel:'agents',        keywords:'ai bots',           action:() => nav('agents',null) },
   // ── More tools ──
-  { icon:'📝', label:'Quiz',          tag:'Tools',   keywords:'quizzes test',      action:() => nav('quiz',null) },
-  { icon:'🧪', label:'Study Deck',    tag:'Tools',   keywords:'lab flashcards',    action:() => nav('lab',null) },
-  { icon:'🗺️', label:'Study Plan',   tag:'Tools',   keywords:'',                  action:() => nav('studyplan',null) },
-  { icon:'🧠', label:'Content Hub',   tag:'Tools',   keywords:'',                  action:() => nav('contenthub',null) },
-  { icon:'🧑', label:'My Profile',    tag:'',        keywords:'account',           action:() => nav('profile',null) },
-  { icon:'⚙️', label:'Settings',      tag:'',        keywords:'preferences',       action:() => nav('settings',null) },
+  { icon:'📝', label:'Quiz',          tag:'Tools',   panel:'quiz',          keywords:'quizzes test',      action:() => nav('quiz',null) },
+  { icon:'🧪', label:'Study Deck',    tag:'Tools',   panel:'lab',           keywords:'lab flashcards',    action:() => nav('lab',null) },
+  { icon:'🗺️', label:'Study Plan',   tag:'Tools',   panel:'studyplan',     keywords:'',                  action:() => nav('studyplan',null) },
+  { icon:'🧠', label:'Content Hub',   tag:'Tools',   panel:'contenthub',    keywords:'',                  action:() => nav('contenthub',null) },
+  { icon:'🧑', label:'My Profile',    tag:'',        panel:'profile',       keywords:'account',           action:() => nav('profile',null) },
+  { icon:'⚙️', label:'Settings',      tag:'',        panel:'settings',      keywords:'preferences',       action:() => nav('settings',null) },
   { icon:'➕', label:'Create New',    tag:'',        keywords:'add new space',     action:() => cnOpen() },
   // ── Actions ──
   { icon:'🎤', label:'Voice Input',   tag:'Action',  keywords:'',                  action:() => { nav('chat',null); setTimeout(toggleVoice, 300); } },
   { icon:'🌙', label:'Toggle Theme',  tag:'Action',  keywords:'dark light',        action:() => toggleThemeFromMenu() },
   { icon:'🚪', label:'Sign Out',      tag:'Action',  keywords:'logout',            action:() => logout() },
 ];
+
+// ════════════════ FAVORITES (sidebar quick-access, toggled from ⌘K) ════════════════
+// Canonical destination registry: panel → sidebar label + tabler icon (icons mirror the sidebar).
+const FAV_TABS = {
+  chat:{label:'Sivarr AI',icon:'ti-sparkles'}, home:{label:'Home',icon:'ti-home'}, announcements:{label:'Inbox',icon:'ti-inbox'},
+  flux:{label:'Tasks',icon:'ti-checkbox'}, goals:{label:'Goals',icon:'ti-target'}, calendar:{label:'Calendar',icon:'ti-calendar'},
+  notes:{label:'Docs & Notes',icon:'ti-notebook'}, templates:{label:'Templates',icon:'ti-layout-grid'},
+  skills:{label:'Skills',icon:'ti-atom'}, finance:{label:'Finance',icon:'ti-wallet'}, habits:{label:'Habits',icon:'ti-flame'},
+  journal:{label:'Journal',icon:'ti-writing'}, stats:{label:'Analytics',icon:'ti-chart-bar'}, review:{label:'Weekly Review',icon:'ti-calendar-stats'},
+  community:{label:'Community',icon:'ti-users'}, opportunities:{label:'Opportunities',icon:'ti-briefcase'},
+  marketplace:{label:'Marketplace',icon:'ti-building-store'}, library:{label:'Integrations',icon:'ti-plug-connected'}, agents:{label:'Agents',icon:'ti-robot'},
+  quiz:{label:'Quiz',icon:'ti-help'}, lab:{label:'Study Deck',icon:'ti-flask'}, studyplan:{label:'Study Plan',icon:'ti-map'},
+  contenthub:{label:'Content Hub',icon:'ti-news'}, profile:{label:'My Profile',icon:'ti-user'}, settings:{label:'Settings',icon:'ti-settings'},
+};
+const FAV_DEFAULT = ['chat','home','announcements'];
+function FAV_KEY() { return `sivarr_favs_${(typeof S!=='undefined'&&S.sid)||''}`; }
+function getFavs() {
+  try { const v = JSON.parse(localStorage.getItem(FAV_KEY())); if (Array.isArray(v)) return v.filter(p => FAV_TABS[p]); } catch(e) {}
+  return FAV_DEFAULT.slice();
+}
+function setFavs(arr) { try { localStorage.setItem(FAV_KEY(), JSON.stringify(arr)); } catch(e) {} }
+function isFav(panel) { return getFavs().includes(panel); }
+function toggleFav(panel) {
+  if (!FAV_TABS[panel]) return;
+  const f = getFavs(); const i = f.indexOf(panel);
+  if (i >= 0) f.splice(i, 1); else f.push(panel);
+  setFavs(f);
+  favRenderSidebar();
+  if (typeof CMD_OPEN !== 'undefined' && CMD_OPEN) cmdSearch();   // refresh the stars in the open palette
+}
+function favRenderSidebar() {
+  const host = document.getElementById('sb-favs');
+  if (!host) return;
+  host.innerHTML = getFavs().map(panel => {
+    const t = FAV_TABS[panel]; if (!t) return '';
+    const dot = panel === 'announcements' ? `<span class="si-dot" id="sb-inbox-dot" style="display:none"></span>` : '';
+    return `<button class="si" data-panel="${panel}" onclick="sidebarNav(this)">
+      <div class="si-icon"><i class="ti ${t.icon}"></i></div>
+      <span class="si-lb">${t.label}</span>${dot}
+    </button>`;
+  }).join('') || `<div class="sb-fav-empty">Star a tab in search (⌘K) to pin it here</div>`;
+  // Re-apply the active highlight if the current panel is a favorite
+  const active = document.querySelector('.panel.active');
+  if (active && active.id.indexOf('panel-') === 0) {
+    const el = host.querySelector(`.si[data-panel="${active.id.slice(6)}"]`);
+    if (el) el.classList.add('on');
+  }
+}
 
 let CMD_OPEN    = false;
 let CMD_IDX     = -1;
@@ -5838,6 +5886,9 @@ function cmdRenderResults(q) {
     <div class="cmd-section-label">${group}</div>
     ${groupItems.map(item => `
       <button class="cmd-item" data-idx="${item._idx}" onclick="cmdRun(${item._idx})">
+        ${item.panel && FAV_TABS[item.panel]
+          ? `<span class="cmd-fav ${isFav(item.panel) ? 'on' : ''}" title="${isFav(item.panel) ? 'Remove from favorites' : 'Add to favorites'}" onclick="event.stopPropagation();toggleFav('${item.panel}')"><i class="ti ${isFav(item.panel) ? 'ti-star-filled' : 'ti-star'}" aria-hidden="true"></i></span>`
+          : `<span class="cmd-fav cmd-fav-spacer" aria-hidden="true"></span>`}
         <div class="cmd-item-icon">${item.icon}</div>
         <div style="flex:1;min-width:0">
           <div class="cmd-item-label">${esc(item.label)}</div>
@@ -18920,8 +18971,8 @@ function sbSecToggle(groupId, key) {
   try { localStorage.setItem('sivarr_sb_' + key, collapsed ? '1' : '0'); } catch (e) {}
 }
 function sbRestoreSections() {
-  const defs = { work: '0', grow: '1', connect: '1' };  // Life(grow)+Connect collapsed by default
-  [['sgi-work', 'work'], ['sgi-grow', 'grow'], ['sgi-connect', 'connect']].forEach(([gid, key]) => {
+  const defs = { favorites: '0', work: '0', grow: '1', connect: '1' };  // Life(grow)+Connect collapsed by default
+  [['sb-favs', 'favorites'], ['sgi-work', 'work'], ['sgi-grow', 'grow'], ['sgi-connect', 'connect']].forEach(([gid, key]) => {
     let v = null; try { v = localStorage.getItem('sivarr_sb_' + key); } catch (e) {}
     if (v === null) v = defs[key];
     const collapsed = (v === '1');

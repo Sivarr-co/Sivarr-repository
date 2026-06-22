@@ -2272,6 +2272,17 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   border-radius:0;
 }
 .cmd-item:hover, .cmd-item.focused { background:var(--bg3); }
+/* Favourite star toggle in front of each searchable tab */
+.cmd-fav {
+  width:22px; height:22px; flex-shrink:0; border-radius:6px;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--text4); font-size:15px; cursor:pointer; transition:var(--transition);
+}
+.cmd-fav:hover { color:var(--amber3, #f59e0b); background:rgba(245,158,11,.12); }
+.cmd-fav.on { color:var(--amber3, #f59e0b); }
+.cmd-fav-spacer { cursor:default; pointer-events:none; }
+.cmd-fav-spacer:hover { background:transparent; color:var(--text4); }
+.sb-fav-empty { font-size:.74rem; color:var(--text4); padding:4px 10px 8px; line-height:1.4; }
 .cmd-icon { font-size:16px; width:22px; text-align:center; flex-shrink:0; }
 .cmd-item-icon {
   font-size:15px; width:32px; height:32px; flex-shrink:0;
