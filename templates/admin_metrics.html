@@ -77,6 +77,9 @@ h1{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
   <div style="font-size:1.2rem;font-weight:800;margin-bottom:4px">Metrics Dashboard</div>
   <div style="color:#555;font-size:.85rem;margin-bottom:16px">Admin access only</div>
   <input type="password" id="pw-input" placeholder="Admin password" onkeydown="if(event.key==='Enter')doLogin()">
+  <input type="text" id="totp-input" inputmode="numeric" autocomplete="one-time-code"
+    maxlength="6" placeholder="2FA code (if enabled)" onkeydown="if(event.key==='Enter')doLogin()"
+    style="margin-top:8px">
   <div id="login-err"></div>
   <button onclick="doLogin()">Sign in</button>
 </div>
@@ -139,14 +142,15 @@ h1{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
 let _token = '';
 
 async function doLogin() {
-  const pw  = document.getElementById('pw-input').value;
-  const err = document.getElementById('login-err');
+  const pw   = document.getElementById('pw-input').value;
+  const totp = (document.getElementById('totp-input').value || '').trim();
+  const err  = document.getElementById('login-err');
   err.textContent = '';
   try {
     const r = await fetch('/api/admin/login', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ password: pw }),
+      body: JSON.stringify({ password: pw, totp }),
     });
     const d = await r.json();
     if (!r.ok || !d.token) throw new Error(d.detail || 'Wrong password');
