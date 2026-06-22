@@ -486,6 +486,14 @@ tbody tr:hover td{background:var(--hover)}
         <span class="sb-ico">⚡</span><span>Live Sessions</span>
         <span class="sb-badge" id="sb-badge-sessions" style="background:var(--green)">0</span>
       </div>
+      <div class="sb-section">Business</div>
+      <div class="sb-item" onclick="navTo('revenue',this)" data-section="revenue">
+        <span class="sb-ico">💰</span><span>Revenue</span>
+        <span class="sb-badge" id="sb-badge-paying" style="background:var(--teal)">0</span>
+      </div>
+      <div class="sb-item" onclick="navTo('growth',this)" data-section="growth">
+        <span class="sb-ico">📈</span><span>Growth</span>
+      </div>
       <div class="sb-section">Content</div>
       <div class="sb-item" onclick="navTo('spaces',this)" data-section="spaces">
         <span class="sb-ico">🧩</span><span>Spaces</span>
@@ -494,6 +502,9 @@ tbody tr:hover td{background:var(--hover)}
         <span class="sb-ico">📢</span><span>Announcements</span>
       </div>
       <div class="sb-spacer"></div>
+      <div class="sb-item" onclick="navTo('ai',this)" data-section="ai">
+        <span class="sb-ico">🤖</span><span>AI &amp; Health</span>
+      </div>
       <div class="sb-item" onclick="navTo('health',this)" data-section="health">
         <span class="sb-ico">🛡️</span><span>System Health</span>
       </div>
@@ -784,6 +795,120 @@ tbody tr:hover td{background:var(--hover)}
         </div>
       </div>
 
+      <!-- ─── REVENUE ────────────────────────────────── -->
+      <div class="section" id="sec-revenue">
+        <div class="page-hd">
+          <div class="page-hd-l">
+            <h2>Revenue &amp; Subscriptions</h2>
+            <p>Paying users, plan mix and estimated recurring revenue</p>
+          </div>
+          <div class="page-hd-r">
+            <button class="btn btn-ghost btn-sm" onclick="loadRevenue()">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-card c-teal"><div class="stat-label">Paying Users</div><div class="stat-val" id="rv-paying">—</div><div class="stat-sub">Active subscriptions</div></div>
+          <div class="stat-card c-green"><div class="stat-label">Est. MRR</div><div class="stat-val" id="rv-mrr">—</div><div class="stat-sub">Monthly recurring</div></div>
+          <div class="stat-card c-blue"><div class="stat-label">Est. ARR</div><div class="stat-val" id="rv-arr">—</div><div class="stat-sub">Annualised</div></div>
+          <div class="stat-card c-amber"><div class="stat-label">All-time Revenue</div><div class="stat-val" id="rv-alltime">—</div><div class="stat-sub">Total collected</div></div>
+        </div>
+        <div class="grid2">
+          <div class="card">
+            <div class="card-hd"><h3>Plan Breakdown</h3></div>
+            <div class="chart-wrap"><div class="bar-chart" id="rv-plan-chart"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><h3>Payment Gateway</h3></div>
+            <div class="chart-wrap"><div class="bar-chart" id="rv-gw-chart"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><h3>Recent Payments</h3></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>User</th><th>Plan</th><th>Amount</th><th>Gateway</th><th>Status</th></tr></thead>
+              <tbody id="rv-payments-tbody"><tr><td colspan="6"><div class="tbl-empty">Loading…</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── GROWTH ─────────────────────────────────── -->
+      <div class="section" id="sec-growth">
+        <div class="page-hd">
+          <div class="page-hd-l">
+            <h2>Growth &amp; Engagement</h2>
+            <p>Signups, active users and integration adoption</p>
+          </div>
+          <div class="page-hd-r">
+            <select class="filter-sel" id="growth-range" onchange="loadGrowth()">
+              <option value="30">Last 30 days</option>
+              <option value="14">Last 14 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadGrowth()">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-card c-blue"><div class="stat-label">DAU</div><div class="stat-val" id="gr-dau">—</div><div class="stat-sub">Active last 24h</div></div>
+          <div class="stat-card c-teal"><div class="stat-label">WAU</div><div class="stat-val" id="gr-wau">—</div><div class="stat-sub">Active last 7d</div></div>
+          <div class="stat-card c-purple"><div class="stat-label">MAU</div><div class="stat-val" id="gr-mau">—</div><div class="stat-sub">Active last 30d</div></div>
+          <div class="stat-card c-green"><div class="stat-label">New (period)</div><div class="stat-val" id="gr-new">—</div><div class="stat-sub">Signups in range</div></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><h3>Signups Over Time</h3></div>
+          <div class="chart-wrap"><div id="gr-signup-chart" style="display:flex;align-items:flex-end;gap:3px;height:140px;padding:8px 0"></div></div>
+        </div>
+        <div class="grid2">
+          <div class="card">
+            <div class="card-hd"><h3>New vs Returning</h3></div>
+            <div class="chart-wrap"><div class="bar-chart" id="gr-retention-chart"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><h3>Integration Adoption</h3></div>
+            <div class="chart-wrap"><div class="bar-chart" id="gr-integ-chart"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── AI & HEALTH ────────────────────────────── -->
+      <div class="section" id="sec-ai">
+        <div class="page-hd">
+          <div class="page-hd-l">
+            <h2>AI &amp; Infrastructure Health</h2>
+            <p>Live model status, circuit breaker, caps and infra</p>
+          </div>
+          <div class="page-hd-r">
+            <button class="btn btn-ghost btn-sm" onclick="loadAiHealth()">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-card c-purple"><div class="stat-label">AI Actions Today</div><div class="stat-val" id="ai-today">—</div><div class="stat-sub">Across all users</div></div>
+          <div class="stat-card c-amber"><div class="stat-label">Total Questions</div><div class="stat-val" id="ai-q">—</div><div class="stat-sub">All-time</div></div>
+          <div class="stat-card c-blue"><div class="stat-label">Total Quizzes</div><div class="stat-val" id="ai-qz">—</div><div class="stat-sub">All-time</div></div>
+          <div class="stat-card c-green"><div class="stat-label">Free Daily Cap</div><div class="stat-val" id="ai-cap">—</div><div class="stat-sub">AI actions / day</div></div>
+        </div>
+        <div class="health-grid" id="ai-health-grid">
+          <div class="health-card"><div class="health-icon ok" id="aih-model-icon">🤖</div><div class="health-info"><div class="health-label">AI Model</div><div class="health-val" id="aih-model">Checking…</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-breaker-icon">🔌</div><div class="health-info"><div class="health-label">Circuit Breaker</div><div class="health-val" id="aih-breaker">—</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-db-icon">🗄️</div><div class="health-info"><div class="health-label">Database</div><div class="health-val" id="aih-db">—</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-pool-icon">🌊</div><div class="health-info"><div class="health-label">DB Pool</div><div class="health-val" id="aih-pool">—</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-redis-icon">⚡</div><div class="health-info"><div class="health-label">Redis</div><div class="health-val" id="aih-redis">—</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-email-icon">✉️</div><div class="health-info"><div class="health-label">Email Provider</div><div class="health-val" id="aih-email">—</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-enc-icon">🔐</div><div class="health-info"><div class="health-label">Secrets Encrypted</div><div class="health-val" id="aih-enc">—</div></div></div>
+          <div class="health-card"><div class="health-icon ok">⏱️</div><div class="health-info"><div class="health-label">Uptime</div><div class="health-val" id="aih-uptime">—</div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><h3>Heaviest AI Users</h3></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>#</th><th>User</th><th>Email</th><th>Questions</th></tr></thead>
+              <tbody id="ai-heavy-tbody"><tr><td colspan="4"><div class="tbl-empty">Loading…</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -871,6 +996,9 @@ function navTo(section, el) {
   if (section === 'spaces')       loadSpaces();
   if (section === 'announcements')loadAnnouncements();
   if (section === 'health')       loadHealth();
+  if (section === 'revenue')      loadRevenue();
+  if (section === 'growth')       loadGrowth();
+  if (section === 'ai')           loadAiHealth();
   setTimestamp();
 }
 
@@ -881,6 +1009,9 @@ function refreshCurrent() {
   if (_currentSection === 'spaces')        loadSpaces();
   if (_currentSection === 'announcements') loadAnnouncements();
   if (_currentSection === 'health')        loadHealth();
+  if (_currentSection === 'revenue')       loadRevenue();
+  if (_currentSection === 'growth')        loadGrowth();
+  if (_currentSection === 'ai')            loadAiHealth();
 }
 
 /* ── Helpers ──────────────────────────────────────── */
@@ -1074,8 +1205,25 @@ function renderUsersTable(users) {
     </tr>`).join('');
 }
 
-function viewUser(idx) {
-  const u = ALL_USERS[idx];
+async function viewUser(idx) {
+  const base = ALL_USERS[idx];
+  if (!base) return;
+  document.getElementById('modal-title').textContent = base.name;
+  document.getElementById('modal-body').innerHTML = '<div class="tbl-empty">Loading…</div>';
+  document.getElementById('user-modal').classList.add('open');
+  let u;
+  try {
+    u = await apiFetch('/api/admin/user-detail?sid=' + encodeURIComponent(base.sid));
+  } catch(e) {
+    document.getElementById('modal-body').innerHTML = '<div class="tbl-empty">Could not load user detail.</div>';
+    return;
+  }
+  const sub = u.subscription || {}, ig = u.integrations || {}, us = u.usage || {};
+  const planChip = u.plan_active
+    ? `<span class="chip chip-green">${esc(sub.name||'Paid')} · expires ${esc(sub.expires||'—')}</span>`
+    : `<span class="chip">Free</span>`;
+  const igChip = (on, label) => `<span class="tag${on?'':' weak'}" style="opacity:${on?1:.5}">${on?'✓':'○'} ${label}</span>`;
+  const bh = u.billing_history || [];
   document.getElementById('modal-title').textContent = u.name;
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-section">
@@ -1083,35 +1231,73 @@ function viewUser(idx) {
       <div class="detail-grid">
         <div class="detail-item"><div class="lbl">Email</div><div class="val">${esc(u.email||'—')}</div></div>
         <div class="detail-item"><div class="lbl">Matric</div><div class="val">${esc(u.matric||'—')}</div></div>
-        <div class="detail-item"><div class="lbl">Difficulty</div><div class="val"><span class="badge b-${u.difficulty}">${u.difficulty}</span></div></div>
+        <div class="detail-item"><div class="lbl">Verified</div><div class="val">${u.verified===true?'✓ Yes':u.verified===false?'✗ No':'—'}</div></div>
+        <div class="detail-item"><div class="lbl">Joined</div><div class="val" style="font-size:.8rem">${esc(fmtDate(u.created_at))}</div></div>
         <div class="detail-item"><div class="lbl">User ID</div><div class="val mono-text" style="font-size:.72rem">${esc(u.sid||'')}</div></div>
+        <div class="detail-item"><div class="lbl">Last Seen</div><div class="val" style="font-size:.8rem">${esc(u.last_seen||'Never')}</div></div>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Subscription</div>
+      <div style="margin-bottom:8px">${planChip}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <select class="filter-sel" id="grant-plan-sel" style="min-width:150px">
+          <option value="pro_monthly">Pro · Monthly</option>
+          <option value="pro_yearly">Pro · Yearly</option>
+          <option value="team_monthly">Team · Monthly</option>
+          <option value="free">Free (revoke)</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="grantPlan('${esc(u.sid)}')">Apply plan</button>
+        <button class="btn btn-ghost btn-sm" onclick="signOutUser('${esc(u.sid)}')">Force sign-out</button>
+      </div>
+      ${bh.length ? `<div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Date</th><th>Plan</th><th>Amount</th><th>Status</th></tr></thead><tbody>${bh.map(h=>`<tr><td style="font-size:.76rem;color:var(--muted)">${esc(h.date||'')}</td><td>${esc(h.plan||'')}</td><td>${esc(h.amount||'')}</td><td>${esc(h.status||'')}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Integrations</div>
+      <div class="tag-list">
+        ${igChip(ig.github,'GitHub')}${igChip(ig.google_cal,'Google Cal')}${igChip(ig.mono,'Mono')}${igChip(ig.metatrader,'MetaTrader')}
       </div>
     </div>
     <div class="modal-section">
       <div class="modal-section-title">Activity</div>
       <div class="detail-grid">
-        <div class="detail-item"><div class="lbl">Sessions</div><div class="val">${u.sessions}</div></div>
-        <div class="detail-item"><div class="lbl">Questions</div><div class="val">${u.questions}</div></div>
-        <div class="detail-item"><div class="lbl">Quizzes</div><div class="val">${u.quizzes}</div></div>
-        <div class="detail-item"><div class="lbl">Avg Score</div><div class="val">${u.avg_score}%</div></div>
-        <div class="detail-item"><div class="lbl">Wrong Saved</div><div class="val">${u.wrong_count}</div></div>
-        <div class="detail-item"><div class="lbl">Last Seen</div><div class="val" style="font-size:.8rem">${esc(u.last_seen||'Never')}</div></div>
+        <div class="detail-item"><div class="lbl">Sessions</div><div class="val">${us.sessions||0}</div></div>
+        <div class="detail-item"><div class="lbl">Questions</div><div class="val">${us.questions||0}</div></div>
+        <div class="detail-item"><div class="lbl">Quizzes</div><div class="val">${us.quizzes||0}</div></div>
+        <div class="detail-item"><div class="lbl">Avg Score</div><div class="val">${us.avg_score||0}%</div></div>
+        <div class="detail-item"><div class="lbl">AI Today</div><div class="val">${us.ai_today||0}</div></div>
+        <div class="detail-item"><div class="lbl">Spaces</div><div class="val">${us.spaces||0}</div></div>
       </div>
     </div>
-    ${u.topics && u.topics.length ? `
+    ${(u.top_topics && u.top_topics.length) ? `
     <div class="modal-section">
-      <div class="modal-section-title">Topics Studied</div>
-      <div class="tag-list">${u.topics.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
-    </div>` : ''}
-    ${u.weak && u.weak.length ? `
-    <div class="modal-section">
-      <div class="modal-section-title">Weak Areas</div>
-      <div class="tag-list">${u.weak.map(t => `<span class="tag weak">${esc(t)}</span>`).join('')}</div>
+      <div class="modal-section-title">Top Topics</div>
+      <div class="tag-list">${u.top_topics.map(t => `<span class="tag">${esc(t[0])} · ${t[1]}</span>`).join('')}</div>
     </div>` : ''}
     <div class="modal-section">
       <button class="btn btn-danger btn-sm" onclick="deleteUser('${esc(u.sid)}','${esc(u.name)}');closeUserModal()">Delete this user</button>
     </div>`;
-  document.getElementById('user-modal').classList.add('open');
+}
+
+async function grantPlan(sid) {
+  const plan_id = (document.getElementById('grant-plan-sel')||{}).value || 'free';
+  const verb = plan_id === 'free' ? 'revoke the subscription for' : `grant ${plan_id} to`;
+  if (!confirm(`Are you sure you want to ${verb} this user?`)) return;
+  try {
+    const d = await apiPost('/api/admin/user-grant-plan', {sid, plan_id});
+    alert(plan_id === 'free' ? 'Subscription revoked.' : `Granted ${d.plan} (expires ${d.expires}).`);
+    const idx = ALL_USERS.findIndex(u => u.sid === sid);
+    if (idx >= 0) viewUser(idx);
+    loadRevenue();
+  } catch { alert('Failed to update plan.'); }
+}
+
+async function signOutUser(sid) {
+  if (!confirm('Force sign-out: kill all active sessions for this user?')) return;
+  try {
+    const d = await apiPost('/api/admin/user-signout', {sid});
+    alert(`Signed out — ${d.killed} session(s) killed.`);
+  } catch { alert('Failed to sign out user.'); }
 }
 
 function closeUserModal() {
@@ -1313,6 +1499,129 @@ async function cleanupSessions() {
     alert(`Cleaned up ${d.removed} expired sessions.`);
     loadSessions();
   } catch { alert('Cleanup failed.'); }
+}
+
+/* ── Revenue ──────────────────────────────────────── */
+function ngn(n) {
+  const v = Number(n) || 0;
+  return '₦' + v.toLocaleString('en-NG');
+}
+
+async function loadRevenue() {
+  try {
+    const d = await apiFetch('/api/admin/revenue');
+    document.getElementById('rv-paying').textContent  = d.paying_users;
+    document.getElementById('rv-mrr').textContent     = ngn(d.mrr_ngn);
+    document.getElementById('rv-arr').textContent     = ngn(d.arr_ngn);
+    document.getElementById('rv-alltime').textContent = ngn(d.all_time_ngn);
+    const pb = document.getElementById('sb-badge-paying'); if (pb) pb.textContent = d.paying_users;
+
+    const plans = Object.entries(d.plan_counts || {});
+    document.getElementById('rv-plan-chart').innerHTML = plans.length
+      ? (() => { const max = Math.max(1, ...plans.map(p => p[1]));
+          return plans.map(([k, v]) => renderBar(k, v, max, '#22d3ee', '#06b6d4')).join(''); })()
+      : '<div style="color:var(--muted);font-size:.8rem;padding:.5rem 0">No paying users yet</div>';
+
+    const gws = Object.entries(d.gateway_counts || {});
+    document.getElementById('rv-gw-chart').innerHTML = gws.length
+      ? (() => { const max = Math.max(1, ...gws.map(p => p[1]));
+          return gws.map(([k, v]) => renderBar(k, v, max, '#34d399', '#10b981')).join(''); })()
+      : '<div style="color:var(--muted);font-size:.8rem;padding:.5rem 0">No payments yet</div>';
+
+    const tb = document.getElementById('rv-payments-tbody');
+    const pays = d.recent_payments || [];
+    tb.innerHTML = pays.length ? pays.map(p => `
+      <tr>
+        <td style="color:var(--muted);font-size:.78rem">${esc(p.date||'—')}</td>
+        <td><div style="font-weight:600;font-size:.82rem">${esc(p.name||'—')}</div>
+            <div style="font-size:.7rem;color:var(--muted)">${esc(p.email||'')}</div></td>
+        <td>${esc(p.plan||'—')}</td>
+        <td style="font-weight:700">${esc(p.amount||ngn(p.amount_num))}</td>
+        <td>${esc(p.gateway||'—')}</td>
+        <td><span class="chip ${p.status==='paid'?'chip-green':''}">${esc(p.status||'—')}</span></td>
+      </tr>`).join('')
+      : '<tr><td colspan="6"><div class="tbl-empty">No payments recorded</div></td></tr>';
+    setTimestamp();
+  } catch(e) { if (String(e).includes('401')) signOut(); }
+}
+
+/* ── Growth ───────────────────────────────────────── */
+async function loadGrowth() {
+  try {
+    const days = parseInt((document.getElementById('growth-range')||{}).value || '30', 10);
+    const d = await apiFetch('/api/admin/growth?days=' + days);
+    document.getElementById('gr-dau').textContent = d.dau;
+    document.getElementById('gr-wau').textContent = d.wau;
+    document.getElementById('gr-mau').textContent = d.mau;
+    document.getElementById('gr-new').textContent = d.new_signups_period;
+
+    // Signups column chart
+    const signups = d.signups || [];
+    const max = Math.max(1, ...signups.map(s => s.count));
+    document.getElementById('gr-signup-chart').innerHTML = signups.map(s => {
+      const h = Math.round((s.count / max) * 120);
+      return `<div title="${esc(s.date)}: ${s.count}" style="flex:1;min-width:2px;display:flex;flex-direction:column;justify-content:flex-end;height:100%">
+        <div style="height:${h}px;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:3px 3px 0 0;min-height:${s.count?2:0}px"></div></div>`;
+    }).join('') || '<div style="color:var(--muted);font-size:.8rem">No signups in range</div>';
+
+    // New vs returning
+    const nr = [['New', d.new_users, '#60a5fa', '#3b82f6'], ['Returning', d.returning, '#34d399', '#10b981']];
+    const nrMax = Math.max(1, ...nr.map(x => x[1]));
+    document.getElementById('gr-retention-chart').innerHTML =
+      nr.map(([l, v, c1, c2]) => renderBar(l, v, nrMax, c1, c2)).join('');
+
+    // Integration adoption
+    const ig = d.integrations || {};
+    const items = [['GitHub', ig.github||0], ['Google Cal', ig.google_cal||0], ['Mono', ig.mono||0], ['MetaTrader', ig.metatrader||0]];
+    const igMax = Math.max(1, ...items.map(i => i[1]));
+    document.getElementById('gr-integ-chart').innerHTML =
+      items.map(([l, v]) => renderBar(l, v, igMax, '#a78bfa', '#8b5cf6')).join('');
+    setTimestamp();
+  } catch(e) { if (String(e).includes('401')) signOut(); }
+}
+
+/* ── AI & Health ──────────────────────────────────── */
+function _hcSet(id, iconId, val, ok) {
+  const el = document.getElementById(id); if (el) el.textContent = val;
+  const ic = document.getElementById(iconId);
+  if (ic) ic.className = 'health-icon ' + (ok === false ? 'err' : ok === 'warn' ? 'warn' : 'ok');
+}
+function _fmtUptime(s) {
+  s = Number(s) || 0;
+  const dn = Math.floor(s/86400), h = Math.floor((s%86400)/3600), m = Math.floor((s%3600)/60);
+  return dn ? `${dn}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+}
+async function loadAiHealth() {
+  try {
+    const d = await apiFetch('/api/admin/ai-health');
+    const ai = d.ai || {}, inf = d.infra || {};
+    document.getElementById('ai-today').textContent = ai.ai_actions_today;
+    document.getElementById('ai-q').textContent     = ai.total_questions;
+    document.getElementById('ai-qz').textContent    = ai.total_quizzes;
+    document.getElementById('ai-cap').textContent   = ai.daily_free_cap;
+
+    _hcSet('aih-model', 'aih-model-icon', ai.available ? 'Online' : 'Unavailable', ai.available);
+    _hcSet('aih-breaker', 'aih-breaker-icon',
+      ai.breaker_open ? 'OPEN (tripped)' : `Closed (${ai.breaker_fails}/${ai.break_threshold} fails)`,
+      ai.breaker_open ? false : 'ok');
+    _hcSet('aih-db', 'aih-db-icon', inf.db ? `Connected${inf.db_ms!=null?` · ${inf.db_ms}ms`:''}` : 'Offline', inf.db);
+    const pool = inf.db_pool || {};
+    _hcSet('aih-pool', 'aih-pool-icon',
+      (pool.in_use!=null) ? `${pool.in_use}/${pool.max||'?'} used · ${pool.idle||0} idle` : '—', 'ok');
+    _hcSet('aih-redis', 'aih-redis-icon', inf.redis ? 'Connected' : 'Not configured', inf.redis ? 'ok' : 'warn');
+    _hcSet('aih-email', 'aih-email-icon', (inf.email_provider||'none'), inf.email_provider!=='none'?'ok':'warn');
+    _hcSet('aih-enc', 'aih-enc-icon', inf.secrets_encrypted ? 'Yes' : 'No', inf.secrets_encrypted ? 'ok' : 'warn');
+    _hcSet('aih-uptime', 'aih-uptime', _fmtUptime(inf.uptime_s), 'ok');
+
+    const heavy = ai.heavy_users || [];
+    document.getElementById('ai-heavy-tbody').innerHTML = heavy.length
+      ? heavy.map((u, i) => `<tr><td class="mono-text">${i+1}</td>
+          <td style="font-weight:600">${esc(u.name)}</td>
+          <td style="color:var(--muted)">${esc(u.email||'—')}</td>
+          <td style="font-weight:700">${u.questions}</td></tr>`).join('')
+      : '<tr><td colspan="4"><div class="tbl-empty">No AI usage yet</div></td></tr>';
+    setTimestamp();
+  } catch(e) { if (String(e).includes('401')) signOut(); }
 }
 
 /* ── Auto-login ───────────────────────────────────── */

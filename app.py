@@ -4601,6 +4601,305 @@ async def admin_cleanup_sessions(data: dict):
 
 
 # ═══════════════════════════════════════════════════════════════
+#  ADMIN ANALYTICS — revenue · user drill-down · AI health · growth
+# ═══════════════════════════════════════════════════════════════
+
+def _admin_iter_progress():
+    """Yield (sid, progress_dict, user_row) for every user. Reads the JSON
+    progress files (always written as a backup by save_progress, so present even
+    when Postgres is the primary store) and joins the users map for email."""
+    users_map = load_users()
+    for f in DATA_DIR.glob("*_progress.json"):
+        if "backup" in f.name:
+            continue
+        sid = f.stem.replace("_progress", "")
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        yield sid, data, users_map.get(sid, {})
+
+
+def _parse_money(s) -> float:
+    """'₦25,000' / '25000' → 25000.0."""
+    if s is None:
+        return 0.0
+    digits = "".join(ch for ch in str(s) if ch.isdigit() or ch == ".")
+    try:
+        return float(digits) if digits else 0.0
+    except ValueError:
+        return 0.0
+
+
+@app.get("/api/admin/revenue")
+async def admin_revenue(token: str):
+    """Subscription + revenue rollup: paying users, plan/gateway split, MRR
+    estimate, all-time revenue and recent payments."""
+    if not _is_valid_admin_session(token):
+        raise HTTPException(401, "Unauthorized")
+    paying = 0
+    plan_counts: dict = {}
+    gateway_counts: dict = {}
+    mrr = 0.0
+    all_time = 0.0
+    payments: list = []
+    for sid, data, urow in _admin_iter_progress():
+        name  = data.get("name", "Unknown")
+        email = urow.get("email") or data.get("email", "")
+        # All-time revenue + recent payments from billing history
+        for h in (data.get("billing_history") or []):
+            amt = _parse_money(h.get("amount"))
+            if str(h.get("status", "paid")) == "paid":
+                all_time += amt
+            payments.append({
+                "date": h.get("date", ""), "plan": h.get("plan", ""),
+                "amount": h.get("amount", ""), "amount_num": amt,
+                "gateway": h.get("gateway", ""), "status": h.get("status", "paid"),
+                "name": name, "email": email,
+            })
+        # Active subscription → counts + MRR
+        if _plan_is_active(data):
+            paying += 1
+            sub = data.get("subscription") or {}
+            plan_id = sub.get("plan", "")
+            plan    = SIVARR_PLANS.get(plan_id, {})
+            label   = plan.get("name") or sub.get("name") or plan_id or "Paid"
+            plan_counts[label] = plan_counts.get(label, 0) + 1
+            gw = sub.get("gateway", "unknown")
+            gateway_counts[gw] = gateway_counts.get(gw, 0) + 1
+            amount = plan.get("amount_ngn", 0)
+            mrr += (amount / 12.0) if plan.get("period") == "yearly" else float(amount)
+    payments.sort(key=lambda p: p.get("date", ""), reverse=True)
+    return {
+        "paying_users":   paying,
+        "plan_counts":    plan_counts,
+        "gateway_counts": gateway_counts,
+        "mrr_ngn":        round(mrr),
+        "arr_ngn":        round(mrr * 12),
+        "all_time_ngn":   round(all_time),
+        "recent_payments": payments[:25],
+        "currency":       "NGN",
+    }
+
+
+def _user_integrations(p: dict) -> dict:
+    """Which third-party accounts this user has linked."""
+    return {
+        "github":     bool(p.get("github_token")),
+        "google_cal": bool(p.get("gcal_token") or p.get("google_refresh_token") or p.get("gcal_connected")),
+        "mono":       bool(p.get("mono_account_id")),
+        "metatrader": bool(p.get("metaapi_account_id")),
+    }
+
+
+@app.get("/api/admin/user-detail")
+async def admin_user_detail(token: str, sid: str):
+    """Full drill-down for a single user."""
+    if not _is_valid_admin_session(token):
+        raise HTTPException(401, "Unauthorized")
+    sid = sanitize_text(sid, 60)
+    p = load_progress(sid)
+    if not p:
+        raise HTTPException(404, "User not found")
+    users_map = load_users()
+    urow = users_map.get(sid, {})
+    quizzes = p.get("quizzes", [])
+    avg = round(sum(q.get("score", 0) for q in quizzes) / len(quizzes) * 100, 1) if quizzes else 0
+    topics = p.get("topics", {}) or {}
+    sub = p.get("subscription") or {}
+    today = datetime.date.today().isoformat()
+    ai_daily = p.get("ai_daily") or {}
+    ai_today = ai_daily.get("count", 0) if ai_daily.get("date") == today else 0
+    # Spaces owned by this user (best-effort via DB admin list)
+    space_count = 0
+    if db.is_available():
+        try:
+            space_count = sum(1 for s in db.get_all_spaces_admin() if s.get("sid") == sid)
+        except Exception:
+            space_count = 0
+    return {
+        "sid":        sid,
+        "name":       p.get("name", "Unknown"),
+        "email":      urow.get("email") or p.get("email", ""),
+        "matric":     p.get("matric", ""),
+        "created_at": p.get("created_at", ""),
+        "verified":   db.is_email_verified(sid) if db.is_available() else None,
+        "plan_active": _plan_is_active(p),
+        "subscription": {
+            "plan": sub.get("plan", "free"), "name": sub.get("name", "Free"),
+            "status": sub.get("status", ""), "expires": sub.get("expires", ""),
+            "gateway": sub.get("gateway", ""), "activated": sub.get("activated", ""),
+        },
+        "billing_history": (p.get("billing_history") or [])[:10],
+        "integrations":  _user_integrations(p),
+        "usage": {
+            "sessions":  p.get("sessions", 0),
+            "questions": p.get("questions", 0),
+            "quizzes":   len(quizzes),
+            "avg_score": avg,
+            "ai_today":  ai_today,
+            "wrong":     len(p.get("wrong_answers", [])),
+            "spaces":    space_count,
+        },
+        "top_topics": sorted(topics.items(), key=lambda x: -x[1])[:8],
+        "last_seen":  (p.get("chat_history", [{}])[-1].get("time", "") if p.get("chat_history") else ""),
+    }
+
+
+@app.post("/api/admin/user-grant-plan")
+async def admin_user_grant_plan(data: dict):
+    """Grant, change or revoke a user's subscription (admin comp / support)."""
+    token = str(data.get("token", ""))
+    if not _is_valid_admin_session(token):
+        raise HTTPException(401, "Unauthorized")
+    sid     = sanitize_text(str(data.get("sid", "")), 60)
+    plan_id = sanitize_text(str(data.get("plan_id", "")), 40)
+    if not sid:
+        raise HTTPException(400, "sid required")
+    p = load_progress(sid)
+    if plan_id in ("", "free"):
+        p.pop("subscription", None)
+        save_progress(sid, p)
+        log.info(f"Admin revoked plan for {sid}")
+        return {"ok": True, "plan": "free"}
+    plan = SIVARR_PLANS.get(plan_id)
+    if not plan:
+        raise HTTPException(400, "Unknown plan_id")
+    try:
+        days = int(data.get("days") or (365 if plan.get("period") == "yearly" else 30))
+    except (TypeError, ValueError):
+        days = 30
+    now = datetime.datetime.utcnow()
+    expires = (now + datetime.timedelta(days=days)).strftime("%Y-%m-%d")
+    p["subscription"] = {
+        "plan": plan_id, "name": plan.get("name", "Pro"), "status": "active",
+        "expires": expires, "reference": f"ADMIN-GRANT-{int(now.timestamp())}",
+        "activated": now.strftime("%Y-%m-%d"), "gateway": "admin",
+    }
+    save_progress(sid, p)
+    log.info(f"Admin granted {plan_id} to {sid} (expires {expires})")
+    return {"ok": True, "plan": plan_id, "expires": expires}
+
+
+@app.post("/api/admin/user-signout")
+async def admin_user_signout(data: dict):
+    """Force sign-out: kill every live session token for a user."""
+    token = str(data.get("token", ""))
+    if not _is_valid_admin_session(token):
+        raise HTTPException(401, "Unauthorized")
+    sid = sanitize_text(str(data.get("sid", "")), 60)
+    if not sid:
+        raise HTTPException(400, "sid required")
+    killed = 0
+    for t in [t for t, v in _session_tokens.items() if v.get("sid") == sid]:
+        delete_session_token(t); killed += 1
+    if db.is_available():
+        try: killed += db.delete_sessions_for_sid(sid)
+        except Exception: pass
+    return {"ok": True, "killed": killed}
+
+
+@app.get("/api/admin/ai-health")
+async def admin_ai_health(token: str):
+    """Live AI + infra health and AI-usage aggregates for the admin dashboard."""
+    if not _is_valid_admin_session(token):
+        raise HTTPException(401, "Unauthorized")
+    total_q = total_qz = ai_today = 0
+    today = datetime.date.today().isoformat()
+    heavy: list = []
+    for sid, data, urow in _admin_iter_progress():
+        q = data.get("questions", 0)
+        total_q  += q
+        total_qz += len(data.get("quizzes", []))
+        dc = data.get("ai_daily") or {}
+        if dc.get("date") == today:
+            ai_today += dc.get("count", 0)
+        if q:
+            heavy.append({"name": data.get("name", "Unknown"),
+                          "email": urow.get("email") or data.get("email", ""),
+                          "questions": q})
+    heavy.sort(key=lambda x: -x["questions"])
+    db_info = await asyncio.to_thread(db.db_test)
+    email_provider = "resend" if (RESEND_AVAILABLE and RESEND_API_KEY) else ("gmail" if GMAIL_USER else "none")
+    return {
+        "ai": {
+            "available":        GEMINI_AVAILABLE,
+            "breaker_open":     _ai_breaker_open(),
+            "breaker_fails":    _AI_BREAKER["fails"],
+            "break_threshold":  _AI_BREAK_THRESHOLD,
+            "break_cooldown_s": _AI_BREAK_COOLDOWN,
+            "daily_free_cap":   AI_DAILY_FREE,
+            "ai_actions_today": ai_today,
+            "total_questions":  total_q,
+            "total_quizzes":    total_qz,
+            "heavy_users":      heavy[:10],
+        },
+        "infra": {
+            "db":          db_info.get("ping", False),
+            "db_ms":       db_info.get("latency_ms"),
+            "db_pool":     db.pool_stats(),
+            "redis":       rcache.available(),
+            "secrets_encrypted": db.encryption_active(),
+            "slow_queries": db.slow_query_count(),
+            "email_provider": email_provider,
+            "uptime_s":    int(time.time() - _START_TIME),
+            "version":     VERSION,
+        },
+    }
+
+
+@app.get("/api/admin/growth")
+async def admin_growth(token: str, days: int = 30):
+    """Signups over time, active-user counts, new-vs-returning and integration adoption."""
+    if not _is_valid_admin_session(token):
+        raise HTTPException(401, "Unauthorized")
+    days = max(7, min(int(days or 30), 365))
+    today = datetime.date.today()
+    start = today - datetime.timedelta(days=days - 1)
+    signups = {(start + datetime.timedelta(days=i)).isoformat(): 0 for i in range(days)}
+    dau = wau = mau = total = returning = 0
+    integ = {"github": 0, "google_cal": 0, "mono": 0, "metatrader": 0}
+    now = datetime.datetime.utcnow()
+
+    def _parse_dt(v):
+        if not v:
+            return None
+        for fmt in ("%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                return datetime.datetime.strptime(str(v)[:26], fmt)
+            except ValueError:
+                continue
+        return None
+
+    for sid, data, urow in _admin_iter_progress():
+        total += 1
+        c = _parse_dt(data.get("created_at"))
+        if c and c.date().isoformat() in signups:
+            signups[c.date().isoformat()] += 1
+        if data.get("sessions", 0) > 1:
+            returning += 1
+        ls = _parse_dt(data.get("chat_history", [{}])[-1].get("time") if data.get("chat_history") else None)
+        if ls:
+            age = (now - ls).total_seconds()
+            if age <= 86400:       dau += 1
+            if age <= 7 * 86400:   wau += 1
+            if age <= 30 * 86400:  mau += 1
+        for k, v in _user_integrations(data).items():
+            if v:
+                integ[k] += 1
+    return {
+        "days":      days,
+        "signups":   [{"date": d, "count": signups[d]} for d in sorted(signups)],
+        "new_signups_period": sum(signups.values()),
+        "total_users": total,
+        "dau": dau, "wau": wau, "mau": mau,
+        "returning": returning,
+        "new_users": total - returning,
+        "integrations": integ,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 #  LECTURER ENDPOINTS
 # ═══════════════════════════════════════════════════════════════
 
