@@ -6468,6 +6468,42 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   body.mob-drilled .tb-mobback { display: flex; }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE — Phase 2: page ergonomics   (≤720px)
+   Sticky slim page headers, bottom-sheet modals (mkt/space-settings,
+   matching the si-modal sheet), momentum scrolling, bigger taps.
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes mob-sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+@media (max-width: 720px) {
+
+  /* Keep the page title (and its actions) pinned while content scrolls.
+     Harmless no-op for panels whose header is already flex-pinned. */
+  .panel .view-head { position: sticky; top: 0; z-index: 20; }
+  .chat-header      { position: sticky; top: 0; z-index: 20; }
+
+  /* Native-feeling momentum scroll on the main scroll regions */
+  .sb-scroll, .panel, .chat-msgs, .home-wrap, .content,
+  .si-modal-form-body, .mkt-modal { -webkit-overflow-scrolling: touch; }
+
+  /* Marketplace / Space-settings modal → slide-up bottom sheet
+     (consistent with the si-modal sheet already in place) */
+  .mkt-modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+  .mkt-modal {
+    max-width: none !important; width: 100% !important; max-height: 92vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0)) !important;
+    animation: mob-sheet-up .26s cubic-bezier(.22,1,.36,1) !important;
+  }
+  .mkt-modal::before {
+    content: ''; display: block; width: 40px; height: 4px; border-radius: 2px;
+    background: var(--border2, var(--border)); margin: 2px auto 14px;
+  }
+
+  /* Comfortable tap targets for modal actions */
+  .si-modal-btn { min-height: 44px; }
+}
+
 /* ── Me mobile panel ── */
 #panel-me-mobile .me-profile-card {
   display: flex; align-items: center; gap: 14px;
