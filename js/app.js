@@ -17698,7 +17698,7 @@ function lRenderExams(exams) {
   const list = document.getElementById('lExamList');
   if (!list) return;
   list.innerHTML = _lExams.length
-    ? _lExams.map((e, i) => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title || 'Untitled exam')}</div><div class="acad-priority-sub">${(e.questions || []).length} Qs · ${e.questions_per_student || 0}/student · ${e.duration || 0} min</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" onclick="lAssignExam('${acEsc(e.id)}')">Assign</button><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteExam('${acEsc(e.id)}')">Delete</button></div></div>`).join('')
+    ? _lExams.map((e, i) => `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title || 'Untitled exam')}</div><div class="acad-priority-sub">${(e.questions || []).length} Qs · ${e.questions_per_student || 0}/student · ${e.duration || 0} min</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" onclick="lAssignExam('${acEsc(e.id)}')">Assign</button><button class="acad-action-btn" onclick="lExamResults('${acEsc(e.id)}')">Results</button><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteExam('${acEsc(e.id)}')">Delete</button></div></div>`).join('')
     : `<div class="acad-empty-state"><i class="ti ti-file-pencil" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No exams yet. Build your first exam.</div></div>`;
 }
 async function lCreateExam() {
@@ -17734,6 +17734,32 @@ async function lAssignExam(examId) {
   if (!code) { acToast('Publish a class first (Overview → Publish class)'); return; }
   try { await acadAPI('/api/acad/exam/assign', { code, exam_id: examId }); acToast('Exam assigned to class ' + code); }
   catch (e) { acToast((e && e.message) || 'Could not assign exam'); }
+}
+async function lExamResults(examId) {
+  const code = adData().classCode;
+  if (!code) { acToast('Publish a class first to see results'); return; }
+  let r;
+  try { r = await acadAPI('/api/acad/exam/results', { code, exam_id: examId }); }
+  catch (e) { acToast((e && e.message) || 'Could not load results'); return; }
+  const results = (r && r.results) || [];
+  const ex = (_lExams || []).find(e => e.id === examId) || {};
+  sExamCloseTaker();
+  const rowsHtml = results.length ? results.map(s => `
+    <div class="sx-q">
+      <div class="sx-qn">${acEsc(s.name || 'Student')} ${s.graded ? '· <strong>' + acEsc(s.grade) + '</strong>' : ''}</div>
+      <div class="sx-answers">${(s.answers || []).map(a => `<div class="sx-ar"><div class="sx-arq">${acEsc(a.q)}</div><div class="sx-ara">${acEsc(a.a) || '—'}</div></div>`).join('') || '<div class="acad-priority-sub">No answers.</div>'}</div>
+      <div class="sx-grade-row"><input class="acad-search-inline" style="width:90px" id="lxg-${acEsc(s.sid)}" placeholder="Grade" value="${acEsc(s.grade || '')}"><button class="acad-action-btn acad-action-btn--teal" onclick="lSaveExamGrade('${acEsc(code)}','${acEsc(examId)}','${acEsc(s.sid)}')">Save grade</button></div>
+    </div>`).join('') : '<div class="acad-priority-sub">No submissions yet.</div>';
+  const ov = document.createElement('div');
+  ov.className = 'sx-overlay'; ov.id = 'sxOverlay';
+  ov.innerHTML = `<div class="sx-modal"><div class="sx-head"><div class="sx-title">${acEsc(ex.title || 'Exam')} — results (${results.length})</div><button class="sx-x" onclick="sExamCloseTaker()" aria-label="Close">✕</button></div><div class="sx-body">${rowsHtml}</div><div class="sx-foot"><button class="acad-action-btn acad-action-btn--teal" onclick="sExamCloseTaker()">Close</button></div></div>`;
+  document.body.appendChild(ov);
+}
+async function lSaveExamGrade(code, examId, sid) {
+  const inp = document.getElementById(`lxg-${sid}`);
+  const grade = inp ? inp.value.trim() : '';
+  try { await acadAPI('/api/acad/exam/grade', { code, exam_id: examId, sid, grade }); acToast('Grade saved — student notified'); }
+  catch (e) { acToast((e && e.message) || 'Could not save grade'); }
 }
 async function lCallAI(resultId, prompt, btn, resetLabel) {
   const el = document.getElementById(resultId);
@@ -17853,6 +17879,7 @@ function sInit() {
   sRenderMyClasses();
   sLoadFeed();
   sLoadAssignments();
+  sLoadExams();
   sLoadLivePolls();
   hostMountExtensions(window.currentAcademicSpace);
 }
@@ -18425,6 +18452,85 @@ async function sSubmitAssignment(code, aid) {
   const text = await siModal.input('Submit assignment', 'Paste your work or a link', '', { confirmLabel: 'Submit' });
   if (!text) return;
   try { await acadAPI('/api/acad/submit', { code, assignment_id: aid, text }); acToast('Submitted'); sLoadAssignments(); }
+  catch (e) { acToast((e && e.message) || 'Submit failed'); }
+}
+
+/* ── Student exams: list assigned exams, take (timed), submit ── */
+let _sxTimer = null, _sxCtx = null;
+async function sLoadExams() {
+  const list = adData().joinedClasses || [];
+  const body = document.getElementById('sExamsBody');
+  if (!body) return;
+  let rows = [];
+  for (const c of list) {
+    try {
+      const r = await acadAPI('/api/acad/exam/assigned', { code: c.code });
+      ((r && r.exams) || []).forEach(e => rows.push(Object.assign({}, e, { _code: c.code, _cls: c.name || c.code })));
+    } catch (e) {}
+  }
+  if (!rows.length) return;  // keep the empty state
+  body.innerHTML = rows.map(e => {
+    const status = e.graded ? ('Graded: ' + acEsc(e.grade || '—')) : (e.submitted ? 'Submitted' : 'Not taken');
+    const label = e.graded ? 'Review' : (e.submitted ? 'Resume' : 'Take');
+    return `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title)}</div><div class="acad-priority-sub">${acEsc(e._cls)} · ${e.questions_per_student || '?'} questions · ${e.duration || '?'} min · ${status}</div></div><button class="acad-action-btn acad-action-btn--teal" onclick="sTakeExam('${acEsc(e._code)}','${acEsc(e.exam_id)}')">${label}</button></div>`;
+  }).join('');
+}
+async function sTakeExam(code, examId) {
+  let r;
+  try { r = await acadAPI('/api/acad/exam/take', { code, exam_id: examId }); }
+  catch (e) { acToast((e && e.message) || 'Could not open exam'); return; }
+  if (!r || !r.exam) return;
+  sExamRenderTaker(code, r.exam, r.submission);
+}
+function sExamRenderTaker(code, exam, submission) {
+  sExamCloseTaker();
+  const graded = !!(submission && submission.graded);
+  _sxCtx = { code, examId: exam.id, questions: exam.questions || [] };
+  const prior = {};
+  if (submission && submission.answers) submission.answers.forEach(a => { prior[a.i] = a.a; });
+  const qHtml = (exam.questions || []).map((q, n) => `
+    <div class="sx-q">
+      <div class="sx-qn">Q${n + 1}. ${acEsc(q.q)}</div>
+      <textarea class="sx-ans" data-i="${q.i}" ${graded ? 'readonly' : ''} placeholder="Type your answer…">${acEsc(prior[q.i] || '')}</textarea>
+    </div>`).join('');
+  const banner = graded
+    ? `<div class="sx-graded">Graded: <strong>${acEsc(submission.grade || '—')}</strong>${submission.feedback ? ' — ' + acEsc(submission.feedback) : ''}</div>`
+    : (submission ? `<div class="sx-graded">Submitted — you can revise and resubmit until it's graded.</div>` : '');
+  const foot = graded
+    ? `<button class="acad-action-btn acad-action-btn--teal" onclick="sExamCloseTaker()">Close</button>`
+    : `<button class="acad-action-btn acad-action-btn--red" onclick="sExamCloseTaker()">Cancel</button><button class="acad-action-btn acad-action-btn--teal" onclick="sSubmitExam('${code}','${exam.id}',false)">${submission ? 'Resubmit' : 'Submit exam'}</button>`;
+  const ov = document.createElement('div');
+  ov.className = 'sx-overlay'; ov.id = 'sxOverlay';
+  ov.innerHTML = `<div class="sx-modal">
+    <div class="sx-head"><div class="sx-title">${acEsc(exam.title)}</div>${graded ? '' : '<div class="sx-timer" id="sxTimer"></div>'}<button class="sx-x" onclick="sExamCloseTaker()" aria-label="Close">✕</button></div>
+    ${banner}
+    <div class="sx-body">${qHtml || '<div class="acad-priority-sub">This exam has no questions.</div>'}</div>
+    <div class="sx-foot">${foot}</div>
+  </div>`;
+  document.body.appendChild(ov);
+  if (!graded && exam.duration) {
+    const deadline = Date.now() + exam.duration * 60 * 1000;
+    const tick = () => {
+      const ms = deadline - Date.now();
+      const el = document.getElementById('sxTimer');
+      if (ms <= 0) { clearInterval(_sxTimer); _sxTimer = null; acToast('Time up — submitting'); sSubmitExam(code, exam.id, true); return; }
+      const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+      if (el) el.textContent = `⏱ ${m}:${String(s).padStart(2, '0')}`;
+    };
+    tick(); _sxTimer = setInterval(tick, 1000);
+  }
+}
+function sExamCloseTaker() {
+  if (_sxTimer) { clearInterval(_sxTimer); _sxTimer = null; }
+  const ov = document.getElementById('sxOverlay'); if (ov) ov.remove();
+}
+async function sSubmitExam(code, examId, auto) {
+  const ov = document.getElementById('sxOverlay');
+  if (!ov || !_sxCtx) return;
+  const qmap = {}; _sxCtx.questions.forEach(q => { qmap[q.i] = q.q; });
+  const answers = [...ov.querySelectorAll('.sx-ans')].map(t => ({ i: +t.dataset.i, q: qmap[+t.dataset.i] || '', a: t.value }));
+  if (!auto && !answers.some(a => a.a.trim())) { acToast('Answer at least one question first'); return; }
+  try { await acadAPI('/api/acad/exam/submit', { code, exam_id: examId, answers }); acToast('Exam submitted'); sExamCloseTaker(); sLoadExams(); }
   catch (e) { acToast((e && e.message) || 'Submit failed'); }
 }
 

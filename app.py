@@ -3524,6 +3524,119 @@ async def acad_exam_assign(data: dict, bg: BackgroundTasks):
     return {"ok": True, "assignment": rec}
 
 
+# ── Acad exam student take-flow ────────────────────────────────
+#  acad_class_exams (owner=code) = the assignment; acad_exams (owner=lecturer
+#  sid) holds the question bank; acad_exam_results (owner="{code}:{exam_id}",
+#  id="{code}:{exam_id}:{sid}") = one student's answers. Each student gets a
+#  deterministic random subset of the bank (questions_per_student).
+
+def _exam_questions_for(exam: dict, sid: str) -> list:
+    """Deterministic per-student subset of the exam's question bank (stable on reload)."""
+    qs = exam.get("questions", []) or []
+    if not qs:
+        return []
+    n = min(int(exam.get("questions_per_student", len(qs)) or len(qs)), len(qs))
+    seed = int(hashlib.sha256(f"{exam.get('id','')}:{sid}".encode()).hexdigest(), 16) % (2**32)
+    idxs = list(range(len(qs)))
+    random.Random(seed).shuffle(idxs)
+    return [{"i": i, "q": qs[i]} for i in sorted(idxs[:n])]
+
+
+@app.post("/api/acad/exam/assigned")
+async def acad_exam_assigned(data: dict):
+    """Exams assigned to a class — owner or member; annotated with the caller's status."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_class_or_404(code)
+    if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join this class first.")
+    items = sorted(db.coll_list("acad_class_exams", owner=code),
+                   key=lambda e: e.get("assigned", ""), reverse=True)
+    out = []
+    for it in items:
+        res = db.coll_get("acad_exam_results", f"{code}:{it.get('exam_id','')}:{sid}")
+        out.append({**it, "submitted": bool(res),
+                    "graded": bool(res and res.get("graded")),
+                    "grade": (res or {}).get("grade", "")})
+    return {"ok": True, "exams": out}
+
+
+@app.post("/api/acad/exam/take")
+async def acad_exam_take(data: dict):
+    """Member fetches their question subset for an assigned exam (+ any prior submission)."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    if not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join the class first.")
+    exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+    if not db.coll_get("acad_class_exams", f"{code}:{exam_id}"):
+        raise HTTPException(404, "Exam not assigned to this class.")
+    exam = db.coll_get("acad_exams", exam_id)
+    if not exam:
+        raise HTTPException(404, "Exam not found.")
+    res = db.coll_get("acad_exam_results", f"{code}:{exam_id}:{sid}")
+    return {"ok": True, "exam": {
+        "id": exam_id, "title": exam.get("title", "Exam"),
+        "duration": exam.get("duration", 60),
+        "questions": _exam_questions_for(exam, sid),
+    }, "submission": res}
+
+
+@app.post("/api/acad/exam/submit")
+async def acad_exam_submit(data: dict):
+    """Member submits exam answers (overwrites a prior ungraded attempt)."""
+    sid, name = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    if not _acad_is_member(code, sid):
+        raise HTTPException(403, "Join the class first.")
+    exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+    if not db.coll_get("acad_class_exams", f"{code}:{exam_id}"):
+        raise HTTPException(404, "Exam not assigned to this class.")
+    prev = db.coll_get("acad_exam_results", f"{code}:{exam_id}:{sid}")
+    if prev and prev.get("graded"):
+        raise HTTPException(409, "This exam has already been graded.")
+    answers = data.get("answers", []) or []
+    clean = [{"i": int(a.get("i", 0)),
+              "q": sanitize_text(str(a.get("q", "")), 500),
+              "a": sanitize_text(str(a.get("a", "")), 3000)} for a in answers[:100]]
+    db.coll_put("acad_exam_results", f"{code}:{exam_id}:{sid}",
+                {"exam_id": exam_id, "code": code, "sid": sid, "name": name, "answers": clean,
+                 "submitted_at": datetime.datetime.utcnow().isoformat(),
+                 "graded": False, "grade": "", "feedback": ""},
+                owner=f"{code}:{exam_id}")
+    return {"ok": True}
+
+
+@app.post("/api/acad/exam/results")
+async def acad_exam_results(data: dict):
+    """Owner: all student results for an assigned exam."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    _acad_require_owner(code, sid)
+    exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+    return {"ok": True, "results": db.coll_list("acad_exam_results", owner=f"{code}:{exam_id}")}
+
+
+@app.post("/api/acad/exam/grade")
+async def acad_exam_grade(data: dict, bg: BackgroundTasks):
+    """Owner grades an exam result; the student is notified."""
+    sid, _ = _resolve_token(data)
+    code = sanitize_text(str(data.get("code", "")), 12).upper()
+    cls = _acad_require_owner(code, sid)
+    exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+    target = sanitize_text(str(data.get("sid", "")), 40)
+    res = db.coll_get("acad_exam_results", f"{code}:{exam_id}:{target}")
+    if not res:
+        raise HTTPException(404, "No submission found.")
+    res["grade"]    = sanitize_text(str(data.get("grade", "")), 20)
+    res["feedback"] = sanitize_text(str(data.get("feedback", "")), 2000)
+    res["graded"]   = True
+    db.coll_put("acad_exam_results", f"{code}:{exam_id}:{target}", res, owner=f"{code}:{exam_id}")
+    bg.add_task(send_push, target, f"✅ {cls.get('name', 'Class')}: exam graded",
+                f"You scored {res['grade']}", "/app", f"acad_{code}")
+    return {"ok": True}
+
+
 @app.post("/api/acad/submit")
 async def acad_submit(data: dict):
     """Member submits work for an assignment (re-submit overwrites)."""
