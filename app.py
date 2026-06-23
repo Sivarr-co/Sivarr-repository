@@ -3052,6 +3052,39 @@ async def marketplace_uninstall(data: dict):
     return {"ok": True}
 
 
+# ── Per-space marketplace prefs: which extensions/integrations are enabled for
+#    each space. Persisted so they follow the user across devices (installs
+#    already do). mkt_space_prefs (owner=sid, item_id="{sid}:{space_id}").
+@app.post("/api/space/prefs/get")
+async def space_prefs_get(data: dict):
+    sid, _ = _resolve_token(data)
+    prefs = {}
+    for r in db.coll_list("mkt_space_prefs", owner=sid):
+        spid = r.get("space_id")
+        if spid:
+            prefs[spid] = {"exts": r.get("exts", []) or [], "ints": r.get("ints", []) or []}
+    return {"ok": True, "prefs": prefs}
+
+
+@app.post("/api/space/prefs/set")
+async def space_prefs_set(data: dict):
+    sid, _ = _resolve_token(data)
+    space_id = sanitize_text(str(data.get("space_id", "")), 60)
+    if not space_id:
+        raise HTTPException(400, "space_id is required.")
+    rec = db.coll_get("mkt_space_prefs", f"{sid}:{space_id}") or {}
+    rec["sid"] = sid
+    rec["space_id"] = space_id
+    if "exts" in data:
+        rec["exts"] = [sanitize_text(str(x), 60) for x in (data.get("exts") or [])[:50] if str(x).strip()]
+    if "ints" in data:
+        rec["ints"] = [sanitize_text(str(x), 60) for x in (data.get("ints") or [])[:50] if str(x).strip()]
+    rec.setdefault("exts", [])
+    rec.setdefault("ints", [])
+    db.coll_put("mkt_space_prefs", f"{sid}:{space_id}", rec, owner=sid)
+    return {"ok": True}
+
+
 @app.post("/api/marketplace/reviews/list")
 async def marketplace_reviews_list(data: dict):
     _resolve_token(data)  # any signed-in user may read reviews

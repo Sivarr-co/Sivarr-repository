@@ -703,6 +703,7 @@ function _applyLoginData(r) {
     }
     setTimeout(() => spaceRenderSidebar(), 100);
     setTimeout(() => { navRenderSidebar(); sbRenderStats(); }, 120);
+    setTimeout(() => { if (typeof mktSyncSpacePrefs === 'function') mktSyncSpacePrefs(); }, 200);
     // Handle Stripe payment return
     setTimeout(() => agCheckPaymentReturn(), 500);
     // Show onboarding for new users
@@ -18714,6 +18715,7 @@ async function mktLoadInstalled() {
 async function mktInit() {
   mktEnsureLoaded();
   await mktLoadInstalled();
+  mktSyncSpacePrefs();
   mktFilter = { type:'all', category:'', sort:'featured', search:'', view:'browse' };
   mktRenderFeatured();
   mktRenderGrid();
@@ -18721,6 +18723,32 @@ async function mktInit() {
 }
 function mktSaveInstalled(){ localStorage.setItem(MKT_INSTALLED_KEY, JSON.stringify(mktInstalled)); }
 function mktSaveExt(){ localStorage.setItem(MKT_EXT_KEY, JSON.stringify(mktExtEnabled)); }
+
+// Per-space prefs (enabled extensions + integrations) are persisted server-side
+// so they follow the user across devices. Hydrate the local maps (server wins),
+// then re-inject the open space.
+async function mktSyncSpacePrefs() {
+  try {
+    const r = await fetch('/api/space/prefs/get', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token') }) });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d || !d.prefs) return;
+    mktEnsureLoaded(); mktLoadSpaceInts();
+    Object.entries(d.prefs).forEach(([spId, p]) => {
+      if (p && Array.isArray(p.exts)) mktExtEnabled[spId] = p.exts;
+      if (p && Array.isArray(p.ints)) mktSpaceInts[spId] = p.ints;
+    });
+    mktSaveExt();
+    localStorage.setItem('sivarr_space_integrations', JSON.stringify(mktSpaceInts));
+    const cur = window.currentSpace || window.currentAcademicSpace;
+    if (cur && typeof extReinjectCurrent === 'function') extReinjectCurrent();
+  } catch(e) {}
+}
+function _mktPushSpacePrefs(spaceId, patch) {
+  if (!spaceId) return;
+  fetch('/api/space/prefs/set', { method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(Object.assign({ token: localStorage.getItem('sivarr_token'), space_id: spaceId }, patch)) }).catch(()=>{});
+}
 
 // ── Filtering ──
 function mktGetFiltered() {
@@ -18978,6 +19006,7 @@ function spaceIntToggle(intId, spaceId, enable) {
   if (!mktSpaceInts[spaceId]) mktSpaceInts[spaceId] = [];
   mktSpaceInts[spaceId] = enable ? [...new Set([...mktSpaceInts[spaceId], intId])] : mktSpaceInts[spaceId].filter(i => i !== intId);
   localStorage.setItem('sivarr_space_integrations', JSON.stringify(mktSpaceInts));
+  _mktPushSpacePrefs(spaceId, { ints: mktSpaceInts[spaceId] });
   const c = INT_CATALOGUE.find(i => i.id === intId);
   mktToast(`${c ? c.name : 'Integration'} ${enable ? 'enabled' : 'disabled'} for this Space`);
 }
@@ -18985,6 +19014,7 @@ function mktExtToggle(extId, spaceId, enable) {
   if (!mktExtEnabled[spaceId]) mktExtEnabled[spaceId] = [];
   mktExtEnabled[spaceId] = enable ? [...new Set([...mktExtEnabled[spaceId], extId])] : mktExtEnabled[spaceId].filter(i => i !== extId);
   mktSaveExt();
+  _mktPushSpacePrefs(spaceId, { exts: mktExtEnabled[spaceId] });
   const item = mktItems.find(i => i.id === extId);
   mktToast(`${item ? item.name : 'Extension'} ${enable ? 'enabled' : 'disabled'} for this Space`);
   // Live-remount if the toggled space is the one currently open (any type).
