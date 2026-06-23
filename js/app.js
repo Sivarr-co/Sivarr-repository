@@ -665,6 +665,11 @@ function _applyLoginData(r) {
     } else {
       nav('home', null);
     }
+    // On mobile, land on the Notion launcher (home) rather than a drilled page.
+    if (window.innerWidth <= 720) {
+      $('sidebar')?.classList.remove('retracted', 'collapsed', 'mobile-open');
+      mobHome();
+    }
 
     const greet = $('welcome-greeting');
     if (greet) {
@@ -693,7 +698,7 @@ function _applyLoginData(r) {
       seedSpacesFromServer(r.spaces);
     }
     setTimeout(() => spaceRenderSidebar(), 100);
-    setTimeout(() => { favRenderSidebar(); sbRenderStats(); }, 120);
+    setTimeout(() => { navRenderSidebar(); sbRenderStats(); }, 120);
     // Handle Stripe payment return
     setTimeout(() => agCheckPaymentReturn(), 500);
     // Show onboarding for new users
@@ -5710,52 +5715,92 @@ const CMD_ITEMS = [
   { icon:'🚪', label:'Sign Out',      tag:'Action',  keywords:'logout',            action:() => logout() },
 ];
 
-// ════════════════ FAVORITES (sidebar quick-access, toggled from ⌘K) ════════════════
-// Canonical destination registry: panel → sidebar label + tabler icon (icons mirror the sidebar).
-const FAV_TABS = {
-  chat:{label:'Sivarr AI',icon:'ti-sparkles'}, home:{label:'Home',icon:'ti-home'}, announcements:{label:'Inbox',icon:'ti-inbox'},
-  flux:{label:'Tasks',icon:'ti-checkbox'}, goals:{label:'Goals',icon:'ti-target'}, calendar:{label:'Calendar',icon:'ti-calendar'},
-  notes:{label:'Docs & Notes',icon:'ti-notebook'}, templates:{label:'Templates',icon:'ti-layout-grid'},
-  skills:{label:'Skills',icon:'ti-atom'}, finance:{label:'Finance',icon:'ti-wallet'}, habits:{label:'Habits',icon:'ti-flame'},
-  journal:{label:'Journal',icon:'ti-writing'}, stats:{label:'Analytics',icon:'ti-chart-bar'}, review:{label:'Weekly Review',icon:'ti-calendar-stats'},
-  community:{label:'Community',icon:'ti-users'}, opportunities:{label:'Opportunities',icon:'ti-briefcase'},
-  marketplace:{label:'Marketplace',icon:'ti-building-store'}, library:{label:'Integrations',icon:'ti-plug-connected'}, agents:{label:'Agents',icon:'ti-robot'},
-  quiz:{label:'Quiz',icon:'ti-help'}, lab:{label:'Study Deck',icon:'ti-flask'}, studyplan:{label:'Study Plan',icon:'ti-map'},
-  contenthub:{label:'Content Hub',icon:'ti-news'}, profile:{label:'My Profile',icon:'ti-user'}, settings:{label:'Settings',icon:'ti-settings'},
+// ════════════════ SIDEBAR TABS — user-customizable per section (toggled from ⌘K) ════════════════
+// Registry: panel → {label, tabler icon, section}. section:'core' = permanent (always shown, top group);
+// work/life/connect = customizable (default-shown or addable); tools = palette-only (no sidebar home).
+const NAV_TABS = {
+  chat:{label:'Sivarr AI',icon:'ti-sparkles',section:'core'}, home:{label:'Home',icon:'ti-home',section:'core'}, announcements:{label:'Inbox',icon:'ti-inbox',section:'core'},
+  flux:{label:'Tasks',icon:'ti-checkbox',section:'work'}, goals:{label:'Goals',icon:'ti-target',section:'work'}, calendar:{label:'Calendar',icon:'ti-calendar',section:'work'},
+  notes:{label:'Docs & Notes',icon:'ti-notebook',section:'work'}, templates:{label:'Templates',icon:'ti-layout-grid',section:'work'},
+  skills:{label:'Skills',icon:'ti-atom',section:'life'}, finance:{label:'Finance',icon:'ti-wallet',section:'life'}, habits:{label:'Habits',icon:'ti-flame',section:'life'},
+  journal:{label:'Journal',icon:'ti-writing',section:'life'}, stats:{label:'Analytics',icon:'ti-chart-bar',section:'life'}, review:{label:'Weekly Review',icon:'ti-calendar-stats',section:'life'},
+  community:{label:'Community',icon:'ti-users',section:'connect'}, opportunities:{label:'Opportunities',icon:'ti-briefcase',section:'connect'},
+  marketplace:{label:'Marketplace',icon:'ti-building-store',section:'connect'}, library:{label:'Integrations',icon:'ti-plug-connected',section:'connect'}, agents:{label:'Agents',icon:'ti-robot',section:'connect'},
+  quiz:{label:'Quiz',icon:'ti-help',section:'tools'}, lab:{label:'Study Deck',icon:'ti-flask',section:'tools'}, studyplan:{label:'Study Plan',icon:'ti-map',section:'tools'},
+  contenthub:{label:'Content Hub',icon:'ti-news',section:'tools'}, profile:{label:'My Profile',icon:'ti-user',section:'tools'}, settings:{label:'Settings',icon:'ti-settings',section:'tools'},
 };
-const FAV_DEFAULT = ['chat','home','announcements'];
-function FAV_KEY() { return `sivarr_favs_${(typeof S!=='undefined'&&S.sid)||''}`; }
-function getFavs() {
-  try { const v = JSON.parse(localStorage.getItem(FAV_KEY())); if (Array.isArray(v)) return v.filter(p => FAV_TABS[p]); } catch(e) {}
-  return FAV_DEFAULT.slice();
+// Canonical render order within each customizable section.
+const NAV_ORDER = {
+  work:    ['flux','goals','calendar','notes','templates'],
+  life:    ['skills','finance','habits','journal','stats','review'],
+  connect: ['community','opportunities','marketplace','library','agents'],
+};
+const NAV_CORE = ['chat','home','announcements'];   // permanent, top group, not removable
+// Default tabs shown in the sidebar (Work: Goals/Calendar/Templates; Life: Finance/Habits/Weekly Review; Connect: all).
+// Anything not here lives only in ⌘K search until the user stars it in.
+const NAV_DEFAULT = ['goals','calendar','templates','finance','habits','review','community','opportunities','marketplace','library','agents'];
+// Extra trailing markup per tab (inline stat placeholders, New badges, inbox dot) — preserved across re-render.
+const NAV_EXTRA = {
+  flux:'<span class="si-stat si-stat-info" id="sbstat-tasks"></span>',
+  goals:'<span class="si-stat" id="sbstat-goals"></span>',
+  habits:'<span class="si-stat" id="sbstat-habits"></span>',
+  stats:'<span class="si-stat" id="sbstat-stats"></span>',
+  marketplace:'<span class="si-new-badge">New</span>',
+  agents:'<span class="si-new-badge">New</span>',
+  announcements:'<span class="si-dot" id="sb-inbox-dot" style="display:none"></span>',
+};
+
+function NAV_KEY() { return `sivarr_navtabs_${(typeof S!=='undefined'&&S.sid)||''}`; }
+function getNavTabs() {
+  try { const v = JSON.parse(localStorage.getItem(NAV_KEY())); if (Array.isArray(v)) return v.filter(p => NAV_TABS[p] && NAV_TABS[p].section !== 'core' && NAV_TABS[p].section !== 'tools'); } catch(e) {}
+  return NAV_DEFAULT.slice();
 }
-function setFavs(arr) { try { localStorage.setItem(FAV_KEY(), JSON.stringify(arr)); } catch(e) {} }
-function isFav(panel) { return getFavs().includes(panel); }
-function toggleFav(panel) {
-  if (!FAV_TABS[panel]) return;
-  const f = getFavs(); const i = f.indexOf(panel);
-  if (i >= 0) f.splice(i, 1); else f.push(panel);
-  setFavs(f);
-  favRenderSidebar();
+function setNavTabs(arr) { try { localStorage.setItem(NAV_KEY(), JSON.stringify(arr)); } catch(e) {} }
+// In the sidebar right now? Core tabs always are; the rest depend on the user's store.
+function isNavTab(panel) { return NAV_CORE.includes(panel) || getNavTabs().includes(panel); }
+function toggleNavTab(panel) {
+  const meta = NAV_TABS[panel];
+  if (!meta || meta.section === 'core' || meta.section === 'tools') return;   // core=permanent, tools=no sidebar home
+  const t = getNavTabs(); const i = t.indexOf(panel);
+  if (i >= 0) t.splice(i, 1); else t.push(panel);
+  setNavTabs(t);
+  navRenderSidebar();
   if (typeof CMD_OPEN !== 'undefined' && CMD_OPEN) cmdSearch();   // refresh the stars in the open palette
 }
-function favRenderSidebar() {
-  const host = document.getElementById('sb-favs');
+
+// The ⌘K star in front of a result: locked for core, toggle for work/life/connect, none for tools/actions.
+function _cmdFavStar(panel) {
+  const meta = panel && NAV_TABS[panel];
+  if (!meta || meta.section === 'tools') return `<span class="cmd-fav cmd-fav-spacer" aria-hidden="true"></span>`;
+  if (meta.section === 'core') return `<span class="cmd-fav on cmd-fav-locked" title="Always pinned" aria-hidden="true"><i class="ti ti-star-filled"></i></span>`;
+  const on = isNavTab(panel);
+  return `<span class="cmd-fav ${on ? 'on' : ''}" title="${on ? 'Remove from sidebar' : 'Add to sidebar'}" onclick="event.stopPropagation();toggleNavTab('${panel}')"><i class="ti ${on ? 'ti-star-filled' : 'ti-star'}" aria-hidden="true"></i></span>`;
+}
+
+function _navRenderSec(hostId, panels) {
+  const host = document.getElementById(hostId);
   if (!host) return;
-  host.innerHTML = getFavs().map(panel => {
-    const t = FAV_TABS[panel]; if (!t) return '';
-    const dot = panel === 'announcements' ? `<span class="si-dot" id="sb-inbox-dot" style="display:none"></span>` : '';
+  host.innerHTML = panels.map(panel => {
+    const t = NAV_TABS[panel]; if (!t) return '';
     return `<button class="si" data-panel="${panel}" onclick="sidebarNav(this)">
       <div class="si-icon"><i class="ti ${t.icon}"></i></div>
-      <span class="si-lb">${t.label}</span>${dot}
+      <span class="si-lb">${t.label}</span>${NAV_EXTRA[panel] || ''}
     </button>`;
-  }).join('') || `<div class="sb-fav-empty">Star a tab in search (⌘K) to pin it here</div>`;
-  // Re-apply the active highlight if the current panel is a favorite
+  }).join('');
+  // Re-apply the active highlight if the current panel lives in this section
   const active = document.querySelector('.panel.active');
   if (active && active.id.indexOf('panel-') === 0) {
     const el = host.querySelector(`.si[data-panel="${active.id.slice(6)}"]`);
     if (el) el.classList.add('on');
   }
+}
+function navRenderSidebar() {
+  const vis = new Set(getNavTabs());
+  _navRenderSec('sb-favs',     NAV_CORE);
+  _navRenderSec('sgi-work',    NAV_ORDER.work.filter(p => vis.has(p)));
+  _navRenderSec('sgi-grow',    NAV_ORDER.life.filter(p => vis.has(p)));
+  _navRenderSec('sgi-connect', NAV_ORDER.connect.filter(p => vis.has(p)));
+  if (typeof sbRenderStats === 'function') sbRenderStats();   // re-populate the inline stat spans we just re-rendered
 }
 
 let CMD_OPEN    = false;
@@ -5886,9 +5931,7 @@ function cmdRenderResults(q) {
     <div class="cmd-section-label">${group}</div>
     ${groupItems.map(item => `
       <button class="cmd-item" data-idx="${item._idx}" onclick="cmdRun(${item._idx})">
-        ${item.panel && FAV_TABS[item.panel]
-          ? `<span class="cmd-fav ${isFav(item.panel) ? 'on' : ''}" title="${isFav(item.panel) ? 'Remove from favorites' : 'Add to favorites'}" onclick="event.stopPropagation();toggleFav('${item.panel}')"><i class="ti ${isFav(item.panel) ? 'ti-star-filled' : 'ti-star'}" aria-hidden="true"></i></span>`
-          : `<span class="cmd-fav cmd-fav-spacer" aria-hidden="true"></span>`}
+        ${_cmdFavStar(item.panel)}
         <div class="cmd-item-icon">${item.icon}</div>
         <div style="flex:1;min-width:0">
           <div class="cmd-item-label">${esc(item.label)}</div>
@@ -8049,14 +8092,32 @@ const MOB_SNAV_HEIGHTS = {
   assessments: 3, insights: 3, spaces: 2
 };
 
-// ── Sidebar toggle (desktop: retract/restore · mobile: open/close) ──
+// ── Sidebar toggle (desktop: retract/restore · mobile: back to launcher) ──
 function toggleSidebar() {
-  if (window.innerWidth <= 720) { toggleMobileSidebar(); return; }
+  if (window.innerWidth <= 720) { mobHome(); return; }
   const sb = $('sidebar');
   if (!sb) return;
   const retracted = sb.classList.toggle('retracted');
   localStorage.setItem('sb_retracted', retracted ? '1' : '0');
 }
+
+// ── Mobile Notion launcher: return to the full-screen home (pop the
+//    drilled page). The sidebar IS the launcher on mobile, so we just
+//    clear the drilled state and make sure no desktop collapse/retract
+//    class is hiding it. ──────────────────────────────────────────────
+function mobHome() {
+  document.body.classList.remove('mob-drilled');
+  const sb = $('sidebar');
+  if (sb && window.innerWidth <= 720) sb.classList.remove('retracted', 'collapsed', 'mobile-open');
+  $('overlay')?.classList.remove('show');
+  document.body.style.overflow = '';
+  try { document.querySelector('.sb-scroll')?.scrollTo({ top: 0 }); } catch (_) {}
+}
+
+// Keep the launcher usable if the viewport crosses into mobile mid-session
+window.addEventListener('resize', () => {
+  if (window.innerWidth <= 720) $('sidebar')?.classList.remove('retracted', 'collapsed');
+});
 
 // ── Command-center: rail collapse (64px icons-only), persisted ──
 function sbToggleRail() {
@@ -8390,6 +8451,9 @@ function nav(name, btn) {
   if (p) p.classList.add('active');
   if (btn) btn.classList.add('active');
   const mob = document.getElementById(`mn-${name}`); if (mob) mob.classList.add('active');
+  // Mobile (Notion shell): navigating to a real panel drills in full-screen.
+  // The launcher (sidebar) slides away and the topbar back chevron appears.
+  if (p && window.innerWidth <= 720) document.body.classList.add('mob-drilled');
   _updateMobileNav(name);
   syncSnavFromPanel(name);
   _trackNav(name);

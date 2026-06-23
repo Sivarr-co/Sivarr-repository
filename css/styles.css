@@ -6392,10 +6392,80 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 }
 .mob-fab:active { transform: scale(.92); }
 
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE SHELL — Notion-style launcher + drill-down   (≤720px)
+   The sidebar becomes a full-screen "home" launcher; tapping any
+   item drills into that panel full-screen with a back chevron.
+   Fully replaces the old bottom-nav + FAB + hamburger drawer.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Back chevron + launcher search are hidden on desktop by default */
+.tb-mobback {
+  display: none; width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: var(--radius); align-items: center; justify-content: center;
+  color: var(--text2); font-size: 22px; border: none; background: transparent;
+  cursor: pointer; transition: var(--transition);
+}
+.tb-mobback:hover, .tb-mobback:active { background: var(--bg3); color: var(--text1); }
+.sb-mob-search { display: none; }
+
 @media (max-width: 720px) {
-  .mobile-nav { display: block; }
-  .mob-fab    { display: flex; }
-  .main       { padding-bottom: 60px !important; }
+
+  /* — Retire the old mobile chrome — */
+  .mobile-nav, .mob-fab { display: none !important; }
+  .tb-ham               { display: none !important; }
+  .main { padding-bottom: env(safe-area-inset-bottom, 0) !important; }
+
+  /* — Sidebar = full-screen launcher (home), ignoring any desktop
+       retracted / collapsed state that may be in localStorage — */
+  .sidebar,
+  .sidebar.retracted,
+  .sidebar.collapsed {
+    width: 100% !important;
+    transform: translateX(0) !important;
+    z-index: 95; border-right: none; box-shadow: none;
+  }
+  /* Make sure collapsed-mode (desktop) never hides launcher content */
+  .sidebar.collapsed .si-lb           { display: inline !important; }
+  .sidebar.collapsed .si-stat         { display: inline-flex !important; }
+  .sidebar.collapsed .sb-section-label,
+  .sidebar.collapsed .sb-ws,
+  .sidebar.collapsed .sb-today,
+  .sidebar.collapsed .sb-spaces,
+  .sidebar.collapsed .u-name,
+  .sidebar.collapsed .u-role,
+  .sidebar.collapsed .sb-upgrade-plan,
+  .sidebar.collapsed .sb-upgrade-label { display: revert !important; }
+
+  /* — Drilled into a page → launcher slides away, panel is shown — */
+  body.mob-drilled .sidebar,
+  body.mob-drilled .sidebar.retracted,
+  body.mob-drilled .sidebar.collapsed { transform: translateX(-100%) !important; }
+
+  /* — Launcher search field (Notion-style) — */
+  .sb-mob-search {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    margin: 8px 0 6px; padding: 13px 14px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 14px; cursor: pointer;
+    color: var(--text4); font-family: var(--font); font-size: .95rem; font-weight: 500;
+  }
+  .sb-mob-search i { font-size: 1.15rem; }
+
+  /* — Launcher list rows: bigger, drillable, with a chevron — */
+  .sidebar .sb-scroll { padding: 4px 12px 24px; }
+  .sidebar .si        { padding: 12px; border-radius: 12px; margin-bottom: 2px; }
+  .sidebar .si .si-lb    { font-size: .98rem; font-weight: 600; }
+  .sidebar .si .si-icon  { font-size: 1.15rem; }
+  .sidebar .si::after {
+    content: '\203A'; margin-left: auto;
+    color: var(--text4); font-size: 1.25rem; line-height: 1; font-weight: 400;
+  }
+  .sidebar .sb-section-label { font-size: 12px; padding-top: 18px; }
+  .sidebar .sb-user-row .u-info { cursor: pointer; }
+
+  /* — Topbar back chevron only appears while drilled into a page — */
+  body.mob-drilled .tb-mobback { display: flex; }
 }
 
 /* ── Me mobile panel ── */

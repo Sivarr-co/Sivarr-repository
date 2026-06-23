@@ -25,7 +25,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260622d">
+<link rel="stylesheet" href="/css/styles.css?v=20260622e">
 <!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
 <script type="module">
 import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
@@ -289,9 +289,14 @@ Sentry.onLoad(function() {
 
   <!-- Topbar -->
   <header class="topbar">
-    <!-- Hamburger (mobile) -->
+    <!-- Hamburger (legacy — hidden on mobile by the Notion launcher) -->
     <button class="tb-ham" id="hamburger" onclick="toggleMobileSidebar()" title="Menu">
       <i class="ti ti-menu-2"></i>
+    </button>
+
+    <!-- Mobile back chevron (drill-down) — shows only while inside a page -->
+    <button class="tb-mobback" id="tb-mobback" onclick="mobHome()" title="Back" aria-label="Back to home">
+      <i class="ti ti-chevron-left"></i>
     </button>
 
     <!-- Brand / sidebar toggle -->
@@ -446,6 +451,11 @@ Sentry.onLoad(function() {
 
       <div class="sb-scroll">
 
+        <!-- Mobile launcher search (Notion-style; desktop hidden) -->
+        <button class="sb-mob-search" onclick="cmdOpen()" aria-label="Search or jump to">
+          <i class="ti ti-search"></i><span>Search or jump to…</span>
+        </button>
+
         <!-- Today at a glance -->
         <div class="sb-today" id="sb-today" role="group" aria-label="Today at a glance">
           <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=flux]'))" title="Tasks due">
@@ -463,12 +473,12 @@ Sentry.onLoad(function() {
         </div>
 
 
-        <!-- Favorites (rendered from the user's favourites; star tabs in ⌘K to add) -->
+        <!-- Favorites (permanent core: Sivarr AI / Home / Inbox; rendered by navRenderSidebar) -->
         <div class="sb-section-row sb-sec-head" onclick="sbSecToggle('sb-favs','favorites')">
           <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;"><i class="ti ti-chevron-down sb-sec-caret" id="sbcaret-favorites" aria-hidden="true"></i>Favorites</span>
         </div>
         <div class="sb-nav-group" id="sb-favs">
-          <!-- rendered by favRenderSidebar() -->
+          <!-- rendered by navRenderSidebar() -->
         </div>
 
         <!-- Work -->
@@ -476,28 +486,7 @@ Sentry.onLoad(function() {
           <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;"><i class="ti ti-chevron-down sb-sec-caret" id="sbcaret-work" aria-hidden="true"></i>Work</span>
         </div>
         <div class="sb-nav-group" id="sgi-work">
-          <button class="si" data-panel="flux" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-checkbox"></i></div>
-            <span class="si-lb">Tasks</span>
-            <span class="si-stat si-stat-info" id="sbstat-tasks"></span>
-          </button>
-          <button class="si" data-panel="goals" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-target"></i></div>
-            <span class="si-lb">Goals</span>
-            <span class="si-stat" id="sbstat-goals"></span>
-          </button>
-          <button class="si" data-panel="calendar" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-calendar"></i></div>
-            <span class="si-lb">Calendar</span>
-          </button>
-          <button class="si" data-panel="notes" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-notebook"></i></div>
-            <span class="si-lb">Docs &amp; Notes</span>
-          </button>
-          <button class="si" data-panel="templates" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-layout-grid"></i></div>
-            <span class="si-lb">Templates</span>
-          </button>
+          <!-- rendered by navRenderSidebar() -->
         </div>
 
         <!-- Life -->
@@ -505,32 +494,7 @@ Sentry.onLoad(function() {
           <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;"><i class="ti ti-chevron-down sb-sec-caret" id="sbcaret-grow" aria-hidden="true"></i>Life</span>
         </div>
         <div class="sb-nav-group" id="sgi-grow">
-          <button class="si" data-panel="skills" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-atom"></i></div>
-            <span class="si-lb">Skills</span>
-          </button>
-          <button class="si" data-panel="finance" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-wallet"></i></div>
-            <span class="si-lb">Finance</span>
-          </button>
-          <button class="si" data-panel="habits" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-flame"></i></div>
-            <span class="si-lb">Habits</span>
-            <span class="si-stat" id="sbstat-habits"></span>
-          </button>
-          <button class="si" data-panel="journal" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-writing"></i></div>
-            <span class="si-lb">Journal</span>
-          </button>
-          <button class="si" data-panel="stats" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-chart-bar"></i></div>
-            <span class="si-lb">Analytics</span>
-            <span class="si-stat" id="sbstat-stats"></span>
-          </button>
-          <button class="si" data-panel="review" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-calendar-stats"></i></div>
-            <span class="si-lb">Weekly Review</span>
-          </button>
+          <!-- rendered by navRenderSidebar() -->
         </div>
 
         <!-- Connect -->
@@ -538,28 +502,7 @@ Sentry.onLoad(function() {
           <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;"><i class="ti ti-chevron-down sb-sec-caret" id="sbcaret-connect" aria-hidden="true"></i>Connect</span>
         </div>
         <div class="sb-nav-group" id="sgi-connect">
-          <button class="si" data-panel="community" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-users"></i></div>
-            <span class="si-lb">Community</span>
-          </button>
-          <button class="si" data-panel="opportunities" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-briefcase"></i></div>
-            <span class="si-lb">Opportunities</span>
-          </button>
-          <button class="si" data-panel="marketplace" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-building-store"></i></div>
-            <span class="si-lb">Marketplace</span>
-            <span class="si-new-badge">New</span>
-          </button>
-          <button class="si" data-panel="library" onclick="sidebarNav(this)">
-            <div class="si-icon"><i class="ti ti-plug-connected"></i></div>
-            <span class="si-lb">Integrations</span>
-          </button>
-          <button class="si" data-panel="agents" onclick="sidebarNav(this)" id="nav-agents">
-            <div class="si-icon"><i class="ti ti-robot"></i></div>
-            <span class="si-lb">Agents</span>
-            <span class="si-new-badge">New</span>
-          </button>
+          <!-- rendered by navRenderSidebar() -->
         </div>
 
         <!-- Spaces -->
@@ -593,8 +536,8 @@ Sentry.onLoad(function() {
         </button>
 
         <div class="sb-user-row">
-          <div class="u-av" id="snav-av">?</div>
-          <div class="u-info">
+          <div class="u-av" id="snav-av" onclick="if(window.innerWidth<=720)navMobileMe()">?</div>
+          <div class="u-info" onclick="if(window.innerWidth<=720)navMobileMe()">
             <div class="u-name" id="snav-name">User</div>
             <div class="u-role" id="sb-plan-label2">Free</div>
           </div>
@@ -4551,7 +4494,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260622d" defer></script>
+<script src="/js/app.js?v=20260622e" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
