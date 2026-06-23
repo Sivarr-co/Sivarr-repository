@@ -25,7 +25,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260623b">
+<link rel="stylesheet" href="/css/styles.css?v=20260623d">
 <!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
 <script type="module">
 import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
@@ -62,6 +62,42 @@ Sentry.onLoad(function() {
 </script>
 </head>
 <body>
+
+<!-- Apply saved theme before first paint (prevents a white flash on the loader) -->
+<script>
+(function () {
+  try {
+    var m = localStorage.getItem('sivarr_theme_mode') ||
+            (localStorage.getItem('sivarr_theme') === 'dark' ? 'dark' : 'light');
+    var dark = m === 'dark' ||
+      (m === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+  } catch (e) {}
+})();
+</script>
+
+<!-- Artistic boot loader — the Sivarr mark itself animates as the loader -->
+<div id="siv-boot" aria-hidden="true">
+  <div class="siv-boot-stage">
+    <div class="siv-boot-mark"></div>
+    <div class="siv-boot-word">Sivarr</div>
+  </div>
+</div>
+<script>
+(function () {
+  function hide() {
+    var b = document.getElementById('siv-boot');
+    if (!b || b.classList.contains('hide')) return;
+    b.classList.add('hide');
+    setTimeout(function () { if (b) b.style.display = 'none'; }, 520);
+  }
+  window.sivHideBoot = hide;
+  // Reveal the app once it's ready, after a brief beat so the animation reads
+  window.addEventListener('load', function () { setTimeout(hide, 450); });
+  // Hard fallback in case 'load' never fires
+  setTimeout(hide, 4500);
+})();
+</script>
 
 <!-- LOGIN -->
 <div id="login-screen">
@@ -3760,6 +3796,10 @@ Sentry.onLoad(function() {
               <div class="acad-card-body" id="sAssignmentsBody"><div class="acad-empty-state"><i class="ti ti-file-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No assignments yet. Join a class to see and submit work.</div></div></div>
             </div>
             <div class="acad-card" style="margin-top:14px;">
+              <div class="acad-card-header"><span class="acad-card-title">Exams</span></div>
+              <div class="acad-card-body" id="sExamsBody"><div class="acad-empty-state"><i class="ti ti-clipboard-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No exams assigned yet. Join a class to take exams.</div></div></div>
+            </div>
+            <div class="acad-card" style="margin-top:14px;">
               <div class="acad-card-header"><span class="acad-card-title">Live &amp; Polls</span></div>
               <div class="acad-card-body" id="sLivePollsBody"><div class="acad-empty-state"><i class="ti ti-broadcast" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Nothing live right now.</div></div></div>
             </div>
@@ -4508,7 +4548,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260623b" defer></script>
+<script src="/js/app.js?v=20260623d" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

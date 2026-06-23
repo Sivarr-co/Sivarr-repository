@@ -297,6 +297,52 @@ body.offline .layout {
 }
 .overlay.show { opacity:1; }
 
+/* ═══════════════════════════════════════════════════════════════
+   BOOT LOADER — the Sivarr mark IS the loader.
+   The logo PNG is used as a mask; a teal shimmer flows through the
+   logo's own shape while it breathes and glows. No spinner.
+   ═══════════════════════════════════════════════════════════════ */
+#siv-boot {
+  position: fixed; inset: 0; z-index: 100000;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg, #ffffff);
+  transition: opacity .5s ease;
+}
+#siv-boot.hide { opacity: 0; pointer-events: none; }
+.siv-boot-stage { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.siv-boot-mark {
+  width: 96px; height: 96px;
+  -webkit-mask: url(/static/sivarrai.png) center / contain no-repeat;
+          mask: url(/static/sivarrai.png) center / contain no-repeat;
+  /* Teal base with a bright sweep that travels across the logo */
+  background: linear-gradient(115deg,
+     var(--teal, #0D7A5F) 0%,  var(--teal, #0D7A5F) 38%,
+     #eafff7 50%,
+     var(--teal, #0D7A5F) 62%, var(--teal, #0D7A5F) 100%);
+  background-size: 280% 100%;
+  animation: sivBootSweep 1.5s cubic-bezier(.5,0,.5,1) infinite,
+             sivBootBreathe 2.6s ease-in-out infinite;
+  will-change: background-position, transform, filter;
+}
+@keyframes sivBootSweep {
+  0%   { background-position: 165% 0; }
+  100% { background-position: -165% 0; }
+}
+@keyframes sivBootBreathe {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 2px rgba(13,122,95,.25)); }
+  50%      { transform: scale(1.07); filter: drop-shadow(0 0 18px rgba(13,122,95,.55)); }
+}
+.siv-boot-word {
+  font-family: var(--font-display, inherit);
+  font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  font-size: .78rem; color: var(--text3, #888);
+  animation: sivBootWord 2.6s ease-in-out infinite;
+}
+@keyframes sivBootWord { 0%, 100% { opacity: .25; } 50% { opacity: .7; } }
+@media (prefers-reduced-motion: reduce) {
+  .siv-boot-mark { animation: sivBootBreathe 3s ease-in-out infinite; }
+}
+
 /* ── LAYOUT ────────────────────────────────────────────────── */
 .layout {
   display:flex;
@@ -7809,6 +7855,29 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 /* ── Priority items ── */
 .acad-priority-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--border-color); }
 .acad-priority-item:last-child { border-bottom:none; }
+
+/* ── Exam taker / results overlay (student take-flow) ── */
+.sx-overlay { position:fixed; inset:0; z-index:1200; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:18px; }
+.sx-modal { background:var(--bg2); border:1px solid var(--border-color); border-radius:14px; width:100%; max-width:640px; max-height:88vh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(0,0,0,.4); }
+.sx-head { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border-color); }
+.sx-title { font-size:14px; font-weight:800; color:var(--text-primary); flex:1; }
+.sx-timer { font-size:12px; font-weight:700; color:var(--acad-accent); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.sx-x { border:none; background:transparent; color:var(--text-secondary); font-size:15px; cursor:pointer; width:28px; height:28px; border-radius:7px; flex-shrink:0; }
+.sx-x:hover { background:rgba(127,127,127,.12); color:var(--text-primary); }
+.sx-graded { margin:10px 16px 0; padding:8px 12px; border-radius:9px; background:var(--acad-accent-soft, rgba(127,127,127,.08)); font-size:12px; color:var(--text-primary); }
+.sx-body { padding:8px 16px 4px; overflow-y:auto; }
+.sx-q { padding:12px 0; border-bottom:1px solid var(--border-color); }
+.sx-q:last-child { border-bottom:none; }
+.sx-qn { font-size:13px; font-weight:600; color:var(--text-primary); margin-bottom:7px; line-height:1.4; }
+.sx-ans { width:100%; min-height:64px; resize:vertical; padding:8px 10px; border:1px solid var(--border-color); border-radius:9px; background:var(--bg3); color:var(--text-primary); font-family:inherit; font-size:13px; box-sizing:border-box; }
+.sx-ans:focus { outline:none; border-color:var(--acad-accent); }
+.sx-ans[readonly] { opacity:.85; }
+.sx-answers { margin:4px 0 8px; }
+.sx-ar { padding:6px 0; }
+.sx-arq { font-size:12px; font-weight:600; color:var(--text-primary); }
+.sx-ara { font-size:12px; color:var(--text-secondary); white-space:pre-wrap; }
+.sx-grade-row { display:flex; gap:8px; align-items:center; margin-top:6px; }
+.sx-foot { display:flex; justify-content:flex-end; gap:8px; padding:12px 16px; border-top:1px solid var(--border-color); }
 .acad-checkbox { width:16px; height:16px; border-radius:4px; border:1.5px solid var(--border2); flex-shrink:0; margin-top:1px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; transition:background .15s; user-select:none; }
 .acad-checkbox--checked { background:var(--acad-accent); border-color:var(--acad-accent); }
 .acad-priority-meta { flex:1; }
