@@ -666,9 +666,13 @@ function _applyLoginData(r) {
       nav('home', null);
     }
     // On mobile, land on the Notion launcher (home) rather than a drilled page.
+    // Anchor a clean root history entry and start tracking the drill stack.
+    _mobReady = true;
     if (window.innerWidth <= 720) {
       $('sidebar')?.classList.remove('retracted', 'collapsed', 'mobile-open');
-      mobHome();
+      _mobStack = [];
+      try { history.replaceState({ sivStack: [] }, ''); } catch (_) {}
+      _mobHomeVisual();
     }
 
     const greet = $('welcome-greeting');
@@ -8105,7 +8109,16 @@ function toggleSidebar() {
 //    drilled page). The sidebar IS the launcher on mobile, so we just
 //    clear the drilled state and make sure no desktop collapse/retract
 //    class is hiding it. ──────────────────────────────────────────────
-function mobHome() {
+// ── Mobile drill-down history stack ─────────────────────────────────
+//   Each drill into a panel pushes a History API entry carrying the full
+//   drill path (sivStack). The back chevron and the hardware/browser back
+//   button both flow through popstate, so they share one source of truth.
+let _mobStack   = [];      // drill path of panel names ([] = launcher home)
+let _mobSyncing = false;   // true while painting from popstate (suppress re-push)
+let _mobReady   = false;   // becomes true after first landing (ignore boot nav)
+
+// Pure visual reset to the launcher (no history side-effects)
+function _mobHomeVisual() {
   document.body.classList.remove('mob-drilled');
   const sb = $('sidebar');
   if (sb && window.innerWidth <= 720) sb.classList.remove('retracted', 'collapsed', 'mobile-open');
@@ -8113,6 +8126,47 @@ function mobHome() {
   document.body.style.overflow = '';
   try { document.querySelector('.sb-scroll')?.scrollTo({ top: 0 }); } catch (_) {}
 }
+
+// Record a drill into `name` (called from nav() on mobile)
+function _mobPush(name) {
+  if (!_mobReady || _mobSyncing) return;
+  if (_mobStack[_mobStack.length - 1] === name) return;   // ignore re-tap of current page
+  _mobStack.push(name);
+  try { history.pushState({ sivStack: _mobStack.slice() }, ''); } catch (_) {}
+}
+
+// Paint the UI to match a target stack (programmatic — never pushes history)
+function _mobApplyStack(stack) {
+  _mobStack = Array.isArray(stack) ? stack.slice() : [];
+  if (_mobStack.length === 0) { _mobHomeVisual(); return; }
+  _mobSyncing = true;
+  document.body.classList.add('mob-drilled');
+  nav(_mobStack[_mobStack.length - 1], null);
+  _mobSyncing = false;
+}
+
+// Back chevron → pop one level (defer to history so hardware-back matches)
+function mobBack() {
+  if (window.innerWidth > 720 || _mobStack.length === 0) return;
+  try { history.back(); }
+  catch (_) { _mobApplyStack(_mobStack.slice(0, -1)); }
+}
+
+// Brand tap / boot → jump all the way back to the launcher home
+function mobHome() {
+  if (window.innerWidth <= 720 && _mobStack.length) {
+    const depth = _mobStack.length;
+    try { history.go(-depth); return; } catch (_) {}
+  }
+  _mobStack = [];
+  _mobHomeVisual();
+}
+
+// Hardware/browser back (and our own history.back/go) land here
+window.addEventListener('popstate', (e) => {
+  if (window.innerWidth > 720) return;
+  _mobApplyStack((e.state && e.state.sivStack) || []);
+});
 
 // Keep the launcher usable if the viewport crosses into mobile mid-session
 window.addEventListener('resize', () => {
@@ -8453,7 +8507,7 @@ function nav(name, btn) {
   const mob = document.getElementById(`mn-${name}`); if (mob) mob.classList.add('active');
   // Mobile (Notion shell): navigating to a real panel drills in full-screen.
   // The launcher (sidebar) slides away and the topbar back chevron appears.
-  if (p && window.innerWidth <= 720) document.body.classList.add('mob-drilled');
+  if (p && window.innerWidth <= 720) { document.body.classList.add('mob-drilled'); _mobPush(name); }
   _updateMobileNav(name);
   syncSnavFromPanel(name);
   _trackNav(name);
