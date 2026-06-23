@@ -4679,6 +4679,7 @@ async def admin_revenue(token: str):
         "all_time_ngn":   round(all_time),
         "recent_payments": payments[:25],
         "currency":       "NGN",
+        "naira_rate":     NAIRA_RATE,   # USD→NGN, for the dashboard $ toggle
     }
 
 
