@@ -310,23 +310,27 @@ body.offline .layout {
 }
 #siv-boot.hide { opacity: 0; pointer-events: none; }
 .siv-boot-stage { display: flex; flex-direction: column; align-items: center; gap: 18px; }
-.siv-boot-mark {
-  width: 96px; height: 96px;
-  -webkit-mask: url(/static/sivarrai.png) center / contain no-repeat;
-          mask: url(/static/sivarrai.png) center / contain no-repeat;
-  /* Teal base with a bright sweep that travels across the logo */
-  background: linear-gradient(115deg,
-     var(--teal, #0D7A5F) 0%,  var(--teal, #0D7A5F) 38%,
-     #eafff7 50%,
-     var(--teal, #0D7A5F) 62%, var(--teal, #0D7A5F) 100%);
-  background-size: 280% 100%;
-  animation: sivBootSweep 1.5s cubic-bezier(.5,0,.5,1) infinite,
-             sivBootBreathe 2.6s ease-in-out infinite;
-  will-change: background-position, transform, filter;
+/* Self-drawing Sivarr mark: the frame + two swooshes draw themselves */
+.siv-boot-svg {
+  width: 104px; height: 104px; overflow: visible;
+  filter: drop-shadow(0 0 9px rgba(13,122,95,.4));
+  animation: sivBootBreathe 2.8s ease-in-out infinite;
 }
-@keyframes sivBootSweep {
-  0%   { background-position: 165% 0; }
-  100% { background-position: -165% 0; }
+.sb-draw {
+  fill: none; stroke: var(--teal, #0D7A5F);
+  stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  animation: sivDraw 2.6s ease-in-out infinite;
+}
+.sb-frame { stroke-width: 4; animation-delay: 0s; }
+.sb-s1    { stroke-width: 9; animation-delay: .42s; }
+.sb-s2    { stroke-width: 9; animation-delay: .66s; }
+@keyframes sivDraw {
+  0%   { stroke-dashoffset: 1;  opacity: 1; }
+  40%  { stroke-dashoffset: 0;  opacity: 1; }   /* drawn */
+  72%  { stroke-dashoffset: 0;  opacity: 1; }   /* hold */
+  92%  { stroke-dashoffset: -1; opacity: 1; }   /* retract */
+  100% { stroke-dashoffset: -1; opacity: 0; }
 }
 @keyframes sivBootBreathe {
   0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 2px rgba(13,122,95,.25)); }
@@ -340,7 +344,8 @@ body.offline .layout {
 }
 @keyframes sivBootWord { 0%, 100% { opacity: .25; } 50% { opacity: .7; } }
 @media (prefers-reduced-motion: reduce) {
-  .siv-boot-mark { animation: sivBootBreathe 3s ease-in-out infinite; }
+  .siv-boot-svg { animation: none; }
+  .sb-draw { animation: none; stroke-dashoffset: 0; }
 }
 
 /* ── LAYOUT ────────────────────────────────────────────────── */

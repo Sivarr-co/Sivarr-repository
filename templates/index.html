@@ -25,7 +25,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260623d">
+<link rel="stylesheet" href="/css/styles.css?v=20260623e">
 <!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
 <script type="module">
 import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
@@ -79,7 +79,11 @@ Sentry.onLoad(function() {
 <!-- Artistic boot loader — the Sivarr mark itself animates as the loader -->
 <div id="siv-boot" aria-hidden="true">
   <div class="siv-boot-stage">
-    <div class="siv-boot-mark"></div>
+    <svg class="siv-boot-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect class="sb-draw sb-frame" x="14" y="14" width="72" height="72" rx="22" pathLength="1"/>
+      <line class="sb-draw sb-s1" x1="31" y1="59" x2="58" y2="35" pathLength="1"/>
+      <line class="sb-draw sb-s2" x1="43" y1="67" x2="70" y2="43" pathLength="1"/>
+    </svg>
     <div class="siv-boot-word">Sivarr</div>
   </div>
 </div>
@@ -4548,7 +4552,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260623d" defer></script>
+<script src="/js/app.js?v=20260623e" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
