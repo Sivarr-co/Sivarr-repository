@@ -3342,11 +3342,23 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
   flex-direction:column; gap:12px; color:var(--text3); font-size:.82rem; background:var(--bg);
 }
+/* Mini Sivarr-logo loader — shared look across components (consistent with
+   the boot screen). The logo PNG is masked and a teal shimmer sweeps through
+   it while it gently pulses. */
 .tpl-spinner {
-  width:26px; height:26px; border:2px solid var(--border);
-  border-top-color:var(--teal); border-radius:50%; animation:tplSpin .7s linear infinite;
+  width:26px; height:26px;
+  -webkit-mask:url(/static/sivarrai.png) center / contain no-repeat;
+          mask:url(/static/sivarrai.png) center / contain no-repeat;
+  background:linear-gradient(115deg,
+    var(--teal) 0%, var(--teal) 35%, #eafff7 50%, var(--teal) 65%, var(--teal) 100%);
+  background-size:280% 100%; background-repeat:no-repeat;
+  animation:sivMiniSweep 1.2s linear infinite, sivMiniPulse 2s ease-in-out infinite;
 }
-@keyframes tplSpin { to { transform:rotate(360deg); } }
+@keyframes sivMiniSweep { 0% { background-position:150% 0; } 100% { background-position:-150% 0; } }
+@keyframes sivMiniPulse { 0%,100% { opacity:.85; transform:scale(1); } 50% { opacity:1; transform:scale(1.08); } }
+@media (prefers-reduced-motion: reduce) {
+  .tpl-spinner, .ag-spinner, .ps-spin { animation: sivMiniPulse 2s ease-in-out infinite; }
+}
 
 @media(max-width:600px){
   .tpl-search-wrap input { width:120px; }
@@ -5593,11 +5605,14 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   gap:12px; height:200px; color:var(--muted); font-size:.84rem;
 }
 .ag-spinner {
-  width:26px; height:26px; border:3px solid var(--border);
-  border-top-color:var(--accent); border-radius:50%;
-  animation:ag-spin .7s linear infinite;
+  width:26px; height:26px;
+  -webkit-mask:url(/static/sivarrai.png) center / contain no-repeat;
+          mask:url(/static/sivarrai.png) center / contain no-repeat;
+  background:linear-gradient(115deg,
+    var(--teal) 0%, var(--teal) 35%, #eafff7 50%, var(--teal) 65%, var(--teal) 100%);
+  background-size:280% 100%; background-repeat:no-repeat;
+  animation:sivMiniSweep 1.2s linear infinite, sivMiniPulse 2s ease-in-out infinite;
 }
-@keyframes ag-spin { to { transform:rotate(360deg); } }
 
 /* ── Marketplace layout ──────────────────────────────────── */
 .ag-market-wrap { max-width:1060px; margin:0 auto; padding:24px 20px 60px; }
@@ -7132,8 +7147,16 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   display: flex; align-items: center; gap: 8px; justify-content: center;
   padding: 48px 20px; font-size: .84rem; color: var(--text4);
 }
-@keyframes ps-spin { to { transform: rotate(360deg); } }
-.ps-spin { display: inline-block; animation: ps-spin .8s linear infinite; }
+.ps-spin {
+  display: inline-block; width: 18px; height: 18px; vertical-align: -4px;
+  -webkit-mask: url(/static/sivarrai.png) center / contain no-repeat;
+          mask: url(/static/sivarrai.png) center / contain no-repeat;
+  background: linear-gradient(115deg,
+    var(--teal) 0%, var(--teal) 35%, #eafff7 50%, var(--teal) 65%, var(--teal) 100%);
+  background-size: 280% 100%; background-repeat: no-repeat;
+  animation: sivMiniSweep 1.2s linear infinite, sivMiniPulse 2s ease-in-out infinite;
+}
+.ps-spin::before { content: none !important; }  /* hide the old tabler glyph */
 
 /* Stat row */
 .ps-stat-row {
