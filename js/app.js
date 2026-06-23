@@ -4173,6 +4173,9 @@ function stInit() {
   const _fs = parseInt(localStorage.getItem('sivarr_font_scale')) || 100;
   const _fsr = $('st-fontscale'); if (_fsr) _fsr.value = _fs;
   const _fsl = $('st-fontscale-label'); if (_fsl) _fsl.textContent = _fs + '%';
+  const _diVal = (typeof briefDecorIntensity === 'function') ? briefDecorIntensity() : 50;
+  const _dir = $('st-decor-opacity'); if (_dir) _dir.value = _diVal;
+  const _dil = $('st-decor-label');   if (_dil) _dil.textContent = _decorLabel(_diVal);
 
   // Notification toggles
   ['ann','streak','quiz'].forEach(key => {
@@ -4671,6 +4674,18 @@ function stSetFontScale(v) {
   localStorage.setItem('sivarr_font_scale', v);
   const l = $('st-fontscale-label'); if (l) l.textContent = v + '%';
   const r = $('st-fontscale'); if (r && +r.value !== v) r.value = v;
+}
+
+function _decorLabel(v) {
+  v = +v;
+  return v === 0 ? 'Off' : v <= 30 ? 'Subtle' : v <= 60 ? 'Medium' : 'Bold';
+}
+function stSetDecorOpacity(v) {
+  v = Math.max(0, Math.min(100, parseInt(v) || 0));
+  localStorage.setItem('sivarr_decor_intensity', v);
+  const l = $('st-decor-label');   if (l) l.textContent = _decorLabel(v);
+  const r = $('st-decor-opacity'); if (r && +r.value !== v) r.value = v;
+  if (typeof renderBriefDecor === 'function') renderBriefDecor();
 }
 
 // ── Settings sub-nav: scroll-spy + jump ──
@@ -6112,23 +6127,36 @@ const BRIEF_ICONS = [
   { key: 'music',    icon: 'ti-music',         label: 'Music'    },
   { key: 'diamond',  icon: 'ti-diamond',       label: 'Diamond'  },
 ];
-// Scatter presets: [top%, left%, size px, rotate deg, opacity]
+// Scatter presets: [top%, left%, size px, rotate deg, base opacity]
 const _BRIEF_DECOR_POS = [
-  [10, 28, 18, -15, .12], [18, 52, 13, 18, .09], [7, 70, 22, 10, .13],
-  [33, 83, 16, -10, .10], [58, 90, 20, 24, .11], [76, 76, 14, -20, .09],
-  [84, 58, 18, 12, .11],  [68, 42, 13, -8, .08], [86, 28, 16, 18, .10],
-  [52, 14, 15, -22, .09], [28, 7, 19, 14, .11],  [78, 11, 13, 8, .08],
+  // upper band
+  [8, 6, 16, -12, .10], [14, 16, 13, 16, .08], [10, 27, 19, -8, .12], [20, 37, 14, 20, .09],
+  [7, 48, 16, -15, .10], [16, 58, 20, 10, .11], [9, 68, 14, -20, .08], [18, 77, 17, 12, .10],
+  [8, 88, 15, -10, .09], [15, 95, 13, 18, .08],
+  // lower band
+  [55, 4, 15, -22, .09], [78, 10, 13, 8, .08], [62, 19, 18, 14, .10], [85, 26, 16, -16, .09],
+  [58, 33, 13, 20, .07], [82, 42, 19, -8, .10], [66, 52, 14, 12, .08], [88, 60, 17, 22, .10],
+  [60, 70, 13, -18, .08], [84, 78, 18, 10, .10], [70, 88, 15, -12, .09], [86, 95, 13, 16, .08],
 ];
 function briefDecorKey() { return `sivarr_brief_icon_${S.sid}`; }
 function briefDecorCurrent() { return localStorage.getItem(briefDecorKey()) || 'sparkles'; }
 
+// Global appearance setting (0–100, default 50). 50 keeps the base opacity,
+// 100 doubles it (bolder), 0 hides the decoration entirely.
+function briefDecorIntensity() {
+  const v = parseInt(localStorage.getItem('sivarr_decor_intensity'));
+  return isNaN(v) ? 50 : Math.max(0, Math.min(100, v));
+}
+
 function renderBriefDecor() {
   const host = document.getElementById('siva-brief-decor');
   if (!host) return;
-  const def = BRIEF_ICONS.find(i => i.key === briefDecorCurrent()) || BRIEF_ICONS[0];
-  host.innerHTML = _BRIEF_DECOR_POS.map(([t, l, s, r, o]) =>
-    `<i class="ti ${def.icon}" style="top:${t}%;left:${l}%;font-size:${s}px;transform:rotate(${r}deg);opacity:${o}"></i>`
-  ).join('');
+  const def  = BRIEF_ICONS.find(i => i.key === briefDecorCurrent()) || BRIEF_ICONS[0];
+  const mult = briefDecorIntensity() / 50;
+  host.innerHTML = _BRIEF_DECOR_POS.map(([t, l, s, r, o]) => {
+    const op = Math.min(o * mult, 0.4).toFixed(3);
+    return `<i class="ti ${def.icon}" style="top:${t}%;left:${l}%;font-size:${s}px;transform:rotate(${r}deg);opacity:${op}"></i>`;
+  }).join('');
 }
 
 function briefDecorToggle(btn) {
@@ -6163,6 +6191,16 @@ function briefDecorPick(key) {
   try { localStorage.setItem(briefDecorKey(), key); } catch (_) {}
   renderBriefDecor();
   document.querySelector('.brief-decor-pop')?.remove();
+}
+
+// The header name-line is the single greeting (local time). Strip any leading
+// "Good morning/afternoon/evening[, Name]" the brief text may carry (often from
+// the server's timezone) so we never show two conflicting greetings.
+function _stripGreeting(s) {
+  if (!s) return s;
+  return s
+    .replace(/^\s*#*\s*good\s+(morning|afternoon|evening)\b[\s,!.…—-]*([A-Za-z][\w'’-]*[\s,!.]*)?/i, '')
+    .replace(/^[\s,.!…—–-]+/, '');
 }
 
 async function loadHome() {
@@ -6200,7 +6238,7 @@ async function loadHome() {
     const briefKey = `sivarr_brief_${S.sid}_${today8601}`;
     const cached   = localStorage.getItem(briefKey);
     if (cached) {
-      briefMsg.innerHTML = renderMarkdown(cached);
+      briefMsg.innerHTML = renderMarkdown(_stripGreeting(cached));
     } else {
       // Show structured data immediately from /api/home/briefing, then fetch AI brief in background
       const token = localStorage.getItem('sivarr_token') || '';
@@ -6209,10 +6247,12 @@ async function loadHome() {
         .then(r => r.ok ? r.json() : null)
         .then(d => {
           if (!d) return;
-          const parts = [`${d.greeting}, ${S.name.split(' ')[0]}.`];
+          // No greeting here — the header name-line already greets (local time).
+          const parts = [];
           if (d.tasks_due_today) parts.push(`${d.tasks_due_today} task${d.tasks_due_today > 1 ? 's' : ''} due today${d.overdue_tasks ? ` · ${d.overdue_tasks} overdue` : ''}.`);
           if (d.streak_days)     parts.push(`${d.streak_days}-day streak — keep it going.`);
           if (d.goals_at_risk)   parts.push(`${d.goals_at_risk} goal${d.goals_at_risk > 1 ? 's' : ''} at risk.`);
+          if (!parts.length)     parts.push("You're all set — nothing urgent today. 🎯");
           if (!briefMsg.querySelector('.brief-pulse')) return; // AI beat us, skip
           briefMsg.textContent = parts.join(' ');
           // Still fire the AI brief in background to replace with richer text
@@ -6480,7 +6520,7 @@ async function _fetchHomeBrief({ openTasks, activeGoals, habits, jnl, events, to
       high_priority_task:  highPri?.title || '',
     });
     if (r?.brief && briefMsg) {
-      briefMsg.innerHTML = renderMarkdown(r.brief);
+      briefMsg.innerHTML = renderMarkdown(_stripGreeting(r.brief));
       localStorage.setItem(briefKey, r.brief);
     }
   } catch(_) {
