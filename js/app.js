@@ -6095,6 +6095,75 @@ function gsDismiss() {
 }
 
 // ═════════════════════════════════════════════════════════════════
+//  GREETING HEADER — personalized decoration
+//  Users pick a motif; it's scattered faintly behind the greeting card.
+// ═════════════════════════════════════════════════════════════════
+const BRIEF_ICONS = [
+  { key: 'sparkles', icon: 'ti-sparkles',      label: 'Sparkles' },
+  { key: 'star',     icon: 'ti-star',          label: 'Stars'    },
+  { key: 'heart',    icon: 'ti-heart',         label: 'Hearts'   },
+  { key: 'skull',    icon: 'ti-skull',         label: 'Skull'    },
+  { key: 'dot',      icon: 'ti-point-filled',  label: 'Dots'     },
+  { key: 'moon',     icon: 'ti-moon-stars',    label: 'Moon'     },
+  { key: 'flame',    icon: 'ti-flame',         label: 'Flame'    },
+  { key: 'bolt',     icon: 'ti-bolt',          label: 'Bolt'     },
+  { key: 'flower',   icon: 'ti-flower',        label: 'Flower'   },
+  { key: 'leaf',     icon: 'ti-leaf',          label: 'Leaf'     },
+  { key: 'music',    icon: 'ti-music',         label: 'Music'    },
+  { key: 'diamond',  icon: 'ti-diamond',       label: 'Diamond'  },
+];
+// Scatter presets: [top%, left%, size px, rotate deg, opacity]
+const _BRIEF_DECOR_POS = [
+  [10, 28, 18, -15, .12], [18, 52, 13, 18, .09], [7, 70, 22, 10, .13],
+  [33, 83, 16, -10, .10], [58, 90, 20, 24, .11], [76, 76, 14, -20, .09],
+  [84, 58, 18, 12, .11],  [68, 42, 13, -8, .08], [86, 28, 16, 18, .10],
+  [52, 14, 15, -22, .09], [28, 7, 19, 14, .11],  [78, 11, 13, 8, .08],
+];
+function briefDecorKey() { return `sivarr_brief_icon_${S.sid}`; }
+function briefDecorCurrent() { return localStorage.getItem(briefDecorKey()) || 'sparkles'; }
+
+function renderBriefDecor() {
+  const host = document.getElementById('siva-brief-decor');
+  if (!host) return;
+  const def = BRIEF_ICONS.find(i => i.key === briefDecorCurrent()) || BRIEF_ICONS[0];
+  host.innerHTML = _BRIEF_DECOR_POS.map(([t, l, s, r, o]) =>
+    `<i class="ti ${def.icon}" style="top:${t}%;left:${l}%;font-size:${s}px;transform:rotate(${r}deg);opacity:${o}"></i>`
+  ).join('');
+}
+
+function briefDecorToggle(btn) {
+  const existing = document.querySelector('.brief-decor-pop');
+  if (existing) { existing.remove(); return; }
+  const cur = briefDecorCurrent();
+  const pop = document.createElement('div');
+  pop.className = 'brief-decor-pop';
+  pop.innerHTML = `
+    <div class="bdp-title">Decorate your header</div>
+    <div class="bdp-grid">
+      ${BRIEF_ICONS.map(i =>
+        `<button class="bdp-opt ${i.key === cur ? 'sel' : ''}" title="${i.label}"
+                 onclick="briefDecorPick('${i.key}')"><i class="ti ${i.icon}"></i></button>`
+      ).join('')}
+    </div>`;
+  document.body.appendChild(pop);
+  const r = btn.getBoundingClientRect();
+  pop.style.top = (r.bottom + 6) + 'px';
+  let left = r.right - pop.offsetWidth;
+  if (left < 8) left = 8;
+  pop.style.left = left + 'px';
+  const close = (e) => {
+    if (!pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      pop.remove(); document.removeEventListener('click', close);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', close), 0);
+}
+
+function briefDecorPick(key) {
+  try { localStorage.setItem(briefDecorKey(), key); } catch (_) {}
+  renderBriefDecor();
+  document.querySelector('.brief-decor-pop')?.remove();
+}
 
 async function loadHome() {
   if (!S.sid) return;
@@ -6111,6 +6180,7 @@ async function loadHome() {
   if (greet) greet.textContent = `${tod}, ${firstName} 👋`;
   const sub = $('home-sub');
   if (sub) sub.textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+  renderBriefDecor();
 
   // Pull all live data
   const tasks   = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]');

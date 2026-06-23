@@ -1933,6 +1933,8 @@ Sentry.onLoad(function() {
 
           <!-- Sivarr AI Briefing card -->
           <div class="siva-brief">
+            <!-- Personalized decoration layer (scattered icons) -->
+            <div class="siva-brief-decor" id="siva-brief-decor" aria-hidden="true"></div>
             <div class="siva-brief-top">
               <div class="siva-brief-av">
                 <img src="/static/sivarrai.png" alt="Sivarr AI">
@@ -1942,8 +1944,10 @@ Sentry.onLoad(function() {
                 <div style="font-size:.68rem;opacity:.7" id="home-sub">Here's your day at a glance</div>
               </div>
               <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
-                <button onclick="refreshHomeBrief()" title="Refresh brief"
-                  style="background:none;border:none;color:var(--teal);cursor:pointer;font-size:.85rem;padding:4px;line-height:1;opacity:.8">
+                <button onclick="briefDecorToggle(this)" title="Personalize header" class="siva-brief-action">
+                  <i class="ti ti-palette"></i>
+                </button>
+                <button onclick="refreshHomeBrief()" title="Refresh brief" class="siva-brief-action">
                   <i class="ti ti-refresh"></i>
                 </button>
                 <span class="siva-brief-badge">Sivarr AI</span>

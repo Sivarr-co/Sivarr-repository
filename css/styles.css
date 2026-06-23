@@ -2731,50 +2731,81 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .gs-header { flex-direction:column; }
 }
 
+/* Greeting header — theme-synced card surface (was a fixed bright gradient).
+   Blends with the dashboard and adapts to light/dark. */
 .siva-brief {
-  background: linear-gradient(135deg, var(--teal) 0%, #1a5c8c 50%, var(--purple) 100%);
+  background: var(--card, var(--bg2));
+  border: 1px solid var(--border);
   border-radius: var(--radius3); padding: 20px 22px; margin-bottom: 18px;
-  color: #fff; position: relative; overflow: hidden;
-  box-shadow: 0 8px 32px rgba(13,122,95,.25), 0 2px 8px rgba(83,74,183,.2);
+  color: var(--text1); position: relative; overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
 }
 [data-theme="dark"] .siva-brief {
-  background: linear-gradient(135deg, #065242 0%, #0a1a30 50%, #1e1858 100%);
-  border: 1px solid rgba(15,219,173,.15);
-  box-shadow: 0 0 40px rgba(15,219,173,.12), 0 8px 32px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
+  background: var(--card, var(--bg2));
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 14px rgba(0,0,0,.28);
 }
+/* Subtle brand tint so it still feels special, in both themes */
 .siva-brief::before {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(ellipse at 85% 15%, rgba(255,255,255,.14) 0%, transparent 60%);
-  pointer-events: none;
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 100% 0%, rgba(13,122,95,.10) 0%, transparent 55%);
 }
-.siva-brief::after {
-  content: ''; position: absolute; bottom: -20px; right: -20px;
-  width: 120px; height: 120px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,255,255,.06) 0%, transparent 70%);
-  pointer-events: none;
-}
-.siva-brief-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; position: relative; }
+.siva-brief::after { content: none; }
+
+/* Personalized decoration — scattered icons behind the content */
+.siva-brief-decor { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.siva-brief-decor i { position: absolute; color: var(--teal); line-height: 1; }
+
+.siva-brief-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; position: relative; z-index: 1; }
 .siva-brief-av {
   width: 38px; height: 38px; border-radius: 50%;
-  background: rgba(255,255,255,.18); backdrop-filter: blur(4px);
+  background: var(--teal2);
   display: flex; align-items: center; justify-content: center;
   font-size: 17px; flex-shrink: 0; overflow: hidden;
-  border: 1px solid rgba(255,255,255,.25);
+  border: 1px solid var(--border);
 }
 .siva-brief-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .siva-brief-name {
   font-family: var(--font-display); font-size: .92rem; font-weight: 700;
-  opacity: .95; letter-spacing: -.02em;
+  color: var(--text1); letter-spacing: -.02em;
 }
+.siva-brief-action {
+  background: none; border: none; cursor: pointer; color: var(--text4);
+  font-size: .9rem; padding: 4px; line-height: 1; border-radius: 6px;
+  transition: color .12s, background .12s;
+}
+.siva-brief-action:hover { color: var(--teal); background: var(--bg3); }
 .siva-brief-badge {
-  margin-left: auto; background: rgba(255,255,255,.18); backdrop-filter: blur(4px);
-  border: 1px solid rgba(255,255,255,.2);
+  margin-left: auto; background: var(--bg3);
+  border: 1px solid var(--border);
   border-radius: 20px; padding: 3px 11px; font-size: 11px; font-weight: 700;
-  letter-spacing: .04em; text-transform: uppercase;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--teal);
 }
 .siva-brief-msg {
-  font-size: 1.05rem; line-height: 1.6; position: relative; opacity: .95; font-weight: 400;
+  font-size: 1.05rem; line-height: 1.6; position: relative; z-index: 1;
+  color: var(--text2); font-weight: 400;
 }
+
+/* Header personalization picker popover */
+.brief-decor-pop {
+  position: fixed; z-index: 9999; width: 232px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow3); padding: 12px;
+  animation: ctxMenuIn .12s ease;
+}
+.bdp-title {
+  font-size: .72rem; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px;
+}
+.bdp-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.bdp-opt {
+  aspect-ratio: 1; border: 1px solid var(--border); background: var(--bg3);
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--text2); font-size: 16px;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.bdp-opt:hover { border-color: var(--teal); color: var(--teal); }
+.bdp-opt.sel { border-color: var(--teal); background: var(--teal2); color: var(--teal); }
 .brief-pulse {
   display:inline-block;
   color:var(--text4);
