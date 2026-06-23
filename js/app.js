@@ -615,6 +615,74 @@ function logout() {
   location.reload();
 }
 
+// ── Cross-device hydration ──────────────────────────────────────────────────
+//   Pull this account's server-stored data into localStorage so a second device
+//   shows what was changed elsewhere. Server = source of truth, BUT an empty
+//   server response never wipes local data (guards a fresh device from blanking
+//   a populated one). Runs on every login / session restore.
+async function _hydrateFromServer() {
+  const token = localStorage.getItem('sivarr_token');
+  if (!token || !S.sid) return;
+  const enc  = encodeURIComponent(token);
+  const pull = (url) => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
+
+  const [tk, hb, jn, sk, fn, dc] = await Promise.all([
+    pull(`/api/tasks/restore?token=${enc}`),
+    pull(`/api/habits/restore?token=${enc}`),
+    pull(`/api/journal/restore?token=${enc}`),
+    pull(`/api/skills/restore?token=${enc}`),
+    pull(`/api/finance/restore?token=${enc}`),
+    pull(`/api/docs/restore?token=${enc}`),
+  ]);
+  let changed = false;
+
+  if (tk && Array.isArray(tk.tasks) && tk.tasks.length) {
+    let sh; try { sh = JSON.parse(localStorage.getItem(SH_KEY()) || '{"tasks":[]}'); } catch (_) { sh = { tasks: [] }; }
+    sh.tasks = tk.tasks;
+    localStorage.setItem(SH_KEY(), JSON.stringify(sh));
+    localStorage.setItem(`sivarr_tasks_${S.sid}`, JSON.stringify(tk.tasks));
+    changed = true;
+  }
+  if (hb && Array.isArray(hb.habits) && hb.habits.length) {
+    localStorage.setItem(HAB_KEY(), JSON.stringify(hb.habits)); changed = true;
+  }
+  if (jn && Array.isArray(jn.entries) && jn.entries.length) {
+    localStorage.setItem(JNL_KEY(), JSON.stringify(jn.entries)); changed = true;
+  }
+  if (sk && Array.isArray(sk.skills) && sk.skills.length) {
+    localStorage.setItem(SK_KEY(), JSON.stringify(sk.skills)); changed = true;
+  }
+  if (fn && fn.data && ((fn.data.transactions || []).length || Object.keys(fn.data.budgets || {}).length)) {
+    localStorage.setItem(FIN_KEY(), JSON.stringify(fn.data)); changed = true;
+  }
+  // Docs are stored text-only server-side, so only hydrate when THIS device has
+  // none (a fresh device) — never clobber richer local content.
+  if (dc && Array.isArray(dc.docs) && dc.docs.length) {
+    let local; try { local = JSON.parse(localStorage.getItem(`sivarr_docs_${S.sid}`) || '[]'); } catch (_) { local = []; }
+    if (!local.length) { localStorage.setItem(`sivarr_docs_${S.sid}`, JSON.stringify(dc.docs)); changed = true; }
+  }
+
+  if (changed) {
+    try { if (typeof loadHome      === 'function') loadHome(); }      catch (_) {}
+    try { if (typeof sbRenderStats === 'function') sbRenderStats(); } catch (_) {}
+    try { if (typeof updateSBStats === 'function') updateSBStats(); } catch (_) {}
+    try { _rehydrateActivePanel(); } catch (_) {}
+  }
+}
+
+// Re-init whichever data panel is currently open so it reflects fresh data.
+function _rehydrateActivePanel() {
+  const active = document.querySelector('.panel.active');
+  const id = active && active.id;
+  if (!id) return;
+  if      (id === 'panel-habits'  && typeof habitInit     === 'function') habitInit();
+  else if (id === 'panel-journal' && typeof journalInit   === 'function') journalInit();
+  else if (id === 'panel-skills'  && typeof skillsInit    === 'function') skillsInit();
+  else if (id === 'panel-finance' && typeof finInit       === 'function') finInit();
+  else if (id === 'panel-flux'    && typeof loadStudyHelp === 'function') loadStudyHelp();
+  else if (id === 'panel-goals'   && typeof glLoad        === 'function') glLoad();
+}
+
 function _applyLoginData(r) {
   // ── Essential: set core session state and REVEAL THE DASHBOARD first.
   //    This block must never be blocked by a cosmetic/enhancement failure
@@ -674,6 +742,10 @@ function _applyLoginData(r) {
       try { history.replaceState({ sivStack: [] }, ''); } catch (_) {}
       _mobHomeVisual();
     }
+
+    // Cross-device sync: pull this account's latest data from the server and
+    // refresh the UI once it lands (non-blocking — local renders instantly).
+    _hydrateFromServer();
 
     const greet = $('welcome-greeting');
     if (greet) {

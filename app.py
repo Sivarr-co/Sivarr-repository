@@ -6920,6 +6920,39 @@ async def restore_finance(token: str = ""):
     return {"ok": True, "data": blob or {"transactions": [], "budgets": {}}}
 
 
+# ── Cross-device pull: return the server-stored copy so a second device
+#    can hydrate its localStorage on boot (server = source of truth). ──────────
+@app.get("/api/habits/restore")
+async def restore_habits(token: str = ""):
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    return {"habits": load_habits(sess["sid"])}
+
+@app.get("/api/journal/restore")
+async def restore_journal(token: str = ""):
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    return {"entries": load_journal(sess["sid"])}
+
+@app.get("/api/docs/restore")
+async def restore_docs(token: str = ""):
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    return {"docs": load_docs(sess["sid"])}
+
+@app.get("/api/skills/restore")
+async def restore_skills(token: str = ""):
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid  = sess["sid"]
+    blob = db.get_user_blob(sid, "skills") if db.is_available() else {}
+    return {"skills": (blob or {}).get("skills", [])}
+
+
 #  UNIFIED SEARCH  — GET /api/search?q=&token=
 # ═══════════════════════════════════════════════════════════════
 
@@ -8172,6 +8205,16 @@ async def user_update_profile(data: dict):
         raise HTTPException(400, "Name must be at least 2 characters.")
     if db.is_available():
         db.update_user_profile(sid, name, phone)
+    # Persist into the progress store too — session/restore reads the name from
+    # there, so this is what makes the change show up on the user's OTHER devices.
+    try:
+        p = load_progress(sid)
+        p["name"] = name
+        if phone:
+            p["phone"] = phone
+        save_progress(sid, p)
+    except Exception as _e:
+        log.warning(f"profile->progress sync skipped for {sid}: {_e}")
     # Also update the in-memory session so name is reflected immediately
     token = sanitize_text(str(data.get("token", "")), 100)
     entry = _session_tokens.get(token)
