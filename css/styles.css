@@ -2218,6 +2218,15 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 }
 .modal-close:hover { background:var(--bg3); color:var(--text1); }
 
+/* Generic overlay wrapper (feedback modal). Visibility toggled inline
+   via JS (display flex/none); this provides the fixed centered backdrop. */
+.modal-overlay {
+  position:fixed; inset:0; z-index:1200;
+  background:rgba(0,0,0,.5);
+  align-items:center; justify-content:center; padding:1rem;
+  -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+}
+
 /* ── TOAST ─────────────────────────────────────────────────── */
 .toast {
   display: none;
@@ -6502,6 +6511,28 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 
   /* Comfortable tap targets for modal actions */
   .si-modal-btn { min-height: 44px; }
+
+  /* Feedback modal → slide-up bottom sheet (matches si-/mkt- sheets) */
+  .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+  .modal-overlay .modal-box {
+    max-width: none !important; width: 100% !important; max-height: 92vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0)) !important;
+    animation: mob-sheet-up .26s cubic-bezier(.22,1,.36,1) !important;
+  }
+  .modal-overlay .modal-box::before {
+    content: ''; display: block; width: 40px; height: 4px; border-radius: 2px;
+    background: var(--border2, var(--border)); margin: -4px auto 14px;
+  }
+
+  /* Launcher Space rows: surface the ⋮ options (hover-only on desktop is
+     unreachable on touch) and drop the redundant drill chevron there */
+  .sidebar .si.sp-si::after { content: none; }
+  .sidebar .sb-space-more {
+    opacity: 1; margin-left: auto;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+  }
 }
 
 /* ── Me mobile panel ── */
