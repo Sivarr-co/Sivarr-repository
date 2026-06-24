@@ -6582,6 +6582,14 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .tb-ham               { display: none !important; }
   .main { padding-bottom: env(safe-area-inset-bottom, 0) !important; }
 
+  /* The global .topbar is the canonical mobile header (brand + quick-add,
+     fullscreen, theme, notifications, profile). The launcher's own workspace
+     header duplicated it — two stacked "Sivarr" bars + a desktop-only
+     "Collapse sidebar" rail button — most visible in true fullscreen where
+     the browser chrome is gone. Drop it; the launcher's .sb-mob-search field
+     below already covers search on mobile. */
+  .sidebar .sb-header { display: none !important; }
+
   /* — Sidebar = full-screen launcher (home), ignoring any desktop
        retracted / collapsed state that may be in localStorage — */
   .sidebar,
