@@ -2825,8 +2825,12 @@ async def session_restore(data: dict, response: Response):
 
 @app.post("/api/logout")
 async def logout(data: dict, response: Response):
-    """Invalidate a session token."""
+    """Invalidate a session token. Falls back to the httpOnly cookie token so a
+    post-reload logout (no body token, in-memory token gone) still revokes the
+    server-side session, not just clears the cookie."""
     token = sanitize_text(str(data.get("token", "")), 100)
+    if not token:
+        token = sanitize_text(_req_token.get(""), 100)
     if token:
         delete_session_token(token)
     _clear_session_cookie(response)
