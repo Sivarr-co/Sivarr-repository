@@ -1831,6 +1831,13 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/css",    StaticFiles(directory="css"),    name="css")
 app.mount("/js",     StaticFiles(directory="js"),     name="js")
 
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Browsers and crawlers request /favicon.ico by default — point it at the
+    Sivarr mark so the tab/search-result icon is the logo everywhere."""
+    return RedirectResponse(url="/static/favicon.svg", status_code=302)
+
 _cors_origins = list({o.strip() for o in [
     BASE_URL.rstrip('/'),
     "https://sivarr.up.railway.app",
