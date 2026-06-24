@@ -652,6 +652,12 @@ SESSION_REVALIDATE_SECONDS = 30    # how often a cached session is re-checked ag
 # disabled in local dev (http) so the cookie still works there.
 SESSION_COOKIE    = "sivarr_session"
 _COOKIE_SECURE    = os.environ.get("RAILWAY_ENVIRONMENT", "production") != "development"
+# P3b: the token resolved per-request by _BearerTokenMiddleware (query > Bearer >
+# cookie), stashed here so body-token endpoints (_resolve_token / session_restore)
+# can authenticate from the httpOnly cookie when no token is in the JSON body —
+# the step that lets the frontend stop putting the token in localStorage.
+from contextvars import ContextVar as _ContextVar
+_req_token: "_ContextVar[str]" = _ContextVar("sivarr_req_token", default="")
 CHAT_SESSION_TTL  = 4 * 3600      # evict idle AI sessions after 4 hours
 _PRIV_SESSION_TTL_S = 7200  # 2 hours in seconds
 
@@ -1896,26 +1902,61 @@ app.add_middleware(_SecurityHeadersMiddleware)
 # The query param still works as a fallback during migration. SSE/EventSource keeps
 # using a query param for now (moves to cookie auth in the P3(b) sprint).
 import urllib.parse as _urlparse
-class _BearerTokenMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        auth = request.headers.get("authorization", "")
-        tok = auth[7:].strip() if auth[:7].lower() == "bearer " else ""
-        # P3b: fall back to the httpOnly session cookie. Lets SSE/EventSource
-        # (which can't set an Authorization header) and cookie-only clients
-        # authenticate without ?token= in the URL. Precedence: explicit ?token=
-        # query > Bearer header > cookie.
+from http.cookies import SimpleCookie as _SimpleCookie
+class _BearerTokenMiddleware:
+    """Pure-ASGI token resolver. Precedence: explicit ?token= query > Authorization
+    Bearer header > httpOnly session cookie. The resolved token is (1) stashed in
+    the `_req_token` ContextVar so body-token endpoints can authenticate from the
+    cookie, and (2) injected into the query string so query-param endpoints and
+    SSE/EventSource work without ?token= in the URL.
+
+    Pure-ASGI (not BaseHTTPMiddleware) is deliberate: it sets the ContextVar in the
+    request's own task before calling downstream, so the value propagates to the
+    endpoint (BaseHTTPMiddleware does not reliably propagate ContextVars set in
+    dispatch). Fully additive — the body token and ?token= query still work."""
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        qs = scope.get("query_string", b"")
+        # Existing ?token= in the query takes precedence (and means no injection).
+        q_token, has_token = "", False
+        try:
+            parsed = _urlparse.parse_qs(qs.decode("latin-1"))
+            if "token" in parsed:
+                has_token = True
+                q_token = parsed["token"][0] if parsed["token"] else ""
+        except Exception:
+            has_token = b"token=" in qs
+        tok = q_token
         if not tok:
-            tok = request.cookies.get(SESSION_COOKIE, "")
-        if tok:
-            qs = request.scope.get("query_string", b"")
-            try:
-                has_token = "token" in _urlparse.parse_qs(qs.decode("latin-1"))
-            except Exception:
-                has_token = b"token=" in qs
-            if not has_token:
+            for k, v in scope.get("headers", []):
+                if k == b"authorization":
+                    av = v.decode("latin-1")
+                    if av[:7].lower() == "bearer ":
+                        tok = av[7:].strip()
+                    break
+        if not tok:
+            for k, v in scope.get("headers", []):
+                if k == b"cookie":
+                    try:
+                        c = _SimpleCookie(); c.load(v.decode("latin-1"))
+                        if SESSION_COOKIE in c:
+                            tok = c[SESSION_COOKIE].value
+                    except Exception:
+                        pass
+                    break
+        reset = _req_token.set(tok or "")
+        try:
+            if tok and not has_token:
                 add = b"token=" + _urlparse.quote(tok, safe="").encode()
-                request.scope["query_string"] = (qs + b"&" + add) if qs else add
-        return await call_next(request)
+                scope["query_string"] = (qs + b"&" + add) if qs else add
+            await self.app(scope, receive, send)
+        finally:
+            _req_token.reset(reset)
 
 app.add_middleware(_BearerTokenMiddleware)
 
@@ -2712,9 +2753,12 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks, respon
 async def session_restore(data: dict, response: Response):
     """
     Restore a session from a saved token — no password re-entry needed.
-    Called on page reload when the client has a stored token.
+    Called on page reload when the client has a stored token (or, P3b, from the
+    httpOnly cookie when no body token is sent).
     """
     token = sanitize_text(str(data.get("token", "")), 100)
+    if not token:
+        token = sanitize_text(_req_token.get(""), 100)
     if not token:
         raise HTTPException(401, "Token required.")
 
@@ -2962,8 +3006,14 @@ async def health():
 # ── Spaces API ────────────────────────────────────────────────────
 
 def _resolve_token(data: dict) -> tuple[str, str]:
-    """Return (sid, name) from a token or raise 401."""
+    """Return (sid, name) from a token or raise 401.
+
+    Token source: the JSON body `token` first (current clients), then the
+    per-request `_req_token` ContextVar (P3b: httpOnly cookie / Bearer header),
+    so the backend authenticates cookie-only requests too — additive."""
     token = sanitize_text(str(data.get("token", "")), 100)
+    if not token:
+        token = sanitize_text(_req_token.get(""), 100)
     if not token:
         raise HTTPException(401, "Token required.")
     entry = get_session_from_token(token)
