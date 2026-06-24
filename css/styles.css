@@ -359,6 +359,19 @@ body.offline .layout {
                       so panels size correctly and the inner scroll works */
 }
 
+/* Touch devices viewing the desktop layout (e.g. a phone at width=1024):
+   the forced-wide viewport makes 100dvh a huge pixel height, leaving dead
+   space below the dashboard. Let the page flow to its content height and
+   scroll naturally instead of using a fixed-viewport height + inner scroll. */
+@media (hover: none) and (pointer: coarse) {
+  html, body { height: auto; }
+  body.dashboard-active { overflow: auto; -webkit-overflow-scrolling: touch; }
+  .layout { height: auto; }
+  .main { overflow: visible; }
+  .panel.active { overflow: visible; }
+  .home-wrap, .content { overflow: visible; height: auto; }
+}
+
 /* ── SIDEBAR ───────────────────────────────────────────────── */
 .sidebar {
   width: var(--sb-width); flex-shrink: 0;
