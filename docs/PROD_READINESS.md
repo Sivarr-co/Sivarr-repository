@@ -83,6 +83,11 @@ Var names are exact (`app.py` / `config.py` / `database.py` / `rcache.py`).
 ---
 
 ## Gate 3 — Functional verification (on live prod)
+- [ ] **Security smoke test green** — `python scripts/security_smoke.py --base https://sivarr.com`
+      (stdlib-only, no install). Re-validates CSP/security headers, cookie auth +
+      reload-survival, logout revocation, session TTL. Safe read-only by default;
+      add `--email/--password` (a throwaway account) for the auth checks, `--rate-limit`
+      and `--admin-pass` for the heavier probes. Run it before every deploy.
 - [ ] **Auth smoke test A–H green** — [`AUTH_SMOKE_TEST.md`](AUTH_SMOKE_TEST.md).
       This is the original sign-in/sign-up/Google lockout loop. **Highest
       priority** — the audit fixes were only verified in-process.
