@@ -1627,9 +1627,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   const btn = $('login-btn');
   if (btn) { btn.textContent = 'Resuming session...'; btn.disabled = true; }
 
-  // Token restore — no password required
-  if (saved.token) {
-    const ok = await restoreSession(saved.token);
+  // Token restore — no password required. With cookie-auth the in-memory token is
+  // empty after a reload, so ALWAYS attempt restore: /api/session/restore
+  // authenticates from the httpOnly cookie when no token is sent. restoreSession
+  // returns false (→ login form) if there's no valid session cookie.
+  {
+    const ok = await restoreSession(saved.token || '');
     if (ok) {
       _postLoginIntegrations();
       return;

@@ -1887,7 +1887,7 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "img-src 'self' data: blob:; "
         "media-src 'self' blob:; "
         "object-src 'none'; "
-        "connect-src 'self' https://plausible.io https://o*.ingest.sentry.io "
+        "connect-src 'self' https://plausible.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io "
         "  https://api.paystack.co https://api.flutterwave.com https://api.withmono.com "
         "  https://accounts.google.com https://api.github.com; "
         "frame-src 'self' https://js.paystack.co https://checkout.flutterwave.com; "
