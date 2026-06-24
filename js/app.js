@@ -56,7 +56,12 @@ function track(event, props = {}) {
   if (window.plausible) window.plausible(event, { props });
 }
 
-const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// Escapes & < > AND quotes so values are safe in BOTH text and attribute
+// contexts (e.g. value="${esc(userTitle)}"). A bare " or ' previously allowed
+// attribute breakout → XSS. Matches the stricter acEsc/mktEsc variants.
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const escHtml = esc;
 const $ = id => document.getElementById(id);
 
@@ -19007,7 +19012,7 @@ function mktRenderReviews(itemId) {
   mktLoadReviews(itemId);
 }
 function _mktReviewsListHTML(reviews) {
-  return reviews.length ? reviews.map(r => `<div class="mkt-review-item"><div class="mkt-review-header"><div class="mkt-review-avatar">${mktEsc((r.author||'U')[0].toUpperCase())}</div><div><div class="mkt-review-author">${mktEsc(r.author)}</div><div class="mkt-review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div></div><div class="mkt-review-date">${mktEsc(r.date)}</div></div><div class="mkt-review-body">${mktEsc(r.body)}</div></div>`).join('') : `<div class="mkt-empty-state" style="padding:20px 0"><div>No reviews yet. Be the first!</div></div>`;
+  return reviews.length ? reviews.map(r => { const rt = Math.max(0, Math.min(5, Math.round(Number(r.rating) || 0))); return `<div class="mkt-review-item"><div class="mkt-review-header"><div class="mkt-review-avatar">${mktEsc((r.author||'U')[0].toUpperCase())}</div><div><div class="mkt-review-author">${mktEsc(r.author)}</div><div class="mkt-review-stars">${'★'.repeat(rt)}${'☆'.repeat(5-rt)}</div></div><div class="mkt-review-date">${mktEsc(r.date)}</div></div><div class="mkt-review-body">${mktEsc(r.body)}</div></div>`; }).join('') : `<div class="mkt-empty-state" style="padding:20px 0"><div>No reviews yet. Be the first!</div></div>`;
 }
 async function mktLoadReviews(itemId) {
   try {
