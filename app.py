@@ -643,7 +643,10 @@ def _clear_failed_login(email: str) -> None:
     rcache.clear(f"faillock:{email}")       # no-op when Redis unavailable
     _failed_logins.pop(email, None)
 
-SESSION_TTL_DAYS  = 30             # auth token lifetime
+# Auth token lifetime. Env-configurable so the exposure window of a stolen token
+# can be tightened without a code change. 30d is convenient but long for a money
+# app — consider 7 (or lower) once session-restore UX is solid. Clamped to 1..90.
+SESSION_TTL_DAYS  = max(1, min(int(os.environ.get("SESSION_TTL_DAYS", "30")), 90))
 SESSION_REVALIDATE_SECONDS = 30    # how often a cached session is re-checked against the DB
                                    # (bounds how long a revoked session lingers per worker)
 # P3b: httpOnly session cookie. Set on every token-issuing path and read by
