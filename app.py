@@ -3495,7 +3495,7 @@ async def acad_exam_create(data: dict):
     title = sanitize_text(str(data.get("title", "")), 200)
     if not title:
         raise HTTPException(400, "Exam title is required.")
-    questions = [sanitize_text(str(q), 500) for q in data.get("questions", [])[:100] if str(q).strip()]
+    questions = [_parse_exam_q(str(q)) for q in data.get("questions", [])[:100] if str(q).strip()]
     if not questions:
         raise HTTPException(400, "Add at least one question to the bank.")
     exam = {
@@ -3563,8 +3563,40 @@ async def acad_exam_assign(data: dict, bg: BackgroundTasks):
 #  id="{code}:{exam_id}:{sid}") = one student's answers. Each student gets a
 #  deterministic random subset of the bank (questions_per_student).
 
+def _parse_exam_q(raw: str):
+    """One bank line. Pipe syntax 'Question? | optA | *optB | optC' → an MCQ
+    question (the *-prefixed option is the correct one); any line without a pipe
+    stays a plain free-text question string (backward-compatible)."""
+    raw = str(raw).strip()
+    if "|" in raw:
+        parts = [p.strip() for p in raw.split("|")]
+        q = sanitize_text(parts[0], 500)
+        opts, correct = [], 0
+        for o in parts[1:]:
+            o = o.strip()
+            if not o:
+                continue
+            if o.startswith("*"):
+                correct = len(opts)
+                o = o[1:].strip()
+            if o:
+                opts.append(sanitize_text(o, 200))
+        opts = opts[:8]
+        if q and len(opts) >= 2:
+            return {"q": q, "type": "mcq", "options": opts, "correct": min(correct, len(opts) - 1)}
+    return sanitize_text(raw, 500)
+
+
+def _exam_q_public(q):
+    """Student-facing shape of a bank question — never includes the MCQ answer."""
+    if isinstance(q, dict):
+        return {"q": q.get("q", ""), "type": "mcq", "options": q.get("options", []) or []}
+    return {"q": str(q), "type": "text"}
+
+
 def _exam_questions_for(exam: dict, sid: str) -> list:
-    """Deterministic per-student subset of the exam's question bank (stable on reload)."""
+    """Deterministic per-student subset of the exam's question bank (stable on reload).
+    MCQ questions are returned without their correct answer."""
     qs = exam.get("questions", []) or []
     if not qs:
         return []
@@ -3572,7 +3604,7 @@ def _exam_questions_for(exam: dict, sid: str) -> list:
     seed = int(hashlib.sha256(f"{exam.get('id','')}:{sid}".encode()).hexdigest(), 16) % (2**32)
     idxs = list(range(len(qs)))
     random.Random(seed).shuffle(idxs)
-    return [{"i": i, "q": qs[i]} for i in sorted(idxs[:n])]
+    return [{"i": i, **_exam_q_public(qs[i])} for i in sorted(idxs[:n])]
 
 
 @app.post("/api/acad/exam/assigned")
@@ -3590,7 +3622,8 @@ async def acad_exam_assigned(data: dict):
         res = db.coll_get("acad_exam_results", f"{code}:{it.get('exam_id','')}:{sid}")
         out.append({**it, "submitted": bool(res),
                     "graded": bool(res and res.get("graded")),
-                    "grade": (res or {}).get("grade", "")})
+                    "grade": (res or {}).get("grade", ""),
+                    "auto_pct": (res or {}).get("auto", {}).get("auto_pct")})
     return {"ok": True, "exams": out}
 
 
@@ -3632,12 +3665,29 @@ async def acad_exam_submit(data: dict):
     clean = [{"i": int(a.get("i", 0)),
               "q": sanitize_text(str(a.get("q", "")), 500),
               "a": sanitize_text(str(a.get("a", "")), 3000)} for a in answers[:100]]
+    # Auto-grade MCQ answers against the bank (free-text is left for manual grading).
+    bank = (db.coll_get("acad_exams", exam_id) or {}).get("questions", []) or []
+    mcq_total = mcq_correct = 0
+    for ans in clean:
+        i = ans["i"]
+        q = bank[i] if 0 <= i < len(bank) else None
+        if isinstance(q, dict) and q.get("type") == "mcq":
+            mcq_total += 1
+            opts = q.get("options", []) or []
+            cidx = q.get("correct", -1)
+            correct_text = opts[cidx] if isinstance(cidx, int) and 0 <= cidx < len(opts) else None
+            ans["correct"] = (correct_text is not None and ans["a"] == correct_text)
+            if ans["correct"]:
+                mcq_correct += 1
+    auto = {"mcq_total": mcq_total, "mcq_correct": mcq_correct,
+            "auto_pct": round(100 * mcq_correct / mcq_total) if mcq_total else None}
     db.coll_put("acad_exam_results", f"{code}:{exam_id}:{sid}",
                 {"exam_id": exam_id, "code": code, "sid": sid, "name": name, "answers": clean,
+                 "auto": auto,
                  "submitted_at": datetime.datetime.utcnow().isoformat(),
                  "graded": False, "grade": "", "feedback": ""},
                 owner=f"{code}:{exam_id}")
-    return {"ok": True}
+    return {"ok": True, "auto": auto}
 
 
 @app.post("/api/acad/exam/results")

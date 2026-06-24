@@ -17779,7 +17779,7 @@ async function lCreateExam() {
     { id: 'title', label: 'Exam title', placeholder: 'e.g. Mid-Semester Biology', required: true },
     { id: 'duration', label: 'Duration (minutes)', type: 'number', placeholder: '60', default: '60' },
     { id: 'qps', label: 'Questions per student', type: 'number', placeholder: '30', default: '30' },
-    { id: 'bank', label: 'Question bank — one question per line', type: 'textarea', placeholder: 'Explain photosynthesis.\nDefine osmosis.\nState Newton’s first law.' },
+    { id: 'bank', label: 'Question bank — one per line. For multiple-choice: "Question? | option | *correct | option" (mark the right answer with *)', type: 'textarea', placeholder: 'Explain photosynthesis.\nWhat is 2 + 2? | 3 | *4 | 5\nDefine osmosis.' },
   ], { confirmLabel: 'Create exam' });
   if (!f || !f.title) return;
   const questions = (f.bank || '').split('\n').map(s => s.trim()).filter(Boolean);
@@ -17819,8 +17819,8 @@ async function lExamResults(examId) {
   sExamCloseTaker();
   const rowsHtml = results.length ? results.map(s => `
     <div class="sx-q">
-      <div class="sx-qn">${acEsc(s.name || 'Student')} ${s.graded ? '· <strong>' + acEsc(s.grade) + '</strong>' : ''}</div>
-      <div class="sx-answers">${(s.answers || []).map(a => `<div class="sx-ar"><div class="sx-arq">${acEsc(a.q)}</div><div class="sx-ara">${acEsc(a.a) || '—'}</div></div>`).join('') || '<div class="acad-priority-sub">No answers.</div>'}</div>
+      <div class="sx-qn">${acEsc(s.name || 'Student')} ${s.auto && s.auto.mcq_total ? '<span class="sx-qtag">auto ' + s.auto.auto_pct + '% · ' + s.auto.mcq_correct + '/' + s.auto.mcq_total + '</span>' : ''} ${s.graded ? '· <strong>' + acEsc(s.grade) + '</strong>' : ''}</div>
+      <div class="sx-answers">${(s.answers || []).map(a => `<div class="sx-ar"><div class="sx-arq">${acEsc(a.q)}</div><div class="sx-ara ${a.correct === true ? 'sx-ok' : a.correct === false ? 'sx-bad' : ''}">${acEsc(a.a) || '—'} ${a.correct === true ? '✓' : a.correct === false ? '✗' : ''}</div></div>`).join('') || '<div class="acad-priority-sub">No answers.</div>'}</div>
       <div class="sx-grade-row"><input class="acad-search-inline" style="width:90px" id="lxg-${acEsc(s.sid)}" placeholder="Grade" value="${acEsc(s.grade || '')}"><button class="acad-action-btn acad-action-btn--teal" onclick="lSaveExamGrade('${acEsc(code)}','${acEsc(examId)}','${acEsc(s.sid)}')">Save grade</button></div>
     </div>`).join('') : '<div class="acad-priority-sub">No submissions yet.</div>';
   const ov = document.createElement('div');
@@ -18543,7 +18543,8 @@ async function sLoadExams() {
   }
   if (!rows.length) return;  // keep the empty state
   body.innerHTML = rows.map(e => {
-    const status = e.graded ? ('Graded: ' + acEsc(e.grade || '—')) : (e.submitted ? 'Submitted' : 'Not taken');
+    const auto = (e.auto_pct != null) ? ` · auto ${e.auto_pct}%` : '';
+    const status = (e.graded ? ('Graded: ' + acEsc(e.grade || '—')) : (e.submitted ? 'Submitted' : 'Not taken')) + auto;
     const label = e.graded ? 'Review' : (e.submitted ? 'Resume' : 'Take');
     return `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title)}</div><div class="acad-priority-sub">${acEsc(e._cls)} · ${e.questions_per_student || '?'} questions · ${e.duration || '?'} min · ${status}</div></div><button class="acad-action-btn acad-action-btn--teal" onclick="sTakeExam('${acEsc(e._code)}','${acEsc(e.exam_id)}')">${label}</button></div>`;
   }).join('');
@@ -18561,11 +18562,20 @@ function sExamRenderTaker(code, exam, submission) {
   _sxCtx = { code, examId: exam.id, questions: exam.questions || [] };
   const prior = {};
   if (submission && submission.answers) submission.answers.forEach(a => { prior[a.i] = a.a; });
-  const qHtml = (exam.questions || []).map((q, n) => `
-    <div class="sx-q">
-      <div class="sx-qn">Q${n + 1}. ${acEsc(q.q)}</div>
-      <textarea class="sx-ans" data-i="${q.i}" ${graded ? 'readonly' : ''} placeholder="Type your answer…">${acEsc(prior[q.i] || '')}</textarea>
-    </div>`).join('');
+  const qHtml = (exam.questions || []).map((q, n) => {
+    let input;
+    if (q.type === 'mcq' && Array.isArray(q.options) && q.options.length) {
+      input = `<div class="sx-opts">` + q.options.map(opt =>
+        `<label class="sx-opt"><input type="radio" name="sxq-${q.i}" value="${acEsc(opt)}" ${prior[q.i] === opt ? 'checked' : ''} ${graded ? 'disabled' : ''}/><span>${acEsc(opt)}</span></label>`
+      ).join('') + `</div>`;
+    } else {
+      input = `<textarea class="sx-ans" data-i="${q.i}" ${graded ? 'readonly' : ''} placeholder="Type your answer…">${acEsc(prior[q.i] || '')}</textarea>`;
+    }
+    return `<div class="sx-q" data-qi="${q.i}" data-qtype="${q.type || 'text'}">
+      <div class="sx-qn">Q${n + 1}. ${acEsc(q.q)}${q.type === 'mcq' ? '<span class="sx-qtag">MCQ</span>' : ''}</div>
+      ${input}
+    </div>`;
+  }).join('');
   const banner = graded
     ? `<div class="sx-graded">Graded: <strong>${acEsc(submission.grade || '—')}</strong>${submission.feedback ? ' — ' + acEsc(submission.feedback) : ''}</div>`
     : (submission ? `<div class="sx-graded">Submitted — you can revise and resubmit until it's graded.</div>` : '');
@@ -18601,9 +18611,25 @@ async function sSubmitExam(code, examId, auto) {
   const ov = document.getElementById('sxOverlay');
   if (!ov || !_sxCtx) return;
   const qmap = {}; _sxCtx.questions.forEach(q => { qmap[q.i] = q.q; });
-  const answers = [...ov.querySelectorAll('.sx-ans')].map(t => ({ i: +t.dataset.i, q: qmap[+t.dataset.i] || '', a: t.value }));
+  const answers = [...ov.querySelectorAll('.sx-q')].map(qel => {
+    const i = +qel.dataset.qi;
+    let a = '';
+    if (qel.dataset.qtype === 'mcq') {
+      const sel = qel.querySelector('input[type=radio]:checked');
+      a = sel ? sel.value : '';
+    } else {
+      const ta = qel.querySelector('.sx-ans');
+      a = ta ? ta.value : '';
+    }
+    return { i, q: qmap[i] || '', a };
+  });
   if (!auto && !answers.some(a => a.a.trim())) { acToast('Answer at least one question first'); return; }
-  try { await acadAPI('/api/acad/exam/submit', { code, exam_id: examId, answers }); acToast('Exam submitted'); sExamCloseTaker(); sLoadExams(); }
+  try {
+    const r = await acadAPI('/api/acad/exam/submit', { code, exam_id: examId, answers });
+    const ap = r && r.auto && r.auto.auto_pct;
+    acToast(ap != null ? `Submitted · auto-score ${ap}%` : 'Exam submitted');
+    sExamCloseTaker(); sLoadExams();
+  }
   catch (e) { acToast((e && e.message) || 'Submit failed'); }
 }
 
