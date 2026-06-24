@@ -1,3 +1,15 @@
+// ═══════════════════════ SESSION TOKEN (in-memory) ═══════════
+// The session token is held in memory ONLY — never persisted to localStorage.
+// This removes the long-lived, JS-readable credential that an XSS could exfiltrate.
+// Across reloads the token is gone from JS, but the httpOnly `sivarr_session`
+// cookie (sent automatically same-origin) re-authenticates every request; the
+// backend _BearerTokenMiddleware falls back to that cookie when no token is sent.
+// getToken() intentionally returns '' (never null) so `?token=` stays empty and
+// the server cleanly falls back to the cookie.
+let _MEM_TOKEN = '';
+function getToken() { return _MEM_TOKEN || ''; }
+function setToken(t) { _MEM_TOKEN = t || ''; }
+
 // ═══════════════════════ AUTH TRANSPORT ══════════════════════
 // Send the session token in the Authorization header, never in the URL. This
 // rewrites every same-origin /api/ fetch: any `?token=` is stripped from the URL
@@ -11,7 +23,7 @@
     try {
       if (typeof input === 'string' && input.includes('/api/')) {
         const u   = new URL(input, location.origin);
-        const tok = localStorage.getItem('sivarr_token') || u.searchParams.get('token') || '';
+        const tok = getToken() || u.searchParams.get('token') || '';
         if (u.searchParams.has('token')) u.searchParams.delete('token');
         init = init || {};
         const headers = new Headers(init.headers || {});
@@ -56,7 +68,12 @@ function track(event, props = {}) {
   if (window.plausible) window.plausible(event, { props });
 }
 
-const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// Escapes & < > AND quotes so values are safe in BOTH text and attribute
+// contexts (e.g. value="${esc(userTitle)}"). A bare " or ' previously allowed
+// attribute breakout → XSS. Matches the stricter acEsc/mktEsc variants.
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const escHtml = esc;
 const $ = id => document.getElementById(id);
 
@@ -579,7 +596,7 @@ function saveSession(name, email, token) {
   localStorage.setItem('sivarr_name',  name);
   localStorage.setItem('sivarr_email', email);
   localStorage.setItem('sivarr_ts',    Date.now());
-  if (token) localStorage.setItem('sivarr_token', token);
+  if (token) setToken(token);   // in-memory only — never localStorage
 }
 
 function clearSession() {
@@ -587,19 +604,19 @@ function clearSession() {
   localStorage.removeItem('sivarr_email');
   localStorage.removeItem('sivarr_matric'); // clear legacy key
   localStorage.removeItem('sivarr_ts');
-  const token = localStorage.getItem('sivarr_token');
-  localStorage.removeItem('sivarr_token');
-  // Tell backend to invalidate the token
-  if (token) {
-    fetch('/api/logout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token }) }).catch(() => {});
-  }
+  const token = getToken();
+  setToken('');
+  // Always tell the backend to invalidate the session AND clear the httpOnly
+  // cookie. After a reload `token` is '' (in-memory only) but the cookie is sent
+  // automatically, so the server resolves and revokes the session from it.
+  fetch('/api/logout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token }) }).catch(() => {});
 }
 
 function getSavedSession() {
   const name  = localStorage.getItem('sivarr_name');
   const email = localStorage.getItem('sivarr_email');
   const ts    = localStorage.getItem('sivarr_ts');
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!name || !email || !ts) return null;
   if (Date.now() - parseInt(ts) > 30 * 24 * 60 * 60 * 1000) {
     clearSession(); return null;
@@ -621,7 +638,7 @@ function logout() {
 //   server response never wipes local data (guards a fresh device from blanking
 //   a populated one). Runs on every login / session restore.
 async function _hydrateFromServer() {
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token || !S.sid) return;
   const enc  = encodeURIComponent(token);
   const pull = (url) => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
@@ -802,7 +819,7 @@ async function restoreSession(token) {
     _applyLoginData(r);
     return true;
   } catch(e) {
-    localStorage.removeItem('sivarr_token');
+    setToken('');
     return false;
   }
 }
@@ -949,7 +966,7 @@ let _GITHUB_CONNECTED = false;
 let _GITHUB_USERNAME  = '';
 
 async function githubCheckStatus() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try {
     const r = await fetch(`/api/integrations/github/status?token=${encodeURIComponent(token)}`);
@@ -961,13 +978,13 @@ async function githubCheckStatus() {
 }
 
 function githubConnect() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) { toast('Sign in first.'); return; }
   window.location.href = `/auth/github?token=${encodeURIComponent(token)}`;
 }
 
 async function githubLoadRepos() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token || !_GITHUB_CONNECTED) return [];
   try {
     const r = await fetch(`/api/integrations/github/repos?token=${encodeURIComponent(token)}`);
@@ -977,7 +994,7 @@ async function githubLoadRepos() {
 }
 
 async function githubLoadActivity(repoFullName) {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token || !_GITHUB_CONNECTED) return null;
   try {
     const r = await fetch(`/api/integrations/github/activity?token=${encodeURIComponent(token)}&repo=${encodeURIComponent(repoFullName)}`);
@@ -992,7 +1009,7 @@ async function githubLoadActivity(repoFullName) {
 function integrationsRender() {
   const grid = $('integrations-grid');
   if (!grid) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   const integrations = [
     {
       id: 'google',
@@ -1116,7 +1133,7 @@ let _GCAL_CONNECTED  = false;
 let _GCAL_EVENTS     = [];
 
 async function gcalCheckStatus() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try {
     const r = await fetch(`/api/integrations/gcal/status?token=${encodeURIComponent(token)}`);
@@ -1142,13 +1159,13 @@ async function gcalCheckStatus() {
 }
 
 function gcalConnect() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) { toast('Sign in first.'); return; }
   window.location.href = `/auth/google/calendar?token=${encodeURIComponent(token)}`;
 }
 
 async function gcalLoadEvents() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token || !_GCAL_CONNECTED) return;
   const now     = new Date();
   const start   = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -1162,7 +1179,7 @@ async function gcalLoadEvents() {
 }
 
 async function gcalPushEvent(ev) {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token || !_GCAL_CONNECTED) { toast('Connect Google Calendar first.'); return; }
   try {
     await API('/api/integrations/gcal/push', {
@@ -1182,7 +1199,7 @@ async function gcalPushEvent(ev) {
 let _BILLING_STATUS = null;
 
 async function billingLoadStatus() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try {
     const r = await fetch(`/api/billing/status?token=${encodeURIComponent(token)}`);
@@ -1206,7 +1223,7 @@ async function showPricing() {
   const modal = $('pricing-modal');
   if (!modal) return;
   modal.style.display = 'flex';
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   let planData = { plans: {}, paystack_available: false };
   try {
     const r = await fetch('/api/billing/plans');
@@ -1287,7 +1304,7 @@ function closePricing() {
 }
 
 async function billingSubscribe(planId) {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) { toast('Sign in to subscribe.'); return; }
   try {
     const r = await API('/api/billing/subscribe', { token, plan: planId });
@@ -1301,7 +1318,7 @@ async function billingSubscribe(planId) {
 }
 
 async function billingVerify(reference, planId) {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token || !reference) return;
   try {
     const r = await fetch(`/api/billing/verify/${encodeURIComponent(reference)}?token=${encodeURIComponent(token)}`);
@@ -1370,7 +1387,7 @@ function checkAuthParams() {
   // Legacy fallback: direct token (old flow, keep for safety)
   if (googleTok) {
     history.replaceState(null, '', '/');
-    localStorage.setItem('sivarr_token', googleTok);
+    setToken(googleTok);
     sessionStorage.setItem('google_login_pending', googleTok);
     return;
   }
@@ -1439,7 +1456,7 @@ async function _acceptPendingOrgInvite() {
   const inviteToken = sessionStorage.getItem('pending_org_invite');
   if (!inviteToken) return;
   sessionStorage.removeItem('pending_org_invite');
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try {
     const r = await API('/api/org/join', { token, invite_token: inviteToken });
@@ -1455,7 +1472,7 @@ async function _acceptPendingOrgInvite() {
 async function orgCreateSpace() {
   const name = await siModal.input('Create Organization Space', 'e.g. Acme Corp, My Startup', '', { confirmLabel:'Create Space' });
   if (!name) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await API('/api/org/create', { token, name });
     if (r.ok) {
@@ -1574,7 +1591,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         const r = await fetch(`/api/auth/google/exchange?code=${encodeURIComponent(googleCode)}`);
         const d = await r.json();
         if (!r.ok || !d.token) { lastErr = d.detail || 'Exchange failed'; continue; }
-        localStorage.setItem('sivarr_token', d.token);
+        setToken(d.token);
         saveSession(d.name, d.email, d.token);
         _applyLoginData(d);
         toast('Signed in with Google!');
@@ -1610,9 +1627,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   const btn = $('login-btn');
   if (btn) { btn.textContent = 'Resuming session...'; btn.disabled = true; }
 
-  // Token restore — no password required
-  if (saved.token) {
-    const ok = await restoreSession(saved.token);
+  // Token restore — no password required. With cookie-auth the in-memory token is
+  // empty after a reload, so ALWAYS attempt restore: /api/session/restore
+  // authenticates from the httpOnly cookie when no token is sent. restoreSession
+  // returns false (→ login form) if there's no valid session cookie.
+  {
+    const ok = await restoreSession(saved.token || '');
     if (ok) {
       _postLoginIntegrations();
       return;
@@ -1672,7 +1692,7 @@ function _urlBase64ToUint8Array(base64) {
 
 async function _pushSetup() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token) return;
   try {
     const res  = await fetch('/api/push/vapid-public');
@@ -1749,7 +1769,7 @@ function _updateOfflineCount() {
 
 // Queue a POST API call for when we're back online
 function _queueMutation(url, body) {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   _offlineQueue.push({ url, body: JSON.stringify({ ...body, token }), ts: Date.now() });
   localStorage.setItem(_OFFLINE_QUEUE_KEY, JSON.stringify(_offlineQueue));
   _updateOfflineCount();
@@ -1766,7 +1786,7 @@ async function _flushOfflineQueue() {
     try {
       const body = JSON.parse(item.body);
       // Always use the current session token (original may have expired)
-      const token = localStorage.getItem('sivarr_token');
+      const token = getToken();
       if (token && body.token !== undefined) body.token = token;
       const r = await fetch(item.url, {
         method: 'POST',
@@ -2130,7 +2150,7 @@ async function buildSivarrContext() {
 
   // ── Organization (fetched from server) ───────────────────
   try {
-    const _tok = localStorage.getItem('sivarr_token') || '';
+    const _tok = getToken() || '';
     const snapRes = _tok ? await fetch(`/api/context/snapshot?token=${encodeURIComponent(_tok)}`) : null;
     const snap = snapRes?.ok ? await snapRes.json() : null;
     if (snap?.org) {
@@ -2230,7 +2250,7 @@ async function _chatStream(fullMsg, context) {
 
   let res;
   try {
-    const token = localStorage.getItem('sivarr_token') || '';
+    const token = getToken() || '';
     res = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2669,7 +2689,7 @@ async function getSuggestions() {
 // ═══════════════════════════ WRONG ANSWERS ══════════════════════
 async function loadWrong() {
   try {
-    const _wt = localStorage.getItem('sivarr_token') || '';
+    const _wt = getToken() || '';
     const r = await fetch(`/api/wrong?sid=${S.sid}&token=${encodeURIComponent(_wt)}`);
     const d = await r.json();
     S.wrongAnswers = d.wrong;
@@ -2699,7 +2719,7 @@ async function clearWrong(idx) {
 
 // ═══════════════════════════ STATS ══════════════════════════════
 async function loadStats() {
-  const _st = localStorage.getItem('sivarr_token') || '';
+  const _st = getToken() || '';
   const r = await fetch(`/api/progress?sid=${S.sid}&token=${encodeURIComponent(_st)}`);
   const d = await r.json();
 
@@ -2834,7 +2854,7 @@ async function loadStats() {
   }
 
 async function loadProgress() {
-  const _pt = localStorage.getItem('sivarr_token') || '';
+  const _pt = getToken() || '';
   const r = await fetch(`/api/progress?sid=${S.sid}&token=${encodeURIComponent(_pt)}`);
   const d = await r.json();
   const pw = $('pw'); if (!pw) return;
@@ -3613,7 +3633,7 @@ async function dhAISuggest() {
   try {
     const r = await API('/api/chat', {
       sid: S.sid,
-      token: localStorage.getItem('sivarr_token') || '',
+      token: getToken() || '',
       message: `I'm writing a document. Here's what I have so far:\n\n"${content.slice(0,800)}"\n\nSuggest 2-3 improvements or additions I should make. Be specific and brief.`
     });
     const suggestion = document.createElement('blockquote');
@@ -4342,7 +4362,7 @@ function stUpdateUsage() {
 
 let _stBillingHistory = [];
 async function stLoadBillingHistory() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try {
     const r = await fetch(`/api/billing/history?token=${encodeURIComponent(token)}`);
@@ -4405,7 +4425,7 @@ async function billingCancelConfirm() {
     'You\'ll keep access until your expiry date, but won\'t be renewed. Continue?',
     { title: 'Cancel subscription?', confirmLabel: 'Yes, cancel', danger: true });
   if (!ok) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch('/api/billing/cancel', {
       method: 'POST',
@@ -4429,7 +4449,7 @@ async function stSaveProfile() {
   const name  = $('st-name-input')?.value.trim();
   const phone = $('st-phone-input')?.value.trim() || '';
   if (!name || name.length < 2) { toast('Name must be at least 2 characters.'); return; }
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   const btn   = document.querySelector('[onclick="stSaveProfile()"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
@@ -4484,7 +4504,7 @@ function stToggleNotif(btn, key) {
 
 async function _pushSubscribeForKey(type) {
   try {
-    const token = localStorage.getItem('sivarr_token') || '';
+    const token = getToken() || '';
     if (!token || !navigator.serviceWorker) return;
     const cfgR = await fetch('/api/config');
     const cfg  = await cfgR.json();
@@ -4790,7 +4810,7 @@ async function stChangePassword() {
   if (!current)                { toast('Enter your current password.'); return; }
   if (!pw || pw.length < 8)    { toast('New password must be at least 8 characters.'); return; }
   if (pw !== pw2)              { toast('New passwords do not match.'); return; }
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token)                  { toast('Session expired. Please sign in again.'); return; }
   const btn = $('st-pw-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
@@ -4820,7 +4840,7 @@ async function stLogoutAll() {
 // ═══════════════════════════════════════════════════════════════
 
 async function stExportAll() {
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token) { toast('Sign in first.'); return; }
 
   const btn = $('export-btn');
@@ -4887,7 +4907,7 @@ function _splitCSVLine(line) {
 async function stImportTasks(input) {
   const file = input.files[0]; input.value = '';
   if (!file) return;
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token) { toast('Sign in first.'); return; }
   const text = await file.text();
   const rows = _parseCSV(text);
@@ -4914,7 +4934,7 @@ async function stImportTasks(input) {
 async function stImportGoals(input) {
   const file = input.files[0]; input.value = '';
   if (!file) return;
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token) { toast('Sign in first.'); return; }
   const text = await file.text();
   const rows = _parseCSV(text);
@@ -4939,7 +4959,7 @@ async function stImportGoals(input) {
 async function stImportNotes(input) {
   const file = input.files[0]; input.value = '';
   if (!file) return;
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token) { toast('Sign in first.'); return; }
   const markdown = await file.text();
   if (!markdown.trim()) { toast('File is empty.'); return; }
@@ -4968,7 +4988,7 @@ function _setImportStatus(msg) {
 // ── Habits + Journal sync wiring ─────────────────────────────
 
 function _syncHabitsToServer(habits) {
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token || !S.sid) return;
   if (!navigator.onLine) { _queueMutation('/api/habits/sync', { token, habits }); return; }
   fetch('/api/habits/sync', {
@@ -4979,7 +4999,7 @@ function _syncHabitsToServer(habits) {
 }
 
 function _syncJournalToServer(entries) {
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token || !S.sid) return;
   if (!navigator.onLine) { _queueMutation('/api/journal/sync', { token, entries }); return; }
   fetch('/api/journal/sync', {
@@ -5961,7 +5981,7 @@ function cmdSearch() {
   // ── Step 2: server search — debounced 300ms, merges into results ──
   clearTimeout(_cmdSearchTimer);
   if (q.length >= 2) {
-    const token = localStorage.getItem('sivarr_token');
+    const token = getToken();
     if (token) {
       _cmdSearchTimer = setTimeout(async () => {
         try {
@@ -6314,7 +6334,7 @@ async function loadHome() {
       briefMsg.innerHTML = renderMarkdown(_stripGreeting(cached));
     } else {
       // Show structured data immediately from /api/home/briefing, then fetch AI brief in background
-      const token = localStorage.getItem('sivarr_token') || '';
+      const token = getToken() || '';
       briefMsg.innerHTML = `<span class="brief-pulse">Loading…</span>`;
       fetch(`/api/home/briefing?token=${encodeURIComponent(token)}`)
         .then(r => r.ok ? r.json() : null)
@@ -6571,7 +6591,7 @@ async function loadHome() {
 
 async function _fetchHomeBrief({ openTasks, activeGoals, habits, jnl, events, today8601, streak, briefKey, briefMsg }) {
   if (!S.sid) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
 
   const overdueTasks = openTasks.filter(t => t.due_date && t.due_date < today8601);
@@ -7166,7 +7186,7 @@ function _skData() {
 }
 function _skSave(data) {
   localStorage.setItem(SK_KEY(), JSON.stringify(data));
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (token && navigator.onLine)
     fetch('/api/skills/sync', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ token, skills: data.skills }) }).catch(() => {});
@@ -7384,7 +7404,7 @@ function _finSave(data) {
   _finSyncServer(data);
 }
 function _finSyncServer(data) {
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token || !navigator.onLine) return;
   fetch('/api/finance/sync', {
     method:'POST', headers:{'Content-Type':'application/json'},
@@ -7757,7 +7777,7 @@ async function aiTaskExtractor() {
   );
   if (!text?.trim()) return;
   toast('Extracting tasks…');
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch('/api/ai/extract-tasks', {
       method: 'POST',
@@ -7839,7 +7859,7 @@ async function aiWriteAssist() {
   ], { confirmLabel: 'Rewrite' });
   if (!vals?.text?.trim()) return;
   toast('Rewriting…');
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch('/api/ai/write', {
       method: 'POST',
@@ -7989,7 +8009,7 @@ async function communityPost() {
   if (!body) { ta?.focus(); return; }
   if (body.length > 800) { toast('Post is too long (max 800 characters).'); return; }
   const category = catEl?.value || 'general';
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   const btn = $('comm-post-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Posting…'; }
   try {
@@ -8010,7 +8030,7 @@ async function communityPost() {
 
 async function commDeletePost(postId) {
   if (!await siModal.confirm('Delete this post? This cannot be undone.', { title:'Delete Post', confirmLabel:'Delete', danger:true })) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch(`/api/community/posts/${postId}`, {
       method: 'DELETE', headers: { 'Content-Type': 'application/json' },
@@ -8036,7 +8056,7 @@ function commViewAuthor(sid, name) {
 }
 
 async function commLike(postId, btn) {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch(`/api/community/posts/${postId}/like`, {
       method: 'POST',
@@ -8056,7 +8076,7 @@ async function commLike(postId, btn) {
 async function commReply(postId, btn) {
   const body = await siModal.input('Reply', 'Write your reply…', '', { confirmLabel:'Reply' });
   if (!body?.trim()) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch(`/api/community/posts/${postId}/reply`, {
       method: 'POST',
@@ -8127,7 +8147,7 @@ async function oppSubmit() {
     { id:'link',     label:'Link / URL',          type:'text', placeholder:'https://…' },
   ], { confirmLabel:'Submit' });
   if (!vals?.title?.trim()) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch('/api/opportunities', {
       method: 'POST',
@@ -8822,7 +8842,7 @@ function renderTopics(topics, weak) {
 }
 
 async function refreshTopics() {
-  const _rt = localStorage.getItem('sivarr_token') || '';
+  const _rt = getToken() || '';
   const r = await fetch(`/api/progress?sid=${S.sid}&token=${encodeURIComponent(_rt)}`);
   const d = await r.json();
   S.topics = Object.keys(d.topics); S.weak = d.weak;
@@ -9024,7 +9044,7 @@ function saveSHData(data) {
 
 // ── Silently mirror tasks to the server for digest + search ──
 function _syncTasksToServer(tasks) {
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token || !S.sid) return;
   if (!navigator.onLine) { _queueMutation('/api/tasks/sync', { token, tasks }); return; }
   fetch('/api/tasks/sync', {
@@ -9854,7 +9874,7 @@ async function generateTaskStructure() {
   try {
     const r = await API('/api/chat', {
       sid: S.sid,
-      token: localStorage.getItem('sivarr_token') || '',
+      token: getToken() || '',
       message: `Break down this task into clear numbered steps a student can follow. Be concise. Task: "${text}"`
     });
     if (res) {
@@ -9980,7 +10000,7 @@ async function _processLabFile(file, target) {
 
   try {
     const fd = new FormData();
-    fd.append('token', localStorage.getItem('sivarr_token') || '');
+    fd.append('token', getToken() || '');
     fd.append('file', file);
     const r = await fetch('/api/study-deck', { method: 'POST', body: fd });
     if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Processing failed'); }
@@ -10363,7 +10383,7 @@ async function uploadFile(input) {
   zone.innerHTML = `<div class="uz-icon">⏳</div><div class="uz-text">Uploading ${file.name}...</div>`;
 
   const formData = new FormData();
-  formData.append('token', localStorage.getItem('sivarr_token') || '');
+  formData.append('token', getToken() || '');
   formData.append('file', file);
 
   try {
@@ -10787,7 +10807,7 @@ function docSaveAll(list) {
 }
 
 function _syncDocsToServer(docs) {
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token || !S.sid) return;
   if (!navigator.onLine) { _queueMutation('/api/docs/sync', { token, docs }); return; }
   fetch('/api/docs/sync', {
@@ -10800,7 +10820,7 @@ function _syncDocsToServer(docs) {
 // ── Feature usage tracking (fires on every panel navigation) ─
 let _lastTrackedNav = '';
 function _trackNav(panel) {
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (!token || !panel || panel === _lastTrackedNav) return;
   _lastTrackedNav = panel;
   fetch('/api/track', {
@@ -11065,7 +11085,7 @@ async function docAIGenerate() {
   const replaceBtn = $('doc-ai-replace');
   if (resultEl) { resultEl.style.display = 'block'; resultEl.textContent = 'Generating…'; }
   try {
-    const r = await API('/api/chat', { sid: S.sid, token: localStorage.getItem('sivarr_token') || '', message: ctx, context: '' });
+    const r = await API('/api/chat', { sid: S.sid, token: getToken() || '', message: ctx, context: '' });
     _docAiText = r.reply || r.response || '';
     if (resultEl)   resultEl.textContent  = _docAiText;
     if (insertBtn)  insertBtn.style.display  = 'block';
@@ -11367,7 +11387,7 @@ const ORG_COL_LABELS  = { todo:'To Do', inprogress:'In Progress', review:'Review
 
 async function orgInit() {
   if (!S.sid) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
 
   // Show loading state
@@ -11481,7 +11501,7 @@ function _orgMemberName(sid) {
 }
 
 async function _orgRefresh() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token || !ORG) return;
   try {
     const r = await API('/api/org/get', { token });
@@ -11781,7 +11801,7 @@ async function orgNewGoal() {
     { id:'desc',     label:'Description',     placeholder:'What does success look like?' },
   ], { confirmLabel:'Create Goal' });
   if (!d || !d.title) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/goals/create', { token, title:d.title, type:d.type||'okr', due_date:d.due_date||null, description:d.desc||'' });
     await _orgRefresh();
@@ -11799,7 +11819,7 @@ async function orgEditGoal(goalId) {
     { id:'due_date', label:'Target date', type:'date',   default:g.due_date||'' },
   ], { confirmLabel:'Save' });
   if (!d || !d.title) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/goals/update', { token, goal_id:goalId, title:d.title, progress:parseInt(d.progress)||0, status:d.status, due_date:d.due_date||null });
     await _orgRefresh();
@@ -11809,7 +11829,7 @@ async function orgEditGoal(goalId) {
 
 async function orgDeleteGoal(goalId) {
   if (!await siModal.confirm('Delete this goal and all its key results?', { danger:true })) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/goals/delete', { token, goal_id:goalId });
     await _orgRefresh();
@@ -11824,7 +11844,7 @@ async function orgAddKR(goalId) {
     { id:'unit',   label:'Unit',         placeholder:'%, users, $, etc.', default:'%' },
   ], { confirmLabel:'Add' });
   if (!d || !d.title) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/goals/kr/create', { token, goal_id:goalId, title:d.title, target_value:parseFloat(d.target)||100, unit:d.unit||'%' });
     await _orgRefresh();
@@ -11837,7 +11857,7 @@ async function orgUpdateKR(krId, current, target, unit) {
     { id:'current', label:`Current value (target: ${target}${unit})`, type:'number', default:String(current) },
   ], { confirmLabel:'Update' });
   if (!d) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/goals/kr/update', { token, kr_id:krId, current_value:parseFloat(d.current)||0 });
     await _orgRefresh();
@@ -11855,7 +11875,7 @@ async function orgGetBriefing() {
   const text = $('os-briefing-text');
   if (btn)  { btn.textContent = 'Generating…'; btn.disabled = true; }
   if (text) text.textContent = 'Sivarr is analysing your organisation…';
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await API('/api/org/ai/briefing', { token });
     if (text) text.textContent = r.briefing || 'No briefing generated.';
@@ -11939,7 +11959,7 @@ function founderRender() {
 
 async function founderSave() {
   if (!ORG) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   const f = ORG_FOUNDER || {};
   try {
     await API('/api/org/founder/save', {
@@ -11964,7 +11984,7 @@ async function founderAddMilestone() {
   const f = ORG_FOUNDER || {};
   const milestones = Array.isArray(f.milestones) ? [...f.milestones] : [];
   milestones.push({ text, done: false });
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/founder/save', { token, ...f, milestones, arr: (f.mrr||0)*12 });
     await _orgRefresh();
@@ -11975,7 +11995,7 @@ async function founderToggleMilestone(idx) {
   const f = ORG_FOUNDER || {};
   const milestones = Array.isArray(f.milestones) ? [...f.milestones] : [];
   if (milestones[idx]) milestones[idx].done = !milestones[idx].done;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/founder/save', { token, ...f, milestones, arr: (f.mrr||0)*12 });
     await _orgRefresh();
@@ -11985,7 +12005,7 @@ async function founderToggleMilestone(idx) {
 async function founderRemoveMilestone(idx) {
   const f = ORG_FOUNDER || {};
   const milestones = (Array.isArray(f.milestones) ? [...f.milestones] : []).filter((_,i) => i !== idx);
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/founder/save', { token, ...f, milestones, arr: (f.mrr||0)*12 });
     await _orgRefresh();
@@ -12003,7 +12023,7 @@ async function founderAddInvestor() {
   const f = ORG_FOUNDER || {};
   const investors = Array.isArray(f.investors) ? [...f.investors] : [];
   investors.push({ name:d.name, firm:d.firm||'', stage:d.stage||'contacted', note:d.note||'' });
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/founder/save', { token, ...f, investors, arr: (f.mrr||0)*12 });
     await _orgRefresh();
@@ -12013,7 +12033,7 @@ async function founderAddInvestor() {
 async function founderRemoveInvestor(idx) {
   const f = ORG_FOUNDER || {};
   const investors = (Array.isArray(f.investors) ? [...f.investors] : []).filter((_,i) => i !== idx);
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/founder/save', { token, ...f, investors, arr: (f.mrr||0)*12 });
     await _orgRefresh();
@@ -12024,7 +12044,7 @@ async function orgNewTask() {
   if (!ORG) return;
   const title = await siModal.input('New Task', 'Task title', '', { confirmLabel:'Create Task' });
   if (!title) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/tasks/create', { token, title, status: 'todo', priority: 'normal' });
     await _orgRefresh();
@@ -12037,7 +12057,7 @@ async function orgAddTaskToCol(col) {
   const label = ORG_COL_LABELS[col] || col;
   const title = await siModal.input(`Add to "${label}"`, 'Task title', '', { confirmLabel:'Add Task' });
   if (!title) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/tasks/create', { token, title, status: col, priority: 'normal' });
     await _orgRefresh();
@@ -12057,7 +12077,7 @@ async function orgEditTask(taskId) {
     { id:'due_date', label:'Due date', type:'date', default: task.due_date || '' },
   ], { confirmLabel:'Save' });
   if (!d || !d.title) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/tasks/update', { token, task_id: taskId, title: d.title, status: d.status, priority: d.priority, due_date: d.due_date || null });
     await _orgRefresh();
@@ -12069,7 +12089,7 @@ async function orgNewDoc() {
   if (!ORG) return;
   const title = await siModal.input('New Document', 'Document title', '', { confirmLabel:'Create' });
   if (!title) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/docs/save', { token, title, content: '' });
     await _orgRefresh();
@@ -12084,7 +12104,7 @@ async function orgOpenDoc(docId) {
     { id:'content', label:'Content', type:'textarea', placeholder:'Write here…', default: doc.content || '' },
   ], { confirmLabel:'Save' });
   if (content === null) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/docs/save', { token, doc_id: docId, title: doc.title, content: content.content || '' });
     await _orgRefresh();
@@ -12096,7 +12116,7 @@ async function orgSendInvite() {
   if (!ORG) return;
   const email = $('os-invite-email')?.value.trim();
   if (!email || !email.includes('@')) { toast('Enter a valid email address.'); return; }
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/invite', { token, email, role: 'member' });
     if ($('os-invite-email')) $('os-invite-email').value = '';
@@ -12111,7 +12131,7 @@ async function orgMoreMenu() {
   }
   const name = await siModal.input('Rename Space', 'Space name', ORG.name || '', { confirmLabel:'Rename' });
   if (!name || name.trim() === ORG.name) return;
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   try {
     const r = await API('/api/org/update', { token, name: name.trim() });
     ORG.name = r.name;
@@ -12174,7 +12194,7 @@ async function teamInvite() {
     { id:'role',  label:'Role',          type:'select', options:[{value:'member',label:'Member'},{value:'manager',label:'Manager'},{value:'admin',label:'Admin'}] },
   ], { confirmLabel:'Send Invite' });
   if (!d || !d.email || !d.email.includes('@')) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/invite', { token, email: d.email, role: d.role || 'member' });
     toast(`Invite sent to ${d.email}`);
@@ -12219,7 +12239,7 @@ function _ocEnsureLive() {
 }
 
 async function _ocLoadChannels() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch(`/api/org/channels?token=${encodeURIComponent(token)}`);
     if (!r.ok) return;
@@ -12324,7 +12344,7 @@ function ocSwitchChannel(chId) {
 
 function _ocConnectSSE() {
   if (_OC_SSE) { _OC_SSE.close(); _OC_SSE = null; }
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token || !ORG) return;
 
   // P3b: auth via the httpOnly session cookie — token no longer in the URL.
@@ -12364,7 +12384,7 @@ function _ocDisconnectSSE() {
 }
 
 function _ocStartPresence() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   const ping = () => {
     if (!ORG || !token) return;
     API('/api/org/presence', { token }).catch(() => {});
@@ -12395,7 +12415,7 @@ function _ocRenderPresenceBar(online) {
 async function orgChatRender() {
   const box = $('os-chat-messages');
   if (!box || !ORG) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await API('/api/org/messages', { token, channel: _OC_CHANNEL });
     const msgs = r.messages || [];
@@ -12455,7 +12475,7 @@ async function orgChatSend() {
   const msg = inp ? inp.value.trim() : '';
   if (!msg) return;
   inp.value = '';
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/messages/send', { token, content: msg, channel: _OC_CHANNEL });
     // SSE will deliver the message back — no need to re-render
@@ -12508,7 +12528,7 @@ async function projectNew() {
     { id:'color', label:'Color',                  type:'color', default:'#0D7A5F' },
   ], { confirmLabel:'Create Project' });
   if (!d || !d.name) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/projects/create', { token, name: d.name, description: d.desc||'', color: d.color||'#0D7A5F' });
     await _orgRefresh();
@@ -12983,7 +13003,7 @@ function profileRemoveSkill(idx) {
    SPACES — server sync layer
 ════════════════════════════════════════════════════════════ */
 
-function _spToken() { return localStorage.getItem('sivarr_token') || ''; }
+function _spToken() { return getToken() || ''; }
 
 async function _spFetch(url, body) {
   try {
@@ -13251,7 +13271,7 @@ async function cspCreate() {
     // Org is a backend singleton: create (or open the existing) organization,
     // then pin it beneath Spaces. The org row auto-renders via spaceRenderSidebar
     // and picks up the real name once orgInit() loads ORG.
-    const token = localStorage.getItem('sivarr_token') || '';
+    const token = getToken() || '';
     try {
       const r = await API('/api/org/create', { token, name });
       if (r && r.ok) {
@@ -15855,7 +15875,7 @@ function siObMaybeStart() {
 async function siObFinish() {
   if (S.sid) localStorage.setItem(`si_onboarded_${S.sid}`, '1');
   // Persist role to backend
-  const token = localStorage.getItem('sivarr_token');
+  const token = getToken();
   if (token && _siObRole) {
     fetch('/api/user/onboarding', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -16168,7 +16188,7 @@ function closeFeedback() {
 // ═══════════════════════════════════════════════════════════════
 
 async function flutterwaveSubscribe(planId) {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) { toast('Sign in to subscribe.'); return; }
   try {
     const r = await API('/api/billing/flutterwave/subscribe', { token, plan_id: planId });
@@ -16182,7 +16202,7 @@ async function flutterwaveSubscribe(planId) {
 }
 
 async function flutterwaveVerify(ref, planId) {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try {
     const r = await fetch(`/api/billing/flutterwave/verify/${encodeURIComponent(ref)}?token=${encodeURIComponent(token)}&plan_id=${encodeURIComponent(planId || '')}`);
@@ -16205,7 +16225,7 @@ let _MONO_ACCOUNT     = null;
 let _MONO_PUBLIC_KEY  = '';
 
 async function monoCheckStatus() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try {
     const r = await fetch(`/api/integrations/mono/status?token=${encodeURIComponent(token)}`);
@@ -16217,7 +16237,7 @@ async function monoCheckStatus() {
 }
 
 async function monoLoadAccount() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token || !_MONO_CONNECTED) return;
   try {
     const r = await fetch(`/api/integrations/mono/account?token=${encodeURIComponent(token)}`);
@@ -16228,7 +16248,7 @@ async function monoLoadAccount() {
 }
 
 function monoConnect() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) { toast('Sign in first.'); return; }
   if (!_MONO_PUBLIC_KEY) {
     fetch(`/api/integrations/mono/status?token=${encodeURIComponent(token)}`)
@@ -16322,7 +16342,7 @@ let _MT_ACCOUNT   = null;    // last /account payload (info, positions, deals, s
 let _MT_POLL      = null;    // poll timer while an account is still deploying
 
 async function mtCheckStatus() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try {
     const r = await fetch(`/api/integrations/metatrader/status?token=${encodeURIComponent(token)}`);
@@ -16335,7 +16355,7 @@ async function mtCheckStatus() {
 }
 
 async function mtLoadAccount() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token || !_MT_CONNECTED) return null;
   try {
     const r = await fetch(`/api/integrations/metatrader/account?token=${encodeURIComponent(token)}`);
@@ -16354,7 +16374,7 @@ async function mtLoadAccount() {
 }
 
 async function mtConnect() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) { toast('Sign in first.'); return; }
   if (_MT_CONNECTED) {
     if (await siModal.confirm(`Disconnect MetaTrader account ${_MT_STATUS.login || ''}? Your journal entries stay; only the live link is removed.`,
@@ -16393,7 +16413,7 @@ async function mtConnect() {
 }
 
 async function mtDisconnect() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try { await API('/api/integrations/metatrader/disconnect', { token }); } catch (_) {}
   _MT_CONNECTED = false; _MT_STATUS = {}; _MT_ACCOUNT = null;
@@ -16410,7 +16430,7 @@ async function mtDisconnect() {
 let _ANN_LIST = [];
 
 async function annLoad() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try {
     const r = await fetch(`/api/org/announcements?token=${encodeURIComponent(token)}`);
@@ -16455,7 +16475,7 @@ async function annPost() {
   const body   = $('ann-body-input')?.value.trim() || '';
   const pinned = $('ann-pin-chk')?.checked || false;
   if (!title) { toast('Enter a title.'); return; }
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await API('/api/org/announce', { token, title, body, pinned });
     $('ann-title-input').value = '';
@@ -16471,7 +16491,7 @@ async function annPost() {
 async function annDelete(annId) {
   const ok = await siModal.confirm('Delete this announcement?', { danger: true });
   if (!ok) return;
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await fetch(`/api/org/announce/${encodeURIComponent(annId)}?token=${encodeURIComponent(token)}`, { method:'DELETE' });
     toast('Deleted.');
@@ -16486,7 +16506,7 @@ async function annDelete(annId) {
 // ═══════════════════════════════════════════════════════════════
 
 async function orgAnalyticsLoad() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try {
     const r = await fetch(`/api/org/analytics?token=${encodeURIComponent(token)}`);
@@ -16549,7 +16569,7 @@ function orgAnalyticsRender(d) {
 // ═══════════════════════════════════════════════════════════════
 
 async function _sendTaskReminderIfNeeded() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token || !S.sid) return;
   const today    = new Date().toISOString().split('T')[0];
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
@@ -16728,7 +16748,7 @@ async function submitFeedback() {
     if (ferr) { ferr.textContent = 'Please write something before sending.'; ferr.style.display = 'block'; }
     return;
   }
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   const page  = window.location.pathname;
   try {
     await API('/api/feedback', { token, text, rating: _fbRating || null, page });
@@ -16770,7 +16790,7 @@ function psGoTab(name, btn) {
 }
 
 async function psFinancialsLoad() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   try {
     const r = await fetch(`/api/org/paystack/status?token=${encodeURIComponent(token)}`);
@@ -16815,7 +16835,7 @@ function _psBadge(status) {
 async function psLoadOverview() {
   if (!_psConnected) return;
   _psLoading('overview', true);
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch(`/api/org/paystack/overview?token=${encodeURIComponent(token)}`);
     if (!r.ok) { _psShowNotConnected(); return; }
@@ -16894,7 +16914,7 @@ async function psLoadTransactions() {
   _psLoading('transactions', true);
   const el = $('ps-txn-table'); if (el) el.innerHTML = '';
   const foot = $('ps-txn-footer'); if (foot) foot.style.display = 'none';
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   const status  = $('ps-txn-status')?.value  || '';
   const channel = $('ps-txn-channel')?.value || '';
   _psTxnPage = 1;
@@ -16912,7 +16932,7 @@ async function psLoadTransactions() {
 }
 
 async function psLoadMoreTxns() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   const status  = $('ps-txn-status')?.value  || '';
   const channel = $('ps-txn-channel')?.value || '';
   _psTxnPage++;
@@ -16944,7 +16964,7 @@ function _psRenderTxnTable(txns) {
 async function psLoadBalance() {
   if (!_psConnected) return;
   _psLoading('balance', true);
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch(`/api/org/paystack/balance?token=${encodeURIComponent(token)}`);
     const d = await r.json();
@@ -16971,7 +16991,7 @@ async function psLoadBalance() {
 async function psLoadSettlements() {
   if (!_psConnected) return;
   _psLoading('settlements', true);
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch(`/api/org/paystack/settlements?token=${encodeURIComponent(token)}`);
     const d = await r.json();
@@ -16994,7 +17014,7 @@ async function psLoadSettlements() {
 async function psLoadCustomers() {
   if (!_psConnected) return;
   _psLoading('customers', true);
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch(`/api/org/paystack/customers?token=${encodeURIComponent(token)}`);
     const d = await r.json();
@@ -17016,7 +17036,7 @@ async function psLoadCustomers() {
 async function psLoadRefunds() {
   if (!_psConnected) return;
   _psLoading('refunds', true);
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch(`/api/org/paystack/refunds?token=${encodeURIComponent(token)}`);
     const d = await r.json();
@@ -17043,7 +17063,7 @@ async function psLoadRefunds() {
 async function psLoadAnalytics() {
   if (!_psConnected) return;
   _psLoading('analytics', true);
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch(`/api/org/paystack/analytics?token=${encodeURIComponent(token)}`);
     const d = await r.json();
@@ -17107,7 +17127,7 @@ async function psLoadAnalytics() {
 }
 
 async function psCheckConnectStatus() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await fetch(`/api/org/paystack/status?token=${encodeURIComponent(token)}`);
     const d = await r.json();
@@ -17131,7 +17151,7 @@ async function psConnect() {
     if (err) { err.textContent = 'Key must start with sk_live_ or sk_test_'; err.style.display = 'block'; } return;
   }
   if (err) err.style.display = 'none';
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     const r = await API('/api/org/paystack/connect', { token, secret_key: key });
     _psConnected = true;
@@ -17143,7 +17163,7 @@ async function psConnect() {
 }
 
 async function psDisconnect() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   try {
     await fetch(`/api/org/paystack/disconnect?token=${encodeURIComponent(token)}`, { method: 'DELETE' });
     _psConnected = false;
@@ -17177,7 +17197,7 @@ function reviewInit() {
 }
 
 async function _reviewAutoLoad() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   // Check for a cached review from this week in localStorage
   const weekStart = (() => {
@@ -17217,7 +17237,7 @@ function _reviewShowContent(text, weekStart) {
 }
 
 async function _moodChartLoad() {
-  const token = localStorage.getItem('sivarr_token') || '';
+  const token = getToken() || '';
   if (!token) return;
   let container = $('mood-chart-card');
   if (!container) {
@@ -17564,7 +17584,7 @@ function adSave(patch) {
 async function acadAsk(message, context = '') {
   try {
     const r = await API('/api/chat', {
-      token: (window.S && S.token) || localStorage.getItem('sivarr_token') || '',
+      token: (window.S && S.token) || getToken() || '',
       message, context,
     });
     return (r && (r.reply || r.message || r.content)) || null;
@@ -18276,7 +18296,7 @@ function acadSelectRole(role) {
 
 /* ── Academic class bridge (shared lecturer<->student class) ── */
 async function acadAPI(path, body = {}) {
-  return await API(path, { token: (window.S && S.token) || localStorage.getItem('sivarr_token') || '', ...body });
+  return await API(path, { token: (window.S && S.token) || getToken() || '', ...body });
 }
 // Lecturer: publish/show class code + live roster
 async function lPublishClass() {
@@ -18805,7 +18825,7 @@ function mktEnsureLoaded() {
 // Server is the source of truth for installs (Postgres); localStorage is a cache/fallback.
 async function mktLoadInstalled() {
   try {
-    const r = await fetch('/api/marketplace/installed', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token') }) });
+    const r = await fetch('/api/marketplace/installed', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: getToken() }) });
     if (r.ok) { const d = await r.json(); if (d && Array.isArray(d.installed)) { mktInstalled = d.installed.map(x => ({ id:x.id, installed_at:x.ts || '' })); mktSaveInstalled(); return; } }
   } catch(e) {}
   try { mktInstalled = JSON.parse(localStorage.getItem(MKT_INSTALLED_KEY) || '[]'); } catch(e) { mktInstalled = []; }
@@ -18827,7 +18847,7 @@ function mktSaveExt(){ localStorage.setItem(MKT_EXT_KEY, JSON.stringify(mktExtEn
 // then re-inject the open space.
 async function mktSyncSpacePrefs() {
   try {
-    const r = await fetch('/api/space/prefs/get', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token') }) });
+    const r = await fetch('/api/space/prefs/get', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: getToken() }) });
     if (!r.ok) return;
     const d = await r.json();
     if (!d || !d.prefs) return;
@@ -18845,7 +18865,7 @@ async function mktSyncSpacePrefs() {
 function _mktPushSpacePrefs(spaceId, patch) {
   if (!spaceId) return;
   fetch('/api/space/prefs/set', { method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(Object.assign({ token: localStorage.getItem('sivarr_token'), space_id: spaceId }, patch)) }).catch(()=>{});
+    body:JSON.stringify(Object.assign({ token: getToken(), space_id: spaceId }, patch)) }).catch(()=>{});
 }
 
 // ── Filtering ──
@@ -18911,7 +18931,7 @@ function mktInstall(id) {
   mktInstalled.push({ id, installed_at: new Date().toISOString() });
   mktSaveInstalled(); mktUpdateInstalledCount(); mktRenderGrid();
   mktToast(`${item.name} installed`);
-  fetch('/api/marketplace/install', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), item_id:id }) }).catch(()=>{});
+  fetch('/api/marketplace/install', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: getToken(), item_id:id }) }).catch(()=>{});
   if (item.type === 'extension' && typeof extShowOnboarding === 'function') extShowOnboarding(item);
 }
 function mktUninstall(id) {
@@ -18920,7 +18940,7 @@ function mktUninstall(id) {
   mktSaveInstalled(); mktUpdateInstalledCount(); mktRenderGrid();
   if (mktFilter.view === 'installed') mktRenderInstalled();
   mktToast(`${item ? item.name : 'Item'} removed`);
-  fetch('/api/marketplace/uninstall', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), item_id:id }) }).catch(()=>{});
+  fetch('/api/marketplace/uninstall', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: getToken(), item_id:id }) }).catch(()=>{});
 }
 async function mktUseTemplate(id) {
   const item = mktItems.find(i => i.id === id);
@@ -18958,7 +18978,7 @@ async function mktUseTemplate(id) {
     mktToast(`"${space.name}" created from ${item.name}`);
     if (typeof openSpace === 'function') openSpace(sid);
   } catch(e) { mktToast('Could not create the space'); }
-  fetch('/api/marketplace/install', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), item_id:id }) }).catch(()=>{});
+  fetch('/api/marketplace/install', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: getToken(), item_id:id }) }).catch(()=>{});
 }
 
 // ── Detail modal ──
@@ -19007,11 +19027,11 @@ function mktRenderReviews(itemId) {
   mktLoadReviews(itemId);
 }
 function _mktReviewsListHTML(reviews) {
-  return reviews.length ? reviews.map(r => `<div class="mkt-review-item"><div class="mkt-review-header"><div class="mkt-review-avatar">${mktEsc((r.author||'U')[0].toUpperCase())}</div><div><div class="mkt-review-author">${mktEsc(r.author)}</div><div class="mkt-review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div></div><div class="mkt-review-date">${mktEsc(r.date)}</div></div><div class="mkt-review-body">${mktEsc(r.body)}</div></div>`).join('') : `<div class="mkt-empty-state" style="padding:20px 0"><div>No reviews yet. Be the first!</div></div>`;
+  return reviews.length ? reviews.map(r => { const rt = Math.max(0, Math.min(5, Math.round(Number(r.rating) || 0))); return `<div class="mkt-review-item"><div class="mkt-review-header"><div class="mkt-review-avatar">${mktEsc((r.author||'U')[0].toUpperCase())}</div><div><div class="mkt-review-author">${mktEsc(r.author)}</div><div class="mkt-review-stars">${'★'.repeat(rt)}${'☆'.repeat(5-rt)}</div></div><div class="mkt-review-date">${mktEsc(r.date)}</div></div><div class="mkt-review-body">${mktEsc(r.body)}</div></div>`; }).join('') : `<div class="mkt-empty-state" style="padding:20px 0"><div>No reviews yet. Be the first!</div></div>`;
 }
 async function mktLoadReviews(itemId) {
   try {
-    const r = await fetch('/api/marketplace/reviews/list', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), item_id:itemId }) });
+    const r = await fetch('/api/marketplace/reviews/list', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: getToken(), item_id:itemId }) });
     if (r.ok) { const d = await r.json(); if (d && Array.isArray(d.reviews)) { mktAllReviews[itemId] = d.reviews; const el = document.getElementById('mktReviewsList'); if (el && mktCurrentItem && mktCurrentItem.id === itemId) el.innerHTML = _mktReviewsListHTML(d.reviews); } }
   } catch(e) {}
 }
@@ -19026,7 +19046,7 @@ function mktSubmitReview(itemId) {
   const ta = document.getElementById('mktReviewText'); if (ta) ta.value = '';
   mktReviewStar = 0; document.querySelectorAll('.mkt-star').forEach(s => s.classList.remove('mkt-star--active'));
   mktToast('Review submitted — thank you!');
-  fetch('/api/marketplace/reviews', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), ...review }) })
+  fetch('/api/marketplace/reviews', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: getToken(), ...review }) })
     .then(() => mktLoadReviews(itemId)).catch(()=>{});
 }
 
@@ -19040,13 +19060,13 @@ function mktSubmitPublish() {
   if (!name || !desc || !mktPublishType) { mktToast('Fill in name, description, and pick a type'); return; }
   mktToast("Submitted for review — you'll hear back within 48 hours");
   mktClosePublish();
-  fetch('/api/marketplace/publish', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), type:mktPublishType, name, description:desc, category:document.getElementById('pubCategory')?.value, pricing:document.getElementById('pubPrice')?.value, price:parseInt(document.getElementById('pubAmount')?.value||'0'), repo_url:document.getElementById('pubRepo')?.value }) }).catch(()=>{});
+  fetch('/api/marketplace/publish', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: getToken(), type:mktPublishType, name, description:desc, category:document.getElementById('pubCategory')?.value, pricing:document.getElementById('pubPrice')?.value, price:parseInt(document.getElementById('pubAmount')?.value||'0'), repo_url:document.getElementById('pubRepo')?.value }) }).catch(()=>{});
 }
 
 // ── Creator dashboard (My Listings) — honest empty until real listings exist ──
 let creatorListings = [];
 async function creatorInit() {
-  try { const r = await fetch('/api/marketplace/my-listings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token') }) }); if (r.ok) { const d = await r.json(); creatorListings = d.listings || []; } } catch(e) {}
+  try { const r = await fetch('/api/marketplace/my-listings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: getToken() }) }); if (r.ok) { const d = await r.json(); creatorListings = d.listings || []; } } catch(e) {}
   const set = (id,v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   const installs = creatorListings.reduce((s,l)=>s+(l.installs||0),0);
   set('creatorTotalInstalls', installs || '—');
@@ -19139,7 +19159,7 @@ function spaceDelete() {
   try {
     saveSpaces(getSpaces().filter(s => s.id !== id));
     spaceRenderSidebar();
-    fetch('/api/spaces/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: localStorage.getItem('sivarr_token'), space_id:id }) }).catch(()=>{});
+    fetch('/api/spaces/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ token: getToken(), space_id:id }) }).catch(()=>{});
   } catch(e) {}
   closeSpaceSettings();
   mktToast('Space deleted');
@@ -19343,7 +19363,7 @@ function intCapProviders(cap) { return INT_CATALOGUE.filter(i => (i.provides || 
 async function spaceHasCapability(cap) {
   if (cap === 'calendar') {
     try {
-      const r = await fetch('/api/integrations/gcal/status?token=' + encodeURIComponent(localStorage.getItem('sivarr_token') || ''));
+      const r = await fetch('/api/integrations/gcal/status?token=' + encodeURIComponent(getToken() || ''));
       if (r.ok) return !!(await r.json()).connected;
     } catch (e) {}
     return false;
@@ -19359,7 +19379,7 @@ function extCalShell(item) {
 async function extCalLoad() {
   const root = document.getElementById('extcal-root');
   if (!root) return;
-  const tok = encodeURIComponent(localStorage.getItem('sivarr_token') || '');
+  const tok = encodeURIComponent(getToken() || '');
   const connected = await spaceHasCapability('calendar');
   if (!connected) {
     root.innerHTML = `<div class="mkt-empty-state"><i class="ti ti-calendar" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>Google Calendar isn't connected.</div><a class="mkt-btn-teal" style="margin-top:10px;text-decoration:none" href="/auth/google/calendar?token=${tok}"><i class="ti ti-plug" aria-hidden="true"></i> Connect Google Calendar</a></div>`;
@@ -19554,7 +19574,7 @@ async function stExportData() {
   try {
     const sid = S.sid;
     const g = k => { try { return JSON.parse(localStorage.getItem(`sivarr_${k}_${sid}`) || 'null'); } catch (e) { return null; } };
-    const body = { token: localStorage.getItem('sivarr_token'), habits: g('habits') || [], journal: g('journal') || [], finance: g('finance') || {}, skills: g('skills') || [] };
+    const body = { token: getToken(), habits: g('habits') || [], journal: g('journal') || [], finance: g('finance') || {}, skills: g('skills') || [] };
     const r = await fetch('/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error('export failed');
     const blob = await r.blob();

