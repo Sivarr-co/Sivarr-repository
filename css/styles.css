@@ -376,6 +376,14 @@ body.offline .layout {
   }
   .chat-msgs   { flex: 0 1 auto !important; }
   #chat-welcome { min-height: 0 !important; }
+
+  /* Push the sidebar nav down + space the tabs out so they sit in the
+     thumb-reachable zone instead of crammed at the very top. */
+  .sb-scroll      { padding-top: 110px; padding-bottom: 48px; }
+  .sb-today       { margin-bottom: 22px; }
+  .si             { padding-top: 12px; padding-bottom: 12px; margin-bottom: 8px; }
+  .sb-section-row { padding-top: 26px; padding-bottom: 8px; }
+  .sb-nav-group   { margin-bottom: 12px; }
 }
 
 /* ── SIDEBAR ───────────────────────────────────────────────── */
