@@ -503,6 +503,22 @@ def sanitize_text(text: str, max_len: int = MAX_MESSAGE_LEN) -> str:
     return text
 
 
+# ── Auth input hardening (login/register) ───────────────────────────
+_AUTH_TAG_RE   = re.compile(r"<[^>]*>")
+_AUTH_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_AUTH_NAME_RE  = re.compile(r"^[a-zA-Z\s\-'.]+$")   # letters, spaces, - ' .
+MAX_EMAIL_LEN    = 254     # RFC 5321 practical max
+MAX_PASSWORD_LEN = 200     # bcrypt only hashes 72 bytes; cap to stop oversize-input DoS
+
+def _strip_html(text: str) -> str:
+    """Remove HTML/script tags and any stray angle brackets from a user-supplied
+    string — defense-in-depth so no markup is ever stored or echoed back, on top
+    of sanitize_text() (control-char/null/length) and per-field format checks."""
+    if not text:
+        return ""
+    return _AUTH_TAG_RE.sub("", text).replace("<", "").replace(">", "")
+
+
 def validate_sid(sid: str) -> str:
     """
     Validate and sanitize student session ID.
@@ -2441,13 +2457,12 @@ class LoginRequest(BaseModel):
     action: str   = "login"     # "login" | "register"
 
     @validator("email")
-    def email_valid(cls, v):
-        v = sanitize_text(v, 200).lower().strip()
-        if not v:
-            raise ValueError("Email is required.")
-        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
-            raise ValueError("Enter a valid email address.")
-        return v
+    def email_normalize(cls, v):
+        # Normalise only (strip HTML/control chars, lowercase, cap length). The
+        # authoritative format/length checks run in _validate_auth_input() so a
+        # single GENERIC error covers every field and Pydantic never emits a
+        # 422 that reveals which field failed.
+        return _strip_html(sanitize_text(v or "", MAX_EMAIL_LEN)).lower().strip()
 
 
 class ChatRequest(BaseModel):
@@ -2634,29 +2649,60 @@ async def admin_metrics_page(request: Request):
     return Path("templates/admin_metrics.html").read_text(encoding="utf-8")
 
 
+def _validate_auth_input(req: "LoginRequest", client_key: str) -> tuple[str, str, str]:
+    """Authoritative server-side validation for /api/login (login + register),
+    independent of any client-side checks. Validates format + length for every
+    field and strips HTML/script from free-text. On ANY invalid input it logs the
+    specific reason server-side (for monitoring) and raises a single GENERIC error
+    that never reveals which field failed (anti-enumeration / anti-probing).
+    Returns the cleaned (email, name, phone)."""
+    def reject(reason: str):
+        log.warning(f"Auth input rejected [{req.action}] from {client_key}: {reason}")
+        raise HTTPException(400, "Please check your details and try again.")
+
+    is_register = (req.action == "register")
+
+    # Email — format + length (already HTML-stripped + lowercased by the model)
+    email = _strip_html(sanitize_text(req.email, MAX_EMAIL_LEN)).lower().strip()
+    if not email or len(email) > MAX_EMAIL_LEN or not _AUTH_EMAIL_RE.match(email):
+        reject("email format/length")
+
+    # Display name — register only; letters/spaces/-'. , 2..MAX_NAME_LEN
+    name = ""
+    if is_register:
+        name = _strip_html(sanitize_text(req.name, MAX_NAME_LEN)).strip()
+        if not (2 <= len(name) <= MAX_NAME_LEN) or not _AUTH_NAME_RE.match(name):
+            reject("name format/length")
+
+    # Password — length policy (min on register, max always to bound bcrypt input)
+    pw = req.password or ""
+    if is_register:
+        if not (8 <= len(pw) <= MAX_PASSWORD_LEN):
+            reject("password length policy")
+        if req.confirm_password and req.confirm_password != pw:
+            reject("password confirmation mismatch")
+    else:
+        if not pw or len(pw) > MAX_PASSWORD_LEN:
+            reject("login password missing/oversize")
+
+    phone = _strip_html(sanitize_text(req.phone, 30)).strip()
+    return email, name, phone
+
+
 @app.post("/api/login")
 async def login(req: LoginRequest, request: Request, bg: BackgroundTasks, response: Response):
     key = get_client_key(request)
     check_rate_limit(key, RATE_LIMIT_LOGIN, "login")
 
-    email = req.email  # already normalised by validator
+    # Authoritative server-side validation (format + length + HTML strip); raises
+    # a single generic 400 and logs specifics. Never trusts client-side checks.
+    email, reg_name, reg_phone = _validate_auth_input(req, key)
     _check_account_lockout(email)   # raise 429 early if account is locked
     users = load_users()
 
     # ── REGISTER ──────────────────────────────────────────────
     if req.action == "register":
-        # Validate name
-        name = sanitize_text(req.name.strip(), MAX_NAME_LEN)
-        if not name or len(name) < 2:
-            raise HTTPException(400, "Full name is required.")
-        if not re.match(r"^[a-zA-Z\s\-'.]+$", name):
-            raise HTTPException(400, "Name contains invalid characters.")
-
-        # Validate password
-        if not req.password or len(req.password) < 8:
-            raise HTTPException(400, "Password must be at least 8 characters.")
-        if req.confirm_password and req.confirm_password != req.password:
-            raise HTTPException(400, "Passwords do not match.")
+        name = reg_name
 
         # Reject duplicate emails — but distinguish a passwordless (Google) account.
         # The owner can claim it by setting a password via an emailed link (the
@@ -2676,7 +2722,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks, respon
             "sid":      sid,
             "name":     name.title(),
             "email":    email,
-            "phone":    sanitize_text(req.phone, 30),
+            "phone":    reg_phone,
             "password": hashed,
             "created":  datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
             "role":     "student",
