@@ -368,8 +368,14 @@ body.offline .layout {
   body.dashboard-active { overflow: auto; -webkit-overflow-scrolling: touch; }
   .layout { height: auto; }
   .main { overflow: visible; }
-  .panel.active { overflow: visible; }
-  .home-wrap, .content { overflow: visible; height: auto; }
+  /* Every panel flows to its content height. !important is needed to beat the
+     ID-specific desktop rules (e.g. #panel-chat) that fill the viewport. */
+  .panel.active { overflow: visible !important; height: auto !important; }
+  .home-wrap, .content, .chat-msgs {
+    overflow: visible !important; height: auto !important; min-height: 0 !important;
+  }
+  .chat-msgs   { flex: 0 1 auto !important; }
+  #chat-welcome { min-height: 0 !important; }
 }
 
 /* ── SIDEBAR ───────────────────────────────────────────────── */
