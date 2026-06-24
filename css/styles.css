@@ -353,6 +353,8 @@ body.offline .layout {
   display:flex;
   padding-top: var(--topbar-h);
   height:100vh;
+  height:100dvh;   /* dynamic viewport — matches the *visible* area on mobile
+                      so panels size correctly and the inner scroll works */
 }
 
 /* ── SIDEBAR ───────────────────────────────────────────────── */
@@ -728,7 +730,7 @@ body.offline .layout {
 
 /* ── PANELS (views) ────────────────────────────────────────── */
 .panel {
-  display: none; flex: 1; flex-direction: column;
+  display: none; flex: 1; min-height: 0; flex-direction: column;
   overflow: hidden; background: var(--bg);
   animation: fadeUp .2s cubic-bezier(.4,0,.2,1);
 }
@@ -6630,6 +6632,39 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
     width: 32px; height: 32px;
     display: flex; align-items: center; justify-content: center;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE — Home breathing room & polish  (≤720px)
+   More space, softer cards, swipeable pills — premium, uncramped.
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 720px) {
+  .home-wrap {
+    padding: 20px 18px calc(52px + env(safe-area-inset-bottom, 0)) !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Softer, roomier cards */
+  .siva-brief { padding: 22px 20px; margin-bottom: 18px; border-radius: 20px; }
+  .gs-section { padding: 20px 18px; margin-bottom: 18px; border-radius: 20px; }
+
+  /* Stat cards — bigger, easier to read */
+  .h-stat-grid { gap: 14px; margin-bottom: 20px; }
+  .h-stat-card { padding: 20px 16px; border-radius: 18px; }
+  .h-stat-val  { font-size: 1.7rem; }
+
+  /* Two-column blocks stack with comfortable gaps */
+  .h2col       { gap: 14px; margin-bottom: 18px; }
+  .h2col-card  { padding: 20px 18px; border-radius: 18px; }
+
+  /* Action pills → edge-to-edge swipeable row (no cramped wrapping) */
+  .siva-pills {
+    flex-wrap: nowrap; overflow-x: auto; gap: 9px;
+    margin: 2px -18px 20px; padding: 2px 18px 8px;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .siva-pills::-webkit-scrollbar { display: none; }
+  .siva-pill { flex-shrink: 0; padding: 9px 15px; font-size: .82rem; border-radius: 22px; }
 }
 
 /* ── Me mobile panel ── */
