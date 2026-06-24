@@ -6552,6 +6552,12 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 }
 .mob-fab:active { transform: scale(.92); }
 
+/* Legacy mobile slide-in drawer + overlay (old shell) have no base style,
+   so they leaked into the desktop-on-mobile view as a stray "⊞ Dashboard"
+   bar and a huge empty block at the bottom of the page. Unused now — hide. */
+.mob-sidebar-overlay,
+.mob-sidebar-panel { display: none !important; }
+
 /* ═══════════════════════════════════════════════════════════════
    MOBILE SHELL — Notion-style launcher + drill-down   (≤720px)
    The sidebar becomes a full-screen "home" launcher; tapping any
