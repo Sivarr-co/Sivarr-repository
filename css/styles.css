@@ -374,13 +374,28 @@ body.offline .layout {
   body.dashboard-active { overflow: auto; -webkit-overflow-scrolling: touch; }
   .layout { height: auto; }
   .main { overflow: visible; }
-  /* Every panel flows to its content height. !important is needed to beat the
-     ID-specific desktop rules (e.g. #panel-chat) that fill the viewport. */
-  .panel.active { overflow: visible !important; height: auto !important; }
-  .home-wrap, .content, .chat-msgs {
+  /* Every panel (except chat) flows to its content height so the page
+     scrolls naturally — the forced-wide viewport makes 100dvh huge. */
+  .panel.active:not(#panel-chat) { overflow: visible !important; height: auto !important; }
+  .home-wrap, .content {
     overflow: visible !important; height: auto !important; min-height: 0 !important;
   }
-  .chat-msgs   { flex: 0 1 auto !important; }
+
+  /* Chat panel exception: must always be a fixed viewport-height column
+     so the composer pins to the bottom and messages scroll within it.
+     Setting explicit height beats the layout's natural-flow mode. */
+  #panel-chat {
+    height: calc(100dvh - var(--topbar-h)) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  #panel-chat .chat-msgs {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    height: 0 !important;
+    min-height: 0 !important;
+  }
   #chat-welcome { min-height: 0 !important; }
 
   /* Push the sidebar nav down + space the tabs out so they sit in the
