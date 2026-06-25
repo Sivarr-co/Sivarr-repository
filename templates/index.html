@@ -28,7 +28,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260625g">
+<link rel="stylesheet" href="/css/styles.css?v=20260625h">
 <!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
 <script type="module">
 import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
@@ -483,11 +483,16 @@ Sentry.onLoad(function() {
           <span class="sb-ws-name">Sivarr</span>
         </div>
         <div class="sb-head-actions">
+          <!-- Desktop: search + collapse. Mobile: retract (goes back) + customize sheet. -->
           <button class="sb-new-btn" onclick="cmdOpen()" title="Search or create (⌘K)">
             <i class="ti ti-search"></i>
           </button>
+          <button class="sb-mob-cust-btn" onclick="mobCustOpen()" style="display:none" aria-label="Customize sidebar">
+            <i class="ti ti-adjustments-horizontal"></i> Customize
+          </button>
           <button class="sb-rail-btn" onclick="sbToggleRail()" title="Collapse sidebar" aria-label="Collapse sidebar">
             <i class="ti ti-layout-sidebar-left-collapse" id="sb-rail-icon"></i>
+            <i class="ti ti-arrow-left sb-mob-close-icon" style="display:none"></i>
           </button>
         </div>
       </div>
@@ -4550,7 +4555,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260625g" defer></script>
+<script src="/js/app.js?v=20260625h" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
@@ -4901,6 +4906,17 @@ Sentry.onLoad(function() {
 
   </div>
 </nav>
+
+<!-- Mobile: Customize sidebar bottom-sheet -->
+<div class="mob-cust-overlay" id="mob-cust-overlay" onclick="if(event.target===this)mobCustClose()">
+  <div class="mob-cust-sheet" id="mob-cust-sheet">
+    <div class="mob-cust-head">
+      <h3>Customize Sidebar</h3>
+      <button class="mob-cust-done" onclick="mobCustClose()">Done</button>
+    </div>
+    <div class="mob-cust-body" id="mob-cust-body"></div>
+  </div>
+</div>
 
 </body>
 </html>

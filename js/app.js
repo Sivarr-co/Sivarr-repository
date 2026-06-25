@@ -5934,10 +5934,10 @@ function _navRenderSec(hostId, panels) {
 function navRenderSidebar() {
   const vis = new Set(getNavTabs());
   _navRenderSec('sb-favs',     NAV_CORE);
-  _navRenderSec('sgi-work',    NAV_ORDER.work.filter(p => vis.has(p)));
-  _navRenderSec('sgi-grow',    NAV_ORDER.life.filter(p => vis.has(p)));
-  _navRenderSec('sgi-connect', NAV_ORDER.connect.filter(p => vis.has(p)));
-  if (typeof sbRenderStats === 'function') sbRenderStats();   // re-populate the inline stat spans we just re-rendered
+  _navRenderSec('sgi-work',    _getSectionOrder('work').filter(p => vis.has(p)));
+  _navRenderSec('sgi-grow',    _getSectionOrder('life').filter(p => vis.has(p)));
+  _navRenderSec('sgi-connect', _getSectionOrder('connect').filter(p => vis.has(p)));
+  if (typeof sbRenderStats === 'function') sbRenderStats();
 }
 
 let CMD_OPEN    = false;
@@ -8533,6 +8533,12 @@ window.addEventListener('resize', () => {
 
 // ── Command-center: rail collapse (64px icons-only), persisted ──
 function sbToggleRail() {
+  if (window.innerWidth <= 720) {
+    // Mobile: retract launcher → return to last visited panel
+    const last = localStorage.getItem('sb_last_panel') || 'home';
+    nav(last, null);
+    return;
+  }
   const sb = $('sidebar');
   if (!sb) return;
   const collapsed = sb.classList.toggle('collapsed');
@@ -8541,6 +8547,116 @@ function sbToggleRail() {
   if (ic) ic.className = 'ti ' + (collapsed ? 'ti-layout-sidebar-left-expand' : 'ti-layout-sidebar-left-collapse');
   const btn = ic && ic.closest('.sb-rail-btn');
   if (btn) btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+}
+
+// ── Mobile sidebar init: swap icons + show customize btn on touch devices ──
+function _mobSidebarInit() {
+  if (window.innerWidth > 720) return;
+  const closeIcon = document.querySelector('.sb-mob-close-icon');
+  if (closeIcon) closeIcon.style.display = 'inline-block';
+  const railIcon = $('sb-rail-icon');
+  if (railIcon) railIcon.style.display = 'none';
+  const custBtn = document.querySelector('.sb-mob-cust-btn');
+  if (custBtn) custBtn.style.display = 'inline-flex';
+  const desktopSearch = document.querySelector('.sb-new-btn');
+  if (desktopSearch) desktopSearch.style.display = 'none';
+}
+document.addEventListener('DOMContentLoaded', _mobSidebarInit);
+
+// ── Mobile customize sidebar bottom-sheet ──
+function NAV_ORDER_KEY() { return `sivarr_nav_order_${(typeof S!=='undefined'&&S.sid)||''}`; }
+
+function _getSectionOrder(section) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(NAV_ORDER_KEY()) || '{}');
+    if (stored[section] && Array.isArray(stored[section])) return stored[section];
+  } catch(e) {}
+  return NAV_ORDER[section] ? NAV_ORDER[section].slice() : [];
+}
+function _setSectionOrder(section, arr) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(NAV_ORDER_KEY()) || '{}');
+    stored[section] = arr;
+    localStorage.setItem(NAV_ORDER_KEY(), JSON.stringify(stored));
+  } catch(e) {}
+}
+
+function mobCustOpen() {
+  const overlay = $('mob-cust-overlay');
+  if (!overlay) return;
+  overlay.classList.add('open');
+  _mobCustRender();
+}
+function mobCustClose() {
+  const overlay = $('mob-cust-overlay');
+  if (overlay) overlay.classList.remove('open');
+  navRenderSidebar();
+}
+
+function _mobCustRender() {
+  const body = $('mob-cust-body');
+  if (!body) return;
+  const sections = [
+    { key: 'work',    label: 'Work' },
+    { key: 'life',    label: 'Life' },
+    { key: 'connect', label: 'Connect' },
+  ];
+  let html = '';
+  sections.forEach(sec => {
+    html += `<div class="mob-cust-section-label">${sec.label}</div>`;
+    const order = _getSectionOrder(sec.key);
+    order.forEach((panel, idx) => {
+      const t = NAV_TABS[panel]; if (!t) return;
+      const on = isNavTab(panel);
+      const isCore = NAV_CORE.includes(panel);
+      html += `<div class="mob-cust-row" data-panel="${panel}" data-section="${sec.key}" data-idx="${idx}" draggable="true">
+        <span class="mob-cust-handle"><i class="ti ti-grip-vertical"></i></span>
+        <span class="mob-cust-icon"><i class="ti ${t.icon}"></i></span>
+        <span class="mob-cust-label">${t.label}</span>
+        <button class="mob-cust-toggle${on?' on':''}${isCore?' locked':''}"
+          onclick="${isCore?'':` _mobCustToggle('${panel}',this)`}"
+          title="${isCore?'Always shown':on?'Remove':'Add'}"></button>
+      </div>`;
+    });
+  });
+  body.innerHTML = html;
+  _mobCustDragInit(body);
+}
+
+function _mobCustToggle(panel, btn) {
+  toggleNavTab(panel);
+  const on = isNavTab(panel);
+  btn.classList.toggle('on', on);
+}
+
+function _mobCustDragInit(body) {
+  let dragEl = null, over = null;
+  body.querySelectorAll('.mob-cust-row').forEach(row => {
+    row.addEventListener('dragstart', e => {
+      dragEl = row; row.style.opacity = '.4';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => {
+      if (dragEl) dragEl.style.opacity = '';
+      dragEl = null; over = null;
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (!dragEl || dragEl === row) return;
+      const sect = row.dataset.section;
+      if (dragEl.dataset.section !== sect) return;
+      const r = row.getBoundingClientRect();
+      const mid = r.top + r.height / 2;
+      row.parentNode.insertBefore(dragEl, e.clientY < mid ? row : row.nextSibling);
+    });
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragEl) return;
+      const sect = dragEl.dataset.section;
+      const newOrder = [...body.querySelectorAll(`.mob-cust-row[data-section="${sect}"]`)].map(r => r.dataset.panel);
+      _setSectionOrder(sect, newOrder);
+    });
+  });
 }
 
 // ── Command-center: parse the next upcoming event today → display label ──
@@ -8865,7 +8981,10 @@ function nav(name, btn) {
   const mob = document.getElementById(`mn-${name}`); if (mob) mob.classList.add('active');
   // Mobile (Notion shell): navigating to a real panel drills in full-screen.
   // The launcher (sidebar) slides away and the topbar back chevron appears.
-  if (p && window.innerWidth <= 720) { document.body.classList.add('mob-drilled'); _mobPush(name); }
+  if (p && window.innerWidth <= 720) {
+    document.body.classList.add('mob-drilled'); _mobPush(name);
+    try { localStorage.setItem('sb_last_panel', name); } catch(e) {}
+  }
   _updateMobileNav(name);
   syncSnavFromPanel(name);
   _trackNav(name);

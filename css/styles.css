@@ -6724,13 +6724,13 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .tb-ham               { display: none !important; }
   .main { padding-bottom: env(safe-area-inset-bottom, 0) !important; }
 
-  /* The global .topbar is the canonical mobile header (brand + quick-add,
-     fullscreen, theme, notifications, profile). The launcher's own workspace
-     header duplicated it — two stacked "Sivarr" bars + a desktop-only
-     "Collapse sidebar" rail button — most visible in true fullscreen where
-     the browser chrome is gone. Drop it; the launcher's .sb-mob-search field
-     below already covers search on mobile. */
-  .sidebar .sb-header { display: none !important; }
+  /* Show the sidebar header on mobile — it now holds the retract + customize buttons.
+     Hide the desktop-only collapse icon; replace with a close chevron via JS. */
+  .sidebar .sb-header { display: flex !important; padding: 10px 14px 8px; border-bottom: 1px solid var(--border); }
+  .sidebar .sb-head-actions { gap: 4px; }
+  /* "Collapse rail" icon replaced by back-arrow on mobile */
+  #sb-rail-icon { display: none; }
+  .sb-mob-close-icon { display: inline-block; font-size: 1.3rem; }
 
   /* — Sidebar = full-screen launcher (home), ignoring any desktop
        retracted / collapsed state that may be in localStorage — */
@@ -6798,7 +6798,69 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 
   /* — Topbar back chevron only appears while drilled into a page — */
   body.mob-drilled .tb-mobback { display: flex; }
+
+  /* Customize sidebar button in header */
+  .sb-mob-cust-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg3); color: var(--text2); font-size: .78rem; font-weight: 600;
+    font-family: var(--font); cursor: pointer; white-space: nowrap;
+  }
+  .sb-mob-cust-btn i { font-size: .85rem; }
+  .sb-mob-cust-btn:active { opacity: .7; }
 }
+
+/* Customize sidebar bottom-sheet (mobile) */
+.mob-cust-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  z-index: 200; align-items: flex-end;
+}
+.mob-cust-overlay.open { display: flex; }
+.mob-cust-sheet {
+  width: 100%; max-height: 82vh; background: var(--bg2);
+  border-radius: 20px 20px 0 0; display: flex; flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  animation: mob-sheet-up .25s cubic-bezier(.22,1,.36,1);
+}
+.mob-cust-sheet::before {
+  content: ''; display: block; width: 40px; height: 4px; border-radius: 2px;
+  background: var(--border2); margin: 10px auto 6px;
+}
+.mob-cust-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 18px 10px; border-bottom: 1px solid var(--border);
+}
+.mob-cust-head h3 { font-size: .95rem; font-weight: 700; color: var(--text1); margin: 0; }
+.mob-cust-done {
+  border: none; background: var(--teal); color: #fff;
+  padding: 5px 14px; border-radius: 8px; font-size: .82rem; font-weight: 700;
+  font-family: var(--font); cursor: pointer;
+}
+.mob-cust-body { overflow-y: auto; padding: 10px 16px 20px; flex: 1; }
+.mob-cust-section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text4); padding: 14px 2px 6px;
+}
+.mob-cust-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 2px;
+  border-bottom: 1px solid var(--border);
+}
+.mob-cust-row:last-child { border-bottom: none; }
+.mob-cust-handle { color: var(--text4); font-size: 1.1rem; cursor: grab; touch-action: none; }
+.mob-cust-icon { font-size: 1rem; color: var(--text3); width: 22px; text-align: center; }
+.mob-cust-label { flex: 1; font-size: .9rem; font-weight: 500; color: var(--text1); }
+.mob-cust-toggle {
+  width: 36px; height: 20px; border-radius: 10px; background: var(--border);
+  border: none; cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0;
+}
+.mob-cust-toggle::after {
+  content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; top: 2px; left: 2px; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.mob-cust-toggle.on { background: var(--teal); }
+.mob-cust-toggle.on::after { left: 18px; }
+.mob-cust-toggle.locked { background: var(--bg3); cursor: not-allowed; opacity: .5; }
+.mob-cust-toggle.locked::after { left: 2px; }
 
 /* ═══════════════════════════════════════════════════════════════
    MOBILE — Phase 2: page ergonomics   (≤720px)
