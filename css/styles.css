@@ -362,8 +362,14 @@ body.offline .layout {
 /* Touch devices viewing the desktop layout (e.g. a phone at width=1024):
    the forced-wide viewport makes 100dvh a huge pixel height, leaving dead
    space below the dashboard. Let the page flow to its content height and
-   scroll naturally instead of using a fixed-viewport height + inner scroll. */
-@media (hover: none) and (pointer: coarse) {
+   scroll naturally instead of using a fixed-viewport height + inner scroll.
+
+   Scoped to ≥721px so REAL phones (the ≤720px mobile shell) keep the proper
+   fit-to-screen flex layout — viewport-height panels with an inner scroll
+   region and the composer/footer pinned to the bottom. Without this scope the
+   override collapsed every panel to content height, which is what made the
+   mobile chat feel "too long" with a dead gap under the composer. */
+@media (hover: none) and (pointer: coarse) and (min-width: 721px) {
   html, body { height: auto; }
   body.dashboard-active { overflow: auto; -webkit-overflow-scrolling: touch; }
   .layout { height: auto; }
@@ -6872,6 +6878,47 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .siva-pill { flex-shrink: 0; padding: 9px 15px; font-size: .82rem; border-radius: 22px; }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE — Notion-style zoom & density   (≤720px)
+   Applies to EVERY tab. Two goals:
+   1. "Zoom in" — text was sitting too small / too far away. A small root
+      font bump grows all rem-based type ~6% (preserves the user's
+      font-scale setting), so content reads closer & larger like Notion.
+   2. Fit-to-screen — the Sivarr AI tab was top-heavy (header + model
+      chips + welcome) leaving no room for the composer. Compact those
+      so the context/input area always has space and nothing overflows.
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 720px) {
+  /* Global zoom — bigger, closer type across all panels (keeps font-scale) */
+  html { font-size: calc(17px * var(--font-scale, 1)); }
+
+  /* Model selector → single swipeable row instead of wrapping to 2 lines
+     (the wrap was stealing vertical space at the top of the AI tab) */
+  .agent-selector {
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    padding: 6px 14px 2px; gap: 6px;
+  }
+  .agent-selector::-webkit-scrollbar { display: none; }
+  .agent-chip { flex-shrink: 0; }
+
+  /* Slim chat header so the conversation/composer gets more of the screen */
+  .chat-header { padding: 10px 14px 9px; }
+
+  /* Compact welcome — fits one screen, leaves the composer in view */
+  #chat-welcome { padding: 1.25rem 1.25rem .5rem; }
+  .chat-welcome-orb { width: 62px; height: 62px; border-radius: 18px; margin-bottom: 1rem; }
+  .chat-welcome-orb img { width: 34px; height: 34px; }
+  .chat-welcome-heading { font-size: 1.55rem; margin-bottom: .3rem; }
+  .chat-welcome-sub { font-size: .9rem; margin-bottom: 1.25rem; }
+  .chat-welcome-hint { margin-top: 1rem; }
+  .chat-prompt-grid { gap: 9px; }
+  .chat-prompt-card { padding: 14px 13px 12px; border-radius: 14px; }
+
+  /* Tighter, roomier message bubbles — closer reading like Notion */
+  .chat-msgs { padding: 16px 14px 12px; gap: 5px; }
+  .msg { max-width: 90%; }
+}
+
 /* ── Me mobile panel ── */
 #panel-me-mobile .me-profile-card {
   display: flex; align-items: center; gap: 14px;
@@ -7184,19 +7231,17 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 
 @media (max-width: 720px) {
 
-  /* ── 1. Layout — account for topbar + bottom nav height ────── */
-  .layout {
-    /* CSS custom property so panels can reference it */
-    --mob-nav-h: 60px;
-  }
-  /* The main area must shrink by bottom nav height on mobile */
+  /* ── 1. Layout — no bottom nav anymore (Notion launcher redesign) ──
+     The old mobile bottom-nav/FAB were retired, so we no longer reserve
+     ~60px at the bottom. Reserving it left a dead gap under the chat
+     composer and every panel footer. Only honour the safe-area inset. */
+  .layout { --mob-nav-h: 0px; }
   .main {
-    padding-bottom: var(--mob-nav-h) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   }
-  /* Sidebar must stop above bottom nav so upgrade btn is reachable */
-  .sidebar {
-    bottom: var(--mob-nav-h) !important;
-  }
+  /* Launcher sidebar sizes itself via height (see mobile shell); keep its
+     bottom unpinned so it isn't over-constrained by a phantom nav. */
+  .sidebar { bottom: auto !important; }
 
   /* ── 2. Chat bar — lift above bottom nav ─────────────────────
      The panel-chat uses flex column; chat-bar is the last child.
@@ -7293,7 +7338,7 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .mobile-nav {
     padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
   }
-  .layout { --mob-nav-h: calc(60px + env(safe-area-inset-bottom, 0px)); }
+  .layout { --mob-nav-h: env(safe-area-inset-bottom, 0px); }
 
   /* ── Modals as bottom sheets ─────────────────────────────────
      On small phones, center modals feel cramped.
