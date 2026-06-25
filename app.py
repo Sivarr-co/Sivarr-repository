@@ -9878,6 +9878,11 @@ async def _gcal_access_token(sid: str) -> str | None:
             })
             data = resp.json()
             if "access_token" not in data:
+                # Token was revoked/expired at Google — clear it so the UI
+                # stops reporting "connected" and prompts a reconnect.
+                if data.get("error") in ("invalid_grant", "invalid_token"):
+                    p.pop("google_cal_tokens", None)
+                    save_progress(sid, p)
                 return None
             gcal["access_token"] = data["access_token"]
             gcal["expiry"]       = time.time() + data.get("expires_in", 3600)
@@ -9978,6 +9983,31 @@ async def gcal_push(data: dict):
     if "id" not in result:
         raise HTTPException(400, result.get("error",{}).get("message","Push failed."))
     return {"ok": True, "gcal_id": result["id"], "htmlLink": result.get("htmlLink","")}
+
+
+@app.post("/api/integrations/gcal/disconnect")
+async def gcal_disconnect(data: dict):
+    """Revoke the Google Calendar token at Google and clear it locally."""
+    sess = get_session_from_token(data.get("token", ""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid  = sess["sid"]
+    p    = load_progress(sid)
+    gcal = p.get("google_cal_tokens", {})
+    tok  = gcal.get("refresh_token") or gcal.get("access_token")
+    # Best-effort revoke at Google so our access is actually withdrawn,
+    # not just forgotten locally. Never let a revoke failure block disconnect.
+    if tok and HTTPX_AVAILABLE:
+        try:
+            async with _httpx.AsyncClient(timeout=10) as client:
+                await client.post("https://oauth2.googleapis.com/revoke",
+                                  params={"token": tok})
+        except Exception as exc:
+            log.warning(f"Google Calendar revoke (non-fatal) for {sid}: {exc}")
+    p.pop("google_cal_tokens", None)
+    save_progress(sid, p)
+    log.info(f"Google Calendar disconnected: {sid}")
+    return {"ok": True}
 
 
 # ═══════════════════════════════════════════════════════════════

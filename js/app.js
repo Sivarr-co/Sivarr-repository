@@ -1141,19 +1141,23 @@ async function gcalCheckStatus() {
     _GCAL_CONNECTED = d.connected;
     const btn   = $('gcal-connect-btn');
     const label = $('gcal-btn-label');
+    const disc  = $('gcal-disconnect-btn');
     if (btn && label) {
       if (_GCAL_CONNECTED) {
         label.textContent = 'Google Connected';
         btn.style.borderColor = 'var(--teal)';
         btn.style.color       = 'var(--teal)';
         btn.onclick = gcalLoadEvents;
+        btn.title = 'Refresh Google Calendar events';
       } else {
         label.textContent = 'Connect Google';
         btn.style.borderColor = '';
         btn.style.color       = '';
         btn.onclick = gcalConnect;
+        btn.title = '';
       }
     }
+    if (disc) disc.style.display = _GCAL_CONNECTED ? '' : 'none';
     if (_GCAL_CONNECTED) gcalLoadEvents();
   } catch(_) {}
 }
@@ -1174,8 +1178,24 @@ async function gcalLoadEvents() {
     const r = await fetch(`/api/integrations/gcal/events?token=${encodeURIComponent(token)}&time_min=${encodeURIComponent(start)}&time_max=${encodeURIComponent(end)}`);
     const d = await r.json();
     _GCAL_EVENTS = d.events || [];
-    if (typeof renderCal === 'function') renderCal();
+    if (typeof calRender === 'function') calRender();  // surface Google events in the calendar
   } catch(_) {}
+}
+
+async function gcalDisconnect() {
+  const token = getToken() || '';
+  if (!token) return;
+  if (!confirm('Disconnect Google Calendar? Your Google events will stop showing in Sivarr and Sivarr’s access will be revoked.')) return;
+  try {
+    await API('/api/integrations/gcal/disconnect', { token });
+    _GCAL_CONNECTED = false;
+    _GCAL_EVENTS = [];
+    toast('Google Calendar disconnected.');
+    gcalCheckStatus();
+    if (typeof calRender === 'function') calRender();
+  } catch(e) {
+    toast(e.message || 'Disconnect failed.');
+  }
 }
 
 async function gcalPushEvent(ev) {
@@ -6823,6 +6843,22 @@ function _calNormalize() {
         allDay: startMin == null, startMin,
         endMin: startMin != null ? Math.min(startMin + 60, 24*60) : null,
         category: 'task', color: CAL_CAT_MAP.task.color,
+      });
+    });
+  }
+  // Connected Google Calendar events (read-only, shown under the Meetings filter)
+  if (f.has('meeting') && typeof _GCAL_EVENTS !== 'undefined' && Array.isArray(_GCAL_EVENTS)) {
+    _GCAL_EVENTS.forEach(g => {
+      const sd = g.start ? new Date(g.start) : null;
+      if (!sd || isNaN(sd)) return;
+      const allDay = !!g.allDay || (typeof g.start === 'string' && g.start.length <= 10);
+      let startMin = allDay ? null : sd.getHours()*60 + sd.getMinutes();
+      let endMin = null;
+      if (!allDay && g.end) { const ed = new Date(g.end); if (!isNaN(ed)) endMin = ed.getHours()*60 + ed.getMinutes(); }
+      if (startMin != null && (endMin == null || endMin <= startMin)) endMin = Math.min(startMin + 60, 24*60);
+      out.push({
+        id: 'g_' + (g.id || g.title), kind: 'gcal', title: g.title || '(No title)', date: _calYMD(sd),
+        allDay, startMin, endMin, category: 'meeting', color: g.color || '#4285F4', htmlLink: g.htmlLink || '',
       });
     });
   }
