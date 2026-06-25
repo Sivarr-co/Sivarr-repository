@@ -1029,11 +1029,11 @@ def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">You're invited to join <strong>{org_name}</strong></h2>
   <p style="color:#555;line-height:1.6;margin:0 0 8px">
-    <strong>{inviter_name}</strong> has invited you to join their organization on Sivarr as a <strong>{role}</strong>.
+    <strong>{inviter_name}</strong> has invited you to join <strong>{org_name}</strong> on Sivarr as a <strong>{role}</strong>.
   </p>
   <p style="color:#555;line-height:1.6;margin:0 0 28px">
-    Sivarr is an all-in-one OS for work — tasks, projects, docs, AI, and team chat in one place.
-    This invite expires in <strong>7 days</strong>.
+    Sivarr brings your team's tasks, projects, docs, AI, and chat into one workspace.
+    Accept below to jump in — this invite expires in <strong>7 days</strong>.
   </p>
   <a href="{join_url}"
      style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
@@ -1074,7 +1074,7 @@ def _email_welcome_html(name: str) -> str:
 
         <!-- Opening line -->
         <tr><td style="font-size:1rem;color:#1a1a1a;padding-bottom:28px;line-height:1.6">
-          You now have access to your Sivarr workspace.
+          Your Sivarr workspace is ready — welcome aboard.
         </td></tr>
 
         <!-- CTA Button 1 -->
@@ -1091,7 +1091,7 @@ def _email_welcome_html(name: str) -> str:
 
         <!-- Body copy -->
         <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:12px;line-height:1.6">
-          Once you do, you will find that you can;
+          Here's what you can do inside:
         </td></tr>
 
         <!-- Feature list -->
@@ -1106,7 +1106,7 @@ def _email_welcome_html(name: str) -> str:
 
         <!-- And more -->
         <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:12px;line-height:1.6">
-          And what&rsquo;s more?
+          And the best part?
         </td></tr>
         <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:12px;line-height:1.6">
           You get to use <strong>multiple</strong> tools in <strong>one</strong> platform.
@@ -1123,7 +1123,7 @@ def _email_welcome_html(name: str) -> str:
 
         <!-- Repeat link -->
         <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:12px;line-height:1.6">
-          Here&rsquo;s your access link again;
+          Here&rsquo;s your access link again:
         </td></tr>
 
         <!-- CTA Button 2 -->
@@ -1135,14 +1135,14 @@ def _email_welcome_html(name: str) -> str:
 
         <!-- Closing -->
         <tr><td style="font-size:.95rem;color:#1a1a1a;padding-bottom:20px;line-height:1.6">
-          We can&rsquo;t wait to see what you do with Sivarr !
+          We can&rsquo;t wait to see what you build with Sivarr.
         </td></tr>
         <tr><td style="font-size:.92rem;color:#555;font-style:italic;padding-bottom:28px;line-height:1.8">
-          See you Inside,<br>Sivarr Team
+          See you inside,<br>The Sivarr Team
         </td></tr>
 
         <tr><td style="font-size:.88rem;color:#1a1a1a;padding-bottom:32px;line-height:1.6">
-          PS; If you run into any issue, simply reply to this email and our team will help you out.
+          P.S. Run into any issue? Just reply to this email and our team will help you out.
         </td></tr>
 
         <!-- Footer -->
@@ -2751,7 +2751,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks, respon
                     "Verify your Sivarr email",
                     _email_verify_html(verify_url, user['name']))
         bg.add_task(send_email, email,
-                    "Welcome to Sivarr AI",
+                    "Welcome to Sivarr — your workspace is ready",
                     _email_welcome_html(user['name']))
 
     # ── LOGIN ──────────────────────────────────────────────────
