@@ -4915,6 +4915,23 @@ async def admin_cleanup_sessions(data: dict):
     return {"ok": True, "removed": count}
 
 
+# ── TEMP: Sentry verification — REMOVE after the test event lands in Sentry ──
+# Gated by ADMIN_PASSWORD (passed in the body, never the URL). Sends one explicit
+# captured exception so you can watch it arrive; does not crash the server.
+@app.post("/api/admin/sentry-test")
+async def admin_sentry_test(data: dict):
+    if not ADMIN_PASSWORD or not hmac.compare_digest(str(data.get("key", "")), ADMIN_PASSWORD):
+        raise HTTPException(404, "Not found")
+    if not (SENTRY_AVAILABLE and SENTRY_DSN):
+        return {"ok": False, "detail": "SENTRY_DSN not set — set it in Railway and redeploy first."}
+    try:
+        raise RuntimeError("Sivarr Sentry verification event — safe to resolve.")
+    except Exception as exc:
+        event_id = sentry_sdk.capture_exception(exc)
+    sentry_sdk.flush(timeout=5)
+    return {"ok": True, "detail": "Test event sent to Sentry.", "event_id": event_id}
+
+
 # ═══════════════════════════════════════════════════════════════
 #  ADMIN ANALYTICS — revenue · user drill-down · AI health · growth
 # ═══════════════════════════════════════════════════════════════
