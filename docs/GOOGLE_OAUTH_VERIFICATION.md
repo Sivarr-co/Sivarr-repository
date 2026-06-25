@@ -23,6 +23,12 @@ The OAuth/Calendar flow lives in `app.py`:
 - Disconnect:`POST /api/integrations/gcal/disconnect` (added in audit)
 
 ### Fixed in the audit
+- **Session token no longer in the URL.** The connect flow now resolves the session
+  from the httpOnly cookie, and the OAuth `state` carries only an HMAC-signed user id
+  with a 10-min TTL (also serving as CSRF protection) — not the session token. The
+  token no longer appears in browser history, server logs, or the Referer sent to
+  Google. `/auth/google/calendar` returns `session_expired` if no valid session cookie
+  is present. (Redirect URI is unchanged, so no Google console change is needed.)
 - **Disconnect/revoke** endpoint added — revokes the token at Google and clears it
   locally. Backs the privacy-policy promise and gives reviewers the revocation path
   they look for. Disconnect button shows in the Calendar header when connected.
@@ -35,19 +41,13 @@ The OAuth/Calendar flow lives in `app.py`:
   affirmation (required by verification).
 
 ### Recommended follow-ups (NOT approval blockers — your call)
-1. **Session token in the URL.** `gcalConnect()` sends `/auth/google/calendar?token=<sessionToken>`
-   and passes it back as the OAuth `state`. The token lands in browser history, server
-   access logs, and the `Referer` sent to Google. This contradicts the earlier
-   "tokens-out-of-URLs" hardening. Fix: issue a short-lived signed nonce mapped to the
-   sid server-side, pass the nonce as `state`, and resolve sid from it in the callback.
-   (Deferred because it changes the auth round-trip and can't be fully tested without
-   live Google credentials.)
-2. **CSRF state validation** on the calendar callback (the sign-in flow already does this
-   via `_google_check_state`; the calendar flow does not).
-3. **Encrypt the refresh token at rest** (currently stored plaintext in the progress
+1. **Encrypt the refresh token at rest** (currently stored plaintext in the progress
    record / DB).
-4. **Push timezone** is hardcoded to UTC in `gcal_push`; pass the user's timezone so
+2. **Push timezone** is hardcoded to UTC in `gcal_push`; pass the user's timezone so
    pushed events land at the right local time.
+
+(The earlier "session token in URL" and "no CSRF state validation" findings are now
+fixed — see above.)
 
 ---
 

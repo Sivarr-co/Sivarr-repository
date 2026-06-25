@@ -1163,9 +1163,10 @@ async function gcalCheckStatus() {
 }
 
 function gcalConnect() {
-  const token = getToken() || '';
-  if (!token) { toast('Sign in first.'); return; }
-  window.location.href = `/auth/google/calendar?token=${encodeURIComponent(token)}`;
+  if (!getToken()) { toast('Sign in first.'); return; }
+  // The server resolves the session from the httpOnly cookie — never put the
+  // session token in the URL (it would leak to history, logs and the Referer).
+  window.location.href = '/auth/google/calendar';
 }
 
 async function gcalLoadEvents() {
@@ -19532,7 +19533,7 @@ async function extCalLoad() {
   const tok = encodeURIComponent(getToken() || '');
   const connected = await spaceHasCapability('calendar');
   if (!connected) {
-    root.innerHTML = `<div class="mkt-empty-state"><i class="ti ti-calendar" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>Google Calendar isn't connected.</div><a class="mkt-btn-teal" style="margin-top:10px;text-decoration:none" href="/auth/google/calendar?token=${tok}"><i class="ti ti-plug" aria-hidden="true"></i> Connect Google Calendar</a></div>`;
+    root.innerHTML = `<div class="mkt-empty-state"><i class="ti ti-calendar" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>Google Calendar isn't connected.</div><a class="mkt-btn-teal" style="margin-top:10px;text-decoration:none" href="/auth/google/calendar"><i class="ti ti-plug" aria-hidden="true"></i> Connect Google Calendar</a></div>`;
     return;
   }
   let events = [];

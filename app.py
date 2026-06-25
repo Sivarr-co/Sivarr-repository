@@ -968,13 +968,13 @@ def _email_reset_html(reset_url: str) -> str:
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Reset your password</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 28px">
-    Someone requested a password reset for your Sivarr account.<br>
-    Click below to set a new password. This link expires in <strong>1 hour</strong>.
+    We received a request to reset the password for your Sivarr account.<br>
+    Click below to choose a new one. This link expires in <strong>1 hour</strong>.
   </p>
   <a href="{reset_url}"
      style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
-    Reset Password →
+    Reset my password →
   </a>
   <p style="color:#999;font-size:.78rem;margin-top:32px;line-height:1.5">
     If you didn't request this, you can safely ignore this email.<br>
@@ -996,13 +996,14 @@ def _email_verify_html(verify_url: str, name: str) -> str:
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Welcome, {name} 👋</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 28px">
-    Verify your email address to complete your Sivarr account setup.<br>
+    You're one step away. Confirm your email address to activate your Sivarr
+    account and open your workspace.<br>
     This link expires in <strong>24 hours</strong>.
   </p>
   <a href="{verify_url}"
      style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
-    Verify Email →
+    Confirm my email →
   </a>
   <p style="color:#999;font-size:.78rem;margin-top:32px;line-height:1.5">
     If you didn't create a Sivarr account, you can safely ignore this email.
@@ -1273,8 +1274,8 @@ def _email_billing_receipt_html(name: str, plan: str, amount: str, ref: str) -> 
   <div style="margin-bottom:28px">
     <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
   </div>
-  <h2 style="margin:0 0 10px;font-size:1.4rem">Payment confirmed</h2>
-  <p style="color:#555;line-height:1.6;margin:0 0 8px">Hi {name}, your payment was successful.</p>
+  <h2 style="margin:0 0 10px;font-size:1.4rem">Payment confirmed ✓</h2>
+  <p style="color:#555;line-height:1.6;margin:0 0 8px">Thanks, {name} — your payment went through and your subscription is active. Here's your receipt:</p>
   <table style="width:100%;border-collapse:collapse;margin:16px 0 28px">
     <tr><td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Plan</td>
         <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600">{plan}</td></tr>
@@ -9808,11 +9809,50 @@ async def google_token_exchange(response: Response, code: str = ""):
 #  GOOGLE CALENDAR INTEGRATION
 # ═══════════════════════════════════════════════════════════════
 
+# ── Calendar OAuth state (HMAC-signed sid, cross-worker safe) ────────────────
+# The OAuth `state` carries only a signed user id with a short TTL — never the
+# session token. It can't be forged (HMAC) so it also serves as CSRF protection,
+# and even if it appears in a log it can't authenticate anything.
+def _gcal_state_key() -> bytes:
+    return (GOOGLE_CLIENT_SECRET or "sivarr-fallback").encode() + b":gcal-state-v1"
+
+
+def _gcal_make_state(sid: str) -> str:
+    import base64
+    payload = json.dumps({"sid": sid, "exp": int(time.time()) + 600},
+                         separators=(",", ":")).encode()
+    raw = base64.urlsafe_b64encode(payload).decode().rstrip("=")
+    sig = hmac.new(_gcal_state_key(), raw.encode(), "sha256").hexdigest()[:32]
+    return f"{raw}.{sig}"
+
+
+def _gcal_verify_state(state: str) -> str | None:
+    """Return the sid if the state signature is valid and unexpired, else None."""
+    import base64
+    try:
+        raw, sig = state.split(".", 1)
+        expected = hmac.new(_gcal_state_key(), raw.encode(), "sha256").hexdigest()[:32]
+        if not hmac.compare_digest(sig, expected):
+            return None
+        data = json.loads(base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4)))
+        if int(data.get("exp", 0)) < time.time():
+            return None
+        return data.get("sid")
+    except Exception:
+        return None
+
+
 @app.get("/auth/google/calendar")
-async def google_cal_connect(token: str = ""):
+async def google_cal_connect(request: Request, token: str = ""):
     """Start OAuth flow for Google Calendar (offline, to get refresh token)."""
     if not GOOGLE_OAUTH_AVAILABLE:
         return RedirectResponse("/app?gcal_error=not_configured")
+    # Resolve the session from the httpOnly cookie (preferred) so the session
+    # token never travels in the URL. Legacy ?token= is accepted as a fallback
+    # only — current clients no longer send it.
+    sess = get_session_from_token(request.cookies.get(SESSION_COOKIE, "") or token)
+    if not sess:
+        return RedirectResponse("/app?gcal_error=session_expired")
     from urllib.parse import urlencode
     params = {
         "client_id":     GOOGLE_CLIENT_ID,
@@ -9821,7 +9861,7 @@ async def google_cal_connect(token: str = ""):
         "scope":         "https://www.googleapis.com/auth/calendar.events",
         "access_type":   "offline",
         "prompt":        "consent",
-        "state":         token,
+        "state":         _gcal_make_state(sess["sid"]),
     }
     return RedirectResponse(f"{GOOGLE_AUTH_URL}?{urlencode(params)}")
 
@@ -9833,8 +9873,8 @@ async def google_cal_callback(code: str = "", state: str = "", error: str = ""):
         return RedirectResponse("/app?gcal_error=denied")
     if not GOOGLE_OAUTH_AVAILABLE or not HTTPX_AVAILABLE:
         return RedirectResponse("/app?gcal_error=not_configured")
-    sess = get_session_from_token(state)
-    if not sess:
+    sid = _gcal_verify_state(state)
+    if not sid:
         return RedirectResponse("/app?gcal_error=session_expired")
     try:
         async with _httpx.AsyncClient(timeout=15) as client:
@@ -9852,7 +9892,6 @@ async def google_cal_callback(code: str = "", state: str = "", error: str = ""):
         log.error(f"Google Calendar OAuth error: {exc}")
         return RedirectResponse("/app?gcal_error=failed")
 
-    sid = sess["sid"]
     p   = load_progress(sid)
     p["google_cal_tokens"] = {
         "access_token":  tokens.get("access_token",""),
