@@ -4226,18 +4226,11 @@ Sentry.onLoad(function() {
       <!-- ── Weekly Review Panel ── -->
       <div class="panel" id="panel-review">
         <div class="view-head">
-          <div class="vh-left">
-            <div class="vh-icon"><i class="ti ti-calendar-stats"></i></div>
-            <div>
-              <div class="vh-title">Weekly Review</div>
-              <div class="vh-sub">Sivarr AI reflects on your week and sets you up for the next one</div>
-            </div>
-          </div>
-          <div class="vh-actions">
-            <button class="btn-primary" id="review-gen-btn" onclick="reviewGenerate()">
-              <i class="ti ti-sparkles"></i> Generate Review
-            </button>
-          </div>
+          <i class="ti ti-calendar-stats vh-icon"></i>
+          <span class="vh-title">Weekly Review</span>
+          <button class="btn primary" id="review-gen-btn" onclick="reviewGenerate()" style="margin-left:auto">
+            <i class="ti ti-sparkles"></i> Generate Review
+          </button>
         </div>
 
         <div class="review-body" id="review-body">
