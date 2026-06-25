@@ -1830,6 +1830,12 @@ if SENTRY_AVAILABLE and SENTRY_DSN:
         integrations=[StarletteIntegration(), FastApiIntegration()],
         traces_sample_rate=0.1,
         send_default_pii=False,
+        # Secret-leak prevention: send_default_pii=False alone does NOT scrub request
+        # bodies or stack-frame locals, and Sentry's default scrubber only catches keys
+        # literally named password/secret/etc. (not e.g. "key"/"totp"). On an auth +
+        # payments app those carry credentials, so we never capture either.
+        max_request_body_size="never",      # don't ship HTTP request bodies
+        include_local_variables=False,       # don't ship stack-frame locals
         release=VERSION,
         environment=os.environ.get("RAILWAY_ENVIRONMENT", "production"),
     )
@@ -4913,23 +4919,6 @@ async def admin_cleanup_sessions(data: dict):
     count = db.cleanup_db_sessions() if db.is_available() else 0
     cleanup_expired_tokens()
     return {"ok": True, "removed": count}
-
-
-# ── TEMP: Sentry verification — REMOVE after the test event lands in Sentry ──
-# Gated by ADMIN_PASSWORD (passed in the body, never the URL). Sends one explicit
-# captured exception so you can watch it arrive; does not crash the server.
-@app.post("/api/admin/sentry-test")
-async def admin_sentry_test(data: dict):
-    if not ADMIN_PASSWORD or not hmac.compare_digest(str(data.get("key", "")), ADMIN_PASSWORD):
-        raise HTTPException(404, "Not found")
-    if not (SENTRY_AVAILABLE and SENTRY_DSN):
-        return {"ok": False, "detail": "SENTRY_DSN not set — set it in Railway and redeploy first."}
-    try:
-        raise RuntimeError("Sivarr Sentry verification event — safe to resolve.")
-    except Exception as exc:
-        event_id = sentry_sdk.capture_exception(exc)
-    sentry_sdk.flush(timeout=5)
-    return {"ok": True, "detail": "Test event sent to Sentry.", "event_id": event_id}
 
 
 # ═══════════════════════════════════════════════════════════════
