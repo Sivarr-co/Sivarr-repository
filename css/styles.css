@@ -382,15 +382,13 @@ body.offline .layout {
   }
 
   /* Chat panel exception: must always be a fixed viewport-height column
-     so the composer pins to the bottom and messages scroll within it.
-     Setting explicit height beats the layout's natural-flow mode. */
-  #panel-chat {
+     so the composer pins to the bottom and messages scroll within it. */
+  #panel-chat.active {
     height: calc(100dvh - var(--topbar-h)) !important;
     overflow: hidden !important;
-    display: flex !important;
     flex-direction: column !important;
   }
-  #panel-chat .chat-msgs {
+  #panel-chat.active .chat-msgs {
     flex: 1 !important;
     overflow-y: auto !important;
     height: 0 !important;
