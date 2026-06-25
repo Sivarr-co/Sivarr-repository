@@ -30,7 +30,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260624b">
+<link rel="stylesheet" href="/css/styles.css?v=20260625a">
 <!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
 <script type="module">
 import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
@@ -2463,42 +2463,43 @@ Sentry.onLoad(function() {
             <button class="btn primary" onclick="calAddEvent()">+ Event</button>
           </div>
         </div>
-        <div class="cal-wrap">
+        <div class="cal-layout">
 
-          <!-- Month navigation -->
-          <div class="cal-header">
-            <button class="cal-nav-btn" onclick="calNav(-1)"><i class="ti ti-chevron-left"></i></button>
-            <div class="cal-month" id="cal-month-label">May 2026</div>
-            <button class="cal-nav-btn" onclick="calNav(1)"><i class="ti ti-chevron-right"></i></button>
-          </div>
-
-          <!-- Day headers -->
-          <div class="cal-grid" id="cal-grid">
-            <div class="cal-dh">Sun</div>
-            <div class="cal-dh">Mon</div>
-            <div class="cal-dh">Tue</div>
-            <div class="cal-dh">Wed</div>
-            <div class="cal-dh">Thu</div>
-            <div class="cal-dh">Fri</div>
-            <div class="cal-dh">Sat</div>
-          </div>
-
-          <!-- Events for selected day -->
-          <div class="h2col-card">
-            <div class="h-card-hd">
-              <span class="h-card-title" id="cal-day-label">Today's Events</span>
+          <!-- LEFT RAIL: mini-calendar, next-up reminder, filters -->
+          <aside class="cal-rail">
+            <div class="cal-mini">
+              <div class="cal-mini-hd">
+                <button class="cal-mini-nav" onclick="calMiniNav(-1)" aria-label="Previous month"><i class="ti ti-chevron-left"></i></button>
+                <span class="cal-mini-label" id="cal-mini-label">June 2026</span>
+                <button class="cal-mini-nav" onclick="calMiniNav(1)" aria-label="Next month"><i class="ti ti-chevron-right"></i></button>
+              </div>
+              <div class="cal-mini-grid" id="cal-mini-grid"></div>
             </div>
-            <div class="ev-list" id="cal-events-list">
-              <div class="ev-row">
-                <div class="ev-time">—</div>
-                <div class="ev-dot" style="background:var(--text4)"></div>
-                <div class="ev-info">
-                  <div class="ev-name">No events for this day</div>
-                  <div class="ev-sub">Click + Event to add one</div>
-                </div>
+
+            <div class="cal-reminder" id="cal-reminder"></div>
+
+            <div class="cal-filters">
+              <div class="cal-filters-hd">Filters</div>
+              <div id="cal-filter-list"></div>
+            </div>
+          </aside>
+
+          <!-- MAIN: date range + view toggle + timeline/month body -->
+          <section class="cal-main">
+            <div class="cal-main-hd">
+              <div class="cal-main-nav">
+                <button class="cal-nav-btn" onclick="calNav(-1)" aria-label="Previous"><i class="ti ti-chevron-left"></i></button>
+                <div class="cal-range" id="cal-range-label">June 2026</div>
+                <button class="cal-nav-btn" onclick="calNav(1)" aria-label="Next"><i class="ti ti-chevron-right"></i></button>
+              </div>
+              <div class="cal-seg" id="cal-view-seg">
+                <button data-v="day"   onclick="calSetView('day')">Daily</button>
+                <button data-v="week"  class="active" onclick="calSetView('week')">Weekly</button>
+                <button data-v="month" onclick="calSetView('month')">Monthly</button>
               </div>
             </div>
-          </div>
+            <div class="cal-main-body" id="cal-main-body"></div>
+          </section>
         </div>
       </div>
 
@@ -4557,7 +4558,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260624a" defer></script>
+<script src="/js/app.js?v=20260625a" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
