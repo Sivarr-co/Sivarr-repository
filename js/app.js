@@ -9,6 +9,10 @@
 let _MEM_TOKEN = '';
 function getToken() { return _MEM_TOKEN || ''; }
 function setToken(t) { _MEM_TOKEN = t || ''; }
+// One-time cleanup for returning users: purge any token persisted by a
+// pre-cookie-auth build so it stops sitting in localStorage as an XSS-readable
+// credential. The app no longer reads it (auth rides the httpOnly cookie).
+try { localStorage.removeItem('sivarr_token'); } catch (e) {}
 
 // ═══════════════════════ AUTH TRANSPORT ══════════════════════
 // Send the session token in the Authorization header, never in the URL. This
