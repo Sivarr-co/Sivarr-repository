@@ -2656,6 +2656,11 @@ async def admin_metrics_page(request: Request):
     return Path("templates/admin_metrics.html").read_text(encoding="utf-8")
 
 
+# Precomputed bcrypt hash used only to equalise login timing for non-existent
+# accounts (anti-enumeration) — never matches any real password.
+_DUMMY_PW_HASH = bcrypt.hashpw(b"sivarr-timing-equaliser", bcrypt.gensalt())
+
+
 def _validate_auth_input(req: "LoginRequest", client_key: str) -> tuple[str, str, str]:
     """Authoritative server-side validation for /api/login (login + register),
     independent of any client-side checks. Validates format + length for every
@@ -2763,16 +2768,23 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks, respon
             user = db.get_user_by_email(email)
 
         if not user:
-            raise HTTPException(401, "No account found with this email. Sign up first.")
+            # Anti-enumeration: same generic message AND comparable timing as a
+            # wrong password (burn a dummy bcrypt) so an attacker can't tell a
+            # non-existent email from a wrong password by reply text or latency.
+            try:
+                bcrypt.checkpw((req.password or "x").encode(), _DUMMY_PW_HASH)
+            except Exception:
+                pass
+            raise HTTPException(401, "Invalid email or password.")
 
         stored = user.get("password", "")
         if not stored:
             raise HTTPException(401, "google_only_account")
         if not req.password:
-            raise HTTPException(401, "Password required.")
+            raise HTTPException(401, "Invalid email or password.")
         if not bcrypt.checkpw(req.password.encode(), stored.encode()):
             _record_failed_login(email)
-            raise HTTPException(401, "Incorrect password.")
+            raise HTTPException(401, "Invalid email or password.")
 
         _clear_failed_login(email)   # reset counter on correct password
         sid = user["sid"]
