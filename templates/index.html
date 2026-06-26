@@ -28,7 +28,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260626a">
+<link rel="stylesheet" href="/css/styles.css?v=20260626b">
 <!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
 <script type="module">
 import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
@@ -466,7 +466,7 @@ Sentry.onLoad(function() {
   </header>
 
   <!-- Overlay for mobile sidebar -->
-  <div class="overlay" id="overlay" onclick="closeMobileSidebar()"></div>
+  <div class="overlay" id="overlay" onclick="window.innerWidth<=720&&!document.body.classList.contains('mob-drilled')?_mobHomeVisual():closeMobileSidebar()"></div>
 
   <!-- Layout -->
   <div class="layout">

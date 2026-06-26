@@ -6748,14 +6748,11 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
     height: calc(100dvh - var(--topbar-h)) !important;
   }
 
-  /* Dim the 30% behind the launcher */
-  body:not(.mob-drilled) .main::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.45);
-    z-index: 94;
-    pointer-events: none;
+  /* Dim + capture taps on the 30% exposed behind the launcher */
+  body:not(.mob-drilled) #overlay {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 94 !important; /* below sidebar (95) so sidebar stays interactive */
   }
   /* Make sure collapsed-mode (desktop) never hides launcher content */
   .sidebar.collapsed .si-lb           { display: inline !important; }
