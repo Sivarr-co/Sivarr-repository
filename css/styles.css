@@ -6724,6 +6724,9 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .tb-ham               { display: none !important; }
   .main { padding-bottom: env(safe-area-inset-bottom, 0) !important; }
 
+  /* Hide topbar brand on launcher — sb-header already shows the Sivarr logo below */
+  body:not(.mob-drilled) .tb-brand { display: none !important; }
+
   /* Show the sidebar header on mobile — it now holds the retract + customize buttons.
      Hide the desktop-only collapse icon; replace with a close chevron via JS. */
   .sidebar .sb-header { display: flex !important; padding: 10px 14px 8px; border-bottom: 1px solid var(--border); }
@@ -6732,18 +6735,27 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   #sb-rail-icon { display: none; }
   .sb-mob-close-icon { display: inline-block; font-size: 1.3rem; }
 
-  /* — Sidebar = full-screen launcher (home), ignoring any desktop
+  /* — Sidebar = 70% launcher (home), ignoring any desktop
        retracted / collapsed state that may be in localStorage — */
   .sidebar,
   .sidebar.retracted,
   .sidebar.collapsed {
-    width: 100% !important;
+    width: 70% !important;
     transform: translateX(0) !important;
-    z-index: 95; border-right: none; box-shadow: none;
-    /* Explicit dynamic-viewport height — fixed bottom:0 is unreliable next to
-       the mobile toolbar and was leaving dead space under the footer. */
+    z-index: 95; border-right: none;
+    box-shadow: 6px 0 40px rgba(0,0,0,0.55);
     bottom: auto !important;
     height: calc(100dvh - var(--topbar-h)) !important;
+  }
+
+  /* Dim the 30% behind the launcher */
+  body:not(.mob-drilled) .main::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 94;
+    pointer-events: none;
   }
   /* Make sure collapsed-mode (desktop) never hides launcher content */
   .sidebar.collapsed .si-lb           { display: inline !important; }
@@ -8436,6 +8448,8 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
    SIVARR — Marketplace (Extensions/Integrations/Templates)
    Brand-mapped: alias spec vars → Sivarr theme vars. Prefix .mkt- .sset-
 ═══════════════════════════════════════════ */
+#panel-marketplace { overflow-y: auto !important; }
+
 #panel-marketplace, .mkt-modal-overlay {
   --bg-card: var(--card);
   --text-primary: var(--text);
