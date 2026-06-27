@@ -2899,7 +2899,7 @@ def update_org_task(task_id: str, updates: dict, org_id: str) -> bool:
     conn = _get_conn()
     if not conn: return False
     allowed = {"title", "description", "status", "priority", "assignee_sid", "project_id", "due_date"}
-    sets = {k: v for k, v in updates.items() if k in allowed}
+    sets = {k: (None if v== "None" else v) for k, v in updates.items() if k in allowed}
     if not sets: return True
     try:
         with conn.cursor() as cur:

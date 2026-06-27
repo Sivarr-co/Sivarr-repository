@@ -8636,7 +8636,7 @@ async def org_task_update(data: dict):
     task_id = sanitize_text(str(data.get("task_id", "")), 40)
     if not task_id: raise HTTPException(400, "task_id required.")
     allowed = {"title", "description", "status", "priority", "assignee_sid", "project_id", "due_date"}
-    updates = {k: sanitize_text(str(v), 2000) for k, v in data.items() if k in allowed}
+    updates = {k: (None if v is None else sanitize_text(str(v),2000)) for k, v in data.items() if k in allowed}
     db.update_org_task(task_id, updates, org["id"])
     return {"ok": True}
 
