@@ -671,6 +671,13 @@ SESSION_REVALIDATE_SECONDS = 30    # how often a cached session is re-checked ag
 # disabled in local dev (http) so the cookie still works there.
 SESSION_COOKIE    = "sivarr_session"
 _COOKIE_SECURE    = os.environ.get("RAILWAY_ENVIRONMENT", "production") != "development"
+# P3b step(d): __Host- prefix enforces Secure+Path=/+no-Domain at the browser level,
+# preventing subdomain session-cookie hijacking. Only valid over HTTPS (Secure); falls
+# back to the plain name in local HTTP dev where Secure is off.
+_SESSION_COOKIE_KEY = f"__Host-{SESSION_COOKIE}" if _COOKIE_SECURE else SESSION_COOKIE
+# CSRF double-submit cookie: non-httpOnly so JS can read + echo as X-CSRF-Token header.
+# Belt-and-suspenders with SameSite=Lax; validated in _BearerTokenMiddleware.
+_CSRF_COOKIE = "sivarr_csrf"
 # P3b: the token resolved per-request by _BearerTokenMiddleware (query > Bearer >
 # cookie), stashed here so body-token endpoints (_resolve_token / session_restore)
 # can authenticate from the httpOnly cookie when no token is in the JSON body —
@@ -777,16 +784,24 @@ def _set_session_cookie(response: Response, token: str) -> None:
     """P3b: store the session token in an httpOnly+SameSite cookie. httpOnly
     keeps it out of reach of JS (XSS exfil); the cookie is auto-sent on
     same-origin requests incl. SSE/EventSource. Additive — the Bearer header
-    and ?token= query param still work during the migration."""
+    and ?token= query param still work during the migration.
+    Also sets the CSRF double-submit cookie (non-httpOnly, SameSite=Strict) so
+    the JS fetch wrapper can read + echo it as X-CSRF-Token on every POST."""
     response.set_cookie(
-        key=SESSION_COOKIE, value=token,
+        key=_SESSION_COOKIE_KEY, value=token,
         max_age=SESSION_TTL_DAYS * 86400,
         httponly=True, secure=_COOKIE_SECURE, samesite="lax", path="/",
+    )
+    response.set_cookie(
+        key=_CSRF_COOKIE, value=secrets.token_urlsafe(24),
+        max_age=SESSION_TTL_DAYS * 86400,
+        httponly=False, secure=_COOKIE_SECURE, samesite="strict", path="/",
     )
 
 
 def _clear_session_cookie(response: Response) -> None:
-    response.delete_cookie(SESSION_COOKIE, path="/", samesite="lax", secure=_COOKIE_SECURE)
+    response.delete_cookie(_SESSION_COOKIE_KEY, path="/", samesite="lax", secure=_COOKIE_SECURE)
+    response.delete_cookie(_CSRF_COOKIE, path="/", samesite="strict", secure=_COOKIE_SECURE)
 
 
 def create_session_token_for_existing(token: str, sid: str, name: str, email: str) -> None:
@@ -1299,8 +1314,13 @@ def _email_billing_receipt_html(name: str, plan: str, amount: str, ref: str) -> 
 
 def _email_org_mention_html(recipient_name: str, sender_name: str, org_name: str,
                             channel: str, preview: str) -> str:
-    first = recipient_name.split()[0] if recipient_name else recipient_name
-    safe_preview = preview[:300].replace("<", "&lt;").replace(">", "&gt;")
+    # Escape all org/member-controlled values — they're interpolated into HTML
+    # emailed to other members (prevents stored-HTML / phishing injection).
+    first        = html.escape((recipient_name.split()[0] if recipient_name else "") or "")
+    sender_name  = html.escape(sender_name or "")
+    org_name     = html.escape(org_name or "")
+    channel      = html.escape(channel or "")
+    safe_preview = html.escape((preview or "")[:300])
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
@@ -1330,8 +1350,13 @@ def _email_org_mention_html(recipient_name: str, sender_name: str, org_name: str
 
 def _email_org_announcement_html(recipient_name: str, org_name: str,
                                   author_name: str, title: str, body: str) -> str:
-    first = recipient_name.split()[0] if recipient_name else recipient_name
-    safe_body = body[:1000].replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+    # Escape all org/member-controlled values — interpolated into HTML emailed
+    # to other members (prevents stored-HTML / phishing injection).
+    first       = html.escape((recipient_name.split()[0] if recipient_name else "") or "")
+    org_name    = html.escape(org_name or "")
+    author_name = html.escape(author_name or "")
+    title       = html.escape(title or "")
+    safe_body   = html.escape((body or "")[:1000]).replace("\n", "<br>")
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
@@ -1990,16 +2015,52 @@ class _BearerTokenMiddleware:
                     if av[:7].lower() == "bearer ":
                         tok = av[7:].strip()
                     break
+        csrf_cookie = ""
         if not tok:
             for k, v in scope.get("headers", []):
                 if k == b"cookie":
                     try:
                         c = _SimpleCookie(); c.load(v.decode("latin-1"))
-                        if SESSION_COOKIE in c:
-                            tok = c[SESSION_COOKIE].value
+                        if _SESSION_COOKIE_KEY in c:
+                            tok = c[_SESSION_COOKIE_KEY].value
+                        if _CSRF_COOKIE in c:
+                            csrf_cookie = c[_CSRF_COOKIE].value
                     except Exception:
                         pass
                     break
+        else:
+            # Token was found in query or Bearer header — still read CSRF cookie
+            for k, v in scope.get("headers", []):
+                if k == b"cookie":
+                    try:
+                        c = _SimpleCookie(); c.load(v.decode("latin-1"))
+                        if _CSRF_COOKIE in c:
+                            csrf_cookie = c[_CSRF_COOKIE].value
+                    except Exception:
+                        pass
+                    break
+        # CSRF double-submit validation: state-mutating requests with a session that
+        # already has a CSRF cookie must echo it as X-CSRF-Token. Requests without the
+        # CSRF cookie (old sessions, grace period) are let through with a warning.
+        method = scope.get("method", "GET")
+        if method in ("POST", "PUT", "DELETE", "PATCH"):
+            path = scope.get("path", "")
+            _csrf_exempt = (
+                path in ("/api/login", "/api/admin/login", "/api/lecturer/login")
+                or path.startswith("/api/auth/")
+            )
+            if not _csrf_exempt and tok and csrf_cookie:
+                csrf_header = ""
+                for k, v in scope.get("headers", []):
+                    if k == b"x-csrf-token":
+                        csrf_header = v.decode("latin-1", "replace").strip()
+                        break
+                if not hmac.compare_digest(csrf_header or "", csrf_cookie):
+                    _b = b'{"detail":"Request blocked - please refresh the page."}'
+                    _h = [(b"content-type", b"application/json"), (b"content-length", str(len(_b)).encode())]
+                    await send({"type": "http.response.start", "status": 403, "headers": _h})
+                    await send({"type": "http.response.body", "body": _b})
+                    return
         reset = _req_token.set(tok or "")
         try:
             if tok and not has_token:
@@ -9887,7 +9948,7 @@ async def google_cal_connect(request: Request, token: str = ""):
     # Resolve the session from the httpOnly cookie (preferred) so the session
     # token never travels in the URL. Legacy ?token= is accepted as a fallback
     # only — current clients no longer send it.
-    sess = get_session_from_token(request.cookies.get(SESSION_COOKIE, "") or token)
+    sess = get_session_from_token(request.cookies.get(_SESSION_COOKIE_KEY, "") or token)
     if not sess:
         return RedirectResponse("/app?gcal_error=session_expired")
     from urllib.parse import urlencode
@@ -10058,8 +10119,8 @@ async def gcal_push(data: dict):
             start = start + "T09:00:00"
             end   = end   + "T10:00:00"
         body = {"summary": title, "description": desc,
-                "start": {"dateTime": start, "timeZone": "UTC"},
-                "end":   {"dateTime": end,   "timeZone": "UTC"}}
+                "start": {"dateTime": start, "timeZone": tz},
+                "end":   {"dateTime": end,   "timeZone": tz}}
     try:
         async with _httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(
