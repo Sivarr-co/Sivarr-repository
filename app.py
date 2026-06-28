@@ -1254,7 +1254,7 @@ def _email_task_reminder_html(name: str, tasks: list) -> str:
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Tasks due soon, {name}</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 16px">
-    You have <strong>{len(tasks)}</strong> task(s) due today or tomorrow:
+    You have <strong>{len(tasks)}</strong> task{"s" if len(tasks) != 1 else ""} due today or tomorrow:
   </p>
   <ul style="padding-left:20px;margin:0 0 28px;line-height:1.8">{rows}</ul>
   <a href="{BASE_URL}"
@@ -1263,7 +1263,10 @@ def _email_task_reminder_html(name: str, tasks: list) -> str:
     Open Tasks
   </a>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.72rem;text-align:center;margin:0;line-height:1.6">
+    Sivarr · Your productivity OS<br>
+    You're getting this because task reminders are on in your settings.
+  </p>
 </body></html>"""
 
 
@@ -1318,7 +1321,10 @@ def _email_org_mention_html(recipient_name: str, sender_name: str, org_name: str
     View in Sivarr →
   </a>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0;line-height:1.6">
+    Sivarr · Your productivity OS<br>
+    You're getting this because you're a member of {org_name}.
+  </p>
 </body></html>"""
 
 
@@ -1336,17 +1342,20 @@ def _email_org_announcement_html(recipient_name: str, org_name: str,
               letter-spacing:.06em;margin-bottom:8px">📢 Announcement · {org_name}</div>
   <h2 style="margin:0 0 6px;font-size:1.3rem;font-weight:800">{title}</h2>
   <p style="color:#888;font-size:.82rem;margin:0 0 20px">Posted by {author_name}</p>
-  {"<div style='background:#f6f6f6;border-radius:8px;padding:16px;margin-bottom:28px;font-size:.95rem;line-height:1.7;color:#333'>" + safe_body + "</div>" if body else ""}
-  <p style="color:#555;font-size:.9rem;line-height:1.6;margin:0 0 24px">
-    Hi {first}, there's a new announcement waiting for you in your workspace.
+  <p style="color:#555;font-size:.9rem;line-height:1.6;margin:0 0 16px">
+    Hi {first}, {author_name} just posted an announcement in {org_name}:
   </p>
+  {"<div style='background:#f6f6f6;border-radius:8px;padding:16px;margin-bottom:28px;font-size:.95rem;line-height:1.7;color:#333'>" + safe_body + "</div>" if body else ""}
   <a href="{BASE_URL}/app"
      style="display:inline-block;background:#534AB7;color:#fff;padding:12px 28px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem">
     View Announcement →
   </a>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
-  <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0">Sivarr · Your productivity OS</p>
+  <p style="color:#bbb;font-size:.7rem;text-align:center;margin:0;line-height:1.6">
+    Sivarr · Your productivity OS<br>
+    You're getting this because you're a member of {org_name}.
+  </p>
 </body></html>"""
 
 
@@ -10031,6 +10040,15 @@ async def gcal_push(data: dict):
     end    = sanitize_text(str(data.get("end","") or data.get("start","")), 40)
     all_day = bool(data.get("allDay", False))
     desc   = sanitize_text(str(data.get("description","")), 1000)
+
+    # Use the caller's IANA timezone so the event lands at the right local time.
+    # Validate against the tz database; fall back to UTC for anything unknown.
+    tz = sanitize_text(str(data.get("tz","") or "UTC"), 64)
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(tz)                      # raises if the zone is unknown
+    except Exception:
+        tz = "UTC"
 
     if all_day:
         body = {"summary": title, "description": desc,
