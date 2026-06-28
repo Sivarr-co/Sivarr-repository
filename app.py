@@ -2755,9 +2755,9 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks, respon
         bg.add_task(send_email, email,
                     "Verify your Sivarr email",
                     _email_verify_html(verify_url, user['name']))
-        bg.add_task(send_email, email,
-                    "Welcome to Sivarr — your workspace is ready",
-                    _email_welcome_html(user['name']))
+        # The welcome email now fires on first successful verification
+        # (verify_email_endpoint), so "your workspace is ready" is actually true.
+        # Google-OAuth sign-ups get it at account creation (email pre-verified).
 
     # ── LOGIN ──────────────────────────────────────────────────
     else:
@@ -3018,11 +3018,22 @@ async def reset_password(data: dict):
 
 
 @app.get("/api/auth/verify-email/{token}")
-async def verify_email_endpoint(token: str):
+async def verify_email_endpoint(token: str, bg: BackgroundTasks):
     rec = db.get_email_verify_token(token)
     if not rec:
         return RedirectResponse(url="/app?verified=error", status_code=302)
-    db.mark_email_verified(rec["sid"])
+    sid = rec["sid"]
+    already = db.is_email_verified(sid)
+    db.mark_email_verified(sid)
+    if not already:
+        # First-time verification → the workspace is now live, so send the welcome.
+        # Guarded by `already` so re-clicking the link doesn't re-send it.
+        email = rec.get("email", "")
+        u = db.get_user(sid) or load_users().get(sid) or {}
+        if email:
+            bg.add_task(send_email, email,
+                        "Welcome to Sivarr — your workspace is ready",
+                        _email_welcome_html(u.get("name", "")))
     return RedirectResponse(url="/app?verified=1", status_code=302)
 
 
@@ -9670,7 +9681,7 @@ async def google_oauth_start():
 
 
 @app.get("/auth/google/callback")
-async def google_oauth_callback(code: str = "", error: str = "", state: str = ""):
+async def google_oauth_callback(bg: BackgroundTasks, code: str = "", error: str = "", state: str = ""):
     """Exchange Google authorisation code → find/create user → issue one-time exchange code."""
     if error:
         return RedirectResponse("/app?auth_error=google_denied")
@@ -9735,6 +9746,11 @@ async def google_oauth_callback(code: str = "", error: str = "", state: str = ""
                 db.create_user(user)
             except Exception as _e:
                 log.error(f"Google register DB error: {_e}")
+        # New Google sign-up — email is pre-verified by Google, so there's no
+        # verification step; welcome them here instead.
+        bg.add_task(send_email, email,
+                    "Welcome to Sivarr — your workspace is ready",
+                    _email_welcome_html(name))
 
     sid = user["sid"]
     p   = load_progress(sid)
