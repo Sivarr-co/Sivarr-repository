@@ -8591,6 +8591,12 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 .sset-toggle input:checked + .sset-toggle-track { background:rgba(15,219,173,.3); border-color:rgba(15,219,173,.4); }
 .sset-toggle-track::after { content:''; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:rgba(255,255,255,.5); transition:transform .2s; }
 .sset-toggle input:checked + .sset-toggle-track::after { transform:translateX(16px); background:var(--teal); }
+.sset-toggle-row.sset-row-off { opacity:.6; }
+.sset-toggle-row.sset-row-off .mkt-item-icon { filter:grayscale(1); }
+.sset-int-connect { flex-shrink:0; font-size:11px; font-weight:600; color:var(--teal); cursor:pointer; padding:4px 10px; border:1px solid rgba(15,219,173,.4); border-radius:999px; white-space:nowrap; }
+.sset-int-connect:hover { background:rgba(15,219,173,.12); }
+.sset-int-soon { flex-shrink:0; font-size:10px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; padding:4px 8px; border:1px solid var(--border); border-radius:999px; }
+.sset-int-divider { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:12px 0 2px; }
 
 /* Empty state */
 .mkt-empty-state { text-align:center; padding:40px 16px; display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--muted2); font-size:12px; }

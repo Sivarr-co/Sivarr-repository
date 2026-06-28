@@ -19051,6 +19051,21 @@ const INT_CATALOGUE = [
   { id:'trello',          name:'Trello',          icon:'📋', desc:'Import boards and cards',         category:'productivity' },
 ];
 
+// Catalogue ids that have a real backend to connect to. The rest are roadmap
+// entries (no OAuth/server) and can't be enabled per-space yet.
+const INT_CONNECTABLE = new Set(['google-calendar', 'github', 'paystack']);
+// Real per-integration connection state — the SINGLE source of truth, read
+// from the same globals integrationsRender() uses. Per-space toggles must never
+// enable an integration the user hasn't actually connected (backlog 4d).
+function intIsConnected(intId) {
+  switch (intId) {
+    case 'google-calendar': return !!(typeof _GCAL_CONNECTED   !== 'undefined' && _GCAL_CONNECTED);
+    case 'github':          return !!(typeof _GITHUB_CONNECTED !== 'undefined' && _GITHUB_CONNECTED);
+    case 'paystack':        return (typeof _BILLING_STATUS !== 'undefined' && (_BILLING_STATUS?.plan || 'free') !== 'free');
+    default:                return false;
+  }
+}
+
 function mktSeedItems() {
   const ext = (id,name,icon,author,category,desc,rating,installs,price,official) =>
     ({ id, type:'extension', name, icon, author, category, desc, rating, installs, price, official });
@@ -19389,11 +19404,41 @@ function spaceSettingsRenderIntegrations() {
   const list = document.getElementById('spaceSettingsIntList');
   if (!list || !mktSpaceCur) return;
   mktLoadSpaceInts();
-  const enabled = mktSpaceInts[mktSpaceCur.id] || [];
-  list.innerHTML = INT_CATALOGUE.map(c => `<div class="sset-toggle-row"><div class="mkt-item-icon" style="font-size:16px">${c.icon}</div><div style="flex:1"><div class="mkt-item-name" style="font-size:12px">${mktEsc(c.name)}</div><div class="mkt-item-author">${mktEsc(c.desc)}</div></div><label class="sset-toggle"><input type="checkbox" ${enabled.includes(c.id)?'checked':''} onchange="spaceIntToggle('${c.id}','${mktSpaceCur.id}',this.checked)"/><span class="sset-toggle-track"></span></label></div>`).join('')
+  const sid = mktSpaceCur.id;
+  // Prune stale enablement: if an integration was disconnected since it was
+  // toggled on, drop it so a space can't silently keep "using" a dead account.
+  const raw = mktSpaceInts[sid] || [];
+  const enabled = raw.filter(intIsConnected);
+  if (enabled.length !== raw.length) {
+    mktSpaceInts[sid] = enabled;
+    localStorage.setItem('sivarr_space_integrations', JSON.stringify(mktSpaceInts));
+    _mktPushSpacePrefs(sid, { ints: enabled });
+  }
+  const connected = INT_CATALOGUE.filter(c => intIsConnected(c.id));
+  const available = INT_CATALOGUE.filter(c => !intIsConnected(c.id));
+  const row = (c, isOn, off) => `<div class="sset-toggle-row${off ? ' sset-row-off' : ''}">`
+    + `<div class="mkt-item-icon" style="font-size:16px">${c.icon}</div>`
+    + `<div style="flex:1"><div class="mkt-item-name" style="font-size:12px">${mktEsc(c.name)}</div>`
+    + `<div class="mkt-item-author">${off ? (INT_CONNECTABLE.has(c.id) ? 'Not connected' : 'Coming soon') : mktEsc(c.desc)}</div></div>`
+    + (off
+        ? (INT_CONNECTABLE.has(c.id)
+            ? `<a class="sset-int-connect" onclick="closeSpaceSettings();nav('library')">Connect</a>`
+            : `<span class="sset-int-soon">Soon</span>`)
+        : `<label class="sset-toggle"><input type="checkbox" ${isOn ? 'checked' : ''} onchange="spaceIntToggle('${c.id}','${sid}',this.checked)"/><span class="sset-toggle-track"></span></label>`)
+    + `</div>`;
+  let html = connected.length
+    ? connected.map(c => row(c, enabled.includes(c.id), false)).join('')
+    : `<div class="mkt-empty-state" style="padding:14px 0"><div>No integrations connected yet.</div></div>`;
+  if (available.length) html += `<div class="sset-int-divider">Available to connect</div>` + available.map(c => row(c, false, true)).join('');
+  list.innerHTML = html
     + `<div class="mkt-brief-desc" style="margin-top:10px">Connect accounts in the <a onclick="closeSpaceSettings();nav('library')" style="color:var(--teal);cursor:pointer">Integrations</a> panel — toggles here choose which apply to this Space.</div>`;
 }
 function spaceIntToggle(intId, spaceId, enable) {
+  if (enable && !intIsConnected(intId)) {
+    mktToast('Connect this integration first in the Integrations panel');
+    spaceSettingsRenderIntegrations();
+    return;
+  }
   mktLoadSpaceInts();
   if (!mktSpaceInts[spaceId]) mktSpaceInts[spaceId] = [];
   mktSpaceInts[spaceId] = enable ? [...new Set([...mktSpaceInts[spaceId], intId])] : mktSpaceInts[spaceId].filter(i => i !== intId);
