@@ -23,18 +23,14 @@
 <!-- Resource hints: warm up external origins for faster first paint -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="dns-prefetch" href="https://esm.sh">
 <link rel="dns-prefetch" href="https://js.sentry-cdn.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260626b">
-<!-- Tiptap rich-text editor (loaded as ES module, exposed globally) -->
+<link rel="stylesheet" href="/css/styles.css?v=20260628a">
+<!-- Tiptap rich-text editor (self-hosted ESM bundle — keeps CSP tight) -->
 <script type="module">
-import { Editor }   from 'https://esm.sh/@tiptap/core@2.10.3';
-import StarterKit   from 'https://esm.sh/@tiptap/starter-kit@2.10.3';
-import Placeholder  from 'https://esm.sh/@tiptap/extension-placeholder@2.10.3';
-import Underline    from 'https://esm.sh/@tiptap/extension-underline@2.10.3';
+import { Editor, StarterKit, Placeholder, Underline } from '/static/vendor/tiptap/tiptap.bundle.js';
 window._tiptap = { Editor, StarterKit, Placeholder, Underline };
 window.dispatchEvent(new Event('tiptap-ready'));
 </script>
@@ -4555,7 +4551,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260625h" defer></script>
+<script src="/js/app.js?v=20260628a" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
