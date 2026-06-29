@@ -420,6 +420,13 @@ body.offline .layout {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 12px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
+/* Desktop: the top bar already shows the Sivarr brand directly above, so hide
+   the duplicate sidebar logo here. Kept on the mobile launcher (<=720px), whose
+   header still needs it. Remaining header actions right-align. */
+@media (min-width: 721px) {
+  .sb-header > .sb-ws { display: none; }
+  .sidebar:not(.collapsed) .sb-header { justify-content: flex-end; }
+}
 .sb-ws {
   display: flex; align-items: center; gap: 9px; min-width: 0;
 }
