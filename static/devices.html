@@ -57,9 +57,11 @@
 <p class="hint">
   Frames load <code id="curUrl">/app</code> same-origin, so this only works when opened
   from the app's own domain (e.g. <code>https://sivarr.com/static/devices.html</code> or your
-  local server) — not as a <code>file://</code>. Use the rotate (⟳) button per device to flip
-  portrait/landscape. For true touch/DPR/network-throttling emulation, also use your browser's
-  device mode (Ctrl/Cmd+Shift+M) on a single frame.
+  local server) — not as a <code>file://</code>. Best for <b>tablet/desktop</b> breakpoints.
+  <b>Phone widths (&lt;720px) won't render correctly here</b> — the app's mobile fit-to-screen
+  zoom is built for a real top-level window and misfires inside a scaled iframe. For accurate
+  <b>phone</b> rendering use <code>scripts/device_screens.py</code> (true Playwright device
+  emulation) or your browser's device mode (Ctrl/Cmd+Shift+M).
 </p>
 
 <script>
