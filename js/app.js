@@ -11464,7 +11464,17 @@ function docAskSiva() { docInlineAI(); }
 
 function _waitForTiptap(cb) {
   if (window._tiptap) { cb(); return; }
-  window.addEventListener('tiptap-ready', cb, { once: true });
+  let done = false;
+  const ready = () => { if (done) return; done = true; cb(); };
+  window.addEventListener('tiptap-ready', ready, { once: true });
+  // Safety net: the editor loads from a self-hosted ESM bundle. If it ever fails
+  // (404 / parse error / CSP regression), surface it instead of leaving the Docs
+  // panel silently dead with no editor and no first-doc ever opening.
+  setTimeout(() => {
+    if (done || window._tiptap) { ready(); return; }
+    const el = $('doc-content');
+    if (el && !_docEditor) el.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:.9rem">The editor failed to load. <a onclick="location.reload()" style="color:var(--teal);cursor:pointer">Reload</a> to try again.</div>';
+  }, 5000);
 }
 
 function _initTiptapEditor() {
