@@ -27,7 +27,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260628b">
+<link rel="stylesheet" href="/css/styles.css?v=20260629b">
 <!-- Tiptap rich-text editor (self-hosted ESM bundle — keeps CSP tight) -->
 <script type="module">
 import { Editor, StarterKit, Placeholder, Underline } from '/static/vendor/tiptap/tiptap.bundle.js';
@@ -358,32 +358,9 @@ Sentry.onLoad(function() {
 
     <!-- Right actions -->
     <div class="tb-right">
-      <!-- Quick Add -->
-      <button class="tb-icon-btn tb-quickadd-btn" onclick="nlOpen()" title="Quick add — type anything (Alt+A)">
-        <i class="ti ti-plus"></i>
-      </button>
-      <!-- Fullscreen toggle -->
-      <button class="tb-icon-btn" id="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">
-        <i class="ti ti-maximize" id="fullscreen-icon"></i>
-      </button>
-      <!-- Theme toggle -->
-      <button class="tb-icon-btn" id="themeBtn" onclick="toggleThemeFromMenu()" title="Toggle theme">
-        <i class="ti ti-sun" id="theme-icon"></i>
-      </button>
-      <!-- Notifications -->
-      <div style="position:relative">
-        <button class="tb-icon-btn" id="notif-btn" onclick="notifToggle()" title="Notifications">
-          <i class="ti ti-bell"></i>
-          <span id="notif-badge" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;background:#ef4444;border-radius:50%;border:2px solid var(--bg)"></span>
-        </button>
-        <div id="notif-panel" style="display:none;position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.25);z-index:9999;overflow:hidden">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border)">
-            <span style="font-size:.85rem;font-weight:700">Notifications</span>
-            <button onclick="notifMarkAllRead()" style="background:none;border:none;color:var(--teal);font-size:.75rem;cursor:pointer;font-family:var(--font)">Mark all read</button>
-          </div>
-          <div id="notif-list" style="max-height:340px;overflow-y:auto"></div>
-        </div>
-      </div>
+      <!-- Top bar cleanup: Quick Add moved to the sidebar header; Fullscreen
+           moved to the profile dropdown; Dark Mode + Announcements already in
+           the dropdown. -->
       <!-- Profile -->
       <div class="profile-menu" id="profile-menu">
         <button class="profile-trigger" id="profile-trigger" onclick="toggleProfile()">
@@ -443,6 +420,11 @@ Sentry.onLoad(function() {
             <div class="toggle-sw" id="pd-toggle-sw"></div>
           </div>
 
+          <button class="pd-item" onclick="toggleFullscreen()">
+            <i class="ti ti-maximize pd-icon" id="pd-fullscreen-icon"></i>
+            <span id="pd-fullscreen-label">Fullscreen</span>
+          </button>
+
           <div class="pd-divider"></div>
 
           <button class="pd-item" onclick="showPricing();closeProfile()">
@@ -479,7 +461,10 @@ Sentry.onLoad(function() {
           <span class="sb-ws-name">Sivarr</span>
         </div>
         <div class="sb-head-actions">
-          <!-- Desktop: search + collapse. Mobile: retract (goes back) + customize sheet. -->
+          <!-- Desktop: quick-add + search + collapse. Mobile: retract (goes back) + customize sheet. -->
+          <button class="sb-new-btn sb-quickadd-btn" onclick="nlOpen()" title="Quick add — type anything (Alt+A)" aria-label="Quick add">
+            <i class="ti ti-plus"></i>
+          </button>
           <button class="sb-new-btn" onclick="cmdOpen()" title="Search or create (⌘K)">
             <i class="ti ti-search"></i>
           </button>
@@ -4551,7 +4536,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260629a" defer></script>
+<script src="/js/app.js?v=20260629b" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

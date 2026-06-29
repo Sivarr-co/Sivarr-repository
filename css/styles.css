@@ -442,6 +442,10 @@ body.offline .layout {
   cursor: pointer; transition: var(--transition);
 }
 .sb-new-btn:hover { border-color: var(--teal); color: var(--teal); background: var(--teal2); }
+/* Quick-add: accented so it reads as the primary "create" action next to search.
+   Reuses .sb-new-btn, so it also auto-hides when the sidebar collapses (retractable). */
+.sb-quickadd-btn { border-color: var(--accent); color: var(--accent); background: var(--teal2); }
+.sb-quickadd-btn:hover { border-color: var(--accent); color: #fff; background: var(--accent); }
 
 /* ── Scroll area ─── */
 .sb-scroll {

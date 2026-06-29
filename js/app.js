@@ -8740,11 +8740,17 @@ function toggleFullscreen() {
   }
 }
 document.addEventListener('fullscreenchange', () => {
+  const fs = !!document.fullscreenElement;
+  // Legacy top-bar button (null-safe — now removed; kept for compatibility).
   const icon = $('fullscreen-icon');
-  if (!icon) return;
-  icon.className = document.fullscreenElement ? 'ti ti-minimize' : 'ti ti-maximize';
+  if (icon) icon.className = fs ? 'ti ti-minimize' : 'ti ti-maximize';
   const btn = document.getElementById('fullscreen-btn');
-  if (btn) btn.title = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+  if (btn) btn.title = fs ? 'Exit fullscreen' : 'Fullscreen';
+  // Profile-dropdown fullscreen item.
+  const pdIcon = $('pd-fullscreen-icon');
+  if (pdIcon) pdIcon.className = fs ? 'ti ti-minimize pd-icon' : 'ti ti-maximize pd-icon';
+  const pdLabel = $('pd-fullscreen-label');
+  if (pdLabel) pdLabel.textContent = fs ? 'Exit Fullscreen' : 'Fullscreen';
 });
 
 function toggleMobileSidebar() {
