@@ -32,6 +32,13 @@ try { localStorage.removeItem('sivarr_token'); } catch (e) {}
         init = init || {};
         const headers = new Headers(init.headers || {});
         if (tok && !headers.has('Authorization')) headers.set('Authorization', 'Bearer ' + tok);
+        // CSRF double-submit: echo the sivarr_csrf cookie as X-CSRF-Token on state-mutating
+        // requests so the backend middleware can validate it (belt-and-suspenders with SameSite=Lax).
+        const method = (init.method || 'GET').toUpperCase();
+        if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method) && !headers.has('X-CSRF-Token')) {
+          const m = document.cookie.match(/(?:^|;\s*)sivarr_csrf=([^;]+)/);
+          if (m) headers.set('X-CSRF-Token', decodeURIComponent(m[1]));
+        }
         init.headers = headers;
         return _origFetch(u.pathname + u.search + u.hash, init);
       }
@@ -1207,9 +1214,11 @@ async function gcalPushEvent(ev) {
   const token = getToken() || '';
   if (!token || !_GCAL_CONNECTED) { toast('Connect Google Calendar first.'); return; }
   try {
+    let tz = 'UTC';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch(_) {}
     await API('/api/integrations/gcal/push', {
       token, title: ev.title, start: ev.start, end: ev.end || ev.start,
-      allDay: !!ev.allDay, description: ev.description || '',
+      allDay: !!ev.allDay, description: ev.description || '', tz,
     });
     toast('Event pushed to Google Calendar!');
   } catch(e) {
