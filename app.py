@@ -2541,11 +2541,13 @@ class LoginRequest(BaseModel):
 
     @validator("email")
     def email_normalize(cls, v):
-        # Normalise only (strip HTML/control chars, lowercase, cap length). The
-        # authoritative format/length checks run in _validate_auth_input() so a
-        # single GENERIC error covers every field and Pydantic never emits a
-        # 422 that reveals which field failed.
-        return _strip_html(sanitize_text(v or "", MAX_EMAIL_LEN)).lower().strip()
+        # Hard-reject oversized raw input before any normalization so a caller
+        # can't bypass the length check by sending HTML that strips down shorter.
+        # Authoritative format checks then run in _validate_auth_input().
+        raw = (v or "").strip()
+        if len(raw) > MAX_EMAIL_LEN:
+            return ""   # empty -> "email format/length" reject in _validate_auth_input
+        return _strip_html(sanitize_text(raw, MAX_EMAIL_LEN)).lower().strip()
 
 
 class ChatRequest(BaseModel):

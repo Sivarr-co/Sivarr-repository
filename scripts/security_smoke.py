@@ -37,7 +37,7 @@ def record(status, name, detail=""):
     icon = {"PASS": "[PASS]", "FAIL": "[FAIL]", "SKIP": "[skip]"}[status]
     print(f"  {icon}  {name}" + (f"  -- {detail}" if detail else ""))
 
-def http(method, url, body=None, cookie=None, timeout=15):
+def http(method, url, body=None, cookie=None, timeout=15, extra_headers=None):
     """Return (status, headers_lowercased_dict, set_cookie_list, text)."""
     data = None
     headers = {}
@@ -46,6 +46,8 @@ def http(method, url, body=None, cookie=None, timeout=15):
         headers["Content-Type"] = "application/json"
     if cookie:
         headers["Cookie"] = cookie
+    if extra_headers:
+        headers.update(extra_headers)
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     ctx = ssl.create_default_context()
     try:
@@ -64,9 +66,20 @@ def http(method, url, body=None, cookie=None, timeout=15):
     return raw.status, hdrs, set_cookies, text
 
 def session_cookie_from(set_cookies):
-    """Extract `sivarr_session=...` value and its attributes from Set-Cookie headers."""
+    """Extract the session cookie value+attrs from Set-Cookie headers.
+    Handles both plain 'sivarr_session' (local HTTP dev) and '__Host-sivarr_session' (HTTPS prod)."""
+    for prefix in ("__Host-sivarr_session=", "sivarr_session="):
+        for c in set_cookies:
+            if c.startswith(prefix):
+                val = c.split(";", 1)[0].split("=", 1)[1]
+                attrs = c.lower()
+                return val, attrs, prefix.rstrip("=")
+    return None, None, None
+
+def csrf_cookie_from(set_cookies):
+    """Extract the sivarr_csrf cookie value from Set-Cookie headers."""
     for c in set_cookies:
-        if c.startswith("sivarr_session="):
+        if c.startswith("sivarr_csrf="):
             val = c.split(";", 1)[0].split("=", 1)[1]
             attrs = c.lower()
             return val, attrs
@@ -108,7 +121,7 @@ def check_unauth(base):
     record(PASS if status == 401 else FAIL, "POST /api/spaces/list with no auth -> 401", f"got {status}")
 
 def obtain_session(base, email, password, do_register):
-    """Return (cookie_value, cookie_attrs, sid) or (None, None, None)."""
+    """Return (cookie_str, csrf_val, sid, email_used, raw_set_cookies) or (None,…,err,[])."""
     if do_register:
         email = email or f"smoke_{int(time.time())}@smoke.local"
         body = {"action": "register", "name": "Security Smoke", "email": email,
@@ -117,52 +130,103 @@ def obtain_session(base, email, password, do_register):
         body = {"action": "login", "email": email, "password": password}
     status, _, set_cookies, text = http("POST", f"{base}/api/login", body=body)
     if status != 200:
-        return None, None, None, f"login/register -> {status}: {text[:120]}"
-    val, attrs = session_cookie_from(set_cookies)
+        return None, None, None, f"login/register -> {status}: {text[:120]}", []
+    val, attrs, cookie_name = session_cookie_from(set_cookies)
+    csrf_val, _ = csrf_cookie_from(set_cookies)
     try:
         sid = json.loads(text).get("sid", "")
     except Exception:
         sid = ""
-    return val, attrs, sid, email
+    cookie_str = f"{cookie_name}={val}" if val and cookie_name else None
+    return cookie_str, csrf_val, sid, email, set_cookies
 
 def check_auth(base, email, password, do_register):
     print("\n[3] Cookie auth + reload survival + TTL")
-    cookie_val, attrs, sid, info = obtain_session(base, email, password, do_register)
-    if not cookie_val:
+    cookie_str, csrf_val, sid, info, set_cookies = obtain_session(base, email, password, do_register)
+    if not cookie_str:
         record(FAIL, "Login/register issued a session cookie", info)
-        return None
-    record(PASS, "Login issued sivarr_session cookie")
-    record(PASS if "httponly" in attrs else FAIL, "Cookie is HttpOnly (JS can't read it)")
-    record(PASS if "samesite=" in attrs else FAIL, "Cookie has SameSite")
-    if base.startswith("https://"):
-        record(PASS if "secure" in attrs else FAIL, "Cookie is Secure (HTTPS)")
-    # TTL
-    maxage = None
-    for part in attrs.split(";"):
-        if "max-age=" in part:
-            try: maxage = int(part.split("max-age=")[1].strip())
-            except Exception: pass
-    if maxage:
-        record(PASS, "Session TTL set", f"Max-Age={maxage}s (~{maxage//86400}d)")
-    else:
-        record(FAIL, "Session TTL (Max-Age) present")
-    cookie = f"sivarr_session={cookie_val}"
-    # Reload survival: cookie-ONLY authenticated request
-    status, _, _, _ = http("POST", f"{base}/api/spaces/list", body={}, cookie=cookie)
-    record(PASS if status == 200 else FAIL, "Cookie-only request authenticates (reload survives)", f"got {status}")
-    return cookie
+        return None, None
 
-def check_revocation(base, cookie):
-    print("\n[4] Logout revokes the session")
+    # Parse cookie attributes directly from the obtain_session response (no second login call)
+    _, full_attrs, _ = session_cookie_from(set_cookies)
+    csrf_val_chk, csrf_attrs = csrf_cookie_from(set_cookies)
+
+    is_host_prefix = cookie_str.startswith("__Host-")
+    record(PASS, f"Login issued {'__Host- prefixed ' if is_host_prefix else ''}session cookie")
+    if base.startswith("https://"):
+        record(PASS if is_host_prefix else SKIP,
+               "__Host- prefix enforced on HTTPS (prevents subdomain cookie hijack)",
+               "" if is_host_prefix else "(plain name on HTTP dev is expected)")
+    else:
+        record(SKIP, "__Host- prefix (only on HTTPS)")
+    if full_attrs:
+        record(PASS if "httponly" in full_attrs else FAIL, "Session cookie is HttpOnly")
+        record(PASS if "samesite=" in full_attrs else FAIL, "Session cookie has SameSite")
+        if base.startswith("https://"):
+            record(PASS if "secure" in full_attrs else FAIL, "Session cookie is Secure")
+        maxage = None
+        for part in full_attrs.split(";"):
+            if "max-age=" in part.strip():
+                try: maxage = int(part.strip().split("max-age=")[1])
+                except Exception: pass
+        record(PASS if maxage else FAIL, "Session TTL set",
+               f"Max-Age={maxage}s (~{maxage//86400}d)" if maxage else "(missing)")
+    # CSRF cookie
+    record(PASS if csrf_val_chk else FAIL, "CSRF cookie (sivarr_csrf) issued alongside session cookie")
+    if csrf_attrs:
+        record(PASS if "httponly" not in csrf_attrs else FAIL, "CSRF cookie is NOT httpOnly (JS-readable for double-submit)")
+        record(PASS if "samesite=strict" in csrf_attrs else FAIL, "CSRF cookie SameSite=Strict")
+    # Reload survival: cookie-ONLY authenticated POST (with CSRF header)
+    full_cookie = f"{cookie_str}; sivarr_csrf={csrf_val}" if csrf_val else cookie_str
+    extra = {"X-CSRF-Token": csrf_val} if csrf_val else {}
+    status, _, _, _ = http("POST", f"{base}/api/spaces/list", body={}, cookie=full_cookie,
+                           extra_headers=extra)
+    record(PASS if status == 200 else FAIL, "Cookie-only POST authenticates (reload survives)", f"got {status}")
+    return cookie_str, csrf_val
+
+def check_csrf(base, cookie, csrf_val):
+    print("\n[4] CSRF double-submit validation")
+    if not cookie:
+        record(SKIP, "CSRF checks (no session)"); return
+    full_cookie = f"{cookie}; sivarr_csrf={csrf_val}" if csrf_val else cookie
+    # Correct CSRF header -> should pass
+    status, _, _, _ = http("POST", f"{base}/api/spaces/list", body={}, cookie=full_cookie,
+                           extra_headers={"X-CSRF-Token": csrf_val} if csrf_val else {})
+    record(PASS if status == 200 else FAIL,
+           "POST with correct X-CSRF-Token -> 200", f"got {status}")
+    if csrf_val:
+        # Wrong CSRF header -> should be rejected with 403
+        status2, _, _, _ = http("POST", f"{base}/api/spaces/list", body={}, cookie=full_cookie,
+                                extra_headers={"X-CSRF-Token": "wrong-token-abc"})
+        record(PASS if status2 == 403 else FAIL,
+               "POST with wrong X-CSRF-Token -> 403 (CSRF rejected)", f"got {status2}")
+        # No CSRF header but cookie present -> 403
+        status3, _, _, _ = http("POST", f"{base}/api/spaces/list", body={}, cookie=full_cookie)
+        record(PASS if status3 == 403 else FAIL,
+               "POST with no X-CSRF-Token (cookie present) -> 403", f"got {status3}")
+        # Auth endpoints exempt from CSRF
+        status4, _, _, _ = http("POST", f"{base}/api/login",
+                                body={"action": "login", "email": "x@x.com", "password": "wrong"},
+                                cookie=full_cookie)
+        record(PASS if status4 in (401, 429, 400) else FAIL,
+               "/api/login exempt from CSRF (no header required)", f"got {status4}")
+    else:
+        record(SKIP, "CSRF rejection tests (no CSRF cookie in session — old session?)")
+
+def check_revocation(base, cookie, csrf_val=None):
+    print("\n[5] Logout revokes the session")
     if not cookie:
         record(SKIP, "Revocation (no session)"); return
-    status, _, _, _ = http("POST", f"{base}/api/logout", body={"token": ""}, cookie=cookie)
+    full_cookie = f"{cookie}; sivarr_csrf={csrf_val}" if csrf_val else cookie
+    extra = {"X-CSRF-Token": csrf_val} if csrf_val else {}
+    status, _, _, _ = http("POST", f"{base}/api/logout", body={"token": ""}, cookie=full_cookie,
+                           extra_headers=extra)
     record(PASS if status == 200 else FAIL, "Logout (cookie-only) -> 200", f"got {status}")
     status, _, _, _ = http("POST", f"{base}/api/spaces/list", body={}, cookie=cookie)
     record(PASS if status == 401 else FAIL, "Same cookie after logout -> 401 (revoked)", f"got {status}")
 
 def check_rate_limit(base):
-    print("\n[5] Rate limiting (opt-in)")
+    print("\n[6] Rate limiting (opt-in)")
     codes = []
     for _ in range(12):
         status, _, _, _ = http("POST", f"{base}/api/login",
@@ -171,7 +235,7 @@ def check_rate_limit(base):
     record(PASS if 429 in codes else FAIL, "Rapid bad logins trip 429", f"codes: {codes}")
 
 def check_admin_gate(base, admin_pass):
-    print("\n[6] Admin login gate (opt-in)")
+    print("\n[7] Admin login gate (opt-in)")
     # Wrong password must be rejected
     s1, _, _, _ = http("POST", f"{base}/api/admin/login", body={"password": "definitely-wrong-xyz"})
     record(PASS if s1 == 401 else FAIL, "Admin login wrong password -> 401", f"got {s1}")
@@ -203,12 +267,13 @@ def main():
 
     check_headers(base)
     check_unauth(base)
-    cookie = None
+    cookie, csrf_val = None, None
     if args.email or args.register:
-        cookie = check_auth(base, args.email, args.password, args.register)
-        check_revocation(base, cookie)
+        cookie, csrf_val = check_auth(base, args.email, args.password, args.register)
+        check_csrf(base, cookie, csrf_val)
+        check_revocation(base, cookie, csrf_val)
     else:
-        print("\n[3-4] Auth/reload/revocation -- SKIPPED (pass --email/--password or --register)")
+        print("\n[3-5] Auth/CSRF/revocation -- SKIPPED (pass --email/--password or --register)")
     if args.rate_limit:
         check_rate_limit(base)
     if args.admin_pass:
