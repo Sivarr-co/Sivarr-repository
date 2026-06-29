@@ -6954,10 +6954,13 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .siva-brief { padding: 22px 20px; margin-bottom: 18px; border-radius: 20px; }
   .gs-section { padding: 20px 18px; margin-bottom: 18px; border-radius: 20px; }
 
-  /* Stat cards — bigger, easier to read */
-  .h-stat-grid { gap: 14px; margin-bottom: 20px; }
-  .h-stat-card { padding: 20px 16px; border-radius: 18px; }
-  .h-stat-val  { font-size: 1.7rem; }
+  /* Stat cards — compact on mobile so the home page scrolls quicker (the 2x2
+     grid was eating too much vertical space). Desktop/tablet sizing unchanged. */
+  .h-stat-grid { gap: 8px; margin-bottom: 12px; }
+  .h-stat-card { padding: 11px 12px; border-radius: 14px; }
+  .h-stat-ic   { width: 28px; height: 28px; border-radius: 8px; font-size: 15px; margin-bottom: 6px; }
+  .h-stat-val  { font-size: 1.3rem; }
+  .h-stat-lbl  { font-size: .76rem; margin-top: 2px; }
 
   /* Two-column blocks stack with comfortable gaps */
   .h2col       { gap: 14px; margin-bottom: 18px; }
