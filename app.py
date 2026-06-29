@@ -1959,7 +1959,13 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         h = response.headers
-        framable = request.url.path.startswith("/static/templates/")
+        # /static/templates/ → Templates-library previews.
+        # "/" and "/app" → same-origin device-preview harness (static/devices.html).
+        # SAMEORIGIN still blocks cross-origin clickjacking (only sivarr.com can frame).
+        framable = (
+            request.url.path.startswith("/static/templates/")
+            or request.url.path in ("/", "/app")
+        )
         h["X-Frame-Options"]           = "SAMEORIGIN" if framable else "DENY"
         h["X-Content-Type-Options"]    = "nosniff"
         h["Referrer-Policy"]           = "strict-origin-when-cross-origin"

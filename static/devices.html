@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sivarr · Device Preview</title>
+<style>
+  :root { --bg:#0e0f13; --panel:#171922; --line:#262a36; --text:#e7e9ef; --muted:#8b90a0; --teal:#0FDBAD; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+  header { position:sticky; top:0; z-index:10; background:var(--panel);
+           border-bottom:1px solid var(--line); padding:12px 18px;
+           display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  header .brand { font-weight:800; letter-spacing:-.02em; color:var(--teal); font-size:1.05rem; }
+  header .sep { color:var(--muted); }
+  input, select, button { font-family:inherit; font-size:.85rem; }
+  #url { flex:1; min-width:200px; background:#0e0f13; border:1px solid var(--line);
+         color:var(--text); border-radius:8px; padding:8px 11px; }
+  .btn { background:#0e0f13; border:1px solid var(--line); color:var(--text);
+         border-radius:8px; padding:8px 13px; cursor:pointer; }
+  .btn:hover { border-color:var(--teal); }
+  .btn--go { background:var(--teal); color:#06140f; border-color:var(--teal); font-weight:700; }
+  label.ctl { display:flex; align-items:center; gap:7px; color:var(--muted); font-size:.82rem; }
+  .stage { display:flex; flex-wrap:wrap; gap:28px; padding:28px; align-items:flex-start; }
+  .device { display:flex; flex-direction:column; gap:8px; }
+  .device .cap { display:flex; align-items:center; justify-content:space-between; gap:10px;
+                 color:var(--muted); font-size:.78rem; }
+  .device .cap b { color:var(--text); font-weight:600; }
+  .device .rot { background:transparent; border:1px solid var(--line); color:var(--muted);
+                 border-radius:6px; padding:2px 7px; cursor:pointer; font-size:.72rem; }
+  .frame { background:#000; border:1px solid var(--line); border-radius:18px; padding:8px;
+           box-shadow:0 18px 50px rgba(0,0,0,.5); overflow:hidden; }
+  .screen { background:#fff; border-radius:11px; overflow:hidden; position:relative; }
+  .screen iframe { border:0; display:block; background:#fff; }
+  .hint { color:var(--muted); font-size:.78rem; padding:0 28px 28px; line-height:1.6; max-width:760px; }
+  .hint code { background:var(--panel); padding:1px 6px; border-radius:5px; color:var(--teal); }
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">Sivarr</span><span class="sep">·</span>
+  <span style="color:var(--muted);font-size:.85rem">Device Preview</span>
+  <input id="url" value="/app" spellcheck="false"
+         placeholder="path or full URL, e.g. /app" onkeydown="if(event.key==='Enter')applyUrl()">
+  <button class="btn btn--go" onclick="applyUrl()">Load</button>
+  <button class="btn" onclick="reloadAll()">↻ Reload all</button>
+  <label class="ctl">Scale
+    <input id="scale" type="range" min="0.4" max="1" step="0.05" value="0.8" oninput="setScale(this.value)">
+    <span id="scaleVal">80%</span>
+  </label>
+  <label class="ctl"><input type="checkbox" id="phones" checked onchange="render()"> Phones</label>
+  <label class="ctl"><input type="checkbox" id="tablets" checked onchange="render()"> Tablets</label>
+</header>
+
+<div class="stage" id="stage"></div>
+<p class="hint">
+  Frames load <code id="curUrl">/app</code> same-origin, so this only works when opened
+  from the app's own domain (e.g. <code>https://sivarr.com/static/devices.html</code> or your
+  local server) — not as a <code>file://</code>. Use the rotate (⟳) button per device to flip
+  portrait/landscape. For true touch/DPR/network-throttling emulation, also use your browser's
+  device mode (Ctrl/Cmd+Shift+M) on a single frame.
+</p>
+
+<script>
+  // CSS-pixel logical sizes (portrait). Rotate swaps w/h.
+  const DEVICES = [
+    { name:'iPhone SE',        w:375,  h:667,  kind:'phone' },
+    { name:'iPhone 14',        w:390,  h:844,  kind:'phone' },
+    { name:'iPhone 14 Pro Max',w:430,  h:932,  kind:'phone' },
+    { name:'Pixel 7',          w:412,  h:915,  kind:'phone' },
+    { name:'Galaxy S20',       w:360,  h:800,  kind:'phone' },
+    { name:'iPad mini',        w:768,  h:1024, kind:'tablet' },
+    { name:'iPad Air',         w:820,  h:1180, kind:'tablet' },
+    { name:'iPad Pro 11"',     w:834,  h:1194, kind:'tablet' },
+    { name:'iPad Pro 12.9"',   w:1024, h:1366, kind:'tablet' },
+  ];
+  let SCALE = 0.8;
+  const rotated = {};   // name -> bool
+
+  function curUrl() { return document.getElementById('url').value.trim() || '/app'; }
+
+  function render() {
+    const showPhones  = document.getElementById('phones').checked;
+    const showTablets = document.getElementById('tablets').checked;
+    const url = curUrl();
+    document.getElementById('curUrl').textContent = url;
+    const stage = document.getElementById('stage');
+    stage.innerHTML = '';
+    DEVICES.forEach(d => {
+      if (d.kind === 'phone'  && !showPhones)  return;
+      if (d.kind === 'tablet' && !showTablets) return;
+      const land = !!rotated[d.name];
+      const w = land ? d.h : d.w;
+      const h = land ? d.w : d.h;
+      const sw = Math.round(w * SCALE), sh = Math.round(h * SCALE);
+
+      const dev = document.createElement('div');
+      dev.className = 'device';
+      dev.innerHTML = `
+        <div class="cap" style="width:${sw + 16}px">
+          <span><b>${d.name}</b> · ${w}×${h}${land ? ' ↺' : ''}</span>
+          <button class="rot" title="Rotate">⟳</button>
+        </div>
+        <div class="frame" style="width:${sw + 16}px">
+          <div class="screen" style="width:${sw}px;height:${sh}px">
+            <iframe src="${url}" width="${w}" height="${h}"
+                    style="transform:scale(${SCALE});transform-origin:top left"></iframe>
+          </div>
+        </div>`;
+      dev.querySelector('.rot').onclick = () => { rotated[d.name] = !land; render(); };
+      stage.appendChild(dev);
+    });
+  }
+
+  function setScale(v) {
+    SCALE = parseFloat(v);
+    document.getElementById('scaleVal').textContent = Math.round(SCALE * 100) + '%';
+    render();
+  }
+  function applyUrl()  { render(); }
+  function reloadAll() { render(); }
+
+  render();
+</script>
+</body>
+</html>
