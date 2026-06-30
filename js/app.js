@@ -137,6 +137,52 @@ const _SK = {
     <div class="sk sk-time"></div>
     <div class="sk sk-event"></div>
   </div>`,
+
+  orgPanel: () => `<div class="sk-org-wrap">
+    <div class="sk-org-hero">
+      <div class="sk sk-logo"></div>
+      <div class="sk-hero-info" style="flex:1;display:flex;flex-direction:column;gap:7px">
+        <div class="sk sk-hero-name" style="height:18px;width:48%"></div>
+        <div class="sk sk-hero-meta" style="height:11px;width:30%;opacity:.55"></div>
+      </div>
+      <div class="sk-hero-btns" style="display:flex;gap:8px">
+        <div class="sk sk-btn" style="height:32px;width:90px;border-radius:8px"></div>
+        <div class="sk sk-btn" style="height:32px;width:90px;border-radius:8px;opacity:.6"></div>
+      </div>
+    </div>
+    <div class="sk-org-tabs">
+      ${['Overview','Tasks','Goals','Members','Projects'].map(t =>
+        `<div class="sk sk-org-tab" style="width:${52+t.length*4}px"></div>`
+      ).join('')}
+    </div>
+    <div class="sk-stat-row">
+      ${Array(5).fill(0).map(() => `
+        <div class="sk-stat">
+          <div class="sk sk-val"></div>
+          <div class="sk sk-lbl"></div>
+        </div>`).join('')}
+    </div>
+    <div class="sk-os-grid2">
+      ${Array(2).fill(0).map(() => `
+        <div class="sk-os-card">
+          <div class="sk sk-os-row" style="height:12px;width:45%;margin-bottom:6px"></div>
+          <div class="sk sk-os-row"></div>
+          <div class="sk sk-os-row mid"></div>
+          <div class="sk sk-os-row short"></div>
+        </div>`).join('')}
+    </div>
+    <div class="sk-os-grid2" style="margin-top:0">
+      ${Array(2).fill(0).map(() => `
+        <div class="sk-os-card">
+          <div class="sk sk-os-row" style="height:12px;width:45%;margin-bottom:6px"></div>
+          ${Array(3).fill(0).map((_, i) => `
+            <div class="sk-mem" style="padding:6px 0;border-bottom:1px solid var(--border)">
+              <div class="sk sk-av" style="width:26px;height:26px;border-radius:50%;flex-shrink:0"></div>
+              <div class="sk sk-mn" style="height:10px;flex:1"></div>
+            </div>`).join('')}
+        </div>`).join('')}
+    </div>
+  </div>`,
 };
 
 function skShow(containerId, tplFn, count = 3) {
@@ -11848,12 +11894,22 @@ async function orgInit() {
   const token = getToken() || '';
   if (!token) return;
 
-  // Show loading state
-  const nameEl = $('os-space-name');
-  if (nameEl) nameEl.textContent = 'Loading…';
+  // Inject skeleton into panel immediately so users see shaped placeholders
+  // instead of a blank panel while /api/org/get is in flight.
+  let _orgSk = $('org-sk');
+  if (!_orgSk) {
+    _orgSk = document.createElement('div');
+    _orgSk.id = 'org-sk';
+    const panel = $('panel-org');
+    if (panel) panel.insertBefore(_orgSk, panel.firstChild);
+  }
+  _orgSk.innerHTML = _SK.orgPanel();
+
+  const _clearOrgSk = () => { if (_orgSk) { _orgSk.innerHTML = ''; _orgSk.style.display = 'none'; } };
 
   try {
     const r = await API('/api/org/get', { token });
+    _clearOrgSk();
     if (!r.org) {
       _orgShowSetup();
       return;
@@ -11871,6 +11927,7 @@ async function orgInit() {
     // not just while the Chat tab is open.
     _ocEnsureLive();
   } catch(e) {
+    _clearOrgSk();
     _orgShowSetup();
     if (e.status !== 404 && e.status !== 401 && e.status !== 403) {
       toast('Could not load organization — please refresh.');
@@ -11879,6 +11936,7 @@ async function orgInit() {
   }
 
   // Hero
+  const nameEl = $('os-space-name');
   if (nameEl) nameEl.textContent = ORG.name;
   const mcEl = $('os-member-count'); if (mcEl) mcEl.textContent = ORG_MEMBERS.length;
   const ocEl = $('os-online-count'); if (ocEl) ocEl.textContent = 1;
@@ -12183,14 +12241,16 @@ function orgRenderMembers() {
 }
 
 // ── Org seat billing ──────────────────────────────────────────
-async function orgBilling(period) {
+async function orgBilling(period, seats) {
   period = period === 'yearly' ? 'yearly' : 'monthly';
   let q;
-  try { q = await API('/api/billing/org/quote', { token: getToken(), period }); }
+  try { q = await API('/api/billing/org/quote', { token: getToken(), period, seats: seats || 0 }); }
   catch(e) { toast(e.message || 'Could not load org pricing.'); return; }
   document.getElementById('org-bill-modal')?.remove();
-  const seats = q.seats || 0;
-  const custom = q.custom;
+  const n        = q.seats || 0;
+  const members  = q.members || n;
+  const maxSeats = q.max_seats || 50;
+  const custom   = q.custom;
   const priceLine = custom
     ? `<div style="font-size:1.1rem;font-weight:700">Custom pricing</div><div style="font-size:.8rem;color:var(--muted)">51+ seats — contact sales.</div>`
     : `<div style="font-size:1.6rem;font-weight:800">${esc(q.display_usd)}<span style="font-size:.85rem;color:var(--muted)">/${period === 'yearly' ? 'yr' : 'mo'}</span></div>
@@ -12202,24 +12262,31 @@ async function orgBilling(period) {
     <div style="background:var(--bg);border-radius:14px;padding:22px;width:min(420px,95vw);position:relative">
       <button onclick="document.getElementById('org-bill-modal').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer">×</button>
       <div style="font-weight:800;font-size:1.05rem;margin-bottom:4px">Organisation plan</div>
-      <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px"><b>${seats}</b> seat${seats !== 1 ? 's' : ''} (one per member) · $${q.per_seat_usd || ''}/seat</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:12px">$${q.per_seat_usd || ''}/seat · ${members} member${members !== 1 ? 's' : ''} currently</div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+        <span style="font-size:.85rem;font-weight:600">Seats</span>
+        <button class="btn" style="width:36px;font-size:1.1rem" onclick="orgBilling('${period}', ${n - 1})" ${n <= Math.max(members, 1) ? 'disabled' : ''}>−</button>
+        <b style="font-size:1.15rem;min-width:26px;text-align:center">${n}</b>
+        <button class="btn" style="width:36px;font-size:1.1rem" onclick="orgBilling('${period}', ${n + 1})" ${n >= maxSeats ? 'disabled' : ''}>+</button>
+        <span style="font-size:.72rem;color:var(--muted)">max ${maxSeats}</span>
+      </div>
       <div style="display:flex;gap:6px;margin-bottom:14px">
-        <button class="btn${period === 'monthly' ? ' primary' : ''}" style="flex:1;font-size:.8rem" onclick="orgBilling('monthly')">Monthly</button>
-        <button class="btn${period === 'yearly' ? ' primary' : ''}" style="flex:1;font-size:.8rem" onclick="orgBilling('yearly')">Yearly · save 20%</button>
+        <button class="btn${period === 'monthly' ? ' primary' : ''}" style="flex:1;font-size:.8rem" onclick="orgBilling('monthly', ${n})">Monthly</button>
+        <button class="btn${period === 'yearly' ? ' primary' : ''}" style="flex:1;font-size:.8rem" onclick="orgBilling('yearly', ${n})">Yearly · save 20%</button>
       </div>
       <div style="padding:14px;border:1px solid var(--border);border-radius:10px;margin-bottom:16px">${priceLine}</div>
       ${custom
         ? `<a class="btn primary" style="width:100%;text-align:center;text-decoration:none" href="mailto:sales@sivarr.com?subject=Enterprise%20plan">Contact sales</a>`
-        : `<button class="btn primary" style="width:100%" onclick="orgBillingSubscribe('${period}')">Pay ${esc(q.fx?.display_local || q.display_usd)} →</button>`}
-      <div style="font-size:.72rem;color:var(--muted);margin-top:10px">You pay for one seat per current member. To add members later, re-run billing for the new seat count.</div>
+        : `<button class="btn primary" style="width:100%" onclick="orgBillingSubscribe('${period}', ${n})">Pay ${esc(q.fx?.display_local || q.display_usd)} for ${n} seat${n !== 1 ? 's' : ''} →</button>`}
+      <div style="font-size:.72rem;color:var(--muted);margin-top:10px">Buy seats ahead of inviting — each member takes one seat. You can add more anytime.</div>
     </div>`;
   m.addEventListener('click', e => { if (e.target === m) m.remove(); });
   document.body.appendChild(m);
 }
 
-async function orgBillingSubscribe(period) {
+async function orgBillingSubscribe(period, seats) {
   try {
-    const r = await API('/api/billing/org/subscribe', { token: getToken(), period: period === 'yearly' ? 'yearly' : 'monthly' });
+    const r = await API('/api/billing/org/subscribe', { token: getToken(), period: period === 'yearly' ? 'yearly' : 'monthly', seats: seats || 0 });
     if (r.authorization_url) { window.location.href = r.authorization_url; return; }
     toast('Could not start checkout.');
   } catch(e) { toast(e.message || 'Could not start checkout.'); }

@@ -10731,11 +10731,20 @@ async def billing_org_quote(data: dict):
     if not org:
         raise HTTPException(404, "You're not in an organisation.")
     period = "yearly" if str(data.get("period")) == "yearly" else "monthly"
-    seats  = await asyncio.to_thread(db.count_org_members, org["id"])
+    members = await asyncio.to_thread(db.count_org_members, org["id"])
+    try:
+        requested = int(data.get("seats") or 0)
+    except (ValueError, TypeError):
+        requested = 0
+    # Owners can buy seats ahead of inviting. Floor at current member count
+    # (can't have fewer seats than members); +1 surfaces the custom-pricing tier.
+    seats = min(max(members, requested, 1), ORG_SELFSERVE_MAX + 1)
     q = org_seat_quote(seats, period)
-    q["org_id"]   = org["id"]
-    q["is_owner"] = (org.get("owner_sid") == sess["sid"])
-    q["current"]  = (org.get("settings") or {}).get("subscription") or None
+    q["org_id"]    = org["id"]
+    q["is_owner"]  = (org.get("owner_sid") == sess["sid"])
+    q["current"]   = (org.get("settings") or {}).get("subscription") or None
+    q["members"]   = members
+    q["max_seats"] = ORG_SELFSERVE_MAX
     return q
 
 
@@ -10756,7 +10765,12 @@ async def billing_org_subscribe(data: dict):
     if org.get("owner_sid") != sid:
         raise HTTPException(403, "Only the org owner can manage billing.")
     period = "yearly" if str(data.get("period")) == "yearly" else "monthly"
-    seats  = await asyncio.to_thread(db.count_org_members, org["id"])
+    members = await asyncio.to_thread(db.count_org_members, org["id"])
+    try:
+        requested = int(data.get("seats") or 0)
+    except (ValueError, TypeError):
+        requested = 0
+    seats = min(max(members, requested, 1), ORG_SELFSERVE_MAX)
     total_usd = org_seat_total_usd(seats, period)
     if total_usd is None:
         raise HTTPException(400, "Orgs with 51+ seats use custom enterprise pricing — contact sales.")
