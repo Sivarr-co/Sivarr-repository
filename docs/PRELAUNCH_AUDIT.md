@@ -64,6 +64,22 @@ Verified each space's promised core actions are wired to a real persisting endpo
 
 **Verdict:** all three spaces deliver their promised core actions at the wiring level; only the course *detail* view is a stub. **[runtime]** Hunter walks each space end-to-end (create→persist→reload) on a deploy to confirm behavior + empty states.
 
+## Phase 4 — Core Systems: Tasks / Projects / Teams (static sweep, 2026-06-30)
+| Capability | Status |
+|---|---|
+| Task fields: title/desc/due/priority/status/assignee | ✅ (`/api/org/tasks/create`) |
+| Status tracking: Not Started / In Progress / Done (kanban + drag-drop) | ✅ |
+| Roles: Owner / Admin / Manager / Member (+guest) | ✅ (`/api/org/member/role`) |
+| Invitations + lifecycle (create→get→use) | ✅ backend (`create/get/use_org_invite`) |
+| Team chat from workspace | ✅ (org SSE) |
+
+**Gaps (depth vs PDF):**
+| # | Item | Detail | Fix (additive) |
+|---|---|---|---|
+| C1 | Task assignment sends **no notification** | `create_org_task` stores `assignee_sid` but never pushes/notifies the assignee. Academic assignments push; org tasks don't. PDF wants "notification on assignment." | Add `bg.add_task(notify, assignee, …)` on assign. |
+| C2 | No **project % progress / milestones** | `orgRenderProjects` shows only a flat "N tasks" count — no done/total %, no progress bar, no milestones (upgrade card advertises both). | Compute done/total per project (`ORG_TASKS` already client-side) → progress bar. Client-only. |
+| C3 | Invite **pending/accepted UI** | Backend tracks invite state; surfacing a "pending invites" list in the UI is unconfirmed. **[runtime]** check. | Verify on deploy; add list if missing. |
+
 ## Disposition
 - **B1** → fix in Phase 3/4 (or now as a quick win if approved).
 - **I1–I3** → routed into their owning phases (5/6, 4).

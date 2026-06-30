@@ -34,8 +34,8 @@ Found the nav already strong (config-driven, grouped, 0 dead from P1, ⌘K-custo
 ## Phase 3 — Space Functionality Review 🟡 (static done; runtime gate pending Hunter)
 Static sweep (`PRELAUNCH_AUDIT.md`): all 3 spaces' promised core actions wired to real persisting endpoints/stores. Personal (tasks/goals/habits/notes/projects/finance), Org (create/tasks/goals/docs/invite/role/remove/chat-SSE), Academic (class/assignment/exam/announce/poll/grade → `/api/acad/*`). One stub: **I4 academic course-detail view** (`lOpenCourse` → "coming soon"; create/list works). Remaining: Hunter walks each space create→reload end-to-end.
 
-## Phase 4 — Core Systems (Tasks/Projects/Teams) ❌
-Exists: tasks/goals/habits/projects + Org roles/invites/audit. Work: polish daily flows (fast create, assignee clarity, status, % view, sort/filter). Backend additive only.
+## Phase 4 — Core Systems (Tasks/Projects/Teams) 🟡 (static done)
+Static sweep (`PRELAUNCH_AUDIT.md`): tasks have full fields + 3-state kanban (Not Started/In Progress/Done) drag-drop; 4 roles (owner/admin/manager/member +guest); invite lifecycle (create→get→use); team chat SSE. **Gaps:** C1 task-assign sends no notification, C2 no project %-progress/milestones (flat "N tasks" only), C3 invite pending/accepted UI [runtime]. Fixes deferred to post-phases pass (Hunter's call).
 
 ## Phase 5 — Chat & Integrations ❌ (largest net-new)
 Exists: Org/group SSE chat, integrations grid (Google OAuth/Calendar, GitHub, Paystack/Flutterwave/Mono). Net-new: Drive / Slack / Zoom-Meet bridges + msg→task. Each integration = additive module + card state; sub-phased, independently shippable. **Scope TBD (Hunter).**
