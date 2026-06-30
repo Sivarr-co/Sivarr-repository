@@ -40,8 +40,8 @@ Static sweep (`PRELAUNCH_AUDIT.md`): tasks have full fields + 3-state kanban (No
 ## Phase 5 — Chat & Integrations 🟡 (static done; scope decision pending)
 Static sweep (`PRELAUNCH_AUDIT.md`): chat = team + group SSE, DMs + channels, msg→task all ✅ (gap: no dedicated project-chat). Integrations wired: Google Calendar 2-way + OAuth, GitHub, Paystack/Flutterwave/Mono. **Not built (net-new): Drive / Slack / Zoom-Meet** — awaiting Hunter's launch must-have scope. New finding I5: academic detail-view stubs cluster (course/student/schedule/module/notes/connect/group).
 
-## Phase 6 — Templates & Interface Consistency ❌ (depends nav/spaces stable)
-Exists: Templates Library + marketplace. Net-new: consistency system — tokenize spacing/radius/shadow/type, sweep pages to tokens one component-family at a time (non-visual-diff refactor). No behavior change.
+## Phase 6 — Templates & Interface Consistency 🟡 (static done; consistency refactor = big fix-pass item)
+Static sweep (`PRELAUNCH_AUDIT.md`): templates marketplace path ✅ (categories/search/popular/use); T1 standalone `useTemplate()` placeholder. **Consistency quantified:** 25 border-radius values, 56 font-sizes, 102 box-shadows, 93 tokens defined-but-unenforced. Fix = define scale tokens + sweep hardcoded→token per component family (non-visual-diff, smallest increments). Largest non-build refinement; deferred to fix pass.
 
 ## Phase 7 — Mobile Optimization ❌ (depends P6)
 Exists: mobile launcher (Phase 1) + stat-card resize started. Work: per-page reflow, touch targets, overflow, mobile type scale. All scoped to `@media (max-width:720px)`; verify via `scripts/device_screens.py` + real phone (NOT the iframe harness).
@@ -54,6 +54,11 @@ Re-run P1 audit list (all resolved), suite green, 3 real devices, loading/error 
 
 ---
 
-### Open decisions (Hunter)
-- Phase 5 integration must-haves vs post-launch.
-- Audit seeds: known-broken/placeholder pages.
+### Decisions (Hunter)
+- ✅ **Phase 5 integration scope (2026-06-30): Google Drive + Zoom/Meet = launch must-haves.** Slack → post-launch. (Build in the fix pass: each = additive OAuth + sync module + integration card state. Meet is easier given the existing Google ecosystem.)
+- B1 leaderboard + findings: fix AFTER all phases (Hunter's call).
+
+### Post-phase FIX PASS backlog (deferred, build after Phase 9)
+- **B1** leaderboard 404 · **I1** org file-attach · **I2** marketplace injection · **I3** org departments/invoices · **I4/I5** academic detail-view stubs (course/student/schedule/module/notes/connect/group)
+- **C1** task-assign notification · **C2** project %-progress/milestones · **C3** invite pending/accepted UI
+- **NEW BUILDS:** Google Drive integration · Zoom/Meet integration

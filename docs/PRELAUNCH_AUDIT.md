@@ -102,6 +102,19 @@ Verified each space's promised core actions are wired to a real persisting endpo
 |---|---|---|
 | I5 | **Academic detail-view stubs** | `lOpenCourse` (I4), `lViewStudent`, `lAddClass`, `sOpenModule`, `sUploadNotes`, `sConnectIndex`, `sOpenGroup` all → "coming soon" toasts. Core academic actions (class/assignment/exam/grade) work; drilling into detail is stubbed across the board. |
 
+## Phase 6 — Templates & Interface Consistency (static sweep, 2026-06-30)
+**Templates:** marketplace path ✅ (categories, search, `sort=popular`, real `mktUseTemplate`/`agFetchTemplates`). **T1:** standalone `useTemplate()` is a placeholder ("duplicate-to-workspace backend wiring out of scope") — confirm which path the live Templates panel uses; wire or remove the placeholder.
+
+**Consistency — quantified scatter (the big Phase 6 finding):**
+| Property | Distinct values | Target scale |
+|---|---|---|
+| border-radius | **25** (2→32px + 99/999) | ~5 (e.g. 4/8/12/16/full) |
+| font-size | **56** rem values | ~8–10 type-scale steps |
+| box-shadow | **102** declarations | ~3 (sm/md/lg) |
+| CSS tokens defined | 93 (exist but **not enforced**) | — |
+
+**Fix (deferred — largest non-build refinement):** define radius/type/shadow **scale tokens**, then sweep hardcoded values → nearest token, **one component family at a time**, eyeballing before/after in `static/devices.html` (non-visual-diff refactor). Highest visual-regression risk in the program → smallest safe increments, each its own commit.
+
 ## Disposition
 - **B1** → fix in Phase 3/4 (or now as a quick win if approved).
 - **I1–I3** → routed into their owning phases (5/6, 4).
