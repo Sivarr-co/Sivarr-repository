@@ -48,6 +48,22 @@ Run on a deploy / local server, click through and confirm:
 - [ ] Browser console: **0 errors** on each panel open
 - [ ] The 8 placeholder items above read as intentional (correct "coming soon" copy), not broken
 
+## Phase 3 — Space Functionality (static sweep, 2026-06-30)
+Verified each space's promised core actions are wired to a real persisting endpoint/store (not stubs):
+
+| Space | Core actions | Status |
+|---|---|---|
+| **Personal** | tasks (`psNewTask`→`d.tasks` save), goals, habits, notes, projects (`/api/org/projects/create`), finance | ✅ all persist |
+| **Org** | create (`/api/org/create`), tasks/goals/docs (`/api/org/*/create`), invite (`orgSendInvite`→`/api/org/invite`), role (`/api/org/member/role`), remove (`/api/org/member/remove`), team chat (SSE) | ✅ all wired |
+| **Academic** | class create/join, assignment, exam, announce, poll, grade — all `/api/acad/*` | ✅ all wired |
+
+**New finding:**
+| # | Item | Detail | Owner |
+|---|---|---|---|
+| I4 | Academic **course detail** view | `lOpenCourse()` → `"Course detail coming soon"` (js). Course create/list works; clicking into a course is a stub. | Phase 3/later |
+
+**Verdict:** all three spaces deliver their promised core actions at the wiring level; only the course *detail* view is a stub. **[runtime]** Hunter walks each space end-to-end (create→persist→reload) on a deploy to confirm behavior + empty states.
+
 ## Disposition
 - **B1** → fix in Phase 3/4 (or now as a quick win if approved).
 - **I1–I3** → routed into their owning phases (5/6, 4).

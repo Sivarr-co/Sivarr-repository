@@ -31,8 +31,8 @@ Static sweep done → `docs/PRELAUNCH_AUDIT.md`. Results: **0 dead handlers**, *
 ## Phase 2 — Navigation Cleanup ✅ (2026-06-30)
 Found the nav already strong (config-driven, grouped, 0 dead from P1, ⌘K-customizable). Shipped: (1) **rebalanced `NAV_DEFAULT`** toward daily-use — promoted Tasks + Docs&Notes into default Work, demoted Templates/Weekly Review + Community/Opportunities/Agents to ⌘K-only (default sidebar 14→12, the right 12); (2) **auto-hide a section header when its group is empty** (`_navRenderSec`: hides the preceding `.sb-sec-head` when 0 items). Additive, reversible, `node --check` clean, cache-bust `app.js v=20260630a`. Note: existing users keep their saved `sivarr_navtabs_<sid>`; the new default only applies to users who never customized.
 
-## Phase 3 — Space Functionality Review ❌
-Exists: Personal / Org / Academic all built. Work: walk each as a new user end-to-end; route partials back to P1. Mostly verification + targeted fixes.
+## Phase 3 — Space Functionality Review 🟡 (static done; runtime gate pending Hunter)
+Static sweep (`PRELAUNCH_AUDIT.md`): all 3 spaces' promised core actions wired to real persisting endpoints/stores. Personal (tasks/goals/habits/notes/projects/finance), Org (create/tasks/goals/docs/invite/role/remove/chat-SSE), Academic (class/assignment/exam/announce/poll/grade → `/api/acad/*`). One stub: **I4 academic course-detail view** (`lOpenCourse` → "coming soon"; create/list works). Remaining: Hunter walks each space create→reload end-to-end.
 
 ## Phase 4 — Core Systems (Tasks/Projects/Teams) ❌
 Exists: tasks/goals/habits/projects + Org roles/invites/audit. Work: polish daily flows (fast create, assignee clarity, status, % view, sort/filter). Backend additive only.
