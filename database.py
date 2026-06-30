@@ -719,24 +719,27 @@ CREATE INDEX IF NOT EXISTS idx_collections_seq   ON collections(collection, seq)
 """
 
 
-_schema_ready = False  # set True once init_db succeeds in this process
+_schema_ready = False      # set True once init_db completes in this process
+_schema_attempted = False  # set True the moment a run starts (single-flight)
 
 
 def init_db() -> bool:
     """Create tables if they don't exist. Returns True on success.
 
-    Idempotent and cheap to call repeatedly: once the schema has been applied
-    successfully in this process, subsequent calls short-circuit. Hot paths
-    (e.g. org_get) call this defensively against the cold-boot startup race —
-    without the guard each call re-ran all ~69 DDL statements (69 round-trips),
-    which on a cross-region DB added seconds to every request.
+    Single-flight per process: the schema run is attempted AT MOST ONCE. Hot
+    paths (e.g. org_get) call this defensively, but must never block — so once a
+    run has *started* (even if it is slow or stuck on a DDL lock, e.g. multiple
+    workers contending on schema DDL at boot), later calls return immediately
+    instead of re-running all ~69 DDL statements (which turned every org_get into
+    a multi-second cross-region hang). The schema is also applied at startup.
     """
-    global _schema_ready
-    if _schema_ready:
-        return True
+    global _schema_ready, _schema_attempted
+    if _schema_ready or _schema_attempted:
+        return _schema_ready
     if not is_available():
         log.info("DATABASE_URL not set — running on JSON file storage")
         return False
+    _schema_attempted = True   # claim the single run BEFORE any slow DDL work
     conn = _get_conn()
     if not conn:
         return False
