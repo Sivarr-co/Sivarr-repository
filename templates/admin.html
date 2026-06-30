@@ -929,6 +929,26 @@ tbody tr:hover td{background:var(--hover)}
 <script>
 'use strict';
 
+// CSRF double-submit: echo the sivarr_csrf cookie as X-CSRF-Token on mutating
+// requests. Needed because the backend enforces it whenever this browser also
+// holds a main-app session cookie (path=/), which would otherwise 403 admin POSTs.
+(function(){
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = function(input, init){
+    init = init || {};
+    const method = (init.method || 'GET').toUpperCase();
+    if (['POST','PUT','DELETE','PATCH'].includes(method)) {
+      const headers = new Headers(init.headers || {});
+      if (!headers.has('X-CSRF-Token')) {
+        const m = document.cookie.match(/(?:^|;\s*)sivarr_csrf=([^;]+)/);
+        if (m) headers.set('X-CSRF-Token', decodeURIComponent(m[1]));
+      }
+      init.headers = headers;
+    }
+    return _origFetch(input, init);
+  };
+})();
+
 let TOKEN = '';
 let ALL_USERS    = [];
 let ALL_SPACES   = [];
