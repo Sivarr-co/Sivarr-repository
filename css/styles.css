@@ -4741,6 +4741,9 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 }
 .os-proj-name { font-size:.9rem; font-weight:600; color:var(--fg); margin-bottom:4px; }
 .os-proj-desc { font-size:.78rem; color:var(--muted); margin-bottom:10px; }
+/* C2: project progress bar */
+.os-proj-progress { height:6px; background:var(--bg3); border-radius:999px; overflow:hidden; margin:10px 0 8px; }
+.os-proj-progress-bar { height:100%; border-radius:999px; transition:width .3s ease; }
 .os-proj-meta { display:flex; align-items:center; justify-content:space-between; }
 .os-proj-badge {
   font-size:.68rem; padding:2px 8px; border-radius:20px;

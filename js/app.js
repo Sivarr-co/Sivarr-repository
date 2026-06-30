@@ -11984,15 +11984,22 @@ function orgRenderProjects() {
   }
   grid.innerHTML = ORG_PROJECTS.map(p => {
     const color = p.color || '#0d9488';
-    const taskCount = ORG_TASKS.filter(t => t.project_id === p.id).length;
+    // C2: project progress = done/total from this project's tasks.
+    const projTasks = ORG_TASKS.filter(t => t.project_id === p.id);
+    const total = projTasks.length;
+    const done  = projTasks.filter(t => t.status === 'done').length;
+    const pct   = total ? Math.round(done / total * 100) : 0;
     return `
     <div class="os-proj-card">
       <div class="os-proj-stripe" style="background:${escHtml(color)}"></div>
       <div class="os-proj-name">${escHtml(p.name)}</div>
       ${p.description ? `<div class="os-proj-desc">${escHtml(p.description)}</div>` : ''}
+      <div class="os-proj-progress" title="${done} of ${total} tasks done">
+        <div class="os-proj-progress-bar" style="width:${pct}%;background:${escHtml(color)}"></div>
+      </div>
       <div class="os-proj-meta">
         <span class="os-proj-badge">${escHtml(p.status||'active')}</span>
-        <span class="os-proj-tasks-count">${taskCount} tasks</span>
+        <span class="os-proj-tasks-count">${done}/${total} done · ${pct}%</span>
       </div>
     </div>`;
   }).join('');

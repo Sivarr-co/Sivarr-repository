@@ -328,6 +328,14 @@ def save_users(users: dict):
 RATE_LIMIT_CHAT     = int(os.environ.get("RATE_LIMIT_CHAT", 20))      # max chat msgs per window
 FREE_DAILY_CHAT     = int(os.environ.get("FREE_DAILY_CHAT", 15))      # free-tier AI messages per day (server-enforced)
 AI_DAILY_FREE       = int(os.environ.get("AI_DAILY_FREE", 40))        # free-tier non-chat AI actions per day (study/write/review/etc.)
+# Paid-tier daily AI fair-use ceilings — high enough to feel unlimited for real
+# use, but finite so one account can't run up a massive Gemini bill. Env-tunable.
+STUDENT_DAILY_CHAT  = int(os.environ.get("STUDENT_DAILY_CHAT", 150))
+STUDENT_DAILY_AI    = int(os.environ.get("STUDENT_DAILY_AI", 250))
+PRO_DAILY_CHAT      = int(os.environ.get("PRO_DAILY_CHAT", 250))
+PRO_DAILY_AI        = int(os.environ.get("PRO_DAILY_AI", 400))
+CREATOR_DAILY_CHAT  = int(os.environ.get("CREATOR_DAILY_CHAT", 600))
+CREATOR_DAILY_AI    = int(os.environ.get("CREATOR_DAILY_AI", 800))
 RATE_LIMIT_QUIZ     = int(os.environ.get("RATE_LIMIT_QUIZ", 5))      # max quiz questions per window
 RATE_LIMIT_UPLOAD   = int(os.environ.get("RATE_LIMIT_UPLOAD", 5))     # max uploads per window
 RATE_LIMIT_WINDOW   = int(os.environ.get("RATE_LIMIT_WINDOW", 60))    # window in seconds
@@ -4256,12 +4264,12 @@ def _plan_is_active(p: dict) -> bool:
 # `analytics_days` caps the analytics history window; `spaces` caps personal
 # spaces; templates/integrations are surfaced to the client (soft) for now.
 _PLAN_CAPS = {
-    "Free":         {"spaces": 1,    "templates": 3,    "integrations": 1,    "analytics_days": 7},
-    "Student Pro":  {"spaces": 3,    "templates": None, "integrations": 5,    "analytics_days": None},
-    "Educator Pro": {"spaces": 3,    "templates": None, "integrations": 5,    "analytics_days": None},
-    "Pro":          {"spaces": 3,    "templates": None, "integrations": 5,    "analytics_days": None},
-    "Creator":      {"spaces": None, "templates": None, "integrations": None, "analytics_days": None},
-    "Team":         {"spaces": None, "templates": None, "integrations": None, "analytics_days": None},
+    "Free":         {"spaces": 1,    "templates": 3,    "integrations": 1,    "analytics_days": 7,    "ai_chat_daily": FREE_DAILY_CHAT,    "ai_actions_daily": AI_DAILY_FREE},
+    "Student Pro":  {"spaces": 3,    "templates": None, "integrations": 5,    "analytics_days": None, "ai_chat_daily": STUDENT_DAILY_CHAT,  "ai_actions_daily": STUDENT_DAILY_AI},
+    "Educator Pro": {"spaces": 3,    "templates": None, "integrations": 5,    "analytics_days": None, "ai_chat_daily": PRO_DAILY_CHAT,      "ai_actions_daily": PRO_DAILY_AI},
+    "Pro":          {"spaces": 3,    "templates": None, "integrations": 5,    "analytics_days": None, "ai_chat_daily": PRO_DAILY_CHAT,      "ai_actions_daily": PRO_DAILY_AI},
+    "Creator":      {"spaces": None, "templates": None, "integrations": None, "analytics_days": None, "ai_chat_daily": CREATOR_DAILY_CHAT,  "ai_actions_daily": CREATOR_DAILY_AI},
+    "Team":         {"spaces": None, "templates": None, "integrations": None, "analytics_days": None, "ai_chat_daily": CREATOR_DAILY_CHAT,  "ai_actions_daily": CREATOR_DAILY_AI},
 }
 
 def _plan_name(p: dict) -> str:
@@ -4304,16 +4312,25 @@ def _chat_authorize(token: str) -> tuple[str, dict]:
         raise HTTPException(401, "Sign in to chat with Sivarr.")
     sid = sess["sid"]
     p   = load_progress(sid)
-    if not _plan_is_active(p):
+    # Every plan has a daily chat ceiling (free = low, paid = high fair-use cap)
+    # so no single account can run up a runaway Gemini bill. None = unlimited.
+    limit = _plan_caps(p).get("ai_chat_daily")
+    if limit is not None:
         today = datetime.date.today().isoformat()
         dc = p.get("chat_daily") or {}
         if dc.get("date") != today:
             dc = {"date": today, "count": 0}
-        if dc["count"] >= FREE_DAILY_CHAT:
+        if dc["count"] >= limit:
+            if _plan_is_active(p):
+                raise HTTPException(
+                    429,
+                    f"You've reached today's fair-use limit of {limit} AI messages. "
+                    f"It resets tomorrow — reach out to support if you regularly need more.",
+                )
             raise HTTPException(
                 429,
-                f"You've reached today's free limit of {FREE_DAILY_CHAT} messages. "
-                f"Upgrade to Pro for unlimited chat.",
+                f"You've reached today's free limit of {limit} messages. "
+                f"Upgrade to Pro for more.",
             )
         dc["count"] += 1
         p["chat_daily"] = dc
@@ -4328,17 +4345,25 @@ def _ai_meter(sid: str) -> None:
     if not sid:
         return
     p = load_progress(sid)
-    if _plan_is_active(p):
+    # Per-plan daily ceiling on non-chat AI (free = low, paid = high fair-use cap).
+    limit = _plan_caps(p).get("ai_actions_daily")
+    if limit is None:
         return
     today = datetime.date.today().isoformat()
     dc = p.get("ai_daily") or {}
     if dc.get("date") != today:
         dc = {"date": today, "count": 0}
-    if dc["count"] >= AI_DAILY_FREE:
+    if dc["count"] >= limit:
+        if _plan_is_active(p):
+            raise HTTPException(
+                429,
+                f"You've reached today's fair-use limit of {limit} AI actions. "
+                f"It resets tomorrow — reach out to support if you regularly need more.",
+            )
         raise HTTPException(
             429,
-            f"You've reached today's free limit of {AI_DAILY_FREE} AI actions. "
-            f"Upgrade to Pro for unlimited AI.",
+            f"You've reached today's free limit of {limit} AI actions. "
+            f"Upgrade to Pro for more.",
         )
     dc["count"] += 1
     p["ai_daily"] = dc
