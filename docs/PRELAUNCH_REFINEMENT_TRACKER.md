@@ -28,8 +28,8 @@
 ## Phase 1 — Functionality Audit 🟡 (static done; runtime gate pending Hunter)
 Static sweep done → `docs/PRELAUNCH_AUDIT.md`. Results: **0 dead handlers**, **0 nav-to-nowhere**, **1 silent 404** (`/api/leaderboard` → B1), 8 placeholder markers (mostly intentional). App is in strong shape. Remaining: Hunter's runtime click-through checklist (blank screens / empty states / console errors) on a deploy.
 
-## Phase 2 — Navigation Cleanup ❌ (depends P1)
-Exists: command-center sidebar, collapsible sections, top-bar cleanup. Work: hide zero-content sections, remove placeholder nav from P1, group academic tools. Verify: every real dest reachable, 0 console errors.
+## Phase 2 — Navigation Cleanup ✅ (2026-06-30)
+Found the nav already strong (config-driven, grouped, 0 dead from P1, ⌘K-customizable). Shipped: (1) **rebalanced `NAV_DEFAULT`** toward daily-use — promoted Tasks + Docs&Notes into default Work, demoted Templates/Weekly Review + Community/Opportunities/Agents to ⌘K-only (default sidebar 14→12, the right 12); (2) **auto-hide a section header when its group is empty** (`_navRenderSec`: hides the preceding `.sb-sec-head` when 0 items). Additive, reversible, `node --check` clean, cache-bust `app.js v=20260630a`. Note: existing users keep their saved `sivarr_navtabs_<sid>`; the new default only applies to users who never customized.
 
 ## Phase 3 — Space Functionality Review ❌
 Exists: Personal / Org / Academic all built. Work: walk each as a new user end-to-end; route partials back to P1. Mostly verification + targeted fixes.
