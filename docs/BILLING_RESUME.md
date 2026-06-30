@@ -23,8 +23,27 @@ money paths have never run against a real DB + Paystack. Full pricing spec:
 ---
 
 ## 1. Verification backlog — DO THIS FIRST (money + prod-only paths)
-None of these could be tested locally (no prod DB / no Paystack keys / no provider keys).
-Priority order:
+
+### Verified locally 2026-06-30 (logic proven; raw SQL + money settlement still need prod)
+- **CSRF round-trip ✓** — real local test: POST without `X-CSRF-Token` → **403**, with token → **200**,
+  exempt `/api/login` → **200**. Mechanism sound; the earlier outage was deploy-ordering only.
+- **Quota gating logic ✓** (mock-DB harness): 2nd space (Free) → 402, re-sync existing → OK;
+  4th template (Free=3) → 402, under-cap → OK.
+- **Org billing logic ✓** (mock-DB harness): quote(5 seats)=$50/≈₦82,500; subscribe non-owner → 403;
+  51+ seats → 400 custom; join when seats full → 402, seat free → OK, **legacy org (no sub) not
+  seat-limited** (transition-safe).
+
+### Still needs PROD (cannot be done from the dev sandbox — no outbound net / Paystack / Postgres)
+1. **CSRF on real HTTPS (P0)** — confirm the `__Host-` cookie + double-submit holds in a browser:
+   hard-refresh → login → create/save (no 403) → admin panel while logged into the main app.
+2. **Personal Paystack charge + verify (P0 — money settlement)** — real pay for Pro → ₦19,800
+   charged, plan activates, store-and-verify amount lock holds.
+3. **Org Paystack charge + verify (P0 — money + new flow)** — real org checkout → org unlocks,
+   seat banner correct, invite past seats → 402. Exercises the raw `set_org_subscription` /
+   `get_org` / `count_org_members` SQL against real Postgres.
+4. **Admin rate persists across a redeploy (P1)** — `app_config` table write/read on prod DB.
+
+Priority order for the prod pass:
 
 1. **CSRF round-trip (P0 — affects ALL mutating requests).** A split deploy once put
    server enforcement live before the client echo (brief outage). Verify: hard-refresh →
