@@ -123,6 +123,28 @@ Verified each space's promised core actions are wired to a real persisting endpo
 | M2 | **No dedicated mobile type scale** | Mobile reuses desktop font-sizes shrunk via `--font-scale`/per-element overrides; PDF wants a purpose-built mobile scale. | Fold into the Phase 6 consistency type-scale (add mobile steps). |
 | — | Per-page reflow polish | **[runtime]** real-device walkthrough of each panel. | Hunter gate + targeted CSS. |
 
+## Phase 8 — Auth & Onboarding (static sweep, 2026-06-30)
+Auth fully hardened (baseline 33/0 green). **Onboarding already built** (not net-new as assumed):
+| Capability | Status |
+|---|---|
+| First-login onboarding flow + completion tracking (`/api/user/onboarding`) | ✅ (js ~16178) |
+| Getting Started Guide (dismissible, 7-day) | ✅ (js ~6170) |
+| Sensible default landing (new user → Home, not blank) | ✅ |
+| Minimal registration (name/email/password, phone optional) | ✅ |
+| Password reset (one email, one click) · Google OAuth | ✅ (verified earlier) |
+
+**[runtime]** Confirm the onboarding flow fires for a fresh account, is dismissible, and reaches a first action quickly. No net-new build required.
+
+## Phase 9 — Final QA & Launch Readiness (verification-only)
+No static sweep — this is the consolidated **runtime gate** (Hunter, on a deploy):
+- [ ] Re-run `test_auth_security.py` → still green (regression anchor)
+- [ ] 3 real devices: recent iPhone · recent Android · laptop
+- [ ] All `[runtime]` items from Phases 1–8 (blank screens, empty states, console errors, space walk-throughs, unread accuracy, mobile reflow, onboarding fire)
+- [ ] Loading/error states graceful everywhere
+- [ ] Outside tester runs onboarding→first-action with zero guidance
+- [ ] Final visual sweep (post-consistency-refactor): spacing/type/color/icons
+- **Rollback plan:** every change is an atomic commit → revert-by-commit. ✅ in place.
+
 ## Disposition
 - **B1** → fix in Phase 3/4 (or now as a quick win if approved).
 - **I1–I3** → routed into their owning phases (5/6, 4).

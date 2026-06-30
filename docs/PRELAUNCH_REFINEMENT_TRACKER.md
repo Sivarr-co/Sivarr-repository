@@ -46,11 +46,11 @@ Static sweep (`PRELAUNCH_AUDIT.md`): templates marketplace path ✅ (categories/
 ## Phase 7 — Mobile Optimization 🟡 (static done)
 Static sweep (`PRELAUNCH_AUDIT.md`): strong (30 mobile queries, no overflow, launcher built, stat cards compacted). Findings: **M1** touch targets <44px (chat/acad/modal buttons), **M2** no dedicated mobile type scale (folds into Phase 6). Per-page reflow = [runtime]. All fixes scoped to `@media (max-width:720px)`, verify via `device_screens.py` + real phone. Deferred to fix pass.
 
-## Phase 8 — Auth & Onboarding ❌
-Exists: auth fully hardened (security roadmap P1–P4, 2FA, cookies, CSRF). Net-new: first-run onboarding — sensible default space, dismissible tour/checklist, ≤60s to first action. Additive UI gated on a first-login flag; no auth-logic changes.
+## Phase 8 — Auth & Onboarding 🟡 (static done — onboarding already built)
+Static sweep (`PRELAUNCH_AUDIT.md`): auth hardened (baseline green). **Onboarding already exists** — first-login flow (`/api/user/onboarding`), 7-day Getting Started Guide, sensible default landing (Home), minimal registration, password reset + Google OAuth. No net-new build needed; just [runtime] confirm the flow fires for a fresh account.
 
-## Phase 9 — Final QA & Launch Readiness ❌ (verification only)
-Re-run P1 audit list (all resolved), suite green, 3 real devices, loading/error states, outside-tester onboarding, final visual sweep, rollback plan (atomic commits). No new features.
+## Phase 9 — Final QA & Launch Readiness 🟡 (checklist defined; runtime-only)
+The consolidated runtime gate (`PRELAUNCH_AUDIT.md` Phase 9): re-run suite green, 3 real devices, all [runtime] items from Phases 1–8, loading/error states, outside-tester onboarding, final visual sweep (post-consistency), rollback = atomic commits ✅. Runs last, after the fix pass.
 
 ---
 
@@ -58,7 +58,13 @@ Re-run P1 audit list (all resolved), suite green, 3 real devices, loading/error 
 - ✅ **Phase 5 integration scope (2026-06-30): Google Drive + Zoom/Meet = launch must-haves.** Slack → post-launch. (Build in the fix pass: each = additive OAuth + sync module + integration card state. Meet is easier given the existing Google ecosystem.)
 - B1 leaderboard + findings: fix AFTER all phases (Hunter's call).
 
-### Post-phase FIX PASS backlog (deferred, build after Phase 9)
-- **B1** leaderboard 404 · **I1** org file-attach · **I2** marketplace injection · **I3** org departments/invoices · **I4/I5** academic detail-view stubs (course/student/schedule/module/notes/connect/group)
-- **C1** task-assign notification · **C2** project %-progress/milestones · **C3** invite pending/accepted UI
-- **NEW BUILDS:** Google Drive integration · Zoom/Meet integration
+### FIX PASS backlog
+**✅ Done (small real bugs, 2026-06-30):**
+- **B1** leaderboard 404 → `/api/leaderboard` added (`ca65ff0`)
+- **C1** task-assign notification → web-push to assignee (`063a677`)
+- **C2** project %-progress → done/total + % + progress bar (`063a677`)
+
+**Remaining (deferred):**
+- **C3** invite pending/accepted UI · **I1** org file-attach · **I2** marketplace injection · **I3** org departments/invoices · **I4/I5** academic detail-view stubs · **T1** useTemplate placeholder
+- **CONSISTENCY** scale-token refactor (largest) · **M1** touch targets <44px · **M2** mobile type scale
+- **NEW BUILDS:** Google Drive · Zoom/Meet
