@@ -813,6 +813,19 @@ tbody tr:hover td{background:var(--hover)}
           <div class="stat-card c-blue"><div class="stat-label">Est. ARR</div><div class="stat-val" id="rv-arr">—</div><div class="stat-sub">Annualised</div></div>
           <div class="stat-card c-amber"><div class="stat-label">All-time Revenue</div><div class="stat-val" id="rv-alltime">—</div><div class="stat-sub">Total collected</div></div>
         </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-hd"><h3>USD → NGN exchange rate</h3></div>
+          <div style="padding:8px 4px 2px;display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:.72rem;color:var(--muted);margin-bottom:4px">₦ per $1</div>
+              <input id="rv-rate-input" type="number" min="100" max="100000" step="1"
+                     style="width:150px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.95rem">
+            </div>
+            <button class="grad-btn" style="width:auto;padding:9px 18px" onclick="saveNairaRate()">Update rate</button>
+            <div id="rv-rate-msg" style="font-size:.78rem;color:var(--muted);align-self:center"></div>
+          </div>
+          <div style="padding:6px 4px 2px;font-size:.74rem;color:var(--muted)">USD is the price anchor. This rate sets the ₦ amount charged via Paystack/Flutterwave and the conversion users see at checkout. Applies live — no redeploy.</div>
+        </div>
         <div class="grid2">
           <div class="card">
             <div class="card-hd"><h3>Plan Breakdown</h3></div>
@@ -1558,6 +1571,25 @@ async function loadRevenue() {
   } catch(e) { if (String(e).includes('401')) signOut(); }
 }
 
+async function saveNairaRate() {
+  const ri  = document.getElementById('rv-rate-input');
+  const msg = document.getElementById('rv-rate-msg');
+  const rate = parseInt(ri && ri.value, 10);
+  if (!rate || rate < 100 || rate > 100000) {
+    if (msg) { msg.textContent = 'Enter a value between 100 and 100000'; msg.style.color = 'var(--red,#ef4444)'; }
+    return;
+  }
+  if (msg) { msg.textContent = 'Saving…'; msg.style.color = 'var(--muted)'; }
+  try {
+    await apiPost('/api/admin/billing/rate', { naira_rate: rate });
+    _RV_RATE = rate;
+    if (msg) { msg.textContent = '✓ Saved — ₦' + rate.toLocaleString() + ' / $1'; msg.style.color = 'var(--green,#10b981)'; }
+    loadRevenue();
+  } catch(e) {
+    if (msg) { msg.textContent = 'Failed: ' + e; msg.style.color = 'var(--red,#ef4444)'; }
+  }
+}
+
 function renderRevenue() {
   const d = _RV_DATA; if (!d) return;
   document.getElementById('rv-paying').textContent  = d.paying_users;
@@ -1565,6 +1597,9 @@ function renderRevenue() {
   document.getElementById('rv-arr').textContent     = rvMoney(d.arr_ngn);
   document.getElementById('rv-alltime').textContent = rvMoney(d.all_time_ngn);
   const pb = document.getElementById('sb-badge-paying'); if (pb) pb.textContent = d.paying_users;
+  // Reflect the live USD→NGN rate (don't clobber if the admin is editing it)
+  const ri = document.getElementById('rv-rate-input');
+  if (ri && document.activeElement !== ri) ri.value = _RV_RATE;
 
   const plans = Object.entries(d.plan_counts || {});
   document.getElementById('rv-plan-chart').innerHTML = plans.length

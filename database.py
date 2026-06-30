@@ -473,6 +473,13 @@ CREATE TABLE IF NOT EXISTS feedback (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ── Global app config (durable key-value, e.g. the USD→NGN rate) ────
+CREATE TABLE IF NOT EXISTS app_config (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ── Multi-user Organisations ───────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS orgs (
@@ -1105,6 +1112,40 @@ def is_email_verified(sid: str) -> bool:
             row = cur.fetchone()
         return bool(row and row[0])
     return _with_conn(f"is_email_verified[{sid}]", _q, False)
+
+
+# ── Global app config (durable key-value) ──────────────────────────
+
+def get_config(key: str, default=None):
+    """Read a global config value (e.g. 'naira_rate'). Returns default if unset/unavailable."""
+    def _q(conn):
+        with conn.cursor() as cur:
+            cur.execute("SELECT value FROM app_config WHERE key = %s", (key,))
+            row = cur.fetchone()
+        return row[0] if row else default
+    return _with_conn(f"get_config[{key}]", _q, default)
+
+
+def set_config(key: str, value: str) -> bool:
+    """Upsert a global config value. Returns True on success."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO app_config (key, value, updated_at) VALUES (%s, %s, NOW()) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()",
+                (key, str(value)),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"set_config[{key}] failed: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
 
 
 # ── Google OAuth exchange codes (multi-worker safe) ────────────────

@@ -234,15 +234,20 @@ BILLING_CONFIG_PATH = DATA_DIR / "billing_config.json"
 _naira_rate_cache = {"val": None, "ts": 0.0}
 
 def get_naira_rate() -> int:
-    """Live USD→NGN rate. An admin override in billing_config.json wins over the
-    NAIRA_RATE env default, so the team can change it without a redeploy. Cached
-    30s per worker (FX moves slowly; billing stores the charged NGN at init)."""
+    """Live USD→NGN rate. An admin override wins over the NAIRA_RATE env default,
+    so the team can change it without a redeploy. Stored in the DB when available
+    (durable across redeploys) and falls back to billing_config.json locally.
+    Cached 30s per worker (FX moves slowly; billing locks the charged NGN at init)."""
     now = time.time()
     if _naira_rate_cache["val"] is not None and now - _naira_rate_cache["ts"] < 30:
         return _naira_rate_cache["val"]
     rate = NAIRA_RATE
     try:
-        if BILLING_CONFIG_PATH.exists():
+        if db.is_available():
+            v = db.get_config("naira_rate")
+            if v and int(v) > 0:
+                rate = int(v)
+        elif BILLING_CONFIG_PATH.exists():
             r = int(json.loads(BILLING_CONFIG_PATH.read_text(encoding="utf-8")).get("naira_rate") or 0)
             if r > 0:
                 rate = r
@@ -253,9 +258,21 @@ def get_naira_rate() -> int:
     return rate
 
 def set_naira_rate(rate: int) -> None:
-    """Persist a team-set USD→NGN rate (admin only)."""
-    BILLING_CONFIG_PATH.write_text(json.dumps({"naira_rate": int(rate)}), encoding="utf-8")
-    _naira_rate_cache["val"] = int(rate)
+    """Persist a team-set USD→NGN rate (admin only). DB when available (durable),
+    else a local file."""
+    rate = int(rate)
+    stored = False
+    try:
+        if db.is_available():
+            stored = db.set_config("naira_rate", str(rate))
+    except Exception as exc:
+        log.error(f"set_naira_rate DB write failed: {exc}")
+    if not stored:
+        try:
+            BILLING_CONFIG_PATH.write_text(json.dumps({"naira_rate": rate}), encoding="utf-8")
+        except Exception as exc:
+            log.error(f"set_naira_rate file write failed: {exc}")
+    _naira_rate_cache["val"] = rate
     _naira_rate_cache["ts"]  = time.time()
 
 def plan_charge_ngn(plan: dict, seats: int = 1) -> int:
