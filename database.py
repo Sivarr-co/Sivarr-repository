@@ -1874,6 +1874,19 @@ def check_download(buyer_sid: str, template_id: str) -> bool:
         _release(conn)
 
 
+def count_downloads(buyer_sid: str) -> int:
+    """Number of distinct templates a user has installed/owned (for plan caps)."""
+    def _q(conn):
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(DISTINCT template_id) FROM template_downloads WHERE buyer_sid=%s",
+                (buyer_sid,)
+            )
+            row = cur.fetchone()
+        return int(row[0]) if row else 0
+    return _with_conn(f"count_downloads[{buyer_sid}]", _q, 0)
+
+
 def record_download(dl: dict) -> None:
     conn = _get_conn()
     if not conn:

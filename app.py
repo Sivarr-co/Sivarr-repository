@@ -8879,7 +8879,7 @@ async def org_tasks_list(data: dict):
 
 
 @app.post("/api/org/tasks/create")
-async def org_task_create(data: dict):
+async def org_task_create(data: dict, bg: BackgroundTasks):
     sid, uname = _resolve_token(data)
     if not db.is_available(): raise HTTPException(503, "Database unavailable.")
     org = db.get_org_by_member(sid)
@@ -8895,6 +8895,12 @@ async def org_task_create(data: dict):
     due_date   = sanitize_text(str(data.get("due_date", "")), 10) or None
     ok = db.create_org_task(org["id"], task_id, title, sid, status, priority, desc, assignee, project_id, due_date)
     if not ok: raise HTTPException(500, "Failed to create task.")
+    # C1: notify the assignee on delegation (web push; no-op if they have no
+    # push subscription). Skip self-assignment.
+    if assignee and assignee != sid:
+        bg.add_task(send_push, assignee,
+                    f"📋 {org.get('name', 'Your team')}: new task assigned",
+                    f"{uname} assigned you: {title}", "/app", f"orgtask_{task_id}")
     return {"ok": True, "task_id": task_id}
 
 

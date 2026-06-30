@@ -1325,7 +1325,7 @@ async function showPricing() {
       ['AI messages / day',            '15',     'Unlimited', 'Unlimited'],
       ['Active templates',             '3',      'All',       'All'],
       ['Analytics history',            '7 days', 'Full',      'Full'],
-      ['Integrations',                 CROSS,    '5',         'Unlimited'],
+      ['Integrations',                 '1',      '5',         'Unlimited'],
       ['Priority AI speed',            CROSS,    CHECK,       CHECK],
       ['Best model (Claude Opus, soon)', CROSS,  CROSS,       CHECK],
       ['Personal spaces',              '1',      '3',         'Unlimited'],
@@ -1469,8 +1469,10 @@ function checkAuthParams() {
       denied: 'Google Calendar access was denied.',
       session_expired: 'Session expired — please sign in again.',
       token_failed: 'Google Calendar token exchange failed.',
+      plan_limit: 'Your plan’s integration limit is reached. Upgrade to connect more.',
     };
     toast(msgs[gcalErr] || 'Google Calendar connection failed.');
+    if (gcalErr === 'plan_limit' && typeof showPricing === 'function') showPricing();
   }
 
   // GitHub callback
@@ -1485,8 +1487,10 @@ function checkAuthParams() {
       denied: 'GitHub access was denied.',
       session_expired: 'Session expired — sign in again.',
       token_failed: 'GitHub token exchange failed.',
+      plan_limit: 'Your plan’s integration limit is reached. Upgrade to connect more.',
     };
     toast(msgs[githubErr] || 'GitHub connection failed.');
+    if (githubErr === 'plan_limit' && typeof showPricing === 'function') showPricing();
   }
 
   // Paystack billing callback
