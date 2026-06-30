@@ -10,6 +10,7 @@
 
 ## The "don't break anything" protocol (every change obeys this)
 0. **Baseline** — `python scripts/test_auth_security.py --base <url>` is GREEN before code changes start (Hunter's env; sandbox can't run the app — no psycopg2/server).
+   - ✅ **LOCKED 2026-06-30: `33 passed / 0 failed / 10 skipped`** (local file-mode, venv). The 10 skips are rate-limit artifacts (the suite trips the per-IP 429 limit mid-run), not failures. Re-run with `RATE_LIMIT_LOGIN` raised to un-skip them if 100% coverage is wanted. Local run = file-mode (`uvicorn app:app --port 8000`, no DATABASE_URL).
 1. **Read-before-edit** — read exact lines, smallest diff.
 2. **Static check** — `py_compile` + `node --check` on every change.
 3. **Logic self-test** — prove testable logic offline with a stdlib harness (cf. TOTP RFC vector, exam `coll_*`).
