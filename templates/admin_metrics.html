@@ -139,6 +139,27 @@ h1{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
 </div>
 
 <script>
+// CSRF double-submit: echo the sivarr_csrf cookie as X-CSRF-Token on mutating
+// requests so the backend accepts them when this browser also holds a main-app
+// session cookie (path=/). The only POST here today (login) is exempt, but this
+// future-proofs the page and keeps it consistent with the admin/lecturer panels.
+(function(){
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = function(input, init){
+    init = init || {};
+    const method = (init.method || 'GET').toUpperCase();
+    if (['POST','PUT','DELETE','PATCH'].includes(method)) {
+      const headers = new Headers(init.headers || {});
+      if (!headers.has('X-CSRF-Token')) {
+        const m = document.cookie.match(/(?:^|;\s*)sivarr_csrf=([^;]+)/);
+        if (m) headers.set('X-CSRF-Token', decodeURIComponent(m[1]));
+      }
+      init.headers = headers;
+    }
+    return _origFetch(input, init);
+  };
+})();
+
 let _token = '';
 
 async function doLogin() {
