@@ -912,7 +912,13 @@ async function submitResetPassword() {
 //  PAYWALL / PLAN ACCESS SYSTEM
 // ─────────────────────────────────────────────────────────────
 
-const _PLAN_LEVELS = { free: 0, 'Free': 0, pro: 1, 'Pro': 1, team: 2, 'Team': 2 };
+const _PLAN_LEVELS = {
+  free: 0, 'Free': 0,
+  // Paid tier 1 — Pro and the academic-space paid tiers
+  pro: 1, 'Pro': 1, 'Student Pro': 1, 'Educator Pro': 1,
+  // Paid tier 2 — top personal/org tiers
+  creator: 2, 'Creator': 2, team: 2, 'Team': 2,
+};
 
 function _planLevel(name) {
   return _PLAN_LEVELS[(name || 'free')] ?? 0;
@@ -1267,17 +1273,25 @@ async function showPricing() {
   const cards = $('pricing-cards');
   if (cards) {
     const currentPlan = _BILLING_STATUS?.name?.toLowerCase() || 'free';
+    // Server is the source of truth for price + live NGN conversion (USD anchor).
+    const disp = {};
+    (planData.display || []).forEach(d => { disp[d.id] = d; });
+    const usdOf   = (id, fb) => disp[id]?.display_usd || fb;
+    const localOf = (id)     => disp[id]?.fx?.display_local || '';
+
+    // Personal-space ladder (Academic & Org spaces have their own plans).
     const plans = [
-      { id: 'free',        name: 'Free',  price: '₦0',     per: '/forever', perks: ['AI chat (20/day)', 'Tasks & Goals', 'Calendar', 'Personal journal'], cta: 'Current plan', free: true },
-      { id: 'pro_monthly', name: 'Pro',   price: '₦2,500', per: '/month',   perks: ['Everything in Free', 'Unlimited AI', 'Org space access', 'Priority support'], featured: true },
-      { id: 'team_monthly',name: 'Team',  price: '₦8,000', per: '/month',   perks: ['Everything in Pro', 'Full org suite', 'Analytics', 'Custom branding'] },
+      { id: 'free',           name: 'Free',    usd: '$0', per: '/forever', perks: ['AI chat (15/day)', 'Tasks & Goals', 'Calendar', 'Personal journal'], free: true },
+      { id: 'pro_monthly',    name: 'Pro',     usd: usdOf('pro_monthly','$12'),     local: localOf('pro_monthly'),     per: '/month', perks: ['Everything in Free', 'Unlimited core AI', 'All premium templates', '5 integrations', 'Priority AI speed'], featured: true },
+      { id: 'creator_monthly',name: 'Creator', usd: usdOf('creator_monthly','$22'), local: localOf('creator_monthly'), per: '/month', perks: ['Best AI model (Claude Opus — coming soon)', 'Unlimited personal spaces', 'Sell on the marketplace', 'Creator analytics', 'Early access to new features'] },
     ];
     cards.innerHTML = plans.map(p => {
       const isCurrent = currentPlan === p.name.toLowerCase() || (p.free && currentPlan === 'free');
       return `
       <div class="pricing-card${p.featured ? ' featured' : ''}${isCurrent ? ' current-plan' : ''}">
         <div class="pricing-name">${esc(p.name)}</div>
-        <div class="pricing-price">${p.price}<span>${p.per}</span></div>
+        <div class="pricing-price">${esc(p.usd)}<span>${p.per}</span></div>
+        ${p.local ? `<div style="font-size:.72rem;color:var(--muted);margin:-4px 0 8px">${esc(p.local)} · billed via Paystack</div>` : ''}
         <ul class="pricing-perks">${p.perks.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
         ${isCurrent
           ? `<button class="pricing-btn free-btn" disabled>Current plan</button>`
@@ -1291,7 +1305,7 @@ async function showPricing() {
       </div>`;
     }).join('');
 
-    // Comparison table
+    // Comparison table (Personal: Free / Pro / Creator)
     const tableWrap = cards.parentElement?.querySelector('#pricing-compare') || (() => {
       const t = document.createElement('div');
       t.id = 'pricing-compare';
@@ -1302,16 +1316,15 @@ async function showPricing() {
     const CHECK = '<span style="color:var(--teal)">✓</span>';
     const CROSS = '<span style="color:var(--muted)">✗</span>';
     const rows = [
-      ['AI messages / day',    '20',         'Unlimited',  'Unlimited'],
-      ['Quizzes / day',        '5',          'Unlimited',  'Unlimited'],
-      ['Core panels',          CHECK,        CHECK,        CHECK],
-      ['Spaces (each type)',   '1',          '3',          'Unlimited'],
-      ['Advanced analytics',   CROSS,        CHECK,        CHECK],
-      ['Priority AI',          CROSS,        CHECK,        CHECK],
-      ['Org members',          CROSS,        CROSS,        'Unlimited'],
-      ['Team analytics',       CROSS,        CROSS,        CHECK],
-      ['Data export',          CROSS,        CROSS,        CHECK],
-      ['Price',                '₦0/mo',     '₦2,500/mo', '₦8,000/mo'],
+      ['AI messages / day',            '15',     'Unlimited', 'Unlimited'],
+      ['Active templates',             '3',      'All',       'All'],
+      ['Analytics history',            '7 days', 'Full',      'Full'],
+      ['Integrations',                 CROSS,    '5',         'Unlimited'],
+      ['Priority AI speed',            CROSS,    CHECK,       CHECK],
+      ['Best model (Claude Opus, soon)', CROSS,  CROSS,       CHECK],
+      ['Unlimited personal spaces',    CROSS,    CROSS,       CHECK],
+      ['Sell on marketplace',          CROSS,    CROSS,       CHECK],
+      ['Price',                        usdOf('free','$0')+'/mo', usdOf('pro_monthly','$12')+'/mo', usdOf('creator_monthly','$22')+'/mo'],
     ];
     tableWrap.innerHTML = `
       <div style="font-weight:700;margin-bottom:12px;font-size:.9rem">Feature comparison</div>
@@ -1319,7 +1332,7 @@ async function showPricing() {
         <thead>
           <tr>
             <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:600">Feature</th>
-            ${['Free','Pro','Team'].map(n => `<th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);color:${n.toLowerCase()===currentPlan?'var(--teal)':'var(--muted)'};font-weight:700">${n}</th>`).join('')}
+            ${['Free','Pro','Creator'].map(n => `<th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);color:${n.toLowerCase()===currentPlan?'var(--teal)':'var(--muted)'};font-weight:700">${n}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
@@ -1328,7 +1341,8 @@ async function showPricing() {
             ${r.slice(1).map(v => `<td style="padding:7px 8px;text-align:center">${v}</td>`).join('')}
           </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table>
+      <div style="margin-top:12px;font-size:.74rem;color:var(--muted)">Prices in USD · local amount converted at checkout. Academic & Organisation spaces have their own plans.</div>`;
   }
 }
 
@@ -5882,9 +5896,10 @@ const NAV_ORDER = {
   connect: ['community','opportunities','marketplace','library','agents'],
 };
 const NAV_CORE = ['chat','home','announcements'];   // permanent, top group, not removable
-// Default tabs shown in the sidebar (Work: Goals/Calendar/Templates; Life: Finance/Habits/Weekly Review; Connect: all).
+// Default tabs shown in the sidebar — rebalanced toward daily-use (Phase 2):
+// Work: Tasks/Goals/Calendar/Docs&Notes · Life: Finance/Habits/Journal · Connect: Marketplace/Integrations.
 // Anything not here lives only in ⌘K search until the user stars it in.
-const NAV_DEFAULT = ['goals','calendar','templates','finance','habits','review','community','opportunities','marketplace','library','agents'];
+const NAV_DEFAULT = ['flux','goals','calendar','notes','finance','habits','journal','marketplace','library'];
 // Extra trailing markup per tab (inline stat placeholders, New badges, inbox dot) — preserved across re-render.
 const NAV_EXTRA = {
   flux:'<span class="si-stat si-stat-info" id="sbstat-tasks"></span>',
@@ -5933,6 +5948,9 @@ function _navRenderSec(hostId, panels) {
       <span class="si-lb">${t.label}</span>${NAV_EXTRA[panel] || ''}
     </button>`;
   }).join('');
+  // Auto-hide this section's header when the group is empty (Phase 2 nav cleanup).
+  const head = host.previousElementSibling;
+  if (head && head.classList.contains('sb-sec-head')) head.style.display = panels.length ? '' : 'none';
   // Re-apply the active highlight if the current panel lives in this section
   const active = document.querySelector('.panel.active');
   if (active && active.id.indexOf('panel-') === 0) {

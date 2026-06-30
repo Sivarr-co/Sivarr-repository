@@ -165,7 +165,7 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 PAYSTACK_SECRET_KEY = os.environ.get("PAYSTACK_SECRET_KEY", "")
 PAYSTACK_PUBLIC_KEY = os.environ.get("PAYSTACK_PUBLIC_KEY", "")
 PAYSTACK_AVAILABLE  = bool(PAYSTACK_SECRET_KEY)
-NAIRA_RATE          = int(os.environ.get("NAIRA_RATE", "1650"))  # USD→NGN
+NAIRA_RATE          = int(os.environ.get("NAIRA_RATE", "1650"))  # USD→NGN default (team-overridable at runtime)
 PAYSTACK_API        = "https://api.paystack.co"
 
 # ── Flutterwave (NGN/GHS/KES payments) ───────────────────────
@@ -210,11 +210,60 @@ GITHUB_TOKEN_URL       = "https://github.com/login/oauth/access_token"
 GITHUB_API             = "https://api.github.com"
 
 # ── Sivarr Subscription Plans ─────────────────────────────────
+# USD is the pricing anchor (see docs/PRICING_USD_RESTRUCTURE.md). The NGN amount
+# charged via Paystack/Flutterwave is derived live from the team-set rate at
+# checkout time via plan_charge_ngn(); no NGN is hard-coded here.
 SIVARR_PLANS = {
-    "pro_monthly":  {"name": "Pro",  "label": "Monthly", "amount_ngn": 2500,  "period": "monthly"},
-    "pro_yearly":   {"name": "Pro",  "label": "Yearly",  "amount_ngn": 25000, "period": "yearly"},
-    "team_monthly": {"name": "Team", "label": "Monthly", "amount_ngn": 8000,  "period": "monthly"},
+    # ── Personal Space ──
+    "pro_monthly":          {"name": "Pro",          "label": "Monthly",  "amount_usd": 12,   "period": "monthly", "space": "personal"},
+    "pro_yearly":           {"name": "Pro",          "label": "Yearly",   "amount_usd": 108,  "period": "yearly",  "space": "personal"},
+    "creator_monthly":      {"name": "Creator",      "label": "Monthly",  "amount_usd": 22,   "period": "monthly", "space": "personal"},
+    "creator_yearly":       {"name": "Creator",      "label": "Yearly",   "amount_usd": 198,  "period": "yearly",  "space": "personal"},
+    # Founding-100 ($6/mo for life) — opens fresh at launch, hidden from the public catalog until then.
+    "founding_monthly":     {"name": "Pro",          "label": "Founding", "amount_usd": 6,    "period": "monthly", "space": "personal", "cohort": "founding_100", "hidden": True},
+    # ── Academic Space ──
+    "student_pro_monthly":  {"name": "Student Pro",  "label": "Monthly",  "amount_usd": 4.99, "period": "monthly", "space": "academic"},
+    "student_pro_yearly":   {"name": "Student Pro",  "label": "Yearly",   "amount_usd": 35,   "period": "yearly",  "space": "academic"},
+    "educator_pro_monthly": {"name": "Educator Pro", "label": "Monthly",  "amount_usd": 12,   "period": "monthly", "space": "academic"},
+    "educator_pro_yearly":  {"name": "Educator Pro", "label": "Yearly",   "amount_usd": 108,  "period": "yearly",  "space": "academic"},
+    # ── Organisation Space (interim flat plan; per-seat billing is Phase 2) ──
+    "team_monthly":         {"name": "Team",         "label": "Monthly",  "amount_usd": 10,   "period": "monthly", "space": "org"},
 }
+
+BILLING_CONFIG_PATH = DATA_DIR / "billing_config.json"
+_naira_rate_cache = {"val": None, "ts": 0.0}
+
+def get_naira_rate() -> int:
+    """Live USD→NGN rate. An admin override in billing_config.json wins over the
+    NAIRA_RATE env default, so the team can change it without a redeploy. Cached
+    30s per worker (FX moves slowly; billing stores the charged NGN at init)."""
+    now = time.time()
+    if _naira_rate_cache["val"] is not None and now - _naira_rate_cache["ts"] < 30:
+        return _naira_rate_cache["val"]
+    rate = NAIRA_RATE
+    try:
+        if BILLING_CONFIG_PATH.exists():
+            r = int(json.loads(BILLING_CONFIG_PATH.read_text(encoding="utf-8")).get("naira_rate") or 0)
+            if r > 0:
+                rate = r
+    except Exception:
+        pass
+    _naira_rate_cache["val"] = rate
+    _naira_rate_cache["ts"]  = now
+    return rate
+
+def set_naira_rate(rate: int) -> None:
+    """Persist a team-set USD→NGN rate (admin only)."""
+    BILLING_CONFIG_PATH.write_text(json.dumps({"naira_rate": int(rate)}), encoding="utf-8")
+    _naira_rate_cache["val"] = int(rate)
+    _naira_rate_cache["ts"]  = time.time()
+
+def plan_charge_ngn(plan: dict, seats: int = 1) -> int:
+    """USD-anchored plan → whole-NGN charge for the gateway, at the live rate."""
+    if not plan:
+        return 0
+    usd = plan.get("amount_usd", 0) * (seats if plan.get("per_seat") else 1)
+    return int(round(usd * get_naira_rate()))
 
 # ── Sentry ────────────────────────────────────────────────────
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
@@ -260,7 +309,7 @@ def save_users(users: dict):
 
 # ── Rate limiting config ──────────────────────────────────────
 RATE_LIMIT_CHAT     = int(os.environ.get("RATE_LIMIT_CHAT", 20))      # max chat msgs per window
-FREE_DAILY_CHAT     = int(os.environ.get("FREE_DAILY_CHAT", 20))      # free-tier AI messages per day (server-enforced)
+FREE_DAILY_CHAT     = int(os.environ.get("FREE_DAILY_CHAT", 15))      # free-tier AI messages per day (server-enforced)
 AI_DAILY_FREE       = int(os.environ.get("AI_DAILY_FREE", 40))        # free-tier non-chat AI actions per day (study/write/review/etc.)
 RATE_LIMIT_QUIZ     = int(os.environ.get("RATE_LIMIT_QUIZ", 5))      # max quiz questions per window
 RATE_LIMIT_UPLOAD   = int(os.environ.get("RATE_LIMIT_UPLOAD", 5))     # max uploads per window
@@ -5090,7 +5139,7 @@ async def admin_revenue(token: str):
             plan_counts[label] = plan_counts.get(label, 0) + 1
             gw = sub.get("gateway", "unknown")
             gateway_counts[gw] = gateway_counts.get(gw, 0) + 1
-            amount = plan.get("amount_ngn", 0)
+            amount = plan_charge_ngn(plan)
             mrr += (amount / 12.0) if plan.get("period") == "yearly" else float(amount)
     payments.sort(key=lambda p: p.get("date", ""), reverse=True)
     return {
@@ -5102,7 +5151,7 @@ async def admin_revenue(token: str):
         "all_time_ngn":   round(all_time),
         "recent_payments": payments[:25],
         "currency":       "NGN",
-        "naira_rate":     NAIRA_RATE,   # USD→NGN, for the dashboard $ toggle
+        "naira_rate":     get_naira_rate(),   # USD→NGN, for the dashboard $ toggle
     }
 
 
@@ -5203,6 +5252,30 @@ async def admin_user_grant_plan(data: dict):
     save_progress(sid, p)
     log.info(f"Admin granted {plan_id} to {sid} (expires {expires})")
     return {"ok": True, "plan": plan_id, "expires": expires}
+
+
+@app.get("/api/admin/billing/rate")
+async def admin_get_naira_rate(token: str):
+    """Current USD→NGN rate (admin)."""
+    if not _is_valid_admin_session(token):
+        raise HTTPException(401, "Unauthorized")
+    return {"naira_rate": get_naira_rate(), "env_default": NAIRA_RATE}
+
+
+@app.post("/api/admin/billing/rate")
+async def admin_set_naira_rate(data: dict):
+    """Set the USD→NGN rate at runtime (admin) — no redeploy needed."""
+    if not _is_valid_admin_session(str(data.get("token", ""))):
+        raise HTTPException(401, "Unauthorized")
+    try:
+        rate = int(data.get("naira_rate") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "naira_rate must be an integer.")
+    if not (100 <= rate <= 100000):
+        raise HTTPException(400, "naira_rate out of sane range (100–100000).")
+    set_naira_rate(rate)
+    log.info(f"Admin set NAIRA_RATE → {rate}")
+    return {"ok": True, "naira_rate": rate}
 
 
 @app.post("/api/admin/user-signout")
@@ -8095,7 +8168,7 @@ async def payment_config():
         "paystack_public_key": PAYSTACK_PUBLIC_KEY,
         "paystack_available":  PAYSTACK_AVAILABLE,
         "stripe_available":    STRIPE_AVAILABLE,
-        "naira_rate":          NAIRA_RATE,
+        "naira_rate":          get_naira_rate(),
     }
 
 
@@ -8119,7 +8192,7 @@ async def paystack_initialize(data: dict):
 
     # Determine NGN price
     price_usd = float(t.get("price", 0))
-    price_ngn = t.get("price_ngn") or round(price_usd * NAIRA_RATE, 2)
+    price_ngn = t.get("price_ngn") or round(price_usd * get_naira_rate(), 2)
     if price_ngn == 0:
         # Free — install directly
         if not db.check_download(sid, template_id):
@@ -8214,7 +8287,7 @@ async def paystack_verify(reference: str, token: str = ""):
     agent_id    = meta.get("agent_id","")
     amount_kobo = int(tx.get("amount", 0))
     price_ngn   = amount_kobo / 100
-    price_usd   = price_ngn / NAIRA_RATE
+    price_usd   = price_ngn / get_naira_rate()
 
     if not template_id or not db.is_available():
         return {"ok": True, "verified": True, "contents": {}}
@@ -8271,7 +8344,7 @@ async def paystack_webhook(request: Request):
         agent_id    = meta.get("agent_id","")
         amount_kobo = int(tx.get("amount", 0))
         price_ngn   = amount_kobo / 100
-        price_usd   = price_ngn / NAIRA_RATE
+        price_usd   = price_ngn / get_naira_rate()
 
         if template_id and buyer_sid and db.is_available():
             if not db.check_payment_reference(reference):
@@ -10176,8 +10249,27 @@ async def gcal_disconnect(data: dict):
 
 @app.get("/api/billing/plans")
 async def billing_plans():
+    rate = get_naira_rate()
+    def _disp_usd(usd):
+        return ("$%g" % usd)                       # 12 → "$12", 4.99 → "$4.99"
+    display = []
+    for pid, pl in SIVARR_PLANS.items():
+        if pl.get("hidden"):
+            continue
+        usd = pl.get("amount_usd", 0)
+        ngn = plan_charge_ngn(pl)
+        display.append({
+            "id": pid, "name": pl["name"], "space": pl.get("space", "personal"),
+            "period": pl["period"], "label": pl.get("label", ""),
+            "amount_usd": usd, "display_usd": _disp_usd(usd),
+            "per_seat": bool(pl.get("per_seat")), "addon": bool(pl.get("addon")),
+            "fx": {"currency": "NGN", "rate": rate,
+                   "amount_ngn": ngn, "display_local": f"≈ ₦{ngn:,}"},
+        })
     return {
-        "plans": SIVARR_PLANS,
+        "plans": SIVARR_PLANS,        # legacy shape (still consumed elsewhere)
+        "display": display,           # enriched: USD anchor + live NGN conversion
+        "naira_rate": rate,
         "paystack_pk": PAYSTACK_PUBLIC_KEY,
         "paystack_available": PAYSTACK_AVAILABLE,
     }
@@ -10200,15 +10292,19 @@ async def billing_subscribe(data: dict):
     if not email:
         email = load_progress(sid).get("email","")
     reference = f"sivbill_{uuid.uuid4().hex[:16]}"
+    charge_ngn = plan_charge_ngn(plan)   # USD anchor → NGN at the current live rate
     payload = {
         "email":        email or f"user_{sid}@sivarr.com",
-        "amount":       plan["amount_ngn"] * 100,
+        "amount":       charge_ngn * 100,
         "currency":     "NGN",
         "reference":    reference,
         "callback_url": f"{BASE_URL.rstrip('/')}/billing/callback",
         "metadata": {
             "sivarr_sid": sid, "plan_id": plan_id,
             "plan_name": plan["name"], "period": plan["period"],
+            # Lock the charged NGN so verify checks against what we actually billed,
+            # not a recomputation (the FX rate can change between init and verify).
+            "amount_ngn": charge_ngn,
         },
     }
     headers = {"Authorization": f"Bearer {PAYSTACK_SECRET_KEY}", "Content-Type": "application/json"}
@@ -10224,7 +10320,7 @@ async def billing_subscribe(data: dict):
         raise HTTPException(400, result.get("message","Paystack error."))
     return {
         "authorization_url": result["data"]["authorization_url"],
-        "reference": reference, "plan_id": plan_id, "amount_ngn": plan["amount_ngn"],
+        "reference": reference, "plan_id": plan_id, "amount_ngn": charge_ngn,
     }
 
 
@@ -10263,10 +10359,13 @@ async def billing_verify(reference: str, token: str = ""):
     if not plan:
         log.error(f"Paystack verify: unknown plan_id {plan_id!r} ref={reference}")
         raise HTTPException(400, "Could not determine the plan for this payment.")
+    # Expected NGN = what we locked at initialize (FX-stable); fall back to a live
+    # recompute only if the metadata is missing (older references).
+    expected_ngn = int(meta.get("amount_ngn") or plan_charge_ngn(plan))
     paid_kobo = int(tx.get("amount", 0) or 0)
-    if (tx.get("currency") or "").upper() != "NGN" or paid_kobo < plan["amount_ngn"] * 100:
+    if (tx.get("currency") or "").upper() != "NGN" or paid_kobo < expected_ngn * 100:
         log.warning(f"Paystack verify amount mismatch ref={reference}: paid {paid_kobo} kobo "
-                    f"{tx.get('currency')}, need {plan['amount_ngn'] * 100} kobo for {plan_id}")
+                    f"{tx.get('currency')}, need {expected_ngn * 100} kobo for {plan_id}")
         raise HTTPException(400, "Payment amount does not match the selected plan.")
 
     p = load_progress(sid)
@@ -10289,7 +10388,7 @@ async def billing_verify(reference: str, token: str = ""):
     history.insert(0, {
         "date": now.strftime("%Y-%m-%d"),
         "plan": plan.get("name","Pro"),
-        "amount": f"₦{plan.get('amount_ngn',0):,}",
+        "amount": f"₦{expected_ngn:,}",
         "reference": reference,
         "gateway": "paystack",
         "status": "paid",
@@ -10759,7 +10858,7 @@ async def flutterwave_subscribe(data: dict):
     email = p.get("email","")
     name  = p.get("name","User")
     ref   = f"FLW-SIVARR-{sid[:8].upper()}-{int(time.time())}"
-    amount_ngn = plan["amount_ngn"]
+    amount_ngn = plan_charge_ngn(plan)   # USD anchor → NGN at the current live rate
     payload = {
         "tx_ref":       ref,
         "amount":       str(amount_ngn),
@@ -10840,9 +10939,12 @@ async def flutterwave_verify(reference: str, token: str = "", plan_id: str = "")
         paid = float(data.get("amount", 0) or 0)
     except (TypeError, ValueError):
         paid = 0.0
-    if (data.get("currency") or "").upper() != "NGN" or paid < plan["amount_ngn"]:
+    # Expected NGN = what we locked at initialize (FX-stable); fall back to a live
+    # recompute only if the metadata is missing.
+    expected_ngn = int(meta.get("amount_ngn") or plan_charge_ngn(plan))
+    if (data.get("currency") or "").upper() != "NGN" or paid < expected_ngn:
         log.warning(f"Flutterwave verify amount mismatch ref={reference}: paid {paid} "
-                    f"{data.get('currency')}, need {plan['amount_ngn']} NGN for {plan_id}")
+                    f"{data.get('currency')}, need {expected_ngn} NGN for {plan_id}")
         raise HTTPException(400, "Payment amount does not match the selected plan.")
 
     p = load_progress(sid)
