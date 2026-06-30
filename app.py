@@ -3246,6 +3246,46 @@ async def health():
     }
 
 
+# ── Leaderboard (B1 fix) ──────────────────────────────────────────
+_LEADERBOARD_CACHE = {"ts": 0.0, "data": None}
+
+def _compute_leaderboard() -> dict:
+    """Global student ranking by quiz average. Only ranks users who have taken
+    at least one quiz; sorted by avg score then quiz count. Works in file + DB
+    mode (load_users / load_progress both handle either)."""
+    rows = []
+    for sid, u in load_users().items():
+        try:
+            p = load_progress(sid)
+        except Exception:
+            continue
+        quizzes = p.get("quizzes", []) or []
+        if not quizzes:
+            continue
+        avg = sum(float(q.get("score", 0)) for q in quizzes) / len(quizzes) * 100
+        rows.append({
+            "sid":       sid,
+            "name":      u.get("name", "Student"),
+            "quizzes":   len(quizzes),
+            "questions": int(p.get("questions", 0) or 0),
+            "avg_score": round(avg, 1),
+        })
+    rows.sort(key=lambda r: (r["avg_score"], r["quizzes"]), reverse=True)
+    return {"leaderboard": rows[:50]}
+
+
+@app.get("/api/leaderboard")
+async def leaderboard():
+    """Top quiz-takers for the Leaderboard panel. 60s cache so iterating all
+    users stays cheap; computed in a thread so it never blocks the event loop."""
+    now = time.time()
+    if _LEADERBOARD_CACHE["data"] is not None and now - _LEADERBOARD_CACHE["ts"] < 60:
+        return _LEADERBOARD_CACHE["data"]
+    result = await asyncio.to_thread(_compute_leaderboard)
+    _LEADERBOARD_CACHE.update(ts=now, data=result)
+    return result
+
+
 # ── Spaces API ────────────────────────────────────────────────────
 
 def _resolve_token(data: dict) -> tuple[str, str]:
@@ -4233,6 +4273,22 @@ def _plan_name(p: dict) -> str:
 def _plan_caps(p: dict) -> dict:
     """Feature caps for this user's plan. None = unlimited."""
     return _PLAN_CAPS.get(_plan_name(p), _PLAN_CAPS["Free"])
+
+def _integration_block(p: dict, which: str) -> bool:
+    """True if connecting third-party `which` would exceed the plan's integration
+    cap. Re-connecting an already-linked provider is always allowed.
+    (`_user_integrations` is defined later; resolved at call time.)"""
+    cap = _plan_caps(p).get("integrations")
+    if cap is None:
+        return False
+    current = _user_integrations(p)
+    if current.get(which):
+        return False
+    return sum(1 for v in current.values() if v) >= cap
+
+def _integration_limit_msg(p: dict) -> str:
+    cap = _plan_caps(p).get("integrations")
+    return f"Your plan includes {cap} integration{'s' if cap != 1 else ''}. Upgrade to connect more."
 
 
 def _chat_authorize(token: str) -> tuple[str, dict]:
@@ -7719,6 +7775,10 @@ async def ag_install_free(template_id: str, data: dict):
         raise HTTPException(400, "This is a paid template. Use the checkout flow.")
     if db.check_download(sid, template_id):
         return {"ok": True, "already_owned": True}
+    # Quota gating: cap installed templates on limited plans (re-installs above are free).
+    _tpl_cap = _plan_caps(load_progress(sid)).get("templates")
+    if _tpl_cap is not None and db.count_downloads(sid) >= _tpl_cap:
+        raise HTTPException(402, f"Your plan includes {_tpl_cap} templates. Upgrade to install more.")
     dl_id = uuid.uuid4().hex[:20]
     db.record_download({
         "id": dl_id, "template_id": template_id, "buyer_sid": sid,
@@ -10085,6 +10145,8 @@ async def google_cal_connect(request: Request, token: str = ""):
     sess = get_session_from_token(request.cookies.get(_SESSION_COOKIE_KEY, "") or token)
     if not sess:
         return RedirectResponse("/app?gcal_error=session_expired")
+    if _integration_block(load_progress(sess["sid"]), "google_cal"):
+        return RedirectResponse("/app?gcal_error=plan_limit")
     from urllib.parse import urlencode
     params = {
         "client_id":     GOOGLE_CLIENT_ID,
@@ -10479,10 +10541,11 @@ async def billing_entitlements(token: str = ""):
         raise HTTPException(401, "Invalid session.")
     p = load_progress(sess["sid"])
     caps = _plan_caps(p)
-    usage = {}
+    usage = {"integrations": sum(1 for v in _user_integrations(p).values() if v)}
     try:
         if db.is_available():
-            usage["spaces"] = len(db.get_spaces(sess["sid"]) or [])
+            usage["spaces"]    = len(db.get_spaces(sess["sid"]) or [])
+            usage["templates"] = db.count_downloads(sess["sid"])
     except Exception:
         pass
     return {"plan": _plan_name(p), "caps": caps, "usage": usage}
@@ -10767,6 +10830,9 @@ async def github_oauth_start(token: str = ""):
     """Redirect to GitHub OAuth consent screen."""
     if not GITHUB_OAUTH_AVAILABLE:
         return RedirectResponse("/app?github_error=not_configured")
+    _gh_sess = get_session_from_token(token)
+    if _gh_sess and _integration_block(load_progress(_gh_sess["sid"]), "github"):
+        return RedirectResponse("/app?github_error=plan_limit")
     from urllib.parse import urlencode
     params = {
         "client_id":   GITHUB_CLIENT_ID,
@@ -11068,6 +11134,9 @@ async def mono_auth(data: dict):
         raise HTTPException(401, "Invalid session.")
     if not MONO_AVAILABLE or not HTTPX_AVAILABLE:
         raise HTTPException(503, "Mono not configured.")
+    _mono_p = load_progress(sess["sid"])
+    if _integration_block(_mono_p, "mono"):
+        raise HTTPException(402, _integration_limit_msg(_mono_p))
     code = sanitize_text(data.get("code",""), 80)
     if not code:
         raise HTTPException(400, "code required.")
@@ -11157,6 +11226,9 @@ async def metatrader_connect(data: dict):
         raise HTTPException(401, "Invalid session.")
     if not METAAPI_AVAILABLE or not HTTPX_AVAILABLE:
         raise HTTPException(503, "MetaTrader integration not configured.")
+    _mt_p = load_progress(sess["sid"])
+    if _integration_block(_mt_p, "metatrader"):
+        raise HTTPException(402, _integration_limit_msg(_mt_p))
 
     login    = sanitize_text(str(data.get("login", "")), 40)
     server   = sanitize_text(str(data.get("server", "")), 120)
