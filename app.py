@@ -2050,6 +2050,9 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # (no blob:) and Sentry session-replay's blob Worker is CSP-blocked. Allow
         # same-origin + blob workers only; connect-src still constrains their exfil.
         "worker-src 'self' blob:; "
+        # The app self-hosts its font, but landing/legal/admin/lecturer pages still
+        # load Google Fonts and share this global CSP — keep these origins until those
+        # pages are migrated too (then both can drop to 'self').
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data: blob:; "
