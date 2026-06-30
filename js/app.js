@@ -912,8 +912,9 @@ function _applyLoginData(r) {
     setTimeout(() => agCheckPaymentReturn(), 500);
     // Show onboarding for new users
     if (!r.returning) setTimeout(() => siObMaybeStart(), 600);
-    // Accept any pending org invite from URL
+    // Accept any pending org invite from URL, then surface email-pending invites
     setTimeout(_acceptPendingOrgInvite, 800);
+    setTimeout(_loadPendingInvites, 1400);
     // Load integration statuses
     setTimeout(gcalCheckStatus,           1000);
     setTimeout(githubCheckStatus,         1100);
@@ -1644,6 +1645,54 @@ async function _acceptPendingOrgInvite() {
   } catch(e) {
     toast(e.message || 'Invite link is invalid or expired.');
   }
+}
+
+// Shared invite-accept (used by the email-link path, the bell, and the prompt).
+async function _orgAcceptInvite(inviteToken, orgName) {
+  const token = getToken() || '';
+  if (!token || !inviteToken) return;
+  try {
+    const r = await API('/api/org/join', { token, invite_token: inviteToken });
+    if (r.ok) {
+      toast(`You joined ${r.org_name || orgName || 'the organization'}!`);
+      sessionStorage.setItem('sivarr_post_create', 'org');
+      setTimeout(() => location.reload(), 900);
+    }
+  } catch(e) {
+    toast(e.message || 'Could not join — the invite may be expired.');
+  }
+}
+
+// Pull any pending org invites for this account's email on sign-in (so an invite
+// isn't lost if the email was missed), surface them in the bell, and prompt.
+async function _loadPendingInvites() {
+  const token = getToken() || '';
+  if (!token) return;
+  let invites = [];
+  try {
+    const r = await fetch(`/api/org/invites/pending?token=${encodeURIComponent(token)}`);
+    if (r.ok) invites = (await r.json()).invites || [];
+  } catch(_) { return; }
+  if (!invites.length) return;
+  try {
+    const notifs = JSON.parse(localStorage.getItem(NOTIF_KEY()) || '[]');
+    let added = false;
+    invites.forEach(inv => {
+      const id = 'orginv_' + String(inv.token).slice(0, 10);
+      if (!notifs.some(n => n.id === id)) {
+        notifs.unshift({ id, type: 'orginvite', icon: '📨',
+          msg: `You've been invited to join ${inv.org_name} as ${inv.role}`,
+          read: false, ts: Date.now(), invite_token: inv.token, org_name: inv.org_name });
+        added = true;
+      }
+    });
+    if (added) { localStorage.setItem(NOTIF_KEY(), JSON.stringify(notifs)); _renderNotifBadge(); }
+  } catch(_) {}
+  const inv = invites[0];
+  const ok = await siModal.confirm(
+    `You've been invited to join ${inv.org_name} as ${inv.role}.`,
+    { title: 'Organisation invite', confirmLabel: 'Join' });
+  if (ok) _orgAcceptInvite(inv.token, inv.org_name);
 }
 
 async function orgCreateSpace() {
@@ -16763,9 +16812,10 @@ function notifAction(id) {
   const notifs  = JSON.parse(localStorage.getItem(NOTIF_KEY()) || '[]');
   const n       = notifs.find(x => x.id === id);
   if (!n) return;
+  if ($('notif-panel')) $('notif-panel').style.display = 'none';
+  if (n.invite_token) { _orgAcceptInvite(n.invite_token, n.org_name); return; }
   const dest = { overdue:'flux', deadline:'goals', streak:'habits', journal:'journal' }[n.type];
   if (dest) nav(dest, null);
-  if ($('notif-panel')) $('notif-panel').style.display = 'none';
 }
 
 function notifMarkAllRead() {

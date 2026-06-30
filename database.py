@@ -768,7 +768,13 @@ def init_db() -> bool:
         log.error(f"DB schema ready with {failed} failed statement(s); {applied} applied")
     else:
         log.info(f"DB schema ready ({applied} statements)")
-        _schema_ready = True  # steady state: future init_db() calls are no-ops
+    # Mark ready once the full run has happened — even if some statements failed.
+    # All statements are idempotent, so re-running won't fix a *persistently*
+    # failing one; leaving _schema_ready False just re-ran all ~69 DDL on every
+    # guarded call (org_get/org_create), turning each into 69 cross-region
+    # round-trips (seconds per request → effective hang). The failed statements
+    # are logged above for investigation; the per-request guard must stay cheap.
+    _schema_ready = True
     return failed == 0
 
 
@@ -2833,6 +2839,20 @@ def get_org_members(org_id: str) -> list:
         log.error(f"get_org_members: {exc}"); return []
     finally:
         _release(conn)
+
+
+def get_pending_invites_for_email(email: str) -> list:
+    """Unused, non-expired org invites addressed to this email (for in-app surfacing)."""
+    def _q(conn):
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT i.token, i.org_id, i.role, i.expires_at, o.name AS org_name
+                FROM org_invites i JOIN orgs o ON o.id = i.org_id
+                WHERE lower(i.email) = lower(%s) AND i.used = FALSE AND i.expires_at > NOW()
+                ORDER BY i.created_at DESC
+            """, (email,))
+            return [dict(r) for r in cur.fetchall()]
+    return _with_conn(f"pending_invites[{email}]", _q, [])
 
 
 def get_org(org_id: str) -> dict | None:

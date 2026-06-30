@@ -8940,6 +8940,26 @@ async def org_invite(data: dict, request: Request, bg: BackgroundTasks):
     return {"ok": True}
 
 
+@app.get("/api/org/invites/pending")
+async def org_invites_pending(token: str = ""):
+    """Pending (unused, unexpired) org invites for the signed-in user's email —
+    surfaced in-app on sign-in so an invite isn't lost if the email is missed."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not db.is_available():
+        return {"invites": []}
+    email = sess.get("email", "") or load_progress(sess["sid"]).get("email", "")
+    if not email:
+        return {"invites": []}
+    invs = await asyncio.to_thread(db.get_pending_invites_for_email, email)
+    return {"invites": [
+        {"token": i["token"], "org_id": i["org_id"],
+         "org_name": i.get("org_name", ""), "role": i.get("role", "member")}
+        for i in invs
+    ]}
+
+
 @app.get("/api/org/join/{token}")
 async def org_join_link(token: str):
     """Redirect invite links to the app — the client handles actual join."""
