@@ -8773,6 +8773,40 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 .sk-cal-hour .sk-event { height: 28px; border-radius: 6px; flex: 1; opacity: .55; }
 .sk-cal-hour.empty .sk-event { opacity: 0; }
 
+/* ── Org space skeleton ── */
+.sk-org-wrap { padding: 0 0 24px; }
+/* Hero row */
+.sk-org-hero {
+  display: flex; align-items: center; gap: 16px;
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+}
+.sk-org-hero .sk-logo { width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0; }
+.sk-org-hero .sk-hero-info { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.sk-org-hero .sk-hero-name { height: 18px; width: 48%; }
+.sk-org-hero .sk-hero-meta { height: 11px; width: 30%; opacity: .55; }
+.sk-org-hero .sk-hero-btns { display: flex; gap: 8px; }
+.sk-org-hero .sk-btn { height: 32px; width: 90px; border-radius: 8px; }
+/* Tab bar skeleton */
+.sk-org-tabs { display: flex; gap: 6px; padding: 0 24px; border-bottom: 1px solid var(--border); height: 42px; align-items: flex-end; }
+.sk-org-tab  { height: 28px; width: 72px; border-radius: 6px 6px 0 0; opacity: .45; }
+/* Stat row */
+.sk-stat-row { display: flex; gap: 10px; padding: 16px 24px 0; }
+.sk-stat { flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
+.sk-stat .sk-val  { height: 22px; width: 50%; }
+.sk-stat .sk-lbl  { height: 9px; width: 70%; opacity: .55; }
+/* Two-column grid */
+.sk-os-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 24px 0; }
+.sk-os-card  { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.sk-os-card .sk-card-head { height: 12px; width: 45%; margin-bottom: 6px; }
+.sk-os-row   { height: 10px; width: 100%; }
+.sk-os-row.mid  { width: 80%; opacity: .7; }
+.sk-os-row.short { width: 55%; opacity: .5; }
+/* Member row */
+.sk-mem { display: flex; align-items: center; gap: 10px; padding: 9px 24px; border-bottom: 1px solid var(--border); }
+.sk-mem .sk-av { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; }
+.sk-mem .sk-mn { height: 11px; flex: 1; }
+.sk-mem .sk-role { height: 9px; width: 60px; opacity: .5; }
+
 /* Reduce motion respect */
 @media (prefers-reduced-motion: reduce) {
   .sk { animation: none; opacity: .45; }
