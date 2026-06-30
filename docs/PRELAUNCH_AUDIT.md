@@ -80,6 +80,28 @@ Verified each space's promised core actions are wired to a real persisting endpo
 | C2 | No **project % progress / milestones** | `orgRenderProjects` shows only a flat "N tasks" count — no done/total %, no progress bar, no milestones (upgrade card advertises both). | Compute done/total per project (`ORG_TASKS` already client-side) → progress bar. Client-only. |
 | C3 | Invite **pending/accepted UI** | Backend tracks invite state; surfacing a "pending invites" list in the UI is unconfirmed. **[runtime]** check. | Verify on deploy; add list if missing. |
 
+## Phase 5 — Chat & Integrations (static sweep, 2026-06-30)
+**Chat:**
+| Capability | Status |
+|---|---|
+| Team chat (org SSE) · Group chat (study groups SSE) | ✅ |
+| DMs + channels (Slack-style) | ✅ (`oc-dm-*`, `ocSwitchChannel`) |
+| Message → task ("Save as Task") + voice/email task extraction | ✅ |
+| Project-specific chat (dedicated thread per project) | 🟡 not dedicated — channels approximate (PDF wanted 3 distinct types) |
+| Unread-state accuracy across spaces | **[runtime]** confirm |
+
+**Integrations:**
+| Integration | Status |
+|---|---|
+| Google Calendar (2-way) · Google OAuth · GitHub · Paystack · Flutterwave · Mono | ✅ wired |
+| **Drive · Slack · Zoom/Meet** | ❌ not built — **net-new (scope decision)** |
+| WhatsApp | ⚪ coming-soon (P2) |
+
+**New finding (cluster):**
+| # | Item | Detail |
+|---|---|---|
+| I5 | **Academic detail-view stubs** | `lOpenCourse` (I4), `lViewStudent`, `lAddClass`, `sOpenModule`, `sUploadNotes`, `sConnectIndex`, `sOpenGroup` all → "coming soon" toasts. Core academic actions (class/assignment/exam/grade) work; drilling into detail is stubbed across the board. |
+
 ## Disposition
 - **B1** → fix in Phase 3/4 (or now as a quick win if approved).
 - **I1–I3** → routed into their owning phases (5/6, 4).

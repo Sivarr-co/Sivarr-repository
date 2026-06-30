@@ -37,8 +37,8 @@ Static sweep (`PRELAUNCH_AUDIT.md`): all 3 spaces' promised core actions wired t
 ## Phase 4 — Core Systems (Tasks/Projects/Teams) 🟡 (static done)
 Static sweep (`PRELAUNCH_AUDIT.md`): tasks have full fields + 3-state kanban (Not Started/In Progress/Done) drag-drop; 4 roles (owner/admin/manager/member +guest); invite lifecycle (create→get→use); team chat SSE. **Gaps:** C1 task-assign sends no notification, C2 no project %-progress/milestones (flat "N tasks" only), C3 invite pending/accepted UI [runtime]. Fixes deferred to post-phases pass (Hunter's call).
 
-## Phase 5 — Chat & Integrations ❌ (largest net-new)
-Exists: Org/group SSE chat, integrations grid (Google OAuth/Calendar, GitHub, Paystack/Flutterwave/Mono). Net-new: Drive / Slack / Zoom-Meet bridges + msg→task. Each integration = additive module + card state; sub-phased, independently shippable. **Scope TBD (Hunter).**
+## Phase 5 — Chat & Integrations 🟡 (static done; scope decision pending)
+Static sweep (`PRELAUNCH_AUDIT.md`): chat = team + group SSE, DMs + channels, msg→task all ✅ (gap: no dedicated project-chat). Integrations wired: Google Calendar 2-way + OAuth, GitHub, Paystack/Flutterwave/Mono. **Not built (net-new): Drive / Slack / Zoom-Meet** — awaiting Hunter's launch must-have scope. New finding I5: academic detail-view stubs cluster (course/student/schedule/module/notes/connect/group).
 
 ## Phase 6 — Templates & Interface Consistency ❌ (depends nav/spaces stable)
 Exists: Templates Library + marketplace. Net-new: consistency system — tokenize spacing/radius/shadow/type, sweep pages to tokens one component-family at a time (non-visual-diff refactor). No behavior change.
