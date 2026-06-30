@@ -115,6 +115,14 @@ Verified each space's promised core actions are wired to a real persisting endpo
 
 **Fix (deferred — largest non-build refinement):** define radius/type/shadow **scale tokens**, then sweep hardcoded values → nearest token, **one component family at a time**, eyeballing before/after in `static/devices.html` (non-visual-diff refactor). Highest visual-regression risk in the program → smallest safe increments, each its own commit.
 
+## Phase 7 — Mobile Optimization (static sweep, 2026-06-30)
+✅ **Strong:** 30 `≤720px` media queries; **no element min-width overflow** on phones (all min-widths ≥721px are desktop-up breakpoints); only 2 fixed widths ≥400px; mobile launcher + drill-down built; home stat cards already compacted.
+| # | Finding | Detail | Fix |
+|---|---|---|---|
+| M1 | **Touch targets <44px** | `.chat-hdr-btn` 28px, `.acad-topbar-btn` 32px, `.acad-webhook-btn` 24px, `.mkt-modal-close` 28px, etc. Below Apple 44 / Material 48 min. | Bump interactive els to ≥44px in `≤720px` (or larger tap padding). |
+| M2 | **No dedicated mobile type scale** | Mobile reuses desktop font-sizes shrunk via `--font-scale`/per-element overrides; PDF wants a purpose-built mobile scale. | Fold into the Phase 6 consistency type-scale (add mobile steps). |
+| — | Per-page reflow polish | **[runtime]** real-device walkthrough of each panel. | Hunter gate + targeted CSS. |
+
 ## Disposition
 - **B1** → fix in Phase 3/4 (or now as a quick win if approved).
 - **I1–I3** → routed into their owning phases (5/6, 4).

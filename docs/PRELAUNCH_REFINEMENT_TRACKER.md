@@ -43,8 +43,8 @@ Static sweep (`PRELAUNCH_AUDIT.md`): chat = team + group SSE, DMs + channels, ms
 ## Phase 6 — Templates & Interface Consistency 🟡 (static done; consistency refactor = big fix-pass item)
 Static sweep (`PRELAUNCH_AUDIT.md`): templates marketplace path ✅ (categories/search/popular/use); T1 standalone `useTemplate()` placeholder. **Consistency quantified:** 25 border-radius values, 56 font-sizes, 102 box-shadows, 93 tokens defined-but-unenforced. Fix = define scale tokens + sweep hardcoded→token per component family (non-visual-diff, smallest increments). Largest non-build refinement; deferred to fix pass.
 
-## Phase 7 — Mobile Optimization ❌ (depends P6)
-Exists: mobile launcher (Phase 1) + stat-card resize started. Work: per-page reflow, touch targets, overflow, mobile type scale. All scoped to `@media (max-width:720px)`; verify via `scripts/device_screens.py` + real phone (NOT the iframe harness).
+## Phase 7 — Mobile Optimization 🟡 (static done)
+Static sweep (`PRELAUNCH_AUDIT.md`): strong (30 mobile queries, no overflow, launcher built, stat cards compacted). Findings: **M1** touch targets <44px (chat/acad/modal buttons), **M2** no dedicated mobile type scale (folds into Phase 6). Per-page reflow = [runtime]. All fixes scoped to `@media (max-width:720px)`, verify via `device_screens.py` + real phone. Deferred to fix pass.
 
 ## Phase 8 — Auth & Onboarding ❌
 Exists: auth fully hardened (security roadmap P1–P4, 2FA, cookies, CSRF). Net-new: first-run onboarding — sensible default space, dismissible tour/checklist, ≤60s to first action. Additive UI gated on a first-login flag; no auth-logic changes.
