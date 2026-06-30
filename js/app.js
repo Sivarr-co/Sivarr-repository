@@ -8421,9 +8421,52 @@ function useTemplateFromModal() {
   closeTemplatePreview();
 }
 
+// T1 fix: the Templates panel cards now seed REAL starter content into the
+// standalone stores the default-nav panels read (sivarr_tasks/_habits/_finance),
+// instead of faking a success toast.
+const TEMPLATE_SEEDS = {
+  'Weekly Task Manager': {
+    tasks: ['Plan the week ahead', "Review last week's progress", 'Set your top 3 priorities', 'Weekly inbox & desk cleanup'],
+    nav: 'flux',
+  },
+  'Daily Task Manager & Habit Tracker': {
+    tasks: ["Plan today's top 3", 'End-of-day review'],
+    habits: [['Morning planning', '🌅'], ['Evening review', '🌙']],
+    nav: 'flux',
+  },
+  'Habit Tracker': {
+    habits: [['Drink water', '💧'], ['Exercise', '🏃'], ['Read 20 minutes', '📖'], ['Sleep by 11pm', '😴']],
+    nav: 'habits',
+  },
+  'Monthly Budget Tracker': {
+    budgets: ['Food & Dining', 'Transport', 'Rent & Bills', 'Savings', 'Entertainment'],
+    nav: 'finance',
+  },
+};
+
 function useTemplate(name) {
-  // Placeholder — actual "duplicate to workspace" backend wiring is out of scope.
-  toast(`"${name}" added to your workspace!`);
+  const seed = TEMPLATE_SEEDS[name];
+  if (!seed || !S.sid) { toast("Couldn't use this template — try again."); return; }
+  let n = 0, base = Date.now();
+  if (seed.tasks) {
+    const tasks = JSON.parse(localStorage.getItem(`sivarr_tasks_${S.sid}`) || '[]');
+    seed.tasks.forEach(t => { tasks.push({ id: ++base, title: t, status: 'todo', done: false, created: Date.now() }); n++; });
+    localStorage.setItem(`sivarr_tasks_${S.sid}`, JSON.stringify(tasks));
+  }
+  if (seed.habits) {
+    const habits = JSON.parse(localStorage.getItem(`sivarr_habits_${S.sid}`) || '[]');
+    seed.habits.forEach(([t, e]) => { habits.push({ id: String(++base), title: t, emoji: e || '📌', freq: 'daily', completions: [], streak: 0, best_streak: 0 }); n++; });
+    localStorage.setItem(`sivarr_habits_${S.sid}`, JSON.stringify(habits));
+    if (typeof _syncHabitsToServer === 'function') _syncHabitsToServer(habits);
+  }
+  if (seed.budgets) {
+    const fin = JSON.parse(localStorage.getItem(`sivarr_finance_${S.sid}`) || '{"transactions":[],"budgets":{}}');
+    fin.budgets = fin.budgets || {};
+    seed.budgets.forEach(b => { if (!(b in fin.budgets)) { fin.budgets[b] = 0; n++; } });
+    localStorage.setItem(`sivarr_finance_${S.sid}`, JSON.stringify(fin));
+  }
+  toast(`"${name}" added — ${n} item${n !== 1 ? 's' : ''} created ✓`);
+  if (seed.nav) nav(seed.nav, null);
 }
 
 function setTemplateFilter(cat, btn) {
