@@ -88,6 +88,64 @@ const esc = s => String(s == null ? '' : s)
 const escHtml = esc;
 const $ = id => document.getElementById(id);
 
+// ═══════════════════════ SKELETON LOADING ════════════════════
+// HTML templates for shimmer placeholders shown while async data loads.
+// Each render function (glRender, annRender, etc.) overwrites the container
+// with real content, so no explicit "hide" step is needed.
+const _SK = {
+  goal: () => `<div class="sk-goal">
+    <div class="sk sk-title"></div>
+    <div class="sk sk-sub"></div>
+    <div class="sk sk-bar"></div>
+    <div class="sk sk-meta"></div>
+  </div>`,
+
+  post: () => `<div class="sk-post">
+    <div class="sk-row" style="margin-bottom:10px">
+      <div class="sk sk-avatar"></div>
+      <div class="sk-col" style="flex:1">
+        <div class="sk sk-name"></div>
+        <div class="sk sk-time"></div>
+      </div>
+    </div>
+    <div class="sk sk-body1"></div>
+    <div class="sk sk-body2"></div>
+    <div class="sk sk-body3"></div>
+  </div>`,
+
+  ann: () => `<div class="sk-ann">
+    <div class="sk sk-atitle"></div>
+    <div class="sk sk-abody1"></div>
+    <div class="sk sk-abody2"></div>
+  </div>`,
+
+  task: () => `<div class="sk-task">
+    <div class="sk sk-check"></div>
+    <div class="sk sk-label"></div>
+    <div class="sk sk-tag"></div>
+  </div>`,
+
+  habit: () => `<div class="sk-habit">
+    <div class="sk sk-icon"></div>
+    <div class="sk sk-hname"></div>
+    <div class="sk-dots">
+      ${'<div class="sk sk-dot"></div>'.repeat(7)}
+    </div>
+  </div>`,
+
+  calHour: (hasEvent) => `<div class="sk-cal-hour${hasEvent ? '' : ' empty'}">
+    <div class="sk sk-time"></div>
+    <div class="sk sk-event"></div>
+  </div>`,
+};
+
+function skShow(containerId, tplFn, count = 3) {
+  const el = $(containerId);
+  if (!el) return;
+  el.innerHTML = Array.from({ length: count }, tplFn).join('');
+}
+// ═══════════════════════════════════════════════════════════
+
 // ═══════════════════════════════════════════════════════════════
 // UNIVERSAL DIALOG MODAL  (siModal)
 // Async promise-based replacement for all browser prompt/confirm/alert calls.
@@ -3152,6 +3210,9 @@ function _glCheckinDue() {
 
 async function glLoad() {
   const cacheKey = `sivarr_goals_cache_${S.sid}`;
+  // Show skeleton immediately; glRender() will overwrite once data arrives
+  const cached = localStorage.getItem(cacheKey);
+  if (!cached) skShow('gl-list', _SK.goal, 3);
   try {
     const r = await fetch(`/api/goals?token=${encodeURIComponent(S.token||'')}`);
     const d = await r.json();
@@ -8146,7 +8207,7 @@ async function commLoadFeed(category) {
   if (category) _commCategory = category;
   const feed = $('community-feed');
   if (!feed) return;
-  feed.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">Loading…</div>';
+  skShow('community-feed', _SK.post, 4);
   try {
     const r = await fetch(`/api/community/posts?category=${_commCategory}&limit=40`);
     const d = await r.json();
@@ -8318,7 +8379,7 @@ async function commLoadOpportunities(category) {
   if (category) _oppCategory = category;
   const feed = $('opp-feed');
   if (!feed) return;
-  feed.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">Loading…</div>';
+  skShow('opp-feed', _SK.post, 3);
   try {
     const r = await fetch(`/api/opportunities?category=${_oppCategory}&limit=50`);
     const d = await r.json();
@@ -16913,6 +16974,7 @@ let _ANN_LIST = [];
 async function annLoad() {
   const token = getToken() || '';
   if (!token) return;
+  skShow('ann-feed', _SK.ann, 3);
   try {
     const r = await fetch(`/api/org/announcements?token=${encodeURIComponent(token)}`);
     const d = await r.json();
