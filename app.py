@@ -4784,11 +4784,18 @@ async def get_wrong(sid: str, token: str = ""):
 @app.post("/api/wrong/clear")
 async def clear_wrong(data: dict):
     sid, _ = _resolve_token(data)   # IDOR fix: sid from session token, body sid ignored
-    idx   = int(data.get("index", -1))
     p     = load_progress(sid)
-    wrong = p.get("wrong_answers",[])
-    if 0 <= idx < len(wrong):
-        wrong.pop(idx)
+    wrong = p.get("wrong_answers", [])
+    # W1 fix: support "clear all" (the client's reset path sends index:'all').
+    if data.get("all") is True or str(data.get("index", "")).lower() == "all":
+        wrong = []
+    else:
+        try:
+            idx = int(data.get("index", -1))
+        except (ValueError, TypeError):
+            idx = -1
+        if 0 <= idx < len(wrong):
+            wrong.pop(idx)
     p["wrong_answers"] = wrong
     save_progress(sid, p)
     return {"ok": True, "remaining": len(wrong)}

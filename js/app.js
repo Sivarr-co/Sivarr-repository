@@ -5097,7 +5097,7 @@ async function stClearChat() {
 
 async function stClearWrong() {
   if (!await siModal.confirm('Your revision list will be cleared.', { title:'Clear Revision List', confirmLabel:'Clear', danger:true })) return;
-  try { await API('/api/wrong/clear', {token: S.token, idx: 'all'}); } catch(e) {}
+  try { await API('/api/wrong/clear', {token: S.token, index: 'all'}); } catch(e) {}
   toast('Revision list cleared ✓');
 }
 
@@ -16502,7 +16502,7 @@ async function siObSaveGoal() {
     await API('/api/goals/add', {
       token: S.token, title, subject,
       deadline: deadline || null,
-      type: 'okr', target_score: null,
+      goal_type: 'okr', target_score: null,
     });
     GL_GOALS = null; // bust cache so Goals panel reloads fresh
     _siObGoalCreated = true;

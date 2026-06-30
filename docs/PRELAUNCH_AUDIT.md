@@ -145,6 +145,13 @@ No static sweep — this is the consolidated **runtime gate** (Hunter, on a depl
 - [ ] Final visual sweep (post-consistency-refactor): spacing/type/color/icons
 - **Rollback plan:** every change is an atomic commit → revert-by-commit. ✅ in place.
 
+## Bonus — Field-contract sweep (2026-06-30)
+Triggered by the org-invite bug (FE sent `invite_token`, BE read `token`). Compared every frontend `API(path,{…})` body key vs the backend `data.get()` keys per endpoint. **Result: reassuring** — the invite bug was the only serious front/back contract mismatch. Of 13 deltas: **4 false positives** (handlers read via `"x" in data` or `data.items()`+allowed-set, invisible to a `data.get()` detector): `org_goal_update`, `org_kr_update`, `org_update`, `org_tasks_update`; **1 benign** (`goals/add` sent `type:'okr'` vs `goal_type`, value == default).
+| # | Real finding | Fix |
+|---|---|---|
+| W1 | `wrong/clear` js:5100 sent `idx:'all'` but BE read `index` → "clear all wrong answers" was a no-op (BE also had no "all" mode) | ✅ FE→`index:'all'`, BE clears all on `"all"` + guards int parse |
+| — | `goals/add` onboarding call sent `type:'okr'` (BE reads `goal_type`) | ✅ FE→`goal_type` (cleanup; was benign) |
+
 ## Disposition
 - **B1** → fix in Phase 3/4 (or now as a quick win if approved).
 - **I1–I3** → routed into their owning phases (5/6, 4).
