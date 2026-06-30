@@ -33,7 +33,29 @@ money paths have never run against a real DB + Paystack. Full pricing spec:
   51+ seats → 400 custom; join when seats full → 402, seat free → OK, **legacy org (no sub) not
   seat-limited** (transition-safe).
 
-### Still needs PROD (cannot be done from the dev sandbox — no outbound net / Paystack / Postgres)
+### VERIFIED ON LIVE PROD 2026-06-30 (via PowerShell → sivarr.com, real HTTPS + Postgres)
+- **Deploy current + USD pricing live ✓** — org endpoints deployed (401 not 404);
+  `/api/billing/plans` → rate 1650, Pro `$12 ≈ ₦19,800`, Creator `$22 ≈ ₦36,300`.
+- **CSRF on real HTTPS ✓ (P0 #1 CLEARED)** — register sets `__Host-sivarr_session` +
+  `sivarr_csrf`; POST `/api/spaces/sync` **without** `X-CSRF-Token` → **403**, **with** → **200**.
+  The `__Host-` prefix + double-submit hold under real HTTPS.
+- **Quota gating on real Postgres ✓** — Free user: 2nd space → **402**; `/api/billing/entitlements`
+  → `plan=Free, caps.spaces=1, caps.templates=3, usage.spaces=1, org_sub_active=false`.
+
+### ⚠️ FINDING — org endpoints slow/timing out on prod (investigate via server logs)
+`/api/org/get` and `/api/org/create` consistently **did not respond within 30–60s** from the
+test env, while `entitlements`, `spaces/sync`, `billing/plans` were fast in the same sessions.
+Both org endpoints call `db.init_db()` — but it runs at startup (app.py ~2240) and is guarded by
+`_schema_ready`, so it *should* be a no-op. For a no-org user, `org/get` is otherwise just one
+`get_org_by_member` query (the same one `entitlements` runs fast). So the slowness is **not
+explained** and needs prod **server-log** investigation (could be `_schema_ready` not getting set
+→ 69 DDL re-run per request, a slow/cold Supabase pooler connection on the org path, or the
+6-way `asyncio.gather`). Could not 100% rule out test-env latency, but the asymmetry is
+consistent. **This blocked completing the org-checkout-init verification and would make the org
+space painful to load.** Recommend: confirm `_schema_ready` is set post-startup; consider not
+calling `init_db()` per-request at all.
+
+### Still needs PROD (browser + card; some blocked by the finding above)
 1. **CSRF on real HTTPS (P0)** — confirm the `__Host-` cookie + double-submit holds in a browser:
    hard-refresh → login → create/save (no 403) → admin panel while logged into the main app.
 2. **Personal Paystack charge + verify (P0 — money settlement)** — real pay for Pro → ₦19,800
