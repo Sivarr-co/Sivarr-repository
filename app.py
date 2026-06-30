@@ -282,6 +282,39 @@ def plan_charge_ngn(plan: dict, seats: int = 1) -> int:
     usd = plan.get("amount_usd", 0) * (seats if plan.get("per_seat") else 1)
     return int(round(usd * get_naira_rate()))
 
+# ── Organisation per-seat pricing (Phase 2b) ───────────────────────
+ORG_SEAT_USD_MONTHLY = int(os.environ.get("ORG_SEAT_USD_MONTHLY", 10))
+ORG_SEAT_USD_YEARLY  = int(os.environ.get("ORG_SEAT_USD_YEARLY", 96))
+ORG_SELFSERVE_MAX    = 50   # 51+ seats = custom enterprise (not self-serve)
+
+def org_seat_total_usd(seats: int, period: str = "monthly"):
+    """Total USD for an org seat subscription, including the 11–50 seat discount
+    (−10%). Returns None for 51+ seats (custom enterprise — not self-serve)."""
+    seats = max(1, int(seats or 1))
+    if seats > ORG_SELFSERVE_MAX:
+        return None
+    per   = ORG_SEAT_USD_YEARLY if period == "yearly" else ORG_SEAT_USD_MONTHLY
+    total = seats * per
+    if 11 <= seats <= 50:
+        total *= 0.9
+    return round(total, 2)
+
+def org_seat_quote(seats: int, period: str = "monthly") -> dict:
+    """Price breakdown for `seats` at `period`, with the live NGN conversion."""
+    total_usd = org_seat_total_usd(seats, period)
+    if total_usd is None:
+        return {"seats": seats, "period": period, "custom": True}
+    rate = get_naira_rate()
+    ngn  = int(round(total_usd * rate))
+    per  = ORG_SEAT_USD_YEARLY if period == "yearly" else ORG_SEAT_USD_MONTHLY
+    return {
+        "seats": seats, "period": period, "custom": False,
+        "per_seat_usd": per, "discount": (10 if 11 <= seats <= 50 else 0),
+        "total_usd": total_usd, "display_usd": ("$%g" % total_usd),
+        "fx": {"currency": "NGN", "rate": rate, "amount_ngn": ngn,
+               "display_local": f"≈ ₦{ngn:,}"},
+    }
+
 # ── Sentry ────────────────────────────────────────────────────
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 
@@ -4297,6 +4330,20 @@ def _integration_block(p: dict, which: str) -> bool:
 def _integration_limit_msg(p: dict) -> str:
     cap = _plan_caps(p).get("integrations")
     return f"Your plan includes {cap} integration{'s' if cap != 1 else ''}. Upgrade to connect more."
+
+def _org_sub_active(org: dict) -> bool:
+    """True if the org holds an active, non-expired seat subscription."""
+    sub = ((org or {}).get("settings") or {}).get("subscription") or {}
+    if sub.get("status") != "active":
+        return False
+    exp = sub.get("expires")
+    if exp:
+        try:
+            if datetime.datetime.utcnow() > datetime.datetime.strptime(exp, "%Y-%m-%d"):
+                return False
+        except ValueError:
+            pass
+    return True
 
 
 def _chat_authorize(token: str) -> tuple[str, dict]:
@@ -8525,6 +8572,7 @@ async def org_get(data: dict):
         asyncio.to_thread(db.get_org_goals,    org["id"]),
         asyncio.to_thread(db.get_org_founder,  org["id"]),
     )
+    _org_sub = (org.get("settings") or {}).get("subscription") or None
     return {
         "org": {
             "id":          org["id"],
@@ -8535,6 +8583,10 @@ async def org_get(data: dict):
             "member_role": org.get("member_role", "member"),
             "owner_sid":   org.get("owner_sid", ""),
             "created_at":  str(org.get("created_at", "")),
+            "subscription": _org_sub,
+            "sub_active":   _org_sub_active(org),
+            "seats_paid":   (_org_sub or {}).get("seats"),
+            "seats_used":   len(members),
         },
         "members":  members,
         "tasks":    tasks,
@@ -8844,6 +8896,11 @@ async def org_invite(data: dict, request: Request, bg: BackgroundTasks):
         raise HTTPException(404, "You don't belong to an organization.")
     if org.get("member_role") not in ("owner", "admin", "manager"):
         raise HTTPException(403, "Only owners, admins, and managers can invite members.")
+    # Seat enforcement (only once the org is on a paid seat plan — legacy orgs unaffected).
+    if _org_sub_active(org):
+        seats_paid = ((org.get("settings") or {}).get("subscription") or {}).get("seats", 0)
+        if db.count_org_members(org["id"]) >= seats_paid:
+            raise HTTPException(402, f"All {seats_paid} seats are in use. Add seats to invite more members.")
     email = sanitize_text(str(data.get("email", "")).strip().lower(), 120)
     if not email or "@" not in email:
         raise HTTPException(400, "Valid email required.")
@@ -8883,6 +8940,13 @@ async def org_join(data: dict):
         raise HTTPException(404, "Invite not found or already used.")
     if invite["expires_at"] < datetime.datetime.utcnow():
         raise HTTPException(410, "This invite link has expired.")
+    # Seat enforcement at the authoritative point (covers invites created before the
+    # seat limit was hit). Only applies to orgs on a paid seat plan.
+    _join_org = db.get_org(invite["org_id"])
+    if _join_org and _org_sub_active(_join_org):
+        seats_paid = ((_join_org.get("settings") or {}).get("subscription") or {}).get("seats", 0)
+        if db.count_org_members(invite["org_id"]) >= seats_paid:
+            raise HTTPException(402, "All seats in this organisation are in use — ask the owner to add seats.")
     ok = db.use_org_invite(token, sid)
     if not ok:
         raise HTTPException(500, "Failed to join organization.")
@@ -10470,6 +10534,36 @@ async def billing_subscribe(data: dict):
     }
 
 
+async def _billing_apply_org_paystack(sid: str, meta: dict, tx: dict, reference: str) -> dict:
+    """Activate an org seat subscription after a verified Paystack org payment.
+    Only the org owner can activate; amount must cover the locked NGN."""
+    org_id = meta.get("org_id", "")
+    org = await asyncio.to_thread(db.get_org_by_member, sid) if db.is_available() else None
+    if not org or org.get("id") != org_id or org.get("owner_sid") != sid:
+        raise HTTPException(403, "Only the org owner can activate this subscription.")
+    expected_ngn = int(meta.get("amount_ngn") or 0)
+    paid_kobo    = int(tx.get("amount", 0) or 0)
+    if (tx.get("currency") or "").upper() != "NGN" or expected_ngn <= 0 or paid_kobo < expected_ngn * 100:
+        log.warning(f"Org verify amount mismatch ref={reference}: paid {paid_kobo} need {expected_ngn*100}")
+        raise HTTPException(400, "Payment amount does not match the seat total.")
+    existing = (org.get("settings") or {}).get("subscription") or {}
+    if existing.get("reference") == reference:   # idempotent re-verify
+        return {"ok": True, "org_id": org_id, "idempotent": True, "subscription": existing}
+    seats  = int(meta.get("seats") or await asyncio.to_thread(db.count_org_members, org_id))
+    period = "yearly" if meta.get("period") == "yearly" else "monthly"
+    now    = datetime.datetime.utcnow()
+    expires = (now + datetime.timedelta(days=365 if period == "yearly" else 30)).strftime("%Y-%m-%d")
+    sub = {
+        "name": "Org", "plan": "org_base", "seats": seats, "period": period,
+        "status": "active", "expires": expires, "reference": reference,
+        "gateway": "paystack", "activated": now.strftime("%Y-%m-%d"),
+        "amount_ngn": expected_ngn,
+    }
+    await asyncio.to_thread(db.set_org_subscription, org_id, sub)
+    log.info(f"Org billing: {org_id} → {seats} seats ({period}) expires {expires}")
+    return {"ok": True, "org_id": org_id, "subscription": sub}
+
+
 @app.get("/api/billing/verify/{reference}")
 async def billing_verify(reference: str, token: str = ""):
     """Verify a billing payment and activate the user's subscription."""
@@ -10497,6 +10591,10 @@ async def billing_verify(reference: str, token: str = ""):
     if meta.get("sivarr_sid") and meta.get("sivarr_sid") != sess["sid"]:
         raise HTTPException(403, "This payment belongs to a different account.")
     sid = sess["sid"]
+
+    # Org seat subscriptions are applied to the org, not the user's personal plan.
+    if meta.get("kind") == "org" and meta.get("org_id"):
+        return await _billing_apply_org_paystack(sid, meta, tx, reference)
 
     # Derive the plan from the server-set metadata, then verify the amount and
     # currency actually cover it — never trust a client-supplied plan or amount.
@@ -10573,13 +10671,91 @@ async def billing_entitlements(token: str = ""):
     p = load_progress(sess["sid"])
     caps = _plan_caps(p)
     usage = {"integrations": sum(1 for v in _user_integrations(p).values() if v)}
+    org_sub_active = False
     try:
         if db.is_available():
             usage["spaces"]    = len(db.get_spaces(sess["sid"]) or [])
             usage["templates"] = db.count_downloads(sess["sid"])
+            _org = db.get_org_by_member(sess["sid"])
+            if _org:
+                org_sub_active = _org_sub_active(_org)
     except Exception:
         pass
-    return {"plan": _plan_name(p), "caps": caps, "usage": usage}
+    return {"plan": _plan_name(p), "caps": caps, "usage": usage,
+            "org_sub_active": org_sub_active}
+
+
+@app.post("/api/billing/org/quote")
+async def billing_org_quote(data: dict):
+    """Seat-pricing quote for the caller's org at the current member count."""
+    sess = get_session_from_token(data.get("token", ""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    org = await asyncio.to_thread(db.get_org_by_member, sess["sid"])
+    if not org:
+        raise HTTPException(404, "You're not in an organisation.")
+    period = "yearly" if str(data.get("period")) == "yearly" else "monthly"
+    seats  = await asyncio.to_thread(db.count_org_members, org["id"])
+    q = org_seat_quote(seats, period)
+    q["org_id"]   = org["id"]
+    q["is_owner"] = (org.get("owner_sid") == sess["sid"])
+    q["current"]  = (org.get("settings") or {}).get("subscription") or None
+    return q
+
+
+@app.post("/api/billing/org/subscribe")
+async def billing_org_subscribe(data: dict):
+    """Initialize a Paystack payment for the org's seat subscription (owner only)."""
+    sess = get_session_from_token(data.get("token", ""))
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not PAYSTACK_AVAILABLE or not HTTPX_AVAILABLE:
+        raise HTTPException(503, "Paystack not configured.")
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    sid = sess["sid"]
+    org = await asyncio.to_thread(db.get_org_by_member, sid)
+    if not org:
+        raise HTTPException(404, "You're not in an organisation.")
+    if org.get("owner_sid") != sid:
+        raise HTTPException(403, "Only the org owner can manage billing.")
+    period = "yearly" if str(data.get("period")) == "yearly" else "monthly"
+    seats  = await asyncio.to_thread(db.count_org_members, org["id"])
+    total_usd = org_seat_total_usd(seats, period)
+    if total_usd is None:
+        raise HTTPException(400, "Orgs with 51+ seats use custom enterprise pricing — contact sales.")
+    charge_ngn = int(round(total_usd * get_naira_rate()))
+    email = sess.get("email", "") or load_progress(sid).get("email", "")
+    reference = f"sivorg_{uuid.uuid4().hex[:16]}"
+    payload = {
+        "email":        email or f"user_{sid}@sivarr.com",
+        "amount":       charge_ngn * 100,
+        "currency":     "NGN",
+        "reference":    reference,
+        "callback_url": f"{BASE_URL.rstrip('/')}/billing/callback",
+        "metadata": {
+            "sivarr_sid": sid, "kind": "org", "org_id": org["id"],
+            "seats": seats, "period": period, "plan_name": "Org",
+            "amount_ngn": charge_ngn,
+        },
+    }
+    headers = {"Authorization": f"Bearer {PAYSTACK_SECRET_KEY}", "Content-Type": "application/json"}
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(f"{PAYSTACK_API}/transaction/initialize",
+                                     json=payload, headers=headers)
+        result = resp.json()
+    except Exception as exc:
+        log.error(f"Org billing subscribe error: {exc}")
+        raise HTTPException(502, "Paystack API unreachable.")
+    if not result.get("status"):
+        raise HTTPException(400, result.get("message", "Paystack error."))
+    return {
+        "authorization_url": result["data"]["authorization_url"],
+        "reference": reference, "seats": seats, "period": period, "amount_ngn": charge_ngn,
+    }
 
 
 @app.get("/api/billing/history")

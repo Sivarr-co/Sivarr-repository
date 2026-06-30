@@ -2835,6 +2835,47 @@ def get_org_members(org_id: str) -> list:
         _release(conn)
 
 
+def get_org(org_id: str) -> dict | None:
+    """Fetch a full org row by id (includes settings JSONB)."""
+    def _q(conn):
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM orgs WHERE id = %s", (org_id,))
+            row = cur.fetchone()
+        return dict(row) if row else None
+    return _with_conn(f"get_org[{org_id}]", _q, None)
+
+
+def count_org_members(org_id: str) -> int:
+    def _q(conn):
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM org_members WHERE org_id = %s", (org_id,))
+            row = cur.fetchone()
+        return int(row[0]) if row else 0
+    return _with_conn(f"count_org_members[{org_id}]", _q, 0)
+
+
+def set_org_subscription(org_id: str, sub: dict) -> bool:
+    """Store the org's seat subscription in orgs.settings->'subscription' (+ plan col)."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE orgs SET settings = jsonb_set(COALESCE(settings,'{}'::jsonb), "
+                "'{subscription}', %s::jsonb), plan = %s WHERE id = %s",
+                (json.dumps(sub), sub.get("name", "Org"), org_id),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"set_org_subscription[{org_id}]: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
 def create_org_invite(org_id: str, email: str, role: str, invited_by: str, token: str, expires_at) -> bool:
     conn = _get_conn()
     if not conn: return False

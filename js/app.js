@@ -1378,7 +1378,13 @@ async function billingVerify(reference, planId) {
     const r = await fetch(`/api/billing/verify/${encodeURIComponent(reference)}?token=${encodeURIComponent(token)}`);
     const d = await r.json();
     if (d.ok) {
-      await billingLoadStatus();
+      await billingLoadStatus();   // refreshes _ENTITLEMENTS (incl. org_sub_active)
+      if (d.org_id) {
+        toast('Organisation plan activated ✓');
+        ['org','orgchat','team','projects'].forEach(_removePaywall);
+        if (typeof orgInit === 'function') orgInit();
+        return;
+      }
       _unlockAfterPayment(d.name || planId || 'Pro');
     }
   } catch(_) {
@@ -9088,7 +9094,10 @@ function nav(name, btn) {
   // ── Paywall guards ──
   const _GUARDED = { org: 'Pro', orgchat: 'Pro', team: 'Pro', projects: 'Pro', founder: 'Team' };
   if (_GUARDED[name]) {
-    if (!_hasPlan(_GUARDED[name])) { _showPaywall(name); return; }
+    // An active org seat subscription unlocks the org-base features for every member,
+    // regardless of personal plan. (Founder Mode is a separate paid extension.)
+    const orgUnlocked = name !== 'founder' && !!(_ENTITLEMENTS && _ENTITLEMENTS.org_sub_active);
+    if (!orgUnlocked && !_hasPlan(_GUARDED[name])) { _showPaywall(name); return; }
     _removePaywall(name);
   }
 
@@ -12063,13 +12072,36 @@ function orgRenderDocs() {
     </div>`).join('');
 }
 
+function _orgBillingBanner() {
+  if (!ORG) return '';
+  const isOwner = ORG.member_role === 'owner' || ORG.owner_sid === S.sid;
+  const used = ORG_MEMBERS.length;
+  if (ORG.sub_active) {
+    const seats = ORG.seats_paid || used;
+    const full  = used >= seats;
+    return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg2)">
+      <i class="ti ti-users-group" style="color:var(--teal)"></i>
+      <span style="font-size:.85rem"><b>${used}/${seats}</b> seats used${full ? ' · <span style="color:var(--coral,#e8614a)">all seats in use</span>' : ''}</span>
+      ${isOwner ? `<button class="btn" style="margin-left:auto;font-size:.78rem" onclick="orgBilling('monthly')">Manage seats</button>` : ''}
+    </div>`;
+  }
+  if (isOwner) {
+    return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px dashed var(--border);border-radius:10px">
+      <i class="ti ti-building" style="color:var(--teal)"></i>
+      <span style="font-size:.85rem;color:var(--muted)">Put your team on a per-seat Org plan.</span>
+      <button class="btn primary" style="margin-left:auto;font-size:.78rem" onclick="orgBilling('monthly')">Set up billing →</button>
+    </div>`;
+  }
+  return '';
+}
+
 function orgRenderMembers() {
   const list = $('os-members-list');
   if (!list) return;
   const lbl = $('os-member-label');
   if (lbl) lbl.textContent = `${ORG_MEMBERS.length} member${ORG_MEMBERS.length !== 1 ? 's' : ''}`;
-  if (!ORG_MEMBERS.length) { list.innerHTML = '<div class="os-empty" style="padding:16px 0">No members yet.</div>'; return; }
-  list.innerHTML = ORG_MEMBERS.map(m => `
+  if (!ORG_MEMBERS.length) { list.innerHTML = _orgBillingBanner() + '<div class="os-empty" style="padding:16px 0">No members yet.</div>'; return; }
+  list.innerHTML = _orgBillingBanner() + ORG_MEMBERS.map(m => `
     <div class="os-member-row">
       <div class="os-member-av">${(m.name||'?')[0].toUpperCase()}</div>
       <div class="os-member-info">
@@ -12078,6 +12110,49 @@ function orgRenderMembers() {
       </div>
       <span class="os-member-badge">${escHtml(m.role||'member')}</span>
     </div>`).join('');
+}
+
+// ── Org seat billing ──────────────────────────────────────────
+async function orgBilling(period) {
+  period = period === 'yearly' ? 'yearly' : 'monthly';
+  let q;
+  try { q = await API('/api/billing/org/quote', { token: getToken(), period }); }
+  catch(e) { toast(e.message || 'Could not load org pricing.'); return; }
+  document.getElementById('org-bill-modal')?.remove();
+  const seats = q.seats || 0;
+  const custom = q.custom;
+  const priceLine = custom
+    ? `<div style="font-size:1.1rem;font-weight:700">Custom pricing</div><div style="font-size:.8rem;color:var(--muted)">51+ seats — contact sales.</div>`
+    : `<div style="font-size:1.6rem;font-weight:800">${esc(q.display_usd)}<span style="font-size:.85rem;color:var(--muted)">/${period === 'yearly' ? 'yr' : 'mo'}</span></div>
+       <div style="font-size:.78rem;color:var(--muted)">${esc(q.fx?.display_local || '')} · billed via Paystack${q.discount ? ` · ${q.discount}% volume discount` : ''}</div>`;
+  const m = document.createElement('div');
+  m.id = 'org-bill-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center';
+  m.innerHTML = `
+    <div style="background:var(--bg);border-radius:14px;padding:22px;width:min(420px,95vw);position:relative">
+      <button onclick="document.getElementById('org-bill-modal').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer">×</button>
+      <div style="font-weight:800;font-size:1.05rem;margin-bottom:4px">Organisation plan</div>
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px"><b>${seats}</b> seat${seats !== 1 ? 's' : ''} (one per member) · $${q.per_seat_usd || ''}/seat</div>
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button class="btn${period === 'monthly' ? ' primary' : ''}" style="flex:1;font-size:.8rem" onclick="orgBilling('monthly')">Monthly</button>
+        <button class="btn${period === 'yearly' ? ' primary' : ''}" style="flex:1;font-size:.8rem" onclick="orgBilling('yearly')">Yearly · save 20%</button>
+      </div>
+      <div style="padding:14px;border:1px solid var(--border);border-radius:10px;margin-bottom:16px">${priceLine}</div>
+      ${custom
+        ? `<a class="btn primary" style="width:100%;text-align:center;text-decoration:none" href="mailto:sales@sivarr.com?subject=Enterprise%20plan">Contact sales</a>`
+        : `<button class="btn primary" style="width:100%" onclick="orgBillingSubscribe('${period}')">Pay ${esc(q.fx?.display_local || q.display_usd)} →</button>`}
+      <div style="font-size:.72rem;color:var(--muted);margin-top:10px">You pay for one seat per current member. To add members later, re-run billing for the new seat count.</div>
+    </div>`;
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+  document.body.appendChild(m);
+}
+
+async function orgBillingSubscribe(period) {
+  try {
+    const r = await API('/api/billing/org/subscribe', { token: getToken(), period: period === 'yearly' ? 'yearly' : 'monthly' });
+    if (r.authorization_url) { window.location.href = r.authorization_url; return; }
+    toast('Could not start checkout.');
+  } catch(e) { toast(e.message || 'Could not start checkout.'); }
 }
 
 function orgRenderInsights() {
