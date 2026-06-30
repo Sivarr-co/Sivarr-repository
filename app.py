@@ -3280,8 +3280,16 @@ async def spaces_sync(data: dict):
     space = data.get("space")
     if not space or not space.get("id") or not space.get("name"):
         raise HTTPException(400, "space.id and space.name are required.")
+    space_id = sanitize_text(str(space["id"]), 60)
+    # Quota gating: cap the number of personal spaces on limited plans. Existing
+    # spaces always re-sync (cross-device); only a NEW space beyond the cap is blocked.
+    cap = _plan_caps(load_progress(sid)).get("spaces")
+    if cap is not None:
+        existing_ids = {s.get("id") for s in (db.get_spaces(sid) or [])}
+        if space_id not in existing_ids and len(existing_ids) >= cap:
+            raise HTTPException(402, f"Your plan includes {cap} space{'s' if cap != 1 else ''}. Upgrade to add more.")
     db.save_space(sid, {
-        "id":   sanitize_text(str(space["id"]), 60),
+        "id":   space_id,
         "name": sanitize_text(str(space["name"]), 120),
         "icon": sanitize_text(str(space.get("icon", "🧩")), 10),
         "color": sanitize_text(str(space.get("color", "#4f6ef7")), 20),
@@ -4201,6 +4209,30 @@ def _plan_is_active(p: dict) -> bool:
         except ValueError:
             pass
     return True
+
+
+# ── Plan feature caps (quota gating) ───────────────────────────────
+# Single source of truth for per-plan limits. None = unlimited. Tune freely.
+# `analytics_days` caps the analytics history window; `spaces` caps personal
+# spaces; templates/integrations are surfaced to the client (soft) for now.
+_PLAN_CAPS = {
+    "Free":         {"spaces": 1,    "templates": 3,    "integrations": 1,    "analytics_days": 7},
+    "Student Pro":  {"spaces": 3,    "templates": None, "integrations": 5,    "analytics_days": None},
+    "Educator Pro": {"spaces": 3,    "templates": None, "integrations": 5,    "analytics_days": None},
+    "Pro":          {"spaces": 3,    "templates": None, "integrations": 5,    "analytics_days": None},
+    "Creator":      {"spaces": None, "templates": None, "integrations": None, "analytics_days": None},
+    "Team":         {"spaces": None, "templates": None, "integrations": None, "analytics_days": None},
+}
+
+def _plan_name(p: dict) -> str:
+    """The user's effective plan name ('Free' if no active paid sub)."""
+    if _plan_is_active(p):
+        return (p.get("subscription") or {}).get("name", "Pro")
+    return "Free"
+
+def _plan_caps(p: dict) -> dict:
+    """Feature caps for this user's plan. None = unlimited."""
+    return _PLAN_CAPS.get(_plan_name(p), _PLAN_CAPS["Free"])
 
 
 def _chat_authorize(token: str) -> tuple[str, dict]:
@@ -9395,6 +9427,10 @@ async def analytics_mood(token: str = "", days: int = 30):
     sid = sess["sid"]
     import datetime as _dt
     days   = max(7, min(days, 90))
+    # Quota gating: free plan sees only a 7-day analytics window; paid = full.
+    cap_days = _plan_caps(load_progress(sid)).get("analytics_days")
+    if cap_days is not None:
+        days = min(days, cap_days)
     cutoff = str(_dt.date.today() - _dt.timedelta(days=days))
     entries = load_journal(sid)
 
@@ -10433,6 +10469,23 @@ async def billing_status(token: str = ""):
         except ValueError:
             pass
     return sub
+
+
+@app.get("/api/billing/entitlements")
+async def billing_entitlements(token: str = ""):
+    """Return the user's plan feature caps + current usage, for client gating/prompts."""
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    p = load_progress(sess["sid"])
+    caps = _plan_caps(p)
+    usage = {}
+    try:
+        if db.is_available():
+            usage["spaces"] = len(db.get_spaces(sess["sid"]) or [])
+    except Exception:
+        pass
+    return {"plan": _plan_name(p), "caps": caps, "usage": usage}
 
 
 @app.get("/api/billing/history")

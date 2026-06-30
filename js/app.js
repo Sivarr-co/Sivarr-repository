@@ -1237,6 +1237,7 @@ async function gcalPushEvent(ev) {
 // ─────────────────────────────────────────────────────────────
 
 let _BILLING_STATUS = null;
+let _ENTITLEMENTS   = null;   // { plan, caps:{spaces,templates,integrations,analytics_days}, usage }
 
 async function billingLoadStatus() {
   const token = getToken() || '';
@@ -1247,6 +1248,11 @@ async function billingLoadStatus() {
     _billingRenderBadge();
     _billingRenderSidebar();
     integrationsRender();
+  } catch(_) {}
+  // Plan feature caps (quota gating) — used for upgrade prompts client-side.
+  try {
+    const e = await fetch(`/api/billing/entitlements?token=${encodeURIComponent(token)}`);
+    if (e.ok) _ENTITLEMENTS = await e.json();
   } catch(_) {}
 }
 
@@ -1322,7 +1328,7 @@ async function showPricing() {
       ['Integrations',                 CROSS,    '5',         'Unlimited'],
       ['Priority AI speed',            CROSS,    CHECK,       CHECK],
       ['Best model (Claude Opus, soon)', CROSS,  CROSS,       CHECK],
-      ['Unlimited personal spaces',    CROSS,    CROSS,       CHECK],
+      ['Personal spaces',              '1',      '3',         'Unlimited'],
       ['Sell on marketplace',          CROSS,    CROSS,       CHECK],
       ['Price',                        usdOf('free','$0')+'/mo', usdOf('pro_monthly','$12')+'/mo', usdOf('creator_monthly','$22')+'/mo'],
     ];
@@ -5729,6 +5735,15 @@ function spCreate() {
   const name = $('sp-name')?.value.trim();
   if (!name) {
     const e = $('sp-err'); if (e) e.textContent = 'Please enter a space name.';
+    return;
+  }
+  // Quota gating: block a new space beyond the plan cap (server enforces too).
+  const cap = _ENTITLEMENTS?.caps?.spaces;
+  if (cap != null && spGetAll().length >= cap) {
+    const e = $('sp-err');
+    if (e) e.innerHTML = `Your plan includes ${cap} space${cap !== 1 ? 's' : ''}. ` +
+      `<a onclick="document.getElementById('cn-modal-bg').classList.remove('open');showPricing()" ` +
+      `style="color:var(--teal);cursor:pointer;text-decoration:underline">Upgrade</a> to add more.`;
     return;
   }
   const members = _spType === 'org'
@@ -13364,9 +13379,20 @@ function seedSpacesFromServer(serverSpaces) {
   });
 }
 
-// Sync space metadata to server (fire-and-forget)
-function syncSpaceMeta(space) {
-  _spFetch('/api/spaces/sync', { space });
+// Sync space metadata to server (fire-and-forget; surfaces the plan-cap 402)
+async function syncSpaceMeta(space) {
+  try {
+    const r = await fetch('/api/spaces/sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: _spToken(), space }),
+    });
+    if (r.status === 402) {
+      const d = await r.json().catch(() => ({}));
+      toast(d.detail || 'Upgrade to add more spaces.');
+      billingLoadStatus();
+      if (typeof showPricing === 'function') showPricing();
+    }
+  } catch(_) {}
 }
 
 // Debounced space data save to server
