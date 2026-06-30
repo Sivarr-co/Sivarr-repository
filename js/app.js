@@ -1525,8 +1525,17 @@ async function _acceptPendingOrgInvite() {
   try {
     const r = await API('/api/org/join', { token, invite_token: inviteToken });
     if (r.ok) {
+      // In-app bell notification (the server also sends a web push).
+      try {
+        const notifs = JSON.parse(localStorage.getItem(NOTIF_KEY()) || '[]');
+        notifs.unshift({ id: `orgjoin_${Date.now()}`, type: 'org', icon: '🎉',
+          msg: `You joined ${r.org_name || 'the organization'}`, read: false, ts: Date.now() });
+        localStorage.setItem(NOTIF_KEY(), JSON.stringify(notifs));
+      } catch (e) {}
       toast(`You joined ${r.org_name || 'the organization'}!`);
-      navigate('org');
+      // Reload into the org space (matches orgCreateSpace; refreshes membership).
+      sessionStorage.setItem('sivarr_post_create', 'org');
+      setTimeout(() => location.reload(), 900);
     }
   } catch(e) {
     toast(e.message || 'Invite link is invalid or expired.');

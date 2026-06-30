@@ -8920,6 +8920,12 @@ async def org_invite(data: dict, request: Request, bg: BackgroundTasks):
     bg.add_task(send_email, email,
                 f"You're invited to join {org['name']} on Sivarr",
                 _email_org_invite_html(uname, org["name"], join_url, role))
+    # If the invitee already has a Sivarr account, also web-push them (pop-up)
+    # so the invite reaches them in-app, not just by email.
+    existing = db.get_user_by_email(email) if db.is_available() else None
+    if existing and existing.get("sid"):
+        bg.add_task(send_push, existing["sid"], f"📨 Invited to {org['name']}",
+                    f"{uname} invited you to join {org['name']} on Sivarr.", "/app", f"orginvite_{org['id']}")
     log.info(f"Org invite: {email} → {org['name']} as {role}")
     return {"ok": True}
 
@@ -8931,15 +8937,19 @@ async def org_join_link(token: str):
 
 
 @app.post("/api/org/join")
-async def org_join(data: dict):
+async def org_join(data: dict, bg: BackgroundTasks):
     """Accept an org invite — called by the client after the user logs in."""
     sid, _ = _resolve_token(data)
     if not db.is_available():
         raise HTTPException(503, "Database unavailable.")
-    token = sanitize_text(str(data.get("token", "")), 100)
-    if not token:
+    # BUG FIX: the invite token arrives as `invite_token` (the body's `token`
+    # field is the SESSION token, consumed by _resolve_token above). Reading
+    # `token` here looked up the invite under the session token → never found →
+    # the member was never added.
+    invite_token = sanitize_text(str(data.get("invite_token", "")), 100)
+    if not invite_token:
         raise HTTPException(400, "Invite token required.")
-    invite = db.get_org_invite(token)
+    invite = db.get_org_invite(invite_token)
     if not invite:
         raise HTTPException(404, "Invite not found or already used.")
     if invite["expires_at"] < datetime.datetime.utcnow():
@@ -8951,11 +8961,21 @@ async def org_join(data: dict):
         seats_paid = ((_join_org.get("settings") or {}).get("subscription") or {}).get("seats", 0)
         if db.count_org_members(invite["org_id"]) >= seats_paid:
             raise HTTPException(402, "All seats in this organisation are in use — ask the owner to add seats.")
-    ok = db.use_org_invite(token, sid)
+    ok = db.use_org_invite(invite_token, sid)
     if not ok:
         raise HTTPException(500, "Failed to join organization.")
     org = db.get_org_by_member(sid)
-    return {"ok": True, "org_name": org["name"] if org else ""}
+    org_name = org["name"] if org else ""
+    # Notify the new member: web push (pop-up) now they're in the app, plus the
+    # org owner gets a heads-up that someone joined.
+    if org:
+        bg.add_task(send_push, sid, f"🎉 Welcome to {org_name}",
+                    f"You're now a member of {org_name}.", "/app", f"orgjoin_{org['id']}")
+        owner_sid = org.get("owner_sid")
+        if owner_sid and owner_sid != sid:
+            bg.add_task(send_push, owner_sid, f"👥 {org_name}: new member",
+                        "Someone just joined your organization.", "/app", f"orgjoined_{org['id']}")
+    return {"ok": True, "org_name": org_name}
 
 
 @app.post("/api/org/tasks")
