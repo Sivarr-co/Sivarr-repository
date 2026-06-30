@@ -2046,6 +2046,10 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://plausible.io "
         "  https://js.sentry-cdn.com https://browser.sentry-cdn.com; "
+        # worker-src must be explicit: without it, Workers fall back to script-src
+        # (no blob:) and Sentry session-replay's blob Worker is CSP-blocked. Allow
+        # same-origin + blob workers only; connect-src still constrains their exfil.
+        "worker-src 'self' blob:; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data: blob:; "
