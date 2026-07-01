@@ -23,10 +23,10 @@
 <!-- Resource hints: warm up external origins for faster first paint -->
 <link rel="dns-prefetch" href="https://js.sentry-cdn.com">
 <!-- Plus Jakarta Sans is self-hosted (was fonts.googleapis.com) — no third-party font CDN, tighter CSP, no user-IP leak to Google. -->
-<link rel="stylesheet" href="/static/vendor/fonts/plus-jakarta-sans/plus-jakarta-sans.css?v=20260701b">
+<link rel="stylesheet" href="/static/vendor/fonts/plus-jakarta-sans/plus-jakarta-sans.css?v=20260701c">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260701b">
+<link rel="stylesheet" href="/css/styles.css?v=20260701c">
 <!-- Tiptap rich-text editor (self-hosted ESM bundle — keeps CSP tight) -->
 <script type="module">
 import { Editor, StarterKit, Placeholder, Underline } from '/static/vendor/tiptap/tiptap.bundle.js';
@@ -364,7 +364,7 @@ Sentry.onLoad(function() {
            the dropdown. Notifications bell kept (distinct from Announcements). -->
       <!-- Notifications -->
       <div style="position:relative">
-        <button class="tb-icon-btn" id="notif-btn" onclick="notifToggle()" title="Notifications">
+        <button class="tb-icon-btn" id="notif-btn" onclick="notifToggle()" title="Notifications" data-tip="Notifications" data-tip-pos="bottom">
           <i class="ti ti-bell"></i>
           <span id="notif-badge" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;background:#ef4444;border-radius:50%;border:2px solid var(--bg)"></span>
         </button>
@@ -378,7 +378,7 @@ Sentry.onLoad(function() {
       </div>
       <!-- Profile -->
       <div class="profile-menu" id="profile-menu">
-        <button class="profile-trigger" id="profile-trigger" onclick="toggleProfile()">
+        <button class="profile-trigger" id="profile-trigger" onclick="toggleProfile()" data-tip="Account" data-tip-pos="bottom">
           <div class="pa" id="tb-av" style="overflow:hidden">?</div>
         </button>
         <!-- Hidden name span kept for JS compat -->
@@ -477,13 +477,13 @@ Sentry.onLoad(function() {
         </div>
         <div class="sb-head-actions">
           <!-- Desktop: quick-add + collapse (search lives in the top bar). Mobile: retract (goes back) + customize sheet. -->
-          <button class="sb-new-btn sb-quickadd-btn" onclick="nlOpen()" title="Quick add — type anything (Alt+A)" aria-label="Quick add">
+          <button class="sb-new-btn sb-quickadd-btn" onclick="nlOpen()" title="Quick add (Alt+A)" data-tip="Quick add" data-tip-pos="bottom" aria-label="Quick add">
             <i class="ti ti-plus"></i>
           </button>
-          <button class="sb-mob-cust-btn" onclick="mobCustOpen()" style="display:none" aria-label="Customize sidebar">
+          <button class="sb-mob-cust-btn" onclick="mobCustOpen()" style="display:none" data-tip="Customize sidebar" data-tip-pos="bottom" aria-label="Customize sidebar">
             <i class="ti ti-adjustments-horizontal"></i> Customize
           </button>
-          <button class="sb-rail-btn" onclick="sbToggleRail()" title="Collapse sidebar" aria-label="Collapse sidebar">
+          <button class="sb-rail-btn" onclick="sbToggleRail()" title="Collapse sidebar" data-tip="Collapse sidebar" data-tip-pos="bottom" aria-label="Collapse sidebar">
             <i class="ti ti-layout-sidebar-left-collapse" id="sb-rail-icon"></i>
             <i class="ti ti-arrow-left sb-mob-close-icon" style="display:none"></i>
           </button>
@@ -499,15 +499,15 @@ Sentry.onLoad(function() {
 
         <!-- Today at a glance -->
         <div class="sb-today" id="sb-today" role="group" aria-label="Today at a glance">
-          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=flux]'))" title="Tasks due">
+          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=flux]'))" title="Tasks due" data-tip="Tasks due today" data-tip-pos="bottom">
             <span class="sb-today-value" id="sb-today-tasks">0</span>
             <span class="sb-today-label">Due</span>
           </button>
-          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=habits]'))" title="Activity streak">
+          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=habits]'))" title="Activity streak" data-tip="Activity streak" data-tip-pos="bottom">
             <span class="sb-today-value sb-today-flame"><i class="ti ti-flame" aria-hidden="true"></i><span id="sb-today-streak">0</span></span>
             <span class="sb-today-label">Streak</span>
           </button>
-          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=calendar]'))" title="Next event">
+          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=calendar]'))" title="Next event" data-tip="Next calendar event" data-tip-pos="bottom">
             <span class="sb-today-value sb-today-next" id="sb-today-next">—</span>
             <span class="sb-today-label">Next</span>
           </button>
@@ -551,7 +551,7 @@ Sentry.onLoad(function() {
           <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;">
             <i class="ti ti-chevron-down sb-spaces-caret" id="sb-spaces-caret" aria-hidden="true"></i>Spaces
           </span>
-          <button class="sb-spaces-add" onclick="event.stopPropagation();openCreateSpaceModal()" title="New space">
+          <button class="sb-spaces-add" onclick="event.stopPropagation();openCreateSpaceModal()" title="New space" data-tip="New space" data-tip-pos="right">
             <i class="ti ti-plus"></i>
           </button>
         </div>
@@ -582,10 +582,10 @@ Sentry.onLoad(function() {
             <div class="u-name" id="snav-name">User</div>
           </div>
           <div style="display:flex;gap:2px;flex-shrink:0">
-            <button class="sb-icon-action" onclick="openFeedback()" title="Feedback">
+            <button class="sb-icon-action" onclick="openFeedback()" title="Feedback" data-tip="Feedback" data-tip-pos="top">
               <i class="ti ti-message-2"></i>
             </button>
-            <button class="sb-icon-action" onclick="nav('settings',null)" title="Settings">
+            <button class="sb-icon-action" onclick="nav('settings',null)" title="Settings" data-tip="Settings" data-tip-pos="top">
               <i class="ti ti-settings"></i>
             </button>
           </div>
@@ -613,10 +613,10 @@ Sentry.onLoad(function() {
             </div>
           </div>
           <div class="chat-header-actions">
-            <button class="chat-hdr-btn" onclick="chatClearConfirm()" title="Clear chat">
+            <button class="chat-hdr-btn" onclick="chatClearConfirm()" title="Clear chat" data-tip="Clear chat" data-tip-pos="bottom">
               <i class="ti ti-trash"></i>
             </button>
-            <button class="chat-hdr-btn" onclick="chatExport()" title="Export chat">
+            <button class="chat-hdr-btn" onclick="chatExport()" title="Export chat" data-tip="Export chat" data-tip-pos="bottom">
               <i class="ti ti-download"></i>
             </button>
           </div>
@@ -723,16 +723,16 @@ Sentry.onLoad(function() {
 
           <!-- Input row -->
           <div class="chat-input-row">
-            <button class="chat-add-btn" id="chat-add-btn" onclick="toggleChatMenu(event)" title="AI model / attach file">
+            <button class="chat-add-btn" id="chat-add-btn" onclick="toggleChatMenu(event)" title="AI model / attach file" data-tip="AI model / attach" data-tip-pos="top">
               <i class="ti ti-plus"></i>
             </button>
             <textarea class="chat-input" id="ci" placeholder="Ask Sivarr anything..." rows="1"
               onkeydown="ckd(event)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
             <span class="chat-msg-counter" id="chat-msg-counter"></span>
-            <button id="voice-btn" class="chat-icon-btn" onclick="toggleVoice()" title="Voice input">
+            <button id="voice-btn" class="chat-icon-btn" onclick="toggleVoice()" title="Voice input" data-tip="Voice input" data-tip-pos="top">
               <i class="ti ti-microphone"></i>
             </button>
-            <button class="chat-send-btn" id="sb" onclick="send()">
+            <button class="chat-send-btn" id="sb" onclick="send()" data-tip="Send message" data-tip-pos="top">
               <i class="ti ti-arrow-up"></i>
             </button>
           </div>
@@ -4544,7 +4544,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260701b" defer></script>
+<script src="/js/app.js?v=20260701c" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

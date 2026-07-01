@@ -6165,7 +6165,7 @@ function _navRenderSec(hostId, panels) {
   if (!host) return;
   host.innerHTML = panels.map(panel => {
     const t = NAV_TABS[panel]; if (!t) return '';
-    return `<button class="si" data-panel="${panel}" onclick="sidebarNav(this)">
+    return `<button class="si" data-panel="${panel}" data-tip="${t.label}" data-tip-pos="right" onclick="sidebarNav(this)">
       <div class="si-icon"><i class="ti ${t.icon}"></i></div>
       <span class="si-lb">${t.label}</span>${NAV_EXTRA[panel] || ''}
     </button>`;
@@ -13839,7 +13839,7 @@ function spaceRenderSidebar() {
 
   list.innerHTML = spaces.map(sp => {
     const col = dotColor[sp.type] || dotColor.default;
-    return `<button class="si sp-si" id="sb-space-row-${sp.id}" onclick="openSpace('${sp.id}')">
+    return `<button class="si sp-si" id="sb-space-row-${sp.id}" data-tip="${sp.name}" data-tip-pos="right" onclick="openSpace('${sp.id}')">
       <span class="si-ic sp-si-dot" style="color:${col};font-size:10px">●</span>
       <span class="si-lb">${sp.name}</span>
       <span class="sb-space-more" onclick="event.stopPropagation();spMoreMenu('${sp.id}',this)" title="Options">
@@ -20741,3 +20741,92 @@ function extShowOnboarding(item) {
     <div style="margin-top:12px"><button class="mkt-btn-teal" onclick="mktCloseDetail(); if(typeof orgAddExtension==='function') orgAddExtension();">Enable in my Org</button></div></div>`;
   m.style.display = 'flex';
 }
+
+// ═══════════════════════════════════════════════════════════════
+// GLOBAL TOOLTIP ENGINE
+// Usage: add data-tip="Label" to any element.
+//        data-tip-pos="right|left|top|bottom" (default: bottom)
+// Sidebar collapsed items get data-tip-pos="right" so the label
+// floats out to the right of the icon.
+// ═══════════════════════════════════════════════════════════════
+(function _svTooltip() {
+  const TIP_DELAY = 500; // ms before tooltip appears
+  const tip = document.createElement('div');
+  tip.id = 'sv-tip';
+  Object.assign(tip.style, {
+    position: 'fixed', zIndex: '999999',
+    background: 'var(--card,#1e1e2e)', color: 'var(--text1,#f0f0f0)',
+    border: '1px solid var(--border,rgba(255,255,255,.12))',
+    borderRadius: '7px', padding: '5px 10px',
+    fontSize: '.72rem', fontWeight: '600',
+    lineHeight: '1.4', whiteSpace: 'nowrap',
+    pointerEvents: 'none', userSelect: 'none',
+    opacity: '0', transition: 'opacity .15s',
+    boxShadow: '0 4px 20px rgba(0,0,0,.25)',
+    fontFamily: 'var(--font,"Inter",sans-serif)',
+    maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis',
+  });
+  document.body.appendChild(tip);
+
+  let _timer = null;
+  let _current = null;
+
+  function show(target) {
+    const text = target.dataset.tip;
+    if (!text) return;
+    tip.textContent = text;
+    tip.style.opacity = '0';
+    // Force layout so offsetWidth is accurate
+    tip.style.display = 'block';
+    const rect = target.getBoundingClientRect();
+    const pos  = target.dataset.tipPos || 'bottom';
+    const tw   = tip.offsetWidth;
+    const th   = tip.offsetHeight;
+    let x, y;
+    if (pos === 'right') {
+      x = rect.right + 8;
+      y = rect.top + (rect.height - th) / 2;
+    } else if (pos === 'left') {
+      x = rect.left - tw - 8;
+      y = rect.top + (rect.height - th) / 2;
+    } else if (pos === 'top') {
+      x = rect.left + (rect.width - tw) / 2;
+      y = rect.top - th - 8;
+    } else { // bottom
+      x = rect.left + (rect.width - tw) / 2;
+      y = rect.bottom + 8;
+    }
+    // Clamp to viewport
+    x = Math.max(6, Math.min(x, window.innerWidth  - tw - 6));
+    y = Math.max(6, Math.min(y, window.innerHeight - th - 6));
+    tip.style.left = x + 'px';
+    tip.style.top  = y + 'px';
+    tip.style.opacity = '1';
+  }
+
+  function hide() {
+    tip.style.opacity = '0';
+    _current = null;
+  }
+
+  document.addEventListener('mouseover', function(e) {
+    const target = e.target.closest('[data-tip]');
+    if (!target || target === _current) return;
+    _current = target;
+    clearTimeout(_timer);
+    _timer = setTimeout(() => show(target), TIP_DELAY);
+  });
+
+  document.addEventListener('mouseout', function(e) {
+    const target = e.target.closest('[data-tip]');
+    if (!target) return;
+    if (e.relatedTarget && target.contains(e.relatedTarget)) return;
+    clearTimeout(_timer);
+    hide();
+  });
+
+  // Hide on click, scroll, or Escape
+  document.addEventListener('click',   () => { clearTimeout(_timer); hide(); });
+  document.addEventListener('scroll',  () => { clearTimeout(_timer); hide(); }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { clearTimeout(_timer); hide(); } });
+})();
