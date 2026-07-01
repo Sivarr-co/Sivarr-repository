@@ -605,6 +605,64 @@ body.offline .layout {
 }
 .sb-user-row:hover { background: var(--bg3); }
 
+/* Help & Support button (sidebar footer — replaced the profile row) */
+.sb-help-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 11px; margin-top: 8px;
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text2); font-family: var(--font); font-size: .85rem; font-weight: 600;
+  cursor: pointer; transition: var(--transition);
+}
+.sb-help-btn i { font-size: 1.05rem; color: var(--accent); }
+.sb-help-btn:hover { border-color: var(--accent); color: var(--text1); background: var(--teal2); }
+
+/* Help & Support page */
+.help-wrap { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+.help-hero { text-align: center; padding: 28px 0 24px; }
+.help-hero-icon {
+  width: 52px; height: 52px; border-radius: 14px; margin: 0 auto 14px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.5rem;
+}
+.help-hero h1 { font-size: 1.7rem; font-weight: 800; letter-spacing: -.03em; margin: 0 0 6px; }
+.help-hero p { color: var(--muted); margin: 0 0 18px; }
+.help-search {
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg2); color: var(--text3);
+  cursor: pointer; font-family: var(--font); font-size: .88rem;
+}
+.help-search kbd { background: var(--bg3); border-radius: 5px; padding: 1px 6px; font-size: .72rem; }
+.help-search:hover { border-color: var(--accent); }
+.help-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 8px 0 34px; }
+.help-card {
+  text-align: left; padding: 16px; border: 1px solid var(--border); border-radius: 14px;
+  background: var(--bg2); cursor: pointer; transition: var(--transition); font-family: var(--font);
+}
+.help-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
+.help-card-ic { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 10px; }
+.help-card-t { font-weight: 700; font-size: .95rem; margin-bottom: 3px; color: var(--text1); }
+.help-card-d { font-size: .8rem; color: var(--muted); line-height: 1.4; }
+.help-sec { margin-bottom: 32px; }
+.help-sec h2 { font-size: 1.1rem; font-weight: 800; margin: 0 0 14px; }
+.help-faq details { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; background: var(--bg2); }
+.help-faq summary { font-weight: 600; font-size: .9rem; cursor: pointer; list-style: none; color: var(--text1); }
+.help-faq summary::-webkit-details-marker { display: none; }
+.help-faq summary::after { content: '+'; float: right; color: var(--muted); font-weight: 700; }
+.help-faq details[open] summary::after { content: '−'; }
+.help-faq p { color: var(--muted); font-size: .85rem; line-height: 1.6; margin: 10px 0 2px; }
+.help-contact {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 20px; border-radius: 16px; border: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--teal2), transparent);
+}
+.help-contact-t { font-weight: 800; font-size: 1.05rem; }
+.help-contact-d { color: var(--muted); font-size: .85rem; }
+.help-contact-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.help-btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; font-size: .85rem; font-family: var(--font); border: none; cursor: pointer; }
+.help-btn-ghost { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; background: transparent; border: 1px solid var(--border); color: var(--text2); font-weight: 600; font-size: .85rem; font-family: var(--font); cursor: pointer; }
+.help-btn-ghost:hover { border-color: var(--accent); color: var(--text1); }
+@media (max-width: 720px) { .help-grid { grid-template-columns: 1fr; } .help-wrap { padding: 18px 14px 50px; } }
+
 .u-av {
   width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
   background: var(--accent2);
