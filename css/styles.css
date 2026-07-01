@@ -4755,6 +4755,29 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   display:flex; gap:12px; min-height:320px;
   padding:4px 0 8px;
 }
+/* Task list view (Board/List toggle) */
+.os-task-list { padding:4px 0 8px; }
+.os-list-group { margin-bottom:16px; }
+.os-list-group-head {
+  display:flex; align-items:center; gap:8px;
+  font-size:.78rem; font-weight:700; color:var(--text3);
+  text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; padding:0 2px;
+}
+.os-list-row {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+  background:var(--bg2); margin-bottom:6px; cursor:pointer;
+  transition:background .12s, border-color .12s;
+}
+.os-list-row:hover { background:var(--bg3); border-color:var(--border2,var(--border)); }
+.os-list-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; background:var(--text4); }
+.os-list-dot-todo       { background:var(--text4); }
+.os-list-dot-inprogress { background:var(--amber3,#f59e0b); }
+.os-list-dot-review     { background:var(--purple2,#8B82E8); }
+.os-list-dot-done       { background:#22c55e; }
+.os-list-title { flex:1; min-width:0; font-size:.86rem; color:var(--fg); font-weight:500;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.os-list-meta { font-size:.74rem; color:var(--text4); flex-shrink:0; white-space:nowrap; }
 .os-col {
   flex:0 0 230px; display:flex; flex-direction:column;
   background:var(--hover); border-radius:10px; padding:10px;
@@ -7327,19 +7350,32 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .pricing-card  { min-width: unset !important; max-width: 100% !important; }
 }
 
-/* Org chat mobile layout */
+/* Channel-drawer toggle button — desktop hides it (full sidebar always shown) */
+.oc-chan-toggle { display: none; }
+
+/* Org chat mobile layout — retractable channel drawer (Slack-style) */
 @media (max-width: 720px) {
-  .os-pane-chat { flex-direction: column !important; }
+  .os-pane-chat { flex-direction: column !important; position: relative; overflow: hidden; }
+  /* Sidebar becomes an off-canvas drawer that slides in over the chat */
   .oc-sidebar {
-    width: 100% !important; height: 48px; flex-direction: row !important;
-    overflow-x: auto; overflow-y: hidden !important;
-    align-items: center; padding: 0 10px !important; gap: 4px;
-    border-right: none !important; border-bottom: 1px solid var(--border);
+    position: absolute; top: 0; left: 0; bottom: 0; z-index: 41;
+    width: 78%; max-width: 280px; height: auto !important;
+    flex-direction: column !important;
+    overflow-y: auto !important; -webkit-overflow-scrolling: touch;
+    transform: translateX(-100%); transition: transform .22s ease;
+    box-shadow: var(--shadow2); border-right: 1px solid var(--border);
   }
-  .oc-ws-name { display: none; }
-  .oc-section-lbl { display: none; }
-  .oc-ch-item { flex-shrink: 0; white-space: nowrap; padding: 6px 10px; border-radius: 20px; }
-  .oc-ch-item.active { background: var(--teal2); color: var(--teal); }
+  .oc-sidebar.open { transform: translateX(0); }
+  .oc-ws-name, .oc-section-lbl { display: block; }
+  .oc-ch-item, .oc-dm-item { padding: 9px 16px; }   /* bigger tap targets */
+  .oc-drawer-overlay {
+    display: none; position: absolute; inset: 0; z-index: 40;
+    background: rgba(0,0,0,.42);
+  }
+  .oc-drawer-overlay.open { display: block; }
+  .oc-chan-toggle { display: inline-flex !important; }
+  .oc-main  { flex: 1; min-height: 0; }
+  .oc-msgs  { overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
 }
 
 /* Doc editor on mobile — horizontal scroll, not wrap */
@@ -7515,9 +7551,8 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .tb-brand { gap: 6px; }
   .tb-name  { font-size: 13px; }
 
-  /* ── 11. Org chat mobile — horizontal channel bar (override) ─
-     Already set in earlier media query, adding height fix */
-  .oc-sidebar { min-height: 48px !important; max-height: 48px !important; }
+  /* ── 11. Org chat mobile — channel drawer handled in the dedicated
+     media query above (retractable off-canvas sidebar). ── */
   .oc-main    { flex: 1; min-height: 0; }
 
   /* ── 12. Analytics grid — 2 columns on tablet ───────────────── */

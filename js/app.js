@@ -12073,7 +12073,7 @@ async function orgInit() {
 
   orgRenderOverview();
   orgRenderGoals();
-  orgRenderKanban();
+  orgRenderTasks();
   orgRenderProjects();
   orgRenderDocs();
   orgRenderMembers();
@@ -12154,7 +12154,7 @@ async function _orgRefresh() {
   } catch(e) { return; }
   orgRenderOverview();
   orgRenderGoals();
-  orgRenderKanban();
+  orgRenderTasks();
   orgRenderProjects();
   orgRenderDocs();
   orgRenderMembers();
@@ -12276,6 +12276,50 @@ function orgRenderKanban() {
       <button class="os-add-card-btn" onclick="orgAddTaskToCol('${col}')">+ Add task</button>
     </div>`;
   }).join('');
+}
+
+// Board / List toggle (mirrors the personal Flux task views).
+let _ORG_TASK_VIEW = 'board';
+
+function orgSetTaskView(view, btn) {
+  _ORG_TASK_VIEW = view;
+  ['os-task-view-board', 'os-task-view-list'].forEach(id => $(id)?.classList.remove('os-tool-active'));
+  if (btn) btn.classList.add('os-tool-active');
+  const board = $('os-kanban'), list = $('os-task-list');
+  if (board) board.style.display = view === 'board' ? '' : 'none';
+  if (list)  list.style.display  = view === 'list'  ? 'block' : 'none';
+  if (view === 'list') orgRenderTaskList(); else orgRenderKanban();
+}
+
+function orgRenderTaskList() {
+  const wrap = $('os-task-list');
+  if (!wrap) return;
+  if (!ORG_TASKS.length) {
+    wrap.innerHTML = '<div class="os-empty" style="padding:20px 0">No tasks yet — add one to get started.</div>';
+    return;
+  }
+  wrap.innerHTML = ORG_KANBAN_COLS.map(col => {
+    const tasks = ORG_TASKS.filter(t => t.status === col);
+    if (!tasks.length) return '';
+    return `
+    <div class="os-list-group">
+      <div class="os-list-group-head">${ORG_COL_LABELS[col]} <span class="os-col-count">${tasks.length}</span></div>
+      ${tasks.map(t => `
+        <div class="os-list-row" onclick="orgEditTask('${t.id}')">
+          <span class="os-list-dot os-list-dot-${col}"></span>
+          <span class="os-list-title">${escHtml(t.title)}</span>
+          ${t.priority === 'high' ? '<span class="os-task-tag">High</span>' : ''}
+          <span class="os-list-meta">${t.assignee_sid ? escHtml(_orgMemberName(t.assignee_sid)) : ''}</span>
+          <span class="os-list-meta">${t.due_date || ''}</span>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+// Render whichever task view is active (board always kept fresh for quick switch).
+function orgRenderTasks() {
+  orgRenderKanban();
+  if (_ORG_TASK_VIEW === 'list') orgRenderTaskList();
 }
 
 function orgRenderProjects() {
@@ -13046,9 +13090,20 @@ function ocRenameChannel(chId, el) {
   };
 }
 
+// Mobile channel drawer: open/close the retractable sidebar. No arg = toggle.
+function ocToggleChannels(open) {
+  const sb = document.querySelector('.os-pane-chat .oc-sidebar');
+  const ov = $('oc-drawer-overlay');
+  const show = (open === undefined) ? !(sb && sb.classList.contains('open')) : !!open;
+  if (sb) sb.classList.toggle('open', show);
+  if (ov) ov.classList.toggle('open', show);
+}
+
 function ocSwitchChannel(chId) {
   _OC_CHANNEL = chId;
   delete _OC_UNREAD[chId];
+  // On mobile, picking a channel closes the drawer so the messages show.
+  if (window.innerWidth <= 720) ocToggleChannels(false);
 
   // Update header
   const ch = _OC_CHANNELS.find(c => c.id === chId);
@@ -13133,28 +13188,41 @@ function _ocRenderPresenceBar(online) {
     </div>`).join('') + (online.length > 5 ? `<span style="font-size:.68rem;color:var(--text4)">+${online.length - 5}</span>` : '');
 }
 
+let _OC_MSG_CACHE = {};   // {channel: messages[]} — instant re-render on switch
+
+function _ocRenderMsgs(box, msgs) {
+  if (!msgs.length) {
+    box.innerHTML = `<div class="oc-chat-empty">No messages in #${esc(_OC_CHANNEL)} yet.<br>Be the first to say something.</div>`;
+    return;
+  }
+  box.innerHTML = '';
+  let lastAuthor = null;
+  msgs.forEach(m => {
+    box.appendChild(_ocBuildMsg(m, m.author_sid === lastAuthor));
+    lastAuthor = m.author_sid;
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
 async function orgChatRender() {
   const box = $('os-chat-messages');
   if (!box || !ORG) return;
   const token = getToken() || '';
+  const ch = _OC_CHANNEL;
+  // Perceived-perf: paint cached messages instantly, else a loading hint, so the
+  // pane is never a frozen blank while the round-trip is in flight.
+  if (_OC_MSG_CACHE[ch]) _ocRenderMsgs(box, _OC_MSG_CACHE[ch]);
+  else box.innerHTML = `<div class="oc-chat-empty" style="opacity:.55">Loading #${esc(ch)}…</div>`;
   try {
-    const r = await API('/api/org/messages', { token, channel: _OC_CHANNEL });
+    const r = await API('/api/org/messages', { token, channel: ch });
     const msgs = r.messages || [];
+    _OC_MSG_CACHE[ch] = msgs;
+    if (_OC_CHANNEL !== ch) return;   // user switched away while loading
     // Seed the SSE cursor past this history so the live stream only appends NEW messages
     msgs.forEach(m => { if (m.id && m.id > _OC_LAST_ID) _OC_LAST_ID = m.id; });
-    if (!msgs.length) {
-      box.innerHTML = `<div class="oc-chat-empty">No messages in #${esc(_OC_CHANNEL)} yet.<br>Be the first to say something.</div>`;
-      return;
-    }
-    box.innerHTML = '';
-    let lastAuthor = null;
-    msgs.forEach(m => {
-      box.appendChild(_ocBuildMsg(m, m.author_sid === lastAuthor));
-      lastAuthor = m.author_sid;
-    });
-    box.scrollTop = box.scrollHeight;
+    _ocRenderMsgs(box, msgs);
   } catch(_) {
-    box.innerHTML = '<div class="oc-chat-empty">Could not load messages.</div>';
+    if (!_OC_MSG_CACHE[ch]) box.innerHTML = '<div class="oc-chat-empty">Could not load messages.</div>';
   }
 }
 
