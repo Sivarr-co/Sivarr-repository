@@ -8982,7 +8982,13 @@ async def org_join(data: dict, bg: BackgroundTasks):
     invite = db.get_org_invite(invite_token)
     if not invite:
         raise HTTPException(404, "Invite not found or already used.")
-    if invite["expires_at"] < datetime.datetime.utcnow():
+    # expires_at is a tz-aware TIMESTAMPTZ from the DB; comparing it against a
+    # naive utcnow() raises TypeError (offset-naive vs offset-aware) → 500 on
+    # every join. Normalise both to aware-UTC before comparing.
+    _exp = invite["expires_at"]
+    if _exp.tzinfo is None:
+        _exp = _exp.replace(tzinfo=datetime.timezone.utc)
+    if _exp < datetime.datetime.now(datetime.timezone.utc):
         raise HTTPException(410, "This invite link has expired.")
     # Seat enforcement at the authoritative point (covers invites created before the
     # seat limit was hit). Only applies to orgs on a paid seat plan.
