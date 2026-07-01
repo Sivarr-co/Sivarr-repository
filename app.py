@@ -342,7 +342,7 @@ def load_users() -> dict:
 
 def save_users(users: dict):
     """Save users to JSON file and sync to DB."""
-    tmp = str(USERS_PATH) + ".tmp"
+    tmp = str(USERS_PATH) + f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
     with open(tmp, "w") as f:
         json.dump(users, f, indent=2)
     shutil.move(tmp, str(USERS_PATH))
@@ -513,7 +513,7 @@ class RateLimiter:
         """Flush rate limit state to disk."""
         if self._path and self._dirty:
             try:
-                tmp = str(self._path) + ".tmp"
+                tmp = str(self._path) + f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
                 with open(tmp, "w") as f:
                     json.dump(dict(self._counts), f)
                 shutil.move(tmp, str(self._path))
@@ -1767,7 +1767,7 @@ def load_json(p):
 
 
 def save_json(p, data):
-    tmp = str(p) + ".tmp"
+    tmp = str(p) + f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
     with open(tmp, "w") as f:
         json.dump(data, f, indent=2)
     shutil.move(tmp, str(p))
@@ -1985,7 +1985,7 @@ if SENTRY_AVAILABLE and SENTRY_DSN:
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.gzip import GZipMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.datastructures import MutableHeaders
 
 # Register font MIME types — Windows' mimetypes registry doesn't know these, so
 # StaticFiles would otherwise serve the self-hosted Tabler webfont as text/plain.
@@ -2022,18 +2022,35 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Long-lived cache headers for versioned static assets (CSS/JS/static)
-class _StaticCacheMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        path = request.url.path
-        if path.startswith(("/css/", "/js/", "/static/")):
-            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        return response
+#
+# Pure-ASGI (not BaseHTTPMiddleware) is deliberate: BaseHTTPMiddleware pumps the
+# response through a background task + memory stream, and when a client disconnects
+# mid-stream on a StreamingResponse (our SSE chat/announcement endpoints, which hold
+# the connection open for minutes) that task can be cancelled before it ever emits
+# "http.response.start", which surfaces to Starlette as `RuntimeError: No response
+# returned.` — seen repeatedly in Sentry on /api/org/chat/stream. Pure-ASGI middleware
+# just wraps send() and forwards messages through untouched, so it can't trigger it.
+class _StaticCacheMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        cacheable = scope.get("path", "").startswith(("/css/", "/js/", "/static/"))
+
+        async def send_wrapper(message):
+            if cacheable and message["type"] == "http.response.start":
+                MutableHeaders(scope=message)["Cache-Control"] = "public, max-age=31536000, immutable"
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
 
 app.add_middleware(_StaticCacheMiddleware)
 
-# Security headers on every response
-class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+# Security headers on every response (pure-ASGI — see _StaticCacheMiddleware above)
+class _SecurityHeadersMiddleware:
     # NOTE on script-src 'unsafe-inline': the app currently relies on ~1000+ inline
     # event handlers (onclick=, …) and inline <script> blocks, so 'unsafe-inline'
     # cannot be removed without migrating all of them to addEventListener/delegation
@@ -2070,25 +2087,37 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
     # preview iframes (served from /static/templates/). They must NOT be DENY'd.
     _CSP_FRAME_SELF = _CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
 
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        h = response.headers
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        path = scope.get("path", "")
         # /static/templates/ → Templates-library previews.
         # "/" and "/app" → same-origin device-preview harness (static/devices.html).
         # SAMEORIGIN still blocks cross-origin clickjacking (only sivarr.com can frame).
-        framable = (
-            request.url.path.startswith("/static/templates/")
-            or request.url.path in ("/", "/app")
+        framable = path.startswith("/static/templates/") or path in ("/", "/app")
+        is_https = any(
+            k == b"x-forwarded-proto" and v == b"https"
+            for k, v in scope.get("headers", [])
         )
-        h["X-Frame-Options"]           = "SAMEORIGIN" if framable else "DENY"
-        h["X-Content-Type-Options"]    = "nosniff"
-        h["Referrer-Policy"]           = "strict-origin-when-cross-origin"
-        h["Permissions-Policy"]        = "camera=(), microphone=(), geolocation=()"
-        h["Content-Security-Policy"]   = self._CSP_FRAME_SELF if framable else self._CSP
-        # Only send HSTS over HTTPS (Railway always proxies via HTTPS)
-        if request.headers.get("x-forwarded-proto") == "https":
-            h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        return response
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                h = MutableHeaders(scope=message)
+                h["X-Frame-Options"]         = "SAMEORIGIN" if framable else "DENY"
+                h["X-Content-Type-Options"]  = "nosniff"
+                h["Referrer-Policy"]         = "strict-origin-when-cross-origin"
+                h["Permissions-Policy"]      = "camera=(), microphone=(), geolocation=()"
+                h["Content-Security-Policy"] = self._CSP_FRAME_SELF if framable else self._CSP
+                # Only send HSTS over HTTPS (Railway always proxies via HTTPS)
+                if is_https:
+                    h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
 
 app.add_middleware(_SecurityHeadersMiddleware)
 
@@ -6745,7 +6774,7 @@ _exam_results_migrated = False
 _exam_sessions_migrated = False
 
 def _save_json_atomic(path, data):
-    tmp = str(path) + ".tmp"
+    tmp = str(path) + f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
     shutil.move(tmp, str(path))
@@ -9062,7 +9091,9 @@ async def org_task_update(data: dict):
     task_id = sanitize_text(str(data.get("task_id", "")), 40)
     if not task_id: raise HTTPException(400, "task_id required.")
     allowed = {"title", "description", "status", "priority", "assignee_sid", "project_id", "due_date"}
-    updates = {k: sanitize_text(str(v), 2000) for k, v in data.items() if k in allowed}
+    # v can be None (clearing due_date/assignee_sid/project_id) — str(None) would send
+    # the literal "None" to a `date`/uuid column and 500. Pass nulls through untouched.
+    updates = {k: (v if v is None else sanitize_text(str(v), 2000)) for k, v in data.items() if k in allowed}
     db.update_org_task(task_id, updates, org["id"])
     return {"ok": True}
 
@@ -9475,7 +9506,7 @@ High priority: {', '.join([t['title'] for t in high_pri[:3]]) or 'None'}
 Write a 3–5 sentence executive briefing. Be direct and actionable. Highlight risks, wins, and the #1 priority today. No bullet points — flowing prose."""
 
     sessions = get_sessions(sid)
-    briefing = await async_gemini_ask(sessions.get("main", []), context)
+    briefing = await async_gemini_ask(sessions["chat"], context)
     return {"briefing": briefing}
 
 
@@ -10624,6 +10655,39 @@ async def _billing_apply_org_paystack(sid: str, meta: dict, tx: dict, reference:
     return {"ok": True, "org_id": org_id, "subscription": sub}
 
 
+async def _billing_apply_org_flutterwave(sid: str, meta: dict, data: dict, reference: str) -> dict:
+    """Activate an org seat subscription after a verified Flutterwave org payment.
+    Flutterwave amounts are in the major unit (NGN), not kobo."""
+    org_id = meta.get("org_id", "")
+    org = await asyncio.to_thread(db.get_org_by_member, sid) if db.is_available() else None
+    if not org or org.get("id") != org_id or org.get("owner_sid") != sid:
+        raise HTTPException(403, "Only the org owner can activate this subscription.")
+    expected_ngn = int(meta.get("amount_ngn") or 0)
+    try:
+        paid = float(data.get("amount", 0) or 0)
+    except (TypeError, ValueError):
+        paid = 0.0
+    if (data.get("currency") or "").upper() != "NGN" or expected_ngn <= 0 or paid < expected_ngn:
+        log.warning(f"Org FLW verify amount mismatch ref={reference}: paid {paid} need {expected_ngn}")
+        raise HTTPException(400, "Payment amount does not match the seat total.")
+    existing = (org.get("settings") or {}).get("subscription") or {}
+    if existing.get("reference") == reference:
+        return {"ok": True, "org_id": org_id, "idempotent": True, "subscription": existing}
+    seats  = int(meta.get("seats") or await asyncio.to_thread(db.count_org_members, org_id))
+    period = "yearly" if meta.get("period") == "yearly" else "monthly"
+    now    = datetime.datetime.utcnow()
+    expires = (now + datetime.timedelta(days=365 if period == "yearly" else 30)).strftime("%Y-%m-%d")
+    sub = {
+        "name": "Org", "plan": "org_base", "seats": seats, "period": period,
+        "status": "active", "expires": expires, "reference": reference,
+        "gateway": "flutterwave", "activated": now.strftime("%Y-%m-%d"),
+        "amount_ngn": expected_ngn,
+    }
+    await asyncio.to_thread(db.set_org_subscription, org_id, sub)
+    log.info(f"Org billing (FLW): {org_id} → {seats} seats ({period}) expires {expires}")
+    return {"ok": True, "org_id": org_id, "subscription": sub}
+
+
 @app.get("/api/billing/verify/{reference}")
 async def billing_verify(reference: str, token: str = ""):
     """Verify a billing payment and activate the user's subscription."""
@@ -10780,8 +10844,6 @@ async def billing_org_subscribe(data: dict):
     sess = get_session_from_token(data.get("token", ""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
-    if not PAYSTACK_AVAILABLE or not HTTPX_AVAILABLE:
-        raise HTTPException(503, "Paystack not configured.")
     if not db.is_available():
         raise HTTPException(503, "Database unavailable.")
     sid = sess["sid"]
@@ -10801,7 +10863,44 @@ async def billing_org_subscribe(data: dict):
     if total_usd is None:
         raise HTTPException(400, "Orgs with 51+ seats use custom enterprise pricing — contact sales.")
     charge_ngn = int(round(total_usd * get_naira_rate()))
-    email = sess.get("email", "") or load_progress(sid).get("email", "")
+    email   = sess.get("email", "") or load_progress(sid).get("email", "")
+    gateway = "flutterwave" if str(data.get("gateway")) == "flutterwave" else "paystack"
+
+    # ── Flutterwave ──
+    if gateway == "flutterwave":
+        if not FLUTTERWAVE_AVAILABLE or not HTTPX_AVAILABLE:
+            raise HTTPException(503, "Flutterwave not configured.")
+        ref = f"FLWORG-{sid[:8].upper()}-{int(time.time())}"
+        payload = {
+            "tx_ref":       ref,
+            "amount":       str(charge_ngn),
+            "currency":     "NGN",
+            "redirect_url": f"{BASE_URL.rstrip('/')}/app?flw_billing=success&ref={ref}",
+            "customer":     {"email": email or f"user_{sid}@sivarr.com",
+                             "name": load_progress(sid).get("name", "User")},
+            "customizations": {"title": "Sivarr Organisation Plan",
+                               "description": f"{seats} seats · {period}",
+                               "logo": f"{BASE_URL}/static/logo.png"},
+            "meta": {"kind": "org", "org_id": org["id"], "seats": seats,
+                     "period": period, "sid": sid, "amount_ngn": charge_ngn},
+        }
+        try:
+            async with _httpx.AsyncClient(timeout=15) as client:
+                r = await client.post(f"{FLUTTERWAVE_API}/payments", json=payload,
+                    headers={"Authorization": f"Bearer {FLUTTERWAVE_SECRET_KEY}",
+                             "Content-Type": "application/json"})
+            result = r.json()
+        except Exception as exc:
+            log.error(f"Org billing FLW init error: {exc}")
+            raise HTTPException(502, "Flutterwave unreachable.")
+        if result.get("status") != "success":
+            raise HTTPException(400, result.get("message", "Payment init failed"))
+        return {"payment_url": result["data"]["link"], "reference": ref,
+                "seats": seats, "period": period, "amount_ngn": charge_ngn, "gateway": "flutterwave"}
+
+    # ── Paystack (default) ──
+    if not PAYSTACK_AVAILABLE or not HTTPX_AVAILABLE:
+        raise HTTPException(503, "Paystack not configured.")
     reference = f"sivorg_{uuid.uuid4().hex[:16]}"
     payload = {
         "email":        email or f"user_{sid}@sivarr.com",
@@ -10828,7 +10927,8 @@ async def billing_org_subscribe(data: dict):
         raise HTTPException(400, result.get("message", "Paystack error."))
     return {
         "authorization_url": result["data"]["authorization_url"],
-        "reference": reference, "seats": seats, "period": period, "amount_ngn": charge_ngn,
+        "reference": reference, "seats": seats, "period": period,
+        "amount_ngn": charge_ngn, "gateway": "paystack",
     }
 
 
@@ -10878,7 +10978,10 @@ def _load_json_file(path: Path, default):
 
 
 def _save_json_file(path: Path, data):
-    tmp = str(path) + ".tmp"
+    # Unique tmp name per call: with 4 Gunicorn workers sharing this file, a fixed
+    # ".tmp" name lets two processes race — the second one's .replace() fails with
+    # FileNotFoundError because the first already consumed/renamed it away.
+    tmp = str(path) + f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
     Path(tmp).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     Path(tmp).replace(path)
 
@@ -11342,6 +11445,10 @@ async def flutterwave_verify(reference: str, token: str = "", plan_id: str = "")
     if meta.get("sid") and meta.get("sid") != sess["sid"]:
         raise HTTPException(403, "This payment belongs to a different account.")
     sid = sess["sid"]
+
+    # Org seat subscriptions are applied to the org, not the user's personal plan.
+    if meta.get("kind") == "org" and meta.get("org_id"):
+        return await _billing_apply_org_flutterwave(sid, meta, data, reference)
 
     meta_plan = meta.get("plan_id", "")
     plan = SIVARR_PLANS.get(meta_plan)

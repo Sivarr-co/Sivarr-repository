@@ -12444,17 +12444,24 @@ async function orgBilling(period, seats) {
       <div style="padding:14px;border:1px solid var(--border);border-radius:10px;margin-bottom:16px">${priceLine}</div>
       ${custom
         ? `<a class="btn primary" style="width:100%;text-align:center;text-decoration:none" href="mailto:sales@sivarr.com?subject=Enterprise%20plan">Contact sales</a>`
-        : `<button class="btn primary" style="width:100%" onclick="orgBillingSubscribe('${period}', ${n})">Pay ${esc(q.fx?.display_local || q.display_usd)} for ${n} seat${n !== 1 ? 's' : ''} →</button>`}
+        : `<div style="display:flex;flex-direction:column;gap:8px">
+             <button class="btn primary" style="width:100%" onclick="orgBillingSubscribe('${period}', ${n}, 'paystack')">Pay ${esc(q.fx?.display_local || q.display_usd)} for ${n} seat${n !== 1 ? 's' : ''} · Paystack →</button>
+             <button class="btn" style="width:100%" onclick="orgBillingSubscribe('${period}', ${n}, 'flutterwave')">Pay with Flutterwave →</button>
+           </div>`}
       <div style="font-size:.72rem;color:var(--muted);margin-top:10px">Buy seats ahead of inviting — each member takes one seat. You can add more anytime.</div>
     </div>`;
   m.addEventListener('click', e => { if (e.target === m) m.remove(); });
   document.body.appendChild(m);
 }
 
-async function orgBillingSubscribe(period, seats) {
+async function orgBillingSubscribe(period, seats, gateway) {
   try {
-    const r = await API('/api/billing/org/subscribe', { token: getToken(), period: period === 'yearly' ? 'yearly' : 'monthly', seats: seats || 0 });
-    if (r.authorization_url) { window.location.href = r.authorization_url; return; }
+    const r = await API('/api/billing/org/subscribe', {
+      token: getToken(), period: period === 'yearly' ? 'yearly' : 'monthly',
+      seats: seats || 0, gateway: gateway === 'flutterwave' ? 'flutterwave' : 'paystack',
+    });
+    const url = r.authorization_url || r.payment_url;   // Paystack | Flutterwave
+    if (url) { window.location.href = url; return; }
     toast('Could not start checkout.');
   } catch(e) { toast(e.message || 'Could not start checkout.'); }
 }
@@ -17010,6 +17017,12 @@ async function flutterwaveVerify(ref, planId) {
     const d = await r.json();
     if (d.ok) {
       await billingLoadStatus();
+      if (d.org_id) {   // org seat subscription, not a personal plan
+        toast('Organisation plan activated ✓');
+        ['org','orgchat','team','projects'].forEach(_removePaywall);
+        if (typeof orgInit === 'function') orgInit();
+        return;
+      }
       _unlockAfterPayment(d.name || planId || 'Pro');
     }
   } catch(e) {

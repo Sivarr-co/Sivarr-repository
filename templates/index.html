@@ -26,7 +26,7 @@
 <link rel="stylesheet" href="/static/vendor/fonts/plus-jakarta-sans/plus-jakarta-sans.css?v=20260701c">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260701d">
+<link rel="stylesheet" href="/css/styles.css?v=20260701e">
 <!-- Tiptap rich-text editor (self-hosted ESM bundle — keeps CSP tight) -->
 <script type="module">
 import { Editor, StarterKit, Placeholder, Underline } from '/static/vendor/tiptap/tiptap.bundle.js';
@@ -480,9 +480,6 @@ Sentry.onLoad(function() {
           <button class="sb-new-btn sb-quickadd-btn" onclick="nlOpen()" title="Quick add (Alt+A)" data-tip="Quick add" data-tip-pos="bottom" aria-label="Quick add">
             <i class="ti ti-plus"></i>
           </button>
-          <button class="sb-mob-cust-btn" onclick="mobCustOpen()" style="display:none" data-tip="Customize sidebar" data-tip-pos="bottom" aria-label="Customize sidebar">
-            <i class="ti ti-adjustments-horizontal"></i> Customize
-          </button>
           <button class="sb-rail-btn" onclick="sbToggleRail()" title="Collapse sidebar" data-tip="Collapse sidebar" data-tip-pos="bottom" aria-label="Collapse sidebar">
             <i class="ti ti-layout-sidebar-left-collapse" id="sb-rail-icon"></i>
             <i class="ti ti-arrow-left sb-mob-close-icon" style="display:none"></i>
@@ -576,26 +573,83 @@ Sentry.onLoad(function() {
           <i class="ti ti-chevron-right sb-upgrade-caret"></i>
         </button>
 
-        <div class="sb-user-row">
-          <div class="u-av" id="snav-av" onclick="if(window.innerWidth<=720)navMobileMe()">?</div>
-          <div class="u-info" onclick="if(window.innerWidth<=720)navMobileMe()">
-            <div class="u-name" id="snav-name">User</div>
-          </div>
-          <div style="display:flex;gap:2px;flex-shrink:0">
-            <button class="sb-icon-action" onclick="openFeedback()" title="Feedback" data-tip="Feedback" data-tip-pos="top">
-              <i class="ti ti-message-2"></i>
-            </button>
-            <button class="sb-icon-action" onclick="nav('settings',null)" title="Settings" data-tip="Settings" data-tip-pos="top">
-              <i class="ti ti-settings"></i>
-            </button>
-          </div>
-        </div>
+        <button class="sb-help-btn" onclick="nav('help',null)" aria-label="Help and Support">
+          <i class="ti ti-lifebuoy"></i>
+          <span>Help &amp; Support</span>
+        </button>
       </div>
 
     </aside>
 
     <!-- Main -->
     <main class="main">
+
+      <!-- Help & Support -->
+      <div class="panel" id="panel-help">
+        <div class="help-wrap">
+          <div class="help-hero">
+            <div class="help-hero-icon"><i class="ti ti-lifebuoy"></i></div>
+            <h1>How can we help?</h1>
+            <p>Answers, guides, and a direct line to the Sivarr team.</p>
+            <button class="help-search" onclick="cmdOpen()"><i class="ti ti-search"></i> Search Sivarr… <kbd>⌘K</kbd></button>
+          </div>
+
+          <div class="help-grid">
+            <button class="help-card" onclick="nav('home',null)">
+              <div class="help-card-ic" style="background:var(--teal2)"><i class="ti ti-rocket"></i></div>
+              <div class="help-card-t">Getting started</div>
+              <div class="help-card-d">Set up your workspace and take your first action.</div>
+            </button>
+            <button class="help-card" onclick="nav('flux',null)">
+              <div class="help-card-ic" style="background:var(--purple2)"><i class="ti ti-checkbox"></i></div>
+              <div class="help-card-t">Tasks &amp; projects</div>
+              <div class="help-card-d">Create tasks, set priorities, track progress.</div>
+            </button>
+            <button class="help-card" onclick="nav('org',null)">
+              <div class="help-card-ic" style="background:var(--amber2)"><i class="ti ti-users-group"></i></div>
+              <div class="help-card-t">Teams &amp; spaces</div>
+              <div class="help-card-d">Invite members, assign roles, manage seats.</div>
+            </button>
+            <button class="help-card" onclick="showPricing()">
+              <div class="help-card-ic" style="background:var(--green2)"><i class="ti ti-credit-card"></i></div>
+              <div class="help-card-t">Billing &amp; plans</div>
+              <div class="help-card-d">Upgrade, seats, invoices, and payments.</div>
+            </button>
+            <button class="help-card" onclick="nav('settings',null)">
+              <div class="help-card-ic" style="background:var(--teal2)"><i class="ti ti-shield-lock"></i></div>
+              <div class="help-card-t">Account &amp; security</div>
+              <div class="help-card-d">Profile, password, 2FA, and privacy.</div>
+            </button>
+            <button class="help-card" onclick="nav('chat',null)">
+              <div class="help-card-ic" style="background:var(--purple2)"><i class="ti ti-sparkles"></i></div>
+              <div class="help-card-t">Ask Sivarr AI</div>
+              <div class="help-card-d">Get instant answers from your assistant.</div>
+            </button>
+          </div>
+
+          <div class="help-sec">
+            <h2>Frequently asked</h2>
+            <div class="help-faq">
+              <details><summary>How do I invite people to my organisation?</summary><p>Open your Org space → Members → Invite, enter their email and role. They'll get an email plus an in-app notification with a one-click join link.</p></details>
+              <details><summary>How do seats work?</summary><p>Each member takes one seat. Buy seats up front from Org billing (choose any number, volume discounts apply), then invite up to that many members — add more anytime.</p></details>
+              <details><summary>Can I use Sivarr on my phone?</summary><p>Yes. Sivarr is an installable PWA — open it in your mobile browser and choose “Add to Home Screen”.</p></details>
+              <details><summary>Is my data private?</summary><p>Your data is yours. Export everything anytime from Settings → Data &amp; Privacy, and delete your account whenever you like.</p></details>
+              <details><summary>How do I reset my password?</summary><p>On the sign-in screen tap “Forgot password” — we'll email you a one-click reset link that expires in an hour.</p></details>
+            </div>
+          </div>
+
+          <div class="help-contact">
+            <div>
+              <div class="help-contact-t">Still need a hand?</div>
+              <div class="help-contact-d">Our team usually replies within a day.</div>
+            </div>
+            <div class="help-contact-actions">
+              <a class="help-btn-primary" href="mailto:support@sivarr.com?subject=Sivarr%20Support"><i class="ti ti-mail"></i> Email support</a>
+              <button class="help-btn-ghost" onclick="openFeedback()"><i class="ti ti-message-2"></i> Send feedback</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Chat -->
       <div class="panel active" id="panel-chat">
@@ -4552,7 +4606,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260701d" defer></script>
+<script src="/js/app.js?v=20260701e" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 
