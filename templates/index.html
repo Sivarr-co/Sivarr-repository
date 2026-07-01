@@ -23,10 +23,10 @@
 <!-- Resource hints: warm up external origins for faster first paint -->
 <link rel="dns-prefetch" href="https://js.sentry-cdn.com">
 <!-- Plus Jakarta Sans is self-hosted (was fonts.googleapis.com) — no third-party font CDN, tighter CSP, no user-IP leak to Google. -->
-<link rel="stylesheet" href="/static/vendor/fonts/plus-jakarta-sans/plus-jakarta-sans.css?v=20260701a">
+<link rel="stylesheet" href="/static/vendor/fonts/plus-jakarta-sans/plus-jakarta-sans.css?v=20260701b">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260701a">
+<link rel="stylesheet" href="/css/styles.css?v=20260701b">
 <!-- Tiptap rich-text editor (self-hosted ESM bundle — keeps CSP tight) -->
 <script type="module">
 import { Editor, StarterKit, Placeholder, Underline } from '/static/vendor/tiptap/tiptap.bundle.js';
@@ -580,7 +580,6 @@ Sentry.onLoad(function() {
           <div class="u-av" id="snav-av" onclick="if(window.innerWidth<=720)navMobileMe()">?</div>
           <div class="u-info" onclick="if(window.innerWidth<=720)navMobileMe()">
             <div class="u-name" id="snav-name">User</div>
-            <div class="u-role" id="sb-plan-label2">Free</div>
           </div>
           <div style="display:flex;gap:2px;flex-shrink:0">
             <button class="sb-icon-action" onclick="openFeedback()" title="Feedback">
@@ -4545,7 +4544,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260701a" defer></script>
+<script src="/js/app.js?v=20260701b" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

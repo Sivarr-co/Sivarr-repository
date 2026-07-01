@@ -4548,7 +4548,11 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .doc-title-input { font-size: 1.1rem; }
   .brief-card { padding: 24px 20px; }
   .brief-greeting { font-size: 1.3rem; }
-  .chat-prompt-grid { grid-template-columns: 1fr; max-width: 340px; }
+  .chat-prompt-grid { grid-template-columns: repeat(2,1fr); max-width: 360px; gap: 7px; }
+  .chat-prompt-card { padding: 10px 10px 9px; border-radius: 12px; }
+  .cpc-title  { font-size: .76rem; }
+  .cpc-sub    { font-size: .67rem; }
+  .cpc-icon   { font-size: .85rem; margin-bottom: 3px; }
   .chat-welcome-heading { font-size: 1.5rem; }
   .chat-action-pills { gap: 4px; }
   .chat-pill  { font-size: .72rem; padding: 4px 10px; }
@@ -6822,12 +6826,12 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .tb-ham               { display: none !important; }
   .main { padding-bottom: env(safe-area-inset-bottom, 0) !important; }
 
-  /* Hide topbar brand on launcher — sb-header already shows the Sivarr logo below */
-  body:not(.mob-drilled) .tb-brand { display: none !important; }
+  /* Sivarr brand lives in the topbar (always), not duplicated in the sidebar header */
+  .sidebar .sb-ws { display: none !important; }
 
-  /* Show the sidebar header on mobile — it now holds the retract + customize buttons.
-     Hide the desktop-only collapse icon; replace with a close chevron via JS. */
-  .sidebar .sb-header { display: flex !important; padding: 10px 14px 8px; border-bottom: 1px solid var(--border); }
+  /* Show the sidebar header on mobile — it holds the retract + customize buttons.
+     No logo needed here since the topbar already carries the brand. */
+  .sidebar .sb-header { display: flex !important; padding: 10px 14px 8px; border-bottom: 1px solid var(--border); justify-content: flex-end; }
   .sidebar .sb-head-actions { gap: 4px; }
   /* "Collapse rail" icon replaced by back-arrow on mobile */
   #sb-rail-icon { display: none; }
@@ -7102,6 +7106,21 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   /* Tighter, roomier message bubbles — closer reading like Notion */
   .chat-msgs { padding: 16px 14px 12px; gap: 5px; }
   .msg { max-width: 90%; }
+
+  /* Chat bar — hide the inline msg counter on mobile; it takes horizontal space
+     from the textarea making it near-invisible. Counter shown in chat menu. */
+  .chat-msg-counter { display: none; }
+}
+
+/* ── Very small screens (iPhone SE, 375px) ───────────────── */
+@media (max-width: 390px) {
+  #chat-welcome { padding: .75rem 1rem .25rem; }
+  .chat-welcome-orb { width: 48px; height: 48px; border-radius: 14px; margin-bottom: .65rem; }
+  .chat-welcome-orb img { width: 26px; height: 26px; }
+  .chat-welcome-heading { font-size: 1.3rem; margin-bottom: .2rem; }
+  .chat-welcome-sub { font-size: .82rem; margin-bottom: .9rem; }
+  .chat-prompt-card { padding: 9px 8px; }
+  .cpc-icon { display: none; }
 }
 
 /* ── Me mobile panel ── */
