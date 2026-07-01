@@ -23,10 +23,10 @@
 <!-- Resource hints: warm up external origins for faster first paint -->
 <link rel="dns-prefetch" href="https://js.sentry-cdn.com">
 <!-- Plus Jakarta Sans is self-hosted (was fonts.googleapis.com) — no third-party font CDN, tighter CSP, no user-IP leak to Google. -->
-<link rel="stylesheet" href="/static/vendor/fonts/plus-jakarta-sans/plus-jakarta-sans.css?v=20260630j">
+<link rel="stylesheet" href="/static/vendor/fonts/plus-jakarta-sans/plus-jakarta-sans.css?v=20260701a">
 <link rel="stylesheet" href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0">
 <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
-<link rel="stylesheet" href="/css/styles.css?v=20260630j">
+<link rel="stylesheet" href="/css/styles.css?v=20260701a">
 <!-- Tiptap rich-text editor (self-hosted ESM bundle — keeps CSP tight) -->
 <script type="module">
 import { Editor, StarterKit, Placeholder, Underline } from '/static/vendor/tiptap/tiptap.bundle.js';
@@ -623,25 +623,8 @@ Sentry.onLoad(function() {
           </div>
         </div>
 
-        <!-- Agent selector -->
-        <div class="agent-selector" id="agent-selector">
-          <button class="agent-chip active" id="agent-siva" onclick="agentSelect('siva',this)">
-            <i class="ti ti-sparkles"></i> SIVA
-            <span class="agent-chip-badge">Gemini</span>
-          </button>
-          <button class="agent-chip locked" onclick="agentSelectLocked('claude')" title="Coming soon">
-            <i class="ti ti-robot"></i> Claude
-            <span class="agent-chip-badge">Soon</span>
-          </button>
-          <button class="agent-chip locked" onclick="agentSelectLocked('gpt4')" title="Coming soon">
-            <i class="ti ti-brain"></i> GPT-4
-            <span class="agent-chip-badge">Soon</span>
-          </button>
-          <button class="agent-chip locked" onclick="agentSelectLocked('perplexity')" title="Coming soon">
-            <i class="ti ti-search"></i> Perplexity
-            <span class="agent-chip-badge">Soon</span>
-          </button>
-        </div>
+        <!-- Agent selector (hidden — moved into chat-add-menu popover) -->
+        <div class="agent-selector" id="agent-selector" style="display:none"></div>
 
         <div class="chat-msgs" id="msgs">
           <!-- Welcome screen -->
@@ -685,26 +668,53 @@ Sentry.onLoad(function() {
         </div>
 
         <!-- New input bar -->
-        <div class="chat-bar">
+        <div class="chat-bar" id="chat-bar">
+
+          <!-- "+" context menu — AI model picker + attach shortcuts -->
+          <div class="chat-add-menu" id="chat-add-menu">
+            <div class="cam-section">AI Model</div>
+            <div class="cam-models">
+              <button class="cam-model cam-active" id="cam-siva" onclick="agentSelectCam('siva',this)">
+                <i class="ti ti-sparkles"></i>
+                <span>SIVA</span>
+                <small>Gemini</small>
+              </button>
+              <button class="cam-model cam-locked" onclick="agentSelectLocked('claude')">
+                <i class="ti ti-robot"></i>
+                <span>Claude</span>
+                <small>Soon</small>
+              </button>
+              <button class="cam-model cam-locked" onclick="agentSelectLocked('gpt4')">
+                <i class="ti ti-brain"></i>
+                <span>GPT-4</span>
+                <small>Soon</small>
+              </button>
+              <button class="cam-model cam-locked" onclick="agentSelectLocked('perplexity')">
+                <i class="ti ti-search"></i>
+                <span>Perplexity</span>
+                <small>Soon</small>
+              </button>
+            </div>
+            <div class="cam-divider"></div>
+            <div class="cam-section">Attach</div>
+            <div class="cam-actions">
+              <button class="cam-action" onclick="triggerAttach('image');closeChatMenu()">
+                <i class="ti ti-photo"></i> Image
+              </button>
+              <button class="cam-action" onclick="triggerAttach('pdf');closeChatMenu()">
+                <i class="ti ti-file-type-pdf"></i> PDF
+              </button>
+              <button class="cam-action" onclick="triggerAttach('file');closeChatMenu()">
+                <i class="ti ti-paperclip"></i> File
+              </button>
+              <button class="cam-action" onclick="triggerAttach('doc');closeChatMenu()">
+                <i class="ti ti-file-text"></i> Ask from Doc
+              </button>
+            </div>
+          </div>
+
           <!-- Attachment preview strip -->
           <div id="attach-preview" style="display:none;padding:4px 0 2px;gap:8px;flex-wrap:wrap"></div>
-
-          <!-- Pill action row -->
-          <div class="chat-action-pills">
-            <button class="chat-pill" onclick="triggerAttach('image')">
-              <i class="ti ti-photo"></i> Image
-            </button>
-            <button class="chat-pill" onclick="triggerAttach('pdf')">
-              <i class="ti ti-file-type-pdf"></i> PDF
-            </button>
-            <button class="chat-pill" onclick="triggerAttach('file')">
-              <i class="ti ti-paperclip"></i> File
-            </button>
-            <button class="chat-pill" onclick="triggerAttach('doc')">
-              <i class="ti ti-file-text"></i> Ask from Doc
-            </button>
-            <span class="chat-msg-counter" id="chat-msg-counter">20 msgs left today</span>
-          </div>
 
           <!-- Hidden file inputs -->
           <input type="file" id="attach-image-input" style="display:none" accept="image/*" onchange="handleAttach(this,'image')">
@@ -714,8 +724,12 @@ Sentry.onLoad(function() {
 
           <!-- Input row -->
           <div class="chat-input-row">
+            <button class="chat-add-btn" id="chat-add-btn" onclick="toggleChatMenu(event)" title="AI model / attach file">
+              <i class="ti ti-plus"></i>
+            </button>
             <textarea class="chat-input" id="ci" placeholder="Ask Sivarr anything..." rows="1"
               onkeydown="ckd(event)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+            <span class="chat-msg-counter" id="chat-msg-counter"></span>
             <button id="voice-btn" class="chat-icon-btn" onclick="toggleVoice()" title="Voice input">
               <i class="ti ti-microphone"></i>
             </button>
@@ -2142,24 +2156,7 @@ Sentry.onLoad(function() {
             <button class="siva-pill sp-add" onclick="nav('chat',null)">
               <i class="ti ti-sparkles"></i> Ask Sivarr
             </button>
-            <button class="siva-pill" onclick="nav('flux',null)">
-              <i class="ti ti-checkbox"></i> My Tasks
-            </button>
-            <button class="siva-pill" onclick="nav('goals',null)">
-              <i class="ti ti-target"></i> Goals
-            </button>
-            <button class="siva-pill" onclick="nav('finance',null)">
-              <i class="ti ti-wallet"></i> Finance
-            </button>
-            <button class="siva-pill" onclick="nav('skills',null)">
-              <i class="ti ti-atom"></i> Skills
-            </button>
-            <button class="siva-pill" onclick="nav('journal',null)">
-              <i class="ti ti-writing"></i> Journal
-            </button>
-            <button class="siva-pill" onclick="aiTaskExtractor()" title="Paste text, AI extracts your tasks">
-              <i class="ti ti-wand"></i> Extract Tasks
-            </button>
+            <span id="siva-recent-pills"></span>
           </div>
 
           <!-- 4 Stat cards -->
@@ -4548,7 +4545,7 @@ Sentry.onLoad(function() {
     </div>
   </div>
 </div>
-<script src="/js/app.js?v=20260630k" defer></script>
+<script src="/js/app.js?v=20260701a" defer></script>
 <!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
   <button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
 

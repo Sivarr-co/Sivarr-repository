@@ -1573,6 +1573,7 @@ body.offline .layout {
 
 /* ── CHAT BAR ───────────────────────────────────────────────── */
 .chat-bar {
+  position: relative;
   padding: 10px 14px max(16px, env(safe-area-inset-bottom, 16px));
   margin: 0 auto 12px;
   width: calc(100% - 24px);
@@ -1606,13 +1607,70 @@ body.offline .layout {
 .chat-pill i { font-size:.82rem; }
 .chat-pill:hover { border-color:var(--teal); color:var(--teal); background:var(--teal2); transform:translateY(-1px); }
 .chat-msg-counter {
-  margin-left:auto; font-size:.73rem; color:var(--text4); white-space:nowrap;
+  font-size:.73rem; color:var(--text4); white-space:nowrap;
 }
 
 /* Input row */
 .chat-input-row {
-  display:flex; align-items:flex-end; gap:8px;
+  display:flex; align-items:flex-end; gap:6px;
 }
+
+/* ── "+" add button ────────────────────────── */
+.chat-add-btn {
+  flex-shrink:0; width:34px; height:34px; border-radius:10px;
+  border:1px solid var(--border); background:var(--bg3);
+  color:var(--text3); font-size:1.05rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .15s;
+}
+.chat-add-btn:hover,
+.chat-add-btn.open { border-color:var(--teal); color:var(--teal); background:var(--teal2); }
+
+/* ── Chat add menu (popover) ───────────────── */
+.chat-add-menu {
+  position:absolute; bottom:calc(100% + 8px); left:0;
+  min-width:240px; max-width:min(320px, calc(100vw - 32px));
+  background:var(--card); border:1px solid var(--border);
+  border-radius:14px; padding:10px;
+  box-shadow:0 8px 32px rgba(0,0,0,.22);
+  display:none; flex-direction:column; gap:6px;
+  z-index:200;
+}
+.chat-add-menu.open { display:flex; }
+.cam-section {
+  font-size:.62rem; font-weight:700; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--muted); padding:2px 4px 4px;
+}
+.cam-models {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:5px;
+}
+.cam-model {
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:8px 4px; border-radius:10px;
+  border:1px solid var(--border); background:none;
+  cursor:pointer; transition:all .15s; font-family:var(--font);
+}
+.cam-model i { font-size:1rem; color:var(--text2); }
+.cam-model span { font-size:.68rem; font-weight:700; color:var(--text1); }
+.cam-model small { font-size:.58rem; color:var(--muted); }
+.cam-model:hover { border-color:var(--accent); background:var(--accent2)10; }
+.cam-active { background:linear-gradient(135deg,var(--accent),var(--accent2)) !important;
+  border-color:transparent !important; }
+.cam-active i, .cam-active span, .cam-active small { color:#fff !important; }
+.cam-locked { opacity:.5; cursor:default; }
+.cam-divider { height:1px; background:var(--border); margin:2px 0; }
+.cam-actions {
+  display:grid; grid-template-columns:repeat(2,1fr); gap:5px;
+}
+.cam-action {
+  display:flex; align-items:center; gap:7px;
+  padding:8px 10px; border-radius:9px;
+  border:1px solid var(--border); background:none;
+  font-size:.75rem; font-weight:600; color:var(--text2);
+  cursor:pointer; transition:all .15s; font-family:var(--font);
+}
+.cam-action i { font-size:.82rem; }
+.cam-action:hover { border-color:var(--teal); color:var(--teal); background:var(--teal2); }
 .chat-input {
   flex:1; background:transparent; border:none;
   padding:6px 4px;
@@ -1707,6 +1765,7 @@ body.offline .layout {
 
 /* ── CHAT BAR ───────────────────────────────────────────────── */
 .chat-bar {
+  position: relative;
   padding: 10px 16px max(20px, env(safe-area-inset-bottom, 20px));
   margin: 0 auto 32px;
   width: calc(100% - 48px);
@@ -2956,6 +3015,7 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 .siva-pills {
   display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;
 }
+#siva-recent-pills { display:contents; }
 .siva-pill {
   display:inline-flex; align-items:center; gap:5px;
   background:var(--bg2); border:1px solid var(--border);
@@ -5554,7 +5614,25 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .sp-toolbar { padding: 8px 12px; }
   .sp-stat-row { grid-template-columns: repeat(2,1fr); }
   .sp-tabs { padding: 0 10px; }
-  .csp-types { grid-template-columns: 1fr; }
+  /* Modal becomes a bottom-anchored sheet so all content is reachable */
+  .csp-overlay { align-items: flex-end; padding: 0; }
+  .csp-modal   {
+    border-radius: 20px 20px 0 0;
+    max-height: 92dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Keep 3-column grid but shrink the cards to not eat the screen */
+  .csp-types { grid-template-columns: repeat(3,1fr); gap: 7px; }
+  .csp-type  { padding: 10px 6px; gap: 5px; }
+  .csp-type-icon { width: 30px; height: 30px; border-radius: 8px; font-size: .9rem; }
+  .csp-type-name { font-size: .72rem; }
+  .csp-type-desc { display: none; }
+  /* Role cards — keep side-by-side but slimmer */
+  .acad-role-card { padding: 10px 8px; }
+  .acad-role-icon { font-size: 20px; margin-bottom: 3px; }
+  .acad-role-name { font-size: 12px; }
+  .acad-role-desc { font-size: 10px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -6454,6 +6532,11 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
 /* override csp-types inside modal to have horizontal padding */
 #create-space-modal .csp-types  { padding: 0 20px; }
 #create-space-modal #csp-name-row { padding: 0 20px; }
+@media (max-width:600px) {
+  #create-space-modal .csp-types  { padding: 0 14px; }
+  #create-space-modal #csp-name-row { padding: 0 14px; }
+  #create-space-modal #acadRoleStep { padding: 0 14px; }
+}
 #create-space-modal .csp-footer  {
   padding: 14px 20px; border-top: 1px solid var(--border);
   display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px;

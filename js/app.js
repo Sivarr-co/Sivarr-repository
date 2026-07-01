@@ -2692,6 +2692,38 @@ function agentSelectLocked(id) {
   toast(`${labels[id] || id} integration coming soon ✦`);
 }
 
+// ── Chat add-menu ("+" popover) ─────────────────────────────
+function toggleChatMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('chat-add-menu');
+  const btn  = document.getElementById('chat-add-btn');
+  if (!menu) return;
+  const open = menu.classList.toggle('open');
+  if (btn) btn.classList.toggle('open', open);
+  if (open) {
+    const close = (ev) => {
+      if (!menu.contains(ev.target) && ev.target !== btn) {
+        menu.classList.remove('open');
+        if (btn) btn.classList.remove('open');
+        document.removeEventListener('click', close);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', close), 10);
+  }
+}
+function closeChatMenu() {
+  const menu = document.getElementById('chat-add-menu');
+  const btn  = document.getElementById('chat-add-btn');
+  if (menu) menu.classList.remove('open');
+  if (btn)  btn.classList.remove('open');
+}
+function agentSelectCam(id, btn) {
+  _activeAgent = id;
+  document.querySelectorAll('.cam-model').forEach(c => c.classList.remove('cam-active'));
+  if (btn) btn.classList.add('cam-active');
+  closeChatMenu();
+}
+
 async function chatClearConfirm() {
   const ok = await siModal.confirm('Clear this conversation?', { title: 'Clear chat', confirmLabel: 'Clear', danger: true });
   if (!ok) return;
@@ -6542,6 +6574,7 @@ async function loadHome() {
   if (!S.sid) return;
   _recordActivity();
   _buildNotifs();
+  _renderRecentPills();
   gsInit();
 
   const hr        = new Date().getHours();
@@ -9235,6 +9268,7 @@ function sidebarNav(btn) {
 
 // ═══════════════════════════ NAV ════════════════════════════════
 function nav(name, btn) {
+  _pushRecentNav(name);
   if (typeof cmdPushRecent === 'function') cmdPushRecent(name);
   // Leaving the org space — tear down the live SSE + presence (it is kept alive
   // across all org tabs, so only a full nav-away should close it).
@@ -11358,6 +11392,46 @@ function _syncDocsToServer(docs) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, docs }),
   }).catch(() => _queueMutation('/api/docs/sync', { token, docs }));
+}
+
+// ── Recently-visited nav (powers the home "jump back in" pills) ─
+const _NAV_META = {
+  flux:      { i: 'ti-checkbox',       l: 'My Tasks'   },
+  goals:     { i: 'ti-target',         l: 'Goals'      },
+  habits:    { i: 'ti-flame',          l: 'Habits'     },
+  journal:   { i: 'ti-writing',        l: 'Journal'    },
+  calendar:  { i: 'ti-calendar',       l: 'Calendar'   },
+  finance:   { i: 'ti-wallet',         l: 'Finance'    },
+  skills:    { i: 'ti-atom',           l: 'Skills'     },
+  notes:     { i: 'ti-file-text',      l: 'Notes'      },
+  org:       { i: 'ti-building',       l: 'Org Space'  },
+  community: { i: 'ti-users',          l: 'Community'  },
+  templates: { i: 'ti-layout-grid',    l: 'Templates'  },
+  academic:  { i: 'ti-school',         l: 'Academic'   },
+  analytics: { i: 'ti-chart-bar',      l: 'Analytics'  },
+  profile:   { i: 'ti-user',           l: 'Profile'    },
+  quiz:      { i: 'ti-question-mark',  l: 'Quiz'       },
+};
+const _RV_KEY = '_rv';
+function _pushRecentNav(name) {
+  if (!name || name === 'home' || name === 'chat' || !_NAV_META[name]) return;
+  try {
+    let rv = JSON.parse(localStorage.getItem(_RV_KEY) || '[]');
+    rv = [name, ...rv.filter(n => n !== name)].slice(0, 5);
+    localStorage.setItem(_RV_KEY, JSON.stringify(rv));
+  } catch(e) {}
+}
+function _renderRecentPills() {
+  const el = document.getElementById('siva-recent-pills');
+  if (!el) return;
+  try {
+    const rv = JSON.parse(localStorage.getItem(_RV_KEY) || '[]');
+    el.innerHTML = rv.map(name => {
+      const m = _NAV_META[name];
+      if (!m) return '';
+      return `<button class="siva-pill" onclick="nav('${name}',null)"><i class="ti ${m.i}"></i> ${m.l}</button>`;
+    }).join('');
+  } catch(e) {}
 }
 
 // ── Feature usage tracking (fires on every panel navigation) ─
