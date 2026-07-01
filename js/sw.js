@@ -1,4 +1,4 @@
-const CACHE = 'sivarr-v5';
+const CACHE = 'sivarr-v6';
 
 const PRECACHE = [
   '/',
@@ -75,8 +75,11 @@ self.addEventListener('sync', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // Skip non-GET and all API calls
-  if (e.request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
+  // Only handle same-origin GETs. Never intercept cross-origin requests
+  // (Sentry loader, Plausible, Paystack, fonts…): calling fetch() on them from
+  // the SW counts against connect-src CSP and gets blocked, which then breaks
+  // the response (e.g. "Sentry is not defined"). Let the browser load those.
+  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
 
   e.respondWith(
     fetch(e.request)
