@@ -467,18 +467,16 @@ Sentry.onLoad(function() {
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
 
-      <!-- Workspace header -->
+      <!-- Top row: search + customize + collapse (replaces the old workspace logo row) -->
       <div class="sb-header">
-        <div class="sb-ws">
-          <div class="sb-ws-av">
-            <img src="/static/sivarrai.png" alt="Sivarr" style="width:16px;height:16px;object-fit:contain;filter:brightness(0) invert(1)">
-          </div>
-          <span class="sb-ws-name">Sivarr</span>
-        </div>
+        <button class="sb-top-search" onclick="cmdOpen()" aria-label="Search or jump to">
+          <i class="ti ti-search"></i>
+          <span>Search or jump to…</span>
+          <span class="sb-top-kbd">⌘K</span>
+        </button>
         <div class="sb-head-actions">
-          <!-- Desktop: quick-add + collapse (search lives in the top bar). Mobile: retract (goes back) + customize sheet. -->
-          <button class="sb-new-btn sb-quickadd-btn" onclick="nlOpen()" title="Quick add (Alt+A)" data-tip="Quick add" data-tip-pos="bottom" aria-label="Quick add">
-            <i class="ti ti-plus"></i>
+          <button class="sb-rail-btn sb-cust-btn" onclick="mobCustOpen()" title="Customize sidebar" data-tip="Customize sidebar" data-tip-pos="bottom" aria-label="Customize sidebar">
+            <i class="ti ti-adjustments-horizontal"></i>
           </button>
           <button class="sb-rail-btn" onclick="sbToggleRail()" title="Collapse sidebar" data-tip="Collapse sidebar" data-tip-pos="bottom" aria-label="Collapse sidebar">
             <i class="ti ti-layout-sidebar-left-collapse" id="sb-rail-icon"></i>
@@ -489,61 +487,34 @@ Sentry.onLoad(function() {
 
       <div class="sb-scroll">
 
-        <!-- Mobile launcher search (Notion-style; desktop hidden) -->
-        <button class="sb-mob-search" onclick="cmdOpen()" aria-label="Search or jump to">
-          <i class="ti ti-search"></i><span>Search or jump to…</span>
-        </button>
-
-        <!-- Today at a glance -->
-        <div class="sb-today" id="sb-today" role="group" aria-label="Today at a glance">
-          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=flux]'))" title="Tasks due" data-tip="Tasks due today" data-tip-pos="bottom">
-            <span class="sb-today-value" id="sb-today-tasks">0</span>
-            <span class="sb-today-label">Due</span>
-          </button>
-          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=habits]'))" title="Activity streak" data-tip="Activity streak" data-tip-pos="bottom">
-            <span class="sb-today-value sb-today-flame"><i class="ti ti-flame" aria-hidden="true"></i><span id="sb-today-streak">0</span></span>
-            <span class="sb-today-label">Streak</span>
-          </button>
-          <button class="sb-today-stat" onclick="sidebarNav(document.querySelector('[data-panel=calendar]'))" title="Next event" data-tip="Next calendar event" data-tip-pos="bottom">
-            <span class="sb-today-value sb-today-next" id="sb-today-next">—</span>
-            <span class="sb-today-label">Next</span>
-          </button>
-        </div>
-
-
-        <!-- Favorites (permanent core: Sivarr AI / Home / Inbox; rendered by navRenderSidebar) -->
-        <div class="sb-section-row sb-sec-head" onclick="sbSecToggle('sb-favs','favorites')">
-          <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;"><i class="ti ti-chevron-down sb-sec-caret" id="sbcaret-favorites" aria-hidden="true"></i>Favorites</span>
-        </div>
+        <!-- Favorites: Sivarr AI / Home / Inbox — flat, no section label (rendered by navRenderSidebar) -->
         <div class="sb-nav-group" id="sb-favs">
           <!-- rendered by navRenderSidebar() -->
         </div>
 
-        <!-- Work -->
-        <div class="sb-section-row sb-sec-head" onclick="sbSecToggle('sgi-work','work')">
-          <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;"><i class="ti ti-chevron-down sb-sec-caret" id="sbcaret-work" aria-hidden="true"></i>Work</span>
+        <!-- Pinned (merged Work + Life) — flat, no collapse -->
+        <div class="sb-section-row">
+          <span class="sb-section-label" style="margin:0">Pinned</span>
+          <button class="sb-spaces-add" onclick="mobCustOpen()" title="Customize pinned items" data-tip="Customize pinned items" data-tip-pos="right">
+            <i class="ti ti-plus"></i>
+          </button>
         </div>
         <div class="sb-nav-group" id="sgi-work">
           <!-- rendered by navRenderSidebar() -->
-        </div>
-
-        <!-- Life -->
-        <div class="sb-section-row sb-sec-head" onclick="sbSecToggle('sgi-grow','grow')">
-          <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;"><i class="ti ti-chevron-down sb-sec-caret" id="sbcaret-grow" aria-hidden="true"></i>Life</span>
         </div>
         <div class="sb-nav-group" id="sgi-grow">
           <!-- rendered by navRenderSidebar() -->
         </div>
 
-        <!-- Connect -->
-        <div class="sb-section-row sb-sec-head" onclick="sbSecToggle('sgi-connect','connect')">
-          <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;"><i class="ti ti-chevron-down sb-sec-caret" id="sbcaret-connect" aria-hidden="true"></i>Connect</span>
+        <!-- Connect — flat, no collapse -->
+        <div class="sb-section-row">
+          <span class="sb-section-label" style="margin:0">Connect</span>
         </div>
         <div class="sb-nav-group" id="sgi-connect">
           <!-- rendered by navRenderSidebar() -->
         </div>
 
-        <!-- Spaces -->
+        <!-- Spaces — the one dropdown -->
         <div class="sb-section-row sb-spaces-head" id="sb-spaces-head" onclick="spacesToggle()" title="Show/hide spaces">
           <span class="sb-section-label" style="margin:0;display:flex;align-items:center;gap:5px;">
             <i class="ti ti-chevron-down sb-spaces-caret" id="sb-spaces-caret" aria-hidden="true"></i>Spaces
@@ -558,26 +529,25 @@ Sentry.onLoad(function() {
           </div>
         </div>
 
-      </div>
+        <!-- Continuation: Settings / Plans / Help & Support — flat, sits directly under Spaces, no divider, no footer -->
+        <div class="sb-nav-group" style="margin-top:2px">
+          <button class="si" onclick="nav('settings',null)">
+            <div class="si-icon"><i class="ti ti-settings"></i></div>
+            <span class="si-lb">Settings</span>
+          </button>
+          <button class="si" onclick="showPricing()">
+            <div class="si-icon"><i class="ti ti-bolt"></i></div>
+            <span class="si-lb">Plans</span>
+            <span class="si-stat" id="sb-plan-label">Free Plan</span>
+          </button>
+          <button class="si" onclick="nav('help',null)" aria-label="Help and Support">
+            <div class="si-icon"><i class="ti ti-lifebuoy"></i></div>
+            <span class="si-lb">Help &amp; Support</span>
+          </button>
+        </div>
 
-      <!-- Sidebar footer -->
-      <div class="sb-foot">
-        <button class="sb-upgrade-btn" id="sb-upgrade-btn" onclick="showPricing()">
-          <div class="sb-upgrade-left">
-            <div class="sb-upgrade-icon"><i class="ti ti-bolt"></i></div>
-            <div>
-              <div class="sb-upgrade-plan" id="sb-plan-label">Free Plan</div>
-              <div class="sb-upgrade-label" id="sb-upgrade-label">Upgrade Sivarr</div>
-            </div>
-          </div>
-          <i class="ti ti-chevron-right sb-upgrade-caret"></i>
-        </button>
-
-        <button class="sb-help-btn" onclick="nav('help',null)" aria-label="Help and Support">
-          <i class="ti ti-lifebuoy"></i>
-          <span>Help &amp; Support</span>
-        </button>
       </div>
+      <!-- Sidebar ends at Help & Support — no footer -->
 
     </aside>
 
