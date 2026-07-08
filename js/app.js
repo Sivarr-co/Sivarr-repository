@@ -6181,11 +6181,9 @@ function _navRenderSec(hostId, panels) {
   }
 }
 function navRenderSidebar() {
-  const vis = new Set(getNavTabs());
   _navRenderSec('sb-favs',     NAV_CORE);
-  _navRenderSec('sgi-work',    _getSectionOrder('work').filter(p => vis.has(p)));
-  _navRenderSec('sgi-grow',    _getSectionOrder('life').filter(p => vis.has(p)));
-  _navRenderSec('sgi-connect', _getSectionOrder('connect').filter(p => vis.has(p)));
+  // Connect is a fixed, always-visible list (no pin-filtering) — matches the sidebar's flat layout.
+  _navRenderSec('sgi-connect', _getSectionOrder('connect'));
   if (typeof sbRenderStats === 'function') sbRenderStats();
 }
 
@@ -8842,17 +8840,13 @@ function sbToggleRail() {
   if (btn) btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
 }
 
-// ── Mobile sidebar init: swap icons + show customize btn on touch devices ──
+// ── Mobile sidebar init: swap the collapse icon for a back-arrow on touch devices ──
 function _mobSidebarInit() {
   if (window.innerWidth > 720) return;
   const closeIcon = document.querySelector('.sb-mob-close-icon');
   if (closeIcon) closeIcon.style.display = 'inline-block';
   const railIcon = $('sb-rail-icon');
   if (railIcon) railIcon.style.display = 'none';
-  const custBtn = document.querySelector('.sb-mob-cust-btn');
-  if (custBtn) custBtn.style.display = 'inline-flex';
-  const desktopSearch = document.querySelector('.sb-new-btn');
-  if (desktopSearch) desktopSearch.style.display = 'none';
 }
 document.addEventListener('DOMContentLoaded', _mobSidebarInit);
 
@@ -8889,37 +8883,20 @@ function mobCustClose() {
 function _mobCustRender() {
   const body = $('mob-cust-body');
   if (!body) return;
-  const sections = [
-    { key: 'work',    label: 'Work' },
-    { key: 'life',    label: 'Life' },
-    { key: 'connect', label: 'Connect' },
-  ];
-  let html = '';
-  sections.forEach(sec => {
-    html += `<div class="mob-cust-section-label">${sec.label}</div>`;
-    const order = _getSectionOrder(sec.key);
-    order.forEach((panel, idx) => {
-      const t = NAV_TABS[panel]; if (!t) return;
-      const on = isNavTab(panel);
-      const isCore = NAV_CORE.includes(panel);
-      html += `<div class="mob-cust-row" data-panel="${panel}" data-section="${sec.key}" data-idx="${idx}" draggable="true">
-        <span class="mob-cust-handle"><i class="ti ti-grip-vertical"></i></span>
-        <span class="mob-cust-icon"><i class="ti ${t.icon}"></i></span>
-        <span class="mob-cust-label">${t.label}</span>
-        <button class="mob-cust-toggle${on?' on':''}${isCore?' locked':''}"
-          onclick="${isCore?'':` _mobCustToggle('${panel}',this)`}"
-          title="${isCore?'Always shown':on?'Remove':'Add'}"></button>
-      </div>`;
-    });
+  // Connect is the only reorderable section left in the flat sidebar layout
+  // (Favorites is permanent, Watchlist/Spaces have their own controls).
+  const order = _getSectionOrder('connect');
+  let html = `<div class="mob-cust-section-label">Connect</div>`;
+  order.forEach((panel, idx) => {
+    const t = NAV_TABS[panel]; if (!t) return;
+    html += `<div class="mob-cust-row" data-panel="${panel}" data-section="connect" data-idx="${idx}" draggable="true">
+      <span class="mob-cust-handle"><i class="ti ti-grip-vertical"></i></span>
+      <span class="mob-cust-icon"><i class="ti ${t.icon}"></i></span>
+      <span class="mob-cust-label">${t.label}</span>
+    </div>`;
   });
   body.innerHTML = html;
   _mobCustDragInit(body);
-}
-
-function _mobCustToggle(panel, btn) {
-  toggleNavTab(panel);
-  const on = isNavTab(panel);
-  btn.classList.toggle('on', on);
 }
 
 function _mobCustDragInit(body) {
@@ -20302,25 +20279,17 @@ function extKbDel(id) {
   extSave(sid, 'ext-kanban-plus', { cols }); extKbRender();
 }
 
-/* ── Stage 2: collapsible sidebar sections (persisted; Life+Connect collapsed by default) ── */
-function sbSecToggle(groupId, key) {
-  const g = document.getElementById(groupId);
-  if (!g) return;
-  const collapsed = !g.classList.contains('collapsed');
-  g.classList.toggle('collapsed', collapsed);
-  const c = document.getElementById('sbcaret-' + key);
-  if (c) c.classList.toggle('collapsed', collapsed);
-  try { localStorage.setItem('sivarr_sb_' + key, collapsed ? '1' : '0'); } catch (e) {}
-}
+/* ── Sidebar sections (Favorites/Pinned/Connect) are flat and always expanded —
+   no collapsible headers since the sidebar restructure. Clear any stale collapsed
+   state a returning user might have in localStorage from the old collapsible UI. */
 function sbRestoreSections() {
-  const defs = { favorites: '0', work: '0', grow: '1', connect: '1' };  // Life(grow)+Connect collapsed by default
-  [['sb-favs', 'favorites'], ['sgi-work', 'work'], ['sgi-grow', 'grow'], ['sgi-connect', 'connect']].forEach(([gid, key]) => {
-    let v = null; try { v = localStorage.getItem('sivarr_sb_' + key); } catch (e) {}
-    if (v === null) v = defs[key];
-    const collapsed = (v === '1');
-    const g = document.getElementById(gid); if (g) g.classList.toggle('collapsed', collapsed);
-    const c = document.getElementById('sbcaret-' + key); if (c) c.classList.toggle('collapsed', collapsed);
+  ['sb-favs', 'sgi-work', 'sgi-grow', 'sgi-connect'].forEach(gid => {
+    const g = document.getElementById(gid);
+    if (g) g.classList.remove('collapsed');
   });
+  try {
+    ['favorites', 'work', 'grow', 'connect'].forEach(key => localStorage.removeItem('sivarr_sb_' + key));
+  } catch (e) {}
 }
 try { sbRestoreSections(); } catch (e) {}
 

@@ -400,7 +400,6 @@ body.offline .layout {
   /* Push the sidebar nav down + space the tabs out so they sit in the
      thumb-reachable zone instead of crammed at the very top. */
   .sb-scroll      { padding-top: 110px; padding-bottom: 48px; }
-  .sb-today       { margin-bottom: 22px; }
   .si             { padding-top: 12px; padding-bottom: 12px; margin-bottom: 8px; }
   .sb-section-row { padding-top: 26px; padding-bottom: 8px; }
   .sb-nav-group   { margin-bottom: 12px; }
@@ -657,10 +656,9 @@ body.offline .layout {
 
 /* ── Collapsed sidebar (tablet) ─── */
 .sidebar.collapsed { width: 52px; }
-.sidebar.collapsed .sb-today,
-.sidebar.collapsed .si-stat,
-.sidebar.collapsed .sb-ws,
-.sidebar.collapsed .sb-head-actions .sb-new-btn { display: none !important; }
+.sidebar.collapsed .sb-top-search,
+.sidebar.collapsed .sb-cust-btn,
+.sidebar.collapsed .si-stat { display: none !important; }
 .sidebar.collapsed .sb-header { justify-content: center; }
 .sidebar.collapsed .sb-head-actions { width: auto; justify-content: center; }
 .sidebar.collapsed .si-lb, .sidebar.collapsed .sb-section-label,
@@ -668,19 +666,14 @@ body.offline .layout {
 .sidebar.collapsed .sub-nav, .sidebar.collapsed .si-ch,
 .sidebar.collapsed .si-bd, .sidebar.collapsed .sb-spaces,
 .sidebar.collapsed .u-name, .sidebar.collapsed .u-role,
-.sidebar.collapsed .sb-ws-name, .sidebar.collapsed .sb-new-btn,
-.sidebar.collapsed .sb-upgrade-label, .sidebar.collapsed .sb-upgrade-plan,
-.sidebar.collapsed .sb-upgrade-left div, .sidebar.collapsed .sb-icon-action span,
+.sidebar.collapsed .sb-icon-action span,
 .sidebar.collapsed .sb-spaces-add,
 .sidebar.collapsed .si-new-badge, .sidebar.collapsed .si-dot { display: none !important; }
 .sidebar.collapsed .sb-header { padding: 10px 8px; justify-content: center; }
 .sidebar.collapsed .sb-scroll { padding: 8px 6px; }
 .sidebar.collapsed .si  { padding: 8px; justify-content: center; border-radius: 8px; }
 .sidebar.collapsed .si-icon, .sidebar.collapsed .si-ic { margin: 0; }
-.sidebar.collapsed .sb-foot { padding: 8px 6px; }
 .sidebar.collapsed .sb-user-row, .sidebar.collapsed .user-row { padding: 6px; justify-content: center; }
-.sidebar.collapsed .sb-upgrade-btn { justify-content: center; padding: 9px; }
-.sidebar.collapsed .sb-upgrade-caret { display: none; }
 .sidebar.collapsed ~ .main { margin-left: 52px; }
 
 .sidebar.retracted { transform: translateX(calc(-1 * var(--sb-width))); }
@@ -6823,7 +6816,6 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   cursor: pointer; transition: var(--transition);
 }
 .tb-mobback:hover, .tb-mobback:active { background: var(--bg3); color: var(--text1); }
-.sb-mob-search { display: none; }
 
 @media (max-width: 720px) {
 
@@ -6832,12 +6824,9 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .tb-ham               { display: none !important; }
   .main { padding-bottom: env(safe-area-inset-bottom, 0) !important; }
 
-  /* Sivarr brand lives in the topbar (always), not duplicated in the sidebar header */
-  .sidebar .sb-ws { display: none !important; }
-
-  /* Show the sidebar header on mobile — it holds the retract + customize buttons.
+  /* Show the sidebar header on mobile — it holds the search + customize + retract buttons.
      No logo needed here since the topbar already carries the brand. */
-  .sidebar .sb-header { display: flex !important; padding: 10px 14px 8px; border-bottom: 1px solid var(--border); justify-content: flex-end; }
+  .sidebar .sb-header { display: flex !important; padding: 10px 14px 8px; border-bottom: 1px solid var(--border); }
   .sidebar .sb-head-actions { gap: 4px; }
   /* "Collapse rail" icon replaced by back-arrow on mobile */
   #sb-rail-icon { display: none; }
@@ -6865,39 +6854,22 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   /* Make sure collapsed-mode (desktop) never hides launcher content */
   .sidebar.collapsed .si-lb           { display: inline !important; }
   .sidebar.collapsed .si-stat         { display: inline-flex !important; }
+  .sidebar.collapsed .sb-top-search,
+  .sidebar.collapsed .sb-cust-btn,
   .sidebar.collapsed .sb-section-label,
-  .sidebar.collapsed .sb-ws,
-  .sidebar.collapsed .sb-today,
   .sidebar.collapsed .sb-spaces,
   .sidebar.collapsed .u-name,
-  .sidebar.collapsed .u-role,
-  .sidebar.collapsed .sb-upgrade-plan,
-  .sidebar.collapsed .sb-upgrade-label { display: revert !important; }
+  .sidebar.collapsed .u-role { display: revert !important; }
 
   /* — Drilled into a page → launcher slides away, panel is shown — */
   body.mob-drilled .sidebar,
   body.mob-drilled .sidebar.retracted,
   body.mob-drilled .sidebar.collapsed { transform: translateX(-100%) !important; }
 
-  /* — Launcher search field (Notion-style) — */
-  .sb-mob-search {
-    display: flex; align-items: center; gap: 10px; width: 100%;
-    margin: 10px 0 8px; padding: 12px 14px;
-    background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 13px; cursor: pointer;
-    color: var(--text4); font-family: var(--font); font-size: .9rem; font-weight: 500;
-  }
-  .sb-mob-search i { font-size: 1.05rem; }
-
   /* — Launcher: generous edge padding (no edge-hugging) but compact,
        lightweight rows so nothing feels oversized — */
   .sidebar .sb-header  { padding: 12px 18px; }
-  .sidebar .sb-ws-name { font-size: .95rem; }
   .sidebar .sb-scroll  { padding: 6px 18px 32px; }
-
-  .sidebar .sb-today        { padding: 12px 10px; margin: 2px 0 6px; border-radius: 13px; }
-  .sidebar .sb-today-value  { font-size: .85rem; }
-  .sidebar .sb-today-label  { font-size: .6rem; }
 
   .sidebar .si        { padding: 10px 12px; border-radius: 11px; margin-bottom: 3px; gap: 12px; }
   .sidebar .si .si-lb    { font-size: .9rem; font-weight: 500; }
@@ -6911,7 +6883,6 @@ html { font-size: calc(100% * var(--font-scale, 1)); }
   .sidebar .sb-section-label { font-size: 11px; letter-spacing: .09em; }
   .sidebar .sb-nav-group     { margin-bottom: 4px; }
   .sidebar .sb-user-row .u-info { cursor: pointer; }
-  .sidebar .sb-foot { padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0)); }
 
   /* — Topbar back chevron only appears while drilled into a page — */
   body.mob-drilled .tb-mobback { display: flex; }
