@@ -853,26 +853,29 @@ function _applyLoginData(r) {
     renderFileList();
     loadWrong();
 
-    if (localStorage.getItem('sb_retracted') === '1') $('sidebar')?.classList.add('retracted');
+    if (localStorage.getItem('sb_retracted') === '1') {
+      $('sidebar')?.classList.add('retracted');
+      document.body.classList.add('sb-retracted');
+    }
     if (localStorage.getItem('sb_collapsed') === '1') {
       $('sidebar')?.classList.add('collapsed');
       const _ri = $('sb-rail-icon'); if (_ri) _ri.className = 'ti ti-layout-sidebar-left-expand';
     }
     const _postCreate = sessionStorage.getItem('sivarr_post_create');
-    if (_postCreate) {
-      sessionStorage.removeItem('sivarr_post_create');
-      nav(_postCreate, null);
-    } else {
-      nav('home', null);
-    }
-    // On mobile, land on the Notion launcher (home) rather than a drilled page.
-    // Anchor a clean root history entry and start tracking the drill stack.
+    const _landingPanel = _postCreate || 'home';
+    if (_postCreate) sessionStorage.removeItem('sivarr_post_create');
+    nav(_landingPanel, null);
+
+    // Land directly on the panel's content on mobile too (not the launcher) —
+    // same as any other nav destination — with a clean root history entry so
+    // the back button doesn't unwind past the app's actual starting point.
     _mobReady = true;
     if (window.innerWidth <= 720) {
       $('sidebar')?.classList.remove('retracted', 'collapsed', 'mobile-open');
-      _mobStack = [];
-      try { history.replaceState({ sivStack: [] }, ''); } catch (_) {}
-      _mobHomeVisual();
+      _mobStack = [_landingPanel];
+      document.body.classList.add('mob-drilled');
+      try { localStorage.setItem('sb_last_panel', _landingPanel); } catch (_) {}
+      try { history.replaceState({ sivStack: [_landingPanel] }, ''); } catch (_) {}
     }
 
     // Cross-device sync: pull this account's latest data from the server and
@@ -8751,6 +8754,7 @@ function toggleSidebar() {
   const sb = $('sidebar');
   if (!sb) return;
   const retracted = sb.classList.toggle('retracted');
+  document.body.classList.toggle('sb-retracted', retracted);
   localStorage.setItem('sb_retracted', retracted ? '1' : '0');
 }
 
@@ -9256,6 +9260,9 @@ function nav(name, btn) {
   if (p) p.classList.add('active');
   if (btn) btn.classList.add('active');
   const mob = document.getElementById(`mn-${name}`); if (mob) mob.classList.add('active');
+  // Desktop: the topbar is only shown on Home — every other panel gets the full
+  // viewport height back. (Mobile keeps its own drill-down header handling.)
+  document.body.classList.toggle('hide-topbar', name !== 'home');
   // Mobile (Notion shell): navigating to a real panel drills in full-screen.
   // The launcher (sidebar) slides away and the topbar back chevron appears.
   if (p && window.innerWidth <= 720) {

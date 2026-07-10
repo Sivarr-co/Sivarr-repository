@@ -928,7 +928,16 @@
       <div class="layout">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
-          <!-- Top row: search + customize + collapse (replaces the old workspace logo row) -->
+          <!-- Brand (desktop only — sidebar is full-height now, so it carries the
+               logo/name that used to live in the topbar; mobile keeps it in the topbar) -->
+          <div class="sb-brand">
+            <div class="tb-logo">
+              <img src="/static/sivarrai.png" alt="Sivarr" />
+            </div>
+            <span class="sb-brand-name">Sivarr</span>
+          </div>
+
+          <!-- Top row: search + customize + collapse -->
           <div class="sb-header">
             <button
               class="sb-top-search"

@@ -232,6 +232,25 @@ body.offline .layout {
 }
 .tb-name span { color: var(--teal); }
 
+/* Desktop: the sidebar now carries the brand (full-height sidebar, topbar scoped
+   to the main content area) — hide the topbar's duplicate brand and narrow the
+   topbar to start after the sidebar. Mobile keeps the topbar brand (tap = home). */
+@media (min-width: 721px) {
+  .tb-brand { display: none; }
+  .topbar   { left: var(--sb-width); }
+  /* Sidebar retracted → nothing to its left, topbar reclaims the full width
+     and brings the brand back (it just scrolled off-screen with the sidebar) */
+  body.sb-retracted .topbar   { left: 0; }
+  body.sb-retracted .tb-brand { display: flex; }
+}
+
+/* Desktop: topbar only shows on Home — everywhere else gets the full height
+   back. Mobile keeps its own drill-down header (back chevron), untouched. */
+@media (min-width: 721px) {
+  body.hide-topbar .topbar { display: none; }
+  body.hide-topbar .layout { padding-top: 0; }
+}
+
 .tb-center { flex: 1; max-width: 520px; }
 
 .tb-search {
@@ -413,6 +432,25 @@ body.offline .layout {
   display: flex; flex-direction: column; overflow: hidden;
   position: fixed; top: var(--topbar-h); bottom: 0; left: 0; z-index: 90;
   transition: transform .25s cubic-bezier(.4,0,.2,1), width .2s;
+}
+/* Desktop: sidebar runs the full viewport height (its own brand row replaces
+   the topbar row it used to sit under); the topbar is scoped to .main instead. */
+@media (min-width: 721px) {
+  .sidebar { top: 0; }
+}
+
+/* ── Brand row (desktop only — mobile keeps the brand in the topbar) ─── */
+.sb-brand {
+  display: flex; align-items: center; gap: 9px;
+  padding: 12px 12px 6px; flex-shrink: 0;
+}
+.sb-brand-name {
+  font-family: var(--font-display);
+  font-size: 16px; font-weight: 800; color: var(--text1);
+  letter-spacing: -.03em; white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .sb-brand { display: none; }
 }
 
 /* ── Top row: search + customize + collapse ─── */
