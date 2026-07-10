@@ -13886,14 +13886,17 @@ function spaceRenderSidebar() {
     saveSpaces(spaces);
   }
 
-  // Dot colour per type
-  const dotColor = { personal:'#185FA5', academic:'#EF9F27', org:'var(--teal)', default:'var(--purple)' };
+  // Dot colour + type label per space type
+  const dotColor  = { personal:'#185FA5', academic:'#EF9F27', org:'var(--teal)', default:'var(--purple)' };
+  const typeLabel = { personal:'You', academic:'Academic', org:'Org' };
 
   list.innerHTML = spaces.map(sp => {
     const col = dotColor[sp.type] || dotColor.default;
+    const meta = typeLabel[sp.type] || '';
     return `<button class="si sp-si" id="sb-space-row-${sp.id}" data-tip="${sp.name}" data-tip-pos="right" onclick="openSpace('${sp.id}')">
       <span class="si-ic sp-si-dot" style="color:${col};font-size:10px">●</span>
       <span class="si-lb">${sp.name}</span>
+      ${meta ? `<span class="si-stat">${meta}</span>` : ''}
       <span class="sb-space-more" onclick="event.stopPropagation();spMoreMenu('${sp.id}',this)" title="Options">
         <i class="ti ti-dots-vertical" style="font-size:12px;color:var(--text4)"></i>
       </span>
