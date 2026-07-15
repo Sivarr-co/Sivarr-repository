@@ -34,6 +34,9 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 
+# ── Jinja2 template engine ──
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
@@ -1952,6 +1955,21 @@ _START_TIME    = time.time()
 _health_cache: dict = {"result": None, "ts": 0.0}
 _db_health_cache: dict = {"info": None, "ts": 0.0}
 
+# ── Jinja2 template environment (lazy-loaded) ──
+_JINJA_ENV = None
+
+def _get_jinja_env():
+    global _JINJA_ENV
+    if _JINJA_ENV is None:
+        _JINJA_ENV = Environment(
+            loader=FileSystemLoader("templates"),
+            autoescape=select_autoescape(["html", "xml"]),
+            enable_async=False,
+        )
+    return _JINJA_ENV
+
+# ── Cached HTML for production ──
+_APP_HTML_CACHE: str | None = None
 
 async def _cached_db_test(max_age: float = 5.0) -> dict:
     """Live DB ping (db.db_test) cached for `max_age` seconds so frequent
@@ -2791,33 +2809,34 @@ async def privacy():
     raise HTTPException(404, "Privacy page not found")
 
 
-_APP_HTML_CACHE: str | None = None
-
-
-def _build_app_html() -> str:
-    """Read the SPA template and inject static runtime config."""
-    html = Path("templates/index.html").read_text(encoding="utf-8")
-    config = json.dumps({
-        "sentry_dsn":       SENTRY_DSN,
-        "paystack_pk":      PAYSTACK_PUBLIC_KEY,
-        "version":          VERSION,
-        "environment":      os.environ.get("RAILWAY_ENVIRONMENT", "production"),
-        "plausible_domain": PLAUSIBLE_DOMAIN,
-    })
-    inject = f'<script>window.SIVARR_CONFIG={config};</script>'
-    return html.replace('<meta charset="UTF-8">', f'<meta charset="UTF-8">\n{inject}', 1)
-
-
 def _serve_app() -> HTMLResponse:
-    """Return the main SPA HTML. The injected config is all static (env-derived
-    at startup), so the templated HTML is built once and cached in memory —
-    avoids re-reading 288 KB from disk + replace() on every /app request.
-    Dev re-reads each time so template edits show without a restart."""
+    """Return the main SPA HTML rendered via Jinja2 (cached in production)."""
     global _APP_HTML_CACHE
+    
+    # Development: always re-render so template edits show immediately
     if os.environ.get("RAILWAY_ENVIRONMENT", "production") == "development":
-        return HTMLResponse(_build_app_html())
+        env = _get_jinja_env()
+        config = json.dumps({
+            "sentry_dsn":       SENTRY_DSN,
+            "paystack_pk":      PAYSTACK_PUBLIC_KEY,
+            "version":          VERSION,
+            "environment":      os.environ.get("RAILWAY_ENVIRONMENT", "production"),
+            "plausible_domain": PLAUSIBLE_DOMAIN,
+        })
+        html = env.get_template("index.html").render(config=config)
+        return HTMLResponse(html)
+    
+    # Production: cached rendering (one render per worker, re-uses cached result)
     if _APP_HTML_CACHE is None:
-        _APP_HTML_CACHE = _build_app_html()
+        env = _get_jinja_env()
+        config = json.dumps({
+            "sentry_dsn":       SENTRY_DSN,
+            "paystack_pk":      PAYSTACK_PUBLIC_KEY,
+            "version":          VERSION,
+            "environment":      os.environ.get("RAILWAY_ENVIRONMENT", "production"),
+            "plausible_domain": PLAUSIBLE_DOMAIN,
+        })
+        _APP_HTML_CACHE = env.get_template("index.html").render(config=config)
     return HTMLResponse(_APP_HTML_CACHE)
 
 
@@ -7715,7 +7734,7 @@ def _calc_goal_progress(g: dict) -> int:
     if not krs:
         return g.get("progress", 0)
     pcts = [min(100.0, (kr["current"] / max(0.01, kr["target"])) * 100) for kr in krs]
-    return round(sum(pcts) / len(pcts))
+    return round(sum(pcts) / len(krs))
 
 
 @app.post("/api/goals/kr/add")
@@ -8898,7 +8917,7 @@ async def org_member_remove(data: dict):
     target = sanitize_text(str(data.get("sid", "")), 40)
     if target == sid:
         raise HTTPException(400, "You can't remove yourself.")
-    tgt = next((m for m in db.get_org_members(org["id"]) if _org_member_sid(m) == target), None)
+    tgt = next((m for m in db.get_org_members(org["id]) if _org_member_sid(m) == target), None)
     if not tgt:
         raise HTTPException(404, "Member not found.")
     trole = tgt.get("role", "member")

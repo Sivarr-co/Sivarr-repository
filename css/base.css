@@ -1,0 +1,255 @@
+/* ═══════════════════════════════════════════════════════════════
+   Sivarr — base.css
+   Design tokens · dark/light theme · reset · global animations · boot loader
+   Split from styles.css (Path A restructure)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── DESIGN TOKENS ─────────────────────────────────────────── */
+:root {
+  /* Brand palette */
+  --teal:    #0D7A5F; --teal2: #E6F5F0; --teal3: #5DCAA5; --teal4: #085041;
+  --purple:  #534AB7; --purple2: #EEEDFE; --purple3: #3C3489;
+  --coral:   #E8614A; --coral2: #FDF0ED; --coral3: #993C1D;
+  --amber:   #854F0B; --amber2: #FEF6E4; --amber3: #EF9F27;
+  --green:   #3B6D11; --green2: #EAF3DE; --green3: #059669;
+  --red:     #A32D2D; --red2:   #FCEBEB; --red3:   #E24B4A;
+  --blue:    #185FA5; --blue2:  #E6F1FB;
+  --pink:    #993556; --pink2:  #FBEAF0;
+
+  /* Surfaces — light mode */
+  --bg:   #F9FAFB;
+  --bg2:  #FFFFFF;
+  --bg3:  #F2F4F7;
+  --sidebar-bg:     #F7F8FA;
+  --sidebar-border: #E8EAED;
+
+  /* Text — light mode */
+  --text1: #0D1117; --text2: #374151; --text3: #6B7280; --text4: #9CA3AF;
+
+  /* Borders & shadows */
+  --border:  #E5E7EB; --border2: #D1D5DB;
+  --shadow:  0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow2: 0 4px 16px rgba(0,0,0,.08);
+  --shadow3: 0 8px 32px rgba(0,0,0,.12);
+  --glow-teal:   0 0 20px rgba(13,122,95,.25);
+  --glow-purple: 0 0 20px rgba(83,74,183,.25);
+
+  /* Shape */
+  --radius:  9px; --radius2: 14px; --radius3: 18px;
+  --font-scale: 1;
+  --sb-width: 256px; --topbar-h: 54px;
+
+  /* Typography */
+  --font:         'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-display: 'Plus Jakarta Sans', -apple-system, sans-serif;
+
+  /* Motion */
+  --transition: all 0.16s cubic-bezier(.4, 0, .2, 1);
+  --spring:     all 0.28s cubic-bezier(.34, 1.56, .64, 1);
+
+  /* AI gradient */
+  --ai-grad: linear-gradient(135deg, #0D7A5F 0%, #534AB7 100%);
+  --ai-glow: 0 0 32px rgba(13,122,95,.3), 0 0 12px rgba(83,74,183,.2);
+
+  /* Legacy compat */
+  --accent: #0D7A5F; --accent2: #534AB7;
+  --surface: var(--bg2); --card: var(--bg2);
+  --text: var(--text1); --muted: var(--text3); --muted2: var(--text4);
+  --yellow: var(--amber3); --fg: var(--text1);
+}
+
+/* ── DARK MODE — Warm Charcoal palette ─────────────────────── */
+[data-theme="dark"] {
+  --bg:  #1C1C1C;
+  --bg2: #242424;
+  --bg3: #2E2E2E;
+  --sidebar-bg:     #161616;
+  --sidebar-border: #2A2A2A;
+  --border:  #2E2E2E; --border2: #3A3A3A;
+
+  --text1: #F4F3F1; --text2: #C0BDB9; --text3: #7A7672; --text4: #54514E;
+
+  --shadow:  0 1px 4px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.4);
+  --shadow2: 0 4px 20px rgba(0,0,0,.6);
+  --shadow3: 0 12px 40px rgba(0,0,0,.7);
+
+  --teal:    #0FDBAD;
+  --teal2:   rgba(15,219,173,.1);
+  --teal3:   rgba(15,219,173,.2);
+  --teal4:   #0AB58F;
+  --purple:  #8B80F0;
+  --purple2: rgba(139,128,240,.12);
+  --purple3: #6458CC;
+
+  --green3:  #34D399;
+  --red3:    #F87171;
+  --amber3:  #FBBF24;
+
+  --coral2: rgba(232,97,74,.1); --amber2: rgba(239,159,39,.1);
+  --green2: rgba(59,109,17,.12); --red2:   rgba(163,45,45,.1);
+  --blue2:  rgba(24,95,165,.1); --pink2:  rgba(153,53,86,.1);
+
+  --ai-grad: linear-gradient(135deg, #0FDBAD 0%, #8B80F0 100%);
+  --ai-glow: 0 0 32px rgba(15,219,173,.25), 0 0 12px rgba(139,128,240,.2);
+  --glow-teal:   0 0 20px rgba(15,219,173,.3);
+  --glow-purple: 0 0 20px rgba(139,128,240,.3);
+
+  --surface: var(--bg2); --card: var(--bg2);
+  --text: var(--text1); --muted: var(--text3); --muted2: var(--text4);
+  --fg: var(--text1);
+}
+
+/* ── BASE ──────────────────────────────────────────────────── */
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text2);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+body.dashboard-active { overflow: hidden; }
+
+/* Premium scrollbars */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text4); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); }
+
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: var(--font); }
+input, textarea, select { font-family: var(--font); }
+
+h1,h2,h3,.panel-title,.section-title,
+.vh-title,.card-title,.h-card-title,.h-stat-val,
+.chat-header-name,.siva-brief-name {
+  font-family: var(--font-display);
+}
+
+::selection { background: rgba(13,122,95,.25); color: var(--text1); }
+[data-theme="dark"] ::selection { background: rgba(15,219,173,.2); }
+
+:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 4px; }
+
+/* ── GLOBAL ANIMATIONS ─────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.ai-shimmer {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg2) 50%, var(--bg3) 75%);
+  background-size: 200% auto;
+  animation: shimmer 1.5s linear infinite;
+  border-radius: var(--radius);
+}
+@keyframes toastIn {
+  from { opacity:0; transform:translateX(-50%) translateY(10px); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0); }
+}
+@keyframes ctxMenuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes si-modal-in {
+  from { opacity:0; transform:translateY(10px) scale(.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes mob-sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ── BOOT LOADER — the Sivarr mark IS the loader ─────────────
+   Self-drawing SVG logo + teal shimmer while the app boots.
+   ═══════════════════════════════════════════════════════════ */
+#siv-boot {
+  position: fixed; inset: 0; z-index: 100000;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg, #ffffff);
+  transition: opacity .5s ease;
+}
+#siv-boot.hide { opacity: 0; pointer-events: none; }
+.siv-boot-stage { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.siv-boot-svg {
+  width: 104px; height: 104px; overflow: visible;
+  filter: drop-shadow(0 0 9px rgba(13,122,95,.4));
+  animation: sivBootBreathe 2.8s ease-in-out infinite;
+}
+.sb-draw {
+  fill: none; stroke: var(--teal, #0D7A5F);
+  stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  animation: sivDraw 2.6s ease-in-out infinite;
+}
+.sb-frame { stroke-width: 4; animation-delay: 0s; }
+.sb-s1    { stroke-width: 9; animation-delay: .42s; }
+.sb-s2    { stroke-width: 9; animation-delay: .66s; }
+@keyframes sivDraw {
+  0%   { stroke-dashoffset: 1;  opacity: 1; }
+  40%  { stroke-dashoffset: 0;  opacity: 1; }
+  72%  { stroke-dashoffset: 0;  opacity: 1; }
+  92%  { stroke-dashoffset: -1; opacity: 1; }
+  100% { stroke-dashoffset: -1; opacity: 0; }
+}
+@keyframes sivBootBreathe {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 2px rgba(13,122,95,.25)); }
+  50%      { transform: scale(1.07); filter: drop-shadow(0 0 18px rgba(13,122,95,.55)); }
+}
+.siv-boot-word {
+  font-family: var(--font-display, inherit);
+  font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  font-size: .78rem; color: var(--text3, #888);
+  animation: sivBootWord 2.6s ease-in-out infinite;
+}
+@keyframes sivBootWord { 0%, 100% { opacity: .25; } 50% { opacity: .7; } }
+@media (prefers-reduced-motion: reduce) {
+  .siv-boot-svg { animation: none; }
+  .sb-draw { animation: none; stroke-dashoffset: 0; }
+}
+
+/* Mini Sivarr-logo shimmer loader — reused across modals/spinners */
+@keyframes sivMiniSweep { 0% { background-position:150% 0; } 100% { background-position:-150% 0; } }
+@keyframes sivMiniPulse { 0%,100% { opacity:.85; transform:scale(1); } 50% { opacity:1; transform:scale(1.08); } }
+@media (prefers-reduced-motion: reduce) {
+  .tpl-spinner, .ag-spinner, .ps-spin { animation: sivMiniPulse 2s ease-in-out infinite; }
+}
+
+/* ── THEME TRANSITION ─────────────────────────────────────────
+   Smooth colour transition when toggling dark/light mode */
+body.theme-transitioning,
+body.theme-transitioning *,
+body.theme-transitioning *::before,
+body.theme-transitioning *::after {
+  transition:
+    background-color .25s ease,
+    border-color .25s ease,
+    color .15s ease,
+    box-shadow .25s ease !important;
+}
+
+/* ── DENSITY: Compact tightens vertical rhythm across the app ── */
+[data-density="compact"] body { line-height:1.4; }
+
+/* ── Font-scale (Settings → Appearance → Text size) ─────────── */
+html { font-size: calc(100% * var(--font-scale, 1)); }

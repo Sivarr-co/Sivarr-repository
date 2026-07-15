@@ -1,0 +1,1217 @@
+/* ═══════════════════════════════════════════════════════════════
+   Sivarr — Mobile CSS v5
+   All remaining @media overrides for panels and content.
+   Shell/login mobile styles already live in layout.css.
+   Depends on base.css and panels.css.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Tablet · 900px ─────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .g3l,
+  .g3r {
+    grid-template-columns: 1fr;
+  }
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+  .h-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .h2col {
+    grid-template-columns: 1fr;
+  }
+  .org-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .opp-grid {
+    grid-template-columns: 1fr;
+  }
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Academic space */
+  .acad-metric-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .acad-split-3 {
+    grid-template-columns: 1fr;
+  }
+  .acad-ai-tutor-layout {
+    grid-template-columns: 1fr;
+  }
+  .acad-research-layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* Org space */
+  .os-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .os-grid2 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Personal space */
+  .sp-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .sp-grid2 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Marketplace */
+  .ag-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ag-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .ag-featured {
+    grid-template-columns: 1fr;
+  }
+  .ag-feat-thumb {
+    min-height: 100px;
+  }
+
+  /* Agents */
+  .ag-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Paystack */
+  .ps-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ps-stat-row-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Analytics */
+  .analytics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Skills */
+  .sk-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Finance */
+  .fin-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Mobile · 720px ─────────────────────────────────────────── */
+@media (max-width: 720px) {
+  /* ── Universal panel max-width reset ────────────────────── */
+  :root {
+    --panel-max: 9999px;
+    --chat-max: 9999px;
+  }
+
+  /* ── Topbar ──────────────────────────────────────────────── */
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .tb-brand {
+    width: auto;
+  }
+  .tb-center {
+    display: none;
+  }
+  .tb-ham {
+    display: flex;
+  }
+
+  /* ── Sidebar mobile state ────────────────────────────────── */
+  .sidebar {
+    transform: translateX(calc(-1 * var(--sb-width)));
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: var(--shadow2);
+  }
+  .main {
+    margin-left: 0 !important;
+  }
+  .overlay {
+    display: block;
+  }
+
+  /* ── Grids ────────────────────────────────────────────────── */
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .g2 {
+    grid-template-columns: 1fr;
+  }
+  .view-head {
+    padding: 0 14px;
+  }
+
+  /* ── Reset ALL centering on mobile — full width with small padding ── */
+  .home-wrap,
+  .habits-wrap,
+  .journal-wrap,
+  .community-wrap,
+  .library-wrap,
+  .quiz-wrap,
+  .stats-wrap,
+  .ask-notes-panel,
+  .quizzes-wrap,
+  .inbox-wrap {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* ── Calendar: drop side rail ────────────────────────────── */
+  .cal-rail {
+    display: none;
+  }
+  .cal-main-hd {
+    padding: 12px 14px;
+    flex-wrap: wrap;
+  }
+  .cal-range {
+    min-width: 0;
+    font-size: 0.95rem;
+  }
+  .cal-month-view {
+    padding: 12px 14px;
+  }
+
+  /* ── Settings ────────────────────────────────────────────── */
+  #panel-settings,
+  #panel-goals,
+  #panel-progress {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  #panel-settings > div,
+  #panel-goals > div,
+  #panel-progress > div {
+    max-width: 100% !important;
+  }
+
+  /* ── Various panels ──────────────────────────────────────── */
+  #panel-courses > div:last-child,
+  #panel-lab > div:last-child,
+  #panel-announcements > div:last-child,
+  #panel-studyplan > div:last-child,
+  #panel-contenthub > div:last-child {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  #panel-templates .tpl-scroll {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .content {
+    padding: 14px !important;
+  }
+
+  /* ── Chat ────────────────────────────────────────────────── */
+  .chat-msgs {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  #chat-welcome {
+    max-width: 100%;
+  }
+
+  /* ── Settings sub-nav ────────────────────────────────────── */
+  .st-layout {
+    flex-direction: column;
+    padding: 14px 16px;
+    gap: 14px;
+  }
+  .st-subnav {
+    width: auto;
+    flex-direction: row;
+    overflow-x: auto;
+    position: static;
+    gap: 6px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .st-subnav-item {
+    width: auto;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .st-content {
+    overflow-y: visible;
+  }
+  .st-wheel,
+  .st-light-slider {
+    width: 160px;
+  }
+  .st-wheel {
+    height: 160px;
+  }
+
+  /* ── Org space ────────────────────────────────────────────── */
+  .os-hero {
+    padding: 10px 12px !important;
+    gap: 10px;
+  }
+  .os-stat {
+    padding: 10px 12px !important;
+  }
+  .os-stat-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .os-scroll {
+    padding: 12px !important;
+  }
+  .os-card {
+    padding: 12px !important;
+  }
+  .os-grid2 {
+    grid-template-columns: 1fr !important;
+  }
+  .os-tabs {
+    padding: 0 8px !important;
+    gap: 0 !important;
+  }
+  .os-tab {
+    padding: 10px 10px !important;
+    font-size: 0.75rem !important;
+    min-height: 44px;
+  }
+
+  /* ── Org chat: retractable channel drawer ──────────────────── */
+  .os-pane-chat {
+    flex-direction: column !important;
+    position: relative;
+    overflow: hidden;
+  }
+  .oc-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 41;
+    width: 78%;
+    max-width: 280px;
+    height: auto !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: var(--shadow2);
+    border-right: 1px solid var(--border);
+  }
+  .oc-sidebar.open {
+    transform: translateX(0);
+  }
+  .oc-ws-name,
+  .oc-section-lbl {
+    display: block;
+  }
+  .oc-ch-item,
+  .oc-dm-item {
+    padding: 9px 16px;
+  }
+  .oc-drawer-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.42);
+  }
+  .oc-drawer-overlay.open {
+    display: block;
+  }
+  .oc-chan-toggle {
+    display: inline-flex !important;
+  }
+  .oc-main {
+    flex: 1;
+    min-height: 0;
+  }
+  .oc-msgs {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Personal space ────────────────────────────────────────── */
+  .sp-hero {
+    padding: 12px 14px 10px;
+    gap: 10px;
+  }
+  .sp-hero-actions {
+    display: flex !important;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .sp-hero-actions .btn-lbl {
+    display: none;
+  }
+  .sp-hero-actions .sp-btn-ghost,
+  .sp-hero-actions .sp-btn-primary {
+    padding: 7px 9px;
+  }
+  .sp-scroll {
+    padding: 12px 14px;
+  }
+  .sp-toolbar {
+    padding: 8px 12px;
+  }
+  .sp-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .sp-tabs {
+    padding: 0 10px;
+  }
+
+  /* ── Academic space ────────────────────────────────────────── */
+  .acad-topbar {
+    padding: 10px 0 8px;
+  }
+  .acad-welcome-banner {
+    padding: 16px 18px;
+  }
+  .acad-welcome-headline {
+    font-size: 14px;
+  }
+  .acad-welcome-sub {
+    font-size: 10.5px;
+  }
+  .acad-metric-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .acad-split {
+    grid-template-columns: 1fr;
+  }
+  .acad-kanban {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* ── Marketplace / Agents ──────────────────────────────────── */
+  .ag-topbar {
+    padding: 0 12px;
+  }
+  .ag-tb-btn span {
+    display: none;
+  }
+  .ag-grid {
+    grid-template-columns: 1fr;
+  }
+  .ag-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* ── Templates ────────────────────────────────────────────── */
+  .tpl-search-wrap input {
+    width: 120px;
+  }
+  .tpl-modal {
+    height: 92vh;
+  }
+  .tpl-modal-use-btn {
+    padding: 8px 11px;
+    font-size: 0;
+    gap: 0;
+  }
+  .tpl-modal-use-btn i {
+    font-size: 16px;
+  }
+
+  /* ── Goals ────────────────────────────────────────────────── */
+  .gl-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* ── Modal bottom sheets ──────────────────────────────────── */
+  .mkt-modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .mkt-modal {
+    max-width: none !important;
+    width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0)) !important;
+    animation: mob-sheet-up 0.26s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+  .mkt-modal::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border2, var(--border));
+    margin: 2px auto 14px;
+  }
+
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .modal-overlay .modal-box {
+    max-width: none !important;
+    width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0)) !important;
+    animation: mob-sheet-up 0.26s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+  .modal-overlay .modal-box::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border2, var(--border));
+    margin: -4px auto 14px;
+  }
+
+  .si-modal-bg {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .si-modal {
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 88vh !important;
+    max-width: 100% !important;
+    animation: si-modal-mob-in 0.22s cubic-bezier(0.34, 1.1, 0.64, 1) !important;
+  }
+  @keyframes si-modal-mob-in {
+    from {
+      transform: translateY(40px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  .si-modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .si-modal-box {
+    border-radius: 20px 20px 0 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  #pricing-modal.si-modal-bg .si-modal {
+    padding: 24px 16px 32px !important;
+  }
+
+  /* ── Create Space modal bottom sheet ──────────────────────── */
+  .csp-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .csp-modal {
+    border-radius: 20px 20px 0 0;
+    max-height: 92dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .csp-types {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+  }
+  .csp-type {
+    padding: 10px 6px;
+    gap: 5px;
+  }
+  .csp-type-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+  }
+  .csp-type-name {
+    font-size: 0.72rem;
+  }
+  .csp-type-desc {
+    display: none;
+  }
+
+  /* ── Launcher Space rows: show ⋮ options ──────────────────── */
+  .sidebar .si.sp-si::after {
+    content: none;
+  }
+  .sidebar .sb-space-more {
+    opacity: 1;
+    margin-left: auto;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── Home panel breathing room ────────────────────────────── */
+  .home-wrap {
+    padding: 20px 18px calc(52px + env(safe-area-inset-bottom, 0)) !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .siva-brief {
+    padding: 22px 20px;
+    margin-bottom: 18px;
+    border-radius: 20px;
+  }
+  .gs-section {
+    padding: 20px 18px;
+    margin-bottom: 18px;
+    border-radius: 20px;
+  }
+
+  .h-stat-grid {
+    gap: 7px;
+    margin-bottom: 10px;
+  }
+  .h-stat-card {
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+  .h-stat-ic {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    font-size: 12px;
+    margin-bottom: 3px;
+  }
+  .h-stat-val {
+    font-size: 1.1rem;
+  }
+  .h-stat-lbl {
+    font-size: 0.68rem;
+    margin-top: 1px;
+  }
+
+  .h2col {
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .h2col-card {
+    padding: 20px 18px;
+    border-radius: 18px;
+  }
+
+  .siva-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 9px;
+    margin: 2px -18px 20px;
+    padding: 2px 18px 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .siva-pills::-webkit-scrollbar {
+    display: none;
+  }
+  .siva-pill {
+    flex-shrink: 0;
+    padding: 9px 15px;
+    font-size: 0.82rem;
+    border-radius: 22px;
+  }
+
+  /* ── Global zoom — bigger, closer type ────────────────────── */
+  html {
+    font-size: calc(17px * var(--font-scale, 1));
+  }
+
+  /* ── Agent selector — single swipeable row ────────────────── */
+  .agent-selector {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 6px 14px 2px;
+    gap: 6px;
+  }
+  .agent-selector::-webkit-scrollbar {
+    display: none;
+  }
+  .agent-chip {
+    flex-shrink: 0;
+  }
+
+  /* ── Slim chat header ──────────────────────────────────────── */
+  .chat-header {
+    padding: 10px 14px 9px;
+  }
+
+  /* ── Compact welcome ───────────────────────────────────────── */
+  #chat-welcome {
+    padding: 1.25rem 1.25rem 0.5rem;
+  }
+  .chat-welcome-orb {
+    width: 62px;
+    height: 62px;
+    border-radius: 18px;
+    margin-bottom: 1rem;
+  }
+  .chat-welcome-orb img {
+    width: 34px;
+    height: 34px;
+  }
+  .chat-welcome-heading {
+    font-size: 1.55rem;
+    margin-bottom: 0.3rem;
+  }
+  .chat-welcome-sub {
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+  }
+  .chat-welcome-hint {
+    margin-top: 1rem;
+  }
+  .chat-prompt-grid {
+    gap: 9px;
+  }
+  .chat-prompt-card {
+    padding: 14px 13px 12px;
+    border-radius: 14px;
+  }
+
+  /* ── Message bubbles ───────────────────────────────────────── */
+  .chat-msgs {
+    padding: 16px 14px 12px;
+    gap: 5px;
+  }
+  .msg {
+    max-width: 90%;
+  }
+
+  /* ── Chat bar — hide msg counter ──────────────────────────── */
+  .chat-msg-counter {
+    display: none;
+  }
+
+  /* ── Touch targets — min 44×44 ────────────────────────────── */
+  .nav-btn {
+    min-height: 44px;
+  }
+  .tb-icon-btn,
+  .chat-icon-btn,
+  .chat-send-btn,
+  .si-modal-close,
+  .os-card-link,
+  .os-tool-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .mob-nav-btn {
+    min-height: 52px;
+  }
+
+  /* ── Personal & academic space tabs ───────────────────────── */
+  .sp-tab {
+    padding: 10px 10px !important;
+    font-size: 0.76rem !important;
+    min-height: 44px;
+  }
+
+  /* ── Home dashboard grid ───────────────────────────────────── */
+  .home-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Doc editor toolbars — horizontal scroll ──────────────── */
+  .dh-toolbar,
+  .doc-toolbar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+  .dh-tool-btn,
+  .doc-tb-btn {
+    min-height: 38px;
+  }
+
+  /* ── Profile dropdown ──────────────────────────────────────── */
+  .profile-dropdown {
+    right: 0 !important;
+    left: auto !important;
+    max-width: calc(100vw - 16px);
+  }
+
+  /* ── Library / integrations grids ──────────────────────────── */
+  .int-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .lib-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Topbar ────────────────────────────────────────────────── */
+  .tb-brand {
+    gap: 6px;
+  }
+  .tb-name {
+    font-size: 13px;
+  }
+
+  /* ── Analytics ─────────────────────────────────────────────── */
+  .analytics-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Org announcements ─────────────────────────────────────── */
+  .ann-compose-bar {
+    flex-direction: column;
+    padding: 12px 14px;
+  }
+  .ann-feed {
+    padding: 10px 14px;
+  }
+
+  /* ── Weekly review ─────────────────────────────────────────── */
+  .review-body {
+    padding: 16px;
+  }
+  .review-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* ── Paystack ──────────────────────────────────────────────── */
+  .ps-stat-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .ps-grid2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Notion-style zoom & density for ALL tabs ────────────── */
+  /* Already set via html font-size above */
+}
+
+/* ── Small mobile · 480px ───────────────────────────────────── */
+@media (max-width: 480px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .stat-val {
+    font-size: 18px;
+  }
+  .content {
+    padding: 12px;
+  }
+  .doc-sidebar {
+    width: 160px;
+  }
+  .doc-title-input {
+    font-size: 1.1rem;
+  }
+
+  /* ── Chat ────────────────────────────────────────────────── */
+  .chat-welcome-orb {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+  }
+  .chat-welcome-orb img {
+    width: 26px;
+    height: 26px;
+  }
+  .chat-welcome-heading {
+    font-size: 1.3rem;
+  }
+  .chat-prompt-grid {
+    grid-template-columns: 1fr 1fr;
+    max-width: 360px;
+    gap: 7px;
+  }
+  .chat-prompt-card {
+    padding: 10px 10px 9px;
+    border-radius: 12px;
+  }
+  .cpc-title {
+    font-size: 0.76rem;
+  }
+  .cpc-sub {
+    font-size: 0.67rem;
+  }
+  .cpc-icon-wrap {
+    display: none;
+  }
+  .chat-action-pills {
+    gap: 4px;
+  }
+  .chat-pill {
+    font-size: 0.72rem;
+    padding: 4px 10px;
+  }
+  .chat-header-av {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+  .chat-hdr-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.78rem;
+  }
+
+  /* ── Home ────────────────────────────────────────────────── */
+  .h-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .h2col {
+    grid-template-columns: 1fr;
+  }
+  .siva-brief {
+    padding: 16px 16px;
+  }
+  .home-wrap {
+    padding: 16px;
+  }
+
+  /* ── Brief modal ─────────────────────────────────────────── */
+  .brief-card {
+    padding: 24px 20px;
+  }
+  .brief-greeting {
+    font-size: 1.3rem;
+  }
+
+  /* ── Brief decor popover ────────────────────────────────── */
+  .brief-decor-pop {
+    width: 180px;
+    padding: 10px;
+  }
+  .bdp-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* ── Onboarding ──────────────────────────────────────────── */
+  .si-ob-role-grid {
+    grid-template-columns: 1fr;
+  }
+  .si-ob-int-grid {
+    grid-template-columns: 1fr;
+  }
+  .si-ob-goal-row {
+    grid-template-columns: 1fr;
+  }
+  .si-ob-title {
+    font-size: 1.3rem;
+  }
+  .si-ob-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .si-ob-btn-pri {
+    width: 100%;
+  }
+  .si-onboard-box {
+    padding: 0 8px;
+  }
+
+  /* ── Pricing modal ───────────────────────────────────────── */
+  #pricing-cards {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  .pricing-card {
+    min-width: unset !important;
+    max-width: 100% !important;
+  }
+
+  /* ── Integrations / library ──────────────────────────────── */
+  .int-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .lib-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Analytics ───────────────────────────────────────────── */
+  .analytics-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* ── Goals ───────────────────────────────────────────────── */
+  .gl-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* ── Finance ─────────────────────────────────────────────── */
+  .fin-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* ── Skills ──────────────────────────────────────────────── */
+  .sk-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* ── Content padding ─────────────────────────────────────── */
+  .content {
+    padding: 12px !important;
+  }
+  .view-head {
+    padding: 0 12px !important;
+  }
+
+  /* ── Topbar ──────────────────────────────────────────────── */
+  .tb-name {
+    display: none;
+  }
+
+  /* ── Settings sub-nav ────────────────────────────────────── */
+  .st-subnav-item {
+    font-size: 0.78rem;
+    padding: 7px 10px;
+  }
+
+  /* ── Doc editor ──────────────────────────────────────────── */
+  .dh-tool-btn,
+  .doc-tb-btn {
+    min-height: 36px;
+  }
+
+  /* ── Chat bar ────────────────────────────────────────────── */
+  .chat-bar {
+    padding: 8px 10px 12px;
+    border-radius: 14px;
+  }
+
+  /* ── Very small screens (iPhone SE, 375px) ──────────────── */
+  #chat-welcome {
+    padding: 0.75rem 1rem 0.25rem;
+  }
+  .chat-welcome-orb {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    margin-bottom: 0.65rem;
+  }
+  .chat-welcome-orb img {
+    width: 24px;
+    height: 24px;
+  }
+  .chat-welcome-heading {
+    font-size: 1.2rem;
+    margin-bottom: 0.2rem;
+  }
+  .chat-welcome-sub {
+    font-size: 0.78rem;
+    margin-bottom: 0.9rem;
+  }
+  .chat-prompt-card {
+    padding: 8px 8px;
+  }
+  .cpc-icon-wrap {
+    display: none;
+  }
+}
+
+/* ── iOS font-size zoom fix ─────────────────────────────────── */
+@media (max-width: 720px) {
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    font-size: 14px !important;
+  }
+}
+
+/* ── Org chat: channel toggle button (desktop hidden) ──────── */
+.oc-chan-toggle {
+  display: none;
+}
+
+/* ── Mobile bottom nav safe area ────────────────────────────── */
+@media (max-width: 480px) {
+  .mobile-nav {
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+  }
+  .layout {
+    --mob-nav-h: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* ── Extremely small screens (<=360px) ──────────────────────── */
+@media (max-width: 360px) {
+  html {
+    font-size: calc(15px * var(--font-scale, 1));
+  }
+  .chat-welcome-heading {
+    font-size: 1rem;
+  }
+  .chat-prompt-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .chat-prompt-card {
+    padding: 8px 10px;
+  }
+  .cpc-title {
+    font-size: 0.72rem;
+  }
+  .h-stat-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+  .h-stat-card {
+    padding: 6px 8px;
+  }
+  .h-stat-val {
+    font-size: 0.95rem;
+  }
+  .stat-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .stat {
+    padding: 10px 12px;
+  }
+  .stat-val {
+    font-size: 16px;
+  }
+  .sidebar .si {
+    padding: 8px 10px;
+  }
+  .sidebar .si .si-lb {
+    font-size: 0.78rem;
+  }
+  .sidebar .sb-scroll {
+    padding: 4px 12px 20px;
+  }
+  .sidebar .sb-header {
+    padding: 8px 12px;
+  }
+  .msg {
+    max-width: 94%;
+  }
+  .msg-bub {
+    font-size: 0.82rem;
+    padding: 9px 12px;
+  }
+}
+
+/* ── Landscape mobile ────────────────────────────────────────── */
+@media (max-width: 800px) and (orientation: landscape) {
+  .chat-welcome-orb {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    margin-bottom: 0.75rem;
+  }
+  .chat-welcome-orb img {
+    width: 26px;
+    height: 26px;
+  }
+  .chat-welcome-heading {
+    font-size: 1.2rem;
+    margin-bottom: 0.2rem;
+  }
+  .chat-welcome-sub {
+    font-size: 0.8rem;
+    margin-bottom: 1rem;
+  }
+  .chat-prompt-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .chat-prompt-card {
+    padding: 10px 10px;
+  }
+  .cpc-sub {
+    display: none;
+  }
+  .cpc-title {
+    font-size: 0.72rem;
+  }
+  .chat-msgs {
+    padding: 12px 14px 8px;
+  }
+  #chat-welcome {
+    padding: 0.75rem 1rem 0.25rem;
+    min-height: auto;
+  }
+  .chat-bar {
+    padding: 6px 10px 8px;
+  }
+  .chat-header {
+    padding: 6px 12px;
+  }
+  .chat-header-av {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+  }
+  .msg {
+    max-width: 75%;
+  }
+  .msg-bub {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+  .agent-selector {
+    padding: 4px 10px 0;
+  }
+  .agent-chip {
+    font-size: 0.65rem;
+    padding: 3px 8px;
+  }
+  .siva-brief {
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .h-stat-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+  }
+  .h-stat-card {
+    padding: 6px 8px;
+  }
+  .h-stat-val {
+    font-size: 0.95rem;
+  }
+  .h-stat-lbl {
+    font-size: 0.6rem;
+  }
+  .home-wrap {
+    padding: 12px 14px !important;
+  }
+  .siva-pills {
+    gap: 5px;
+    margin: 0 -12px 12px;
+    padding: 2px 12px 6px;
+  }
+  .siva-pill {
+    font-size: 0.72rem;
+    padding: 5px 10px;
+  }
+  .gs-section {
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .gs-tips {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .gs-vid-card {
+    width: 140px;
+  }
+}
+
+/* ── Reduce motion for all mobile devices ────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

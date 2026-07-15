@@ -1,0 +1,1288 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     PANELS CORE — Home · Chat · Flux · Calendar · Notes · Settings
+     ═══════════════════════════════════════════════════════════════ -->
+
+{# ── HOME PANEL ────────────────────────────────────────────── #}
+<div id="panel-home" class="panel">
+  <div class="home-wrap">
+    <!-- Sivarr brief greeting -->
+    <div class="siva-brief" id="siva-brief">
+      <div class="siva-brief-decor" id="brief-decor"></div>
+      <div class="siva-brief-top">
+        <div class="siva-brief-av" id="brief-av">👤</div>
+        <span class="siva-brief-name" id="brief-name"
+          >Good morning, <span id="brief-user-name">User</span></span
+        >
+        <button
+          class="siva-brief-action"
+          id="brief-decor-btn"
+          aria-label="Change greeting decor"
+        >
+          🎨
+        </button>
+        <span class="siva-brief-badge" id="brief-badge">✨ AI</span>
+      </div>
+      <div class="siva-brief-msg" id="brief-msg">
+        Here's your summary for today. You have <strong>3</strong> tasks due
+        soon.
+      </div>
+    </div>
+
+    <!-- Quick action pills -->
+    <div class="siva-pills" id="siva-pills">
+      <span id="siva-recent-pills">
+        <button class="siva-pill" data-nav="chat">💬 Chat</button>
+        <button class="siva-pill" data-nav="flux">📋 Tasks</button>
+        <button class="siva-pill" data-nav="notes">📝 Notes</button>
+        <button class="siva-pill sp-add" data-nav="quick-add">
+          + Quick Add
+        </button>
+      </span>
+    </div>
+
+    <!-- Stats row -->
+    <div class="h-stat-grid">
+      <div class="h-stat-card">
+        <div
+          class="h-stat-ic"
+          style="background: var(--teal2); color: var(--teal)"
+        >
+          📋
+        </div>
+        <div class="h-stat-val" id="home-tasks-total">12</div>
+        <div class="h-stat-lbl">Tasks</div>
+        <div class="h-stat-chg chg-up">↑ 2 this week</div>
+      </div>
+      <div class="h-stat-card">
+        <div
+          class="h-stat-ic"
+          style="background: var(--purple2); color: var(--purple)"
+        >
+          ✅
+        </div>
+        <div class="h-stat-val" id="home-tasks-done">5</div>
+        <div class="h-stat-lbl">Completed</div>
+        <div class="h-stat-chg chg-up">↑ 42%</div>
+      </div>
+      <div class="h-stat-card">
+        <div
+          class="h-stat-ic"
+          style="background: var(--amber2); color: var(--amber3)"
+        >
+          🔥
+        </div>
+        <div class="h-stat-val" id="home-streak">7</div>
+        <div class="h-stat-lbl">Day streak</div>
+        <div class="h-stat-chg chg-up">↑ Keep going!</div>
+      </div>
+      <div class="h-stat-card">
+        <div
+          class="h-stat-ic"
+          style="background: var(--coral2); color: var(--coral3)"
+        >
+          📅
+        </div>
+        <div class="h-stat-val" id="home-events-today">3</div>
+        <div class="h-stat-lbl">Today's events</div>
+        <div class="h-stat-chg">Next: 2:30pm</div>
+      </div>
+    </div>
+
+    <!-- Two-column: Priority + Schedule -->
+    <div class="h2col">
+      <!-- Priority tasks -->
+      <div class="h2col-card">
+        <div class="h-card-hd">
+          <span class="h-card-title">⚡ Priority</span>
+          <button class="h-card-link" data-nav="flux">View all →</button>
+        </div>
+        <div id="home-priority-list">
+          <div class="priority-item">
+            <span class="pr-dot" style="background: var(--red3)"></span>
+            <span class="pr-text">Review Q3 proposal</span>
+            <span
+              class="pr-tag"
+              style="background: var(--red2); color: var(--red3)"
+              >Urgent</span
+            >
+          </div>
+          <div class="priority-item">
+            <span class="pr-dot" style="background: var(--amber3)"></span>
+            <span class="pr-text">Update project timeline</span>
+            <span
+              class="pr-tag"
+              style="background: var(--amber2); color: var(--amber)"
+              >High</span
+            >
+          </div>
+          <div class="priority-item">
+            <span class="pr-dot" style="background: var(--teal)"></span>
+            <span class="pr-text">Team sync notes</span>
+            <span
+              class="pr-tag"
+              style="background: var(--teal2); color: var(--teal4)"
+              >Medium</span
+            >
+          </div>
+          <div class="priority-item">
+            <span class="pr-dot" style="background: var(--purple3)"></span>
+            <span class="pr-text">Design review feedback</span>
+            <span
+              class="pr-tag"
+              style="background: var(--purple2); color: var(--purple3)"
+              >Low</span
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- Today's schedule -->
+      <div class="h2col-card">
+        <div class="h-card-hd">
+          <span class="h-card-title">📅 Today</span>
+          <button class="h-card-link" data-nav="calendar">View all →</button>
+        </div>
+        <div id="home-schedule-list">
+          <div class="sched-item">
+            <span class="sched-time">10:00</span>
+            <span class="sched-dot" style="background: var(--teal)"></span>
+            <div class="sched-info">
+              <div class="sched-name">Team standup</div>
+              <div class="sched-sub">Engineering · 30 min</div>
+            </div>
+          </div>
+          <div class="sched-item">
+            <span class="sched-time">14:30</span>
+            <span class="sched-dot" style="background: var(--purple)"></span>
+            <div class="sched-info">
+              <div class="sched-name">Client demo</div>
+              <div class="sched-sub">Sales · 45 min</div>
+            </div>
+          </div>
+          <div class="sched-item">
+            <span class="sched-time">16:00</span>
+            <span class="sched-dot" style="background: var(--amber3)"></span>
+            <div class="sched-info">
+              <div class="sched-name">Project review</div>
+              <div class="sched-sub">Internal · 1 hr</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Habits quick-check -->
+    <div class="h2col-card" style="margin-bottom: 0">
+      <div class="h-card-hd">
+        <span class="h-card-title">💪 Habits</span>
+        <button class="h-card-link" data-nav="habits">View all →</button>
+      </div>
+      <div id="home-habits-list">
+        <div class="habit-check-row">
+          <span class="habit-cb done"></span>
+          <span class="habit-name">Morning meditation</span>
+          <span class="habit-streak">🔥 12 days</span>
+        </div>
+        <div class="habit-check-row">
+          <span class="habit-cb"></span>
+          <span class="habit-name">Read 20 pages</span>
+          <span class="habit-streak">📚 5 days</span>
+        </div>
+        <div class="habit-check-row">
+          <span class="habit-cb"></span>
+          <span class="habit-name">Exercise</span>
+          <span class="habit-streak">💪 3 days</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── CHAT PANEL ────────────────────────────────────────────── #}
+<div id="panel-chat" class="panel">
+  <!-- Chat header -->
+  <div class="chat-header">
+    <div class="chat-header-av">
+      <img src="/static/sivarrai.png" alt="Sivarr" />
+    </div>
+    <div class="chat-header-info">
+      <div class="chat-header-name">Sivarr AI</div>
+      <div class="chat-header-status">
+        <span class="chat-status-dot" id="chat-status-dot"></span>
+        <span id="chat-status-text">Online</span>
+      </div>
+    </div>
+    <div class="chat-header-actions">
+      <button class="chat-hdr-btn" id="chat-clear-btn" title="Clear chat">
+        🗑
+      </button>
+      <button class="chat-hdr-btn" id="chat-export-btn" title="Export chat">
+        📤
+      </button>
+    </div>
+  </div>
+
+  <!-- Agent selector -->
+  <div class="agent-selector" id="agent-selector">
+    <button class="agent-chip active" data-agent="sivarr">
+      🧠 Sivarr
+      <span class="agent-chip-badge">Pro</span>
+    </button>
+    <button class="agent-chip" data-agent="gpt4">🤖 GPT-4</button>
+    <button class="agent-chip" data-agent="claude">🌿 Claude</button>
+    <button class="agent-chip locked" data-agent="gemini">
+      ✨ Gemini <span class="agent-chip-badge">Soon</span>
+    </button>
+  </div>
+
+  <!-- Messages -->
+  <div class="chat-msgs" id="chat-msgs">
+    <!-- Welcome screen (visible when no messages) -->
+    <div id="chat-welcome">
+      <div class="chat-welcome-orb">
+        <img src="/static/sivarrai.png" alt="Sivarr" />
+      </div>
+      <div class="chat-welcome-heading">
+        Hello, I'm <span class="name-teal">Sivarr</span>
+      </div>
+      <div class="chat-welcome-sub">Your AI assistant. Ask me anything.</div>
+
+      <!-- Prompt cards -->
+      <div class="chat-prompt-grid">
+        <div
+          class="chat-prompt-card"
+          data-prompt="Summarize my tasks for today"
+          style="--cpc-color: var(--teal); --cpc-bg: var(--teal2)"
+        >
+          <div
+            class="cpc-icon-wrap"
+            style="color: var(--teal); background: var(--teal2)"
+          >
+            📋
+          </div>
+          <div class="cpc-title">Summarize tasks</div>
+          <div class="cpc-sub">What's on my plate today?</div>
+        </div>
+        <div
+          class="chat-prompt-card"
+          data-prompt="Help me plan my week"
+          style="--cpc-color: var(--purple); --cpc-bg: var(--purple2)"
+        >
+          <div
+            class="cpc-icon-wrap"
+            style="color: var(--purple); background: var(--purple2)"
+          >
+            📅
+          </div>
+          <div class="cpc-title">Plan my week</div>
+          <div class="cpc-sub">Set up a weekly schedule</div>
+        </div>
+        <div
+          class="chat-prompt-card"
+          data-prompt="What should I focus on?"
+          style="--cpc-color: var(--amber3); --cpc-bg: var(--amber2)"
+        >
+          <div
+            class="cpc-icon-wrap"
+            style="color: var(--amber3); background: var(--amber2)"
+          >
+            🎯
+          </div>
+          <div class="cpc-title">Focus advice</div>
+          <div class="cpc-sub">What should I prioritize?</div>
+        </div>
+        <div
+          class="chat-prompt-card"
+          data-prompt="Generate a quick study plan"
+          style="--cpc-color: var(--coral3); --cpc-bg: var(--coral2)"
+        >
+          <div
+            class="cpc-icon-wrap"
+            style="color: var(--coral3); background: var(--coral2)"
+          >
+            📚
+          </div>
+          <div class="cpc-title">Study plan</div>
+          <div class="cpc-sub">Quick study session outline</div>
+        </div>
+      </div>
+
+      <div class="chat-welcome-hint">
+        Type a message or choose a prompt above
+      </div>
+    </div>
+    <!-- Messages will be injected here by JS -->
+  </div>
+
+  <!-- Chat bar -->
+  <div class="chat-bar" id="chat-bar">
+    <!-- Action pills -->
+    <div class="chat-action-pills">
+      <button class="chat-pill" data-prompt="Summarize today">
+        📝 Summarize
+      </button>
+      <button class="chat-pill" data-prompt="What's new?">
+        🆕 What's new?
+      </button>
+      <button class="chat-pill" data-prompt="Help me focus">🎯 Focus</button>
+      <span class="chat-msg-counter" id="chat-msg-counter">0 messages</span>
+    </div>
+
+    <!-- Input row -->
+    <div class="chat-input-row">
+      <button class="chat-add-btn" id="chat-add-btn" title="Add context">
+        +
+      </button>
+      <!-- Add menu popover -->
+      <div class="chat-add-menu" id="chat-add-menu">
+        <div class="cam-section">Models</div>
+        <div class="cam-models">
+          <button class="cam-model cam-active" data-model="sivarr">
+            <i>🧠</i><span>Sivarr</span><small>Default</small>
+          </button>
+          <button class="cam-model" data-model="gpt4">
+            <i>🤖</i><span>GPT-4</span><small>Pro</small>
+          </button>
+          <button class="cam-model" data-model="claude">
+            <i>🌿</i><span>Claude</span><small>Pro</small>
+          </button>
+          <button class="cam-model cam-locked" data-model="gemini">
+            <i>✨</i><span>Gemini</span><small>Soon</small>
+          </button>
+        </div>
+        <div class="cam-divider"></div>
+        <div class="cam-actions">
+          <button class="cam-action" data-action="attach">📎 Attach</button>
+          <button class="cam-action" data-action="web">🌐 Web search</button>
+        </div>
+      </div>
+
+      <textarea
+        class="chat-input"
+        id="chat-input"
+        placeholder="Ask Sivarr anything..."
+        rows="1"
+      ></textarea>
+      <button class="chat-icon-btn" id="voice-btn" title="Voice input">
+        🎤
+      </button>
+      <button class="chat-send-btn" id="chat-send-btn" disabled>➤</button>
+    </div>
+  </div>
+</div>
+
+{# ── FLUX / TASKS PANEL ────────────────────────────────────── #}
+<div id="panel-flux" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">📋</span>
+    <span class="vh-title">Flux — Tasks</span>
+    <button
+      class="btn primary"
+      id="flux-add-task-btn"
+      style="margin-left: auto"
+    >
+      + Add Task
+    </button>
+    <button class="btn ghost" id="flux-view-toggle">Kanban</button>
+  </div>
+  <div class="content" style="overflow: hidden; padding: 16px 24px">
+    <div style="display: flex; gap: 12px; height: 100%; overflow: hidden">
+      <!-- Kanban board (default view) -->
+      <div id="flux-kanban" class="kanban" style="flex: 1; height: 100%">
+        <div class="kb-col">
+          <div class="kb-col-hd">
+            <span class="kb-col-title">📝 To Do</span>
+            <span class="kb-col-count" id="flux-count-todo">3</span>
+          </div>
+          <div
+            class="kb-col-body"
+            id="flux-todo"
+            style="flex: 1; overflow-y: auto; min-height: 100px"
+          >
+            <div class="kb-card" draggable="true">
+              <div class="kb-card-title">Research competitors</div>
+              <span
+                class="kb-card-tag"
+                style="background: var(--teal2); color: var(--teal4)"
+                >Research</span
+              >
+            </div>
+            <div class="kb-card" draggable="true">
+              <div class="kb-card-title">Draft blog post</div>
+              <span
+                class="kb-card-tag"
+                style="background: var(--amber2); color: var(--amber)"
+                >Writing</span
+              >
+            </div>
+            <div class="kb-card" draggable="true">
+              <div class="kb-card-title">Design review</div>
+              <span
+                class="kb-card-tag"
+                style="background: var(--purple2); color: var(--purple3)"
+                >Design</span
+              >
+            </div>
+          </div>
+          <button class="kb-add">+ Add card</button>
+        </div>
+
+        <div class="kb-col">
+          <div class="kb-col-hd">
+            <span class="kb-col-title">🔄 In Progress</span>
+            <span class="kb-col-count" id="flux-count-progress">2</span>
+          </div>
+          <div
+            class="kb-col-body"
+            id="flux-progress"
+            style="flex: 1; overflow-y: auto; min-height: 100px"
+          >
+            <div class="kb-card" draggable="true">
+              <div class="kb-card-title">API integration</div>
+              <span
+                class="kb-card-tag"
+                style="background: var(--teal2); color: var(--teal4)"
+                >Dev</span
+              >
+            </div>
+            <div class="kb-card" draggable="true">
+              <div class="kb-card-title">User testing analysis</div>
+              <span
+                class="kb-card-tag"
+                style="background: var(--amber2); color: var(--amber)"
+                >Research</span
+              >
+            </div>
+          </div>
+          <button class="kb-add">+ Add card</button>
+        </div>
+
+        <div class="kb-col">
+          <div class="kb-col-hd">
+            <span class="kb-col-title">✅ Done</span>
+            <span class="kb-col-count" id="flux-count-done">4</span>
+          </div>
+          <div
+            class="kb-col-body"
+            id="flux-done"
+            style="flex: 1; overflow-y: auto; min-height: 100px"
+          >
+            <div class="kb-card" draggable="true">
+              <div class="kb-card-title">Wireframes approved</div>
+              <span
+                class="kb-card-tag"
+                style="background: var(--green2); color: var(--green3)"
+                >Done</span
+              >
+            </div>
+            <div class="kb-card" draggable="true">
+              <div class="kb-card-title">Stakeholder meeting</div>
+              <span
+                class="kb-card-tag"
+                style="background: var(--green2); color: var(--green3)"
+                >Done</span
+              >
+            </div>
+            <div class="kb-card" draggable="true">
+              <div class="kb-card-title">Content outline</div>
+              <span
+                class="kb-card-tag"
+                style="background: var(--green2); color: var(--green3)"
+                >Done</span
+              >
+            </div>
+          </div>
+          <button class="kb-add">+ Add card</button>
+        </div>
+      </div>
+
+      <!-- List view (hidden by default) -->
+      <div
+        id="flux-list"
+        style="display: none; flex: 1; height: 100%; overflow-y: auto"
+      >
+        <div
+          style="
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius2);
+            padding: 16px;
+          "
+        >
+          <div
+            class="sh-th"
+            style="display: grid; grid-template-columns: 1fr 120px 80px"
+          >
+            Task · Due · Status
+          </div>
+          <div
+            class="sh-td"
+            style="display: grid; grid-template-columns: 1fr 120px 80px"
+          >
+            <span>Research competitors</span>
+            <span style="color: var(--text4)">Jun 20</span>
+            <span class="chip c-teal">To Do</span>
+          </div>
+          <div
+            class="sh-td"
+            style="display: grid; grid-template-columns: 1fr 120px 80px"
+          >
+            <span>API integration</span>
+            <span style="color: var(--text4)">Jun 22</span>
+            <span class="chip c-amber">In Progress</span>
+          </div>
+          <div
+            class="sh-td"
+            style="display: grid; grid-template-columns: 1fr 120px 80px"
+          >
+            <span>Wireframes approved</span>
+            <span style="color: var(--text4)">Jun 18</span>
+            <span class="chip c-green">Done</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── CALENDAR PANEL ───────────────────────────────────────── #}
+<div id="panel-calendar" class="panel">
+  <div class="cal-layout">
+    <!-- Left rail -->
+    <div class="cal-rail">
+      <!-- Mini calendar -->
+      <div>
+        <div class="cal-mini-hd">
+          <span class="cal-mini-label" id="cal-mini-label">June 2026</span>
+          <div>
+            <button class="cal-mini-nav" id="cal-mini-prev">‹</button>
+            <button class="cal-mini-nav" id="cal-mini-next">›</button>
+          </div>
+        </div>
+        <div class="cal-mini-grid" id="cal-mini-grid">
+          <span class="cm-dh">S</span><span class="cm-dh">M</span
+          ><span class="cm-dh">T</span> <span class="cm-dh">W</span
+          ><span class="cm-dh">T</span><span class="cm-dh">F</span>
+          <span class="cm-dh">S</span>
+          <!-- Days injected by JS -->
+          <span class="cm-day">1</span><span class="cm-day">2</span
+          ><span class="cm-day">3</span> <span class="cm-day">4</span
+          ><span class="cm-day">5</span><span class="cm-day">6</span>
+          <span class="cm-day">7</span>
+        </div>
+      </div>
+
+      <!-- Next reminder -->
+      <div class="cal-reminder" id="cal-reminder">
+        <div class="cal-rem-label">⏰ Next up</div>
+        <div class="cal-rem-title">Team standup</div>
+        <div class="cal-rem-when">Today at 10:00 AM</div>
+        <button class="cal-rem-btn">View details →</button>
+      </div>
+
+      <!-- Filters -->
+      <div>
+        <div class="cal-filters-hd">Filter calendars</div>
+        <div class="cal-filter on" style="--c: var(--teal)">
+          <span class="cal-filter-box">✓</span>
+          <span class="cal-filter-dot" style="background: var(--teal)"></span>
+          <span class="cal-filter-label">Work</span>
+        </div>
+        <div class="cal-filter on" style="--c: var(--purple)">
+          <span class="cal-filter-box">✓</span>
+          <span class="cal-filter-dot" style="background: var(--purple)"></span>
+          <span class="cal-filter-label">Personal</span>
+        </div>
+        <div class="cal-filter" style="--c: var(--amber3)">
+          <span class="cal-filter-box"></span>
+          <span class="cal-filter-dot" style="background: var(--amber3)"></span>
+          <span class="cal-filter-label">Reminders</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main pane -->
+    <div class="cal-main">
+      <div class="cal-main-hd">
+        <div class="cal-main-nav">
+          <button class="cal-nav-btn" id="cal-nav-prev">‹</button>
+          <span class="cal-range" id="cal-range">Jun 14 – 20, 2026</span>
+          <button class="cal-nav-btn" id="cal-nav-next">›</button>
+          <button class="cal-nav-btn" id="cal-nav-today">Today</button>
+        </div>
+        <div class="cal-seg">
+          <button class="active" data-view="week">Week</button>
+          <button data-view="month">Month</button>
+        </div>
+      </div>
+      <div class="cal-main-body">
+        <!-- Week view -->
+        <div class="cal-tl" id="cal-week-view">
+          <div class="cw-headrow" style="--cols: 7">
+            <div class="cw-corner"></div>
+            <div class="cw-dayhead">
+              <div class="cw-dayname">Mon</div>
+              <div class="cw-daynum">14</div>
+            </div>
+            <div class="cw-dayhead">
+              <div class="cw-dayname">Tue</div>
+              <div class="cw-daynum">15</div>
+            </div>
+            <div class="cw-dayhead">
+              <div class="cw-dayname">Wed</div>
+              <div class="cw-daynum">16</div>
+            </div>
+            <div class="cw-dayhead">
+              <div class="cw-dayname">Thu</div>
+              <div class="cw-daynum">17</div>
+            </div>
+            <div class="cw-dayhead">
+              <div class="cw-dayname">Fri</div>
+              <div class="cw-daynum">18</div>
+            </div>
+            <div class="cw-dayhead">
+              <div class="cw-dayname">Sat</div>
+              <div class="cw-daynum">19</div>
+            </div>
+            <div class="cw-dayhead">
+              <div class="cw-dayname">Sun</div>
+              <div class="cw-daynum">20</div>
+            </div>
+          </div>
+          <div class="cw-scroll">
+            <div class="cw-grid" style="--cols: 7">
+              <!-- Time labels and event slots injected by JS -->
+              <div class="cw-gutter">
+                <div class="cw-hour"><span>9:00</span></div>
+              </div>
+              <div class="cw-col"></div>
+              <div class="cw-col"></div>
+              <div class="cw-col"></div>
+              <div class="cw-col"></div>
+              <div class="cw-col"></div>
+              <div class="cw-col"></div>
+              <div class="cw-col"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Month view (hidden by default) -->
+        <div class="cal-month-view" id="cal-month-view" style="display: none">
+          <div class="cal-dow-row">
+            <span class="cal-dh">Sun</span><span class="cal-dh">Mon</span
+            ><span class="cal-dh">Tue</span> <span class="cal-dh">Wed</span
+            ><span class="cal-dh">Thu</span><span class="cal-dh">Fri</span>
+            <span class="cal-dh">Sat</span>
+          </div>
+          <div class="cal-grid" id="cal-month-grid">
+            <!-- Cells injected by JS -->
+            <div class="cal-cell other-month">
+              <span class="cal-num">30</span>
+            </div>
+            <div class="cal-cell"><span class="cal-num">1</span></div>
+            <div class="cal-cell"><span class="cal-num">2</span></div>
+            <div class="cal-cell">
+              <span class="cal-num">3</span
+              ><span
+                class="cal-pill"
+                style="background: var(--teal2); color: var(--teal)"
+                >Team sync</span
+              >
+            </div>
+            <div class="cal-cell"><span class="cal-num">4</span></div>
+            <div class="cal-cell"><span class="cal-num">5</span></div>
+            <div class="cal-cell"><span class="cal-num">6</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── NOTES PANEL ───────────────────────────────────────────── #}
+<div id="panel-notes" class="panel">
+  <!-- Sidebar -->
+  <div class="doc-sidebar">
+    <div class="doc-sb-top">
+      <button class="doc-new-btn" id="doc-new-btn">+ New Note</button>
+      <div class="doc-search-wrap">
+        <span class="doc-search-icon">🔍</span>
+        <input
+          class="doc-search-input"
+          id="doc-search-input"
+          placeholder="Search notes..."
+        />
+      </div>
+    </div>
+    <div class="doc-list" id="doc-list">
+      <div class="doc-item active">
+        <div class="doc-item-row">
+          <span class="doc-item-title">Welcome to Sivarr Notes</span>
+          <button class="doc-delete-btn">✕</button>
+        </div>
+        <div class="doc-item-meta">Edited 2 min ago</div>
+      </div>
+      <div class="doc-item">
+        <div class="doc-item-row">
+          <span class="doc-item-title">Meeting notes — Q3 planning</span>
+          <button class="doc-delete-btn">✕</button>
+        </div>
+        <div class="doc-item-meta">Edited 2 hours ago</div>
+      </div>
+      <div class="doc-item">
+        <div class="doc-item-row">
+          <span class="doc-item-title">Product roadmap draft</span>
+          <button class="doc-delete-btn">✕</button>
+        </div>
+        <div class="doc-item-meta">Edited yesterday</div>
+      </div>
+      <div class="doc-item">
+        <div class="doc-item-row">
+          <span class="doc-item-title">Research notes — competitors</span>
+          <button class="doc-delete-btn">✕</button>
+        </div>
+        <div class="doc-item-meta">Edited 3 days ago</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor area -->
+  <div class="doc-editor-area">
+    <!-- Empty state (shown when no note selected) -->
+    <div class="doc-empty-state" id="doc-empty-state" style="display: none">
+      <div class="doc-es-icon">📝</div>
+      <div class="doc-es-title">No note selected</div>
+      <div class="doc-es-sub">
+        Choose a note from the sidebar or create a new one
+      </div>
+      <button class="doc-es-btn">+ New Note</button>
+    </div>
+
+    <!-- Editor (shown when note selected) -->
+    <div class="doc-editor-wrap" id="doc-editor-wrap">
+      <!-- Toolbar -->
+      <div class="doc-toolbar" id="doc-toolbar">
+        <div class="doc-tb-group">
+          <button class="doc-tb-btn" data-command="undo" title="Undo">↩</button>
+          <button class="doc-tb-btn" data-command="redo" title="Redo">↪</button>
+        </div>
+        <span class="doc-tb-sep"></span>
+        <div class="doc-tb-group">
+          <button class="doc-tb-btn active" data-command="bold" title="Bold">
+            <strong>B</strong>
+          </button>
+          <button class="doc-tb-btn" data-command="italic" title="Italic">
+            <em>I</em>
+          </button>
+          <button class="doc-tb-btn" data-command="underline" title="Underline">
+            <u>U</u>
+          </button>
+          <button
+            class="doc-tb-btn"
+            data-command="strike"
+            title="Strikethrough"
+          >
+            <s>S</s>
+          </button>
+        </div>
+        <span class="doc-tb-sep"></span>
+        <div class="doc-tb-group">
+          <button class="doc-tb-btn" data-command="h1" title="Heading 1">
+            H1
+          </button>
+          <button class="doc-tb-btn" data-command="h2" title="Heading 2">
+            H2
+          </button>
+          <button class="doc-tb-btn" data-command="h3" title="Heading 3">
+            H3
+          </button>
+        </div>
+        <span class="doc-tb-sep"></span>
+        <div class="doc-tb-group">
+          <button
+            class="doc-tb-btn"
+            data-command="bullet-list"
+            title="Bullet list"
+          >
+            •
+          </button>
+          <button
+            class="doc-tb-btn"
+            data-command="ordered-list"
+            title="Numbered list"
+          >
+            1.
+          </button>
+          <button class="doc-tb-btn" data-command="blockquote" title="Quote">
+            "
+          </button>
+          <button
+            class="doc-tb-btn"
+            data-command="code-block"
+            title="Code block"
+          >
+            &lt;/&gt;
+          </button>
+        </div>
+        <span class="doc-tb-sep"></span>
+        <div class="doc-tb-group">
+          <button class="doc-tb-btn" data-command="link" title="Insert link">
+            🔗
+          </button>
+        </div>
+        <button class="doc-siva-btn" id="doc-ai-btn">✨ AI Assist</button>
+      </div>
+
+      <!-- Title -->
+      <div class="doc-title-area">
+        <input
+          class="doc-title-input"
+          id="doc-title-input"
+          placeholder="Untitled note"
+          value="Welcome to Sivarr Notes"
+        />
+      </div>
+
+      <!-- Content (Tiptap/ProseMirror) -->
+      <div class="doc-content" id="doc-content">
+        <div class="ProseMirror" id="doc-editor" contenteditable="true">
+          <p>
+            Welcome to <strong>Sivarr Notes</strong> — your AI-powered writing
+            workspace.
+          </p>
+          <p>This is a <em>rich text editor</em> with support for:</p>
+          <ul>
+            <li>Bold, italic, underline, strikethrough</li>
+            <li>Headings (H1, H2, H3)</li>
+            <li>Bullet and numbered lists</li>
+            <li>Blockquotes and code blocks</li>
+            <li>Links</li>
+          </ul>
+          <blockquote>
+            “The best time to start was yesterday. The next best time is now.”
+          </blockquote>
+          <p>Start writing, or press <code>/</code> for commands.</p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="doc-footer">
+        <span class="doc-save-status" id="doc-save-status"
+          >✓ All changes saved</span
+        >
+        <span class="doc-word-count" id="doc-word-count">32 words</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── SETTINGS PANEL ───────────────────────────────────────── #}
+<div id="panel-settings" class="panel">
+  <div class="st-layout">
+    <!-- Sub-nav -->
+    <nav class="st-subnav" id="settings-subnav">
+      <button class="st-subnav-item active" data-section="profile">
+        👤 Profile
+      </button>
+      <button class="st-subnav-item" data-section="appearance">
+        🎨 Appearance
+      </button>
+      <button class="st-subnav-item" data-section="notifications">
+        🔔 Notifications
+      </button>
+      <button class="st-subnav-item" data-section="security">
+        🔒 Security
+      </button>
+      <button class="st-subnav-item" data-section="plan">💎 Plan</button>
+      <button class="st-subnav-item" data-section="integrations">
+        🔌 Integrations
+      </button>
+      <button class="st-subnav-item" data-section="export">📤 Export</button>
+      <button class="st-subnav-item" data-section="data">🗄️ Data</button>
+      <button class="st-subnav-item" data-section="org">🏢 Organization</button>
+    </nav>
+
+    <!-- Content -->
+    <div class="st-content" id="settings-content">
+      <!-- ── Profile ── -->
+      <div class="st-section open" data-section="profile">
+        <div class="st-section-hd">
+          <span
+            class="st-section-icon"
+            style="background: var(--teal2); color: var(--teal)"
+            >👤</span
+          >
+          <span class="st-section-title">Profile</span>
+          <span class="st-section-chevron">▾</span>
+        </div>
+        <div class="st-section-body">
+          <div class="st-field">
+            <label class="st-label">Display name</label>
+            <input class="st-input" value="User" />
+          </div>
+          <div class="st-field">
+            <label class="st-label">Email</label>
+            <input class="st-input" type="email" value="user@sivarr.ai" />
+          </div>
+          <div class="st-field">
+            <label class="st-label">Bio</label>
+            <textarea
+              class="st-input"
+              rows="3"
+              placeholder="Tell us about yourself..."
+            >
+AI enthusiast, product builder, lifelong learner.</textarea
+            >
+          </div>
+          <button class="st-btn" style="margin-top: 6px">
+            💾 Save changes
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Appearance ── -->
+      <div class="st-section" data-section="appearance">
+        <div class="st-section-hd">
+          <span
+            class="st-section-icon"
+            style="background: var(--purple2); color: var(--purple)"
+            >🎨</span
+          >
+          <span class="st-section-title">Appearance</span>
+          <span class="st-section-chevron">▾</span>
+        </div>
+        <div class="st-section-body">
+          <div class="st-field">
+            <label class="st-label">Theme</label>
+            <div class="st-seg">
+              <button class="st-seg-btn active" data-theme="light">
+                ☀️ Light
+              </button>
+              <button class="st-seg-btn" data-theme="dark">🌙 Dark</button>
+              <button class="st-seg-btn" data-theme="system">💻 System</button>
+            </div>
+          </div>
+          <div class="st-field">
+            <label class="st-label">Density</label>
+            <div class="st-seg">
+              <button class="st-seg-btn" data-density="compact">Compact</button>
+              <button class="st-seg-btn active" data-density="comfortable">
+                Comfortable
+              </button>
+            </div>
+          </div>
+          <div class="st-field">
+            <label class="st-label">Font size</label>
+            <div class="st-fontsize-row">
+              <button class="st-seg-btn" data-font="0.9" style="flex: 0">
+                A-
+              </button>
+              <input
+                type="range"
+                class="st-range"
+                min="0.8"
+                max="1.3"
+                step="0.05"
+                value="1"
+              />
+              <button class="st-seg-btn" data-font="1.1" style="flex: 0">
+                A+
+              </button>
+              <span
+                style="font-size: 0.78rem; color: var(--text4); min-width: 32px"
+                >100%</span
+              >
+            </div>
+          </div>
+          <div class="st-field">
+            <label class="st-label">Accent colour</label>
+            <div class="st-presets">
+              <button
+                class="st-accent-dot sel"
+                style="background: #0d7a5f"
+                data-color="#0D7A5F"
+              ></button>
+              <button
+                class="st-accent-dot"
+                style="background: #534ab7"
+                data-color="#534AB7"
+              ></button>
+              <button
+                class="st-accent-dot"
+                style="background: #e8614a"
+                data-color="#E8614A"
+              ></button>
+              <button
+                class="st-accent-dot"
+                style="background: #ef9f27"
+                data-color="#EF9F27"
+              ></button>
+              <button
+                class="st-accent-dot"
+                style="background: #185fa5"
+                data-color="#185FA5"
+              ></button>
+            </div>
+            <div class="st-wheel-wrap" style="margin-top: 12px">
+              <div class="st-wheel-col">
+                <div class="st-wheel" id="color-wheel">
+                  <div
+                    class="st-wheel-thumb"
+                    id="wheel-thumb"
+                    style="background: #0d7a5f"
+                  ></div>
+                </div>
+                <input
+                  type="range"
+                  class="st-light-slider"
+                  id="light-slider"
+                  min="20"
+                  max="80"
+                  value="50"
+                />
+              </div>
+              <div class="st-wheel-side">
+                <div class="st-hex-row">
+                  <span class="st-hex-pound">#</span>
+                  <input
+                    class="st-hex-input"
+                    id="hex-input"
+                    value="0D7A5F"
+                    maxlength="6"
+                  />
+                  <span class="st-eyedrop" id="eyedrop-btn">👁</span>
+                </div>
+                <button class="st-reset-btn">↺ Reset to default</button>
+              </div>
+            </div>
+          </div>
+          <div class="st-field">
+            <label class="st-label">Live preview</label>
+            <div class="st-preview">
+              <div class="st-preview-sidebar">
+                <span class="st-preview-dot"></span>
+                <span class="st-preview-dot"></span>
+                <span class="st-preview-dot"></span>
+              </div>
+              <div class="st-preview-main">
+                <div class="st-preview-grad"></div>
+                <button class="st-preview-btn">Primary</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Notifications ── -->
+      <div class="st-section" data-section="notifications">
+        <div class="st-section-hd">
+          <span
+            class="st-section-icon"
+            style="background: var(--amber2); color: var(--amber3)"
+            >🔔</span
+          >
+          <span class="st-section-title">Notifications</span>
+          <span class="st-section-chevron">▾</span>
+        </div>
+        <div class="st-section-body">
+          <div class="st-row">
+            <span>Email notifications</span>
+            <button class="st-toggle on"></button>
+          </div>
+          <div class="st-row">
+            <span>Push notifications</span>
+            <button class="st-toggle on"></button>
+          </div>
+          <div class="st-row">
+            <span>Task reminders</span>
+            <button class="st-toggle"></button>
+          </div>
+          <div class="st-row">
+            <span>Weekly summary</span>
+            <button class="st-toggle on"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Security ── -->
+      <div class="st-section" data-section="security">
+        <div class="st-section-hd">
+          <span
+            class="st-section-icon"
+            style="background: var(--red2); color: var(--red3)"
+            >🔒</span
+          >
+          <span class="st-section-title">Security</span>
+          <span class="st-section-chevron">▾</span>
+        </div>
+        <div class="st-section-body">
+          <button class="st-btn">🔄 Change password</button>
+          <button class="st-btn">📱 Two-factor authentication</button>
+          <button class="st-btn">🔑 Session management</button>
+          <button class="st-btn danger" style="margin-top: 4px">
+            ⚠️ Sign out all devices
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Plan ── -->
+      <div class="st-section" data-section="plan">
+        <div class="st-section-hd">
+          <span
+            class="st-section-icon"
+            style="background: var(--teal2); color: var(--teal)"
+            >💎</span
+          >
+          <span class="st-section-title">Plan</span>
+          <span class="st-section-chevron">▾</span>
+        </div>
+        <div class="st-section-body">
+          <div
+            style="
+              background: var(--teal2);
+              border: 1px solid var(--teal);
+              border-radius: var(--radius);
+              padding: 12px 14px;
+              margin-bottom: 8px;
+            "
+          >
+            <div style="font-weight: 700; color: var(--teal)">✨ Pro</div>
+            <div style="font-size: 0.8rem; color: var(--teal4)">
+              Unlimited everything
+            </div>
+          </div>
+          <button class="st-btn">🔄 Change plan</button>
+          <button class="st-btn">💳 Update payment method</button>
+        </div>
+      </div>
+
+      <!-- ── Integrations ── -->
+      <div class="st-section" data-section="integrations">
+        <div class="st-section-hd">
+          <span
+            class="st-section-icon"
+            style="background: var(--purple2); color: var(--purple3)"
+            >🔌</span
+          >
+          <span class="st-section-title">Integrations</span>
+          <span class="st-section-chevron">▾</span>
+        </div>
+        <div class="st-section-body">
+          <div class="sset-toggle-row">
+            <span class="mkt-item-icon">📧</span>
+            <span style="flex: 1; font-weight: 600">Gmail</span>
+            <span class="sset-int-connect">Connect</span>
+          </div>
+          <div class="sset-toggle-row">
+            <span class="mkt-item-icon">📅</span>
+            <span style="flex: 1; font-weight: 600">Google Calendar</span>
+            <span class="sset-int-connect">Connect</span>
+          </div>
+          <div class="sset-toggle-row">
+            <span class="mkt-item-icon">💾</span>
+            <span style="flex: 1; font-weight: 600">Dropbox</span>
+            <span class="sset-int-soon">Soon</span>
+          </div>
+          <div class="sset-toggle-row">
+            <span class="mkt-item-icon">💬</span>
+            <span style="flex: 1; font-weight: 600">Slack</span>
+            <span class="sset-int-soon">Soon</span>
+          </div>
+          <div class="sset-int-divider">Payment integrations</div>
+          <div class="sset-toggle-row">
+            <span class="mkt-item-icon">💰</span>
+            <span style="flex: 1; font-weight: 600">Paystack</span>
+            <span class="sset-int-connect">Connect</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Export ── -->
+      <div class="st-section" data-section="export">
+        <div class="st-section-hd">
+          <span
+            class="st-section-icon"
+            style="background: var(--amber2); color: var(--amber)"
+            >📤</span
+          >
+          <span class="st-section-title">Export</span>
+          <span class="st-section-chevron">▾</span>
+        </div>
+        <div class="st-section-body">
+          <button class="st-btn">📄 Export all notes (Markdown)</button>
+          <button class="st-btn">📊 Export tasks (CSV)</button>
+          <button class="st-btn">📆 Export calendar (ICS)</button>
+          <button class="st-btn">📦 Export all data (JSON)</button>
+        </div>
+      </div>
+
+      <!-- ── Data ── -->
+      <div class="st-section" data-section="data">
+        <div class="st-section-hd">
+          <span
+            class="st-section-icon"
+            style="background: var(--red2); color: var(--red3)"
+            >🗄️</span
+          >
+          <span class="st-section-title">Data</span>
+          <span class="st-section-chevron">▾</span>
+        </div>
+        <div class="st-section-body">
+          <button class="st-btn">📊 Data usage</button>
+          <button class="st-btn">🧹 Clear cache</button>
+          <button class="st-btn danger" style="margin-top: 4px">
+            ⚠️ Delete all data
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Organization ── -->
+      <div class="st-section" data-section="org">
+        <div class="st-section-hd">
+          <span
+            class="st-section-icon"
+            style="background: var(--teal2); color: var(--teal)"
+            >🏢</span
+          >
+          <span class="st-section-title">Organization</span>
+          <span class="st-section-chevron">▾</span>
+        </div>
+        <div class="st-section-body">
+          <div class="st-field">
+            <label class="st-label">Organization name</label>
+            <input class="st-input" value="Sivarr Inc." />
+          </div>
+          <div class="st-field">
+            <label class="st-label">Team members</label>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  padding: 4px 0;
+                "
+              >
+                <span style="font-size: 0.82rem">👤 User (Admin)</span>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  padding: 4px 0;
+                "
+              >
+                <span style="font-size: 0.82rem">👤 team@sivarr.ai</span>
+                <span style="font-size: 0.68rem; color: var(--text4)"
+                  >Member</span
+                >
+              </div>
+            </div>
+          </div>
+          <button class="st-btn">+ Invite team member</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

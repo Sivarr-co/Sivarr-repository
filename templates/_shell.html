@@ -1,0 +1,964 @@
+<!-- Topbar -->
+<header class="topbar">
+  <!-- Hamburger (legacy — hidden on mobile by the Notion launcher) -->
+  <button
+    class="tb-ham"
+    id="hamburger"
+    onclick="toggleMobileSidebar()"
+    title="Menu"
+  >
+    <i class="ti ti-menu-2"></i>
+  </button>
+
+  <!-- Mobile back chevron (drill-down) — pops one level; shows only while inside a page -->
+  <button
+    class="tb-mobback"
+    id="tb-mobback"
+    onclick="mobBack()"
+    title="Back"
+    aria-label="Back"
+  >
+    <i class="ti ti-menu-2"></i>
+  </button>
+
+  <!-- Autosave status -->
+  <span id="global-save-status" class="global-save-status"></span>
+
+  <!-- Right actions -->
+  <div class="tb-right">
+    <!-- Top bar cleanup: Quick Add moved to the sidebar header; Fullscreen
+         moved to the profile dropdown; Dark Mode + Announcements already in
+         the dropdown. Notifications bell kept (distinct from Announcements). -->
+    <!-- Notifications -->
+    <div style="position: relative">
+      <button
+        class="tb-icon-btn"
+        id="notif-btn"
+        onclick="notifToggle()"
+        title="Notifications"
+        data-tip="Notifications"
+        data-tip-pos="bottom"
+      >
+        <i class="ti ti-bell"></i>
+        <span
+          id="notif-badge"
+          style="
+            display: none;
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            border: 2px solid var(--bg);
+          "
+        ></span>
+      </button>
+      <div
+        id="notif-panel"
+        style="
+          display: none;
+          position: absolute;
+          top: calc(100% + 8px);
+          right: 0;
+          width: 320px;
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+          z-index: 9999;
+          overflow: hidden;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid var(--border);
+          "
+        >
+          <span style="font-size: 0.85rem; font-weight: 700"
+            >Notifications</span
+          >
+          <button
+            onclick="notifMarkAllRead()"
+            style="
+              background: none;
+              border: none;
+              color: var(--teal);
+              font-size: 0.75rem;
+              cursor: pointer;
+              font-family: var(--font);
+            "
+          >
+            Mark all read
+          </button>
+        </div>
+        <div id="notif-list" style="max-height: 340px; overflow-y: auto"></div>
+      </div>
+    </div>
+    <!-- Profile -->
+    <div class="profile-menu" id="profile-menu">
+      <button
+        class="profile-trigger"
+        id="profile-trigger"
+        onclick="toggleProfile()"
+        data-tip="Account"
+        data-tip-pos="bottom"
+      >
+        <div class="pa" id="tb-av" style="overflow: hidden">?</div>
+      </button>
+      <!-- Hidden name span kept for JS compat -->
+      <span class="pn" id="tb-name" style="display: none">User</span>
+
+      <div class="profile-dropdown" id="profile-dropdown">
+        <!-- Header with avatar + upload -->
+        <div
+          class="pd-header"
+          style="text-align: center; padding: 14px 10px 14px"
+        >
+          <div
+            style="
+              position: relative;
+              display: inline-block;
+              margin-bottom: 8px;
+            "
+            onclick="$('pfp-input').click()"
+            title="Change photo"
+          >
+            <div
+              class="pa"
+              id="tb-av-big"
+              style="
+                width: 56px;
+                height: 56px;
+                font-size: 1.2rem;
+                border-radius: 50%;
+                background: linear-gradient(
+                  135deg,
+                  var(--accent),
+                  var(--accent2)
+                );
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-family: var(--font);
+                font-weight: 700;
+                color: #fff;
+                cursor: pointer;
+                overflow: hidden;
+                margin: 0 auto;
+                box-shadow: 0 0 0 3px var(--border);
+              "
+            >
+              ?
+            </div>
+            <div
+              style="
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                background: var(--accent);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.6rem;
+                cursor: pointer;
+                border: 2px solid var(--card);
+              "
+            >
+              ✏
+            </div>
+          </div>
+          <input
+            type="file"
+            id="pfp-input"
+            accept="image/*"
+            style="display: none"
+            onchange="uploadProfilePic(this)"
+          />
+          <div class="pd-name" id="pd-name">Your Name</div>
+          <div class="pd-matric" id="pd-matric">Account</div>
+          <button
+            onclick="$('pfp-input').click()"
+            style="
+              margin-top: 6px;
+              background: none;
+              border: 1px solid var(--border);
+              border-radius: 7px;
+              padding: 3px 10px;
+              color: var(--muted);
+              font-size: 0.7rem;
+              cursor: pointer;
+              font-family: var(--font);
+              transition: all 0.15s;
+            "
+            onmouseover="
+              this.style.borderColor = 'var(--accent)';
+              this.style.color = 'var(--accent)';
+            "
+            onmouseout="
+              this.style.borderColor = 'var(--border)';
+              this.style.color = 'var(--muted)';
+            "
+          >
+            Change photo
+          </button>
+        </div>
+
+        <button
+          class="pd-item"
+          onclick="
+            nav('stats', null);
+            closeProfile();
+          "
+        >
+          <i class="ti ti-chart-bar pd-icon"></i> My Progress
+        </button>
+        <button
+          class="pd-item"
+          onclick="
+            nav('notes', null);
+            closeProfile();
+          "
+        >
+          <i class="ti ti-notebook pd-icon"></i> My Notes
+        </button>
+        <button
+          class="pd-item"
+          onclick="
+            nav('calendar', null);
+            closeProfile();
+          "
+        >
+          <i class="ti ti-calendar pd-icon"></i> Calendar
+        </button>
+        <button
+          class="pd-item"
+          onclick="
+            nav('announcements', null);
+            closeProfile();
+          "
+        >
+          <i class="ti ti-bell pd-icon"></i> Announcements
+        </button>
+
+        <div class="pd-divider"></div>
+
+        <div class="pd-toggle" onclick="toggleThemeFromMenu()">
+          <div class="pd-toggle-left">
+            <i class="ti ti-moon pd-icon" id="pd-theme-icon"></i>
+            <span id="pd-theme-label">Dark Mode</span>
+          </div>
+          <div class="toggle-sw" id="pd-toggle-sw"></div>
+        </div>
+
+        <button class="pd-item" onclick="toggleFullscreen()">
+          <i class="ti ti-maximize pd-icon" id="pd-fullscreen-icon"></i>
+          <span id="pd-fullscreen-label">Fullscreen</span>
+        </button>
+
+        <div class="pd-divider"></div>
+
+        <button
+          class="pd-item"
+          onclick="
+            showPricing();
+            closeProfile();
+          "
+        >
+          <i class="ti ti-rocket pd-icon"></i>
+          Upgrade Plan
+          <span
+            id="billing-plan-badge"
+            style="
+              margin-left: auto;
+              font-size: 0.68rem;
+              padding: 2px 7px;
+              border-radius: 10px;
+              background: var(--bg3);
+              color: var(--muted);
+              font-weight: 700;
+            "
+            >Free</span
+          >
+        </button>
+
+        <div class="pd-divider"></div>
+
+        <button class="pd-item danger" onclick="logout()">
+          <i class="ti ti-logout pd-icon"></i> Sign out
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Overlay for mobile sidebar -->
+<div
+  class="overlay"
+  id="overlay"
+  onclick="
+    window.innerWidth <= 720 && !document.body.classList.contains('mob-drilled')
+      ? _mobHomeVisual()
+      : closeMobileSidebar()
+  "
+></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <!-- Brand (desktop only — sidebar is full-height now, so it carries the
+           logo/name that used to live in the topbar; mobile keeps it in the topbar) -->
+  <div class="sb-brand">
+    <div class="tb-logo">
+      <img src="/static/sivarrai.png" alt="Sivarr" />
+    </div>
+    <span class="sb-brand-name">Sivarr</span>
+  </div>
+
+  <!-- Top row: search + customize + collapse -->
+  <div class="sb-header">
+    <button
+      class="sb-top-search"
+      onclick="cmdOpen()"
+      aria-label="Search or jump to"
+    >
+      <i class="ti ti-search"></i>
+      <span>Search or jump to…</span>
+      <span class="sb-top-kbd">⌘K</span>
+    </button>
+    <div class="sb-head-actions">
+      <button
+        class="sb-rail-btn sb-cust-btn"
+        onclick="mobCustOpen()"
+        title="Customize sidebar"
+        data-tip="Customize sidebar"
+        data-tip-pos="bottom"
+        aria-label="Customize sidebar"
+      >
+        <i class="ti ti-adjustments-horizontal"></i>
+      </button>
+      <button
+        class="sb-rail-btn"
+        onclick="sbToggleRail()"
+        title="Collapse sidebar"
+        data-tip="Collapse sidebar"
+        data-tip-pos="bottom"
+        aria-label="Collapse sidebar"
+      >
+        <i class="ti ti-layout-sidebar-left-collapse" id="sb-rail-icon"></i>
+        <i class="ti ti-arrow-left sb-mob-close-icon" style="display: none"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="sb-scroll">
+    <!-- Favorites: Sivarr AI / Home / Inbox — flat, no section label (rendered by navRenderSidebar) -->
+    <div class="sb-nav-group" id="sb-favs">
+      <!-- rendered by navRenderSidebar() -->
+    </div>
+
+    <!-- Watchlist — user-pinned templates -->
+    <div class="sb-section-row">
+      <span class="sb-section-label" style="margin: 0">Watchlist</span>
+      <button
+        class="sb-spaces-add"
+        onclick="nav('marketplace', null)"
+        title="Pin a template"
+        data-tip="Pin a template"
+        data-tip-pos="right"
+      >
+        <i class="ti ti-plus"></i>
+      </button>
+    </div>
+    <div class="sb-nav-group" id="sb-watchlist">
+      <button class="si" onclick="nav('marketplace', null)">
+        <div
+          class="wl-icon"
+          style="background: rgba(13, 122, 95, 0.18); color: var(--teal)"
+        >
+          <i class="ti ti-chart-candle"></i>
+        </div>
+        <span class="si-lb">Trading Journal</span>
+      </button>
+      <button class="si" onclick="nav('finance', null)">
+        <div
+          class="wl-icon"
+          style="
+            background: var(--purple2, rgba(83, 74, 183, 0.18));
+            color: var(--accent2);
+          "
+        >
+          <i class="ti ti-wallet"></i>
+        </div>
+        <span class="si-lb">Finance Tracker</span>
+      </button>
+    </div>
+
+    <!-- Connect — flat, no collapse, always shows all 5 (no pin-filtering) -->
+    <div class="sb-section-row">
+      <span class="sb-section-label" style="margin: 0">Connect</span>
+    </div>
+    <div class="sb-nav-group" id="sgi-connect">
+      <!-- rendered by navRenderSidebar() -->
+    </div>
+
+    <!-- Spaces — the one dropdown -->
+    <div
+      class="sb-section-row sb-spaces-head"
+      id="sb-spaces-head"
+      onclick="spacesToggle()"
+      title="Show/hide spaces"
+    >
+      <span
+        class="sb-section-label"
+        style="margin: 0; display: flex; align-items: center; gap: 5px"
+      >
+        <i
+          class="ti ti-chevron-down sb-spaces-caret"
+          id="sb-spaces-caret"
+          aria-hidden="true"
+        ></i
+        >Spaces
+      </span>
+      <button
+        class="sb-spaces-add"
+        onclick="
+          event.stopPropagation();
+          openCreateSpaceModal();
+        "
+        title="New space"
+        data-tip="New space"
+        data-tip-pos="right"
+      >
+        <i class="ti ti-plus"></i>
+      </button>
+    </div>
+    <div class="sb-nav-group" id="sgi-spaces">
+      <div id="sb-spaces-list">
+        <!-- rendered by spaceRenderSidebar() -->
+      </div>
+    </div>
+
+    <!-- Continuation: Settings / Plans / Help & Support — flat, sits directly under Spaces, no divider, no footer -->
+    <div class="sb-nav-group" style="margin-top: 2px">
+      <button class="si" onclick="nav('settings', null)">
+        <div class="si-icon"><i class="ti ti-settings"></i></div>
+        <span class="si-lb">Settings</span>
+      </button>
+      <button class="si" onclick="showPricing()">
+        <div class="si-icon"><i class="ti ti-bolt"></i></div>
+        <span class="si-lb">Plans</span>
+        <span class="si-stat" id="sb-plan-label">Free Plan</span>
+      </button>
+      <button
+        class="si"
+        onclick="nav('help', null)"
+        aria-label="Help and Support"
+      >
+        <div class="si-icon"><i class="ti ti-lifebuoy"></i></div>
+        <span class="si-lb">Help &amp; Support</span>
+      </button>
+    </div>
+  </div>
+  <!-- Sidebar ends at Help & Support — no footer -->
+</aside>
+
+<!-- ═══ MOBILE FAB + SLIDE-IN SIDEBAR ═══ -->
+<button class="mob-fab" id="mob-fab" aria-label="Menu">☰</button>
+
+<!-- Backdrop overlay -->
+<div
+  class="mob-sidebar-overlay"
+  id="mob-sidebar-overlay"
+  onclick="closeMobileSidebar()"
+></div>
+
+<!-- Slide-in sidebar panel -->
+<div class="mob-sidebar-panel" id="mob-sidebar-panel">
+  <!-- Header -->
+  <div class="mob-sidebar-header">
+    <div style="display: flex; align-items: center; gap: 9px">
+      <div
+        style="
+          width: 26px;
+          height: 26px;
+          border-radius: 7px;
+          flex-shrink: 0;
+          overflow: hidden;
+          background: linear-gradient(135deg, var(--accent), var(--accent2));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 800;
+          font-size: 11px;
+          color: #fff;
+        "
+      >
+        Sr
+      </div>
+      <span
+        style="
+          font-family: var(--font);
+          font-weight: 800;
+          font-size: 0.88rem;
+          color: var(--text);
+        "
+      >
+        Sivarr <span style="color: var(--accent)">AI</span>
+      </span>
+    </div>
+    <button class="mob-sidebar-close" onclick="closeMobileSidebar()">✕</button>
+  </div>
+
+  <!-- Scrollable nav -->
+  <div class="mob-sidebar-nav">
+    <button
+      class="snav-dash-btn"
+      style="
+        width: 100%;
+        margin-bottom: 6px;
+        font-family: var(--font-body);
+        font-size: 0.82rem;
+        color: var(--sidebar-text);
+        cursor: pointer;
+        transition: background 0.12s;
+      "
+      onclick="
+        nav('chat', null);
+        closeMobileSidebar();
+      "
+    >
+      <span style="font-size: 0.82rem">⊞</span> Dashboard
+    </button>
+    <div
+      style="
+        height: 1px;
+        background: var(--sidebar-border);
+        margin: 4px 4px 8px;
+      "
+    ></div>
+
+    <!-- AI -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-ai"
+      onclick="mobSnavToggle('ai', this)"
+    >
+      <span
+        class="snav-section-icon"
+        style="background: rgba(129, 140, 248, 0.15)"
+        >🧠</span
+      >
+      <span class="snav-section-label">AI</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-ai">
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMob('chat')"
+      >
+        <span class="snav-item-icon">💬</span> Chat
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMobAI('ask-notes')"
+      >
+        <span class="snav-item-icon">📄</span> Ask from Notes
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMob('quiz')"
+      >
+        <span class="snav-item-icon">✨</span> Generate Quiz
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMobAI('study-help')"
+      >
+        <span class="snav-item-icon">💡</span> Study Help
+      </button>
+    </div>
+
+    <!-- Academics -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-academics"
+      onclick="mobSnavToggle('academics', this)"
+    >
+      <span class="snav-section-icon">🎓</span>
+      <span class="snav-section-label">Academics</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-academics">
+      <button
+        class="snav-item"
+        style="--item-accent: #34d399"
+        onclick="navMob('courses')"
+      >
+        <span class="snav-item-icon">📚</span> Courses
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #34d399"
+        onclick="navMob('announcements')"
+      >
+        <span class="snav-item-icon">📢</span> Announcements
+      </button>
+    </div>
+
+    <!-- Planner / Work -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-planner"
+      onclick="mobSnavToggle('planner', this)"
+    >
+      <span class="snav-section-icon">📅</span>
+      <span class="snav-section-label">Work</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-planner">
+      <button
+        class="snav-item"
+        style="--item-accent: #fb923c"
+        onclick="navMob('flux')"
+      >
+        <span class="snav-item-icon">✅</span> Tasks
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #fb923c"
+        onclick="navMob('notes')"
+      >
+        <span class="snav-item-icon">📓</span> Docs &amp; Notes
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #fb923c"
+        onclick="navMob('calendar')"
+      >
+        <span class="snav-item-icon">📆</span> Calendar
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #fb923c"
+        onclick="navMob('lab')"
+      >
+        <span class="snav-item-icon">🧪</span> Study Deck
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #fb923c"
+        onclick="navMobAI('study-plan')"
+      >
+        <span class="snav-item-icon">🗺️</span> Study Plan
+      </button>
+    </div>
+
+    <!-- Assessments -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-assessments"
+      onclick="mobSnavToggle('assessments', this)"
+    >
+      <span class="snav-section-icon">📋</span>
+      <span class="snav-section-label">Assessments</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-assessments">
+      <button
+        class="snav-item"
+        style="--item-accent: #f472b6"
+        onclick="navMob('quiz')"
+      >
+        <span class="snav-item-icon">📝</span> Quizzes
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #f472b6"
+        onclick="navMob('stats')"
+      >
+        <span class="snav-item-icon">🏆</span> Results
+      </button>
+    </div>
+
+    <!-- Grow -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-grow"
+      onclick="mobSnavToggle('grow', this)"
+    >
+      <span class="snav-section-icon">🌱</span>
+      <span class="snav-section-label">Grow</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-grow">
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('goals')"
+      >
+        <span class="snav-item-icon">🎯</span> Goals
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('skills')"
+      >
+        <span class="snav-item-icon">🧠</span> Skills
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('finance')"
+      >
+        <span class="snav-item-icon">💰</span> Finance
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('habits')"
+      >
+        <span class="snav-item-icon">🔁</span> Habits
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('journal')"
+      >
+        <span class="snav-item-icon">✍️</span> Journal
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('stats')"
+      >
+        <span class="snav-item-icon">📈</span> Analytics
+      </button>
+    </div>
+
+    <!-- Connect -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-connect"
+      onclick="mobSnavToggle('connect', this)"
+    >
+      <span class="snav-section-icon">🌐</span>
+      <span class="snav-section-label">Connect</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-connect">
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMob('community')"
+      >
+        <span class="snav-item-icon">👥</span> Community
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMob('library')"
+      >
+        <span class="snav-item-icon">📚</span> Library
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #4f6ef7"
+        onclick="navMob('agents')"
+      >
+        <span class="snav-item-icon">🤖</span> Agents
+      </button>
+    </div>
+
+    <!-- Insights -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-insights"
+      onclick="mobSnavToggle('insights', this)"
+    >
+      <span class="snav-section-icon">📊</span>
+      <span class="snav-section-label">Insights</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-insights">
+      <button
+        class="snav-item"
+        style="--item-accent: #60a5fa"
+        onclick="navMob('stats')"
+      >
+        <span class="snav-item-icon">📈</span> Progress
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #60a5fa"
+        onclick="navMobAI('weak-areas')"
+      >
+        <span class="snav-item-icon">🎯</span> Weak Areas
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #60a5fa"
+        onclick="navMobAI('recommendations')"
+      >
+        <span class="snav-item-icon">💡</span> Recommendations
+      </button>
+    </div>
+
+    <div
+      style="height: 1px; background: var(--sidebar-border); margin: 8px 4px"
+    ></div>
+
+    <!-- Spaces -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-spaces"
+      onclick="mobSnavToggle('spaces', this)"
+    >
+      <span class="snav-section-icon">🏠</span>
+      <span class="snav-section-label">Spaces</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-spaces">
+      <button
+        class="snav-item"
+        style="--item-accent: #a78bfa"
+        onclick="navMob('personal-space')"
+      >
+        <span class="snav-item-icon">👤</span> Personal Space
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #a78bfa"
+        onclick="navMob('organization-space')"
+      >
+        <span class="snav-item-icon">🏢</span> Organization Space
+      </button>
+    </div>
+
+    <div
+      style="height: 1px; background: var(--sidebar-border); margin: 8px 4px"
+    ></div>
+
+    <button
+      class="snav-item"
+      style="--item-accent: #818cf8; margin-top: 4px"
+      onclick="navMob('settings')"
+    >
+      <span class="snav-item-icon">⚙️</span> Settings
+    </button>
+  </div>
+  <!-- end mob-sidebar-nav -->
+
+  <!-- User footer — mobile sidebar only -->
+  <div
+    style="
+      padding: 8px;
+      border-top: 1px solid var(--sidebar-border);
+      flex-shrink: 0;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 8px;
+      "
+    >
+      <div
+        id="mob-snav-av"
+        style="
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          flex-shrink: 0;
+          overflow: hidden;
+          background: linear-gradient(135deg, var(--accent), var(--accent2));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 10px;
+          color: #fff;
+        "
+      >
+        ?
+      </div>
+      <div style="flex: 1; min-width: 0">
+        <div
+          id="mob-snav-name"
+          style="
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          "
+        >
+          Your Name
+        </div>
+        <div style="font-size: 9.5px; color: var(--muted)">
+          Personal account
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- end mob-sidebar-panel -->
+
+<!-- ── Mobile FAB (quick capture) — real one, defined again lower in body
+         since app.js re-binds cnOpen() to this instance; kept here to travel
+         with the rest of the mobile shell chrome -->
+<button class="mob-fab" id="mob-fab" onclick="cnOpen()" title="Quick capture">
+  <i class="ti ti-plus"></i>
+</button>
+
+<!-- ── Mobile Bottom Navigation ─────────────────────────── -->
+<nav class="mobile-nav" id="mobile-nav">
+  <div class="mobile-nav-inner">
+    <button class="mob-nav-btn" id="mob-today" onclick="nav('home')">
+      <i class="ti ti-sun-high"></i>
+      <span>Today</span>
+    </button>
+
+    <button class="mob-nav-btn mob-ai-btn" id="mob-ai" onclick="nav('chat')">
+      <div class="mob-ai-orb">
+        <i class="ti ti-sparkles"></i>
+      </div>
+      <span>AI</span>
+    </button>
+
+    <button class="mob-nav-btn" id="mob-me" onclick="navMobileMe()">
+      <i class="ti ti-user"></i>
+      <span>Me</span>
+    </button>
+  </div>
+</nav>
+
+<!-- Mobile: Customize sidebar bottom-sheet -->
+<div
+  class="mob-cust-overlay"
+  id="mob-cust-overlay"
+  onclick="if (event.target === this) mobCustClose();"
+>
+  <div class="mob-cust-sheet" id="mob-cust-sheet">
+    <div class="mob-cust-head">
+      <h3>Customize Sidebar</h3>
+      <button class="mob-cust-done" onclick="mobCustClose()">Done</button>
+    </div>
+    <div class="mob-cust-body" id="mob-cust-body"></div>
+  </div>
+</div>

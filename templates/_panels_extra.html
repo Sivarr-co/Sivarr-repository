@@ -1,0 +1,1834 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     PANELS EXTRA — Quiz · Stats · Goals · Habits · Journal · Finance
+     Skills · Community · Library · Templates · Marketplace · Agents
+     Profile · Opportunities · Review · Help · Content Hub · Announcements
+     ═══════════════════════════════════════════════════════════════ -->
+
+{# ── QUIZ PANEL ────────────────────────────────────────────── #}
+<div id="panel-quiz" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">🧠</span>
+    <span class="vh-title">Quiz</span>
+  </div>
+  <div class="quiz-wrap">
+    <div id="quiz-container">
+      <!-- Start state -->
+      <div class="quiz-start-card" id="quiz-start">
+        <h2>📚 Ready to test your knowledge?</h2>
+        <p
+          style="color: var(--text3); margin-bottom: 1.5rem; font-size: 0.9rem"
+        >
+          10 questions · 5 minutes · Multiple choice
+        </p>
+        <button class="btn-start" id="quiz-start-btn">Start Quiz →</button>
+      </div>
+
+      <!-- Active quiz (hidden) -->
+      <div class="quiz-card" id="quiz-active" style="display: none">
+        <div
+          class="quiz-meta"
+          style="
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+          "
+        >
+          <span id="quiz-progress">Question 1 of 10</span>
+          <span class="quiz-score" id="quiz-score">Score: 0</span>
+        </div>
+        <div class="quiz-q-text" id="quiz-question">
+          What is the capital of France?
+        </div>
+        <div id="quiz-options">
+          <button class="quiz-opt" data-index="0">A. London</button>
+          <button class="quiz-opt" data-index="1">B. Paris</button>
+          <button class="quiz-opt" data-index="2">C. Berlin</button>
+          <button class="quiz-opt" data-index="3">D. Madrid</button>
+        </div>
+      </div>
+
+      <!-- Results (hidden) -->
+      <div class="quiz-start-card" id="quiz-results" style="display: none">
+        <h2 id="quiz-result-title">🎉 Great job!</h2>
+        <div
+          style="
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--teal);
+            margin: 1rem 0;
+          "
+          id="quiz-result-score"
+        >
+          8/10
+        </div>
+        <p
+          style="color: var(--text3); margin-bottom: 1.5rem"
+          id="quiz-result-msg"
+        >
+          You're doing great! Keep learning.
+        </p>
+        <button class="btn-start" id="quiz-retry-btn">🔄 Try again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── STATS PANEL ───────────────────────────────────────────── #}
+<div id="panel-stats" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">📊</span>
+    <span class="vh-title">Progress & Analytics</span>
+  </div>
+  <div class="stats-wrap">
+    <div class="stats-grid">
+      <div class="stat-card" style="--sc: var(--teal)">
+        <div class="sc-label">Tasks completed</div>
+        <div class="sc-val">147</div>
+      </div>
+      <div class="stat-card" style="--sc: var(--purple)">
+        <div class="sc-label">Study hours</div>
+        <div class="sc-val">84</div>
+      </div>
+      <div class="stat-card" style="--sc: var(--amber3)">
+        <div class="sc-label">Habit streak</div>
+        <div class="sc-val">12</div>
+      </div>
+      <div class="stat-card" style="--sc: var(--coral3)">
+        <div class="sc-label">Quiz score</div>
+        <div class="sc-val">78%</div>
+      </div>
+    </div>
+
+    <div class="stat-block">
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 10px;
+        "
+      >
+        <span style="font-weight: 700; color: var(--text1)"
+          >📈 Weekly progress</span
+        >
+      </div>
+      <div class="anl-row">
+        <span class="anl-lbl">Mon</span>
+        <div class="anl-track">
+          <div
+            class="anl-fill"
+            style="width: 70%; background: var(--teal)"
+          ></div>
+        </div>
+        <span class="anl-val">70%</span>
+      </div>
+      <div class="anl-row">
+        <span class="anl-lbl">Tue</span>
+        <div class="anl-track">
+          <div
+            class="anl-fill"
+            style="width: 85%; background: var(--teal)"
+          ></div>
+        </div>
+        <span class="anl-val">85%</span>
+      </div>
+      <div class="anl-row">
+        <span class="anl-lbl">Wed</span>
+        <div class="anl-track">
+          <div
+            class="anl-fill"
+            style="width: 45%; background: var(--amber3)"
+          ></div>
+        </div>
+        <span class="anl-val">45%</span>
+      </div>
+      <div class="anl-row">
+        <span class="anl-lbl">Thu</span>
+        <div class="anl-track">
+          <div
+            class="anl-fill"
+            style="width: 90%; background: var(--teal)"
+          ></div>
+        </div>
+        <span class="anl-val">90%</span>
+      </div>
+      <div class="anl-row">
+        <span class="anl-lbl">Fri</span>
+        <div class="anl-track">
+          <div
+            class="anl-fill"
+            style="width: 60%; background: var(--teal)"
+          ></div>
+        </div>
+        <span class="anl-val">60%</span>
+      </div>
+      <div class="anl-row">
+        <span class="anl-lbl">Sat</span>
+        <div class="anl-track">
+          <div
+            class="anl-fill"
+            style="width: 30%; background: var(--amber3)"
+          ></div>
+        </div>
+        <span class="anl-val">30%</span>
+      </div>
+      <div class="anl-row">
+        <span class="anl-lbl">Sun</span>
+        <div class="anl-track">
+          <div class="anl-fill" style="width: 0%"></div>
+        </div>
+        <span class="anl-val">0%</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── GOALS PANEL ───────────────────────────────────────────── #}
+<div id="panel-goals" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">🎯</span>
+    <span class="vh-title">Goals</span>
+    <button class="btn primary" id="gl-add-toggle" style="margin-left: auto">
+      + New Goal
+    </button>
+  </div>
+  <div style="padding: 18px 0; overflow-y: auto; flex: 1">
+    <!-- Stats -->
+    <div class="gl-stats" style="padding: 0 8px">
+      <div class="gl-stat">
+        <div class="gl-stat-val">8</div>
+        <div class="gl-stat-lbl">Active</div>
+      </div>
+      <div class="gl-stat completed">
+        <div class="gl-stat-val">12</div>
+        <div class="gl-stat-lbl">Completed</div>
+      </div>
+      <div class="gl-stat overdue">
+        <div class="gl-stat-val">2</div>
+        <div class="gl-stat-lbl">Overdue</div>
+      </div>
+      <div class="gl-stat">
+        <div class="gl-stat-val">74%</div>
+        <div class="gl-stat-lbl">Success rate</div>
+      </div>
+    </div>
+
+    <!-- Add form -->
+    <div class="gl-add-form" id="gl-add-form">
+      <input
+        class="gl-edit-input"
+        id="gl-new-title"
+        placeholder="Goal title..."
+      />
+      <div style="display: flex; gap: 6px">
+        <input
+          class="gl-edit-input"
+          id="gl-new-target"
+          placeholder="Target"
+          style="flex: 1"
+        />
+        <button class="gl-edit-save" id="gl-save-btn">Add Goal</button>
+        <button class="gl-edit-cancel" id="gl-cancel-btn">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="gl-filters" style="padding: 0 8px">
+      <button class="gl-filter-btn active" data-filter="all">All</button>
+      <button class="gl-filter-btn" data-filter="active">Active</button>
+      <button class="gl-filter-btn" data-filter="completed">Completed</button>
+      <button class="gl-filter-btn" data-filter="overdue">Overdue</button>
+    </div>
+
+    <!-- Goals list -->
+    <div style="padding: 0 8px">
+      <div class="gl-card">
+        <div class="gl-title">Learn Python for Data Science</div>
+        <div class="gl-prog-wrap">
+          <div class="gl-prog-fill" style="width: 65%"></div>
+        </div>
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: var(--text3);
+          "
+        >
+          <span>📚 65% complete</span>
+          <span>🎯 Target: 100%</span>
+          <span>📅 Due: Jul 15</span>
+        </div>
+        <div class="gl-actions">
+          <button class="gl-action-btn done-btn">✓ Mark done</button>
+          <button class="gl-action-btn siva-btn">✨ AI suggest</button>
+          <button class="gl-action-btn del-btn">✕ Delete</button>
+        </div>
+      </div>
+
+      <div class="gl-card">
+        <div class="gl-title">Read 20 Books This Year</div>
+        <div class="gl-prog-wrap">
+          <div class="gl-prog-fill" style="width: 55%"></div>
+        </div>
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: var(--text3);
+          "
+        >
+          <span>📚 55% complete</span>
+          <span>🎯 Target: 20</span>
+          <span>📅 Due: Dec 31</span>
+        </div>
+        <div class="gl-actions">
+          <button class="gl-action-btn done-btn">✓ Mark done</button>
+          <button class="gl-action-btn siva-btn">✨ AI suggest</button>
+          <button class="gl-action-btn del-btn">✕ Delete</button>
+        </div>
+      </div>
+
+      <div class="gl-card done">
+        <div class="gl-title">Finish Online Course: AI Fundamentals</div>
+        <div class="gl-prog-wrap">
+          <div class="gl-prog-fill done" style="width: 100%"></div>
+        </div>
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: var(--text3);
+          "
+        >
+          <span>✅ Completed</span>
+          <span>🎯 Target: 100%</span>
+          <span>📅 Done: Jun 10</span>
+        </div>
+        <div class="gl-actions">
+          <button class="gl-action-btn del-btn">✕ Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── HABITS PANEL ──────────────────────────────────────────── #}
+<div id="panel-habits" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">💪</span>
+    <span class="vh-title">Habits</span>
+    <button class="btn primary" id="habit-add-btn" style="margin-left: auto">
+      + New Habit
+    </button>
+  </div>
+  <div class="habits-wrap">
+    <div
+      style="
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 16px;
+      "
+    >
+      <div
+        style="
+          background: var(--bg2);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 12px;
+          text-align: center;
+        "
+      >
+        <div style="font-size: 1.2rem; font-weight: 800; color: var(--teal)">
+          7
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text3)">Day streak</div>
+      </div>
+      <div
+        style="
+          background: var(--bg2);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 12px;
+          text-align: center;
+        "
+      >
+        <div style="font-size: 1.2rem; font-weight: 800; color: var(--purple)">
+          85%
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text3)">
+          Completion rate
+        </div>
+      </div>
+      <div
+        style="
+          background: var(--bg2);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 12px;
+          text-align: center;
+        "
+      >
+        <div style="font-size: 1.2rem; font-weight: 800; color: var(--amber3)">
+          12
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text3)">Total habits</div>
+      </div>
+    </div>
+
+    <div class="habit-card">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <span class="habit-emoji">🧘</span>
+        <div class="habit-info">
+          <div class="habit-title">Morning Meditation</div>
+          <div class="habit-sub2">10 minutes daily</div>
+        </div>
+        <span class="habit-pct">🔥 7 days</span>
+        <div class="hab-card-actions">
+          <button class="habit-action-btn">✏️</button>
+          <button class="habit-action-btn">✕</button>
+        </div>
+      </div>
+      <div class="hab-heatmap-grid">
+        <div class="hm-cell done"></div>
+        <div class="hm-cell done"></div>
+        <div class="hm-cell done"></div>
+        <div class="hm-cell done"></div>
+        <div class="hm-cell done"></div>
+        <div class="hm-cell done"></div>
+        <div class="hm-cell done"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+      </div>
+    </div>
+
+    <div class="habit-card">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <span class="habit-emoji">📚</span>
+        <div class="habit-info">
+          <div class="habit-title">Read 20 Pages</div>
+          <div class="habit-sub2">Daily reading</div>
+        </div>
+        <span class="habit-pct">📖 5 days</span>
+        <div class="hab-card-actions">
+          <button class="habit-action-btn">✏️</button>
+          <button class="habit-action-btn">✕</button>
+        </div>
+      </div>
+      <div class="hab-heatmap-grid">
+        <div class="hm-cell done"></div>
+        <div class="hm-cell done"></div>
+        <div class="hm-cell done"></div>
+        <div class="hm-cell done"></div>
+        <div class="hm-cell done"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+        <div class="hm-cell"></div>
+      </div>
+    </div>
+
+    <button class="new-habit-btn">+ Add new habit</button>
+  </div>
+</div>
+
+{# ── JOURNAL PANEL ─────────────────────────────────────────── #}
+<div id="panel-journal" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">📝</span>
+    <span class="vh-title">Journal</span>
+    <button class="btn primary" id="journal-new-btn" style="margin-left: auto">
+      + New Entry
+    </button>
+  </div>
+  <div class="journal-wrap">
+    <div class="journal-prompt">
+      💭 <strong>Today's prompt:</strong> What's one thing you learned today,
+      and how will you use it?
+    </div>
+
+    <div class="journal-editor">
+      <textarea
+        placeholder="Write your thoughts..."
+        rows="4"
+        id="journal-input"
+      ></textarea>
+      <div
+        style="
+          display: flex;
+          gap: 8px;
+          margin-top: 8px;
+          justify-content: flex-end;
+        "
+      >
+        <span style="font-size: 0.7rem; color: var(--text4)"
+          >✨ AI will analyze your mood</span
+        >
+        <button
+          class="btn primary"
+          style="padding: 5px 16px; height: 32px; font-size: 0.78rem"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+
+    <div class="journal-entry">
+      <div class="je-date">Today, 9:30 AM · 😊</div>
+      <div class="je-text">
+        Feeling inspired today. The project is coming together nicely, and I'm
+        excited about the next phase.
+      </div>
+    </div>
+    <div class="journal-entry">
+      <div class="je-date">Yesterday, 10:15 PM · 😌</div>
+      <div class="je-text">
+        Reflecting on the week. Grateful for the progress I've made on my
+        habits. Small steps add up.
+      </div>
+    </div>
+    <div class="journal-entry">
+      <div class="je-date">Jun 16, 8:00 AM · 🤔</div>
+      <div class="je-text">
+        Thinking about what I want to achieve next quarter. Need to set clearer
+        goals.
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── FINANCE PANEL ─────────────────────────────────────────── #}
+<div id="panel-finance" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">💰</span>
+    <span class="vh-title">Finance</span>
+  </div>
+  <div style="padding: 20px; overflow-y: auto; flex: 1">
+    <div class="fin-wrap">
+      <!-- Tabs -->
+      <div class="fin-tabs">
+        <button class="fin-tab active" data-view="overview">Overview</button>
+        <button class="fin-tab" data-view="transactions">Transactions</button>
+        <button class="fin-tab" data-view="budget">Budget</button>
+      </div>
+
+      <!-- Overview -->
+      <div id="fin-overview">
+        <div class="fin-bal-card">
+          <div class="fin-bal-label">Total Balance</div>
+          <div class="fin-bal-amount">$8,432.50</div>
+          <div class="fin-bal-sub">↑ 12.5% from last month</div>
+        </div>
+
+        <div class="fin-summary-grid" style="margin-top: 12px">
+          <div class="fin-stat">
+            <div class="fin-stat-val" style="color: var(--teal)">+$3,200</div>
+            <div class="fin-stat-lbl">Income</div>
+          </div>
+          <div class="fin-stat">
+            <div class="fin-stat-val" style="color: #f87171">-$2,150</div>
+            <div class="fin-stat-lbl">Expenses</div>
+          </div>
+          <div class="fin-stat">
+            <div class="fin-stat-val" style="color: var(--amber3)">$1,050</div>
+            <div class="fin-stat-lbl">Savings</div>
+          </div>
+        </div>
+
+        <div class="fin-card">
+          <div class="fin-card-title">📊 Spending by category</div>
+          <div class="fin-bar-chart">
+            <div class="fin-bar-row">
+              <span class="fin-bar-cat">Housing</span>
+              <div class="fin-bar-track">
+                <div
+                  class="fin-bar-fill"
+                  style="width: 35%; background: var(--teal)"
+                ></div>
+              </div>
+              <span class="fin-bar-pct">35%</span>
+            </div>
+            <div class="fin-bar-row">
+              <span class="fin-bar-cat">Food</span>
+              <div class="fin-bar-track">
+                <div
+                  class="fin-bar-fill"
+                  style="width: 25%; background: var(--purple)"
+                ></div>
+              </div>
+              <span class="fin-bar-pct">25%</span>
+            </div>
+            <div class="fin-bar-row">
+              <span class="fin-bar-cat">Transport</span>
+              <div class="fin-bar-track">
+                <div
+                  class="fin-bar-fill"
+                  style="width: 15%; background: var(--amber3)"
+                ></div>
+              </div>
+              <span class="fin-bar-pct">15%</span>
+            </div>
+            <div class="fin-bar-row">
+              <span class="fin-bar-cat">Entertainment</span>
+              <div class="fin-bar-track">
+                <div
+                  class="fin-bar-fill"
+                  style="width: 10%; background: var(--coral)"
+                ></div>
+              </div>
+              <span class="fin-bar-pct">10%</span>
+            </div>
+            <div class="fin-bar-row">
+              <span class="fin-bar-cat">Savings</span>
+              <div class="fin-bar-track">
+                <div
+                  class="fin-bar-fill"
+                  style="width: 15%; background: var(--green3)"
+                ></div>
+              </div>
+              <span class="fin-bar-pct">15%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="fin-card">
+          <div class="fin-card-title">🔄 Recent transactions</div>
+          <div class="fin-tx-list">
+            <div class="fin-tx">
+              <span class="fin-tx-icon income">💼</span>
+              <div class="fin-tx-info">
+                <div class="fin-tx-note">Salary deposit</div>
+                <div class="fin-tx-meta">Jun 15 · 💳 Bank</div>
+              </div>
+              <span class="fin-tx-amt income">+$3,200</span>
+            </div>
+            <div class="fin-tx">
+              <span class="fin-tx-icon expense">🛒</span>
+              <div class="fin-tx-info">
+                <div class="fin-tx-note">Grocery shopping</div>
+                <div class="fin-tx-meta">Jun 14 · 💳 Card</div>
+              </div>
+              <span class="fin-tx-amt expense">-$280</span>
+            </div>
+            <div class="fin-tx">
+              <span class="fin-tx-icon expense">🚗</span>
+              <div class="fin-tx-info">
+                <div class="fin-tx-note">Car maintenance</div>
+                <div class="fin-tx-meta">Jun 12 · 💳 Card</div>
+              </div>
+              <span class="fin-tx-amt expense">-$120</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transactions (hidden) -->
+      <div id="fin-transactions" style="display: none">
+        <div class="fin-add-row" style="margin-bottom: 12px">
+          <input
+            class="fin-budget-input"
+            placeholder="Description..."
+            style="flex: 2"
+          />
+          <input
+            class="fin-budget-input"
+            placeholder="Amount"
+            style="flex: 1"
+          />
+          <button class="fin-add-btn income">+ Income</button>
+          <button class="fin-add-btn expense">- Expense</button>
+        </div>
+        <div class="fin-card">
+          <div class="fin-tx-list">
+            <div class="fin-tx">
+              <span class="fin-tx-icon income">💼</span>
+              <div class="fin-tx-info">
+                <div class="fin-tx-note">Salary deposit</div>
+                <div class="fin-tx-meta">Jun 15 · 💳 Bank</div>
+              </div>
+              <span class="fin-tx-amt income">+$3,200</span
+              ><button class="fin-tx-del">✕</button>
+            </div>
+            <div class="fin-tx">
+              <span class="fin-tx-icon expense">🛒</span>
+              <div class="fin-tx-info">
+                <div class="fin-tx-note">Grocery shopping</div>
+                <div class="fin-tx-meta">Jun 14 · 💳 Card</div>
+              </div>
+              <span class="fin-tx-amt expense">-$280</span
+              ><button class="fin-tx-del">✕</button>
+            </div>
+            <div class="fin-tx">
+              <span class="fin-tx-icon expense">🚗</span>
+              <div class="fin-tx-info">
+                <div class="fin-tx-note">Car maintenance</div>
+                <div class="fin-tx-meta">Jun 12 · 💳 Card</div>
+              </div>
+              <span class="fin-tx-amt expense">-$120</span
+              ><button class="fin-tx-del">✕</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Budget (hidden) -->
+      <div id="fin-budget" style="display: none">
+        <div class="fin-budget-row">
+          <div class="fin-budget-item">
+            <div class="fin-budget-head">
+              <span class="fin-budget-label">🏠 Housing</span
+              ><span class="fin-budget-nums">$700 / $1,000</span>
+            </div>
+            <div class="fin-budget-bar">
+              <div
+                class="fin-budget-fill"
+                style="width: 70%; background: var(--teal)"
+              ></div>
+            </div>
+          </div>
+          <div class="fin-budget-item">
+            <div class="fin-budget-head">
+              <span class="fin-budget-label">🍔 Food</span
+              ><span class="fin-budget-nums">$450 / $600</span>
+            </div>
+            <div class="fin-budget-bar">
+              <div
+                class="fin-budget-fill"
+                style="width: 75%; background: var(--purple)"
+              ></div>
+            </div>
+          </div>
+          <div class="fin-budget-item">
+            <div class="fin-budget-head">
+              <span class="fin-budget-label">🚗 Transport</span
+              ><span class="fin-budget-nums">$180 / $200</span>
+            </div>
+            <div class="fin-budget-bar">
+              <div
+                class="fin-budget-fill"
+                style="width: 90%; background: var(--amber3)"
+              ></div>
+            </div>
+          </div>
+          <div class="fin-budget-item">
+            <div class="fin-budget-head">
+              <span class="fin-budget-label">🎬 Entertainment</span
+              ><span class="fin-budget-nums">$80 / $150</span>
+            </div>
+            <div class="fin-budget-bar">
+              <div
+                class="fin-budget-fill"
+                style="width: 53%; background: var(--coral)"
+              ></div>
+            </div>
+          </div>
+          <div class="fin-budget-item">
+            <div class="fin-budget-head">
+              <span class="fin-budget-label">💰 Savings</span
+              ><span class="fin-budget-nums">$1,050 / $1,200</span>
+            </div>
+            <div class="fin-budget-bar">
+              <div
+                class="fin-budget-fill"
+                style="width: 88%; background: var(--green3)"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── SKILLS PANEL ──────────────────────────────────────────── #}
+<div id="panel-skills" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">🧠</span>
+    <span class="vh-title">Skills & Growth</span>
+    <button class="btn primary" style="margin-left: auto">+ Add Skill</button>
+  </div>
+  <div style="padding: 20px; overflow-y: auto; flex: 1">
+    <div class="sk-wrap">
+      <div class="sk-summary-grid">
+        <div class="sk-stat">
+          <div class="sk-stat-val">12</div>
+          <div class="sk-stat-lbl">Skills</div>
+        </div>
+        <div class="sk-stat">
+          <div class="sk-stat-val">6</div>
+          <div class="sk-stat-lbl">In progress</div>
+        </div>
+        <div class="sk-stat">
+          <div class="sk-stat-val">74%</div>
+          <div class="sk-stat-lbl">Avg mastery</div>
+        </div>
+      </div>
+
+      <div class="sk-filter-row">
+        <button class="sk-filter-btn active">All</button>
+        <button class="sk-filter-btn">Technical</button>
+        <button class="sk-filter-btn">Soft</button>
+        <button class="sk-filter-btn">Creative</button>
+      </div>
+
+      <div class="sk-card">
+        <div class="sk-card-head">
+          <span class="sk-emoji">🐍</span>
+          <div class="sk-info">
+            <div class="sk-name">Python Programming</div>
+            <div class="sk-meta">
+              <span class="sk-cat-badge">Technical</span>
+              <span class="sk-level-label">Level: Intermediate</span>
+            </div>
+          </div>
+          <div class="sk-card-actions">
+            <button class="sk-action-btn siva">✨ Practice</button>
+            <button class="sk-action-btn">✏️</button>
+          </div>
+        </div>
+        <div class="sk-progress-wrap">
+          <div class="sk-progress-head">
+            <span style="font-size: 0.72rem; color: var(--text3)">Mastery</span>
+            <span class="sk-progress-nums">65%</span>
+          </div>
+          <div class="sk-progress-bar">
+            <div
+              class="sk-progress-fill"
+              style="width: 65%; background: var(--teal)"
+            ></div>
+          </div>
+        </div>
+        <div class="sk-sessions">
+          <span class="sk-session-stat"><strong>12</strong> sessions</span>
+          <span class="sk-session-stat"><strong>8h 30m</strong> total</span>
+          <span class="sk-session-stat">🎯 Target: 80%</span>
+        </div>
+      </div>
+
+      <div class="sk-card">
+        <div class="sk-card-head">
+          <span class="sk-emoji">🗣️</span>
+          <div class="sk-info">
+            <div class="sk-name">Public Speaking</div>
+            <div class="sk-meta">
+              <span class="sk-cat-badge">Soft</span>
+              <span class="sk-level-label">Level: Beginner</span>
+            </div>
+          </div>
+          <div class="sk-card-actions">
+            <button class="sk-action-btn siva">✨ Practice</button>
+            <button class="sk-action-btn">✏️</button>
+          </div>
+        </div>
+        <div class="sk-progress-wrap">
+          <div class="sk-progress-head">
+            <span style="font-size: 0.72rem; color: var(--text3)">Mastery</span>
+            <span class="sk-progress-nums">35%</span>
+          </div>
+          <div class="sk-progress-bar">
+            <div
+              class="sk-progress-fill"
+              style="width: 35%; background: var(--purple)"
+            ></div>
+          </div>
+        </div>
+        <div class="sk-sessions">
+          <span class="sk-session-stat"><strong>5</strong> sessions</span>
+          <span class="sk-session-stat"><strong>2h 15m</strong> total</span>
+          <span class="sk-session-stat">🎯 Target: 60%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── COMMUNITY PANEL ───────────────────────────────────────── #}
+<div id="panel-community" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">🌐</span>
+    <span class="vh-title">Community</span>
+  </div>
+  <div class="community-wrap">
+    <!-- Composer -->
+    <div class="comm-composer">
+      <div class="comm-composer-av">U</div>
+      <div class="comm-composer-body">
+        <textarea
+          class="comm-composer-input"
+          placeholder="Share something with the community..."
+          rows="2"
+        ></textarea>
+        <div class="comm-composer-footer">
+          <select class="comm-composer-cat">
+            <option>General</option>
+            <option>Question</option>
+            <option>Announcement</option>
+            <option>Feedback</option>
+          </select>
+          <span class="comm-char-count">0/500</span>
+          <button class="comm-post-btn">Post</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feed -->
+    <div class="feed-card">
+      <div class="feed-hd">
+        <div class="feed-av">U</div>
+        <span class="feed-name">User</span>
+        <span class="feed-time">2h ago</span>
+        <span class="feat-badge">New</span>
+      </div>
+      <div class="feed-body">
+        Just launched a new feature for the community dashboard! 🚀 Check out
+        the analytics section.
+      </div>
+      <div class="feed-tags">
+        <span class="feed-tag">product</span>
+        <span class="feed-tag">update</span>
+      </div>
+      <div class="feed-actions">
+        <button class="feed-action-btn">❤️ 12</button>
+        <button class="feed-action-btn">💬 5</button>
+        <button class="feed-action-btn">🔗 Share</button>
+        <button class="feed-delete-btn" style="margin-left: auto">✕</button>
+      </div>
+    </div>
+
+    <div class="feed-card">
+      <div class="feed-hd">
+        <div class="feed-av" style="background: var(--purple)">A</div>
+        <span class="feed-name">Alice</span>
+        <span class="feed-time">4h ago</span>
+      </div>
+      <div class="feed-body">
+        Anyone working on AI/ML projects? Looking for collaborators for a
+        research paper on transformer architectures.
+      </div>
+      <div class="feed-tags">
+        <span class="feed-tag">AI</span>
+        <span class="feed-tag">research</span>
+        <span class="feed-tag">collaboration</span>
+      </div>
+      <div class="feed-actions">
+        <button class="feed-action-btn">❤️ 8</button>
+        <button class="feed-action-btn">💬 3</button>
+        <button class="feed-action-btn">🔗 Share</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── LIBRARY PANEL ─────────────────────────────────────────── #}
+<div id="panel-library" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">📚</span>
+    <span class="vh-title">Library</span>
+    <button class="btn ghost" style="margin-left: auto">🔍 Search</button>
+  </div>
+  <div class="library-wrap">
+    <div class="lib-grid">
+      <div class="lib-card">
+        <div class="lib-logo" style="background: var(--teal2)">📖</div>
+        <div class="lib-name">Productivity Playbook</div>
+        <div class="lib-desc">Essential frameworks for getting things done</div>
+        <button class="lib-btn">Open</button>
+      </div>
+      <div class="lib-card">
+        <div class="lib-logo" style="background: var(--purple2)">🧠</div>
+        <div class="lib-name">AI Fundamentals</div>
+        <div class="lib-desc">Core concepts in artificial intelligence</div>
+        <button class="lib-btn">Open</button>
+      </div>
+      <div class="lib-card">
+        <div class="lib-logo" style="background: var(--amber2)">🎯</div>
+        <div class="lib-name">Goal Setting Guide</div>
+        <div class="lib-desc">How to set and achieve meaningful goals</div>
+        <button class="lib-btn">Open</button>
+      </div>
+      <div class="lib-card">
+        <div class="lib-logo" style="background: var(--coral2)">💡</div>
+        <div class="lib-name">Creative Thinking</div>
+        <div class="lib-desc">Unlock your creative potential</div>
+        <button class="lib-btn">Open</button>
+      </div>
+      <div class="lib-card">
+        <div class="lib-logo" style="background: var(--green2)">📊</div>
+        <div class="lib-name">Data Analysis</div>
+        <div class="lib-desc">Working with data effectively</div>
+        <button class="lib-btn">Open</button>
+      </div>
+      <div
+        class="lib-card"
+        style="
+          border-style: dashed;
+          border-color: var(--border2);
+          justify-content: center;
+          min-height: 120px;
+          cursor: pointer;
+        "
+      >
+        <span style="font-size: 2rem; color: var(--text4)">+</span>
+        <span style="font-size: 0.78rem; color: var(--text4)"
+          >Add resource</span
+        >
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── TEMPLATES PANEL ───────────────────────────────────────── #}
+<div id="panel-templates" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">📋</span>
+    <span class="vh-title">Templates</span>
+  </div>
+  <div class="tpl-scroll">
+    <div class="tpl-lede">Quick-start templates for every workflow</div>
+
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px">
+      <div class="tpl-search-wrap">
+        <i>🔍</i>
+        <input placeholder="Search templates..." />
+      </div>
+      <div class="tpl-filters">
+        <button class="tpl-chip active">All</button>
+        <button class="tpl-chip">Projects</button>
+        <button class="tpl-chip">Habits</button>
+        <button class="tpl-chip">Study</button>
+        <button class="tpl-chip">Work</button>
+      </div>
+    </div>
+
+    <div class="tpl-grid">
+      <div class="tpl-card">
+        <div class="tpl-preview tpl-preview--weekly">
+          <i>📅</i>
+          <div class="tpl-preview-overlay">
+            <span class="tpl-preview-btn">Preview</span>
+          </div>
+        </div>
+        <div class="tpl-card-body">
+          <div class="tpl-card-top">
+            <span class="tpl-name">Weekly Planner</span>
+            <span class="tpl-badge tpl-badge--popular">Popular</span>
+          </div>
+          <div class="tpl-desc">
+            Plan your week with this comprehensive weekly overview template.
+          </div>
+          <div class="tpl-tags">
+            <span class="tpl-tag">Productivity</span
+            ><span class="tpl-tag">Planning</span>
+          </div>
+          <div class="tpl-card-footer">
+            <span class="tpl-type">📋 Template</span>
+            <button class="tpl-use-btn">Use →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tpl-card">
+        <div class="tpl-preview tpl-preview--daily">
+          <i>☀️</i>
+          <div class="tpl-preview-overlay">
+            <span class="tpl-preview-btn">Preview</span>
+          </div>
+        </div>
+        <div class="tpl-card-body">
+          <div class="tpl-card-top">
+            <span class="tpl-name">Daily Dashboard</span>
+            <span class="tpl-badge tpl-badge--new">New</span>
+          </div>
+          <div class="tpl-desc">
+            Your daily overview: tasks, habits, notes, and focus areas.
+          </div>
+          <div class="tpl-tags">
+            <span class="tpl-tag">Daily</span><span class="tpl-tag">Focus</span>
+          </div>
+          <div class="tpl-card-footer">
+            <span class="tpl-type">📋 Template</span>
+            <button class="tpl-use-btn">Use →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tpl-card">
+        <div class="tpl-preview tpl-preview--habit">
+          <i>💪</i>
+          <div class="tpl-preview-overlay">
+            <span class="tpl-preview-btn">Preview</span>
+          </div>
+        </div>
+        <div class="tpl-card-body">
+          <div class="tpl-card-top">
+            <span class="tpl-name">Habit Tracker</span>
+            <span class="tpl-badge tpl-badge--popular">Popular</span>
+          </div>
+          <div class="tpl-desc">
+            Track 7 habits daily with visual progress and streaks.
+          </div>
+          <div class="tpl-tags">
+            <span class="tpl-tag">Habits</span
+            ><span class="tpl-tag">Growth</span>
+          </div>
+          <div class="tpl-card-footer">
+            <span class="tpl-type">📋 Template</span>
+            <button class="tpl-use-btn">Use →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tpl-card">
+        <div class="tpl-preview tpl-preview--budget">
+          <i>💰</i>
+          <div class="tpl-preview-overlay">
+            <span class="tpl-preview-btn">Preview</span>
+          </div>
+        </div>
+        <div class="tpl-card-body">
+          <div class="tpl-card-top">
+            <span class="tpl-name">Budget Planner</span>
+          </div>
+          <div class="tpl-desc">
+            Track income, expenses, and savings goals in one place.
+          </div>
+          <div class="tpl-tags">
+            <span class="tpl-tag">Finance</span
+            ><span class="tpl-tag">Budget</span>
+          </div>
+          <div class="tpl-card-footer">
+            <span class="tpl-type">📋 Template</span>
+            <button class="tpl-use-btn">Use →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── MARKETPLACE PANEL ─────────────────────────────────────── #}
+<div id="panel-marketplace" class="panel">
+  <div style="padding: 20px; overflow-y: auto; flex: 1">
+    <div class="mkt-header">
+      <div>
+        <div class="mkt-eyebrow">✨ Marketplace</div>
+        <div class="mkt-title">Extensions & Integrations</div>
+        <div class="mkt-sub">Supercharge your Sivarr experience</div>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button class="mkt-btn-teal">⭐ My Extensions</button>
+        <button class="mkt-publish-btn">+ Publish</button>
+      </div>
+    </div>
+
+    <div class="mkt-filter-row">
+      <div class="mkt-type-tabs">
+        <button class="mkt-type-tab active">All</button>
+        <button class="mkt-type-tab">Extensions</button>
+        <button class="mkt-type-tab">Integrations</button>
+        <button class="mkt-type-tab">Templates</button>
+      </div>
+      <div class="mkt-search">
+        <i>🔍</i>
+        <input placeholder="Search marketplace..." />
+      </div>
+      <select class="mkt-sort">
+        <option>Most popular</option>
+        <option>Newest</option>
+        <option>Top rated</option>
+      </select>
+    </div>
+
+    <div class="mkt-category-row">
+      <button class="mkt-cat-pill active">All</button>
+      <button class="mkt-cat-pill">Productivity</button>
+      <button class="mkt-cat-pill mkt-cat-pill--official">AI</button>
+      <button class="mkt-cat-pill">Design</button>
+      <button class="mkt-cat-pill">Analytics</button>
+      <button class="mkt-cat-pill">Communication</button>
+    </div>
+
+    <!-- Featured -->
+    <div class="mkt-featured-strip">
+      <div class="mkt-featured-label">🌟 Featured</div>
+      <div class="mkt-featured-cards">
+        <div class="mkt-featured-card">
+          <span style="font-size: 1.5rem">🎨</span>
+          <div>
+            <div style="font-weight: 700; font-size: 0.82rem">
+              Design System Kit
+            </div>
+            <div style="font-size: 0.7rem; color: var(--text4)">2.3k users</div>
+          </div>
+        </div>
+        <div class="mkt-featured-card">
+          <span style="font-size: 1.5rem">🤖</span>
+          <div>
+            <div style="font-weight: 700; font-size: 0.82rem">
+              AI Assistant Pro
+            </div>
+            <div style="font-size: 0.7rem; color: var(--text4)">1.8k users</div>
+          </div>
+        </div>
+        <div class="mkt-featured-card">
+          <span style="font-size: 1.5rem">📊</span>
+          <div>
+            <div style="font-weight: 700; font-size: 0.82rem">
+              Analytics Dashboard
+            </div>
+            <div style="font-size: 0.7rem; color: var(--text4)">1.2k users</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div class="mkt-grid">
+      <div class="mkt-card">
+        <div class="mkt-card-top">
+          <span class="mkt-item-icon">🎨</span>
+          <span class="mkt-item-type-badge mkt-type-extension">Extension</span>
+        </div>
+        <div class="mkt-item-name">Design System Kit</div>
+        <div class="mkt-item-author">by Studio Labs</div>
+        <div class="mkt-item-desc">
+          Professional design tokens and components for your next project.
+        </div>
+        <div class="mkt-card-footer">
+          <span class="mkt-item-stats">⭐ 4.8 · 2.3k users</span>
+          <button class="mkt-install-btn">Install</button>
+        </div>
+      </div>
+
+      <div class="mkt-card">
+        <div class="mkt-card-top">
+          <span class="mkt-item-icon">🤖</span>
+          <span class="mkt-item-type-badge mkt-type-extension">Extension</span>
+        </div>
+        <div class="mkt-item-name">AI Assistant Pro</div>
+        <div class="mkt-item-author">by Sivarr AI</div>
+        <div class="mkt-item-desc">
+          Advanced AI capabilities with custom agents and workflows.
+        </div>
+        <div class="mkt-card-footer">
+          <span class="mkt-item-stats">⭐ 4.9 · 1.8k users</span>
+          <button class="mkt-install-btn mkt-install-btn--installed">
+            ✓ Installed
+          </button>
+        </div>
+      </div>
+
+      <div class="mkt-card">
+        <div class="mkt-card-top">
+          <span class="mkt-item-icon">📊</span>
+          <span class="mkt-item-type-badge mkt-type-integration"
+            >Integration</span
+          >
+        </div>
+        <div class="mkt-item-name">Analytics Dashboard</div>
+        <div class="mkt-item-author">by DataFlow</div>
+        <div class="mkt-item-desc">
+          Real-time analytics and insights for your team.
+        </div>
+        <div class="mkt-card-footer">
+          <span class="mkt-item-stats">⭐ 4.7 · 1.2k users</span>
+          <button class="mkt-install-btn">Install</button>
+        </div>
+      </div>
+
+      <div class="mkt-card">
+        <div class="mkt-card-top">
+          <span class="mkt-item-icon">💬</span>
+          <span class="mkt-item-type-badge mkt-type-integration"
+            >Integration</span
+          >
+        </div>
+        <div class="mkt-item-name">Slack Connect</div>
+        <div class="mkt-item-author">by Slack</div>
+        <div class="mkt-item-desc">
+          Bring your Slack conversations into Sivarr.
+        </div>
+        <div class="mkt-card-footer">
+          <span class="mkt-item-stats">⭐ 4.6 · 892 users</span>
+          <button class="mkt-install-btn">Install</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── AGENTS PANEL ───────────────────────────────────────────── #}
+<div id="panel-agents" class="panel">
+  <div class="ag-topbar">
+    <div class="ag-topbar-left">
+      <button class="ag-back-btn" onclick="nav('home')">←</button>
+      <span class="ag-topbar-title">🧠 Agents</span>
+    </div>
+    <div class="ag-topbar-right">
+      <button class="ag-tb-btn">👤 My Agents</button>
+      <button class="ag-tb-btn ag-tb-btn--primary">+ Create Agent</button>
+    </div>
+  </div>
+
+  <div class="ag-view-wrap">
+    <div class="ag-market-wrap">
+      <!-- Categories -->
+      <div class="ag-cats">
+        <button class="ag-cat active">All</button>
+        <button class="ag-cat">Writing</button>
+        <button class="ag-cat">Coding</button>
+        <button class="ag-cat">Research</button>
+        <button class="ag-cat">Design</button>
+        <button class="ag-cat">Productivity</button>
+      </div>
+
+      <!-- Search -->
+      <div class="ag-search-bar">
+        <i>🔍</i>
+        <input placeholder="Search agents..." id="ag-search-input" />
+        <button class="ag-search-clear" style="display: none">✕</button>
+      </div>
+
+      <!-- Filters -->
+      <div class="ag-filters">
+        <button class="ag-chip active">All</button>
+        <button class="ag-chip">Free</button>
+        <button class="ag-chip">Pro</button>
+        <button class="ag-chip">Verified</button>
+        <button class="ag-chip">New</button>
+      </div>
+
+      <!-- Featured -->
+      <div class="ag-featured">
+        <div
+          class="ag-feat-thumb"
+          style="
+            background: linear-gradient(135deg, var(--teal), var(--purple));
+          "
+        >
+          <span style="font-size: 4rem">🧠</span>
+        </div>
+        <div class="ag-feat-body">
+          <div class="ag-feat-label">✨ Featured Agent</div>
+          <div class="ag-feat-name">Sivarr Pro Assistant</div>
+          <div class="ag-feat-desc">
+            Your personal AI assistant with advanced reasoning and context
+            awareness.
+          </div>
+          <div class="ag-feat-meta">
+            <strong>⭐ 4.9</strong> · 2.4k downloads ·
+            <span style="color: var(--teal)">$19/mo</span>
+          </div>
+          <div class="ag-feat-actions">
+            <button class="ag-tb-btn ag-tb-btn--primary">Try Now</button>
+            <button class="ag-tb-btn">Learn More</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Grid -->
+      <div class="ag-section-hd">
+        <span class="ag-section-title">Popular Agents</span>
+        <button class="ag-section-link">View all →</button>
+      </div>
+
+      <div class="ag-grid">
+        <div class="ag-card">
+          <div class="ag-card-thumb" style="background: var(--teal2)">✍️</div>
+          <div class="ag-card-body">
+            <div class="ag-card-tag">Writing</div>
+            <div class="ag-card-name">Blog Writer Pro</div>
+            <div class="ag-card-meta">
+              <span class="ag-mini-av">S</span>
+              <span>Sivarr AI</span>
+              <span class="ag-card-rating">⭐ 4.8</span>
+            </div>
+            <div class="ag-card-footer">
+              <span class="ag-price">$12/mo</span>
+              <button class="ag-get-btn">Get</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ag-card">
+          <div class="ag-card-thumb" style="background: var(--purple2)">💻</div>
+          <div class="ag-card-body">
+            <div class="ag-card-tag">Coding</div>
+            <div class="ag-card-name">Code Assistant</div>
+            <div class="ag-card-meta">
+              <span class="ag-mini-av">D</span>
+              <span>DevLab</span>
+              <span class="ag-card-rating">⭐ 4.7</span>
+            </div>
+            <div class="ag-card-footer">
+              <span class="ag-price free">Free</span>
+              <button class="ag-get-btn">Get</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ag-card">
+          <div class="ag-card-thumb" style="background: var(--amber2)">🔬</div>
+          <div class="ag-card-body">
+            <div class="ag-card-tag">Research</div>
+            <div class="ag-card-name">Research Assistant</div>
+            <div class="ag-card-meta">
+              <span class="ag-mini-av">R</span>
+              <span>ResearchAI</span>
+              <span class="ag-card-rating">⭐ 4.9</span>
+            </div>
+            <div class="ag-card-footer">
+              <span class="ag-price">$29/mo</span>
+              <button class="ag-get-btn">Get</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── PROFILE PANEL ─────────────────────────────────────────── #}
+<div id="panel-profile" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">👤</span>
+    <span class="vh-title">Profile</span>
+    <button class="btn ghost" style="margin-left: auto">✏️ Edit</button>
+  </div>
+  <div style="padding: 20px; overflow-y: auto; flex: 1">
+    <div class="profile-hero">
+      <div class="profile-av-lg">U</div>
+      <div class="profile-hero-info">
+        <div class="profile-name">User</div>
+        <div class="profile-bio">
+          AI enthusiast · Product builder · Lifelong learner
+        </div>
+        <div class="profile-tags">
+          <span class="profile-tag">🌱 Growth</span>
+          <span class="profile-tag">🚀 Product</span>
+          <span class="profile-tag">🧠 AI</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-stats-row">
+      <div class="profile-stat"><span>147</span><small>Tasks done</small></div>
+      <div class="profile-stat"><span>84</span><small>Study hours</small></div>
+      <div class="profile-stat"><span>12</span><small>Habit streak</small></div>
+    </div>
+
+    <div style="margin-top: 16px">
+      <div
+        style="
+          font-weight: 700;
+          font-size: 0.9rem;
+          margin-bottom: 10px;
+          color: var(--text1);
+        "
+      >
+        🏆 Achievements
+      </div>
+      <div class="achievements-grid">
+        <div class="achieve-badge">
+          <span class="a-icon">🏅</span> 100 tasks
+        </div>
+        <div class="achieve-badge">
+          <span class="a-icon">📚</span> 50 study hours
+        </div>
+        <div class="achieve-badge">
+          <span class="a-icon">🔥</span> 7-day streak
+        </div>
+        <div class="achieve-badge">
+          <span class="a-icon">🎯</span> 5 goals completed
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px">
+      <div
+        style="
+          font-weight: 700;
+          font-size: 0.9rem;
+          margin-bottom: 10px;
+          color: var(--text1);
+        "
+      >
+        🛠️ Skills
+      </div>
+      <div class="skills-wrap">
+        <span class="skill-tag">Python <button>✕</button></span>
+        <span class="skill-tag">JavaScript <button>✕</button></span>
+        <span class="skill-tag">Design <button>✕</button></span>
+        <span class="skill-tag">Public Speaking <button>✕</button></span>
+        <button class="skill-add-btn">+ Add skill</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── OPPORTUNITIES PANEL ───────────────────────────────────── #}
+<div id="panel-opportunities" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">🚀</span>
+    <span class="vh-title">Opportunities</span>
+  </div>
+  <div style="padding: 20px; overflow-y: auto; flex: 1">
+    <div class="opp-filter-bar">
+      <button class="opp-filter active">All</button>
+      <button class="opp-filter">💼 Jobs</button>
+      <button class="opp-filter">🎓 Internships</button>
+      <button class="opp-filter">📚 Scholarships</button>
+      <button class="opp-filter">🤝 Freelance</button>
+    </div>
+
+    <div class="opp-grid">
+      <div class="opp-card">
+        <span class="opp-card-type">💼 Full-time</span>
+        <div class="opp-card-title">AI Product Engineer</div>
+        <div class="opp-card-org">Sivarr Inc. · Remote</div>
+        <div class="opp-card-desc">
+          Build next-generation AI products with a world-class team.
+        </div>
+        <div class="opp-card-meta">
+          <span class="opp-deadline">📅 Apply by Jul 20</span>
+          <span>💰 $90k-120k</span>
+        </div>
+        <button class="opp-apply-btn">Apply Now</button>
+      </div>
+
+      <div class="opp-card">
+        <span class="opp-card-type">🎓 Internship</span>
+        <div class="opp-card-title">UX Research Intern</div>
+        <div class="opp-card-org">Design Studio · Remote</div>
+        <div class="opp-card-desc">
+          Help shape user experiences for emerging technologies.
+        </div>
+        <div class="opp-card-meta">
+          <span class="opp-deadline">📅 Apply by Aug 1</span>
+          <span>💰 $25/hr</span>
+        </div>
+        <button class="opp-apply-btn">Apply Now</button>
+      </div>
+
+      <div class="opp-card">
+        <span class="opp-card-type">📚 Scholarship</span>
+        <div class="opp-card-title">AI Research Fellowship</div>
+        <div class="opp-card-org">AI Foundation · Hybrid</div>
+        <div class="opp-card-desc">
+          Advance research in machine learning and ethical AI.
+        </div>
+        <div class="opp-card-meta">
+          <span class="opp-deadline">📅 Apply by Sep 15</span>
+          <span>💰 $15,000 stipend</span>
+        </div>
+        <button class="opp-apply-btn">Apply Now</button>
+      </div>
+
+      <div class="opp-card">
+        <span class="opp-card-type">🤝 Freelance</span>
+        <div class="opp-card-title">Content Writer - AI Topics</div>
+        <div class="opp-card-org">Tech Media · Remote</div>
+        <div class="opp-card-desc">
+          Write engaging content about AI, tech, and innovation.
+        </div>
+        <div class="opp-card-meta">
+          <span class="opp-deadline">📅 Apply by Jul 30</span>
+          <span>💰 $40-60/hr</span>
+        </div>
+        <button class="opp-apply-btn">Apply Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── REVIEW PANEL ───────────────────────────────────────────── #}
+<div id="panel-review" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">📊</span>
+    <span class="vh-title">Weekly Review</span>
+    <button class="btn primary" id="review-gen-btn" style="margin-left: auto">
+      ✨ Generate Review
+    </button>
+  </div>
+  <div class="review-body">
+    <div class="review-stats-row">
+      <div class="review-stat">
+        <div class="rs-val">12</div>
+        <div class="rs-lbl">Tasks done</div>
+      </div>
+      <div class="review-stat">
+        <div class="rs-val">14h</div>
+        <div class="rs-lbl">Study time</div>
+      </div>
+      <div class="review-stat">
+        <div class="rs-val">85%</div>
+        <div class="rs-lbl">Habit streak</div>
+      </div>
+      <div class="review-stat">
+        <div class="rs-val">3</div>
+        <div class="rs-lbl">Goals progress</div>
+      </div>
+    </div>
+
+    <div class="review-ai-card">
+      <div class="review-ai-header">
+        <div class="review-ai-orb">🧠</div>
+        <div>
+          <div class="review-ai-title">Sivarr's Weekly Review</div>
+          <div class="review-ai-week">Jun 15 – 21, 2026</div>
+        </div>
+      </div>
+      <div class="review-ai-content">
+        <strong>This week was productive.</strong> You completed 12 tasks across
+        3 projects. Your habit streak reached 7 days — keep it going! Key wins:
+        • Finished the Q3 proposal draft • Maintained morning meditation streak
+        • Made progress on Python learning
+
+        <strong>Focus for next week:</strong> Complete the API integration and
+        schedule the design review meeting.
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── HELP PANEL ────────────────────────────────────────────── #}
+<div id="panel-help" class="panel">
+  <div class="help-wrap">
+    <div class="help-hero">
+      <div class="help-hero-icon">❓</div>
+      <h1>Help & Support</h1>
+      <p>Everything you need to know about Sivarr</p>
+      <button class="help-search">🔍 Search help <kbd>⌘K</kbd></button>
+    </div>
+
+    <div class="help-grid">
+      <div class="help-card">
+        <div
+          class="help-card-ic"
+          style="background: var(--teal2); color: var(--teal)"
+        >
+          🚀
+        </div>
+        <div class="help-card-t">Getting Started</div>
+        <div class="help-card-d">Learn the basics of Sivarr in 5 minutes</div>
+      </div>
+      <div class="help-card">
+        <div
+          class="help-card-ic"
+          style="background: var(--purple2); color: var(--purple)"
+        >
+          ⚡
+        </div>
+        <div class="help-card-t">Features Guide</div>
+        <div class="help-card-d">Deep dive into every feature</div>
+      </div>
+      <div class="help-card">
+        <div
+          class="help-card-ic"
+          style="background: var(--amber2); color: var(--amber3)"
+        >
+          🤖
+        </div>
+        <div class="help-card-t">AI Assistant</div>
+        <div class="help-card-d">How to get the most from Sivarr AI</div>
+      </div>
+    </div>
+
+    <div class="help-sec">
+      <h2>📋 Frequently Asked Questions</h2>
+      <div class="help-faq">
+        <details>
+          <summary>How do I get started with Sivarr?</summary>
+          <p>
+            Sign up, explore the dashboard, and start with the Getting Started
+            guide. You can also ask the AI assistant for help anytime.
+          </p>
+        </details>
+        <details>
+          <summary>What makes Sivarr different?</summary>
+          <p>
+            Sivarr combines AI assistance with powerful productivity tools in
+            one seamless workspace — not just a chat app, not just a dashboard,
+            but both.
+          </p>
+        </details>
+        <details>
+          <summary>Can I use Sivarr with my team?</summary>
+          <p>
+            Yes! The Org Space is built for teams. Create workspaces, invite
+            members, and collaborate in real-time.
+          </p>
+        </details>
+      </div>
+    </div>
+
+    <div class="help-contact">
+      <div>
+        <div class="help-contact-t">Need more help?</div>
+        <div class="help-contact-d">Our team is here for you</div>
+      </div>
+      <div class="help-contact-actions">
+        <button class="help-btn-primary">📧 Email Support</button>
+        <button class="help-btn-ghost">💬 Live Chat</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── CONTENT HUB PANEL ─────────────────────────────────────── #}
+<div id="panel-contenthub" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">📡</span>
+    <span class="vh-title">Content Hub</span>
+  </div>
+  <div style="padding: 20px; overflow-y: auto; flex: 1">
+    <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap">
+      <button class="ch-tab active">All</button>
+      <button class="ch-tab">Videos</button>
+      <button class="ch-tab">Articles</button>
+      <button class="ch-tab">Podcasts</button>
+      <button class="ch-tab">Books</button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <button class="ch-platform-btn">
+        <span
+          class="ch-platform-icon"
+          style="background: var(--teal2); color: var(--teal)"
+          >▶️</span
+        >
+        <div style="flex: 1; text-align: left">
+          <div style="font-weight: 600">AI for Everyone</div>
+          <div style="font-size: 0.78rem; color: var(--text3)">
+            YouTube · 2.5k views
+          </div>
+        </div>
+        <span class="ch-connect-badge">Saved</span>
+      </button>
+      <button class="ch-platform-btn">
+        <span
+          class="ch-platform-icon"
+          style="background: var(--purple2); color: var(--purple)"
+          >📄</span
+        >
+        <div style="flex: 1; text-align: left">
+          <div style="font-weight: 600">The Future of Work</div>
+          <div style="font-size: 0.78rem; color: var(--text3)">
+            Article · 1.2k reads
+          </div>
+        </div>
+        <span class="ch-connect-badge">Saved</span>
+      </button>
+      <button class="ch-platform-btn">
+        <span
+          class="ch-platform-icon"
+          style="background: var(--amber2); color: var(--amber3)"
+          >🎧</span
+        >
+        <div style="flex: 1; text-align: left">
+          <div style="font-weight: 600">AI Daily Podcast</div>
+          <div style="font-size: 0.78rem; color: var(--text3)">
+            Podcast · 3.4k listens
+          </div>
+        </div>
+        <span class="ch-connect-badge">Save</span>
+      </button>
+      <button class="ch-platform-btn">
+        <span
+          class="ch-platform-icon"
+          style="background: var(--coral2); color: var(--coral3)"
+          >📖</span
+        >
+        <div style="flex: 1; text-align: left">
+          <div style="font-weight: 600">Essential AI Reading List</div>
+          <div style="font-size: 0.78rem; color: var(--text3)">
+            Books · 5 recommendations
+          </div>
+        </div>
+        <span class="ch-connect-badge">Save</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+{# ── ANNOUNCEMENTS PANEL ───────────────────────────────────── #}
+<div id="panel-announcements" class="panel">
+  <div class="view-head">
+    <span class="vh-icon">📢</span>
+    <span class="vh-title">Announcements</span>
+    <button class="btn primary" style="margin-left: auto">+ New Post</button>
+  </div>
+  <div style="display: flex; flex-direction: column; overflow: hidden; flex: 1">
+    <!-- Compose -->
+    <div class="ann-compose-bar">
+      <div class="ann-compose-box">
+        <input class="ann-title-input" placeholder="Announcement title..." />
+        <textarea
+          class="ann-body-input"
+          placeholder="Write your announcement..."
+          rows="2"
+        ></textarea>
+        <div class="ann-compose-footer">
+          <label class="ann-pin-toggle"
+            ><input type="checkbox" /> 📌 Pin this</label
+          >
+          <button class="ann-post-btn" style="margin-left: auto">Post</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feed -->
+    <div class="ann-feed">
+      <div class="ann-card pinned">
+        <div class="ann-card-head">
+          <span class="ann-pin-badge">📌 Pinned</span>
+          <div class="ann-card-title">🚀 Q3 Feature Launch</div>
+          <button class="ann-del-btn">✕</button>
+        </div>
+        <div class="ann-card-body">
+          We're excited to announce the Q3 product update! New features include
+          AI-powered task suggestions, enhanced analytics, and team
+          collaboration tools. Check the What's New page for details.
+        </div>
+        <div class="ann-card-meta">Posted 2h ago · by Admin</div>
+      </div>
+
+      <div class="ann-card">
+        <div class="ann-card-head">
+          <div class="ann-card-title">📅 Office Hours — This Week</div>
+          <button class="ann-del-btn">✕</button>
+        </div>
+        <div class="ann-card-body">
+          Join our weekly office hours every Thursday at 3pm ET. Bring your
+          questions, feedback, and ideas — we'd love to hear from you!
+        </div>
+        <div class="ann-card-meta">Posted 1d ago · by Team</div>
+      </div>
+
+      <div class="ann-card">
+        <div class="ann-card-head">
+          <div class="ann-card-title">✨ New Integration: Paystack</div>
+          <button class="ann-del-btn">✕</button>
+        </div>
+        <div class="ann-card-body">
+          We've added Paystack integration! You can now manage payments, track
+          revenue, and handle subscriptions directly from Sivarr.
+        </div>
+        <div class="ann-card-meta">Posted 3d ago · by Team</div>
+      </div>
+    </div>
+  </div>
+</div>
