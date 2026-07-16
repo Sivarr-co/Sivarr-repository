@@ -12,7 +12,7 @@ what we're responsible for, and how we work together without stepping on each ot
 | AI | Gemini AI |
 | Frontend | Vanilla JS, HTML, CSS (separated files) |
 | Deployment | Railway |
-| Live URL | sivarr.up.railway.app |
+| Live URL | sivarr.com |
 
 ---
 
