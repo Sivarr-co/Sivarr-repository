@@ -1,2039 +1,2992 @@
-<!-- ═══════════════════════════════════════════════════════════════
-     PANELS SPACES — Org · Personal · Academic
-     ═══════════════════════════════════════════════════════════════ -->
-
-{# ── ORG SPACE ────────────────────────────────────────────── #}
-<div id="panel-org" class="panel os-panel">
-  <!-- Hero -->
-  <div class="os-hero">
-    <div class="os-hero-icon">
-      <span>🏢</span>
-      <div class="os-hero-icon-overlay">Change</div>
-    </div>
-    <div class="os-hero-info">
-      <div class="os-hero-name">Sivarr Inc.</div>
-      <div class="os-hero-meta">
-        <span>🔒 Private</span>
-        <span class="os-sep">·</span>
-        <span>12 members</span>
-        <span class="os-sep">·</span>
-        <span class="os-online-badge">🟢 5 online</span>
-      </div>
-    </div>
-    <div class="os-hero-actions">
-      <button class="os-btn-ghost">🔔</button>
-      <button class="os-btn-primary">+ Invite</button>
-    </div>
-  </div>
-
-  <!-- Tabs -->
-  <div class="os-tabs">
-    <button class="os-tab on" data-pane="overview">📊 Overview</button>
-    <button class="os-tab" data-pane="tasks">📋 Tasks</button>
-    <button class="os-tab" data-pane="projects">📁 Projects</button>
-    <button class="os-tab" data-pane="docs">📝 Docs</button>
-    <button class="os-tab" data-pane="chat">💬 Chat</button>
-    <button class="os-tab" data-pane="members">👥 Members</button>
-    <button class="os-tab" data-pane="goals">🎯 Goals</button>
-    <button class="os-tab" data-pane="founder">👑 Founder</button>
-    <button class="os-tab" data-pane="settings">⚙️ Settings</button>
-  </div>
-
-  <!-- ── Overview Pane ── -->
-  <div class="os-pane on" data-pane="overview">
-    <div class="os-scroll">
-      <!-- Briefing -->
-      <div class="os-card os-briefing-card">
-        <div class="os-card-head">
-          <span class="os-card-title">🧠 Sivarr AI Briefing</span>
+{# ═══════════════════════════════════════════════════════════════
+_panels_spaces.html — academic, org, personal spaces Re-extracted VERBATIM from
+index_previous.html (byte-for-byte, no rewriting) to fix the content-loss issue
+found in the prior split.
+═══════════════════════════════════════════════════════════════ #} {# ──
+ACADEMIC SPACE (dual lecturer/student dashboard) ── #}
+<div class="panel sp-panel" id="panel-academic">
+  <!-- ══ ACADEMIC SPACE v3 — Dual-Role Dashboard (Lecturer + Student) ══ -->
+  <div class="sp-scroll" style="padding: 0 4px">
+    <!-- ── SPACE TOPBAR ── -->
+    <div class="acad-topbar">
+      <div class="acad-topbar-left">
+        <div class="acad-role-pill" id="acadRolePill">
+          <span id="acadRoleIcon">🎓</span>
+          <span id="acadRoleName">Academic</span>
         </div>
-        <div class="os-briefing-text" id="org-briefing-text">
-          Good morning, team. Q3 is looking strong — 3 projects on track, 12
-          tasks completed this week. Review the Q3 proposal before tomorrow's
-          all-hands.
+        <div class="acad-space-name-label" id="acadSpaceNameLabel">
+          Academic Space
         </div>
       </div>
-
-      <!-- Stat row -->
-      <div class="os-stat-row">
-        <div class="os-stat">
-          <div class="os-stat-lbl">Projects</div>
-          <div class="os-stat-val">8</div>
-          <div class="os-stat-sub os-s">+2 this quarter</div>
+      <div class="acad-topbar-right">
+        <div class="acad-search-bar">
+          <i class="ti ti-search" aria-hidden="true"></i>
+          <input
+            type="text"
+            placeholder="Search this space…"
+            id="acadSearchInput"
+          />
         </div>
-        <div class="os-stat">
-          <div class="os-stat-lbl">Tasks</div>
-          <div class="os-stat-val">24</div>
-          <div class="os-stat-sub">12 in progress</div>
-        </div>
-        <div class="os-stat">
-          <div class="os-stat-lbl">Members</div>
-          <div class="os-stat-val">12</div>
-          <div class="os-stat-sub os-s">5 online</div>
-        </div>
-        <div class="os-stat">
-          <div class="os-stat-lbl">Completion</div>
-          <div class="os-stat-val">78%</div>
-          <div class="os-stat-sub os-s">↑ 12% this month</div>
-        </div>
+        <button
+          class="acad-topbar-btn"
+          onclick="acRenameByType ? spRenameByType('academic') : null"
+          title="Rename space"
+        >
+          <i class="ti ti-pencil" aria-hidden="true"></i>
+        </button>
       </div>
+    </div>
 
-      <!-- Two-column grid -->
-      <div class="os-grid2">
-        <!-- Recent activity -->
-        <div class="os-card">
-          <div class="os-card-head">
-            <span class="os-card-title">📈 Recent activity</span>
-            <span class="os-card-link">View all</span>
+    <!-- ── WELCOME BANNER ── -->
+    <div class="acad-welcome-banner" id="acadWelcomeBanner">
+      <div>
+        <div class="acad-welcome-eyebrow" id="acadWelcomeEyebrow">
+          Academic Space
+        </div>
+        <div class="acad-welcome-headline" id="acadWelcomeHeadline">
+          Welcome back.
+        </div>
+        <div class="acad-welcome-sub" id="acadWelcomeSub"></div>
+        <div class="acad-welcome-ctas" id="acadWelcomeCTAs"></div>
+      </div>
+      <div class="acad-welcome-stat-cluster" id="acadWelcomeStats"></div>
+    </div>
+
+    <!-- ══════ LECTURER DASHBOARD ══════ -->
+    <div id="acadLecturerDash" style="display: none">
+      <div class="acad-metric-row">
+        <div class="acad-metric-card">
+          <div class="acad-metric-icon acad-icon-purple">
+            <i class="ti ti-users" aria-hidden="true"></i>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 6px">
-            <div
-              style="
-                display: flex;
-                gap: 8px;
-                font-size: 0.8rem;
-                padding: 4px 0;
-                border-bottom: 1px solid var(--border);
-              "
-            >
-              <span style="color: var(--teal)">●</span>
-              <span>User created <strong>Q3 proposal</strong></span>
-              <span
-                style="
-                  color: var(--text4);
-                  font-size: 0.7rem;
-                  margin-left: auto;
-                "
-                >2h ago</span
+          <div class="acad-metric-label">Total Students</div>
+          <div class="acad-metric-value" id="lm-students">—</div>
+        </div>
+        <div class="acad-metric-card">
+          <div class="acad-metric-icon acad-icon-teal">
+            <i class="ti ti-notebook" aria-hidden="true"></i>
+          </div>
+          <div class="acad-metric-label">Active Courses</div>
+          <div class="acad-metric-value" id="lm-courses">—</div>
+        </div>
+        <div class="acad-metric-card">
+          <div class="acad-metric-icon acad-icon-orange">
+            <i class="ti ti-clipboard-check" aria-hidden="true"></i>
+          </div>
+          <div class="acad-metric-label">Pending Submissions</div>
+          <div class="acad-metric-value" id="lm-submissions">—</div>
+        </div>
+        <div class="acad-metric-card">
+          <div class="acad-metric-icon acad-icon-gold">
+            <i class="ti ti-chart-bar" aria-hidden="true"></i>
+          </div>
+          <div class="acad-metric-label">Avg. Class Score</div>
+          <div class="acad-metric-value" id="lm-score">—<span>%</span></div>
+        </div>
+      </div>
+
+      <div class="acad-tab-bar" id="lecturerTabBar">
+        <button
+          class="acad-tab active"
+          data-tab="l-overview"
+          onclick="lSwitchTab('l-overview')"
+        >
+          Overview
+        </button>
+        <button
+          class="acad-tab"
+          data-tab="l-courses"
+          onclick="lSwitchTab('l-courses')"
+        >
+          Courses
+        </button>
+        <button
+          class="acad-tab"
+          data-tab="l-students"
+          onclick="lSwitchTab('l-students')"
+        >
+          Students
+        </button>
+        <button
+          class="acad-tab"
+          data-tab="l-assessments"
+          onclick="lSwitchTab('l-assessments')"
+        >
+          Assessments
+        </button>
+        <button
+          class="acad-tab"
+          data-tab="l-analytics"
+          onclick="lSwitchTab('l-analytics')"
+        >
+          Analytics
+        </button>
+        <button
+          class="acad-tab"
+          data-tab="l-aitools"
+          onclick="lSwitchTab('l-aitools')"
+        >
+          <i class="ti ti-bolt" aria-hidden="true" style="font-size: 12px"></i>
+          AI Tools
+        </button>
+      </div>
+
+      <!-- L: OVERVIEW -->
+      <div class="acad-tab-content active" id="tab-l-overview">
+        <div class="acad-split-3">
+          <div class="acad-card acad-col-span-1">
+            <div class="acad-card-header">
+              <span class="acad-card-title">Today's Schedule</span>
+              <button class="acad-btn-ghost acad-btn-sm" onclick="lAddClass()">
+                + Add
+              </button>
+            </div>
+            <div class="acad-card-body" id="lScheduleList">
+              <div class="acad-empty-state">
+                <i
+                  class="ti ti-calendar"
+                  style="font-size: 24px; opacity: 0.3"
+                  aria-hidden="true"
+                ></i>
+                <div>No classes today</div>
+              </div>
+            </div>
+          </div>
+          <div class="acad-card acad-col-span-2">
+            <div class="acad-card-header">
+              <span class="acad-card-title">Submission Queue</span>
+              <span class="acad-card-badge" id="lSubmissionCount"
+                >0 pending</span
               >
             </div>
-            <div
-              style="
-                display: flex;
-                gap: 8px;
-                font-size: 0.8rem;
-                padding: 4px 0;
-                border-bottom: 1px solid var(--border);
-              "
+            <div class="acad-card-body" id="lSubmissionQueue">
+              <div class="acad-empty-state">
+                <i
+                  class="ti ti-inbox"
+                  style="font-size: 24px; opacity: 0.3"
+                  aria-hidden="true"
+                ></i>
+                <div>No pending submissions</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">Class Code</span>
+            <button
+              class="acad-btn-teal acad-btn-sm"
+              id="lClassPublishBtn"
+              onclick="lPublishClass()"
             >
-              <span style="color: var(--purple)">●</span>
-              <span>Team completed <strong>API docs</strong></span>
-              <span
-                style="
-                  color: var(--text4);
-                  font-size: 0.7rem;
-                  margin-left: auto;
-                "
-                >4h ago</span
+              Publish class
+            </button>
+          </div>
+          <div class="acad-card-body" id="lClassCodeBody">
+            <p class="acad-brief-desc" style="margin: 0">
+              Publish this class to get a join code. Students enter it in their
+              Academic space to join — your roster fills automatically.
+            </p>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">Announcements</span>
+          </div>
+          <div class="acad-card-body">
+            <textarea
+              class="acad-ai-textarea"
+              id="lAnnounceInput"
+              placeholder="Post an announcement — students get a notification."
+              style="min-height: 60px"
+            ></textarea>
+            <button class="acad-btn-teal" onclick="lPostAnnounce()">
+              Post announcement
+            </button>
+            <div id="lAnnounceList" style="margin-top: 12px"></div>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">Live Session &amp; Polls</span>
+            <div style="display: flex; gap: 6px">
+              <button class="acad-btn-teal acad-btn-sm" onclick="lGoLive()">
+                Go live</button
+              ><button
+                class="acad-btn-ghost acad-btn-sm"
+                onclick="lCreatePoll()"
               >
+                + Poll
+              </button>
             </div>
+          </div>
+          <div class="acad-card-body">
             <div
-              style="display: flex; gap: 8px; font-size: 0.8rem; padding: 4px 0"
+              id="lLiveStatus"
+              class="acad-priority-sub"
+              style="margin-bottom: 8px"
             >
-              <span style="color: var(--amber3)">●</span>
-              <span>User joined <strong>Design review</strong></span>
-              <span
-                style="
-                  color: var(--text4);
-                  font-size: 0.7rem;
-                  margin-left: auto;
-                "
-                >6h ago</span
-              >
+              Not live.
+            </div>
+            <div id="lPollList"></div>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">Recent Student Activity</span>
+          </div>
+          <div class="acad-card-body" id="lRecentActivity">
+            <div class="acad-empty-state">
+              <i
+                class="ti ti-activity"
+                style="font-size: 24px; opacity: 0.3"
+                aria-hidden="true"
+              ></i>
+              <div>No recent activity</div>
             </div>
           </div>
-        </div>
-
-        <!-- Quick actions -->
-        <div class="os-card">
-          <div class="os-card-head">
-            <span class="os-card-title">⚡ Quick actions</span>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 6px">
-            <button
-              class="os-tool-btn os-tool-action"
-              style="justify-content: center"
-            >
-              + New project
-            </button>
-            <button
-              class="os-tool-btn os-tool-action"
-              style="justify-content: center"
-            >
-              📋 Create task
-            </button>
-            <button
-              class="os-tool-btn os-tool-action"
-              style="justify-content: center"
-            >
-              👥 Invite member
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Tasks Pane ── -->
-  <div class="os-pane" data-pane="tasks">
-    <div class="os-toolbar">
-      <span class="os-toolbar-label">🗂️ Board</span>
-      <button class="os-tool-btn os-tool-active" data-view="board">
-        Board
-      </button>
-      <button class="os-tool-btn" data-view="list">List</button>
-      <button class="os-tool-btn os-tool-action" style="margin-left: auto">
-        + Add task
-      </button>
-    </div>
-    <div class="os-scroll" style="padding-top: 0">
-      <!-- Board view -->
-      <div id="os-task-board">
-        <div class="os-kanban">
-          <div class="os-col">
-            <div class="os-col-head">
-              <span class="os-col-title">📝 To Do</span>
-              <span class="os-col-count">4</span>
-            </div>
-            <div class="os-task-card">
-              <span class="os-task-tag">Research</span>
-              <div class="os-task-title">Competitor analysis</div>
-              <div class="os-task-meta">Due Jun 24 · User</div>
-            </div>
-            <div class="os-task-card">
-              <span class="os-task-tag">Design</span>
-              <div class="os-task-title">Mockup review</div>
-              <div class="os-task-meta">Due Jun 25 · User</div>
-            </div>
-            <button class="os-add-card-btn">+ Add card</button>
-          </div>
-          <div class="os-col">
-            <div class="os-col-head">
-              <span class="os-col-title">🔄 In Progress</span>
-              <span class="os-col-count">3</span>
-            </div>
-            <div class="os-task-card">
-              <span class="os-task-tag">Dev</span>
-              <div class="os-task-title">API integration</div>
-              <div class="os-task-meta">Due Jun 22 · User</div>
-            </div>
-            <div class="os-task-card">
-              <span class="os-task-tag">Writing</span>
-              <div class="os-task-title">Blog post draft</div>
-              <div class="os-task-meta">Due Jun 23 · User</div>
-            </div>
-            <button class="os-add-card-btn">+ Add card</button>
-          </div>
-          <div class="os-col">
-            <div class="os-col-head">
-              <span class="os-col-title">✅ Done</span>
-              <span class="os-col-count">6</span>
-            </div>
-            <div class="os-task-card">
-              <span class="os-task-tag">Done</span>
-              <div class="os-task-title">Wireframes approved</div>
-              <div class="os-task-meta">Done Jun 18 · User</div>
-            </div>
-            <div class="os-task-card">
-              <span class="os-task-tag">Done</span>
-              <div class="os-task-title">Stakeholder meeting</div>
-              <div class="os-task-meta">Done Jun 17 · User</div>
-            </div>
-            <button class="os-add-card-btn">+ Add card</button>
-          </div>
-        </div>
-      </div>
-      <!-- List view (hidden) -->
-      <div id="os-task-list" style="display: none">
-        <div class="os-list-group">
-          <div class="os-list-group-head">📝 To Do</div>
-          <div class="os-list-row">
-            <span class="os-list-dot os-list-dot-todo"></span
-            ><span class="os-list-title">Competitor analysis</span
-            ><span class="os-list-meta">Jun 24</span>
-          </div>
-          <div class="os-list-row">
-            <span class="os-list-dot os-list-dot-todo"></span
-            ><span class="os-list-title">Mockup review</span
-            ><span class="os-list-meta">Jun 25</span>
-          </div>
-        </div>
-        <div class="os-list-group">
-          <div class="os-list-group-head">🔄 In Progress</div>
-          <div class="os-list-row">
-            <span class="os-list-dot os-list-dot-inprogress"></span
-            ><span class="os-list-title">API integration</span
-            ><span class="os-list-meta">Jun 22</span>
-          </div>
-          <div class="os-list-row">
-            <span class="os-list-dot os-list-dot-inprogress"></span
-            ><span class="os-list-title">Blog post draft</span
-            ><span class="os-list-meta">Jun 23</span>
-          </div>
-        </div>
-        <div class="os-list-group">
-          <div class="os-list-group-head">✅ Done</div>
-          <div class="os-list-row">
-            <span class="os-list-dot os-list-dot-done"></span
-            ><span class="os-list-title">Wireframes approved</span
-            ><span class="os-list-meta">Jun 18</span>
-          </div>
-          <div class="os-list-row">
-            <span class="os-list-dot os-list-dot-done"></span
-            ><span class="os-list-title">Stakeholder meeting</span
-            ><span class="os-list-meta">Jun 17</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Projects Pane ── -->
-  <div class="os-pane" data-pane="projects">
-    <div class="os-toolbar">
-      <span class="os-toolbar-label">📁 Projects</span>
-      <button class="os-tool-btn os-tool-action" style="margin-left: auto">
-        + New project
-      </button>
-    </div>
-    <div class="os-scroll" style="padding-top: 0">
-      <div class="os-proj-grid">
-        <div class="os-proj-card">
-          <div class="os-proj-stripe" style="background: var(--teal)"></div>
-          <div class="os-proj-name">Q3 Product Launch</div>
-          <div class="os-proj-desc">New feature rollout · 4 tasks left</div>
-          <div class="os-proj-progress">
-            <div
-              class="os-proj-progress-bar"
-              style="width: 72%; background: var(--teal)"
-            ></div>
-          </div>
-          <div class="os-proj-meta">
-            <span class="os-proj-badge">Active</span>
-            <span class="os-proj-tasks-count">8/12 tasks</span>
-          </div>
-        </div>
-        <div class="os-proj-card">
-          <div class="os-proj-stripe" style="background: var(--purple)"></div>
-          <div class="os-proj-name">Design System v2</div>
-          <div class="os-proj-desc">Component library refresh</div>
-          <div class="os-proj-progress">
-            <div
-              class="os-proj-progress-bar"
-              style="width: 45%; background: var(--purple)"
-            ></div>
-          </div>
-          <div class="os-proj-meta">
-            <span class="os-proj-badge">In progress</span>
-            <span class="os-proj-tasks-count">5/11 tasks</span>
-          </div>
-        </div>
-        <div class="os-proj-card">
-          <div class="os-proj-stripe" style="background: var(--amber3)"></div>
-          <div class="os-proj-name">Market Research</div>
-          <div class="os-proj-desc">Competitor analysis · Q4 planning</div>
-          <div class="os-proj-progress">
-            <div
-              class="os-proj-progress-bar"
-              style="width: 30%; background: var(--amber3)"
-            ></div>
-          </div>
-          <div class="os-proj-meta">
-            <span class="os-proj-badge">Research</span>
-            <span class="os-proj-tasks-count">3/10 tasks</span>
-          </div>
-        </div>
-        <div
-          class="os-proj-card"
-          style="
-            border-style: dashed;
-            border-color: var(--border2);
-            justify-content: center;
-            align-items: center;
-            min-height: 140px;
-            cursor: pointer;
-          "
-        >
-          <span style="font-size: 2rem; color: var(--text4)">+</span>
-          <span style="font-size: 0.82rem; color: var(--text4)"
-            >Create new project</span
-          >
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Docs Pane ── -->
-  <div class="os-pane" data-pane="docs">
-    <div class="os-toolbar">
-      <span class="os-toolbar-label">📝 Docs</span>
-      <button class="os-tool-btn os-tool-action" style="margin-left: auto">
-        + New doc
-      </button>
-    </div>
-    <div class="os-scroll" style="padding-top: 0">
-      <div class="os-docs-grid">
-        <div class="os-doc-card">
-          <div class="os-doc-icon">📄</div>
-          <div class="os-doc-name">Q3 Strategy</div>
-          <div class="os-doc-meta">Updated 2h ago · User</div>
-        </div>
-        <div class="os-doc-card">
-          <div class="os-doc-icon">📄</div>
-          <div class="os-doc-name">Product Roadmap</div>
-          <div class="os-doc-meta">Updated 1d ago · User</div>
-        </div>
-        <div class="os-doc-card">
-          <div class="os-doc-icon">📄</div>
-          <div class="os-doc-name">Engineering Guide</div>
-          <div class="os-doc-meta">Updated 3d ago · User</div>
-        </div>
-        <div class="os-doc-card">
-          <div class="os-doc-icon">📊</div>
-          <div class="os-doc-name">Q2 Metrics</div>
-          <div class="os-doc-meta">Updated 1w ago · User</div>
-        </div>
-        <div
-          class="os-doc-card"
-          style="
-            border-style: dashed;
-            border-color: var(--border2);
-            justify-content: center;
-            align-items: center;
-            min-height: 100px;
-            cursor: pointer;
-          "
-        >
-          <span style="font-size: 1.2rem; color: var(--text4)">+</span>
-          <span style="font-size: 0.72rem; color: var(--text4)">New doc</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Chat Pane ── -->
-  <div class="os-pane os-pane-chat" data-pane="chat">
-    <!-- Channel toggle (mobile) -->
-    <button
-      class="os-btn-icon oc-chan-toggle"
-      style="position: absolute; top: 10px; left: 10px; z-index: 42"
-    >
-      ☰
-    </button>
-    <div class="oc-drawer-overlay" id="oc-drawer-overlay"></div>
-
-    <!-- Channel sidebar -->
-    <div class="oc-sidebar" id="oc-sidebar">
-      <div class="oc-ws-name"># Sivarr Inc.</div>
-      <div class="oc-section-lbl">Channels</div>
-      <div class="oc-ch-item active">
-        <span class="oc-ch-hash">#</span> general
-        <span class="oc-ch-unread"></span>
-      </div>
-      <div class="oc-ch-item"><span class="oc-ch-hash">#</span> random</div>
-      <div class="oc-ch-item">
-        <span class="oc-ch-hash">#</span> engineering
-        <span class="oc-ch-unread"></span>
-      </div>
-      <div class="oc-ch-item"><span class="oc-ch-hash">#</span> design</div>
-      <div class="oc-ch-item"><span class="oc-ch-hash">#</span> marketing</div>
-      <div class="oc-section-lbl">Direct messages</div>
-      <div class="oc-dm-item active">
-        <span class="oc-presence-dot online"></span>
-        <span class="oc-dm-av">U</span>
-        <span>User</span>
-      </div>
-      <div class="oc-dm-item">
-        <span class="oc-presence-dot online"></span>
-        <span class="oc-dm-av">A</span>
-        <span>Alice</span>
-      </div>
-      <div class="oc-dm-item">
-        <span class="oc-presence-dot offline"></span>
-        <span class="oc-dm-av">B</span>
-        <span>Bob</span>
-      </div>
-    </div>
-
-    <!-- Main chat area -->
-    <div class="oc-main">
-      <div class="oc-header">
-        <div>
-          <div class="oc-ch-name"># general</div>
-          <div class="oc-ch-desc">Team-wide announcements and discussions</div>
-        </div>
-        <div class="oc-presence">
-          <span class="oc-presence-chip">🟢 5 online</span>
-          <span class="oc-presence-chip">👥 12 members</span>
-        </div>
-      </div>
-      <div class="oc-msgs" id="oc-msgs">
-        <div class="oc-msg">
-          <div class="oc-msg-av" style="background: var(--teal)">U</div>
-          <div class="oc-msg-body">
-            <div class="oc-msg-meta">
-              <span class="oc-msg-name">User</span>
-              <span class="oc-msg-time">10:42 AM</span>
-            </div>
-            <div class="oc-msg-text">
-              Morning team! Q3 planning doc is ready for review.
-            </div>
-          </div>
-        </div>
-        <div class="oc-msg oc-msg-continued">
-          <div class="oc-msg-av" style="background: var(--teal)">U</div>
-          <div class="oc-msg-body">
-            <div class="oc-msg-meta">
-              <span class="oc-msg-name">User</span>
-              <span class="oc-msg-time">10:44 AM</span>
-            </div>
-            <div class="oc-msg-text">
-              Please take a look before tomorrow's standup.
-            </div>
-          </div>
-        </div>
-        <div class="oc-msg">
-          <div class="oc-msg-av" style="background: var(--purple)">A</div>
-          <div class="oc-msg-body">
-            <div class="oc-msg-meta">
-              <span class="oc-msg-name">Alice</span>
-              <span class="oc-msg-time">10:50 AM</span>
-            </div>
-            <div class="oc-msg-text">
-              Great work on the roadmap, everyone. I'll add my comments by EOD.
-            </div>
-          </div>
-        </div>
-        <div class="oc-chat-empty" id="oc-chat-empty" style="display: none">
-          No messages yet. Say hello! 👋
         </div>
       </div>
 
-      <!-- Input bar -->
-      <div class="oc-bar">
-        <button class="oc-bar-icon" id="oc-emoji-btn">😊</button>
-        <input
-          class="oc-input"
-          id="oc-input"
-          placeholder="Message #general..."
-        />
-        <button class="oc-bar-icon" id="oc-attach-btn">📎</button>
-        <button class="oc-send-btn" id="oc-send-btn">➤</button>
-      </div>
-
-      <!-- Emoji picker (hidden) -->
-      <div class="oc-emoji-picker" id="oc-emoji-picker" style="display: none">
-        <button class="oc-emoji-btn-item">👍</button>
-        <button class="oc-emoji-btn-item">❤️</button>
-        <button class="oc-emoji-btn-item">🚀</button>
-        <button class="oc-emoji-btn-item">👀</button>
-        <button class="oc-emoji-btn-item">🎉</button>
-        <button class="oc-emoji-btn-item">🔥</button>
-        <button class="oc-emoji-btn-item">✨</button>
-        <button class="oc-emoji-btn-item">💡</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Members Pane ── -->
-  <div class="os-pane" data-pane="members">
-    <div class="os-toolbar">
-      <span class="os-toolbar-label">👥 Members</span>
-      <button class="os-tool-btn os-tool-action" style="margin-left: auto">
-        + Invite
-      </button>
-    </div>
-    <div class="os-scroll" style="padding-top: 0">
-      <div class="os-member-row">
-        <span class="os-member-av">U</span>
-        <div class="os-member-info">
-          <div class="os-member-name">User</div>
-          <div class="os-member-role">Admin · Online</div>
+      <!-- L: COURSES -->
+      <div class="acad-tab-content" id="tab-l-courses" style="display: none">
+        <div class="acad-tab-toolbar">
+          <input
+            class="acad-search-inline"
+            type="text"
+            placeholder="Search courses…"
+            oninput="lFilterCourses(this.value)"
+          />
+          <button class="acad-btn-teal" onclick="lCreateCourse()">
+            + New Course
+          </button>
         </div>
-        <span class="os-member-badge">Admin</span>
-      </div>
-      <div class="os-member-row">
-        <span
-          class="os-member-av"
-          style="background: var(--purple2); color: var(--purple)"
-          >A</span
-        >
-        <div class="os-member-info">
-          <div class="os-member-name">Alice</div>
-          <div class="os-member-role">Product · Online</div>
-        </div>
-        <span class="os-member-badge">Member</span>
-      </div>
-      <div class="os-member-row">
-        <span
-          class="os-member-av"
-          style="background: var(--amber2); color: var(--amber3)"
-          >B</span
-        >
-        <div class="os-member-info">
-          <div class="os-member-name">Bob</div>
-          <div class="os-member-role">Engineering · Offline</div>
-        </div>
-        <span class="os-member-badge">Member</span>
-      </div>
-      <div class="os-member-row">
-        <span
-          class="os-member-av"
-          style="background: var(--teal2); color: var(--teal)"
-          >C</span
-        >
-        <div class="os-member-info">
-          <div class="os-member-name">Carol</div>
-          <div class="os-member-role">Design · Online</div>
-        </div>
-        <span class="os-member-badge">Member</span>
-      </div>
-      <div class="os-invite-box" style="margin-top: 12px">
-        <div class="os-invite-title">Invite teammates</div>
-        <div class="os-invite-sub">Share this link or send an email invite</div>
-        <div class="os-invite-row">
-          <input class="os-invite-input" placeholder="email@example.com" />
-          <button class="os-btn-primary">Send</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Goals Pane ── -->
-  <div class="os-pane" data-pane="goals">
-    <div class="os-toolbar">
-      <span class="os-toolbar-label">🎯 Goals & OKRs</span>
-      <button class="os-tool-btn os-tool-action" style="margin-left: auto">
-        + New goal
-      </button>
-    </div>
-    <div class="os-scroll" style="padding-top: 0">
-      <div class="os-goal-card">
-        <div class="os-goal-head">
-          <span class="os-goal-dot" style="background: var(--teal)"></span>
-          <span class="os-goal-title">Launch Q3 product update</span>
-          <span
-            class="os-goal-badge"
-            style="background: var(--teal2); color: var(--teal)"
-            >On track</span
-          >
-          <span class="os-goal-pct">72%</span>
-          <button class="os-goal-menu">⋮</button>
-        </div>
-        <div class="os-goal-desc">
-          Complete all features and ship to customers by end of quarter
-        </div>
-        <div class="os-goal-bar-wrap">
-          <div class="os-goal-bar-fill" style="width: 72%"></div>
-        </div>
-        <div class="os-kr-list">
-          <div class="os-kr-row">
-            <span class="os-kr-title">Core features</span>
-            <div class="os-kr-progress">
-              <div class="os-kr-bar">
-                <div class="os-kr-fill" style="width: 80%"></div>
-              </div>
-              <span class="os-kr-val">8/10</span>
-            </div>
-          </div>
-          <div class="os-kr-row">
-            <span class="os-kr-title">Beta testing</span>
-            <div class="os-kr-progress">
-              <div class="os-kr-bar">
-                <div class="os-kr-fill" style="width: 60%"></div>
-              </div>
-              <span class="os-kr-val">3/5</span>
-            </div>
-          </div>
-          <div class="os-kr-row">
-            <span class="os-kr-title">Documentation</span>
-            <div class="os-kr-progress">
-              <div class="os-kr-bar">
-                <div class="os-kr-fill" style="width: 40%"></div>
-              </div>
-              <span class="os-kr-val">2/5</span>
-            </div>
-          </div>
-          <button class="os-kr-add">+ Add key result</button>
-        </div>
-      </div>
-
-      <div class="os-goal-card">
-        <div class="os-goal-head">
-          <span class="os-goal-dot" style="background: var(--purple)"></span>
-          <span class="os-goal-title">Improve team velocity</span>
-          <span
-            class="os-goal-badge"
-            style="background: var(--amber2); color: var(--amber)"
-            >In progress</span
-          >
-          <span class="os-goal-pct">45%</span>
-          <button class="os-goal-menu">⋮</button>
-        </div>
-        <div class="os-goal-desc">
-          Reduce cycle time and increase sprint completion rate
-        </div>
-        <div class="os-goal-bar-wrap">
+        <div class="acad-course-grid" id="lCourseGrid">
           <div
-            class="os-goal-bar-fill"
-            style="width: 45%; background: var(--purple)"
-          ></div>
-        </div>
-        <div class="os-kr-list">
-          <div class="os-kr-row">
-            <span class="os-kr-title">Sprint completion</span>
-            <div class="os-kr-progress">
-              <div class="os-kr-bar">
-                <div
-                  class="os-kr-fill"
-                  style="width: 60%; background: var(--purple)"
-                ></div>
-              </div>
-              <span class="os-kr-val">60%</span>
-            </div>
+            class="acad-course-card acad-course-card--add"
+            onclick="lCreateCourse()"
+          >
+            <i
+              class="ti ti-plus"
+              style="font-size: 24px; opacity: 0.4"
+              aria-hidden="true"
+            ></i>
+            <div>Create your first course</div>
           </div>
-          <div class="os-kr-row">
-            <span class="os-kr-title">Code review time</span>
-            <div class="os-kr-progress">
-              <div class="os-kr-bar">
-                <div
-                  class="os-kr-fill"
-                  style="width: 30%; background: var(--purple)"
-                ></div>
-              </div>
-              <span class="os-kr-val">4h avg</span>
-            </div>
-          </div>
-          <button class="os-kr-add">+ Add key result</button>
         </div>
       </div>
+
+      <!-- L: STUDENTS -->
+      <div class="acad-tab-content" id="tab-l-students" style="display: none">
+        <div class="acad-tab-toolbar">
+          <input
+            class="acad-search-inline"
+            type="text"
+            placeholder="Search students…"
+            oninput="lFilterStudents(this.value)"
+          />
+          <div style="display: flex; gap: 6px">
+            <select
+              class="acad-select"
+              onchange="lFilterByCourse(this.value)"
+              id="lStudentCourseFilter"
+            >
+              <option value="">All courses</option>
+            </select>
+            <button class="acad-btn-ghost" onclick="lExportRoster()">
+              <i class="ti ti-download" aria-hidden="true"></i> Export
+            </button>
+            <button class="acad-btn-ghost" onclick="lTakeAttendance()">
+              <i class="ti ti-user-check" aria-hidden="true"></i> Take
+              Attendance
+            </button>
+            <button class="acad-btn-teal" onclick="lInviteStudent()">
+              + Invite Student
+            </button>
+          </div>
+        </div>
+        <div
+          class="acad-card"
+          id="lAttPanel"
+          style="display: none; margin-bottom: 12px"
+        ></div>
+        <div class="acad-card">
+          <table class="acad-data-grid" id="lStudentTable">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Course(s)</th>
+                <th>Attendance</th>
+                <th>Avg. Score</th>
+                <th>Last Active</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="lStudentTableBody">
+              <tr>
+                <td colspan="7" class="acad-table-empty">
+                  No students enrolled yet. Invite students to get started.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- L: ASSESSMENTS -->
+      <div
+        class="acad-tab-content"
+        id="tab-l-assessments"
+        style="display: none"
+      >
+        <div class="acad-tab-toolbar">
+          <div class="acad-segment-ctrl" id="lAssessmentView">
+            <button
+              class="acad-seg active"
+              data-seg="quizzes"
+              onclick="lAssessSegment('quizzes')"
+            >
+              Quizzes
+            </button>
+            <button
+              class="acad-seg"
+              data-seg="assignments"
+              onclick="lAssessSegment('assignments')"
+            >
+              Assignments
+            </button>
+            <button
+              class="acad-seg"
+              data-seg="exams"
+              onclick="lAssessSegment('exams')"
+            >
+              Exams
+            </button>
+            <button
+              class="acad-seg"
+              data-seg="grading"
+              onclick="lAssessSegment('grading')"
+            >
+              Grading
+            </button>
+          </div>
+          <button
+            class="acad-btn-teal"
+            id="lAssessCreateBtn"
+            onclick="lCreateAssessment()"
+          >
+            + New Quiz
+          </button>
+        </div>
+        <div id="lAssess-quizzes" class="acad-assess-panel">
+          <div class="acad-card">
+            <div class="acad-card-header">
+              <span class="acad-card-title">Quiz Bank</span
+              ><span class="acad-card-badge" id="lQuizCount">0 quizzes</span>
+            </div>
+            <div class="acad-card-body" id="lQuizList">
+              <div class="acad-empty-state">
+                <i
+                  class="ti ti-help"
+                  style="font-size: 24px; opacity: 0.3"
+                  aria-hidden="true"
+                ></i>
+                <div>No quizzes yet. Create your first quiz.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          id="lAssess-assignments"
+          class="acad-assess-panel"
+          style="display: none"
+        >
+          <div class="acad-card">
+            <div class="acad-card-header">
+              <span class="acad-card-title">Assignments</span
+              ><span class="acad-card-badge" id="lAssignCount"
+                >0 assignments</span
+              >
+            </div>
+            <div class="acad-card-body" id="lAssignList">
+              <div class="acad-empty-state">
+                <i
+                  class="ti ti-file-text"
+                  style="font-size: 24px; opacity: 0.3"
+                  aria-hidden="true"
+                ></i>
+                <div>No assignments yet.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="lAssess-exams" class="acad-assess-panel" style="display: none">
+          <div class="acad-card">
+            <div class="acad-card-header">
+              <span class="acad-card-title">Exam Bank</span
+              ><span class="acad-card-badge" id="lExamCount">0 exams</span>
+            </div>
+            <div class="acad-card-body" id="lExamList">
+              <div class="acad-empty-state">
+                <i
+                  class="ti ti-file-pencil"
+                  style="font-size: 24px; opacity: 0.3"
+                  aria-hidden="true"
+                ></i>
+                <div>No exams yet. Build your first exam.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          id="lAssess-grading"
+          class="acad-assess-panel"
+          style="display: none"
+        >
+          <div class="acad-split">
+            <div class="acad-card">
+              <div class="acad-card-header">
+                <span class="acad-card-title">Pending Grading</span>
+              </div>
+              <div class="acad-card-body" id="lGradingQueue">
+                <div class="acad-empty-state">
+                  <i
+                    class="ti ti-check"
+                    style="font-size: 24px; opacity: 0.3"
+                    aria-hidden="true"
+                  ></i>
+                  <div>All caught up — nothing to grade.</div>
+                </div>
+              </div>
+            </div>
+            <div class="acad-card">
+              <div class="acad-card-header">
+                <span class="acad-card-title">SIVARR AI Auto-Mark</span
+                ><span class="acad-ai-badge">AI</span>
+              </div>
+              <div class="acad-card-body">
+                <p class="acad-brief-desc">
+                  Upload a submission batch and SIVARR AI will grade against
+                  your rubric, flagging edge cases for your review.
+                </p>
+                <button class="acad-generate-btn" onclick="lAutoMark()">
+                  <i class="ti ti-bolt" aria-hidden="true"></i> Run Auto-Mark
+                </button>
+                <div id="lAutoMarkResult" style="display: none"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- L: ANALYTICS -->
+      <div class="acad-tab-content" id="tab-l-analytics" style="display: none">
+        <div class="acad-split">
+          <div class="acad-card">
+            <div class="acad-card-header">
+              <span class="acad-card-title">Score Distribution</span>
+              <select
+                class="acad-select acad-select-sm"
+                onchange="lLoadDistribution(this.value)"
+                id="lDistCourseFilter"
+              >
+                <option value="">All courses</option>
+              </select>
+            </div>
+            <div class="acad-card-body">
+              <div id="lDistributionChart" style="min-height: 160px">
+                <div class="acad-empty-state" style="padding: 32px 0">
+                  <i
+                    class="ti ti-chart-bar"
+                    style="font-size: 24px; opacity: 0.3"
+                    aria-hidden="true"
+                  ></i>
+                  <div>No score data yet</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="acad-card">
+            <div class="acad-card-header">
+              <span class="acad-card-title">Attendance Rate</span>
+            </div>
+            <div class="acad-card-body">
+              <div id="lAttendanceChart" style="min-height: 160px">
+                <div class="acad-empty-state" style="padding: 32px 0">
+                  <i
+                    class="ti ti-calendar-stats"
+                    style="font-size: 24px; opacity: 0.3"
+                    aria-hidden="true"
+                  ></i>
+                  <div>No attendance data yet</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">At-Risk Students</span
+            ><span class="acad-card-badge acad-badge-red" id="lAtRiskCount"
+              >0 flagged</span
+            >
+          </div>
+          <div class="acad-card-body" id="lAtRiskList">
+            <div class="acad-empty-state">
+              <i
+                class="ti ti-shield-check"
+                style="font-size: 24px; opacity: 0.3"
+                aria-hidden="true"
+              ></i>
+              <div>No at-risk students identified</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- L: AI TOOLS -->
+      <div class="acad-tab-content" id="tab-l-aitools" style="display: none">
+        <div class="acad-ai-tools-grid">
+          <div class="acad-card">
+            <div class="acad-card-header">
+              <span class="acad-card-title">Lesson Plan Generator</span
+              ><span class="acad-ai-badge">SIVARR AI</span>
+            </div>
+            <div class="acad-card-body">
+              <textarea
+                class="acad-ai-textarea"
+                id="lLessonTopic"
+                placeholder="Enter topic, learning objectives, duration…&#10;e.g. 'Introduction to Bayesian Networks, 90 mins, undergraduate level'"
+              ></textarea>
+              <button class="acad-generate-btn" onclick="lGenerateLessonPlan()">
+                <i class="ti ti-bolt" aria-hidden="true"></i> Generate Lesson
+                Plan
+              </button>
+              <div
+                id="lLessonPlanResult"
+                class="acad-ai-result"
+                style="display: none"
+              ></div>
+            </div>
+          </div>
+          <div class="acad-card">
+            <div class="acad-card-header">
+              <span class="acad-card-title">Quiz Question Generator</span
+              ><span class="acad-ai-badge">SIVARR AI</span>
+            </div>
+            <div class="acad-card-body">
+              <textarea
+                class="acad-ai-textarea"
+                id="lQuizTopic"
+                placeholder="Topic + difficulty level + question type…&#10;e.g. 'Markov chains, hard, 5 MCQ + 2 short answer'"
+              ></textarea>
+              <button
+                class="acad-generate-btn"
+                onclick="lGenerateQuizQuestions()"
+              >
+                <i class="ti ti-bolt" aria-hidden="true"></i> Generate Questions
+              </button>
+              <div
+                id="lQuizQuestionsResult"
+                class="acad-ai-result"
+                style="display: none"
+              ></div>
+            </div>
+          </div>
+          <div class="acad-card acad-col-span-full">
+            <div class="acad-card-header">
+              <span class="acad-card-title">Batch Feedback Generator</span
+              ><span class="acad-ai-badge">SIVARR AI</span>
+            </div>
+            <div
+              class="acad-card-body"
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px"
+            >
+              <div>
+                <label class="acad-label">Submission or student notes</label>
+                <textarea
+                  class="acad-ai-textarea"
+                  id="lFeedbackInput"
+                  placeholder="Paste student submission text or notes here…"
+                ></textarea>
+              </div>
+              <div>
+                <label class="acad-label">Rubric / marking criteria</label>
+                <textarea
+                  class="acad-ai-textarea"
+                  id="lRubricInput"
+                  placeholder="Paste your rubric or marking criteria here…"
+                ></textarea>
+              </div>
+              <button
+                class="acad-generate-btn"
+                style="grid-column: 1/-1"
+                onclick="lGenerateFeedback()"
+              >
+                <i class="ti ti-bolt" aria-hidden="true"></i> Generate
+                Personalised Feedback
+              </button>
+              <div
+                id="lFeedbackResult"
+                class="acad-ai-result"
+                style="display: none; grid-column: 1/-1"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- end acadLecturerDash -->
+
+    <!-- ══════ STUDENT DASHBOARD ══════ -->
+    <div id="acadStudentDash" style="display: none">
+      <div class="acad-metric-row">
+        <div class="acad-metric-card">
+          <div class="acad-metric-icon acad-icon-teal">
+            <i class="ti ti-bolt" aria-hidden="true"></i>
+          </div>
+          <div class="acad-metric-label">AI Questions Asked</div>
+          <div class="acad-metric-value" id="sm-questions">—</div>
+        </div>
+        <div class="acad-metric-card">
+          <div class="acad-metric-icon acad-icon-purple">
+            <i class="ti ti-trophy" aria-hidden="true"></i>
+          </div>
+          <div class="acad-metric-label">Quizzes Mastered</div>
+          <div class="acad-metric-value" id="sm-quizzes">—</div>
+        </div>
+        <div class="acad-metric-card">
+          <div class="acad-metric-icon acad-icon-orange">
+            <i class="ti ti-flame" aria-hidden="true"></i>
+          </div>
+          <div class="acad-metric-label">Study Streak</div>
+          <div class="acad-metric-value" id="sm-streak">
+            —<span> days</span>
+          </div>
+        </div>
+        <div class="acad-metric-card">
+          <div class="acad-metric-icon acad-icon-gold">
+            <i class="ti ti-school" aria-hidden="true"></i>
+          </div>
+          <div class="acad-metric-label">CGPA Projection</div>
+          <div class="acad-metric-value" id="sm-cgpa">—<span>/5.0</span></div>
+        </div>
+      </div>
+
+      <div class="acad-tab-bar" id="studentTabBar">
+        <button
+          class="acad-tab active"
+          data-tab="s-overview"
+          onclick="sSwitchTab('s-overview')"
+        >
+          Overview
+        </button>
+        <button
+          class="acad-tab"
+          data-tab="s-vault"
+          onclick="sSwitchTab('s-vault')"
+        >
+          Lecture Vault
+        </button>
+        <button
+          class="acad-tab"
+          data-tab="s-sprint"
+          onclick="sSwitchTab('s-sprint')"
+        >
+          Exam Sprint
+        </button>
+        <button
+          class="acad-tab"
+          data-tab="s-research"
+          onclick="sSwitchTab('s-research')"
+        >
+          Research
+        </button>
+        <button
+          class="acad-tab"
+          data-tab="s-groups"
+          onclick="sSwitchTab('s-groups')"
+        >
+          Study Groups
+        </button>
+        <button
+          class="acad-tab"
+          data-tab="s-tutor"
+          onclick="sSwitchTab('s-tutor')"
+        >
+          <i class="ti ti-bolt" aria-hidden="true" style="font-size: 12px"></i>
+          AI Tutor
+        </button>
+      </div>
+
+      <!-- S: OVERVIEW -->
+      <div class="acad-tab-content active" id="tab-s-overview">
+        <div class="acad-split">
+          <div class="acad-card">
+            <div class="acad-card-header">
+              <span class="acad-card-title">Today's Academic Priorities</span
+              ><span class="acad-card-badge" id="sPriorityCount">0 due</span>
+            </div>
+            <div class="acad-card-body" id="sPriorityList">
+              <div class="acad-empty-state">
+                <i
+                  class="ti ti-check"
+                  style="font-size: 24px; opacity: 0.3"
+                  aria-hidden="true"
+                ></i>
+                <div>All clear — nothing due today</div>
+              </div>
+            </div>
+          </div>
+          <div class="acad-card">
+            <div class="acad-card-header">
+              <span class="acad-card-title">AI Daily Study Briefing</span
+              ><span class="acad-ai-badge">SIVARR AI</span>
+            </div>
+            <div class="acad-card-body">
+              <p class="acad-brief-desc">
+                Get a personalised briefing from your modules, open tasks, and a
+                recommended flashcard sprint.
+              </p>
+              <button
+                class="acad-generate-btn"
+                id="sGenerateBtn"
+                onclick="sGenerateBriefing()"
+              >
+                <i class="ti ti-bolt" aria-hidden="true"></i> Generate Today's
+                Briefing
+              </button>
+              <div class="acad-ai-result" id="sAIResult" style="display: none">
+                <div class="acad-ai-result-header">
+                  <div class="acad-ai-dot"></div>
+                  <span class="acad-ai-result-title"
+                    >SIVARR AI · Study Brief</span
+                  >
+                </div>
+                <div id="sAIResultBody"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">My Classes</span>
+            <button class="acad-btn-teal acad-btn-sm" onclick="sJoinClass()">
+              + Join class
+            </button>
+          </div>
+          <div class="acad-card-body" id="sMyClassesBody">
+            <div class="acad-empty-state">
+              <i
+                class="ti ti-school"
+                style="font-size: 24px; opacity: 0.3"
+                aria-hidden="true"
+              ></i>
+              <div>
+                Not in any class yet. Enter a join code from your lecturer.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">Class Feed</span
+            ><button
+              class="acad-btn-ghost acad-btn-sm"
+              onclick="sEnableNotifs()"
+            >
+              <i class="ti ti-bell" aria-hidden="true"></i>
+              Notifications
+            </button>
+          </div>
+          <div class="acad-card-body" id="sFeedBody">
+            <div class="acad-empty-state">
+              <i
+                class="ti ti-bell"
+                style="font-size: 24px; opacity: 0.3"
+                aria-hidden="true"
+              ></i>
+              <div>No announcements yet. Join a class to see its feed.</div>
+            </div>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">Assignments</span>
+          </div>
+          <div class="acad-card-body" id="sAssignmentsBody">
+            <div class="acad-empty-state">
+              <i
+                class="ti ti-file-text"
+                style="font-size: 24px; opacity: 0.3"
+                aria-hidden="true"
+              ></i>
+              <div>
+                No assignments yet. Join a class to see and submit work.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">Exams</span>
+          </div>
+          <div class="acad-card-body" id="sExamsBody">
+            <div class="acad-empty-state">
+              <i
+                class="ti ti-clipboard-text"
+                style="font-size: 24px; opacity: 0.3"
+                aria-hidden="true"
+              ></i>
+              <div>No exams assigned yet. Join a class to take exams.</div>
+            </div>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">Live &amp; Polls</span>
+          </div>
+          <div class="acad-card-body" id="sLivePollsBody">
+            <div class="acad-empty-state">
+              <i
+                class="ti ti-broadcast"
+                style="font-size: 24px; opacity: 0.3"
+                aria-hidden="true"
+              ></i>
+              <div>Nothing live right now.</div>
+            </div>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">Upcoming Deadlines</span
+            ><button
+              class="acad-btn-ghost acad-btn-sm"
+              onclick="sAddDeadline()"
+            >
+              + Add
+            </button>
+          </div>
+          <div class="acad-deadline-strip" id="sDeadlineStrip">
+            <div class="acad-empty-state">
+              <i
+                class="ti ti-calendar"
+                style="font-size: 24px; opacity: 0.3"
+                aria-hidden="true"
+              ></i>
+              <div>No upcoming deadlines</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S: LECTURE VAULT -->
+      <div class="acad-tab-content" id="tab-s-vault" style="display: none">
+        <div class="acad-tab-toolbar">
+          <input
+            class="acad-search-inline"
+            type="text"
+            placeholder="Search modules…"
+            oninput="sFilterModules(this.value)"
+          />
+          <button class="acad-btn-teal" onclick="sAddModule()">
+            + Add Module
+          </button>
+        </div>
+        <div class="acad-card">
+          <table class="acad-data-grid" id="sModuleTable">
+            <thead>
+              <tr>
+                <th>Module</th>
+                <th>Code</th>
+                <th>Next Exam</th>
+                <th>Lecturer</th>
+                <th>Attendance</th>
+                <th>Status</th>
+                <th>Resources</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="sModuleTableBody">
+              <tr>
+                <td colspan="8" class="acad-table-empty">
+                  No modules yet. Add your first module to get started.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
+            <span class="acad-card-title">Lecture Notes Archive</span
+            ><button
+              class="acad-btn-ghost acad-btn-sm"
+              onclick="sUploadNotes()"
+            >
+              <i class="ti ti-upload" aria-hidden="true"></i> Upload Notes
+            </button>
+          </div>
+          <div class="acad-notes-grid" id="sNotesGrid">
+            <div class="acad-empty-state">
+              <i
+                class="ti ti-file"
+                style="font-size: 24px; opacity: 0.3"
+                aria-hidden="true"
+              ></i>
+              <div>No notes uploaded yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S: EXAM SPRINT -->
+      <div class="acad-tab-content" id="tab-s-sprint" style="display: none">
+        <div class="acad-tab-toolbar">
+          <div>
+            <div style="font-size: 13px; font-weight: 700; color: var(--text)">
+              Exam Sprint Framework
+            </div>
+            <div
+              class="acad-brief-desc"
+              id="sSprintSub"
+              style="margin: 2px 0 0"
+            >
+              Active revision board
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px">
+            <select
+              class="acad-select"
+              id="sSprintModule"
+              onchange="sFilterSprintByModule(this.value)"
+            >
+              <option value="">All modules</option>
+            </select>
+            <button class="acad-btn-ghost" onclick="sGenAIFlashcards()">
+              <i class="ti ti-bolt" aria-hidden="true"></i> AI cards
+            </button>
+            <button class="acad-btn-teal" onclick="sAddSprintCard()">
+              + Add Card
+            </button>
+          </div>
+        </div>
+        <div class="acad-kanban" id="sKanban">
+          <div class="acad-kanban-col" data-col="to_review">
+            <div class="acad-kanban-col-header">
+              <span class="acad-col-title"
+                ><i class="ti ti-list" aria-hidden="true"></i> To Review</span
+              ><span class="acad-col-count" id="sColCount-to_review">0</span>
+            </div>
+            <div class="acad-kanban-cards" id="sCards-to_review"></div>
+            <div class="acad-col-add">
+              <button
+                class="acad-add-card-btn"
+                onclick="sAddSprintCard('to_review')"
+              >
+                + Add card
+              </button>
+            </div>
+          </div>
+          <div class="acad-kanban-col" data-col="spaced_rep">
+            <div class="acad-kanban-col-header">
+              <span class="acad-col-title"
+                ><i class="ti ti-refresh" aria-hidden="true"></i> Spaced
+                Repetition</span
+              ><span class="acad-col-count" id="sColCount-spaced_rep">0</span>
+            </div>
+            <div class="acad-kanban-cards" id="sCards-spaced_rep"></div>
+            <div class="acad-col-add">
+              <button
+                class="acad-add-card-btn"
+                onclick="sAddSprintCard('spaced_rep')"
+              >
+                + Add card
+              </button>
+            </div>
+          </div>
+          <div class="acad-kanban-col" data-col="flashcard">
+            <div class="acad-kanban-col-header">
+              <span class="acad-col-title"
+                ><i class="ti ti-cards" aria-hidden="true"></i> Flashcard
+                Drill</span
+              ><span class="acad-col-count" id="sColCount-flashcard">0</span>
+            </div>
+            <div class="acad-kanban-cards" id="sCards-flashcard"></div>
+            <div class="acad-col-add">
+              <button
+                class="acad-add-card-btn"
+                onclick="sAddSprintCard('flashcard')"
+              >
+                + Add card
+              </button>
+            </div>
+          </div>
+          <div class="acad-kanban-col" data-col="mastered">
+            <div class="acad-kanban-col-header">
+              <span class="acad-col-title"
+                ><i class="ti ti-check" aria-hidden="true"></i> Mastered</span
+              ><span
+                class="acad-col-count acad-col-count--teal"
+                id="sColCount-mastered"
+                >0</span
+              >
+            </div>
+            <div class="acad-kanban-cards" id="sCards-mastered"></div>
+            <div class="acad-col-add">
+              <button
+                class="acad-add-card-btn"
+                onclick="sAddSprintCard('mastered')"
+              >
+                + Add card
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S: RESEARCH -->
+      <div class="acad-tab-content" id="tab-s-research" style="display: none">
+        <div class="acad-research-layout">
+          <div class="acad-research-main">
+            <div class="acad-card" style="margin-bottom: 14px">
+              <div class="acad-card-header">
+                <span class="acad-card-title"
+                  >Research &amp; Citation Engine</span
+                >
+                <div style="display: flex; gap: 5px">
+                  <span class="acad-source-badge acad-source-badge--teal"
+                    >Google Scholar</span
+                  >
+                  <span class="acad-source-badge acad-source-badge--purple"
+                    >Semantic Scholar</span
+                  >
+                </div>
+              </div>
+              <div class="acad-card-body">
+                <p class="acad-brief-desc">
+                  Paste a URL, DOI, or paper title — SIVARR AI auto-generates a
+                  formal citation.
+                </p>
+                <div class="acad-research-input-row">
+                  <input
+                    class="acad-research-input"
+                    id="sCiteInput"
+                    type="text"
+                    placeholder="Paste URL, DOI, or paper title…"
+                    onkeydown="if (event.key === 'Enter') sGenerateCitation();"
+                  />
+                  <button
+                    class="acad-research-btn"
+                    onclick="sGenerateCitation()"
+                  >
+                    <i class="ti ti-bolt" aria-hidden="true"></i>
+                    Generate
+                  </button>
+                </div>
+                <div class="acad-cite-format-row">
+                  <span class="acad-brief-desc" style="margin: 0">Format:</span>
+                  <button
+                    class="acad-format-btn active"
+                    data-fmt="apa"
+                    onclick="sSetFormat(this, 'apa')"
+                  >
+                    APA 7th
+                  </button>
+                  <button
+                    class="acad-format-btn"
+                    data-fmt="ieee"
+                    onclick="sSetFormat(this, 'ieee')"
+                  >
+                    IEEE
+                  </button>
+                  <button
+                    class="acad-format-btn"
+                    data-fmt="mla"
+                    onclick="sSetFormat(this, 'mla')"
+                  >
+                    MLA 9th
+                  </button>
+                  <button
+                    class="acad-format-btn"
+                    data-fmt="vancouver"
+                    onclick="sSetFormat(this, 'vancouver')"
+                  >
+                    Vancouver
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 8px;
+                gap: 8px;
+              "
+            >
+              <span
+                style="font-size: 13px; font-weight: 700; color: var(--text)"
+                >Literature Matrix</span
+              >
+              <div style="display: flex; gap: 6px">
+                <input
+                  class="acad-search-inline"
+                  style="width: 150px"
+                  type="text"
+                  placeholder="Filter…"
+                  oninput="sFilterCitations(this.value)"
+                />
+                <button
+                  class="acad-btn-ghost acad-btn-sm"
+                  onclick="sExportBib()"
+                >
+                  <i class="ti ti-download" aria-hidden="true"></i>
+                  .bib
+                </button>
+              </div>
+            </div>
+            <div id="sCitationList">
+              <div class="acad-empty-state">
+                <i
+                  class="ti ti-file-text"
+                  style="font-size: 24px; opacity: 0.3"
+                  aria-hidden="true"
+                ></i>
+                <div>
+                  No references yet. Generate your first citation above.
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="acad-research-sidebar">
+            <div class="acad-card" style="margin-bottom: 12px">
+              <div class="acad-card-header">
+                <span class="acad-card-title">Matrix Overview</span>
+              </div>
+              <div class="acad-card-body">
+                <div class="acad-stat-row">
+                  <span>Total</span><span id="sStatTotal">0</span>
+                </div>
+                <div class="acad-stat-row">
+                  <span>AI-generated</span
+                  ><span id="sStatAuto" style="color: var(--teal)">0</span>
+                </div>
+                <div class="acad-stat-row">
+                  <span>Manual</span><span id="sStatManual">0</span>
+                </div>
+              </div>
+            </div>
+            <div class="acad-card">
+              <div class="acad-card-header">
+                <span class="acad-card-title">Connected Indexes</span>
+              </div>
+              <div
+                class="acad-card-body"
+                style="display: flex; flex-direction: column; gap: 8px"
+              >
+                <div class="acad-index-row acad-index-row--active">
+                  <i
+                    class="ti ti-search acad-index-icon"
+                    aria-hidden="true"
+                  ></i>
+                  <div>
+                    <div class="acad-index-name">Google Scholar</div>
+                    <div class="acad-index-status">Active</div>
+                  </div>
+                  <div class="acad-online-dot"></div>
+                </div>
+                <div class="acad-index-row acad-index-row--active">
+                  <i class="ti ti-book acad-index-icon" aria-hidden="true"></i>
+                  <div>
+                    <div class="acad-index-name">Semantic Scholar</div>
+                    <div class="acad-index-status">Active</div>
+                  </div>
+                  <div class="acad-online-dot"></div>
+                </div>
+                <div class="acad-index-row acad-index-row--inactive">
+                  <i
+                    class="ti ti-building-bank acad-index-icon"
+                    aria-hidden="true"
+                  ></i>
+                  <div>
+                    <div class="acad-index-name">JSTOR</div>
+                    <div class="acad-index-status">Not connected</div>
+                  </div>
+                  <button
+                    class="acad-btn-ghost acad-btn-sm"
+                    onclick="sConnectIndex('jstor')"
+                  >
+                    Connect
+                  </button>
+                </div>
+                <div class="acad-index-row acad-index-row--inactive">
+                  <i
+                    class="ti ti-heartbeat acad-index-icon"
+                    aria-hidden="true"
+                  ></i>
+                  <div>
+                    <div class="acad-index-name">PubMed</div>
+                    <div class="acad-index-status">Not connected</div>
+                  </div>
+                  <button
+                    class="acad-btn-ghost acad-btn-sm"
+                    onclick="sConnectIndex('pubmed')"
+                  >
+                    Connect
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S: STUDY GROUPS -->
+      <div class="acad-tab-content" id="tab-s-groups" style="display: none">
+        <div class="acad-tab-toolbar">
+          <input
+            class="acad-search-inline"
+            type="text"
+            placeholder="Search groups…"
+            oninput="sFilterGroups(this.value)"
+          />
+          <button class="acad-btn-teal" onclick="sCreateGroup()">
+            + Create Group
+          </button>
+        </div>
+        <div class="acad-groups-grid" id="sGroupsGrid">
+          <div class="acad-empty-state">
+            <i
+              class="ti ti-users"
+              style="font-size: 24px; opacity: 0.3"
+              aria-hidden="true"
+            ></i>
+            <div>
+              No study groups yet. Create one or ask a classmate to invite you.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S: AI TUTOR -->
+      <div class="acad-tab-content" id="tab-s-tutor" style="display: none">
+        <div class="acad-ai-tutor-layout">
+          <div class="acad-card acad-tutor-chat-card">
+            <div class="acad-card-header">
+              <span class="acad-card-title">SIVARR AI Tutor</span>
+              <div style="display: flex; gap: 6px; align-items: center">
+                <span class="acad-ai-badge">AI</span>
+                <select
+                  class="acad-select acad-select-sm"
+                  id="sTutorModule"
+                  onchange="sTutorSetModule(this.value)"
+                >
+                  <option value="">All modules</option>
+                </select>
+              </div>
+            </div>
+            <div class="acad-tutor-messages" id="sTutorMessages">
+              <div class="acad-tutor-msg acad-tutor-msg--ai">
+                <div class="acad-tutor-avatar">
+                  <i class="ti ti-bolt" aria-hidden="true"></i>
+                </div>
+                <div class="acad-tutor-bubble">
+                  Hi! I'm your SIVARR AI Tutor. Ask me anything about your
+                  modules, request concept explanations, or say &quot;quiz me on
+                  [topic]&quot; to start a practice session.
+                </div>
+              </div>
+            </div>
+            <div class="acad-tutor-input-row">
+              <input
+                class="acad-research-input"
+                id="sTutorInput"
+                type="text"
+                placeholder="Ask a question, or say 'quiz me on…'"
+                onkeydown="if (event.key === 'Enter') sSendTutorMessage();"
+              />
+              <button class="acad-research-btn" onclick="sSendTutorMessage()">
+                <i class="ti ti-send" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="acad-tutor-quick-prompts">
+              <button
+                class="acad-format-btn"
+                onclick="sTutorQuick('Explain this concept simply: ')"
+              >
+                Explain a concept
+              </button>
+              <button
+                class="acad-format-btn"
+                onclick="sTutorQuick('Quiz me on ')"
+              >
+                Quiz me
+              </button>
+              <button
+                class="acad-format-btn"
+                onclick="sTutorQuick('Summarise the key points from ')"
+              >
+                Summarise notes
+              </button>
+              <button
+                class="acad-format-btn"
+                onclick="sTutorQuick('Create a mind map for ')"
+              >
+                Mind map
+              </button>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px">
+            <div class="acad-card">
+              <div class="acad-card-header">
+                <span class="acad-card-title">Pomodoro Timer</span>
+              </div>
+              <div class="acad-card-body" style="text-align: center">
+                <div class="acad-pomo-mode-bar">
+                  <button
+                    class="acad-seg active"
+                    id="pomoFocus"
+                    onclick="sPomoSet(25, 'Focus')"
+                  >
+                    Focus
+                  </button>
+                  <button
+                    class="acad-seg"
+                    id="pomoShort"
+                    onclick="sPomoSet(5, 'Short break')"
+                  >
+                    Short break
+                  </button>
+                  <button
+                    class="acad-seg"
+                    id="pomoLong"
+                    onclick="sPomoSet(15, 'Long break')"
+                  >
+                    Long break
+                  </button>
+                </div>
+                <div class="acad-pomo-display" id="sPomoDisplay">25:00</div>
+                <div class="acad-pomo-label" id="sPomoLabel">Focus session</div>
+                <div
+                  style="
+                    display: flex;
+                    gap: 8px;
+                    justify-content: center;
+                    margin-top: 12px;
+                  "
+                >
+                  <button
+                    class="acad-btn-teal"
+                    style="padding: 8px 24px"
+                    id="sPomoPlayBtn"
+                    onclick="sPomoToggle()"
+                  >
+                    <i class="ti ti-player-play" aria-hidden="true"></i>
+                    Start
+                  </button>
+                  <button
+                    class="acad-btn-ghost"
+                    style="padding: 8px 16px"
+                    onclick="sPomoReset()"
+                  >
+                    <i class="ti ti-refresh" aria-hidden="true"></i>
+                  </button>
+                </div>
+                <div class="acad-pomo-sessions" id="sPomoSessions">
+                  Session 1 of 4
+                </div>
+              </div>
+            </div>
+            <div class="acad-card">
+              <div class="acad-card-header">
+                <span class="acad-card-title">Quick Flashcard Sprint</span
+                ><span class="acad-card-badge" id="sSprintCardCount"
+                  >0 cards</span
+                >
+              </div>
+              <div class="acad-card-body" style="text-align: center">
+                <div
+                  id="sFlashcardDisplay"
+                  style="
+                    min-height: 100px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <div class="acad-empty-state">
+                    <i
+                      class="ti ti-cards"
+                      style="font-size: 24px; opacity: 0.3"
+                      aria-hidden="true"
+                    ></i>
+                    <div>No flashcards in your Sprint yet</div>
+                  </div>
+                </div>
+                <div
+                  id="sFlashcardActions"
+                  style="
+                    display: none;
+                    margin-top: 10px;
+                    gap: 6px;
+                    justify-content: center;
+                  "
+                >
+                  <button
+                    class="acad-action-btn acad-action-btn--red"
+                    onclick="sFlashcardRespond('again')"
+                  >
+                    Again
+                  </button>
+                  <button
+                    class="acad-action-btn acad-action-btn--orange"
+                    onclick="sFlashcardRespond('hard')"
+                  >
+                    Hard
+                  </button>
+                  <button
+                    class="acad-action-btn acad-action-btn--teal"
+                    onclick="sFlashcardRespond('good')"
+                  >
+                    Good
+                  </button>
+                  <button
+                    class="acad-action-btn"
+                    onclick="sFlashcardRespond('easy')"
+                  >
+                    Easy
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- end acadStudentDash -->
+  </div>
+  <!-- /sp-scroll -->
+</div>
+
+{# ── ORGANIZATION SPACE ── #}
+<div class="panel os-panel" id="panel-org">
+  <!-- Setup card — shown when user has no org -->
+  <div
+    id="org-setup-card"
+    style="
+      display: none;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      flex-direction: column;
+      gap: 20px;
+      text-align: center;
+      padding: 40px;
+    "
+  >
+    <div style="font-size: 3rem; opacity: 0.4">
+      <i class="ti ti-building"></i>
+    </div>
+    <div style="font-size: 1.25rem; font-weight: 600; color: var(--fg)">
+      You're not part of an organization yet
+    </div>
+    <div style="font-size: 0.9rem; color: var(--muted); max-width: 380px">
+      Create a new space for your team, or ask a teammate to send you an invite
+      link.
+    </div>
+    <div
+      style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center"
+    >
+      <button class="os-btn-primary" onclick="orgCreateSpace()">
+        <i class="ti ti-plus"></i> Create Organization
+      </button>
+    </div>
+    <div style="font-size: 0.8rem; color: var(--muted); margin-top: 8px">
+      Have an invite link? Open it in your browser and you'll be added
+      automatically.
     </div>
   </div>
 
-  <!-- ── Founder Pane ── -->
-  <div class="os-pane" data-pane="founder">
-    <div class="os-toolbar">
-      <span class="os-toolbar-label">👑 Founder Mode</span>
-      <span
-        style="
-          font-size: 0.7rem;
-          color: var(--text4);
-          font-weight: 600;
-          background: var(--bg3);
-          padding: 2px 10px;
-          border-radius: 20px;
-          border: 1px solid var(--border);
-        "
-        >Private</span
+  <!-- Main org content — hidden until org is loaded -->
+  <div id="org-main-content" style="display: none">
+    <!-- Space hero -->
+    <div class="os-hero">
+      <div
+        class="os-hero-icon"
+        id="os-hero-icon"
+        onclick="orgLogoEdit()"
+        title="Change organization logo"
       >
+        <i class="ti ti-building" id="os-hero-icon-placeholder"></i>
+        <div class="os-hero-icon-overlay">
+          <i class="ti ti-camera"></i>
+        </div>
+      </div>
+      <div class="os-hero-info">
+        <div
+          class="os-hero-name"
+          id="os-space-name"
+          onclick="spRename('org')"
+          title="Click to rename"
+        >
+          Organisation Hub
+        </div>
+        <div class="os-hero-meta">
+          <span>Organisation space</span>
+          <span class="os-sep">·</span>
+          <span
+            ><i class="ti ti-users"></i>
+            <span id="os-member-count">1</span> members</span
+          >
+          <span class="os-sep">·</span>
+          <span class="os-online-badge"
+            ><i class="ti ti-point-filled"></i>
+            <span id="os-online-count">1</span> online</span
+          >
+        </div>
+      </div>
+      <div class="os-hero-actions">
+        <button class="os-btn-ghost" onclick="orgAddExtension()">
+          <i class="ti ti-puzzle"></i><span class="btn-lbl"> Extensions</span>
+        </button>
+        <button class="os-btn-ghost" onclick="teamInvite()">
+          <i class="ti ti-user-plus"></i><span class="btn-lbl"> Invite</span>
+        </button>
+        <button class="os-btn-primary" onclick="orgNewTask()">
+          <i class="ti ti-plus"></i><span class="btn-lbl"> New task</span>
+        </button>
+        <button class="os-btn-icon" onclick="orgMoreMenu()">
+          <i class="ti ti-dots"></i>
+        </button>
+      </div>
     </div>
-    <div class="os-scroll" style="padding-top: 0">
-      <div class="os-stat-row">
-        <div class="os-stat os-stat-green">
-          <div class="os-stat-lbl">Revenue</div>
-          <div class="os-stat-val">$48,392</div>
-          <div class="os-stat-sub os-s">↑ 22% this month</div>
-        </div>
-        <div class="os-stat os-stat-teal">
-          <div class="os-stat-lbl">Active users</div>
-          <div class="os-stat-val">1,847</div>
-          <div class="os-stat-sub os-s">↑ 14%</div>
-        </div>
-        <div class="os-stat os-stat-blue">
-          <div class="os-stat-lbl">Conversion</div>
-          <div class="os-stat-val">3.8%</div>
-          <div class="os-stat-sub os-s">↑ 0.6%</div>
-        </div>
-        <div class="os-stat">
-          <div class="os-stat-lbl">Burn rate</div>
-          <div class="os-stat-val">$12,400</div>
-          <div class="os-stat-sub">18 months runway</div>
-        </div>
-      </div>
 
-      <div class="os-card">
-        <div class="os-card-head">
-          <span class="os-card-title">📊 Financial overview</span>
-          <span class="os-card-link">Full report</span>
-        </div>
-        <div class="os-bar-chart">
-          <div class="os-bar-col">
-            <div
-              class="os-bar-fill"
-              style="height: 45%; background: var(--teal)"
-            ></div>
-            <span class="os-bar-lbl">Jan</span>
-          </div>
-          <div class="os-bar-col">
-            <div
-              class="os-bar-fill"
-              style="height: 52%; background: var(--teal)"
-            ></div>
-            <span class="os-bar-lbl">Feb</span>
-          </div>
-          <div class="os-bar-col">
-            <div
-              class="os-bar-fill"
-              style="height: 48%; background: var(--teal)"
-            ></div>
-            <span class="os-bar-lbl">Mar</span>
-          </div>
-          <div class="os-bar-col">
-            <div
-              class="os-bar-fill"
-              style="height: 63%; background: var(--teal)"
-            ></div>
-            <span class="os-bar-lbl">Apr</span>
-          </div>
-          <div class="os-bar-col">
-            <div
-              class="os-bar-fill"
-              style="height: 78%; background: var(--teal)"
-            ></div>
-            <span class="os-bar-lbl">May</span>
-          </div>
-          <div class="os-bar-col">
-            <div
-              class="os-bar-fill"
-              style="height: 92%; background: var(--teal)"
-            ></div>
-            <span class="os-bar-lbl">Jun</span>
-          </div>
-        </div>
-      </div>
+    <!-- Tab bar -->
+    <div class="os-tabs" role="tablist">
+      <button
+        class="os-tab on"
+        id="os-tab-overview"
+        onclick="orgTab('overview', this)"
+        role="tab"
+      >
+        <i class="ti ti-layout-dashboard"></i>Overview
+      </button>
+      <button
+        class="os-tab"
+        id="os-tab-tasks"
+        onclick="orgTab('tasks', this)"
+        role="tab"
+      >
+        <i class="ti ti-checkbox"></i>Tasks
+      </button>
+      <button
+        class="os-tab"
+        id="os-tab-goals"
+        onclick="orgTab('goals', this)"
+        role="tab"
+      >
+        <i class="ti ti-target"></i>Goals
+      </button>
+      <button
+        class="os-tab"
+        id="os-tab-projects"
+        onclick="orgTab('projects', this)"
+        role="tab"
+      >
+        <i class="ti ti-folders"></i>Projects
+      </button>
+      <button
+        class="os-tab"
+        id="os-tab-docs"
+        onclick="orgTab('docs', this)"
+        role="tab"
+      >
+        <i class="ti ti-file-text"></i>Docs
+      </button>
+      <button
+        class="os-tab"
+        id="os-tab-members"
+        onclick="orgTab('members', this)"
+        role="tab"
+      >
+        <i class="ti ti-users"></i>Members
+      </button>
+      <button
+        class="os-tab"
+        id="os-tab-insights"
+        onclick="orgTab('insights', this)"
+        role="tab"
+      >
+        <i class="ti ti-chart-bar"></i>Insights
+      </button>
+      <button
+        class="os-tab"
+        id="os-tab-chat"
+        onclick="orgTab('chat', this)"
+        role="tab"
+      >
+        <i class="ti ti-message-circle"></i>Chat
+      </button>
+      <button
+        class="os-tab"
+        id="os-tab-announce"
+        onclick="orgTab('announce', this)"
+        role="tab"
+      >
+        <i class="ti ti-speakerphone"></i>Announce
+      </button>
+      <button
+        class="os-tab"
+        id="os-tab-analytics"
+        onclick="orgTab('analytics', this)"
+        role="tab"
+      >
+        <i class="ti ti-chart-pie"></i>Analytics
+      </button>
+      <button
+        class="os-tab os-tab-founder"
+        id="os-tab-founder"
+        onclick="orgTab('founder', this)"
+        role="tab"
+      >
+        <i class="ti ti-rocket"></i>Founder
+      </button>
+      <button
+        class="os-tab"
+        id="os-tab-financials"
+        onclick="orgTab('financials', this)"
+        role="tab"
+      >
+        <i class="ti ti-chart-bar"></i>Financials
+      </button>
+    </div>
 
-      <div class="os-grid2">
-        <div class="os-card">
+    <!-- ── OVERVIEW ── -->
+    <div class="os-pane on" id="os-pane-overview">
+      <div class="os-scroll">
+        <!-- Sivarr AI Briefing -->
+        <div class="os-card os-briefing-card">
           <div class="os-card-head">
-            <span class="os-card-title">🏦 Investors</span>
+            <span class="os-card-title"
+              ><i class="ti ti-sparkles" style="color: var(--teal)"></i>Sivarr
+              Daily Briefing</span
+            >
+            <button
+              class="os-card-link"
+              onclick="orgGetBriefing()"
+              id="os-briefing-btn"
+            >
+              Generate →
+            </button>
           </div>
-          <div class="fd-inv-grid">
-            <div class="fd-inv-card">
-              <span class="fd-inv-av">A</span>
-              <div>
-                <div class="fd-inv-name">Angel Fund</div>
-                <div class="fd-inv-firm">$250k · Lead</div>
-              </div>
-              <span
-                class="fd-inv-badge"
-                style="background: var(--teal2); color: var(--teal)"
-                >Active</span
+          <div id="os-briefing-text" class="os-briefing-text">
+            Click "Generate" for your AI executive briefing.
+          </div>
+        </div>
+        <!-- Stats row -->
+        <div class="os-stat-row">
+          <div class="os-stat">
+            <div class="os-stat-lbl">Open tasks</div>
+            <div class="os-stat-val" id="os-open-tasks">0</div>
+            <div class="os-stat-sub" id="os-overdue-lbl"></div>
+          </div>
+          <div class="os-stat">
+            <div class="os-stat-lbl">Completed</div>
+            <div class="os-stat-val" id="os-done-tasks">0</div>
+            <div class="os-stat-sub">total done</div>
+          </div>
+          <div class="os-stat">
+            <div class="os-stat-lbl">Projects</div>
+            <div class="os-stat-val" id="os-proj-count">0</div>
+            <div class="os-stat-sub">active</div>
+          </div>
+          <div class="os-stat">
+            <div class="os-stat-lbl">Members</div>
+            <div class="os-stat-val" id="os-mem-count">1</div>
+            <div class="os-stat-sub" id="os-invite-lbl"></div>
+          </div>
+          <div class="os-stat">
+            <div class="os-stat-lbl">Active Goals</div>
+            <div class="os-stat-val" id="os-goal-count">0</div>
+            <div class="os-stat-sub">OKRs</div>
+          </div>
+        </div>
+        <div class="os-grid2">
+          <div class="os-card">
+            <div class="os-card-head">
+              <span class="os-card-title"
+                ><i class="ti ti-alert-triangle" style="color: var(--coral)"></i
+                >Priority tasks</span
+              ><span class="os-card-link" onclick="orgTab('tasks', null)"
+                >Board →</span
               >
             </div>
-            <div class="fd-inv-card">
-              <span
-                class="fd-inv-av"
-                style="background: var(--purple2); color: var(--purple)"
-                >B</span
+            <div id="os-priority-tasks">
+              <div class="os-empty">No tasks yet.</div>
+            </div>
+          </div>
+          <div class="os-card">
+            <div class="os-card-head">
+              <span class="os-card-title"
+                ><i class="ti ti-target"></i>Top Goals</span
+              ><span class="os-card-link" onclick="orgTab('goals', null)"
+                >All →</span
               >
-              <div>
-                <div class="fd-inv-name">Seed Capital</div>
-                <div class="fd-inv-firm">$150k · Follow-on</div>
-              </div>
-              <span
-                class="fd-inv-badge"
-                style="background: var(--amber2); color: var(--amber)"
-                >Review</span
-              >
+            </div>
+            <div id="os-goals-mini">
+              <div class="os-empty">No goals yet.</div>
             </div>
           </div>
         </div>
-        <div class="os-card">
-          <div class="os-card-head">
-            <span class="os-card-title">📈 Key metrics</span>
+        <div class="os-grid2">
+          <div class="os-card">
+            <div class="os-card-head">
+              <span class="os-card-title"><i class="ti ti-users"></i>Team</span
+              ><span class="os-card-link" onclick="orgTab('members', null)"
+                >Manage →</span
+              >
+            </div>
+            <div id="os-team-mini">
+              <div class="os-empty">No members yet.</div>
+            </div>
           </div>
-          <div class="founder-form">
-            <label>MRR</label>
-            <input class="st-input" value="$48,392" />
-            <label>Churn rate</label>
-            <input class="st-input" value="2.4%" />
-            <button class="os-btn-primary" style="margin-top: 4px">
-              Update metrics
+          <div class="os-card">
+            <div class="os-card-head">
+              <span class="os-card-title"
+                ><i class="ti ti-folders"></i>Projects</span
+              ><span class="os-card-link" onclick="orgTab('projects', null)"
+                >All →</span
+              >
+            </div>
+            <div id="os-proj-progress">
+              <div class="os-empty">No projects yet.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── GOALS & OKRs ── -->
+    <div class="os-pane" id="os-pane-goals">
+      <div class="os-toolbar">
+        <span class="os-toolbar-title"
+          ><i class="ti ti-target"></i>Goals & OKRs</span
+        >
+        <div style="flex: 1"></div>
+        <button class="os-tool-btn os-tool-action" onclick="orgNewGoal()">
+          <i class="ti ti-plus"></i>New Goal
+        </button>
+      </div>
+      <div class="os-scroll">
+        <div id="os-goals-list">
+          <div class="os-empty" style="padding: 40px 0">
+            No goals yet — create your first OKR.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TASKS KANBAN ── -->
+    <div class="os-pane" id="os-pane-tasks">
+      <div class="os-toolbar">
+        <button
+          class="os-tool-btn os-tool-active"
+          id="os-task-view-board"
+          onclick="orgSetTaskView('board', this)"
+        >
+          <i class="ti ti-layout-kanban"></i>Board
+        </button>
+        <button
+          class="os-tool-btn"
+          id="os-task-view-list"
+          onclick="orgSetTaskView('list', this)"
+        >
+          <i class="ti ti-list"></i>List
+        </button>
+        <div style="flex: 1"></div>
+        <button class="os-tool-btn os-tool-action" onclick="orgNewTask()">
+          <i class="ti ti-plus"></i>Add task
+        </button>
+      </div>
+      <div class="os-scroll">
+        <div class="os-kanban" id="os-kanban"></div>
+        <div class="os-task-list" id="os-task-list" style="display: none"></div>
+      </div>
+    </div>
+
+    <!-- ── PROJECTS ── -->
+    <div class="os-pane" id="os-pane-projects">
+      <div class="os-toolbar">
+        <button class="os-btn-primary" onclick="projectNew()">
+          <i class="ti ti-plus"></i>New project
+        </button>
+      </div>
+      <div class="os-scroll">
+        <div class="os-proj-grid" id="os-proj-grid"></div>
+      </div>
+    </div>
+
+    <!-- ── DOCS ── -->
+    <div class="os-pane" id="os-pane-docs">
+      <div class="os-toolbar">
+        <button class="os-btn-primary" onclick="orgNewDoc()">
+          <i class="ti ti-plus"></i>New doc
+        </button>
+      </div>
+      <div class="os-scroll">
+        <div class="os-docs-grid" id="os-docs-grid"></div>
+      </div>
+    </div>
+
+    <!-- ── MEMBERS ── -->
+    <div class="os-pane" id="os-pane-members">
+      <div class="os-toolbar">
+        <button class="os-btn-primary" onclick="teamInvite()">
+          <i class="ti ti-user-plus"></i>Invite member
+        </button>
+        <div style="flex: 1"></div>
+        <span class="os-toolbar-label" id="os-member-label">1 member</span>
+      </div>
+      <div class="os-scroll">
+        <div class="os-card" style="margin-bottom: 14px">
+          <div id="os-members-list"></div>
+        </div>
+        <div class="os-invite-box">
+          <div class="os-invite-title">Invite someone new</div>
+          <div class="os-invite-sub">
+            They'll get a link to join this space.
+          </div>
+          <div class="os-invite-row">
+            <input
+              type="email"
+              class="os-invite-input"
+              id="os-invite-email"
+              placeholder="email@example.com"
+            />
+            <button class="os-btn-primary" onclick="orgSendInvite()">
+              Send invite
             </button>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ── Settings Pane ── -->
-  <div class="os-pane" data-pane="settings">
-    <div class="os-scroll" style="padding-top: 14px">
-      <div class="os-card">
-        <div class="os-card-head">
-          <span class="os-card-title">⚙️ Organization settings</span>
+    <!-- ── INSIGHTS ── -->
+    <div class="os-pane" id="os-pane-insights">
+      <div class="os-scroll">
+        <div class="os-stat-row">
+          <div class="os-stat">
+            <div class="os-stat-lbl">Velocity (tasks/wk)</div>
+            <div class="os-stat-val" id="os-velocity">—</div>
+            <div class="os-stat-sub os-s">from history</div>
+          </div>
+          <div class="os-stat">
+            <div class="os-stat-lbl">On-time rate</div>
+            <div class="os-stat-val" id="os-ontime">—</div>
+            <div class="os-stat-sub">of tasks</div>
+          </div>
+          <div class="os-stat">
+            <div class="os-stat-lbl">Total focus hrs</div>
+            <div class="os-stat-val" id="os-focus-hrs">0</div>
+            <div class="os-stat-sub">this month</div>
+          </div>
+          <div class="os-stat">
+            <div class="os-stat-lbl">Goals active</div>
+            <div class="os-stat-val" id="os-goals-active">0</div>
+            <div class="os-stat-sub">tracked</div>
+          </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 12px">
-          <div class="st-field">
-            <label class="st-label">Organization name</label>
-            <input class="st-input" value="Sivarr Inc." />
+        <div class="os-grid2" style="margin-bottom: 12px">
+          <div class="os-card">
+            <div class="os-card-head">
+              <span class="os-card-title"
+                ><i class="ti ti-chart-bar"></i>Tasks per week</span
+              >
+            </div>
+            <div class="os-bar-chart" id="os-bar-chart"></div>
           </div>
-          <div class="st-field">
-            <label class="st-label">Default language</label>
-            <select class="st-input" style="appearance: auto">
-              <option>English</option>
-              <option>French</option>
-              <option>Spanish</option>
-            </select>
+          <div class="os-card">
+            <div class="os-card-head">
+              <span class="os-card-title"
+                ><i class="ti ti-user-check"></i>Tasks by member</span
+              >
+            </div>
+            <div id="os-tasks-by-member"></div>
           </div>
-          <div class="st-row">
-            <span>Allow public sharing</span>
-            <button class="st-toggle on"></button>
+        </div>
+        <div class="os-card">
+          <div class="os-card-head">
+            <span class="os-card-title"
+              ><i class="ti ti-sparkles" style="color: var(--teal)"></i>Sivarr
+              insights</span
+            >
           </div>
-          <div class="st-row">
-            <span>Enable API access</span>
-            <button class="st-toggle"></button>
+          <div id="os-ai-insights"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CHAT ── -->
+    <div class="os-pane os-pane-chat" id="os-pane-chat">
+      <!-- Channel sidebar -->
+      <div class="oc-sidebar">
+        <div class="oc-ws-name" id="oc-ws-name">Workspace</div>
+        <div class="oc-section-lbl">CHANNELS</div>
+        <div id="oc-channels"></div>
+        <div class="oc-section-lbl" style="margin-top: 14px">DIRECT</div>
+        <div id="oc-dms"></div>
+      </div>
+      <!-- Slide-in channel drawer overlay (mobile) -->
+      <div
+        class="oc-drawer-overlay"
+        id="oc-drawer-overlay"
+        onclick="ocToggleChannels(false)"
+      ></div>
+      <!-- Main chat -->
+      <div class="oc-main">
+        <div class="oc-header">
+          <div
+            style="display: flex; align-items: center; gap: 10px; min-width: 0"
+          >
+            <button
+              class="oc-chan-toggle oc-bar-icon"
+              onclick="ocToggleChannels()"
+              title="Channels"
+              aria-label="Show channels"
+            >
+              <i class="ti ti-menu-2"></i>
+            </button>
+            <div style="min-width: 0">
+              <div class="oc-ch-name">
+                <span style="opacity: 0.5">#</span>
+                <span id="oc-ch-name">general</span>
+              </div>
+              <div class="oc-ch-desc" id="oc-ch-desc">
+                Team-wide announcements
+              </div>
+            </div>
           </div>
-          <button class="st-btn danger" style="margin-top: 8px">
-            ⚠️ Delete organization
+          <div class="oc-presence" id="oc-presence"></div>
+        </div>
+        <div class="oc-msgs" id="os-chat-messages"></div>
+        <!-- Emoji picker -->
+        <div
+          class="oc-emoji-picker"
+          id="oc-emoji-picker"
+          style="display: none"
+        ></div>
+        <div class="oc-bar">
+          <button
+            class="oc-bar-icon"
+            title="File attachments coming soon"
+            style="opacity: 0.35; cursor: default"
+            disabled
+          >
+            <i class="ti ti-paperclip"></i>
+          </button>
+          <input
+            class="oc-input"
+            id="os-chat-input"
+            placeholder="Message #general…"
+            onkeydown="
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                orgChatSend();
+              }
+            "
+          />
+          <button
+            class="oc-bar-icon"
+            id="oc-emoji-btn"
+            onclick="ocEmojiToggle()"
+            title="Emoji"
+          >
+            <i class="ti ti-mood-smile"></i>
+          </button>
+          <button class="oc-send-btn" onclick="orgChatSend()">
+            <i class="ti ti-send"></i>
           </button>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-{# ── PERSONAL SPACE ──────────────────────────────────────── #}
-<div id="panel-personal" class="panel sp-panel sp-hero-blue">
-  <!-- Hero -->
-  <div class="sp-hero">
-    <div class="sp-hero-icon">👤</div>
-    <div class="sp-hero-info">
-      <div class="sp-hero-name">My Personal Space</div>
-      <div class="sp-hero-sub">
-        Organize your life · 12 tasks · 7-day streak
-      </div>
-      <div class="sp-hero-meta"><span class="sp-streak">🔥 7 days</span></div>
-    </div>
-    <div class="sp-hero-actions">
-      <button class="sp-btn-primary sp-btn-blue btn-lbl">+ Add</button>
-      <button class="sp-btn-ghost">⚙️</button>
-    </div>
-  </div>
-
-  <!-- Tabs -->
-  <div class="sp-tabs">
-    <button class="sp-tab on" data-pane="overview">📊 Overview</button>
-    <button class="sp-tab" data-pane="tasks">📋 Tasks</button>
-    <button class="sp-tab" data-pane="habits">💪 Habits</button>
-    <button class="sp-tab" data-pane="journal">📝 Journal</button>
-    <button class="sp-tab" data-pane="notes">📄 Notes</button>
-    <button class="sp-tab" data-pane="goals">🎯 Goals</button>
-  </div>
-
-  <!-- ── Overview ── -->
-  <div class="sp-pane on" data-pane="overview">
-    <div class="sp-scroll">
-      <div class="sp-stat-row">
-        <div class="sp-stat">
-          <div class="sp-stat-val sp-val-blue">8</div>
-          <div class="sp-stat-lbl">Tasks</div>
-        </div>
-        <div class="sp-stat">
-          <div class="sp-stat-val sp-val-blue">3</div>
-          <div class="sp-stat-lbl">Habits</div>
-        </div>
-        <div class="sp-stat">
-          <div class="sp-stat-val sp-val-blue">12</div>
-          <div class="sp-stat-lbl">Journal entries</div>
-        </div>
-        <div class="sp-stat">
-          <div class="sp-stat-val sp-val-blue">7</div>
-          <div class="sp-stat-lbl">Day streak</div>
-        </div>
-      </div>
-
-      <div class="sp-grid2">
-        <div class="sp-card">
-          <div class="sp-card-head">
-            <span class="sp-card-title">📋 Today's tasks</span>
-            <span class="sp-card-link">View all →</span>
-          </div>
-          <div class="sp-habit-row">
-            <span class="sp-habit-check done">✓</span>
-            <span class="sp-habit-name">Complete workout</span>
-          </div>
-          <div class="sp-habit-row">
-            <span class="sp-habit-check"></span>
-            <span class="sp-habit-name">Read 20 pages</span>
-          </div>
-          <div class="sp-habit-row">
-            <span class="sp-habit-check"></span>
-            <span class="sp-habit-name">Review budget</span>
-          </div>
-        </div>
-        <div class="sp-card">
-          <div class="sp-card-head">
-            <span class="sp-card-title">💡 Sivarr insight</span>
-          </div>
-          <div
-            style="font-size: 0.82rem; color: var(--muted); line-height: 1.6"
-          >
-            You're on a 7-day streak! Keep it going. Today's focus:
-            <strong>complete your workout</strong> and
-            <strong>review your weekly goals</strong>.
+    <!-- ── ANNOUNCEMENTS ── -->
+    <div
+      class="os-pane"
+      id="os-pane-announce"
+      style="
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      "
+    >
+      <!-- Compose (admin only) -->
+      <div class="ann-compose-bar" id="ann-compose-wrap" style="display: none">
+        <div class="ann-compose-box">
+          <input
+            class="ann-title-input"
+            id="ann-title-input"
+            placeholder="Announcement title…"
+            maxlength="200"
+          />
+          <textarea
+            class="ann-body-input"
+            id="ann-body-input"
+            placeholder="Write your message…"
+            rows="2"
+            maxlength="2000"
+          ></textarea>
+          <div class="ann-compose-footer">
+            <button class="ann-post-btn" onclick="annPost()">
+              <i class="ti ti-send"></i> Post
+            </button>
+            <label class="ann-pin-toggle">
+              <input
+                type="checkbox"
+                id="ann-pin-chk"
+                style="margin-right: 4px"
+              />
+              Pin to top
+            </label>
           </div>
         </div>
       </div>
-
-      <div class="sp-card">
-        <div class="sp-card-head">
-          <span class="sp-card-title">📈 Recent activity</span>
-        </div>
+      <!-- Feed -->
+      <div class="ann-feed" id="ann-feed">
         <div
-          style="
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            font-size: 0.78rem;
-            color: var(--text3);
-          "
+          class="os-empty"
+          style="padding: 40px 0; text-align: center; color: var(--muted)"
         >
-          <div>✓ Completed morning meditation · 2h ago</div>
-          <div>📝 Wrote journal entry · 4h ago</div>
-          <div>🎯 Updated goals progress · 1d ago</div>
+          <i
+            class="ti ti-speakerphone"
+            style="font-size: 2rem; display: block; margin-bottom: 8px"
+          ></i>
+          No announcements yet.
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ── Tasks ── -->
-  <div class="sp-pane" data-pane="tasks">
-    <div class="sp-toolbar">
-      <span class="sp-toolbar-title">📋 Tasks</span>
-      <button class="sp-btn-primary sp-btn-blue">+ Add task</button>
-    </div>
-    <div class="sp-scroll" style="padding-top: 0">
-      <div style="display: flex; flex-direction: column; gap: 6px">
-        <div class="sp-habit-row">
-          <span class="sp-habit-check done">✓</span>
-          <span class="sp-habit-name">Morning meditation</span>
-          <span style="font-size: 0.7rem; color: var(--text4)">Daily</span>
+    <!-- ── ANALYTICS ── -->
+    <div class="os-pane" id="os-pane-analytics">
+      <div class="os-scroll">
+        <div class="analytics-grid" id="an-stat-grid">
+          <div class="an-stat-card">
+            <div class="an-stat-val" id="an-members">—</div>
+            <div class="an-stat-lbl">Members</div>
+          </div>
+          <div class="an-stat-card an-stat-teal">
+            <div class="an-stat-val" id="an-completion">—</div>
+            <div class="an-stat-lbl">Task Completion</div>
+          </div>
+          <div class="an-stat-card">
+            <div class="an-stat-val" id="an-tasks-total">—</div>
+            <div class="an-stat-lbl">Total Tasks</div>
+          </div>
+          <div class="an-stat-card">
+            <div class="an-stat-val" id="an-tasks-done">—</div>
+            <div class="an-stat-lbl">Done</div>
+          </div>
+          <div class="an-stat-card">
+            <div class="an-stat-val" id="an-messages">—</div>
+            <div class="an-stat-lbl">Messages</div>
+          </div>
+          <div class="an-stat-card">
+            <div class="an-stat-val" id="an-docs">—</div>
+            <div class="an-stat-lbl">Docs</div>
+          </div>
         </div>
-        <div class="sp-habit-row">
-          <span class="sp-habit-check"></span>
-          <span class="sp-habit-name">Workout — upper body</span>
-          <span style="font-size: 0.7rem; color: var(--text4)">Today</span>
+        <!-- Message trend chart -->
+        <div class="an-chart-card">
+          <div class="an-chart-title">Messages — last 7 days</div>
+          <div class="an-bar-chart" id="an-msg-chart"></div>
         </div>
-        <div class="sp-habit-row">
-          <span class="sp-habit-check"></span>
-          <span class="sp-habit-name">Read 20 pages</span>
-          <span style="font-size: 0.7rem; color: var(--text4)">Today</span>
+        <!-- Task status breakdown -->
+        <div class="an-chart-card">
+          <div class="an-chart-title">Task Status Breakdown</div>
+          <div class="an-status-grid" id="an-status-grid"></div>
         </div>
-        <div class="sp-habit-row">
-          <span class="sp-habit-check"></span>
-          <span class="sp-habit-name">Review weekly goals</span>
-          <span style="font-size: 0.7rem; color: var(--text4)">Tomorrow</span>
-        </div>
-        <div class="sp-habit-row">
-          <span class="sp-habit-check"></span>
-          <span class="sp-habit-name">Plan meals for week</span>
-          <span style="font-size: 0.7rem; color: var(--text4)">Tomorrow</span>
+        <div style="text-align: center; margin-top: 10px">
+          <button class="os-tool-btn" onclick="orgAnalyticsLoad()">
+            <i class="ti ti-refresh"></i> Refresh
+          </button>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ── Habits ── -->
-  <div class="sp-pane" data-pane="habits">
-    <div class="sp-toolbar">
-      <span class="sp-toolbar-title">💪 Habits</span>
-      <button class="sp-btn-primary sp-btn-blue">+ New habit</button>
-    </div>
-    <div class="sp-scroll" style="padding-top: 0">
-      <div class="sp-hstats" style="margin-bottom: 12px">
-        <div class="sp-hstat">
-          <span class="sp-hstat-val">7</span
-          ><span class="sp-hstat-lbl">Day streak</span>
-        </div>
-        <div class="sp-hstat">
-          <span class="sp-hstat-val">3</span
-          ><span class="sp-hstat-lbl">Active habits</span>
-        </div>
-        <div class="sp-hstat">
-          <span class="sp-hstat-val">85%</span
-          ><span class="sp-hstat-lbl">Completion</span>
-        </div>
+    <!-- ── FOUNDER MODE ── -->
+    <div class="os-pane" id="os-pane-founder">
+      <div class="os-toolbar">
+        <span class="os-toolbar-title"
+          ><i class="ti ti-rocket"></i>Founder Mode</span
+        >
+        <div style="flex: 1"></div>
+        <button class="os-tool-btn os-tool-action" onclick="founderSave()">
+          <i class="ti ti-device-floppy"></i>Save
+        </button>
       </div>
-
-      <div class="sp-habits-list">
-        <div class="sp-habit-row">
-          <span class="sp-habit-check done">✓</span>
-          <span class="sp-habit-name">Meditation (10 min)</span>
-          <span class="sp-habit-streak">🔥 7 days</span>
+      <div class="os-scroll">
+        <!-- Runway snapshot -->
+        <div class="os-stat-row">
+          <div class="os-stat os-stat-green">
+            <div class="os-stat-lbl">Monthly Burn</div>
+            <div class="os-stat-val" id="fd-burn">₦0</div>
+            <div class="os-stat-sub">per month</div>
+          </div>
+          <div class="os-stat os-stat-teal">
+            <div class="os-stat-lbl">Runway</div>
+            <div class="os-stat-val" id="fd-runway">—</div>
+            <div class="os-stat-sub">months left</div>
+          </div>
+          <div class="os-stat os-stat-blue">
+            <div class="os-stat-lbl">MRR</div>
+            <div class="os-stat-val" id="fd-mrr">₦0</div>
+            <div class="os-stat-sub">monthly revenue</div>
+          </div>
+          <div class="os-stat">
+            <div class="os-stat-lbl">Total Raised</div>
+            <div class="os-stat-val" id="fd-raised">₦0</div>
+            <div class="os-stat-sub" id="fd-stage">pre-seed</div>
+          </div>
         </div>
-        <div class="sp-habit-row">
-          <span class="sp-habit-check"></span>
-          <span class="sp-habit-name">Exercise (30 min)</span>
-          <span class="sp-habit-streak">🔥 5 days</span>
-        </div>
-        <div class="sp-habit-row">
-          <span class="sp-habit-check"></span>
-          <span class="sp-habit-name">Reading (20 pages)</span>
-          <span class="sp-habit-streak">📚 3 days</span>
-        </div>
-      </div>
-
-      <div class="sp-card" style="margin-top: 8px">
-        <div class="sp-card-head">
-          <span class="sp-card-title">📊 Habit heatmap</span>
-        </div>
-        <div class="hab-heatmap-grid">
-          <div class="hm-cell done"></div>
-          <div class="hm-cell done"></div>
-          <div class="hm-cell done"></div>
-          <div class="hm-cell done"></div>
-          <div class="hm-cell done"></div>
-          <div class="hm-cell done"></div>
-          <div class="hm-cell done"></div>
-          <div class="hm-cell"></div>
-          <div class="hm-cell"></div>
-          <div class="hm-cell"></div>
-          <div class="hm-cell"></div>
-          <div class="hm-cell"></div>
-          <div class="hm-cell"></div>
-          <div class="hm-cell"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Journal ── -->
-  <div class="sp-pane" data-pane="journal">
-    <div class="sp-scroll">
-      <div class="sp-grid2 sp-grid2-journal">
-        <div class="sp-journal-left">
-          <div class="sp-card">
-            <div class="sp-card-head">
-              <span class="sp-card-title">✍️ Write</span>
+        <div class="os-grid2">
+          <!-- Financials editor -->
+          <div class="os-card">
+            <div class="os-card-head">
+              <span class="os-card-title"
+                ><i class="ti ti-cash"></i>Financials</span
+              >
             </div>
-            <div class="sp-journal-prompt">How are you feeling today?</div>
-            <div class="sp-mood-row">
-              <button class="sp-mood-btn">😊</button>
-              <button class="sp-mood-btn">😌</button>
-              <button class="sp-mood-btn">🤔</button>
-              <button class="sp-mood-btn">😤</button>
-              <button class="sp-mood-btn">😢</button>
+            <div class="founder-form">
+              <label>Funding Stage</label>
+              <select id="fd-inp-stage" class="si-modal-input">
+                <option value="pre-seed">Pre-seed</option>
+                <option value="seed">Seed</option>
+                <option value="series-a">Series A</option>
+                <option value="series-b">Series B</option>
+                <option value="bootstrapped">Bootstrapped</option>
+                <option value="profitable">Profitable</option>
+              </select>
+              <label>Cash Balance (₦)</label>
+              <input
+                id="fd-inp-cash"
+                type="number"
+                class="si-modal-input"
+                placeholder="0"
+                min="0"
+              />
+              <label>Monthly Burn Rate (₦)</label>
+              <input
+                id="fd-inp-burn"
+                type="number"
+                class="si-modal-input"
+                placeholder="0"
+                min="0"
+              />
+              <label>MRR (₦)</label>
+              <input
+                id="fd-inp-mrr"
+                type="number"
+                class="si-modal-input"
+                placeholder="0"
+                min="0"
+              />
+              <label>Total Raised (₦)</label>
+              <input
+                id="fd-inp-raised"
+                type="number"
+                class="si-modal-input"
+                placeholder="0"
+                min="0"
+              />
             </div>
-            <textarea
-              class="sp-journal-input"
-              placeholder="Write your thoughts..."
-            ></textarea>
+          </div>
+          <!-- Milestones -->
+          <div class="os-card">
+            <div class="os-card-head">
+              <span class="os-card-title"
+                ><i class="ti ti-flag"></i>Launch Milestones</span
+              ><button class="os-card-link" onclick="founderAddMilestone()">
+                + Add
+              </button>
+            </div>
+            <div id="fd-milestones-list">
+              <div class="os-empty">No milestones yet.</div>
+            </div>
+          </div>
+        </div>
+        <!-- Investors -->
+        <div class="os-card">
+          <div class="os-card-head">
+            <span class="os-card-title"
+              ><i class="ti ti-briefcase"></i>Investor Pipeline</span
+            ><button class="os-card-link" onclick="founderAddInvestor()">
+              + Add
+            </button>
+          </div>
+          <div id="fd-investors-list">
+            <div class="os-empty">No investors tracked yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PAYSTACK FINANCIALS ── -->
+    <div
+      class="os-pane"
+      id="os-pane-financials"
+      style="flex-direction: column; height: 100%; overflow: hidden"
+    >
+      <!-- Inner tab bar -->
+      <div class="ps-tab-bar">
+        <button
+          class="ps-tab on"
+          id="ps-tab-overview"
+          onclick="psGoTab('overview', this)"
+        >
+          <i class="ti ti-layout-dashboard"></i>Overview
+        </button>
+        <button
+          class="ps-tab"
+          id="ps-tab-transactions"
+          onclick="psGoTab('transactions', this)"
+        >
+          <i class="ti ti-arrows-right-left"></i>Transactions
+        </button>
+        <button
+          class="ps-tab"
+          id="ps-tab-balance"
+          onclick="psGoTab('balance', this)"
+        >
+          <i class="ti ti-wallet"></i>Balance
+        </button>
+        <button
+          class="ps-tab"
+          id="ps-tab-settlements"
+          onclick="psGoTab('settlements', this)"
+        >
+          <i class="ti ti-building-bank"></i>Settlements
+        </button>
+        <button
+          class="ps-tab"
+          id="ps-tab-customers"
+          onclick="psGoTab('customers', this)"
+        >
+          <i class="ti ti-users"></i>Customers
+        </button>
+        <button
+          class="ps-tab"
+          id="ps-tab-refunds"
+          onclick="psGoTab('refunds', this)"
+        >
+          <i class="ti ti-refresh"></i>Refunds & Disputes
+        </button>
+        <button
+          class="ps-tab"
+          id="ps-tab-analytics"
+          onclick="psGoTab('analytics', this)"
+        >
+          <i class="ti ti-chart-line"></i>Analytics
+        </button>
+        <button
+          class="ps-tab"
+          id="ps-tab-connect"
+          onclick="psGoTab('connect', this)"
+        >
+          <i class="ti ti-plug"></i>Connect
+        </button>
+      </div>
+
+      <!-- ── OVERVIEW ── -->
+      <div class="ps-pane on" id="ps-pane-overview">
+        <div class="os-scroll">
+          <div id="ps-loading-overview" class="ps-loading">
+            <i class="ti ti-loader-2 ps-spin"></i> Loading financial data…
+          </div>
+          <div id="ps-overview-content" style="display: none">
+            <div class="ps-stat-row" id="ps-stat-row">
+              <div class="ps-stat">
+                <div class="ps-stat-lbl">Total Volume</div>
+                <div class="ps-stat-val" id="ps-vol">—</div>
+                <div class="ps-stat-sub" id="ps-vol-sub"></div>
+              </div>
+              <div class="ps-stat">
+                <div class="ps-stat-lbl">Transactions</div>
+                <div class="ps-stat-val" id="ps-txn-count">—</div>
+                <div class="ps-stat-sub" id="ps-success-rate"></div>
+              </div>
+              <div class="ps-stat ps-stat-green">
+                <div class="ps-stat-lbl">Available Balance</div>
+                <div class="ps-stat-val ps-green" id="ps-avail-bal">—</div>
+                <div class="ps-stat-sub">After fees &amp; refunds</div>
+              </div>
+              <div class="ps-stat">
+                <div class="ps-stat-lbl">Pending Settlement</div>
+                <div class="ps-stat-val" id="ps-pending-stl">—</div>
+                <div class="ps-stat-sub ps-amber" id="ps-pending-date"></div>
+              </div>
+            </div>
+            <div class="ps-grid2">
+              <div class="os-card">
+                <div class="os-card-head">
+                  <span class="os-card-title"
+                    ><i class="ti ti-chart-pie"></i>Payment channels</span
+                  >
+                </div>
+                <div id="ps-channels"></div>
+              </div>
+              <div class="os-card">
+                <div class="os-card-head">
+                  <span class="os-card-title"
+                    ><i class="ti ti-sparkles" style="color: var(--teal)"></i
+                    >Sivarr AI Insights</span
+                  >
+                </div>
+                <div id="ps-ai-insights" class="ps-insights-wrap"></div>
+              </div>
+            </div>
+            <div class="os-card">
+              <div class="os-card-head">
+                <span class="os-card-title"
+                  ><i class="ti ti-arrows-right-left"></i>Recent
+                  transactions</span
+                ><button
+                  class="os-card-link"
+                  onclick="psGoTab('transactions', null)"
+                >
+                  View all →
+                </button>
+              </div>
+              <div class="ps-table-wrap">
+                <div id="ps-recent-txns"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TRANSACTIONS ── -->
+      <div
+        class="ps-pane"
+        id="ps-pane-transactions"
+        style="flex-direction: column; overflow: hidden"
+      >
+        <div class="ps-filter-bar">
+          <select
+            class="ps-select"
+            id="ps-txn-status"
+            onchange="psLoadTransactions()"
+          >
+            <option value="">All statuses</option>
+            <option value="success">Success</option>
+            <option value="failed">Failed</option>
+            <option value="abandoned">Abandoned</option>
+          </select>
+          <select
+            class="ps-select"
+            id="ps-txn-channel"
+            onchange="psLoadTransactions()"
+          >
+            <option value="">All channels</option>
+            <option value="card">Card</option>
+            <option value="bank">Bank transfer</option>
+            <option value="ussd">USSD</option>
+            <option value="mobile_money">Mobile money</option>
+          </select>
+          <button class="os-btn-ghost" onclick="psLoadTransactions()">
+            <i class="ti ti-refresh"></i>
+          </button>
+        </div>
+        <div style="flex: 1; overflow-y: auto">
+          <div id="ps-loading-transactions" class="ps-loading">
+            <i class="ti ti-loader-2 ps-spin"></i> Loading…
+          </div>
+          <div id="ps-txn-table"></div>
+          <div
+            id="ps-txn-footer"
+            style="
+              display: none;
+              padding: 10px 20px;
+              font-size: 0.78rem;
+              color: var(--muted);
+            "
+          >
+            Showing <span id="ps-txn-shown">0</span> of
+            <span id="ps-txn-total">0</span>
             <button
-              class="sp-btn-primary sp-btn-blue"
-              style="align-self: flex-end"
+              class="os-btn-ghost"
+              style="margin-left: 8px; font-size: 0.75rem"
+              onclick="psLoadMoreTxns()"
             >
-              Save entry
+              Load more
             </button>
           </div>
         </div>
-        <div class="sp-journal-right">
-          <div class="sp-card">
-            <div class="sp-card-head">
-              <span class="sp-card-title">📖 Recent entries</span>
-              <span class="sp-card-link">View all →</span>
-            </div>
-            <div class="sp-journal-entries">
-              <div class="sp-journal-entry">
-                <div class="sp-journal-entry-date">Today, 8:30 AM · 😊</div>
-                <div class="sp-journal-entry-text">
-                  Feeling great today! Ready to tackle my goals.
-                </div>
+      </div>
+
+      <!-- ── BALANCE ── -->
+      <div class="ps-pane" id="ps-pane-balance">
+        <div class="os-scroll">
+          <div id="ps-loading-balance" class="ps-loading">
+            <i class="ti ti-loader-2 ps-spin"></i> Loading…
+          </div>
+          <div id="ps-balance-content" style="display: none">
+            <div class="ps-stat-row ps-stat-row-3">
+              <div class="ps-stat ps-stat-green">
+                <div class="ps-stat-lbl">Available Balance</div>
+                <div class="ps-stat-val ps-green" id="ps-bal-avail">—</div>
+                <div class="ps-stat-sub">Ready to transfer</div>
               </div>
-              <div class="sp-journal-entry">
-                <div class="sp-journal-entry-date">
-                  Yesterday, 10:15 PM · 😌
-                </div>
-                <div class="sp-journal-entry-text">
-                  Reflecting on the week. Grateful for progress.
-                </div>
+              <div class="ps-stat">
+                <div class="ps-stat-lbl">Pending Settlement</div>
+                <div class="ps-stat-val ps-amber" id="ps-bal-pending">—</div>
+                <div class="ps-stat-sub ps-amber">T+1 · Arrives tomorrow</div>
               </div>
-              <div class="sp-journal-entry">
-                <div class="sp-journal-entry-date">Jun 16, 9:00 AM · 🤔</div>
-                <div class="sp-journal-entry-text">
-                  Thinking about what I want to achieve next quarter.
-                </div>
+              <div class="ps-stat">
+                <div class="ps-stat-lbl">Currency</div>
+                <div class="ps-stat-val" id="ps-bal-currency">NGN</div>
+                <div class="ps-stat-sub">Payment currency</div>
               </div>
             </div>
+            <div class="os-card">
+              <div class="os-card-head">
+                <span class="os-card-title"
+                  ><i class="ti ti-history"></i>Balance history</span
+                >
+              </div>
+              <div id="ps-bal-history"></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- ── Notes ── -->
-  <div class="sp-pane" data-pane="notes">
-    <div class="sp-toolbar">
-      <span class="sp-toolbar-title">📄 Notes</span>
-      <button class="sp-btn-primary sp-btn-blue">+ New note</button>
-    </div>
-    <div class="sp-scroll" style="padding-top: 0">
-      <div class="sp-notes-grid">
-        <div class="sp-note-card">
-          <div class="sp-note-title">Weekly reflection</div>
-          <div class="sp-note-preview">
-            This week was productive. Key wins: finished the project, started
-            new habit...
+      <!-- ── SETTLEMENTS ── -->
+      <div class="ps-pane" id="ps-pane-settlements">
+        <div class="os-scroll">
+          <div id="ps-loading-settlements" class="ps-loading">
+            <i class="ti ti-loader-2 ps-spin"></i> Loading…
           </div>
-          <div class="sp-note-date">Updated 2h ago</div>
-        </div>
-        <div class="sp-note-card">
-          <div class="sp-note-title">Book notes: Atomic Habits</div>
-          <div class="sp-note-preview">
-            Key insights: habit stacking, identity-based habits, the 1% rule...
+          <div id="ps-settlements-content" style="display: none">
+            <div class="os-card">
+              <div class="os-card-head">
+                <span class="os-card-title"
+                  ><i class="ti ti-building-bank"></i>Settlement history</span
+                >
+              </div>
+              <div id="ps-stl-table"></div>
+            </div>
           </div>
-          <div class="sp-note-date">Updated 1d ago</div>
-        </div>
-        <div class="sp-note-card">
-          <div class="sp-note-title">Goal planning Q3</div>
-          <div class="sp-note-preview">
-            Professional: upskill, network. Personal: health, reading, travel...
-          </div>
-          <div class="sp-note-date">Updated 3d ago</div>
-        </div>
-        <div
-          class="sp-note-card"
-          style="
-            border-style: dashed;
-            border-color: var(--border2);
-            justify-content: center;
-            align-items: center;
-            min-height: 110px;
-            cursor: pointer;
-          "
-        >
-          <span style="font-size: 1.5rem; color: var(--text4)">+</span>
-          <span style="font-size: 0.72rem; color: var(--text4)">New note</span>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- ── Goals ── -->
-  <div class="sp-pane" data-pane="goals">
-    <div class="sp-toolbar">
-      <span class="sp-toolbar-title">🎯 Goals</span>
-      <button class="sp-btn-primary sp-btn-blue">+ New goal</button>
-    </div>
-    <div class="sp-scroll" style="padding-top: 0">
-      <div class="sp-goals-grid">
-        <div class="sp-goal-card">
-          <div class="sp-goal-title">Read 20 books this year</div>
-          <div class="sp-goal-bar-bg">
-            <div class="sp-goal-bar-fill" style="width: 55%"></div>
+      <!-- ── CUSTOMERS ── -->
+      <div class="ps-pane" id="ps-pane-customers">
+        <div class="os-scroll">
+          <div id="ps-loading-customers" class="ps-loading">
+            <i class="ti ti-loader-2 ps-spin"></i> Loading…
           </div>
-          <div class="sp-goal-meta"><span>11/20</span><span>55%</span></div>
+          <div id="ps-customers-content" style="display: none">
+            <div class="os-card">
+              <div class="os-card-head">
+                <span class="os-card-title"
+                  ><i class="ti ti-users"></i>Customers</span
+                >
+              </div>
+              <div id="ps-cust-table"></div>
+            </div>
+          </div>
         </div>
-        <div class="sp-goal-card">
-          <div class="sp-goal-title">Save $10,000</div>
-          <div class="sp-goal-bar-bg">
+      </div>
+
+      <!-- ── REFUNDS & DISPUTES ── -->
+      <div class="ps-pane" id="ps-pane-refunds">
+        <div class="os-scroll">
+          <div id="ps-loading-refunds" class="ps-loading">
+            <i class="ti ti-loader-2 ps-spin"></i> Loading…
+          </div>
+          <div id="ps-refunds-content" style="display: none">
+            <div class="ps-grid2">
+              <div class="os-card">
+                <div class="os-card-head">
+                  <span class="os-card-title"
+                    ><i class="ti ti-refresh"></i>Refunds</span
+                  >
+                </div>
+                <div id="ps-refund-list"></div>
+              </div>
+              <div class="os-card">
+                <div class="os-card-head">
+                  <span class="os-card-title"
+                    ><i
+                      class="ti ti-alert-triangle"
+                      style="color: var(--amber3)"
+                    ></i
+                    >Disputes</span
+                  >
+                </div>
+                <div id="ps-dispute-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ANALYTICS ── -->
+      <div class="ps-pane" id="ps-pane-analytics">
+        <div class="os-scroll">
+          <div id="ps-loading-analytics" class="ps-loading">
+            <i class="ti ti-loader-2 ps-spin"></i> Loading…
+          </div>
+          <div id="ps-analytics-content" style="display: none">
+            <div class="ps-grid2">
+              <div class="os-card">
+                <div class="os-card-head">
+                  <span class="os-card-title">Success vs failure rate</span>
+                </div>
+                <div id="ps-an-rates"></div>
+              </div>
+              <div class="os-card">
+                <div class="os-card-head">
+                  <span class="os-card-title">Revenue by day of week</span>
+                </div>
+                <div id="ps-an-weekday"></div>
+              </div>
+            </div>
+            <div class="os-card">
+              <div class="os-card-head">
+                <span class="os-card-title">Daily volume (last 14 days)</span>
+              </div>
+              <div class="ps-bar-chart" id="ps-an-daily"></div>
+            </div>
+            <div class="os-card" style="margin-top: 12px">
+              <div class="os-card-head">
+                <span class="os-card-title"
+                  ><i class="ti ti-sparkles" style="color: var(--teal)"></i
+                  >Sivarr AI analytics summary</span
+                >
+              </div>
+              <div id="ps-an-ai"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CONNECT ── -->
+      <div
+        class="ps-pane"
+        id="ps-pane-connect"
+        style="align-items: center; justify-content: center; padding: 24px"
+      >
+        <div class="ps-connect-card">
+          <div class="ps-connect-icon">P</div>
+          <div class="ps-connect-title">Connect Paystack</div>
+          <div class="ps-connect-sub">
+            Link your Paystack account to view live transactions, balances,
+            settlements, refunds and AI-powered analytics directly inside your
+            Organisation Space.
+          </div>
+          <div
+            id="ps-connected-info"
+            style="display: none"
+            class="ps-connected-box"
+          >
+            <i
+              class="ti ti-circle-check"
+              style="color: var(--green3); font-size: 1.1rem"
+            ></i>
+            <span>Paystack connected</span>
+            <button
+              class="os-btn-ghost"
+              style="margin-left: auto; font-size: 0.75rem; color: var(--red3)"
+              onclick="psDisconnect()"
+            >
+              <i class="ti ti-unlink"></i> Disconnect
+            </button>
+          </div>
+          <div id="ps-connect-form" style="width: 100%">
+            <div class="ps-key-perms">
+              <div
+                style="
+                  font-size: 0.72rem;
+                  font-weight: 700;
+                  color: var(--text3);
+                  text-transform: uppercase;
+                  letter-spacing: 0.08em;
+                  margin-bottom: 8px;
+                "
+              >
+                What Sivarr reads (read-only)
+              </div>
+              <div class="ps-perm-row">
+                <i class="ti ti-check" style="color: var(--green3)"></i
+                >Transaction history
+              </div>
+              <div class="ps-perm-row">
+                <i class="ti ti-check" style="color: var(--green3)"></i>Balance
+                &amp; ledger data
+              </div>
+              <div class="ps-perm-row">
+                <i class="ti ti-check" style="color: var(--green3)"></i
+                >Settlement reports
+              </div>
+              <div class="ps-perm-row">
+                <i class="ti ti-check" style="color: var(--green3)"></i
+                >Customers &amp; refunds
+              </div>
+              <div class="ps-perm-row">
+                <i class="ti ti-x" style="color: var(--red3)"></i>We never
+                initiate payments or transfers
+              </div>
+            </div>
+            <div style="margin-bottom: 8px">
+              <div
+                style="
+                  font-size: 0.78rem;
+                  color: var(--text3);
+                  margin-bottom: 5px;
+                "
+              >
+                Paystack secret key
+              </div>
+              <input
+                type="password"
+                id="ps-key-input"
+                class="si-modal-input"
+                placeholder="sk_live_xxxxxxxxxxxxxxxxxxxx"
+                autocomplete="off"
+                style="width: 100%"
+              />
+            </div>
+            <div id="ps-connect-err" class="ps-err" style="display: none"></div>
+            <button
+              class="os-btn-primary"
+              style="width: 100%; justify-content: center; padding: 10px"
+              onclick="psConnect()"
+            >
+              <i class="ti ti-plug"></i> Connect Paystack →
+            </button>
             <div
-              class="sp-goal-bar-fill"
-              style="width: 68%; background: var(--blue)"
-            ></div>
+              style="
+                font-size: 0.7rem;
+                color: var(--text4);
+                margin-top: 8px;
+                text-align: center;
+              "
+            >
+              Your key is stored encrypted and never logged or shared.
+            </div>
           </div>
-          <div class="sp-goal-meta"><span>$6,800</span><span>68%</span></div>
-        </div>
-        <div class="sp-goal-card">
-          <div class="sp-goal-title">Learn Spanish</div>
-          <div class="sp-goal-bar-bg">
-            <div
-              class="sp-goal-bar-fill"
-              style="width: 30%; background: var(--amber3)"
-            ></div>
-          </div>
-          <div class="sp-goal-meta">
-            <span>Duolingo Lvl 12</span><span>30%</span>
-          </div>
-        </div>
-        <div
-          class="sp-goal-card"
-          style="
-            border-style: dashed;
-            border-color: var(--border2);
-            justify-content: center;
-            align-items: center;
-            min-height: 120px;
-            cursor: pointer;
-          "
-        >
-          <span style="font-size: 1.5rem; color: var(--text4)">+</span>
-          <span style="font-size: 0.72rem; color: var(--text4)">New goal</span>
         </div>
       </div>
     </div>
+    <!-- /os-pane-financials -->
   </div>
+  <!-- /org-main-content -->
 </div>
 
-{# ── ACADEMIC SPACE ───────────────────────────────────────── #}
-<div id="panel-academic" class="panel sp-panel sp-hero-amber">
-  <!-- Hero -->
-  <div class="sp-hero">
-    <div class="sp-hero-icon">🎓</div>
+{# ── PERSONAL SPACE ── #}
+<div class="panel sp-panel" id="panel-personal">
+  <div class="sp-hero sp-hero-blue">
+    <div class="sp-hero-icon sp-ic-blue">
+      <i class="ti ti-user"></i>
+    </div>
     <div class="sp-hero-info">
-      <div class="sp-hero-name">Academic Hub</div>
-      <div class="sp-hero-sub" id="acad-role-display">
-        Student · 4 courses · 87% attendance
+      <div class="sp-hero-name" id="ps-space-name">Personal</div>
+      <div class="sp-hero-meta">
+        Private workspace · <span id="ps-streak">0</span>-day streak 🔥
       </div>
     </div>
     <div class="sp-hero-actions">
-      <button class="sp-btn-primary sp-btn-amber btn-lbl" id="acad-role-toggle">
-        Switch Role
+      <button class="sp-btn-ghost" onclick="spRenameByType('personal')">
+        <i class="ti ti-pencil"></i><span class="btn-lbl"> Rename</span>
       </button>
-      <button class="sp-btn-ghost">⚙️</button>
+      <button class="sp-btn-primary sp-btn-blue" onclick="psNewTask()">
+        <i class="ti ti-plus"></i><span class="btn-lbl"> New task</span>
+      </button>
     </div>
   </div>
 
-  <!-- Top bar -->
-  <div
-    class="acad-topbar"
-    style="
-      padding: 6px 24px 10px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 0;
-    "
-  >
-    <div class="acad-topbar-left">
-      <div class="acad-space-name-label">📚 Semester 2</div>
-      <span class="acad-role-pill acad-role-pill--student" id="acad-role-pill"
-        >🧑‍🎓 Student</span
-      >
-    </div>
-    <div class="acad-topbar-right">
-      <div class="acad-search-bar">
-        <span>🔍</span>
-        <input placeholder="Search courses..." />
-      </div>
-      <button class="acad-topbar-btn">+</button>
-    </div>
-  </div>
-
-  <!-- Welcome banner -->
-  <div class="acad-welcome-banner" style="margin: 0 20px 16px">
-    <div>
-      <div class="acad-welcome-eyebrow">🎯 This week's focus</div>
-      <div class="acad-welcome-headline">
-        3 assignments due · 2 lectures · 1 exam next week
-      </div>
-      <div class="acad-welcome-sub">
-        Stay ahead — you're on track for a strong semester
-      </div>
-      <div class="acad-welcome-ctas">
-        <button
-          class="acad-btn-teal"
-          style="
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.3);
-            color: #fff;
-          "
-        >
-          📋 View schedule
-        </button>
-        <button
-          class="acad-btn-teal"
-          style="
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.3);
-            color: #fff;
-          "
-        >
-          📚 Study now
-        </button>
-      </div>
-    </div>
-    <div class="acad-welcome-stat-cluster">
-      <div style="text-align: center; color: rgba(255, 255, 255, 0.8)">
-        <div style="font-size: 1.2rem; font-weight: 800; color: #fff">87%</div>
-        <div style="font-size: 0.7rem">Attendance</div>
-      </div>
-      <div style="text-align: center; color: rgba(255, 255, 255, 0.8)">
-        <div style="font-size: 1.2rem; font-weight: 800; color: #fff">3.6</div>
-        <div style="font-size: 0.7rem">GPA</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Metrics -->
-  <div class="acad-metric-row" style="padding: 0 20px">
-    <div class="acad-metric-card">
-      <div class="acad-metric-icon acad-icon-teal">📚</div>
-      <div class="acad-metric-label">Courses</div>
-      <div class="acad-metric-value">4</div>
-    </div>
-    <div class="acad-metric-card">
-      <div class="acad-metric-icon acad-icon-purple">📝</div>
-      <div class="acad-metric-label">Assignments</div>
-      <div class="acad-metric-value">3 <span>due</span></div>
-    </div>
-    <div class="acad-metric-card">
-      <div class="acad-metric-icon acad-icon-orange">📖</div>
-      <div class="acad-metric-label">Study time</div>
-      <div class="acad-metric-value">14h <span>this week</span></div>
-    </div>
-    <div class="acad-metric-card">
-      <div class="acad-metric-icon acad-icon-gold">🎯</div>
-      <div class="acad-metric-label">GPA</div>
-      <div class="acad-metric-value">3.6</div>
-    </div>
-  </div>
-
-  <!-- Tabs -->
-  <div class="acad-tab-bar" style="padding: 0 20px; margin-bottom: 0">
-    <button class="acad-tab active" data-pane="courses">📚 Courses</button>
-    <button class="acad-tab" data-pane="assignments">📝 Assignments</button>
-    <button class="acad-tab" data-pane="schedule">📅 Schedule</button>
-    <button class="acad-tab" data-pane="flashcards">🃏 Flashcards</button>
-    <button class="acad-tab" data-pane="study">🧠 Study</button>
-    <button class="acad-tab" data-pane="groups">👥 Groups</button>
-    <button class="acad-tab" data-pane="research">🔬 Research</button>
-    <button class="acad-tab" data-pane="grades">📊 Grades</button>
-  </div>
-
-  <!-- ── Courses ── -->
-  <div class="acad-tab-content" data-pane="courses">
-    <div
-      style="
-        padding: 16px 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        overflow-y: auto;
-        flex: 1;
-      "
+  <div class="sp-tabs" id="ps-tabs">
+    <button
+      class="sp-tab on"
+      id="ps-tab-overview"
+      onclick="spTab('ps', 'overview', this)"
     >
-      <div class="acad-course-grid">
-        <div class="acad-course-card">
-          <div class="acad-course-card-top">
-            <span class="acad-course-name">Computer Science 101</span>
-            <span class="acad-tag acad-tag--teal">In progress</span>
-          </div>
-          <div class="acad-course-meta">
-            <span>📖 65% complete</span><span>📝 2 assignments</span>
-          </div>
-          <div style="margin-top: 6px">
-            <div class="acad-attend-bar">
-              <div
-                class="acad-attend-fill"
-                style="width: 78%; background: var(--teal)"
-              ></div>
-            </div>
-            <span style="font-size: 0.7rem; color: var(--text4)"
-              >78% attendance</span
+      <i class="ti ti-layout-dashboard"></i>Overview
+    </button>
+    <button
+      class="sp-tab"
+      id="ps-tab-tasks"
+      onclick="spTab('ps', 'tasks', this)"
+    >
+      <i class="ti ti-checkbox"></i>Tasks
+    </button>
+    <button
+      class="sp-tab"
+      id="ps-tab-goals"
+      onclick="spTab('ps', 'goals', this)"
+    >
+      <i class="ti ti-target"></i>Goals
+    </button>
+    <button
+      class="sp-tab"
+      id="ps-tab-habits"
+      onclick="spTab('ps', 'habits', this)"
+    >
+      <i class="ti ti-repeat"></i>Habits
+    </button>
+    <button
+      class="sp-tab"
+      id="ps-tab-journal"
+      onclick="spTab('ps', 'journal', this)"
+    >
+      <i class="ti ti-writing"></i>Journal
+    </button>
+    <button
+      class="sp-tab"
+      id="ps-tab-notes"
+      onclick="spTab('ps', 'notes', this)"
+    >
+      <i class="ti ti-file-text"></i>Notes
+    </button>
+    <button
+      class="sp-tab"
+      id="ps-tab-analytics"
+      onclick="spTab('ps', 'analytics', this)"
+    >
+      <i class="ti ti-chart-bar"></i>Analytics
+    </button>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="sp-pane on" id="ps-pane-overview">
+    <div class="sp-scroll">
+      <div class="sp-stat-row">
+        <div class="sp-stat">
+          <div class="sp-stat-lbl">Done today</div>
+          <div class="sp-stat-val sp-val-blue" id="ps-done-today">0</div>
+        </div>
+        <div class="sp-stat">
+          <div class="sp-stat-lbl">Active goals</div>
+          <div class="sp-stat-val sp-val-blue" id="ps-active-goals">0</div>
+        </div>
+        <div class="sp-stat">
+          <div class="sp-stat-lbl">Habit streak</div>
+          <div class="sp-stat-val sp-val-blue" id="ps-habit-streak">0🔥</div>
+        </div>
+        <div class="sp-stat">
+          <div class="sp-stat-lbl">Journal this month</div>
+          <div class="sp-stat-val sp-val-blue" id="ps-journal-month">0</div>
+        </div>
+      </div>
+      <div class="sp-grid2">
+        <div class="sp-card">
+          <div class="sp-card-head">
+            <span class="sp-card-title"
+              ><i class="ti ti-checkbox"></i>Priority tasks</span
+            ><span class="sp-card-link" onclick="spTab('ps', 'tasks', null)"
+              >Board →</span
             >
           </div>
+          <div id="ps-priority-tasks">
+            <div class="sp-empty">No tasks yet.</div>
+          </div>
         </div>
-        <div class="acad-course-card">
-          <div class="acad-course-card-top">
-            <span class="acad-course-name">Mathematics for AI</span>
-            <span class="acad-tag acad-tag--purple">In progress</span>
-          </div>
-          <div class="acad-course-meta">
-            <span>📖 40% complete</span><span>📝 1 assignment</span>
-          </div>
-          <div style="margin-top: 6px">
-            <div class="acad-attend-bar">
-              <div
-                class="acad-attend-fill"
-                style="width: 92%; background: var(--purple)"
-              ></div>
-            </div>
-            <span style="font-size: 0.7rem; color: var(--text4)"
-              >92% attendance</span
+        <div class="sp-card">
+          <div class="sp-card-head">
+            <span class="sp-card-title"
+              ><i class="ti ti-target"></i>Active goals</span
+            ><span class="sp-card-link" onclick="spTab('ps', 'goals', null)"
+              >All →</span
             >
           </div>
+          <div id="ps-goals-widget">
+            <div class="sp-empty">No goals yet.</div>
+          </div>
         </div>
-        <div class="acad-course-card">
-          <div class="acad-course-card-top">
-            <span class="acad-course-name">Data Structures</span>
-            <span class="acad-tag acad-tag--orange">In progress</span>
-          </div>
-          <div class="acad-course-meta">
-            <span>📖 55% complete</span><span>📝 0 assignments</span>
-          </div>
-          <div style="margin-top: 6px">
-            <div class="acad-attend-bar">
-              <div
-                class="acad-attend-fill"
-                style="width: 70%; background: var(--amber3)"
-              ></div>
-            </div>
-            <span style="font-size: 0.7rem; color: var(--text4)"
-              >70% attendance</span
+      </div>
+      <div class="sp-grid2">
+        <div class="sp-card">
+          <div class="sp-card-head">
+            <span class="sp-card-title"
+              ><i class="ti ti-repeat"></i>Today's habits</span
+            ><span class="sp-card-link" onclick="spTab('ps', 'habits', null)"
+              >All →</span
             >
           </div>
-        </div>
-        <div class="acad-course-card acad-course-card--add">
-          <span style="font-size: 1.5rem">+</span>
-          <span>Add course</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Assignments ── -->
-  <div class="acad-tab-content" data-pane="assignments" style="display: none">
-    <div
-      style="
-        padding: 16px 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        overflow-y: auto;
-        flex: 1;
-      "
-    >
-      <div class="acad-priority-item">
-        <span class="acad-checkbox"></span>
-        <div class="acad-priority-meta">
-          <div class="acad-priority-title">CS101 — Final project</div>
-          <div class="acad-priority-sub">Due Jun 28 · 40% of grade</div>
-          <div class="acad-priority-tags">
-            <span class="acad-tag acad-tag--red">Urgent</span>
+          <div id="ps-habits-widget">
+            <div class="sp-empty">No habits yet.</div>
           </div>
         </div>
-      </div>
-      <div class="acad-priority-item">
-        <span class="acad-checkbox"></span>
-        <div class="acad-priority-meta">
-          <div class="acad-priority-title">Math AI — Problem set 7</div>
-          <div class="acad-priority-sub">Due Jun 25 · 15% of grade</div>
-          <div class="acad-priority-tags">
-            <span class="acad-tag acad-tag--orange">Mid</span>
+        <div class="sp-card">
+          <div class="sp-card-head">
+            <span class="sp-card-title"
+              ><i class="ti ti-writing"></i>Journal</span
+            ><span class="sp-card-link" onclick="spTab('ps', 'journal', null)"
+              >Write →</span
+            >
           </div>
-        </div>
-      </div>
-      <div class="acad-priority-item">
-        <span class="acad-checkbox"></span>
-        <div class="acad-priority-meta">
-          <div class="acad-priority-title">
-            Data Structures — Binary trees lab
-          </div>
-          <div class="acad-priority-sub">Due Jun 30 · 20% of grade</div>
-          <div class="acad-priority-tags">
-            <span class="acad-tag acad-tag--blue">Low</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Schedule ── -->
-  <div class="acad-tab-content" data-pane="schedule" style="display: none">
-    <div
-      style="
-        padding: 16px 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        overflow-y: auto;
-        flex: 1;
-      "
-    >
-      <div class="acad-schedule-item">
-        <span class="acad-schedule-dot" style="background: var(--teal)"></span
-        ><span><strong>9:00 AM</strong> — CS101 Lecture (Room 204)</span>
-      </div>
-      <div class="acad-schedule-item">
-        <span class="acad-schedule-dot" style="background: var(--purple)"></span
-        ><span><strong>11:00 AM</strong> — Math AI Tutorial (Room 302)</span>
-      </div>
-      <div class="acad-schedule-item">
-        <span class="acad-schedule-dot" style="background: var(--amber3)"></span
-        ><span><strong>2:00 PM</strong> — Data Structures Lab (Room 101)</span>
-      </div>
-      <div class="acad-schedule-item">
-        <span class="acad-schedule-dot" style="background: var(--green3)"></span
-        ><span><strong>4:00 PM</strong> — Study group (Library)</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Flashcards ── -->
-  <div class="acad-tab-content" data-pane="flashcards" style="display: none">
-    <div
-      style="
-        padding: 16px 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        overflow-y: auto;
-        flex: 1;
-        align-items: center;
-      "
-    >
-      <div class="acad-deck-filter" style="align-self: flex-start; width: 100%">
-        <button
-          class="acad-seg active"
-          style="
-            background: var(--acad-accent-soft);
-            color: var(--acad-accent);
-            border: 1px solid var(--acad-accent-line);
-            border-radius: 6px;
-            padding: 4px 12px;
-            font-size: 0.72rem;
-            font-weight: 600;
-          "
-        >
-          All
-        </button>
-        <button
-          class="acad-seg"
-          style="
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 4px 12px;
-            font-size: 0.72rem;
-            font-weight: 600;
-            background: none;
-            color: var(--muted);
-          "
-        >
-          CS101
-        </button>
-        <button
-          class="acad-seg"
-          style="
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 4px 12px;
-            font-size: 0.72rem;
-            font-weight: 600;
-            background: none;
-            color: var(--muted);
-          "
-        >
-          Math
-        </button>
-      </div>
-      <div class="acad-flashcard" id="acad-flashcard">
-        <div class="acad-flashcard-inner" id="acad-flashcard-inner">
-          <div class="acad-flashcard-front">
-            <div class="acad-fc-label">Term</div>
-            <div class="acad-fc-text">What is a binary tree?</div>
-            <div class="acad-fc-hint">Tap to reveal</div>
-          </div>
-          <div class="acad-flashcard-back">
-            <div class="acad-fc-label">Definition</div>
-            <div class="acad-fc-text">
-              A tree data structure where each node has at most two children.
-            </div>
-          </div>
-        </div>
-      </div>
-      <div
-        style="
-          display: flex;
-          gap: 10px;
-          font-size: 0.78rem;
-          color: var(--text3);
-        "
-      >
-        <span>📚 12 cards</span>
-        <span>✓ 8 mastered</span>
-        <span>🔄 4 review</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Study ── -->
-  <div class="acad-tab-content" data-pane="study" style="display: none">
-    <div
-      style="
-        padding: 16px 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        overflow-y: auto;
-        flex: 1;
-      "
-    >
-      <div class="acad-ai-tutor-layout">
-        <div class="acad-tutor-chat-card acad-card">
-          <div class="acad-card-header">
-            <span class="acad-card-title">🧠 AI Tutor</span>
-            <span class="acad-ai-badge">Active</span>
-          </div>
-          <div class="acad-tutor-messages">
-            <div class="acad-tutor-msg">
-              <span class="acad-tutor-avatar">S</span>
-              <div class="acad-tutor-bubble">
-                Hi! I'm your AI tutor. What would you like to study today?
-              </div>
-            </div>
-            <div class="acad-tutor-msg acad-tutor-msg--user">
-              <span class="acad-tutor-avatar">U</span>
-              <div class="acad-tutor-bubble">
-                Help me understand binary search trees
-              </div>
-            </div>
-            <div class="acad-tutor-msg">
-              <span class="acad-tutor-avatar">S</span>
-              <div class="acad-tutor-bubble">
-                Great topic! A binary search tree (BST) is a binary tree where
-                the left subtree contains values less than the node, and the
-                right subtree contains values greater. The average case for
-                search, insert, and delete is O(log n). Would you like to see an
-                example?
-              </div>
-            </div>
-          </div>
-          <div class="acad-tutor-input-row">
-            <input
-              class="acad-search-inline"
-              style="flex: 1"
-              placeholder="Ask a question..."
-            />
-            <button class="acad-btn-teal">Send</button>
-          </div>
-          <div class="acad-tutor-quick-prompts">
-            <button class="acad-action-btn">Explain recursion</button>
-            <button class="acad-action-btn">Big O notation</button>
-            <button class="acad-action-btn">Practice problem</button>
-          </div>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 12px">
-          <div class="acad-card">
-            <div class="acad-card-header">
-              <span class="acad-card-title">⏱️ Pomodoro</span>
-            </div>
-            <div style="padding: 12px 14px; text-align: center">
-              <div class="acad-pomo-mode-bar">
-                <button
-                  class="acad-seg active"
-                  style="
-                    background: var(--acad-accent-soft);
-                    color: var(--acad-accent);
-                  "
-                >
-                  Focus
-                </button>
-                <button class="acad-seg">Short</button>
-                <button class="acad-seg">Long</button>
-              </div>
-              <div class="acad-pomo-display">25:00</div>
-              <div class="acad-pomo-label">Focus time</div>
-              <div
-                style="
-                  margin-top: 12px;
-                  display: flex;
-                  gap: 10px;
-                  justify-content: center;
-                "
-              >
-                <button class="acad-btn-teal">▶ Start</button>
-                <button class="acad-btn-ghost">⟳ Reset</button>
-              </div>
-              <div class="acad-pomo-sessions">📊 3 sessions completed</div>
-            </div>
-          </div>
-          <div class="acad-card">
-            <div class="acad-card-header">
-              <span class="acad-card-title">📊 Study stats</span>
-            </div>
-            <div style="padding: 8px 14px">
-              <div class="acad-stat-row">
-                <span>This week</span><span>14h 32m</span>
-              </div>
-              <div class="acad-stat-row">
-                <span>Last week</span><span>11h 15m</span>
-              </div>
-              <div class="acad-stat-row">
-                <span>Best day</span><span>Wednesday · 4.5h</span>
-              </div>
-            </div>
+          <div id="ps-journal-widget">
+            <div class="sp-empty">No entries yet.</div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ── Groups ── -->
-  <div class="acad-tab-content" data-pane="groups" style="display: none">
-    <div
-      style="
-        padding: 16px 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        overflow-y: auto;
-        flex: 1;
-      "
-    >
-      <div class="acad-groups-grid">
-        <div class="acad-group-card">
-          <div class="acad-group-header">
-            <span class="acad-group-name">CS101 Study Group</span>
-            <span class="acad-tag acad-tag--teal">Active</span>
-          </div>
-          <div class="acad-group-avatars">
-            <span class="acad-mini-avatar">U</span>
-            <span class="acad-mini-avatar" style="background: var(--purple)"
-              >A</span
-            >
-            <span class="acad-mini-avatar" style="background: var(--amber3)"
-              >B</span
-            >
-            <span class="acad-mini-avatar" style="background: var(--teal)"
-              >C</span
-            >
-            <span style="font-size: 0.7rem; color: var(--text3)">+3</span>
-          </div>
-          <div class="acad-group-footer">
-            <span style="font-size: 0.72rem; color: var(--text3)"
-              >Next: Wed 4pm · Library</span
-            ><button class="acad-action-btn">Join</button>
-          </div>
+  <!-- TASKS -->
+  <div class="sp-pane" id="ps-pane-tasks">
+    <div class="sp-toolbar">
+      <button class="sp-tool-btn sp-tool-active">
+        <i class="ti ti-layout-kanban"></i>Board
+      </button>
+      <button class="sp-tool-btn"><i class="ti ti-list"></i>List</button>
+      <div style="flex: 1"></div>
+      <button class="sp-btn-primary sp-btn-blue" onclick="psNewTask()">
+        <i class="ti ti-plus"></i>New task
+      </button>
+    </div>
+    <div class="sp-scroll">
+      <div class="sp-kanban" id="ps-kanban"></div>
+    </div>
+  </div>
+
+  <!-- GOALS -->
+  <div class="sp-pane" id="ps-pane-goals">
+    <div class="sp-toolbar">
+      <button class="sp-btn-primary sp-btn-blue" onclick="psNewGoal()">
+        <i class="ti ti-plus"></i>New goal
+      </button>
+    </div>
+    <div class="sp-scroll">
+      <div class="sp-goals-grid" id="ps-goals-grid"></div>
+    </div>
+  </div>
+
+  <!-- HABITS -->
+  <div class="sp-pane" id="ps-pane-habits">
+    <div class="sp-toolbar">
+      <div class="sp-hstats">
+        <div class="sp-hstat">
+          <div class="sp-hstat-val" id="ps-best-streak">0</div>
+          <div class="sp-hstat-lbl">Best streak</div>
         </div>
-        <div class="acad-group-card">
-          <div class="acad-group-header">
-            <span class="acad-group-name">Math AI Review</span>
-            <span class="acad-tag acad-tag--orange">Active</span>
-          </div>
-          <div class="acad-group-avatars">
-            <span class="acad-mini-avatar">U</span>
-            <span class="acad-mini-avatar" style="background: var(--purple)"
-              >A</span
-            >
-            <span style="font-size: 0.7rem; color: var(--text3)">+5</span>
-          </div>
-          <div class="acad-group-footer">
-            <span style="font-size: 0.72rem; color: var(--text3)"
-              >Next: Thu 2pm · Zoom</span
-            ><button class="acad-action-btn">Join</button>
-          </div>
+        <div class="sp-hstat">
+          <div class="sp-hstat-val" id="ps-done-today-h">0</div>
+          <div class="sp-hstat-lbl">Done today</div>
         </div>
-        <div
-          class="acad-group-card"
-          style="
-            border-style: dashed;
-            border-color: var(--border2);
-            justify-content: center;
-            align-items: center;
-            min-height: 120px;
-            cursor: pointer;
-          "
-        >
-          <span style="font-size: 1.5rem; color: var(--text4)">+</span>
-          <span style="font-size: 0.72rem; color: var(--text4)"
-            >Create study group</span
+        <div class="sp-hstat">
+          <div class="sp-hstat-val" id="ps-week-rate">—</div>
+          <div class="sp-hstat-lbl">This week</div>
+        </div>
+      </div>
+      <div style="flex: 1"></div>
+      <button class="sp-btn-primary sp-btn-blue" onclick="psNewHabit()">
+        <i class="ti ti-plus"></i>Add habit
+      </button>
+    </div>
+    <div class="sp-scroll"><div id="ps-habits-list"></div></div>
+  </div>
+
+  <!-- JOURNAL -->
+  <div class="sp-pane" id="ps-pane-journal">
+    <div class="sp-scroll">
+      <div class="sp-grid2 sp-grid2-journal">
+        <div class="sp-journal-left">
+          <div class="sp-journal-prompt" id="ps-journal-prompt">
+            What are you grateful for today?
+          </div>
+          <div class="sp-mood-row">
+            <button class="sp-mood-btn" onclick="psMood('😄', this)">😄</button>
+            <button class="sp-mood-btn" onclick="psMood('🙂', this)">🙂</button>
+            <button class="sp-mood-btn" onclick="psMood('😐', this)">😐</button>
+            <button class="sp-mood-btn" onclick="psMood('😔', this)">😔</button>
+            <button class="sp-mood-btn" onclick="psMood('🤯', this)">🤯</button>
+          </div>
+          <textarea
+            class="sp-journal-input"
+            id="ps-journal-text"
+            placeholder="Start writing…"
+          ></textarea>
+          <button
+            class="sp-btn-primary sp-btn-blue"
+            style="width: 100%; margin-top: 10px"
+            onclick="psSaveJournal()"
           >
+            <i class="ti ti-device-floppy"></i> Save entry
+          </button>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Research ── -->
-  <div class="acad-tab-content" data-pane="research" style="display: none">
-    <div
-      style="
-        padding: 16px 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        overflow-y: auto;
-        flex: 1;
-      "
-    >
-      <div class="acad-research-layout">
-        <div>
-          <div class="acad-card">
-            <div class="acad-card-header">
-              <span class="acad-card-title">🔬 Research assistant</span>
-              <span class="acad-ai-badge">AI</span>
-            </div>
-            <div style="padding: 14px">
-              <div class="acad-research-input-row">
-                <input
-                  class="acad-research-input"
-                  placeholder="Search for papers or topics..."
-                />
-                <button class="acad-research-btn">🔍 Search</button>
-              </div>
-              <div class="acad-cite-format-row">
-                <button class="acad-format-btn active">APA</button>
-                <button class="acad-format-btn">MLA</button>
-                <button class="acad-format-btn">Chicago</button>
-                <button class="acad-format-btn">IEEE</button>
-              </div>
-              <div style="margin-top: 12px">
-                <div class="acad-citation-item">
-                  <div class="acad-citation-title">
-                    Attention Is All You Need
-                  </div>
-                  <div style="font-size: 0.72rem; color: var(--text3)">
-                    Vaswani et al. (2017) · NeurIPS
-                  </div>
-                  <div class="acad-citation-ref">
-                    @article{vaswani2017attention, title={Attention is all you
-                    need}, author={Vaswani, Ashish}, journal={NeurIPS},
-                    year={2017}}
-                  </div>
-                  <div class="acad-citation-footer">
-                    <span class="acad-source-badge acad-source-badge--teal"
-                      >PDF</span
-                    >
-                    <span class="acad-source-badge acad-source-badge--purple"
-                      >Cite</span
-                    >
-                    <button class="acad-action-btn">📥 Save</button>
-                  </div>
-                </div>
-                <div class="acad-citation-item">
-                  <div class="acad-citation-title">
-                    BERT: Pre-training of Deep Bidirectional Transformers
-                  </div>
-                  <div style="font-size: 0.72rem; color: var(--text3)">
-                    Devlin et al. (2018) · NAACL
-                  </div>
-                  <div class="acad-citation-ref">
-                    @article{devlin2018bert, title={BERT: Pre-training...},
-                    author={Devlin, Jacob}, journal={NAACL}, year={2018}}
-                  </div>
-                  <div class="acad-citation-footer">
-                    <span class="acad-source-badge acad-source-badge--teal"
-                      >PDF</span
-                    >
-                    <span class="acad-source-badge acad-source-badge--purple"
-                      >Cite</span
-                    >
-                    <button class="acad-action-btn">📥 Save</button>
-                  </div>
-                </div>
-              </div>
-            </div>
+        <div class="sp-journal-right">
+          <div
+            class="sp-card-title"
+            style="
+              margin-bottom: 10px;
+              font-size: 0.82rem;
+              font-weight: 700;
+              color: var(--muted);
+            "
+          >
+            PAST ENTRIES
           </div>
-        </div>
-        <div>
-          <div class="acad-card">
-            <div class="acad-card-header">
-              <span class="acad-card-title">📊 Research metrics</span>
-            </div>
-            <div style="padding: 8px 14px">
-              <div class="acad-stat-row">
-                <span>Saved papers</span><span>12</span>
-              </div>
-              <div class="acad-stat-row">
-                <span>Citations generated</span><span>8</span>
-              </div>
-              <div class="acad-stat-row">
-                <span>Last search</span><span>2h ago</span>
-              </div>
-            </div>
-          </div>
-          <div class="acad-card" style="margin-top: 12px">
-            <div class="acad-card-header">
-              <span class="acad-card-title">📋 Recent searches</span>
-            </div>
-            <div style="padding: 8px 14px">
-              <div
-                style="
-                  font-size: 0.78rem;
-                  color: var(--text3);
-                  padding: 4px 0;
-                  border-bottom: 1px solid var(--border);
-                "
-              >
-                "transformers attention mechanism"
-              </div>
-              <div
-                style="
-                  font-size: 0.78rem;
-                  color: var(--text3);
-                  padding: 4px 0;
-                  border-bottom: 1px solid var(--border);
-                "
-              >
-                "neural network architecture 2024"
-              </div>
-              <div
-                style="font-size: 0.78rem; color: var(--text3); padding: 4px 0"
-              >
-                "deep learning optimization techniques"
-              </div>
-            </div>
+          <div id="ps-journal-entries">
+            <div class="sp-empty">No entries yet.</div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ── Grades ── -->
-  <div class="acad-tab-content" data-pane="grades" style="display: none">
-    <div
-      style="
-        padding: 16px 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        overflow-y: auto;
-        flex: 1;
-      "
-    >
-      <div class="acad-card">
-        <div class="acad-card-header">
-          <span class="acad-card-title">📊 Grade overview</span>
-          <span class="acad-card-badge">GPA: 3.6</span>
+  <!-- NOTES -->
+  <div class="sp-pane" id="ps-pane-notes">
+    <div class="sp-toolbar">
+      <button class="sp-btn-primary sp-btn-blue" onclick="psNewNote()">
+        <i class="ti ti-plus"></i>New note
+      </button>
+    </div>
+    <div class="sp-scroll">
+      <div class="sp-notes-grid" id="ps-notes-grid"></div>
+    </div>
+  </div>
+
+  <!-- ANALYTICS -->
+  <div class="sp-pane" id="ps-pane-analytics">
+    <div class="sp-scroll">
+      <div class="sp-stat-row">
+        <div class="sp-stat">
+          <div class="sp-stat-lbl">Tasks this week</div>
+          <div class="sp-stat-val sp-val-blue" id="ps-week-tasks">0</div>
         </div>
-        <div style="padding: 12px 14px">
-          <div style="display: flex; flex-direction: column; gap: 8px">
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                padding: 6px 0;
-                border-bottom: 1px solid var(--border);
-              "
-            >
-              <span>CS101</span>
-              <span style="font-weight: 700">A- (91%)</span>
-            </div>
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                padding: 6px 0;
-                border-bottom: 1px solid var(--border);
-              "
-            >
-              <span>Mathematics for AI</span>
-              <span style="font-weight: 700">B+ (87%)</span>
-            </div>
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                padding: 6px 0;
-                border-bottom: 1px solid var(--border);
-              "
-            >
-              <span>Data Structures</span>
-              <span style="font-weight: 700">B (83%)</span>
-            </div>
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                padding: 6px 0;
-              "
-            >
-              <span>Linear Algebra</span>
-              <span style="font-weight: 700">A (94%)</span>
-            </div>
-          </div>
+        <div class="sp-stat">
+          <div class="sp-stat-lbl">Habit rate</div>
+          <div class="sp-stat-val sp-val-blue" id="ps-habit-rate">—</div>
+        </div>
+        <div class="sp-stat">
+          <div class="sp-stat-lbl">Journal entries</div>
+          <div class="sp-stat-val sp-val-blue" id="ps-journal-count">0</div>
+        </div>
+        <div class="sp-stat">
+          <div class="sp-stat-lbl">Goals on track</div>
+          <div class="sp-stat-val sp-val-blue" id="ps-goals-track">—</div>
         </div>
       </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px">
-        <div class="acad-metric-card">
-          <div class="acad-metric-label">Credits</div>
-          <div class="acad-metric-value" style="font-size: 1.2rem">18</div>
+      <div class="sp-grid2">
+        <div class="sp-card">
+          <div class="sp-card-head">
+            <span class="sp-card-title"
+              ><i class="ti ti-chart-bar"></i>Tasks per day</span
+            >
+          </div>
+          <div class="sp-bar-chart" id="ps-task-chart"></div>
         </div>
-        <div class="acad-metric-card">
-          <div class="acad-metric-label">Completed</div>
-          <div class="acad-metric-value" style="font-size: 1.2rem">12/18</div>
-        </div>
-        <div class="acad-metric-card">
-          <div class="acad-metric-label">Projected</div>
-          <div class="acad-metric-value" style="font-size: 1.2rem">3.7</div>
+        <div class="sp-card">
+          <div class="sp-card-head">
+            <span class="sp-card-title"
+              ><i class="ti ti-repeat"></i>Habit completion</span
+            >
+          </div>
+          <div id="ps-habit-chart"></div>
         </div>
       </div>
     </div>

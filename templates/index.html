@@ -163,16 +163,20 @@
 
     {# ── LOGIN ── #} {% include "_login.html" %} {# ── DASHBOARD ── #}
     <div id="dashboard">
-      {% include "_shell.html" %} {# ── MAIN CONTENT — ALL PANELS ── #}
+      {% include "_shell.html" %}
+      {# ── MAIN CONTENT — ALL PANELS ── #}
       <main class="main">
         {% include "_panels_core.html" %} {% include "_panels_spaces.html" %} {%
         include "_panels_extra.html" %}
       </main>
       <!-- /main -->
-
-      {# ── MODALS & OVERLAYS ── #} {% include "_modals.html" %}
+      </div>
+      <!-- /layout (opened at the start of _shell.html, closed here per original structure) -->
     </div>
     <!-- /dashboard -->
+
+    {# ── MODALS & OVERLAYS — sibling of #dashboard, matching original body-level placement ── #}
+    {% include "_modals.html" %}
 
     <script src="/js/app.js?v=20260701e" defer></script>
   </body>

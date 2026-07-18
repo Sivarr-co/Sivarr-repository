@@ -1,1284 +1,3272 @@
-<!-- ═══════════════════════════════════════════════════════════════
-     PANELS CORE — Home · Chat · Flux · Calendar · Notes · Settings
-     ═══════════════════════════════════════════════════════════════ -->
-
-{# ── HOME PANEL ────────────────────────────────────────────── #}
-<div id="panel-home" class="panel">
+{# ═══════════════════════════════════════════════════════════════
+_panels_core.html — home, chat, flux, calendar, notes, settings Re-extracted
+VERBATIM from index_previous.html (byte-for-byte, no rewriting) to fix the
+content-loss issue found in the prior split.
+═══════════════════════════════════════════════════════════════ #} {# ── HOME ──
+#}
+<div class="panel" id="panel-home">
   <div class="home-wrap">
-    <!-- Sivarr brief greeting -->
-    <div class="siva-brief" id="siva-brief">
-      <div class="siva-brief-decor" id="brief-decor"></div>
+    <!-- Sivarr AI Briefing card -->
+    <div class="siva-brief">
+      <!-- Personalized decoration layer (scattered icons) -->
+      <div
+        class="siva-brief-decor"
+        id="siva-brief-decor"
+        aria-hidden="true"
+      ></div>
       <div class="siva-brief-top">
-        <div class="siva-brief-av" id="brief-av">👤</div>
-        <span class="siva-brief-name" id="brief-name"
-          >Good morning, <span id="brief-user-name">User</span></span
+        <div class="siva-brief-av">
+          <img src="/static/sivarrai.png" alt="Sivarr AI" />
+        </div>
+        <div>
+          <div class="siva-brief-name" id="home-greeting">Good morning</div>
+          <div style="font-size: 0.68rem; opacity: 0.7" id="home-sub">
+            Here's your day at a glance
+          </div>
+        </div>
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+          "
         >
-        <button
-          class="siva-brief-action"
-          id="brief-decor-btn"
-          aria-label="Change greeting decor"
-        >
-          🎨
-        </button>
-        <span class="siva-brief-badge" id="brief-badge">✨ AI</span>
+          <button
+            onclick="briefDecorToggle(this)"
+            title="Personalize header"
+            class="siva-brief-action"
+          >
+            <i class="ti ti-palette"></i>
+          </button>
+          <button
+            onclick="refreshHomeBrief()"
+            title="Refresh brief"
+            class="siva-brief-action"
+          >
+            <i class="ti ti-refresh"></i>
+          </button>
+          <span class="siva-brief-badge">Sivarr AI</span>
+        </div>
       </div>
-      <div class="siva-brief-msg" id="brief-msg">
-        Here's your summary for today. You have <strong>3</strong> tasks due
-        soon.
+      <div class="siva-brief-msg" id="home-brief-msg">
+        You have tasks due today. Your study streak is going strong — keep it
+        up! Ready to make progress?
       </div>
     </div>
 
-    <!-- Quick action pills -->
-    <div class="siva-pills" id="siva-pills">
-      <span id="siva-recent-pills">
-        <button class="siva-pill" data-nav="chat">💬 Chat</button>
-        <button class="siva-pill" data-nav="flux">📋 Tasks</button>
-        <button class="siva-pill" data-nav="notes">📝 Notes</button>
-        <button class="siva-pill sp-add" data-nav="quick-add">
-          + Quick Add
-        </button>
-      </span>
+    <!-- ── Getting Started Guide (shows for 7 days after signup) ── -->
+    <div class="gs-section" id="gs-section" style="display: none">
+      <div class="gs-header">
+        <div class="gs-header-left">
+          <div class="gs-badge">New</div>
+          <div>
+            <div class="gs-title">Getting started with Sivarr</div>
+            <div class="gs-sub">
+              Watch these short guides to get the most out of your workspace
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <div class="gs-progress-wrap">
+            <div class="gs-progress-bar">
+              <div
+                class="gs-progress-fill"
+                id="gs-progress-fill"
+                style="width: 0%"
+              ></div>
+            </div>
+            <span class="gs-progress-label" id="gs-progress-label"
+              >0 / 6 done</span
+            >
+          </div>
+          <button
+            class="gs-dismiss"
+            onclick="gsDismiss()"
+            title="Dismiss getting started"
+          >
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Video cards row -->
+      <div class="gs-videos-wrap">
+        <div class="gs-videos" id="gs-videos">
+          <div class="gs-vid-card" id="gsvid-0" onclick="gsOpenVideo(0, this)">
+            <div class="gs-vid-thumb">
+              <div class="gs-vid-play">
+                <i class="ti ti-player-play-filled"></i>
+              </div>
+              <div class="gs-vid-placeholder">
+                <i
+                  class="ti ti-video"
+                  style="font-size: 1.4rem; opacity: 0.3"
+                ></i>
+              </div>
+              <span class="gs-vid-duration">2:30</span>
+              <div class="gs-vid-done-badge">
+                <i class="ti ti-check"></i>
+              </div>
+            </div>
+            <div class="gs-vid-title">Welcome to Sivarr</div>
+            <div class="gs-vid-desc">A quick tour of your workspace</div>
+          </div>
+
+          <div class="gs-vid-card" id="gsvid-1" onclick="gsOpenVideo(1, this)">
+            <div class="gs-vid-thumb">
+              <div class="gs-vid-play">
+                <i class="ti ti-player-play-filled"></i>
+              </div>
+              <div class="gs-vid-placeholder">
+                <i
+                  class="ti ti-video"
+                  style="font-size: 1.4rem; opacity: 0.3"
+                ></i>
+              </div>
+              <span class="gs-vid-duration">3:15</span>
+              <div class="gs-vid-done-badge">
+                <i class="ti ti-check"></i>
+              </div>
+            </div>
+            <div class="gs-vid-title">Sivarr AI Chat</div>
+            <div class="gs-vid-desc">Ask anything, get smart answers</div>
+          </div>
+
+          <div class="gs-vid-card" id="gsvid-2" onclick="gsOpenVideo(2, this)">
+            <div class="gs-vid-thumb">
+              <div class="gs-vid-play">
+                <i class="ti ti-player-play-filled"></i>
+              </div>
+              <div class="gs-vid-placeholder">
+                <i
+                  class="ti ti-video"
+                  style="font-size: 1.4rem; opacity: 0.3"
+                ></i>
+              </div>
+              <span class="gs-vid-duration">2:45</span>
+              <div class="gs-vid-done-badge">
+                <i class="ti ti-check"></i>
+              </div>
+            </div>
+            <div class="gs-vid-title">Tasks &amp; Goals</div>
+            <div class="gs-vid-desc">Plan your day and track progress</div>
+          </div>
+
+          <div class="gs-vid-card" id="gsvid-3" onclick="gsOpenVideo(3, this)">
+            <div class="gs-vid-thumb">
+              <div class="gs-vid-play">
+                <i class="ti ti-player-play-filled"></i>
+              </div>
+              <div class="gs-vid-placeholder">
+                <i
+                  class="ti ti-video"
+                  style="font-size: 1.4rem; opacity: 0.3"
+                ></i>
+              </div>
+              <span class="gs-vid-duration">1:50</span>
+              <div class="gs-vid-done-badge">
+                <i class="ti ti-check"></i>
+              </div>
+            </div>
+            <div class="gs-vid-title">Notes &amp; Docs</div>
+            <div class="gs-vid-desc">Capture ideas and build knowledge</div>
+          </div>
+
+          <div class="gs-vid-card" id="gsvid-4" onclick="gsOpenVideo(4, this)">
+            <div class="gs-vid-thumb">
+              <div class="gs-vid-play">
+                <i class="ti ti-player-play-filled"></i>
+              </div>
+              <div class="gs-vid-placeholder">
+                <i
+                  class="ti ti-video"
+                  style="font-size: 1.4rem; opacity: 0.3"
+                ></i>
+              </div>
+              <span class="gs-vid-duration">4:00</span>
+              <div class="gs-vid-done-badge">
+                <i class="ti ti-check"></i>
+              </div>
+            </div>
+            <div class="gs-vid-title">Org Space</div>
+            <div class="gs-vid-desc">Collaborate with your team</div>
+          </div>
+
+          <div class="gs-vid-card" id="gsvid-5" onclick="gsOpenVideo(5, this)">
+            <div class="gs-vid-thumb">
+              <div class="gs-vid-play">
+                <i class="ti ti-player-play-filled"></i>
+              </div>
+              <div class="gs-vid-placeholder">
+                <i
+                  class="ti ti-video"
+                  style="font-size: 1.4rem; opacity: 0.3"
+                ></i>
+              </div>
+              <span class="gs-vid-duration">2:10</span>
+              <div class="gs-vid-done-badge">
+                <i class="ti ti-check"></i>
+              </div>
+            </div>
+            <div class="gs-vid-title">Billing &amp; Plans</div>
+            <div class="gs-vid-desc">Upgrade and manage your plan</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick tips row -->
+      <div class="gs-tips">
+        <div class="gs-tip">
+          <div
+            class="gs-tip-icon"
+            style="background: var(--teal2); color: var(--teal)"
+          >
+            <i class="ti ti-keyboard"></i>
+          </div>
+          <div>
+            <div class="gs-tip-title">Cmd + K</div>
+            <div class="gs-tip-desc">
+              Open command palette to navigate anywhere fast
+            </div>
+          </div>
+        </div>
+        <div class="gs-tip">
+          <div
+            class="gs-tip-icon"
+            style="background: var(--purple2); color: var(--accent2)"
+          >
+            <i class="ti ti-wand"></i>
+          </div>
+          <div>
+            <div class="gs-tip-title">Extract Tasks</div>
+            <div class="gs-tip-desc">
+              Paste any text and AI pulls out your tasks automatically
+            </div>
+          </div>
+        </div>
+        <div class="gs-tip">
+          <div
+            class="gs-tip-icon"
+            style="background: var(--amber2); color: var(--amber)"
+          >
+            <i class="ti ti-moon"></i>
+          </div>
+          <div>
+            <div class="gs-tip-title">Dark Mode</div>
+            <div class="gs-tip-desc">
+              Toggle in Settings → Appearance to switch themes
+            </div>
+          </div>
+        </div>
+        <div class="gs-tip">
+          <div
+            class="gs-tip-icon"
+            style="background: #22c55e18; color: #22c55e"
+          >
+            <i class="ti ti-device-mobile"></i>
+          </div>
+          <div>
+            <div class="gs-tip-title">Install as App</div>
+            <div class="gs-tip-desc">
+              Add Sivarr to your home screen for quick access
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Stats row -->
+    <!-- Sivarr AI shortcut pills -->
+    <div class="siva-pills">
+      <button class="siva-pill sp-add" onclick="nav('chat', null)">
+        <i class="ti ti-sparkles"></i> Ask Sivarr
+      </button>
+      <span id="siva-recent-pills"></span>
+    </div>
+
+    <!-- 4 Stat cards -->
     <div class="h-stat-grid">
       <div class="h-stat-card">
-        <div
-          class="h-stat-ic"
-          style="background: var(--teal2); color: var(--teal)"
-        >
-          📋
-        </div>
-        <div class="h-stat-val" id="home-tasks-total">12</div>
-        <div class="h-stat-lbl">Tasks</div>
-        <div class="h-stat-chg chg-up">↑ 2 this week</div>
+        <div class="h-stat-ic" style="background: var(--teal2)">💬</div>
+        <div class="h-stat-val" id="home-questions">0</div>
+        <div class="h-stat-lbl">AI Questions</div>
       </div>
       <div class="h-stat-card">
-        <div
-          class="h-stat-ic"
-          style="background: var(--purple2); color: var(--purple)"
-        >
-          ✅
-        </div>
-        <div class="h-stat-val" id="home-tasks-done">5</div>
-        <div class="h-stat-lbl">Completed</div>
-        <div class="h-stat-chg chg-up">↑ 42%</div>
+        <div class="h-stat-ic" style="background: var(--purple2)">📝</div>
+        <div class="h-stat-val" id="home-quizzes">0</div>
+        <div class="h-stat-lbl">Focus Sessions</div>
       </div>
       <div class="h-stat-card">
-        <div
-          class="h-stat-ic"
-          style="background: var(--amber2); color: var(--amber3)"
-        >
-          🔥
-        </div>
-        <div class="h-stat-val" id="home-streak">7</div>
-        <div class="h-stat-lbl">Day streak</div>
-        <div class="h-stat-chg chg-up">↑ Keep going!</div>
+        <div class="h-stat-ic" style="background: var(--amber2)">🔥</div>
+        <div class="h-stat-val" id="home-sessions">0</div>
+        <div class="h-stat-lbl">Day Streak</div>
       </div>
       <div class="h-stat-card">
-        <div
-          class="h-stat-ic"
-          style="background: var(--coral2); color: var(--coral3)"
-        >
-          📅
-        </div>
-        <div class="h-stat-val" id="home-events-today">3</div>
-        <div class="h-stat-lbl">Today's events</div>
-        <div class="h-stat-chg">Next: 2:30pm</div>
+        <div class="h-stat-ic" style="background: var(--green2)">🎯</div>
+        <div class="h-stat-val" id="home-goals-count">0</div>
+        <div class="h-stat-lbl">Active Goals</div>
       </div>
     </div>
 
-    <!-- Two-column: Priority + Schedule -->
+    <!-- 2-column: Priorities + Schedule -->
     <div class="h2col">
-      <!-- Priority tasks -->
+      <!-- Priorities / Tasks -->
       <div class="h2col-card">
         <div class="h-card-hd">
-          <span class="h-card-title">⚡ Priority</span>
-          <button class="h-card-link" data-nav="flux">View all →</button>
+          <span class="h-card-title">Today's Priorities</span>
+          <button class="h-card-link" onclick="nav('flux', null)">
+            View all →
+          </button>
         </div>
-        <div id="home-priority-list">
+        <div id="home-priorities-list">
           <div class="priority-item">
-            <span class="pr-dot" style="background: var(--red3)"></span>
-            <span class="pr-text">Review Q3 proposal</span>
+            <div class="pr-dot" style="background: var(--red3)"></div>
+            <div class="pr-text">No tasks yet — add one in Tasks</div>
             <span
               class="pr-tag"
-              style="background: var(--red2); color: var(--red3)"
-              >Urgent</span
-            >
-          </div>
-          <div class="priority-item">
-            <span class="pr-dot" style="background: var(--amber3)"></span>
-            <span class="pr-text">Update project timeline</span>
-            <span
-              class="pr-tag"
-              style="background: var(--amber2); color: var(--amber)"
-              >High</span
-            >
-          </div>
-          <div class="priority-item">
-            <span class="pr-dot" style="background: var(--teal)"></span>
-            <span class="pr-text">Team sync notes</span>
-            <span
-              class="pr-tag"
-              style="background: var(--teal2); color: var(--teal4)"
-              >Medium</span
-            >
-          </div>
-          <div class="priority-item">
-            <span class="pr-dot" style="background: var(--purple3)"></span>
-            <span class="pr-text">Design review feedback</span>
-            <span
-              class="pr-tag"
-              style="background: var(--purple2); color: var(--purple3)"
-              >Low</span
+              style="background: var(--bg3); color: var(--text3)"
+              >—</span
             >
           </div>
         </div>
       </div>
 
-      <!-- Today's schedule -->
+      <!-- Schedule -->
       <div class="h2col-card">
         <div class="h-card-hd">
-          <span class="h-card-title">📅 Today</span>
-          <button class="h-card-link" data-nav="calendar">View all →</button>
+          <span class="h-card-title">Today's Schedule</span>
+          <button class="h-card-link" onclick="nav('calendar', null)">
+            Calendar →
+          </button>
         </div>
         <div id="home-schedule-list">
           <div class="sched-item">
-            <span class="sched-time">10:00</span>
-            <span class="sched-dot" style="background: var(--teal)"></span>
+            <div class="sched-time">All day</div>
+            <div class="sched-dot" style="background: var(--text4)"></div>
             <div class="sched-info">
-              <div class="sched-name">Team standup</div>
-              <div class="sched-sub">Engineering · 30 min</div>
-            </div>
-          </div>
-          <div class="sched-item">
-            <span class="sched-time">14:30</span>
-            <span class="sched-dot" style="background: var(--purple)"></span>
-            <div class="sched-info">
-              <div class="sched-name">Client demo</div>
-              <div class="sched-sub">Sales · 45 min</div>
-            </div>
-          </div>
-          <div class="sched-item">
-            <span class="sched-time">16:00</span>
-            <span class="sched-dot" style="background: var(--amber3)"></span>
-            <div class="sched-info">
-              <div class="sched-name">Project review</div>
-              <div class="sched-sub">Internal · 1 hr</div>
+              <div class="sched-name">No events scheduled</div>
+              <div class="sched-sub">Add events in Calendar</div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Habits quick-check -->
-    <div class="h2col-card" style="margin-bottom: 0">
+    <!-- Habit check-in -->
+    <div class="h2col-card" style="margin-bottom: 14px">
       <div class="h-card-hd">
-        <span class="h-card-title">💪 Habits</span>
-        <button class="h-card-link" data-nav="habits">View all →</button>
+        <span class="h-card-title">Habit Check-in</span>
+        <button class="h-card-link" onclick="nav('habits', null)">
+          All habits →
+        </button>
       </div>
       <div id="home-habits-list">
         <div class="habit-check-row">
-          <span class="habit-cb done"></span>
-          <span class="habit-name">Morning meditation</span>
-          <span class="habit-streak">🔥 12 days</span>
+          <div class="habit-cb" onclick="this.classList.toggle('done')"></div>
+          <div class="habit-name">Morning study session</div>
+          <div class="habit-streak">🔥 0 day streak</div>
         </div>
         <div class="habit-check-row">
-          <span class="habit-cb"></span>
-          <span class="habit-name">Read 20 pages</span>
-          <span class="habit-streak">📚 5 days</span>
+          <div class="habit-cb" onclick="this.classList.toggle('done')"></div>
+          <div class="habit-name">Review notes</div>
+          <div class="habit-streak">🔥 0 day streak</div>
         </div>
         <div class="habit-check-row">
-          <span class="habit-cb"></span>
-          <span class="habit-name">Exercise</span>
-          <span class="habit-streak">💪 3 days</span>
+          <div class="habit-cb" onclick="this.classList.toggle('done')"></div>
+          <div class="habit-name">Daily reading</div>
+          <div class="habit-streak">🔥 0 day streak</div>
         </div>
       </div>
+    </div>
+
+    <!-- Finance snapshot (hidden when no transactions) -->
+    <div id="home-finance-section" style="margin-bottom: 14px; display: none">
+      <div class="h2col-card">
+        <div class="h-card-hd">
+          <span class="h-card-title">💰 Finance · This Month</span>
+          <button class="h-card-link" onclick="nav('finance', null)">
+            Open →
+          </button>
+        </div>
+        <div id="home-finance-body"></div>
+      </div>
+    </div>
+
+    <!-- Skills snapshot (hidden when no skills) -->
+    <div id="home-skills-section" style="margin-bottom: 14px; display: none">
+      <div class="h2col-card">
+        <div class="h-card-hd">
+          <span class="h-card-title">🧠 Skills</span>
+          <button class="h-card-link" onclick="nav('skills', null)">
+            All skills →
+          </button>
+        </div>
+        <div id="home-skills-body"></div>
+      </div>
+    </div>
+
+    <!-- Active Goals (hidden when empty) -->
+    <div id="home-goals-section" style="margin-bottom: 14px; display: none">
+      <div class="h2col-card">
+        <div class="h-card-hd">
+          <span class="h-card-title">Active Goals</span>
+          <button class="h-card-link" onclick="nav('goals', null)">
+            View all →
+          </button>
+        </div>
+        <div id="home-goals-list"></div>
+      </div>
+    </div>
+
+    <!-- Recent Notes (hidden when empty) -->
+    <div id="home-notes-section" style="margin-bottom: 14px; display: none">
+      <div class="h2col-card">
+        <div class="h-card-hd">
+          <span class="h-card-title">Recent Notes</span>
+          <button class="h-card-link" onclick="nav('notes', null)">
+            View all →
+          </button>
+        </div>
+        <div id="home-notes-list"></div>
+      </div>
+    </div>
+
+    <!-- Latest Journal Entry -->
+    <div id="home-journal-section" style="margin-bottom: 14px; display: none">
+      <div class="h2col-card">
+        <div class="h-card-hd">
+          <span class="h-card-title">Latest Journal Entry</span>
+          <button class="h-card-link" onclick="nav('journal', null)">
+            Open journal →
+          </button>
+        </div>
+        <div style="padding: 10px 0 2px">
+          <div
+            id="home-journal-text"
+            style="
+              font-size: 0.83rem;
+              color: var(--text2);
+              line-height: 1.6;
+              font-style: italic;
+            "
+          ></div>
+          <div
+            id="home-journal-date"
+            style="font-size: 0.72rem; color: var(--text4); margin-top: 6px"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Featured Templates -->
+    <div class="h2col-card" style="margin-bottom: 14px">
+      <div class="h-card-hd">
+        <span class="h-card-title">Featured Templates</span>
+        <button class="h-card-link" onclick="nav('templates', null)">
+          Browse all →
+        </button>
+      </div>
+      <div id="home-templates-list"></div>
     </div>
   </div>
 </div>
 
-{# ── CHAT PANEL ────────────────────────────────────────────── #}
-<div id="panel-chat" class="panel">
+{# ── CHAT ── #}
+<div class="panel active" id="panel-chat">
   <!-- Chat header -->
   <div class="chat-header">
+    <div class="chat-header-av">
+      <img src="/static/sivarrai.png" alt="Sivarr AI" />
+    </div>
     <div class="chat-header-info">
+      <div class="chat-header-name">Sivarr AI</div>
       <div class="chat-header-status">
-        <span class="chat-status-dot" id="chat-status-dot"></span>
-        <span id="chat-status-text">Online</span>
+        <div class="chat-status-dot" id="chat-status-dot"></div>
+        <span id="chat-status-text">Online · Ready</span>
       </div>
     </div>
     <div class="chat-header-actions">
-      <button class="chat-hdr-btn" id="chat-clear-btn" title="Clear chat">
-        🗑
+      <button
+        class="chat-hdr-btn"
+        onclick="chatClearConfirm()"
+        title="Clear chat"
+        data-tip="Clear chat"
+        data-tip-pos="bottom"
+      >
+        <i class="ti ti-trash"></i>
       </button>
-      <button class="chat-hdr-btn" id="chat-export-btn" title="Export chat">
-        📤
+      <button
+        class="chat-hdr-btn"
+        onclick="chatExport()"
+        title="Export chat"
+        data-tip="Export chat"
+        data-tip-pos="bottom"
+      >
+        <i class="ti ti-download"></i>
       </button>
     </div>
   </div>
 
-  <!-- Agent selector -->
-  <div class="agent-selector" id="agent-selector">
-    <button class="agent-chip active" data-agent="sivarr">
-      🧠 Sivarr
-      <span class="agent-chip-badge">Pro</span>
-    </button>
-    <button class="agent-chip" data-agent="gpt4">🤖 GPT-4</button>
-    <button class="agent-chip" data-agent="claude">🌿 Claude</button>
-    <button class="agent-chip locked" data-agent="gemini">
-      ✨ Gemini <span class="agent-chip-badge">Soon</span>
-    </button>
-  </div>
+  <!-- Agent selector (hidden — moved into chat-add-menu popover) -->
+  <div class="agent-selector" id="agent-selector" style="display: none"></div>
 
-  <!-- Messages -->
-  <div class="chat-msgs" id="chat-msgs">
-    <!-- Welcome screen (visible when no messages) -->
+  <div class="chat-msgs" id="msgs">
+    <!-- Welcome screen -->
     <div id="chat-welcome">
+      <!-- Animated orb -->
       <div class="chat-welcome-orb">
         <img src="/static/sivarrai.png" alt="Sivarr" />
       </div>
-      <div class="chat-welcome-heading">
-        Hello, I'm <span class="name-teal">Sivarr</span>
-      </div>
-      <div class="chat-welcome-sub">Your AI assistant. Ask me anything.</div>
 
-      <!-- Prompt cards -->
+      <!-- Greeting -->
+      <h1 class="chat-welcome-heading" id="welcome-greeting">Good morning</h1>
+      <p class="chat-welcome-sub">
+        Your intelligent workspace assistant — ask me anything.
+      </p>
+
+      <!-- 2×2 prompt cards -->
       <div class="chat-prompt-grid">
-        <div
+        <button
           class="chat-prompt-card"
-          data-prompt="Summarize my tasks for today"
-          style="--cpc-color: var(--teal); --cpc-bg: var(--teal2)"
+          onclick="
+            quickPrompt('Help me brainstorm ideas for a new project or topic')
+          "
         >
-          <div
-            class="cpc-icon-wrap"
-            style="color: var(--teal); background: var(--teal2)"
-          >
-            📋
-          </div>
-          <div class="cpc-title">Summarize tasks</div>
-          <div class="cpc-sub">What's on my plate today?</div>
-        </div>
-        <div
+          <i class="ti ti-bulb cpc-icon"></i>
+          <div class="cpc-title">Brainstorm ideas</div>
+          <div class="cpc-sub">Think through something new</div>
+        </button>
+        <button
           class="chat-prompt-card"
-          data-prompt="Help me plan my week"
-          style="--cpc-color: var(--purple); --cpc-bg: var(--purple2)"
+          onclick="quickPrompt('Help me write — a draft, email, or post')"
         >
-          <div
-            class="cpc-icon-wrap"
-            style="color: var(--purple); background: var(--purple2)"
-          >
-            📅
-          </div>
-          <div class="cpc-title">Plan my week</div>
-          <div class="cpc-sub">Set up a weekly schedule</div>
-        </div>
-        <div
+          <i class="ti ti-pencil cpc-icon"></i>
+          <div class="cpc-title">Help me write</div>
+          <div class="cpc-sub">Drafts, emails, posts</div>
+        </button>
+        <button
           class="chat-prompt-card"
-          data-prompt="What should I focus on?"
-          style="--cpc-color: var(--amber3); --cpc-bg: var(--amber2)"
+          onclick="
+            quickPrompt(
+              'Help me make a plan for my projects, goals, or schedule',
+            )
+          "
         >
-          <div
-            class="cpc-icon-wrap"
-            style="color: var(--amber3); background: var(--amber2)"
-          >
-            🎯
-          </div>
-          <div class="cpc-title">Focus advice</div>
-          <div class="cpc-sub">What should I prioritize?</div>
-        </div>
-        <div
+          <i class="ti ti-map-2 cpc-icon"></i>
+          <div class="cpc-title">Make a plan</div>
+          <div class="cpc-sub">Projects, goals, schedules</div>
+        </button>
+        <button
           class="chat-prompt-card"
-          data-prompt="Generate a quick study plan"
-          style="--cpc-color: var(--coral3); --cpc-bg: var(--coral2)"
+          onclick="
+            quickPrompt(
+              'Give me a quick summary of a topic or condense this for me',
+            )
+          "
         >
-          <div
-            class="cpc-icon-wrap"
-            style="color: var(--coral3); background: var(--coral2)"
-          >
-            📚
-          </div>
-          <div class="cpc-title">Study plan</div>
-          <div class="cpc-sub">Quick study session outline</div>
-        </div>
+          <i class="ti ti-bolt cpc-icon"></i>
+          <div class="cpc-title">Quick summary</div>
+          <div class="cpc-sub">Condense anything fast</div>
+        </button>
       </div>
 
-      <div class="chat-welcome-hint">
-        Type a message or choose a prompt above
-      </div>
+      <p class="chat-welcome-hint">
+        I'm here 24/7 — messages, tasks, plans, writing
+      </p>
     </div>
-    <!-- Messages will be injected here by JS -->
   </div>
 
-  <!-- Chat bar -->
+  <!-- New input bar -->
   <div class="chat-bar" id="chat-bar">
-    <!-- Action pills -->
-    <div class="chat-action-pills">
-      <button class="chat-pill" data-prompt="Summarize today">
-        📝 Summarize
-      </button>
-      <button class="chat-pill" data-prompt="What's new?">
-        🆕 What's new?
-      </button>
-      <button class="chat-pill" data-prompt="Help me focus">🎯 Focus</button>
-      <span class="chat-msg-counter" id="chat-msg-counter">0 messages</span>
+    <!-- "+" context menu — AI model picker + attach shortcuts -->
+    <div class="chat-add-menu" id="chat-add-menu">
+      <div class="cam-section">AI Model</div>
+      <div class="cam-models">
+        <button
+          class="cam-model cam-active"
+          id="cam-siva"
+          onclick="agentSelectCam('siva', this)"
+        >
+          <i class="ti ti-sparkles"></i>
+          <span>SIVA</span>
+          <small>Gemini</small>
+        </button>
+        <button
+          class="cam-model cam-locked"
+          onclick="agentSelectLocked('claude')"
+        >
+          <i class="ti ti-robot"></i>
+          <span>Claude</span>
+          <small>Soon</small>
+        </button>
+        <button
+          class="cam-model cam-locked"
+          onclick="agentSelectLocked('gpt4')"
+        >
+          <i class="ti ti-brain"></i>
+          <span>GPT-4</span>
+          <small>Soon</small>
+        </button>
+        <button
+          class="cam-model cam-locked"
+          onclick="agentSelectLocked('perplexity')"
+        >
+          <i class="ti ti-search"></i>
+          <span>Perplexity</span>
+          <small>Soon</small>
+        </button>
+      </div>
+      <div class="cam-divider"></div>
+      <div class="cam-section">Attach</div>
+      <div class="cam-actions">
+        <button
+          class="cam-action"
+          onclick="
+            triggerAttach('image');
+            closeChatMenu();
+          "
+        >
+          <i class="ti ti-photo"></i> Image
+        </button>
+        <button
+          class="cam-action"
+          onclick="
+            triggerAttach('pdf');
+            closeChatMenu();
+          "
+        >
+          <i class="ti ti-file-type-pdf"></i> PDF
+        </button>
+        <button
+          class="cam-action"
+          onclick="
+            triggerAttach('file');
+            closeChatMenu();
+          "
+        >
+          <i class="ti ti-paperclip"></i> File
+        </button>
+        <button
+          class="cam-action"
+          onclick="
+            triggerAttach('doc');
+            closeChatMenu();
+          "
+        >
+          <i class="ti ti-file-text"></i> Ask from Doc
+        </button>
+      </div>
     </div>
+
+    <!-- Attachment preview strip -->
+    <div
+      id="attach-preview"
+      style="display: none; padding: 4px 0 2px; gap: 8px; flex-wrap: wrap"
+    ></div>
+
+    <!-- Hidden file inputs -->
+    <input
+      type="file"
+      id="attach-image-input"
+      style="display: none"
+      accept="image/*"
+      onchange="handleAttach(this, 'image')"
+    />
+    <input
+      type="file"
+      id="attach-pdf-input"
+      style="display: none"
+      accept=".pdf"
+      onchange="handleAttach(this, 'pdf')"
+    />
+    <input
+      type="file"
+      id="attach-file-input"
+      style="display: none"
+      accept="*/*"
+      onchange="handleAttach(this, 'file')"
+    />
+    <input
+      type="file"
+      id="attach-doc-input"
+      style="display: none"
+      accept=".txt,.md,.docx"
+      onchange="handleAttach(this, 'doc')"
+    />
 
     <!-- Input row -->
     <div class="chat-input-row">
-      <button class="chat-add-btn" id="chat-add-btn" title="Add context">
-        +
+      <button
+        class="chat-add-btn"
+        id="chat-add-btn"
+        onclick="toggleChatMenu(event)"
+        title="AI model / attach file"
+        data-tip="AI model / attach"
+        data-tip-pos="top"
+      >
+        <i class="ti ti-plus"></i>
       </button>
-      <!-- Add menu popover -->
-      <div class="chat-add-menu" id="chat-add-menu">
-        <div class="cam-section">Models</div>
-        <div class="cam-models">
-          <button class="cam-model cam-active" data-model="sivarr">
-            <i>🧠</i><span>Sivarr</span><small>Default</small>
-          </button>
-          <button class="cam-model" data-model="gpt4">
-            <i>🤖</i><span>GPT-4</span><small>Pro</small>
-          </button>
-          <button class="cam-model" data-model="claude">
-            <i>🌿</i><span>Claude</span><small>Pro</small>
-          </button>
-          <button class="cam-model cam-locked" data-model="gemini">
-            <i>✨</i><span>Gemini</span><small>Soon</small>
-          </button>
-        </div>
-        <div class="cam-divider"></div>
-        <div class="cam-actions">
-          <button class="cam-action" data-action="attach">📎 Attach</button>
-          <button class="cam-action" data-action="web">🌐 Web search</button>
-        </div>
-      </div>
-
       <textarea
         class="chat-input"
-        id="chat-input"
+        id="ci"
         placeholder="Ask Sivarr anything..."
         rows="1"
+        onkeydown="ckd(event)"
+        oninput="
+          this.style.height = 'auto';
+          this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        "
       ></textarea>
-      <button class="chat-icon-btn" id="voice-btn" title="Voice input">
-        🎤
+      <span class="chat-msg-counter" id="chat-msg-counter"></span>
+      <button
+        id="voice-btn"
+        class="chat-icon-btn"
+        onclick="toggleVoice()"
+        title="Voice input"
+        data-tip="Voice input"
+        data-tip-pos="top"
+      >
+        <i class="ti ti-microphone"></i>
       </button>
-      <button class="chat-send-btn" id="chat-send-btn" disabled>➤</button>
+      <button
+        class="chat-send-btn"
+        id="sb"
+        onclick="send()"
+        data-tip="Send message"
+        data-tip-pos="top"
+      >
+        <i class="ti ti-arrow-up"></i>
+      </button>
     </div>
   </div>
 </div>
 
-{# ── FLUX / TASKS PANEL ────────────────────────────────────── #}
-<div id="panel-flux" class="panel">
-  <div class="view-head">
-    <span class="vh-icon">📋</span>
-    <span class="vh-title">Flux — Tasks</span>
-    <button
-      class="btn primary"
-      id="flux-add-task-btn"
-      style="margin-left: auto"
-    >
-      + Add Task
-    </button>
-    <button class="btn ghost" id="flux-view-toggle">Kanban</button>
-  </div>
-  <div class="content" style="overflow: hidden; padding: 16px 24px">
-    <div style="display: flex; gap: 12px; height: 100%; overflow: hidden">
-      <!-- Kanban board (default view) -->
-      <div id="flux-kanban" class="kanban" style="flex: 1; height: 100%">
-        <div class="kb-col">
-          <div class="kb-col-hd">
-            <span class="kb-col-title">📝 To Do</span>
-            <span class="kb-col-count" id="flux-count-todo">3</span>
-          </div>
-          <div
-            class="kb-col-body"
-            id="flux-todo"
-            style="flex: 1; overflow-y: auto; min-height: 100px"
-          >
-            <div class="kb-card" draggable="true">
-              <div class="kb-card-title">Research competitors</div>
-              <span
-                class="kb-card-tag"
-                style="background: var(--teal2); color: var(--teal4)"
-                >Research</span
-              >
-            </div>
-            <div class="kb-card" draggable="true">
-              <div class="kb-card-title">Draft blog post</div>
-              <span
-                class="kb-card-tag"
-                style="background: var(--amber2); color: var(--amber)"
-                >Writing</span
-              >
-            </div>
-            <div class="kb-card" draggable="true">
-              <div class="kb-card-title">Design review</div>
-              <span
-                class="kb-card-tag"
-                style="background: var(--purple2); color: var(--purple3)"
-                >Design</span
-              >
-            </div>
-          </div>
-          <button class="kb-add">+ Add card</button>
-        </div>
-
-        <div class="kb-col">
-          <div class="kb-col-hd">
-            <span class="kb-col-title">🔄 In Progress</span>
-            <span class="kb-col-count" id="flux-count-progress">2</span>
-          </div>
-          <div
-            class="kb-col-body"
-            id="flux-progress"
-            style="flex: 1; overflow-y: auto; min-height: 100px"
-          >
-            <div class="kb-card" draggable="true">
-              <div class="kb-card-title">API integration</div>
-              <span
-                class="kb-card-tag"
-                style="background: var(--teal2); color: var(--teal4)"
-                >Dev</span
-              >
-            </div>
-            <div class="kb-card" draggable="true">
-              <div class="kb-card-title">User testing analysis</div>
-              <span
-                class="kb-card-tag"
-                style="background: var(--amber2); color: var(--amber)"
-                >Research</span
-              >
-            </div>
-          </div>
-          <button class="kb-add">+ Add card</button>
-        </div>
-
-        <div class="kb-col">
-          <div class="kb-col-hd">
-            <span class="kb-col-title">✅ Done</span>
-            <span class="kb-col-count" id="flux-count-done">4</span>
-          </div>
-          <div
-            class="kb-col-body"
-            id="flux-done"
-            style="flex: 1; overflow-y: auto; min-height: 100px"
-          >
-            <div class="kb-card" draggable="true">
-              <div class="kb-card-title">Wireframes approved</div>
-              <span
-                class="kb-card-tag"
-                style="background: var(--green2); color: var(--green3)"
-                >Done</span
-              >
-            </div>
-            <div class="kb-card" draggable="true">
-              <div class="kb-card-title">Stakeholder meeting</div>
-              <span
-                class="kb-card-tag"
-                style="background: var(--green2); color: var(--green3)"
-                >Done</span
-              >
-            </div>
-            <div class="kb-card" draggable="true">
-              <div class="kb-card-title">Content outline</div>
-              <span
-                class="kb-card-tag"
-                style="background: var(--green2); color: var(--green3)"
-                >Done</span
-              >
-            </div>
-          </div>
-          <button class="kb-add">+ Add card</button>
-        </div>
-      </div>
-
-      <!-- List view (hidden by default) -->
+{# ── FLUX / TASKS ── #}
+<div class="panel" id="panel-flux">
+  <!-- Header bar -->
+  <div
+    style="
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    "
+  >
+    <div>
       <div
-        id="flux-list"
-        style="display: none; flex: 1; height: 100%; overflow-y: auto"
+        style="
+          font-family: var(--font);
+          font-weight: 800;
+          font-size: 1rem;
+          letter-spacing: -0.02em;
+        "
       >
+        🗂️ Flux
+      </div>
+      <div style="font-size: 0.72rem; color: var(--muted); margin-top: 1px">
+        <span id="sh-total-count">0</span> tasks ·
+        <span id="sh-done-count">0</span> completed
+      </div>
+    </div>
+    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap">
+      <div style="position: relative">
+        <button
+          class="sh-view-btn"
+          id="sh-filter-btn"
+          onclick="shToggleFilter(event)"
+        >
+          ⊟ Filter
+        </button>
         <div
+          id="sh-filter-drop"
           style="
-            background: var(--bg2);
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            z-index: 200;
+            background: var(--bg);
             border: 1px solid var(--border);
-            border-radius: var(--radius2);
-            padding: 16px;
+            border-radius: 10px;
+            padding: 12px 14px;
+            min-width: 200px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
           "
         >
           <div
-            class="sh-th"
-            style="display: grid; grid-template-columns: 1fr 120px 80px"
+            style="
+              font-size: 0.72rem;
+              font-weight: 700;
+              color: var(--muted);
+              margin-bottom: 6px;
+              text-transform: uppercase;
+            "
           >
-            Task · Due · Status
+            Status
           </div>
+          <label class="sh-filter-opt"
+            ><input
+              type="checkbox"
+              value="not_started"
+              onchange="shApplyFilters()"
+            />
+            Not started</label
+          >
+          <label class="sh-filter-opt"
+            ><input
+              type="checkbox"
+              value="in_progress"
+              onchange="shApplyFilters()"
+            />
+            In progress</label
+          >
+          <label class="sh-filter-opt"
+            ><input type="checkbox" value="done" onchange="shApplyFilters()" />
+            Done</label
+          >
           <div
-            class="sh-td"
-            style="display: grid; grid-template-columns: 1fr 120px 80px"
+            style="
+              font-size: 0.72rem;
+              font-weight: 700;
+              color: var(--muted);
+              margin: 8px 0 6px;
+              text-transform: uppercase;
+            "
           >
-            <span>Research competitors</span>
-            <span style="color: var(--text4)">Jun 20</span>
-            <span class="chip c-teal">To Do</span>
+            Priority
           </div>
+          <label class="sh-filter-opt"
+            ><input
+              type="checkbox"
+              value="p_high"
+              onchange="shApplyFilters()"
+            />
+            High</label
+          >
+          <label class="sh-filter-opt"
+            ><input
+              type="checkbox"
+              value="p_medium"
+              onchange="shApplyFilters()"
+            />
+            Medium</label
+          >
+          <label class="sh-filter-opt"
+            ><input
+              type="checkbox"
+              value="p_normal"
+              onchange="shApplyFilters()"
+            />
+            Normal</label
+          >
+          <label class="sh-filter-opt"
+            ><input type="checkbox" value="p_low" onchange="shApplyFilters()" />
+            Low</label
+          >
           <div
-            class="sh-td"
-            style="display: grid; grid-template-columns: 1fr 120px 80px"
+            style="
+              font-size: 0.72rem;
+              font-weight: 700;
+              color: var(--muted);
+              margin: 8px 0 6px;
+              text-transform: uppercase;
+            "
           >
-            <span>API integration</span>
-            <span style="color: var(--text4)">Jun 22</span>
-            <span class="chip c-amber">In Progress</span>
+            Due
           </div>
+          <label class="sh-filter-opt"
+            ><input
+              type="checkbox"
+              value="due_overdue"
+              onchange="shApplyFilters()"
+            />
+            Overdue</label
+          >
+          <label class="sh-filter-opt"
+            ><input
+              type="checkbox"
+              value="due_today"
+              onchange="shApplyFilters()"
+            />
+            Today</label
+          >
+          <label class="sh-filter-opt"
+            ><input
+              type="checkbox"
+              value="due_week"
+              onchange="shApplyFilters()"
+            />
+            This week</label
+          >
+          <label class="sh-filter-opt"
+            ><input
+              type="checkbox"
+              value="due_none"
+              onchange="shApplyFilters()"
+            />
+            No date</label
+          >
+        </div>
+      </div>
+      <div style="position: relative">
+        <button
+          class="sh-view-btn"
+          id="sh-sort-btn"
+          onclick="shToggleSort(event)"
+        >
+          ↕ Sort
+        </button>
+        <div
+          id="sh-sort-drop"
+          style="
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            z-index: 200;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            min-width: 210px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+          "
+        >
+          <label class="sh-filter-opt"
+            ><input
+              type="radio"
+              name="sh-sort"
+              value="due_asc"
+              checked
+              onchange="shApplySort()"
+            />
+            Due date (earliest first)</label
+          >
+          <label class="sh-filter-opt"
+            ><input
+              type="radio"
+              name="sh-sort"
+              value="due_desc"
+              onchange="shApplySort()"
+            />
+            Due date (latest first)</label
+          >
+          <label class="sh-filter-opt"
+            ><input
+              type="radio"
+              name="sh-sort"
+              value="priority"
+              onchange="shApplySort()"
+            />
+            Priority (high to low)</label
+          >
+          <label class="sh-filter-opt"
+            ><input
+              type="radio"
+              name="sh-sort"
+              value="created"
+              onchange="shApplySort()"
+            />
+            Created (newest first)</label
+          >
+          <label class="sh-filter-opt"
+            ><input
+              type="radio"
+              name="sh-sort"
+              value="alpha"
+              onchange="shApplySort()"
+            />
+            Alphabetical</label
+          >
+        </div>
+      </div>
+      <button
+        class="sh-view-btn active"
+        id="sh-view-overview"
+        onclick="setSHView('overview', this)"
+      >
+        ★ Overview
+      </button>
+      <button
+        class="sh-view-btn"
+        id="sh-view-board"
+        onclick="setSHView('board', this)"
+      >
+        ⊞ Board
+      </button>
+      <button
+        class="sh-view-btn"
+        id="sh-view-list"
+        onclick="setSHView('list', this)"
+      >
+        ☰ List
+      </button>
+      <button class="sh-add-task-btn" onclick="openAddTask()">
+        + New Task
+      </button>
+    </div>
+  </div>
+
+  <!-- Progress bar -->
+  <div
+    style="
+      padding: 0.4rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    "
+  >
+    <div
+      style="
+        flex: 1;
+        height: 4px;
+        background: var(--border);
+        border-radius: 99px;
+        overflow: hidden;
+      "
+    >
+      <div
+        id="sh-progress-bar"
+        style="
+          height: 100%;
+          width: 0%;
+          background: linear-gradient(90deg, #22c55e, #16a34a);
+          border-radius: 99px;
+          transition: width 0.5s ease;
+        "
+      ></div>
+    </div>
+    <span
+      style="font-size: 0.72rem; color: var(--muted); white-space: nowrap"
+      id="sh-pct"
+      >0%</span
+    >
+  </div>
+
+  <!-- Overview view — Notion-style table -->
+  <div
+    id="sh-overview-view"
+    style="
+      flex: 1;
+      overflow: auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    "
+  >
+    <table
+      id="sh-overview-table"
+      style="
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1100px;
+        table-layout: fixed;
+      "
+    >
+      <colgroup>
+        <col style="width: 32px" />
+        <!-- Bulk checkbox -->
+        <col style="width: 220px" />
+        <!-- Task name -->
+        <col style="width: 110px" />
+        <!-- Status -->
+        <col style="width: 100px" />
+        <!-- Task type -->
+        <col style="width: 160px" />
+        <!-- Description -->
+        <col style="width: 110px" />
+        <!-- Assignee -->
+        <col style="width: 110px" />
+        <!-- Due date -->
+        <col style="width: 95px" />
+        <!-- Priority -->
+        <col style="width: 90px" />
+        <!-- Attach file -->
+        <col style="width: 110px" />
+        <!-- Last Updated -->
+        <col style="width: 160px" />
+        <!-- Summary -->
+        <col style="width: 70px" />
+        <!-- Done -->
+      </colgroup>
+      <thead>
+        <tr
+          style="
+            background: var(--surface);
+            position: sticky;
+            top: 0;
+            z-index: 2;
+          "
+        >
+          <th class="sh-th" style="text-align: center; padding: 6px 4px">
+            <input
+              type="checkbox"
+              id="sh-bulk-all"
+              onchange="_shBulkSelectAll(this.checked)"
+              style="cursor: pointer; accent-color: var(--accent)"
+            />
+          </th>
+          <th class="sh-th" style="text-align: left">Aa Task name</th>
+          <th class="sh-th" style="text-align: left">⊙ Status</th>
+          <th class="sh-th" style="text-align: left">🏷 Task type</th>
+          <th class="sh-th" style="text-align: left">📝 Description</th>
+          <th class="sh-th" style="text-align: left">👤 Assignee</th>
+          <th class="sh-th" style="text-align: left">📅 Due date</th>
+          <th class="sh-th" style="text-align: left">⚡ Priority</th>
+          <th class="sh-th" style="text-align: left">📎 Attach</th>
+          <th class="sh-th" style="text-align: left">🕐 Last Updated</th>
+          <th class="sh-th" style="text-align: left">💡 Summary</th>
+          <th class="sh-th" style="text-align: center">✓</th>
+        </tr>
+      </thead>
+      <tbody id="sh-overview-rows"></tbody>
+      <tfoot>
+        <tr>
+          <td
+            colspan="12"
+            style="padding: 0; border-top: 1px dashed var(--border)"
+          >
+            <button
+              onclick="openAddTask()"
+              style="
+                width: 100%;
+                background: none;
+                border: none;
+                padding: 9px 16px;
+                color: var(--muted);
+                font-size: 0.82rem;
+                cursor: pointer;
+                text-align: left;
+              "
+              onmouseover="this.style.background = 'var(--surface)'"
+              onmouseout="this.style.background = 'none'"
+            >
+              + New task
+            </button>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Bulk action bar -->
+    <div
+      id="sh-bulk-bar"
+      style="
+        display: none;
+        position: sticky;
+        bottom: 0;
+        background: var(--bg);
+        border-top: 2px solid var(--accent);
+        padding: 10px 16px;
+        align-items: center;
+        gap: 8px;
+        z-index: 5;
+        box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+        flex-shrink: 0;
+      "
+    >
+      <span
+        id="sh-bulk-count"
+        style="
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: var(--accent);
+          min-width: 100px;
+        "
+      ></span>
+      <button
+        onclick="_shBulkComplete()"
+        style="
+          background: #22c55e12;
+          border: 1px solid #22c55e40;
+          color: #22c55e;
+          border-radius: 7px;
+          padding: 5px 13px;
+          font-family: var(--font-body);
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+        "
+      >
+        ✓ Complete
+      </button>
+      <select
+        onchange="_shBulkPriority(this.value)"
+        style="
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 7px;
+          padding: 5px 10px;
+          color: var(--text);
+          font-family: var(--font-body);
+          font-size: 0.78rem;
+          cursor: pointer;
+          outline: none;
+        "
+      >
+        <option value="">Priority…</option>
+        <option value="high">🔴 High</option>
+        <option value="medium">🟡 Medium</option>
+        <option value="low">🟢 Low</option>
+        <option value="normal">— Normal</option>
+      </select>
+      <button
+        onclick="_shBulkDelete()"
+        style="
+          background: #ef444412;
+          border: 1px solid #ef444430;
+          color: #ef4444;
+          border-radius: 7px;
+          padding: 5px 13px;
+          font-family: var(--font-body);
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+        "
+      >
+        🗑 Delete
+      </button>
+      <div style="flex: 1"></div>
+      <button
+        onclick="_shBulkClear()"
+        style="
+          background: none;
+          border: 1px solid var(--border);
+          border-radius: 7px;
+          padding: 5px 10px;
+          color: var(--muted);
+          font-family: var(--font-body);
+          font-size: 0.78rem;
+          cursor: pointer;
+        "
+      >
+        ✕ Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Board view -->
+  <div
+    id="sh-board-view"
+    style="
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 1rem;
+      display: none;
+      gap: 12px;
+      align-items: flex-start;
+      min-height: 0;
+    "
+  >
+    <!-- Column: Not Started -->
+    <div class="sh-col">
+      <div class="sh-col-header">
+        <div style="display: flex; align-items: center; gap: 7px">
+          <div class="sh-col-dot" style="background: #94a3b8"></div>
+          <span class="sh-col-title">Not Started</span>
+          <span class="sh-col-count" id="sh-col-count-todo">0</span>
+        </div>
+      </div>
+      <div
+        class="sh-col-body"
+        id="sh-col-todo"
+        ondragover="shDragOver(event)"
+        ondrop="shDrop(event, 'todo')"
+      ></div>
+      <button class="sh-col-add" onclick="openAddTask('todo')">
+        + Add task
+      </button>
+    </div>
+
+    <!-- Column: In Progress -->
+    <div class="sh-col">
+      <div class="sh-col-header">
+        <div style="display: flex; align-items: center; gap: 7px">
+          <div class="sh-col-dot" style="background: #f59e0b"></div>
+          <span class="sh-col-title">In Progress</span>
+          <span class="sh-col-count" id="sh-col-count-inprogress">0</span>
+        </div>
+      </div>
+      <div
+        class="sh-col-body"
+        id="sh-col-inprogress"
+        ondragover="shDragOver(event)"
+        ondrop="shDrop(event, 'inprogress')"
+      ></div>
+      <button class="sh-col-add" onclick="openAddTask('inprogress')">
+        + Add task
+      </button>
+    </div>
+
+    <!-- Column: Done -->
+    <div class="sh-col">
+      <div class="sh-col-header">
+        <div style="display: flex; align-items: center; gap: 7px">
+          <div class="sh-col-dot" style="background: #22c55e"></div>
+          <span class="sh-col-title">Done</span>
+          <span class="sh-col-count" id="sh-col-count-done">0</span>
+        </div>
+      </div>
+      <div
+        class="sh-col-body"
+        id="sh-col-done"
+        ondragover="shDragOver(event)"
+        ondrop="shDrop(event, 'done')"
+      ></div>
+      <button class="sh-col-add" onclick="openAddTask('done')">
+        + Add task
+      </button>
+    </div>
+
+    <!-- Column: AI Tools -->
+    <div class="sh-col" style="min-width: 220px">
+      <div class="sh-col-header">
+        <div style="display: flex; align-items: center; gap: 7px">
+          <div class="sh-col-dot" style="background: #a855f7"></div>
+          <span class="sh-col-title">AI Tools</span>
+        </div>
+      </div>
+      <div
+        style="
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 4px 0;
+          overflow-y: auto;
+          max-height: calc(100vh - 260px);
+        "
+      >
+        <div class="sh-ai-card">
+          <div class="sh-ai-title">🧠 Break Down a Task</div>
+          <textarea
+            id="sh-structure-input"
+            class="sh-input"
+            rows="2"
+            placeholder="Describe your task..."
+            style="
+              resize: none;
+              width: 100%;
+              box-sizing: border-box;
+              font-size: 0.78rem;
+              margin-bottom: 6px;
+            "
+          ></textarea>
+          <button
+            class="sh-add-btn"
+            style="width: 100%"
+            onclick="generateTaskStructure()"
+          >
+            Generate Steps
+          </button>
           <div
-            class="sh-td"
-            style="display: grid; grid-template-columns: 1fr 120px 80px"
+            id="sh-structure-result"
+            style="
+              display: none;
+              margin-top: 6px;
+              font-size: 0.75rem;
+              line-height: 1.6;
+              color: var(--text);
+            "
+            class="lab-content"
+          ></div>
+        </div>
+        <div class="sh-ai-card">
+          <div class="sh-ai-title">📄 Create PDF</div>
+          <input
+            id="sh-pdf-title"
+            class="sh-input"
+            placeholder="PDF title..."
+            style="margin-bottom: 5px; font-size: 0.78rem"
+          />
+          <textarea
+            id="sh-pdf-content"
+            class="sh-input"
+            rows="3"
+            placeholder="Paste content here..."
+            style="
+              resize: none;
+              width: 100%;
+              box-sizing: border-box;
+              font-size: 0.78rem;
+              margin-bottom: 6px;
+            "
+          ></textarea>
+          <button
+            class="sh-add-btn"
+            style="width: 100%"
+            onclick="createStudyPDF()"
           >
-            <span>Wireframes approved</span>
-            <span style="color: var(--text4)">Jun 18</span>
-            <span class="chip c-green">Done</span>
-          </div>
+            Download PDF
+          </button>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-{# ── CALENDAR PANEL ───────────────────────────────────────── #}
-<div id="panel-calendar" class="panel">
-  <div class="cal-layout">
-    <!-- Left rail -->
-    <div class="cal-rail">
-      <!-- Mini calendar -->
-      <div>
-        <div class="cal-mini-hd">
-          <span class="cal-mini-label" id="cal-mini-label">June 2026</span>
-          <div>
-            <button class="cal-mini-nav" id="cal-mini-prev">‹</button>
-            <button class="cal-mini-nav" id="cal-mini-next">›</button>
-          </div>
+  <!-- List view -->
+  <div
+    id="sh-list-view"
+    style="flex: 1; overflow: auto; padding: 1rem; display: none; min-height: 0"
+  >
+    <div id="sh-list-container"></div>
+  </div>
+
+  <!-- Add / Edit task modal -->
+  <div
+    id="sh-modal-bg"
+    style="
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #00000075;
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    "
+  >
+    <div
+      style="
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1.5rem;
+        width: 100%;
+        max-width: 520px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px #00000050;
+      "
+    >
+      <div
+        style="
+          font-family: var(--font);
+          font-weight: 700;
+          font-size: 1rem;
+          margin-bottom: 1.25rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        "
+      >
+        <span id="sh-modal-heading">New Task</span>
+        <button
+          onclick="closeSHModal()"
+          style="
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 1.1rem;
+          "
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Task name -->
+      <div class="sh-field-group">
+        <label class="sh-field-label">Task name *</label>
+        <input
+          id="sh-modal-title"
+          class="sh-input"
+          placeholder="e.g. Write introduction chapter"
+          style="font-size: 0.9rem"
+          onkeydown="
+            if (event.key === 'Enter' && !event.shiftKey) saveSHModal();
+          "
+        />
+      </div>
+
+      <!-- Status + Task type -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+        <div class="sh-field-group">
+          <label class="sh-field-label">Status</label>
+          <select
+            id="sh-modal-status"
+            class="sh-input"
+            style="font-size: 0.82rem"
+          >
+            <option value="todo">Not Started</option>
+            <option value="inprogress">In Progress</option>
+            <option value="done">Done</option>
+          </select>
         </div>
-        <div class="cal-mini-grid" id="cal-mini-grid">
-          <span class="cm-dh">S</span><span class="cm-dh">M</span
-          ><span class="cm-dh">T</span> <span class="cm-dh">W</span
-          ><span class="cm-dh">T</span><span class="cm-dh">F</span>
-          <span class="cm-dh">S</span>
-          <!-- Days injected by JS -->
-          <span class="cm-day">1</span><span class="cm-day">2</span
-          ><span class="cm-day">3</span> <span class="cm-day">4</span
-          ><span class="cm-day">5</span><span class="cm-day">6</span>
-          <span class="cm-day">7</span>
+        <div class="sh-field-group">
+          <label class="sh-field-label">Task type</label>
+          <select
+            id="sh-modal-type"
+            class="sh-input"
+            style="font-size: 0.82rem"
+          >
+            <option value="work">📋 Work Item</option>
+            <option value="research">🔬 Research</option>
+            <option value="reading">📖 Reading</option>
+            <option value="project">🗂 Project</option>
+            <option value="review">🔄 Review</option>
+            <option value="other">⚙️ Other</option>
+          </select>
         </div>
       </div>
 
-      <!-- Next reminder -->
-      <div class="cal-reminder" id="cal-reminder">
-        <div class="cal-rem-label">⏰ Next up</div>
-        <div class="cal-rem-title">Team standup</div>
-        <div class="cal-rem-when">Today at 10:00 AM</div>
-        <button class="cal-rem-btn">View details →</button>
+      <!-- Description -->
+      <div class="sh-field-group">
+        <label class="sh-field-label">Description</label>
+        <textarea
+          id="sh-modal-desc"
+          class="sh-input"
+          rows="2"
+          placeholder="What needs to be done..."
+          style="
+            resize: none;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 0.84rem;
+          "
+        ></textarea>
       </div>
 
-      <!-- Filters -->
-      <div>
-        <div class="cal-filters-hd">Filter calendars</div>
-        <div class="cal-filter on" style="--c: var(--teal)">
-          <span class="cal-filter-box">✓</span>
-          <span class="cal-filter-dot" style="background: var(--teal)"></span>
-          <span class="cal-filter-label">Work</span>
+      <!-- Assignee + Priority -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+        <div class="sh-field-group">
+          <label class="sh-field-label">Assignee</label>
+          <input
+            id="sh-modal-assignee"
+            class="sh-input"
+            placeholder="Name or @username"
+            style="font-size: 0.82rem"
+          />
         </div>
-        <div class="cal-filter on" style="--c: var(--purple)">
-          <span class="cal-filter-box">✓</span>
-          <span class="cal-filter-dot" style="background: var(--purple)"></span>
-          <span class="cal-filter-label">Personal</span>
+        <div class="sh-field-group">
+          <label class="sh-field-label">Priority</label>
+          <select
+            id="sh-modal-priority"
+            class="sh-input"
+            style="font-size: 0.82rem"
+          >
+            <option value="normal">— Normal</option>
+            <option value="high">🔴 High</option>
+            <option value="medium">🟡 Medium</option>
+            <option value="low">🟢 Low</option>
+          </select>
         </div>
-        <div class="cal-filter" style="--c: var(--amber3)">
-          <span class="cal-filter-box"></span>
-          <span class="cal-filter-dot" style="background: var(--amber3)"></span>
-          <span class="cal-filter-label">Reminders</span>
+      </div>
+
+      <!-- Link to goal -->
+      <div class="sh-field-group">
+        <label class="sh-field-label"
+          >Link to goal
+          <span style="color: var(--text4); font-weight: 400"
+            >(optional)</span
+          ></label
+        >
+        <select id="sh-modal-goal" class="sh-input" style="font-size: 0.82rem">
+          <option value="">— No goal —</option>
+        </select>
+      </div>
+
+      <!-- Due date + Time -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px">
+        <div class="sh-field-group">
+          <label class="sh-field-label">Due date</label>
+          <input
+            id="sh-modal-date"
+            type="date"
+            class="sh-input"
+            style="font-size: 0.82rem"
+          />
         </div>
+        <div class="sh-field-group">
+          <label class="sh-field-label">Due time</label>
+          <input
+            id="sh-modal-time"
+            type="time"
+            class="sh-input"
+            style="font-size: 0.82rem"
+          />
+        </div>
+        <div class="sh-field-group">
+          <label class="sh-field-label">Repeat</label>
+          <select
+            id="sh-modal-recur"
+            class="sh-input"
+            style="font-size: 0.82rem"
+          >
+            <option value="">One time</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="sh-field-group">
+        <label class="sh-field-label">Summary / Notes</label>
+        <textarea
+          id="sh-modal-summary"
+          class="sh-input"
+          rows="2"
+          placeholder="Brief summary or additional notes..."
+          style="
+            resize: none;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 0.84rem;
+          "
+        ></textarea>
+      </div>
+
+      <!-- Attach file -->
+      <div class="sh-field-group">
+        <label class="sh-field-label">Attach file</label>
+        <div style="display: flex; gap: 8px; align-items: center">
+          <input
+            type="file"
+            id="sh-modal-file"
+            style="display: none"
+            onchange="handleSHAttach(this)"
+          />
+          <button
+            onclick="$('sh-modal-file').click()"
+            style="
+              background: var(--surface);
+              border: 1px solid var(--border);
+              border-radius: 8px;
+              padding: 7px 13px;
+              color: var(--muted);
+              font-size: 0.78rem;
+              cursor: pointer;
+              font-family: var(--font-body);
+              transition: all 0.15s;
+            "
+            onmouseover="this.style.borderColor = 'var(--accent)'"
+            onmouseout="this.style.borderColor = 'var(--border)'"
+          >
+            📎 Choose file
+          </button>
+          <span
+            id="sh-modal-file-name"
+            style="font-size: 0.75rem; color: var(--muted)"
+            >No file chosen</span
+          >
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display: flex; gap: 8px; margin-top: 0.5rem">
+        <button
+          class="btn-start"
+          style="flex: 1; padding: 10px"
+          onclick="saveSHModal()"
+        >
+          Save Task
+        </button>
+        <button
+          onclick="closeSHModal()"
+          style="
+            flex: 1;
+            padding: 10px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--muted);
+            font-family: var(--font);
+            font-size: 0.85rem;
+            cursor: pointer;
+          "
+        >
+          Cancel
+        </button>
       </div>
     </div>
+  </div>
 
-    <!-- Main pane -->
-    <div class="cal-main">
+  <!-- Task detail side panel -->
+  <div
+    id="sh-detail-panel"
+    style="
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 380px;
+      max-width: 95vw;
+      height: 100vh;
+      background: var(--bg);
+      border-left: 1px solid var(--border);
+      z-index: 300;
+      box-shadow: -4px 0 28px rgba(0, 0, 0, 0.14);
+      transform: translateX(100%);
+      transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    "
+  >
+    <div
+      style="
+        position: sticky;
+        top: 0;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        padding: 13px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+      "
+    >
+      <span
+        style="
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--muted);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+        "
+        >Task Detail</span
+      >
+      <button
+        onclick="shCloseDetail()"
+        style="
+          background: none;
+          border: none;
+          color: var(--muted);
+          cursor: pointer;
+          font-size: 1rem;
+          line-height: 1;
+          padding: 2px 6px;
+        "
+      >
+        ✕
+      </button>
+    </div>
+    <div
+      id="sh-detail-body"
+      style="flex: 1; overflow-y: auto; padding: 16px"
+    ></div>
+  </div>
+  <div
+    id="sh-detail-backdrop"
+    onclick="shCloseDetail()"
+    style="
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.25);
+      z-index: 299;
+    "
+  ></div>
+</div>
+
+{# ── CALENDAR ── #}
+<div class="panel" id="panel-calendar">
+  <div class="view-head">
+    <i class="ti ti-calendar vh-icon"></i>
+    <span class="vh-title">Calendar</span>
+    <div
+      style="display: flex; gap: 8px; align-items: center; margin-left: auto"
+    >
+      <button
+        id="gcal-connect-btn"
+        class="btn"
+        onclick="gcalConnect()"
+        style="gap: 6px"
+      >
+        <svg width="13" height="13" viewBox="0 0 48 48">
+          <path
+            fill="#EA4335"
+            d="M24 9.5c3.5 0 6.6 1.2 9.1 3.2l6.8-6.8C35.8 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.3 17.7 9.5 24 9.5z"
+          />
+          <path
+            fill="#4285F4"
+            d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.5-4.1 7-10.2 7-17.1z"
+          />
+          <path
+            fill="#FBBC05"
+            d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.6L2.6 13.3A24 24 0 0 0 0 24c0 3.8.9 7.4 2.6 10.7l7.9-6.1z"
+          />
+          <path
+            fill="#34A853"
+            d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.6-5.9c-2 1.4-4.7 2.2-7.6 2.2-6.3 0-11.6-3.8-13.5-9.2l-7.9 6.1C6.5 42.6 14.6 48 24 48z"
+          />
+        </svg>
+        <span id="gcal-btn-label">Connect Google</span>
+      </button>
+      <button
+        id="gcal-disconnect-btn"
+        class="btn"
+        style="display: none"
+        onclick="gcalDisconnect()"
+        title="Disconnect Google Calendar"
+      >
+        <i class="ti ti-unlink"></i>
+      </button>
+      <button class="btn primary" onclick="calAddEvent()">+ Event</button>
+    </div>
+  </div>
+  <div class="cal-layout">
+    <!-- LEFT RAIL: mini-calendar, next-up reminder, filters -->
+    <aside class="cal-rail">
+      <div class="cal-mini">
+        <div class="cal-mini-hd">
+          <button
+            class="cal-mini-nav"
+            onclick="calMiniNav(-1)"
+            aria-label="Previous month"
+          >
+            <i class="ti ti-chevron-left"></i>
+          </button>
+          <span class="cal-mini-label" id="cal-mini-label">June 2026</span>
+          <button
+            class="cal-mini-nav"
+            onclick="calMiniNav(1)"
+            aria-label="Next month"
+          >
+            <i class="ti ti-chevron-right"></i>
+          </button>
+        </div>
+        <div class="cal-mini-grid" id="cal-mini-grid"></div>
+      </div>
+
+      <div class="cal-reminder" id="cal-reminder"></div>
+
+      <div class="cal-filters">
+        <div class="cal-filters-hd">Filters</div>
+        <div id="cal-filter-list"></div>
+      </div>
+    </aside>
+
+    <!-- MAIN: date range + view toggle + timeline/month body -->
+    <section class="cal-main">
       <div class="cal-main-hd">
         <div class="cal-main-nav">
-          <button class="cal-nav-btn" id="cal-nav-prev">‹</button>
-          <span class="cal-range" id="cal-range">Jun 14 – 20, 2026</span>
-          <button class="cal-nav-btn" id="cal-nav-next">›</button>
-          <button class="cal-nav-btn" id="cal-nav-today">Today</button>
+          <button
+            class="cal-nav-btn"
+            onclick="calNav(-1)"
+            aria-label="Previous"
+          >
+            <i class="ti ti-chevron-left"></i>
+          </button>
+          <div class="cal-range" id="cal-range-label">June 2026</div>
+          <button class="cal-nav-btn" onclick="calNav(1)" aria-label="Next">
+            <i class="ti ti-chevron-right"></i>
+          </button>
         </div>
-        <div class="cal-seg">
-          <button class="active" data-view="week">Week</button>
-          <button data-view="month">Month</button>
-        </div>
-      </div>
-      <div class="cal-main-body">
-        <!-- Week view -->
-        <div class="cal-tl" id="cal-week-view">
-          <div class="cw-headrow" style="--cols: 7">
-            <div class="cw-corner"></div>
-            <div class="cw-dayhead">
-              <div class="cw-dayname">Mon</div>
-              <div class="cw-daynum">14</div>
-            </div>
-            <div class="cw-dayhead">
-              <div class="cw-dayname">Tue</div>
-              <div class="cw-daynum">15</div>
-            </div>
-            <div class="cw-dayhead">
-              <div class="cw-dayname">Wed</div>
-              <div class="cw-daynum">16</div>
-            </div>
-            <div class="cw-dayhead">
-              <div class="cw-dayname">Thu</div>
-              <div class="cw-daynum">17</div>
-            </div>
-            <div class="cw-dayhead">
-              <div class="cw-dayname">Fri</div>
-              <div class="cw-daynum">18</div>
-            </div>
-            <div class="cw-dayhead">
-              <div class="cw-dayname">Sat</div>
-              <div class="cw-daynum">19</div>
-            </div>
-            <div class="cw-dayhead">
-              <div class="cw-dayname">Sun</div>
-              <div class="cw-daynum">20</div>
-            </div>
-          </div>
-          <div class="cw-scroll">
-            <div class="cw-grid" style="--cols: 7">
-              <!-- Time labels and event slots injected by JS -->
-              <div class="cw-gutter">
-                <div class="cw-hour"><span>9:00</span></div>
-              </div>
-              <div class="cw-col"></div>
-              <div class="cw-col"></div>
-              <div class="cw-col"></div>
-              <div class="cw-col"></div>
-              <div class="cw-col"></div>
-              <div class="cw-col"></div>
-              <div class="cw-col"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Month view (hidden by default) -->
-        <div class="cal-month-view" id="cal-month-view" style="display: none">
-          <div class="cal-dow-row">
-            <span class="cal-dh">Sun</span><span class="cal-dh">Mon</span
-            ><span class="cal-dh">Tue</span> <span class="cal-dh">Wed</span
-            ><span class="cal-dh">Thu</span><span class="cal-dh">Fri</span>
-            <span class="cal-dh">Sat</span>
-          </div>
-          <div class="cal-grid" id="cal-month-grid">
-            <!-- Cells injected by JS -->
-            <div class="cal-cell other-month">
-              <span class="cal-num">30</span>
-            </div>
-            <div class="cal-cell"><span class="cal-num">1</span></div>
-            <div class="cal-cell"><span class="cal-num">2</span></div>
-            <div class="cal-cell">
-              <span class="cal-num">3</span
-              ><span
-                class="cal-pill"
-                style="background: var(--teal2); color: var(--teal)"
-                >Team sync</span
-              >
-            </div>
-            <div class="cal-cell"><span class="cal-num">4</span></div>
-            <div class="cal-cell"><span class="cal-num">5</span></div>
-            <div class="cal-cell"><span class="cal-num">6</span></div>
-          </div>
+        <div class="cal-seg" id="cal-view-seg">
+          <button data-v="day" onclick="calSetView('day')">Daily</button>
+          <button data-v="week" class="active" onclick="calSetView('week')">
+            Weekly
+          </button>
+          <button data-v="month" onclick="calSetView('month')">Monthly</button>
         </div>
       </div>
-    </div>
+      <div class="cal-main-body" id="cal-main-body"></div>
+    </section>
   </div>
 </div>
 
-{# ── NOTES PANEL ───────────────────────────────────────────── #}
-<div id="panel-notes" class="panel">
-  <!-- Sidebar -->
+{# ── NOTES / DOCS ── #}
+<div class="panel" id="panel-notes">
+  <!-- Doc sidebar -->
   <div class="doc-sidebar">
     <div class="doc-sb-top">
-      <button class="doc-new-btn" id="doc-new-btn">+ New Note</button>
+      <button class="doc-new-btn" onclick="docNew()">
+        <i class="ti ti-plus"></i> New Doc
+      </button>
       <div class="doc-search-wrap">
-        <span class="doc-search-icon">🔍</span>
+        <i class="ti ti-search doc-search-icon"></i>
         <input
           class="doc-search-input"
-          id="doc-search-input"
-          placeholder="Search notes..."
+          id="doc-search"
+          placeholder="Search docs..."
+          oninput="docSearchFilter()"
         />
       </div>
     </div>
     <div class="doc-list" id="doc-list">
-      <div class="doc-item active">
-        <div class="doc-item-row">
-          <span class="doc-item-title">Welcome to Sivarr Notes</span>
-          <button class="doc-delete-btn">✕</button>
-        </div>
-        <div class="doc-item-meta">Edited 2 min ago</div>
-      </div>
-      <div class="doc-item">
-        <div class="doc-item-row">
-          <span class="doc-item-title">Meeting notes — Q3 planning</span>
-          <button class="doc-delete-btn">✕</button>
-        </div>
-        <div class="doc-item-meta">Edited 2 hours ago</div>
-      </div>
-      <div class="doc-item">
-        <div class="doc-item-row">
-          <span class="doc-item-title">Product roadmap draft</span>
-          <button class="doc-delete-btn">✕</button>
-        </div>
-        <div class="doc-item-meta">Edited yesterday</div>
-      </div>
-      <div class="doc-item">
-        <div class="doc-item-row">
-          <span class="doc-item-title">Research notes — competitors</span>
-          <button class="doc-delete-btn">✕</button>
-        </div>
-        <div class="doc-item-meta">Edited 3 days ago</div>
-      </div>
+      <div class="doc-list-empty">No docs yet</div>
     </div>
   </div>
 
   <!-- Editor area -->
   <div class="doc-editor-area">
-    <!-- Empty state (shown when no note selected) -->
-    <div class="doc-empty-state" id="doc-empty-state" style="display: none">
-      <div class="doc-es-icon">📝</div>
-      <div class="doc-es-title">No note selected</div>
-      <div class="doc-es-sub">
-        Choose a note from the sidebar or create a new one
-      </div>
-      <button class="doc-es-btn">+ New Note</button>
+    <!-- Empty state -->
+    <div class="doc-empty-state" id="doc-empty-state">
+      <div class="doc-es-icon">📄</div>
+      <div class="doc-es-title">No document open</div>
+      <div class="doc-es-sub">Select a doc or create a new one</div>
+      <button class="doc-es-btn" onclick="docNew()">
+        + Create your first doc
+      </button>
     </div>
 
-    <!-- Editor (shown when note selected) -->
-    <div class="doc-editor-wrap" id="doc-editor-wrap">
+    <!-- Editor (shown when a doc is open) -->
+    <div class="doc-editor-wrap" id="doc-editor-wrap" style="display: none">
       <!-- Toolbar -->
       <div class="doc-toolbar" id="doc-toolbar">
         <div class="doc-tb-group">
-          <button class="doc-tb-btn" data-command="undo" title="Undo">↩</button>
-          <button class="doc-tb-btn" data-command="redo" title="Redo">↪</button>
-        </div>
-        <span class="doc-tb-sep"></span>
-        <div class="doc-tb-group">
-          <button class="doc-tb-btn active" data-command="bold" title="Bold">
-            <strong>B</strong>
-          </button>
-          <button class="doc-tb-btn" data-command="italic" title="Italic">
-            <em>I</em>
-          </button>
-          <button class="doc-tb-btn" data-command="underline" title="Underline">
-            <u>U</u>
-          </button>
           <button
             class="doc-tb-btn"
-            data-command="strike"
-            title="Strikethrough"
+            onmousedown="
+              event.preventDefault();
+              docFormat('bold');
+            "
+            title="Bold"
           >
-            <s>S</s>
+            <i class="ti ti-bold"></i>
+          </button>
+          <button
+            class="doc-tb-btn"
+            onmousedown="
+              event.preventDefault();
+              docFormat('italic');
+            "
+            title="Italic"
+          >
+            <i class="ti ti-italic"></i>
+          </button>
+          <button
+            class="doc-tb-btn"
+            onmousedown="
+              event.preventDefault();
+              docFormat('underline');
+            "
+            title="Underline"
+          >
+            <i class="ti ti-underline"></i>
           </button>
         </div>
-        <span class="doc-tb-sep"></span>
-        <div class="doc-tb-group">
-          <button class="doc-tb-btn" data-command="h1" title="Heading 1">
-            H1
-          </button>
-          <button class="doc-tb-btn" data-command="h2" title="Heading 2">
-            H2
-          </button>
-          <button class="doc-tb-btn" data-command="h3" title="Heading 3">
-            H3
-          </button>
-        </div>
-        <span class="doc-tb-sep"></span>
+        <div class="doc-tb-sep"></div>
         <div class="doc-tb-group">
           <button
             class="doc-tb-btn"
-            data-command="bullet-list"
+            onmousedown="
+              event.preventDefault();
+              docFormatBlock('h1');
+            "
+            title="Heading 1"
+          >
+            <b style="font-size: 0.8rem">H1</b>
+          </button>
+          <button
+            class="doc-tb-btn"
+            onmousedown="
+              event.preventDefault();
+              docFormatBlock('h2');
+            "
+            title="Heading 2"
+          >
+            <b style="font-size: 0.78rem">H2</b>
+          </button>
+          <button
+            class="doc-tb-btn"
+            onmousedown="
+              event.preventDefault();
+              docFormatBlock('h3');
+            "
+            title="Heading 3"
+          >
+            <b style="font-size: 0.74rem">H3</b>
+          </button>
+          <button
+            class="doc-tb-btn"
+            onmousedown="
+              event.preventDefault();
+              docFormatBlock('p');
+            "
+            title="Paragraph"
+          >
+            <i class="ti ti-pilcrow"></i>
+          </button>
+        </div>
+        <div class="doc-tb-sep"></div>
+        <div class="doc-tb-group">
+          <button
+            class="doc-tb-btn"
+            onmousedown="
+              event.preventDefault();
+              docFormat('insertUnorderedList');
+            "
             title="Bullet list"
           >
-            •
+            <i class="ti ti-list"></i>
           </button>
           <button
             class="doc-tb-btn"
-            data-command="ordered-list"
+            onmousedown="
+              event.preventDefault();
+              docFormat('insertOrderedList');
+            "
             title="Numbered list"
           >
-            1.
+            <i class="ti ti-list-numbers"></i>
           </button>
-          <button class="doc-tb-btn" data-command="blockquote" title="Quote">
+        </div>
+        <div class="doc-tb-sep"></div>
+        <div class="doc-tb-group">
+          <button
+            class="doc-tb-btn"
+            onmousedown="
+              event.preventDefault();
+              docFormatBlock('blockquote');
             "
+            title="Quote"
+          >
+            <i class="ti ti-quote"></i>
           </button>
           <button
             class="doc-tb-btn"
-            data-command="code-block"
+            onmousedown="
+              event.preventDefault();
+              docFormatBlock('pre');
+            "
             title="Code block"
           >
-            &lt;/&gt;
+            <i class="ti ti-code"></i>
           </button>
         </div>
-        <span class="doc-tb-sep"></span>
+        <div class="doc-tb-sep"></div>
         <div class="doc-tb-group">
-          <button class="doc-tb-btn" data-command="link" title="Insert link">
-            🔗
+          <button
+            class="doc-tb-btn"
+            onmousedown="
+              event.preventDefault();
+              docExportMd();
+            "
+            title="Export as Markdown"
+          >
+            <i class="ti ti-markdown"></i>
+          </button>
+          <button
+            class="doc-tb-btn"
+            onmousedown="
+              event.preventDefault();
+              docExportPdf();
+            "
+            title="Export as PDF"
+          >
+            <i class="ti ti-file-type-pdf"></i>
           </button>
         </div>
-        <button class="doc-siva-btn" id="doc-ai-btn">✨ AI Assist</button>
+        <div class="doc-tb-sep"></div>
+        <button class="doc-siva-btn" onclick="docInlineAI()">
+          <i class="ti ti-sparkles"></i> AI Write
+        </button>
+      </div>
+
+      <!-- Inline AI panel (hidden until triggered) -->
+      <div
+        id="doc-ai-panel"
+        style="
+          display: none;
+          border-bottom: 1px solid var(--border);
+          padding: 12px 16px;
+          background: var(--surface);
+          flex-shrink: 0;
+        "
+      >
+        <div style="display: flex; gap: 8px; align-items: flex-start">
+          <div style="flex: 1; min-width: 0">
+            <input
+              id="doc-ai-prompt"
+              placeholder="What should Sivarr write or improve? (e.g. 'Expand this', 'Make it formal')"
+              style="
+                width: 100%;
+                background: var(--bg);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 8px 12px;
+                color: var(--text);
+                font-family: var(--font-body);
+                font-size: 0.83rem;
+                outline: none;
+              "
+              onkeydown="if (event.key === 'Enter') docAIGenerate();"
+              onfocus="this.style.borderColor = 'var(--accent)'"
+              onblur="this.style.borderColor = 'var(--border)'"
+            />
+            <div
+              id="doc-ai-result"
+              style="
+                display: none;
+                margin-top: 8px;
+                padding: 10px 12px;
+                background: var(--bg);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                font-size: 0.83rem;
+                color: var(--text);
+                line-height: 1.65;
+                max-height: 180px;
+                overflow-y: auto;
+                white-space: pre-wrap;
+              "
+            ></div>
+          </div>
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 5px;
+              flex-shrink: 0;
+            "
+          >
+            <button
+              onclick="docAIGenerate()"
+              style="
+                background: var(--accent);
+                color: #fff;
+                border: none;
+                border-radius: 7px;
+                padding: 7px 13px;
+                font-family: var(--font-body);
+                font-size: 0.78rem;
+                font-weight: 600;
+                cursor: pointer;
+                white-space: nowrap;
+              "
+            >
+              ✨ Generate
+            </button>
+            <button
+              id="doc-ai-insert"
+              onclick="docAIInsert()"
+              style="
+                display: none;
+                background: var(--bg);
+                border: 1px solid var(--border);
+                border-radius: 7px;
+                padding: 6px 11px;
+                font-family: var(--font-body);
+                font-size: 0.76rem;
+                cursor: pointer;
+                color: var(--text2);
+                white-space: nowrap;
+              "
+            >
+              Insert ↓
+            </button>
+            <button
+              id="doc-ai-replace"
+              onclick="docAIReplace()"
+              style="
+                display: none;
+                background: var(--bg);
+                border: 1px solid var(--border);
+                border-radius: 7px;
+                padding: 6px 11px;
+                font-family: var(--font-body);
+                font-size: 0.76rem;
+                cursor: pointer;
+                color: var(--text2);
+                white-space: nowrap;
+              "
+            >
+              Replace ↺
+            </button>
+            <button
+              onclick="docAIPanelClose()"
+              style="
+                background: none;
+                border: 1px solid var(--border);
+                border-radius: 7px;
+                padding: 6px 9px;
+                font-size: 0.76rem;
+                cursor: pointer;
+                color: var(--muted);
+              "
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Title -->
       <div class="doc-title-area">
         <input
           class="doc-title-input"
-          id="doc-title-input"
-          placeholder="Untitled note"
-          value="Welcome to Sivarr Notes"
+          id="doc-title"
+          placeholder="Untitled"
+          oninput="docTitleChange()"
         />
       </div>
 
-      <!-- Content (Tiptap/ProseMirror) -->
-      <div class="doc-content" id="doc-content">
-        <div class="ProseMirror" id="doc-editor" contenteditable="true">
-          <p>
-            Welcome to <strong>Sivarr Notes</strong> — your AI-powered writing
-            workspace.
-          </p>
-          <p>This is a <em>rich text editor</em> with support for:</p>
-          <ul>
-            <li>Bold, italic, underline, strikethrough</li>
-            <li>Headings (H1, H2, H3)</li>
-            <li>Bullet and numbered lists</li>
-            <li>Blockquotes and code blocks</li>
-            <li>Links</li>
-          </ul>
-          <blockquote>
-            “The best time to start was yesterday. The next best time is now.”
-          </blockquote>
-          <p>Start writing, or press <code>/</code> for commands.</p>
-        </div>
-      </div>
+      <!-- Content — Tiptap mounts here -->
+      <div class="doc-content" id="doc-content"></div>
 
       <!-- Footer -->
       <div class="doc-footer">
         <span class="doc-save-status" id="doc-save-status"
-          >✓ All changes saved</span
+          >All changes saved</span
         >
-        <span class="doc-word-count" id="doc-word-count">32 words</span>
+        <div style="display: flex; gap: 14px">
+          <span class="doc-word-count" id="doc-word-count">0 words</span>
+          <span
+            class="doc-word-count"
+            id="doc-read-time"
+            style="color: var(--muted)"
+            >0 min read</span
+          >
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-{# ── SETTINGS PANEL ───────────────────────────────────────── #}
-<div id="panel-settings" class="panel">
+{# ── SETTINGS ── #}
+<div class="panel" id="panel-settings">
+  <div class="view-head">
+    <i class="ti ti-settings vh-icon"></i>
+    <span class="vh-title">Settings</span>
+  </div>
   <div class="st-layout">
-    <!-- Sub-nav -->
-    <nav class="st-subnav" id="settings-subnav">
-      <button class="st-subnav-item active" data-section="profile">
-        👤 Profile
+    <nav class="st-subnav" id="st-subnav">
+      <button
+        class="st-subnav-item active"
+        data-sec="profile"
+        onclick="stGoSection('profile', this)"
+      >
+        <i class="ti ti-user"></i> Profile
       </button>
-      <button class="st-subnav-item" data-section="appearance">
-        🎨 Appearance
+      <button
+        class="st-subnav-item"
+        data-sec="appearance"
+        onclick="stGoSection('appearance', this)"
+      >
+        <i class="ti ti-palette"></i> Appearance
       </button>
-      <button class="st-subnav-item" data-section="notifications">
-        🔔 Notifications
+      <button
+        class="st-subnav-item"
+        data-sec="notifications"
+        onclick="stGoSection('notifications', this)"
+      >
+        <i class="ti ti-bell"></i> Notifications
       </button>
-      <button class="st-subnav-item" data-section="security">
-        🔒 Security
+      <button
+        class="st-subnav-item"
+        data-sec="security"
+        onclick="stGoSection('security', this)"
+      >
+        <i class="ti ti-lock"></i> Security
       </button>
-      <button class="st-subnav-item" data-section="plan">💎 Plan</button>
-      <button class="st-subnav-item" data-section="integrations">
-        🔌 Integrations
+      <button
+        class="st-subnav-item"
+        data-sec="plan"
+        onclick="stGoSection('plan', this)"
+      >
+        <i class="ti ti-bolt"></i> My Plan
       </button>
-      <button class="st-subnav-item" data-section="export">📤 Export</button>
-      <button class="st-subnav-item" data-section="data">🗄️ Data</button>
-      <button class="st-subnav-item" data-section="org">🏢 Organization</button>
+      <button
+        class="st-subnav-item"
+        data-sec="export"
+        onclick="stGoSection('export', this)"
+      >
+        <i class="ti ti-package"></i> Import &amp; Export
+      </button>
+      <button
+        class="st-subnav-item"
+        data-sec="data"
+        onclick="stGoSection('data', this)"
+      >
+        <i class="ti ti-shield-lock"></i> Data &amp; Privacy
+      </button>
+      <button
+        class="st-subnav-item"
+        id="st-subnav-org"
+        data-sec="org"
+        onclick="stGoSection('org', this)"
+        style="display: none"
+      >
+        <i class="ti ti-building"></i> Organisation
+      </button>
     </nav>
-
-    <!-- Content -->
-    <div class="st-content" id="settings-content">
-      <!-- ── Profile ── -->
-      <div class="st-section open" data-section="profile">
+    <div class="st-content" id="st-content">
+      <!-- Profile -->
+      <div class="st-section open" id="st-sec-profile">
         <div class="st-section-hd">
-          <span
-            class="st-section-icon"
-            style="background: var(--teal2); color: var(--teal)"
-            >👤</span
-          >
-          <span class="st-section-title">Profile</span>
-          <span class="st-section-chevron">▾</span>
-        </div>
-        <div class="st-section-body">
-          <div class="st-field">
-            <label class="st-label">Display name</label>
-            <input class="st-input" value="User" />
-          </div>
-          <div class="st-field">
-            <label class="st-label">Email</label>
-            <input class="st-input" type="email" value="user@sivarr.ai" />
-          </div>
-          <div class="st-field">
-            <label class="st-label">Bio</label>
-            <textarea
-              class="st-input"
-              rows="3"
-              placeholder="Tell us about yourself..."
-            >
-AI enthusiast, product builder, lifelong learner.</textarea
-            >
-          </div>
-          <button class="st-btn" style="margin-top: 6px">
-            💾 Save changes
-          </button>
-        </div>
-      </div>
-
-      <!-- ── Appearance ── -->
-      <div class="st-section" data-section="appearance">
-        <div class="st-section-hd">
-          <span
-            class="st-section-icon"
-            style="background: var(--purple2); color: var(--purple)"
-            >🎨</span
-          >
-          <span class="st-section-title">Appearance</span>
-          <span class="st-section-chevron">▾</span>
-        </div>
-        <div class="st-section-body">
-          <div class="st-field">
-            <label class="st-label">Theme</label>
-            <div class="st-seg">
-              <button class="st-seg-btn active" data-theme="light">
-                ☀️ Light
-              </button>
-              <button class="st-seg-btn" data-theme="dark">🌙 Dark</button>
-              <button class="st-seg-btn" data-theme="system">💻 System</button>
-            </div>
-          </div>
-          <div class="st-field">
-            <label class="st-label">Density</label>
-            <div class="st-seg">
-              <button class="st-seg-btn" data-density="compact">Compact</button>
-              <button class="st-seg-btn active" data-density="comfortable">
-                Comfortable
-              </button>
-            </div>
-          </div>
-          <div class="st-field">
-            <label class="st-label">Font size</label>
-            <div class="st-fontsize-row">
-              <button class="st-seg-btn" data-font="0.9" style="flex: 0">
-                A-
-              </button>
-              <input
-                type="range"
-                class="st-range"
-                min="0.8"
-                max="1.3"
-                step="0.05"
-                value="1"
-              />
-              <button class="st-seg-btn" data-font="1.1" style="flex: 0">
-                A+
-              </button>
-              <span
-                style="font-size: 0.78rem; color: var(--text4); min-width: 32px"
-                >100%</span
-              >
-            </div>
-          </div>
-          <div class="st-field">
-            <label class="st-label">Accent colour</label>
-            <div class="st-presets">
-              <button
-                class="st-accent-dot sel"
-                style="background: #0d7a5f"
-                data-color="#0D7A5F"
-              ></button>
-              <button
-                class="st-accent-dot"
-                style="background: #534ab7"
-                data-color="#534AB7"
-              ></button>
-              <button
-                class="st-accent-dot"
-                style="background: #e8614a"
-                data-color="#E8614A"
-              ></button>
-              <button
-                class="st-accent-dot"
-                style="background: #ef9f27"
-                data-color="#EF9F27"
-              ></button>
-              <button
-                class="st-accent-dot"
-                style="background: #185fa5"
-                data-color="#185FA5"
-              ></button>
-            </div>
-            <div class="st-wheel-wrap" style="margin-top: 12px">
-              <div class="st-wheel-col">
-                <div class="st-wheel" id="color-wheel">
-                  <div
-                    class="st-wheel-thumb"
-                    id="wheel-thumb"
-                    style="background: #0d7a5f"
-                  ></div>
-                </div>
-                <input
-                  type="range"
-                  class="st-light-slider"
-                  id="light-slider"
-                  min="20"
-                  max="80"
-                  value="50"
-                />
-              </div>
-              <div class="st-wheel-side">
-                <div class="st-hex-row">
-                  <span class="st-hex-pound">#</span>
-                  <input
-                    class="st-hex-input"
-                    id="hex-input"
-                    value="0D7A5F"
-                    maxlength="6"
-                  />
-                  <span class="st-eyedrop" id="eyedrop-btn">👁</span>
-                </div>
-                <button class="st-reset-btn">↺ Reset to default</button>
-              </div>
-            </div>
-          </div>
-          <div class="st-field">
-            <label class="st-label">Live preview</label>
-            <div class="st-preview">
-              <div class="st-preview-sidebar">
-                <span class="st-preview-dot"></span>
-                <span class="st-preview-dot"></span>
-                <span class="st-preview-dot"></span>
-              </div>
-              <div class="st-preview-main">
-                <div class="st-preview-grad"></div>
-                <button class="st-preview-btn">Primary</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Notifications ── -->
-      <div class="st-section" data-section="notifications">
-        <div class="st-section-hd">
-          <span
-            class="st-section-icon"
-            style="background: var(--amber2); color: var(--amber3)"
-            >🔔</span
-          >
-          <span class="st-section-title">Notifications</span>
-          <span class="st-section-chevron">▾</span>
-        </div>
-        <div class="st-section-body">
-          <div class="st-row">
-            <span>Email notifications</span>
-            <button class="st-toggle on"></button>
-          </div>
-          <div class="st-row">
-            <span>Push notifications</span>
-            <button class="st-toggle on"></button>
-          </div>
-          <div class="st-row">
-            <span>Task reminders</span>
-            <button class="st-toggle"></button>
-          </div>
-          <div class="st-row">
-            <span>Weekly summary</span>
-            <button class="st-toggle on"></button>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Security ── -->
-      <div class="st-section" data-section="security">
-        <div class="st-section-hd">
-          <span
-            class="st-section-icon"
-            style="background: var(--red2); color: var(--red3)"
-            >🔒</span
-          >
-          <span class="st-section-title">Security</span>
-          <span class="st-section-chevron">▾</span>
-        </div>
-        <div class="st-section-body">
-          <button class="st-btn">🔄 Change password</button>
-          <button class="st-btn">📱 Two-factor authentication</button>
-          <button class="st-btn">🔑 Session management</button>
-          <button class="st-btn danger" style="margin-top: 4px">
-            ⚠️ Sign out all devices
-          </button>
-        </div>
-      </div>
-
-      <!-- ── Plan ── -->
-      <div class="st-section" data-section="plan">
-        <div class="st-section-hd">
-          <span
-            class="st-section-icon"
-            style="background: var(--teal2); color: var(--teal)"
-            >💎</span
-          >
-          <span class="st-section-title">Plan</span>
-          <span class="st-section-chevron">▾</span>
+          <div class="st-section-icon" style="background: #4f6ef720">👤</div>
+          <div class="st-section-title">Profile</div>
         </div>
         <div class="st-section-body">
           <div
             style="
-              background: var(--teal2);
-              border: 1px solid var(--teal);
-              border-radius: var(--radius);
-              padding: 12px 14px;
-              margin-bottom: 8px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              margin-bottom: 0.25rem;
             "
           >
-            <div style="font-weight: 700; color: var(--teal)">✨ Pro</div>
-            <div style="font-size: 0.8rem; color: var(--teal4)">
-              Unlimited everything
+            <div
+              id="st-avatar"
+              onclick="$('pfp-input-st').click()"
+              style="
+                width: 52px;
+                height: 52px;
+                border-radius: 50%;
+                background: linear-gradient(
+                  135deg,
+                  var(--accent),
+                  var(--accent2)
+                );
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-family: var(--font);
+                font-weight: 800;
+                font-size: 1.2rem;
+                color: #fff;
+                cursor: pointer;
+                flex-shrink: 0;
+                position: relative;
+              "
+            >
+              <span id="st-avatar-letter">?</span>
+              <div
+                style="
+                  position: absolute;
+                  bottom: 0;
+                  right: 0;
+                  width: 18px;
+                  height: 18px;
+                  background: var(--card);
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 0.6rem;
+                  border: 1px solid var(--border);
+                "
+              >
+                ✏️
+              </div>
+            </div>
+            <input
+              type="file"
+              id="pfp-input-st"
+              style="display: none"
+              accept="image/*"
+              onchange="uploadProfilePic(this)"
+            />
+            <div>
+              <div
+                id="st-name-display"
+                style="
+                  font-family: var(--font);
+                  font-weight: 700;
+                  font-size: 0.95rem;
+                "
+              ></div>
+              <div
+                id="st-matric-display"
+                style="font-size: 0.75rem; color: var(--muted); margin-top: 2px"
+              ></div>
             </div>
           </div>
-          <button class="st-btn">🔄 Change plan</button>
-          <button class="st-btn">💳 Update payment method</button>
-        </div>
-      </div>
-
-      <!-- ── Integrations ── -->
-      <div class="st-section" data-section="integrations">
-        <div class="st-section-hd">
-          <span
-            class="st-section-icon"
-            style="background: var(--purple2); color: var(--purple3)"
-            >🔌</span
+          <div>
+            <div class="st-label" style="margin-bottom: 4px">Display Name</div>
+            <input
+              class="st-input"
+              id="st-name-input"
+              type="text"
+              placeholder="Your full name"
+            />
+          </div>
+          <div>
+            <div class="st-label" style="margin-bottom: 4px">Email</div>
+            <input
+              class="st-input"
+              id="st-email-input"
+              type="email"
+              placeholder="you@university.edu"
+              readonly
+              style="opacity: 0.6; cursor: default"
+              title="Email cannot be changed here"
+            />
+          </div>
+          <div>
+            <div class="st-label" style="margin-bottom: 4px">Phone</div>
+            <input
+              class="st-input"
+              id="st-phone-input"
+              type="tel"
+              placeholder="+234 800 000 0000"
+            />
+          </div>
+          <div>
+            <div class="st-label" style="margin-bottom: 4px">Timezone</div>
+            <select class="st-input" id="st-tz-select">
+              <option value="Africa/Lagos">Africa/Lagos (WAT)</option>
+              <option value="Africa/Accra">Africa/Accra (GMT)</option>
+              <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
+              <option value="Africa/Johannesburg">
+                Africa/Johannesburg (SAST)
+              </option>
+              <option value="Europe/London">Europe/London</option>
+              <option value="America/New_York">America/New_York</option>
+              <option value="UTC">UTC</option>
+            </select>
+          </div>
+          <button
+            onclick="stSaveProfile()"
+            style="
+              background: linear-gradient(
+                135deg,
+                var(--accent),
+                var(--accent2)
+              );
+              border: none;
+              border-radius: 9px;
+              padding: 9px 20px;
+              color: #fff;
+              font-family: var(--font);
+              font-size: 0.82rem;
+              font-weight: 700;
+              cursor: pointer;
+              transition: opacity 0.2s;
+              width: 100%;
+            "
+            onmouseover="this.style.opacity = '.85'"
+            onmouseout="this.style.opacity = '1'"
           >
-          <span class="st-section-title">Integrations</span>
-          <span class="st-section-chevron">▾</span>
-        </div>
-        <div class="st-section-body">
-          <div class="sset-toggle-row">
-            <span class="mkt-item-icon">📧</span>
-            <span style="flex: 1; font-weight: 600">Gmail</span>
-            <span class="sset-int-connect">Connect</span>
-          </div>
-          <div class="sset-toggle-row">
-            <span class="mkt-item-icon">📅</span>
-            <span style="flex: 1; font-weight: 600">Google Calendar</span>
-            <span class="sset-int-connect">Connect</span>
-          </div>
-          <div class="sset-toggle-row">
-            <span class="mkt-item-icon">💾</span>
-            <span style="flex: 1; font-weight: 600">Dropbox</span>
-            <span class="sset-int-soon">Soon</span>
-          </div>
-          <div class="sset-toggle-row">
-            <span class="mkt-item-icon">💬</span>
-            <span style="flex: 1; font-weight: 600">Slack</span>
-            <span class="sset-int-soon">Soon</span>
-          </div>
-          <div class="sset-int-divider">Payment integrations</div>
-          <div class="sset-toggle-row">
-            <span class="mkt-item-icon">💰</span>
-            <span style="flex: 1; font-weight: 600">Paystack</span>
-            <span class="sset-int-connect">Connect</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Export ── -->
-      <div class="st-section" data-section="export">
-        <div class="st-section-hd">
-          <span
-            class="st-section-icon"
-            style="background: var(--amber2); color: var(--amber)"
-            >📤</span
-          >
-          <span class="st-section-title">Export</span>
-          <span class="st-section-chevron">▾</span>
-        </div>
-        <div class="st-section-body">
-          <button class="st-btn">📄 Export all notes (Markdown)</button>
-          <button class="st-btn">📊 Export tasks (CSV)</button>
-          <button class="st-btn">📆 Export calendar (ICS)</button>
-          <button class="st-btn">📦 Export all data (JSON)</button>
-        </div>
-      </div>
-
-      <!-- ── Data ── -->
-      <div class="st-section" data-section="data">
-        <div class="st-section-hd">
-          <span
-            class="st-section-icon"
-            style="background: var(--red2); color: var(--red3)"
-            >🗄️</span
-          >
-          <span class="st-section-title">Data</span>
-          <span class="st-section-chevron">▾</span>
-        </div>
-        <div class="st-section-body">
-          <button class="st-btn">📊 Data usage</button>
-          <button class="st-btn">🧹 Clear cache</button>
-          <button class="st-btn danger" style="margin-top: 4px">
-            ⚠️ Delete all data
+            Save Profile
           </button>
         </div>
       </div>
 
-      <!-- ── Organization ── -->
-      <div class="st-section" data-section="org">
+      <!-- Appearance -->
+      <div class="st-section open" id="st-sec-appearance">
         <div class="st-section-hd">
-          <span
-            class="st-section-icon"
-            style="background: var(--teal2); color: var(--teal)"
-            >🏢</span
-          >
-          <span class="st-section-title">Organization</span>
-          <span class="st-section-chevron">▾</span>
+          <div class="st-section-icon" style="background: #a78bfa20">🎨</div>
+          <div class="st-section-title">Appearance</div>
         </div>
         <div class="st-section-body">
+          <!-- Theme mode -->
           <div class="st-field">
-            <label class="st-label">Organization name</label>
-            <input class="st-input" value="Sivarr Inc." />
-          </div>
-          <div class="st-field">
-            <label class="st-label">Team members</label>
-            <div style="display: flex; flex-direction: column; gap: 6px">
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 8px;
-                  padding: 4px 0;
-                "
+            <span class="st-label">Theme</span>
+            <div class="st-seg" id="st-theme-seg">
+              <button
+                class="st-seg-btn"
+                data-mode="light"
+                onclick="stSetThemeMode('light')"
               >
-                <span style="font-size: 0.82rem">👤 User (Admin)</span>
-              </div>
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 8px;
-                  padding: 4px 0;
-                "
+                <i class="ti ti-sun"></i> Light
+              </button>
+              <button
+                class="st-seg-btn"
+                data-mode="dark"
+                onclick="stSetThemeMode('dark')"
               >
-                <span style="font-size: 0.82rem">👤 team@sivarr.ai</span>
-                <span style="font-size: 0.68rem; color: var(--text4)"
-                  >Member</span
-                >
-              </div>
+                <i class="ti ti-moon"></i> Dark
+              </button>
+              <button
+                class="st-seg-btn"
+                data-mode="system"
+                onclick="stSetThemeMode('system')"
+              >
+                <i class="ti ti-device-laptop"></i> System
+              </button>
             </div>
           </div>
-          <button class="st-btn">+ Invite team member</button>
+
+          <!-- Density -->
+          <div class="st-field">
+            <span class="st-label">Density</span>
+            <div class="st-seg" id="st-density-seg">
+              <button
+                class="st-seg-btn"
+                data-density="compact"
+                onclick="stSetDensity('compact')"
+              >
+                <i class="ti ti-baseline-density-medium"></i> Compact
+              </button>
+              <button
+                class="st-seg-btn"
+                data-density="cozy"
+                onclick="stSetDensity('cozy')"
+              >
+                <i class="ti ti-baseline-density-small"></i> Cozy
+              </button>
+            </div>
+          </div>
+
+          <!-- Font size -->
+          <div class="st-field">
+            <span class="st-label"
+              >Text size · <span id="st-fontscale-label">100%</span></span
+            >
+            <div class="st-fontsize-row">
+              <span style="font-size: 0.78rem; color: var(--text3)">A</span>
+              <input
+                type="range"
+                id="st-fontscale"
+                class="st-range"
+                min="85"
+                max="120"
+                step="5"
+                value="100"
+                oninput="stSetFontScale(this.value)"
+              />
+              <span style="font-size: 1.15rem; color: var(--text3)">A</span>
+            </div>
+          </div>
+
+          <!-- Header decoration intensity -->
+          <div class="st-field">
+            <span class="st-label"
+              >Header decoration · <span id="st-decor-label">Medium</span></span
+            >
+            <div class="st-fontsize-row">
+              <i
+                class="ti ti-sparkles"
+                style="font-size: 0.8rem; color: var(--text3)"
+              ></i>
+              <input
+                type="range"
+                id="st-decor-opacity"
+                class="st-range"
+                min="0"
+                max="100"
+                step="10"
+                value="50"
+                oninput="stSetDecorOpacity(this.value)"
+              />
+              <i
+                class="ti ti-sparkles"
+                style="font-size: 1.15rem; color: var(--text3)"
+              ></i>
+            </div>
+          </div>
+
+          <div class="st-divider"></div>
+
+          <!-- Quick-start preset swatches -->
+          <div class="st-field">
+            <span class="st-label">Brand colour · quick start</span>
+            <div class="st-presets" id="st-accent-picker">
+              <button
+                class="st-accent-dot"
+                style="background: #0fdbad"
+                onclick="stPickPreset('#0FDBAD', '#534AB7', this)"
+                title="Sivarr"
+              ></button>
+              <button
+                class="st-accent-dot"
+                style="background: #4f6ef7"
+                onclick="stPickPreset('#4f6ef7', '#7c3aed', this)"
+                title="Indigo"
+              ></button>
+              <button
+                class="st-accent-dot"
+                style="background: #06b6d4"
+                onclick="stPickPreset('#06b6d4', '#0284c7', this)"
+                title="Cyan"
+              ></button>
+              <button
+                class="st-accent-dot"
+                style="background: #10b981"
+                onclick="stPickPreset('#10b981', '#059669', this)"
+                title="Emerald"
+              ></button>
+              <button
+                class="st-accent-dot"
+                style="background: #f59e0b"
+                onclick="stPickPreset('#f59e0b', '#d97706', this)"
+                title="Amber"
+              ></button>
+              <button
+                class="st-accent-dot"
+                style="background: #ef4444"
+                onclick="stPickPreset('#ef4444', '#f97316', this)"
+                title="Red"
+              ></button>
+              <button
+                class="st-accent-dot"
+                style="background: #ec4899"
+                onclick="stPickPreset('#ec4899', '#8b5cf6', this)"
+                title="Pink"
+              ></button>
+              <button
+                class="st-accent-dot"
+                style="background: #8b5cf6"
+                onclick="stPickPreset('#8b5cf6', '#ec4899', this)"
+                title="Violet"
+              ></button>
+            </div>
+          </div>
+
+          <!-- Colour wheel -->
+          <div class="st-wheel-wrap">
+            <div class="st-wheel-col">
+              <div class="st-wheel" id="st-wheel">
+                <div class="st-wheel-thumb" id="st-wheel-thumb"></div>
+              </div>
+              <input
+                type="range"
+                class="st-light-slider"
+                id="st-light-slider"
+                min="0"
+                max="100"
+                value="50"
+                oninput="stWheelLight(this.value)"
+                title="Lightness"
+              />
+            </div>
+            <div class="st-wheel-side">
+              <div class="st-preview" id="st-color-preview">
+                <div class="st-preview-sidebar">
+                  <span class="st-preview-dot"></span
+                  ><span class="st-preview-dot"></span
+                  ><span class="st-preview-dot"></span>
+                </div>
+                <div class="st-preview-main">
+                  <div class="st-preview-grad"></div>
+                  <button class="st-preview-btn" type="button">Button</button>
+                </div>
+              </div>
+              <div>
+                <span
+                  class="st-label"
+                  style="font-size: 11px; display: block; margin-bottom: 5px"
+                  >Primary</span
+                >
+                <div class="st-hex-row">
+                  <span class="st-hex-pound">#</span>
+                  <input
+                    type="text"
+                    id="st-hex-input"
+                    class="st-hex-input"
+                    maxlength="7"
+                    value="0FDBAD"
+                    onchange="stHexInput(this.value)"
+                    onkeydown="
+                      if (event.key === 'Enter') stHexInput(this.value);
+                    "
+                  />
+                  <label class="st-eyedrop" title="System colour picker">
+                    <i class="ti ti-color-picker"></i>
+                    <input
+                      type="color"
+                      id="st-native-color"
+                      value="#0fdbad"
+                      oninput="stHexInput(this.value)"
+                      style="
+                        position: absolute;
+                        opacity: 0;
+                        width: 1px;
+                        height: 1px;
+                        pointer-events: none;
+                      "
+                    />
+                  </label>
+                </div>
+              </div>
+              <div>
+                <span
+                  class="st-label"
+                  style="font-size: 11px; display: block; margin-bottom: 5px"
+                  >Secondary · gradient</span
+                >
+                <div class="st-hex-row">
+                  <span class="st-hex-pound">#</span>
+                  <input
+                    type="text"
+                    id="st-hex2-input"
+                    class="st-hex-input"
+                    maxlength="7"
+                    value="534AB7"
+                    onchange="stSetSecondary(this.value)"
+                    onkeydown="
+                      if (event.key === 'Enter') stSetSecondary(this.value);
+                    "
+                  />
+                  <label class="st-eyedrop" title="Secondary colour">
+                    <i class="ti ti-color-picker"></i>
+                    <input
+                      type="color"
+                      id="st-native-color2"
+                      value="#534ab7"
+                      oninput="stSetSecondary(this.value)"
+                      style="
+                        position: absolute;
+                        opacity: 0;
+                        width: 1px;
+                        height: 1px;
+                        pointer-events: none;
+                      "
+                    />
+                  </label>
+                </div>
+              </div>
+              <button class="st-reset-btn" onclick="stResetAppearance()">
+                <i class="ti ti-rotate-2"></i> Reset to default
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+
+      <!-- Notifications -->
+      <div class="st-section" id="st-sec-notifications">
+        <div class="st-section-hd" onclick="stToggleSection('notifications')">
+          <div class="st-section-icon" style="background: #34d39920">🔔</div>
+          <div class="st-section-title">Notifications</div>
+          <i class="ti ti-chevron-down st-section-chevron"></i>
+        </div>
+        <div class="st-section-body">
+          <div class="st-row">
+            <span class="st-label">Announcements</span>
+            <button
+              class="st-toggle on"
+              id="st-notif-ann"
+              onclick="stToggleNotif(this, 'ann')"
+            ></button>
+          </div>
+          <div class="st-row">
+            <span class="st-label">Study streak reminders</span>
+            <button
+              class="st-toggle on"
+              id="st-notif-streak"
+              onclick="stToggleNotif(this, 'streak')"
+            ></button>
+          </div>
+          <div class="st-row">
+            <span class="st-label">Quiz results</span>
+            <button
+              class="st-toggle on"
+              id="st-notif-quiz"
+              onclick="stToggleNotif(this, 'quiz')"
+            ></button>
+          </div>
+          <div
+            class="st-label"
+            style="
+              margin: 12px 0 4px;
+              font-size: 0.7rem;
+              letter-spacing: 0.04em;
+              opacity: 0.8;
+            "
+          >
+            CHANNELS
+          </div>
+          <div class="st-row">
+            <span class="st-label">In-app</span>
+            <button
+              class="st-toggle on"
+              id="st-notifch-inapp"
+              onclick="stToggleNotifCh(this, 'inapp')"
+            ></button>
+          </div>
+          <div class="st-row">
+            <span class="st-label">Email</span>
+            <button
+              class="st-toggle on"
+              id="st-notifch-email"
+              onclick="stToggleNotifCh(this, 'email')"
+            ></button>
+          </div>
+          <div class="st-row" style="opacity: 0.55">
+            <span class="st-label"
+              >WhatsApp
+              <span style="font-size: 0.62rem; color: var(--muted)"
+                >· coming soon</span
+              ></span
+            >
+            <button
+              class="st-toggle"
+              id="st-notifch-whatsapp"
+              disabled
+              title="WhatsApp integration coming soon"
+            ></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Security -->
+      <div class="st-section" id="st-sec-security">
+        <div class="st-section-hd" onclick="stToggleSection('security')">
+          <div class="st-section-icon" style="background: #f59e0b20">🔒</div>
+          <div class="st-section-title">Security</div>
+          <i class="ti ti-chevron-down st-section-chevron"></i>
+        </div>
+        <div class="st-section-body">
+          <div>
+            <div class="st-label" style="margin-bottom: 4px">
+              Current Password
+            </div>
+            <input
+              class="st-input"
+              id="st-pw-current"
+              type="password"
+              placeholder="Your current password"
+            />
+          </div>
+          <div>
+            <div class="st-label" style="margin-bottom: 4px">New Password</div>
+            <input
+              class="st-input"
+              id="st-pw-input"
+              type="password"
+              placeholder="Min. 8 characters"
+            />
+          </div>
+          <div>
+            <div class="st-label" style="margin-bottom: 4px">
+              Confirm New Password
+            </div>
+            <input
+              class="st-input"
+              id="st-pw2-input"
+              type="password"
+              placeholder="Repeat new password"
+            />
+          </div>
+          <button onclick="stChangePassword()" class="st-btn" id="st-pw-btn">
+            🔑 Update Password
+          </button>
+          <button onclick="stLogoutAll()" class="st-btn danger">
+            🚪 Sign Out Everywhere
+          </button>
+        </div>
+      </div>
+
+      <!-- My Plan -->
+      <div class="st-section" id="st-sec-plan">
+        <div class="st-section-hd" onclick="stToggleSection('plan')">
+          <div class="st-section-icon" style="background: #f472b620">⚡</div>
+          <div class="st-section-title">My Plan</div>
+          <i class="ti ti-chevron-down st-section-chevron"></i>
+        </div>
+        <div class="st-section-body">
+          <div class="st-row">
+            <span class="st-label">Current plan</span>
+            <span class="st-plan-badge st-plan-free" id="st-plan-badge"
+              >✦ Free</span
+            >
+          </div>
+          <div id="st-plan-meta" style="display: none">
+            <div class="st-row" id="st-plan-row-expires">
+              <span class="st-label">Renews / Expires</span>
+              <span
+                id="st-plan-expires"
+                style="
+                  font-size: 0.78rem;
+                  font-weight: 600;
+                  color: var(--accent);
+                "
+              ></span>
+            </div>
+            <div class="st-row" id="st-plan-row-gateway">
+              <span class="st-label">Payment via</span>
+              <span
+                id="st-plan-gateway"
+                style="font-size: 0.78rem; color: var(--muted)"
+              ></span>
+            </div>
+            <div class="st-row" id="st-plan-row-status">
+              <span class="st-label">Status</span>
+              <span
+                id="st-plan-status"
+                style="font-size: 0.78rem; font-weight: 600"
+              ></span>
+            </div>
+          </div>
+          <div>
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 3px;
+              "
+            >
+              <span class="st-label">AI Messages today</span>
+              <span
+                id="st-usage-chat"
+                style="font-size: 0.75rem; color: var(--muted)"
+                >0 / 20</span
+              >
+            </div>
+            <div class="st-usage-bar">
+              <div
+                class="st-usage-fill"
+                id="st-usage-chat-bar"
+                style="width: 0%"
+              ></div>
+            </div>
+          </div>
+          <div>
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 3px;
+              "
+            >
+              <span class="st-label">Quizzes today</span>
+              <span
+                id="st-usage-quiz"
+                style="font-size: 0.75rem; color: var(--muted)"
+                >0 / 5</span
+              >
+            </div>
+            <div class="st-usage-bar">
+              <div
+                class="st-usage-fill"
+                id="st-usage-quiz-bar"
+                style="width: 0%"
+              ></div>
+            </div>
+          </div>
+          <button
+            id="st-plan-cta"
+            onclick="showPricing()"
+            style="
+              width: 100%;
+              background: linear-gradient(135deg, #f59e0b, #f472b6);
+              border: none;
+              border-radius: 9px;
+              padding: 9px;
+              color: #fff;
+              font-family: var(--font);
+              font-size: 0.82rem;
+              font-weight: 700;
+              cursor: pointer;
+              transition: opacity 0.2s;
+            "
+            onmouseover="this.style.opacity = '.85'"
+            onmouseout="this.style.opacity = '1'"
+          >
+            ⚡ Upgrade to Pro
+          </button>
+          <button
+            id="st-plan-cancel"
+            onclick="billingCancelConfirm()"
+            style="
+              display: none;
+              width: 100%;
+              background: transparent;
+              border: 1px solid var(--border);
+              border-radius: 9px;
+              padding: 9px;
+              color: var(--muted);
+              font-family: var(--font);
+              font-size: 0.82rem;
+              font-weight: 600;
+              cursor: pointer;
+              margin-top: 6px;
+              transition: color 0.2s;
+            "
+            onmouseover="this.style.color = 'var(--red,#ef4444)'"
+            onmouseout="this.style.color = 'var(--muted)'"
+          >
+            Cancel subscription
+          </button>
+          <!-- Billing history -->
+          <div id="st-billing-history" style="display: none; margin-top: 14px">
+            <div class="st-label" style="margin-bottom: 8px">
+              Payment history
+            </div>
+            <div id="st-billing-history-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import & Export -->
+      <div class="st-section" id="st-sec-export">
+        <div class="st-section-hd" onclick="stToggleSection('export')">
+          <div class="st-section-icon" style="background: #0d7a5f20">📦</div>
+          <div class="st-section-title">Import &amp; Export</div>
+          <i class="ti ti-chevron-down st-section-chevron"></i>
+        </div>
+        <div class="st-section-body">
+          <p
+            style="
+              font-size: 0.78rem;
+              color: var(--text3);
+              margin-bottom: 12px;
+              line-height: 1.6;
+            "
+          >
+            Export all your data as a ZIP (tasks, goals, habits, notes,
+            journal). Import tasks or goals from CSV, or notes from Markdown.
+          </p>
+          <button class="st-btn" onclick="stExportAll()" id="export-btn">
+            <i class="ti ti-download" style="margin-right: 6px"></i>Export my
+            data (ZIP)
+          </button>
+          <div
+            style="
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 8px;
+              margin-top: 4px;
+            "
+          >
+            <div>
+              <div
+                style="
+                  font-size: 0.72rem;
+                  font-weight: 700;
+                  color: var(--text3);
+                  text-transform: uppercase;
+                  letter-spacing: 0.06em;
+                  margin-bottom: 6px;
+                "
+              >
+                Import Tasks (CSV)
+              </div>
+              <input
+                type="file"
+                id="import-tasks-file"
+                accept=".csv"
+                style="display: none"
+                onchange="stImportTasks(this)"
+              />
+              <button class="st-btn" onclick="$('import-tasks-file').click()">
+                <i class="ti ti-upload" style="margin-right: 6px"></i>Upload
+                tasks.csv
+              </button>
+            </div>
+            <div>
+              <div
+                style="
+                  font-size: 0.72rem;
+                  font-weight: 700;
+                  color: var(--text3);
+                  text-transform: uppercase;
+                  letter-spacing: 0.06em;
+                  margin-bottom: 6px;
+                "
+              >
+                Import Goals (CSV)
+              </div>
+              <input
+                type="file"
+                id="import-goals-file"
+                accept=".csv"
+                style="display: none"
+                onchange="stImportGoals(this)"
+              />
+              <button class="st-btn" onclick="$('import-goals-file').click()">
+                <i class="ti ti-upload" style="margin-right: 6px"></i>Upload
+                goals.csv
+              </button>
+            </div>
+          </div>
+          <div style="margin-top: 4px">
+            <div
+              style="
+                font-size: 0.72rem;
+                font-weight: 700;
+                color: var(--text3);
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 6px;
+              "
+            >
+              Import Notes (Markdown / Notion)
+            </div>
+            <input
+              type="file"
+              id="import-notes-file"
+              accept=".md,.txt"
+              style="display: none"
+              onchange="stImportNotes(this)"
+            />
+            <button
+              class="st-btn"
+              onclick="$('import-notes-file').click()"
+              style="width: 100%"
+            >
+              <i class="ti ti-upload" style="margin-right: 6px"></i>Upload .md
+              or .txt file
+            </button>
+          </div>
+          <div
+            id="import-status"
+            style="
+              font-size: 0.78rem;
+              color: var(--teal);
+              margin-top: 8px;
+              min-height: 18px;
+            "
+          ></div>
+        </div>
+      </div>
+
+      <!-- Data & Privacy (merged) -->
+      <div class="st-section open" id="st-sec-data">
+        <div class="st-section-hd">
+          <div class="st-section-icon" style="background: #60a5fa20">🔒</div>
+          <div class="st-section-title">Data &amp; Privacy</div>
+        </div>
+        <div class="st-section-body">
+          <button class="st-btn danger" onclick="stClearChat()">
+            <i class="ti ti-eraser" style="margin-right: 6px"></i>Clear chat
+            history
+          </button>
+          <button class="st-btn danger" onclick="stClearWrong()">
+            <i class="ti ti-eraser" style="margin-right: 6px"></i>Clear revision
+            list
+          </button>
+          <button class="st-btn danger" onclick="stResetProgress()">
+            <i class="ti ti-alert-triangle" style="margin-right: 6px"></i>Reset
+            all progress
+          </button>
+          <div class="st-divider"></div>
+          <button
+            onclick="stDeleteAccount()"
+            style="
+              width: 100%;
+              background: rgba(239, 68, 68, 0.08);
+              border: 1px solid rgba(239, 68, 68, 0.25);
+              border-radius: 9px;
+              padding: 9px;
+              color: #f87171;
+              font-family: var(--font);
+              font-size: 0.82rem;
+              font-weight: 700;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              justify-content: center;
+            "
+          >
+            <i class="ti ti-trash"></i> Delete my account
+          </button>
+          <div
+            style="
+              font-size: 0.7rem;
+              color: var(--muted);
+              margin-top: 8px;
+              opacity: 0.75;
+            "
+          >
+            Deleting your account is permanent and removes all your data. Your
+            full data export lives in
+            <strong>Import &amp; Export</strong> above.
+          </div>
+        </div>
+      </div>
+
+      <!-- Organisation (Blueprint Stage 3) — shown only when the user is in an org -->
+      <div class="st-section" id="st-sec-org" style="display: none">
+        <div class="st-section-hd" onclick="stToggleSection('org')">
+          <div class="st-section-icon" style="background: #0fdbad20">🏢</div>
+          <div class="st-section-title">Organisation</div>
+          <i class="ti ti-chevron-down st-section-chevron"></i>
+        </div>
+        <div class="st-section-body">
+          <div id="st-org-profile" style="display: none">
+            <div class="st-label" style="margin-bottom: 4px">
+              Organisation name
+            </div>
+            <input
+              class="st-input"
+              id="st-org-name"
+              type="text"
+              placeholder="Organisation name"
+            />
+            <div class="st-label" style="margin: 8px 0 4px">Description</div>
+            <input
+              class="st-input"
+              id="st-org-desc"
+              type="text"
+              placeholder="What does your org do?"
+            />
+            <button
+              onclick="orgSettingsSaveProfile()"
+              style="
+                background: linear-gradient(
+                  135deg,
+                  var(--accent),
+                  var(--accent2)
+                );
+                border: none;
+                border-radius: 9px;
+                padding: 9px 20px;
+                color: #fff;
+                font-family: var(--font);
+                font-size: 0.82rem;
+                font-weight: 700;
+                cursor: pointer;
+                width: 100%;
+                margin-top: 8px;
+              "
+            >
+              Save Organisation
+            </button>
+          </div>
+          <div class="st-label" style="margin: 14px 0 6px">
+            Members
+            <span
+              id="st-org-mcount"
+              style="font-size: 0.7rem; color: var(--muted)"
+            ></span>
+          </div>
+          <div id="st-org-members">
+            <div style="font-size: 0.78rem; color: var(--muted)">Loading…</div>
+          </div>
+          <button
+            id="st-org-invite"
+            style="
+              display: none;
+              width: 100%;
+              background: transparent;
+              border: 1px solid var(--border);
+              border-radius: 9px;
+              padding: 8px;
+              color: var(--muted);
+              font-family: var(--font);
+              font-size: 0.8rem;
+              font-weight: 600;
+              cursor: pointer;
+              margin-top: 8px;
+            "
+            onclick="orgSettingsInvite()"
+          >
+            <i class="ti ti-user-plus"></i> Invite member
+          </button>
+          <div id="st-org-audit-wrap" style="display: none">
+            <div class="st-label" style="margin: 16px 0 6px">
+              Recent admin activity
+            </div>
+            <div id="st-org-audit"></div>
+          </div>
+          <div
+            style="
+              font-size: 0.7rem;
+              color: var(--muted);
+              margin-top: 12px;
+              opacity: 0.7;
+            "
+          >
+            Departments &amp; org invoices coming soon.
+          </div>
+        </div>
+      </div>
+
+      <div
+        style="
+          text-align: center;
+          padding: 1rem 0;
+          font-size: 0.72rem;
+          color: var(--muted);
+        "
+      >
+        Sivarr AI · Built with 🔥 for students
+      </div>
     </div>
+    <!-- /.st-content -->
   </div>
+  <!-- /.st-layout -->
 </div>

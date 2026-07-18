@@ -1,1231 +1,1797 @@
-<!-- ═══════════════════════════════════════════════════════════════
-     MODALS — All modals, overlays, popups, and floating UI
-     ═══════════════════════════════════════════════════════════════ -->
+<!-- ═══ LEGACY MOBILE SLIDE-IN SIDEBAR (dead — hidden via CSS, kept only for JS compat with closeMobileSidebar()) ═══ -->
+<!-- Backdrop overlay -->
+<div
+  class="mob-sidebar-overlay"
+  id="mob-sidebar-overlay"
+  onclick="closeMobileSidebar()"
+></div>
 
-{# ── COMMAND PALETTE ──────────────────────────────────────── #}
-<div id="cmd-bg">
-  <div class="cmd-box" id="cmd-box">
-    <div class="cmd-input-wrap">
-      <input id="cmd-input" placeholder="Search anything... (⌘K)" autofocus />
-      <span class="cmd-hint">⌘K</span>
-    </div>
-    <div id="cmd-results">
-      <div class="cmd-section-label">Favourites</div>
-      <div class="sb-fav-empty" id="cmd-fav-empty">
-        ⭐ No favourites yet — click the star on any item
-      </div>
-      <div id="cmd-fav-list"></div>
-      <div class="cmd-section-label">All sections</div>
-      <!-- Results injected by JS -->
-      <div class="cmd-item" data-nav="home">
-        <span class="cmd-icon">🏠</span><span class="cmd-item-label">Home</span
-        ><span class="cmd-item-tag">Dashboard</span>
-      </div>
-      <div class="cmd-item" data-nav="chat">
-        <span class="cmd-icon">💬</span><span class="cmd-item-label">Chat</span
-        ><span class="cmd-item-tag">AI</span>
-      </div>
-      <div class="cmd-item" data-nav="flux">
-        <span class="cmd-icon">📋</span><span class="cmd-item-label">Tasks</span
-        ><span class="cmd-item-tag">Flux</span>
-      </div>
-      <div class="cmd-item" data-nav="calendar">
-        <span class="cmd-icon">📅</span
-        ><span class="cmd-item-label">Calendar</span>
-      </div>
-      <div class="cmd-item" data-nav="notes">
-        <span class="cmd-icon">📝</span
-        ><span class="cmd-item-label">Notes</span>
-      </div>
-      <div class="cmd-item" data-nav="settings">
-        <span class="cmd-icon">⚙️</span
-        ><span class="cmd-item-label">Settings</span>
-      </div>
-      <div class="cmd-item" data-nav="org">
-        <span class="cmd-icon">🏢</span
-        ><span class="cmd-item-label">Org Space</span>
-      </div>
-      <div class="cmd-item" data-nav="personal">
-        <span class="cmd-icon">👤</span
-        ><span class="cmd-item-label">Personal Space</span>
-      </div>
-      <div class="cmd-item" data-nav="academic">
-        <span class="cmd-icon">🎓</span
-        ><span class="cmd-item-label">Academic Space</span>
-      </div>
-      <div class="cmd-item" data-nav="goals">
-        <span class="cmd-icon">🎯</span
-        ><span class="cmd-item-label">Goals</span>
-      </div>
-      <div class="cmd-item" data-nav="habits">
-        <span class="cmd-icon">💪</span
-        ><span class="cmd-item-label">Habits</span>
-      </div>
-      <div class="cmd-item" data-nav="journal">
-        <span class="cmd-icon">📝</span
-        ><span class="cmd-item-label">Journal</span>
-      </div>
-      <div class="cmd-item" data-nav="finance">
-        <span class="cmd-icon">💰</span
-        ><span class="cmd-item-label">Finance</span>
-      </div>
-      <div class="cmd-item" data-nav="skills">
-        <span class="cmd-icon">🧠</span
-        ><span class="cmd-item-label">Skills</span>
-      </div>
-      <div class="cmd-item" data-nav="community">
-        <span class="cmd-icon">🌐</span
-        ><span class="cmd-item-label">Community</span>
-      </div>
-      <div class="cmd-item" data-nav="library">
-        <span class="cmd-icon">📚</span
-        ><span class="cmd-item-label">Library</span>
-      </div>
-      <div class="cmd-item" data-nav="templates">
-        <span class="cmd-icon">📋</span
-        ><span class="cmd-item-label">Templates</span>
-      </div>
-      <div class="cmd-item" data-nav="marketplace">
-        <span class="cmd-icon">🛒</span
-        ><span class="cmd-item-label">Marketplace</span>
-      </div>
-      <div class="cmd-item" data-nav="agents">
-        <span class="cmd-icon">🧠</span
-        ><span class="cmd-item-label">Agents</span>
-      </div>
-      <div class="cmd-item" data-nav="profile">
-        <span class="cmd-icon">👤</span
-        ><span class="cmd-item-label">Profile</span>
-      </div>
-      <div class="cmd-item" data-nav="opportunities">
-        <span class="cmd-icon">🚀</span
-        ><span class="cmd-item-label">Opportunities</span>
-      </div>
-      <div class="cmd-item" data-nav="review">
-        <span class="cmd-icon">📊</span
-        ><span class="cmd-item-label">Weekly Review</span>
-      </div>
-      <div class="cmd-item" data-nav="help">
-        <span class="cmd-icon">❓</span><span class="cmd-item-label">Help</span>
-      </div>
-      <div class="cmd-item" data-nav="contenthub">
-        <span class="cmd-icon">📡</span
-        ><span class="cmd-item-label">Content Hub</span>
-      </div>
-      <div class="cmd-item" data-nav="announcements">
-        <span class="cmd-icon">📢</span
-        ><span class="cmd-item-label">Announcements</span>
-      </div>
-      <div class="cmd-item" data-nav="quiz">
-        <span class="cmd-icon">🧠</span><span class="cmd-item-label">Quiz</span>
-      </div>
-      <div class="cmd-item" data-nav="stats">
-        <span class="cmd-icon">📊</span
-        ><span class="cmd-item-label">Stats</span>
-      </div>
-    </div>
-    <div class="cmd-footer">
-      <span class="cmd-footer-hint"><kbd>↑↓</kbd> Navigate</span>
-      <span class="cmd-footer-hint"><kbd>Enter</kbd> Select</span>
-      <span class="cmd-footer-hint"><kbd>⌘K</kbd> Close</span>
-      <span class="cmd-footer-hint" style="margin-left: auto"
-        ><kbd>⌘F</kbd> Favourite</span
-      >
-    </div>
-  </div>
-</div>
-
-{# ── TOAST ──────────────────────────────────────────────────── #}
-<div class="toast" id="toast"></div>
-
-{# ── SLASH MENU ────────────────────────────────────────────── #}
-<div id="slash-menu" style="display: none">
-  <div class="slash-item" data-command="h1">
-    <span class="slash-ic">H1</span>
-    <div>
-      <div class="slash-lb">Heading 1</div>
-      <div class="slash-ds">Large heading</div>
-    </div>
-  </div>
-  <div class="slash-item" data-command="h2">
-    <span class="slash-ic">H2</span>
-    <div>
-      <div class="slash-lb">Heading 2</div>
-      <div class="slash-ds">Medium heading</div>
-    </div>
-  </div>
-  <div class="slash-item" data-command="h3">
-    <span class="slash-ic">H3</span>
-    <div>
-      <div class="slash-lb">Heading 3</div>
-      <div class="slash-ds">Small heading</div>
-    </div>
-  </div>
-  <div class="slash-item" data-command="ul">
-    <span class="slash-ic">•</span>
-    <div>
-      <div class="slash-lb">Bullet list</div>
-      <div class="slash-ds">Unordered list</div>
-    </div>
-  </div>
-  <div class="slash-item" data-command="ol">
-    <span class="slash-ic">1.</span>
-    <div>
-      <div class="slash-lb">Numbered list</div>
-      <div class="slash-ds">Ordered list</div>
-    </div>
-  </div>
-  <div class="slash-item" data-command="quote">
-    <span class="slash-ic">"</span>
-    <div>
-      <div class="slash-lb">Blockquote</div>
-      <div class="slash-ds">Quote block</div>
-    </div>
-  </div>
-  <div class="slash-item" data-command="code">
-    <span class="slash-ic">&lt;/&gt;</span>
-    <div>
-      <div class="slash-lb">Code block</div>
-      <div class="slash-ds">Code snippet</div>
-    </div>
-  </div>
-</div>
-
-{# ── CREATE SPACE MODAL ───────────────────────────────────── #}
-<div class="csp-overlay" id="create-space-modal" style="display: none">
-  <div class="csp-modal">
-    <div class="csp-head">
-      <h3>✨ Create New Space</h3>
-      <button class="csp-close" data-close="create-space-modal">✕</button>
-    </div>
-    <div class="csp-sub">Choose a space type to get started</div>
-    <div class="csp-body">
-      <div>
-        <div class="csp-label">Space name</div>
-        <input
-          class="csp-name-input"
-          id="csp-name-input"
-          placeholder="e.g. My Team, Personal, Semester 2"
-        />
-      </div>
-      <div>
-        <div class="csp-label">Space type</div>
-        <div class="csp-types" id="csp-types">
-          <div class="csp-type selected" data-type="personal">
-            <div class="csp-type-icon">👤</div>
-            <div class="csp-type-name">Personal</div>
-            <div class="csp-type-desc">Individual productivity</div>
-          </div>
-          <div class="csp-type" data-type="org">
-            <div class="csp-type-icon">🏢</div>
-            <div class="csp-type-name">Org</div>
-            <div class="csp-type-desc">Team workspace</div>
-          </div>
-          <div class="csp-type" data-type="academic">
-            <div class="csp-type-icon">🎓</div>
-            <div class="csp-type-name">Academic</div>
-            <div class="csp-type-desc">Student & lecturer</div>
-          </div>
-        </div>
-      </div>
-      <!-- Academic role step (hidden by default) -->
-      <div id="acadRoleStep" style="display: none">
-        <div class="csp-label">Select your role</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
-          <div
-            class="acad-role-card acad-role-card--active"
-            data-role="student"
-          >
-            <div class="acad-role-icon">🧑‍🎓</div>
-            <div class="acad-role-name">Student</div>
-            <div class="acad-role-desc">
-              Track courses, assignments, and grades
-            </div>
-          </div>
-          <div class="acad-role-card" data-role="lecturer">
-            <div class="acad-role-icon">👨‍🏫</div>
-            <div class="acad-role-name">Lecturer</div>
-            <div class="acad-role-desc">Manage courses and students</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="csp-footer">
-      <button class="csp-btn-cancel" data-close="create-space-modal">
-        Cancel
-      </button>
-      <button class="csp-btn-create" id="csp-create-btn">Create Space</button>
-    </div>
-  </div>
-</div>
-
-{# ── MARKETPLACE DETAIL MODAL ────────────────────────────── #}
-<div class="mkt-modal-overlay" id="mkt-detail-modal" style="display: none">
-  <div class="mkt-modal">
-    <button class="mkt-modal-close" data-close="mkt-detail-modal">✕</button>
-    <div class="mkt-modal-header">
-      <span class="mkt-modal-icon">🎨</span>
-      <div>
-        <div class="mkt-modal-name">Design System Kit</div>
-        <div class="mkt-modal-author">by Studio Labs · v2.3</div>
-        <div class="mkt-modal-meta-row">
-          <span style="font-size: 0.72rem; color: var(--text4)"
-            >⭐ 4.8 (234 reviews)</span
-          >
-          <span style="font-size: 0.72rem; color: var(--text4)"
-            >📥 2.3k downloads</span
-          >
-          <span class="mkt-item-type-badge mkt-type-extension">Extension</span>
-        </div>
-      </div>
-      <div class="mkt-modal-actions">
-        <button class="mkt-install-btn mkt-btn-lg">Install</button>
-      </div>
-    </div>
-    <div class="mkt-modal-tabs">
-      <button class="mkt-modal-tab active" data-tab="overview">Overview</button>
-      <button class="mkt-modal-tab" data-tab="reviews">Reviews</button>
-      <button class="mkt-modal-tab" data-tab="versions">Versions</button>
-    </div>
-    <div id="mkt-modal-content">
-      <div class="mkt-detail-tags">
-        <span class="mkt-cat-pill">Design</span>
-        <span class="mkt-cat-pill">UI/UX</span>
-        <span class="mkt-cat-pill">Components</span>
-      </div>
+<!-- Slide-in sidebar panel -->
+<div class="mob-sidebar-panel" id="mob-sidebar-panel">
+  <!-- Header -->
+  <div class="mob-sidebar-header">
+    <div style="display: flex; align-items: center; gap: 9px">
       <div
         style="
-          font-size: 0.82rem;
-          color: var(--text3);
-          line-height: 1.6;
-          margin-top: 12px;
-        "
-      >
-        <p>
-          Professional design tokens and components for your next project. This
-          kit includes:
-        </p>
-        <ul style="padding-left: 1.2rem; margin: 0.5rem 0">
-          <li>400+ icons</li>
-          <li>Color system with light/dark modes</li>
-          <li>Typography scales</li>
-          <li>Component library (buttons, cards, modals, etc.)</li>
-        </ul>
-        <p>Updated regularly with new components.</p>
-      </div>
-    </div>
-  </div>
-</div>
-
-{# ── MARKETPLACE PUBLISH MODAL ───────────────────────────── #}
-<div class="mkt-modal-overlay" id="mkt-publish-modal" style="display: none">
-  <div class="mkt-modal">
-    <button class="mkt-modal-close" data-close="mkt-publish-modal">✕</button>
-    <div class="mkt-modal-header">
-      <span class="mkt-modal-icon">📤</span>
-      <div>
-        <div class="mkt-modal-name">Publish to Marketplace</div>
-        <div style="font-size: 0.78rem; color: var(--text3)">
-          Share your work with the Sivarr community
-        </div>
-      </div>
-    </div>
-    <div
-      style="
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 10px;
-        margin-bottom: 16px;
-      "
-    >
-      <div class="mkt-publish-type-card active" data-type="extension">
-        <span style="font-size: 1.5rem">🧩</span>
-        <div style="font-weight: 700; font-size: 0.78rem">Extension</div>
-        <div style="font-size: 0.65rem; color: var(--text4)">
-          Add new features
-        </div>
-      </div>
-      <div class="mkt-publish-type-card" data-type="integration">
-        <span style="font-size: 1.5rem">🔌</span>
-        <div style="font-weight: 700; font-size: 0.78rem">Integration</div>
-        <div style="font-size: 0.65rem; color: var(--text4)">
-          Connect external services
-        </div>
-      </div>
-      <div class="mkt-publish-type-card" data-type="template">
-        <span style="font-size: 1.5rem">📋</span>
-        <div style="font-weight: 700; font-size: 0.78rem">Template</div>
-        <div style="font-size: 0.65rem; color: var(--text4)">
-          Share workflows
-        </div>
-      </div>
-    </div>
-    <div class="mkt-field">
-      <label>Name</label>
-      <input placeholder="My Extension Name" />
-    </div>
-    <div class="mkt-field">
-      <label>Description</label>
-      <textarea rows="3" placeholder="What does this do?"></textarea>
-    </div>
-    <div class="mkt-field">
-      <label>Category</label>
-      <select>
-        <option>Productivity</option>
-        <option>Design</option>
-        <option>AI</option>
-        <option>Analytics</option>
-      </select>
-    </div>
-    <div class="mkt-field">
-      <label>Price</label>
-      <select>
-        <option>Free</option>
-        <option>$4.99</option>
-        <option>$9.99</option>
-        <option>$19.99</option>
-        <option>Custom</option>
-      </select>
-    </div>
-    <div
-      style="
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-        margin-top: 12px;
-      "
-    >
-      <button class="mkt-btn-ghost" data-close="mkt-publish-modal">
-        Cancel
-      </button>
-      <button class="mkt-publish-btn">Publish</button>
-    </div>
-  </div>
-</div>
-
-{# ── SPACE SETTINGS MODAL ────────────────────────────────── #}
-<div class="mkt-modal-overlay" id="space-settings-modal" style="display: none">
-  <div class="mkt-modal">
-    <button class="mkt-modal-close" data-close="space-settings-modal">✕</button>
-    <div class="mkt-modal-header">
-      <span class="mkt-modal-icon">⚙️</span>
-      <div>
-        <div class="mkt-modal-name">Space Settings</div>
-        <div style="font-size: 0.78rem; color: var(--text3)">
-          Configure your space
-        </div>
-      </div>
-    </div>
-    <div class="sset-toggle-row">
-      <span class="mkt-item-icon">🔒</span>
-      <span style="flex: 1; font-weight: 600">Private space</span>
-      <div class="sset-toggle">
-        <input type="checkbox" checked /><span class="sset-toggle-track"></span>
-      </div>
-    </div>
-    <div class="sset-toggle-row">
-      <span class="mkt-item-icon">👥</span>
-      <span style="flex: 1; font-weight: 600">Allow invites</span>
-      <div class="sset-toggle">
-        <input type="checkbox" checked /><span class="sset-toggle-track"></span>
-      </div>
-    </div>
-    <div class="sset-toggle-row">
-      <span class="mkt-item-icon">🔔</span>
-      <span style="flex: 1; font-weight: 600">Notifications</span>
-      <div class="sset-toggle">
-        <input type="checkbox" checked /><span class="sset-toggle-track"></span>
-      </div>
-    </div>
-    <div class="sset-toggle-row">
-      <span class="mkt-item-icon">🤖</span>
-      <span style="flex: 1; font-weight: 600">AI suggestions</span>
-      <div class="sset-toggle">
-        <input type="checkbox" /><span class="sset-toggle-track"></span>
-      </div>
-    </div>
-    <div class="sset-int-divider">Integrations</div>
-    <div class="sset-toggle-row sset-row-off">
-      <span class="mkt-item-icon">📧</span>
-      <span style="flex: 1; font-weight: 600">Gmail</span>
-      <span class="sset-int-connect">Connect</span>
-    </div>
-    <div class="sset-toggle-row sset-row-off">
-      <span class="mkt-item-icon">📅</span>
-      <span style="flex: 1; font-weight: 600">Google Calendar</span>
-      <span class="sset-int-connect">Connect</span>
-    </div>
-    <div
-      style="
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-        margin-top: 16px;
-        padding-top: 12px;
-        border-top: 1px solid var(--border);
-      "
-    >
-      <button class="mkt-btn-ghost" data-close="space-settings-modal">
-        Close
-      </button>
-      <button class="mkt-btn-teal">Save Changes</button>
-    </div>
-  </div>
-</div>
-
-{# ── PRICING MODAL ────────────────────────────────────────── #}
-<div class="si-modal-bg" id="pricing-modal">
-  <div class="si-modal" style="max-width: 560px">
-    <button class="si-modal-close" data-close="pricing-modal">✕</button>
-    <div style="padding: 24px 20px 12px; text-align: center">
-      <h2
-        style="
-          font-size: 1.3rem;
+          width: 26px;
+          height: 26px;
+          border-radius: 7px;
+          flex-shrink: 0;
+          overflow: hidden;
+          background: linear-gradient(135deg, var(--accent), var(--accent2));
+          display: flex;
+          align-items: center;
+          justify-content: center;
           font-weight: 800;
-          color: var(--text1);
-          letter-spacing: -0.03em;
+          font-size: 11px;
+          color: #fff;
         "
       >
-        Choose your plan
-      </h2>
-      <p style="font-size: 0.82rem; color: var(--text3); margin-top: 4px">
-        Upgrade to unlock more features
-      </p>
+        Sr
+      </div>
+      <span
+        style="
+          font-family: var(--font);
+          font-weight: 800;
+          font-size: 0.88rem;
+          color: var(--text);
+        "
+      >
+        Sivarr <span style="color: var(--accent)">AI</span>
+      </span>
     </div>
+    <button class="mob-sidebar-close" onclick="closeMobileSidebar()">✕</button>
+  </div>
+
+  <!-- Scrollable nav -->
+  <div class="mob-sidebar-nav">
+    <button
+      class="snav-dash-btn"
+      style="
+        width: 100%;
+        margin-bottom: 6px;
+        font-family: var(--font-body);
+        font-size: 0.82rem;
+        color: var(--sidebar-text);
+        cursor: pointer;
+        transition: background 0.12s;
+      "
+      onclick="
+        nav('chat', null);
+        closeMobileSidebar();
+      "
+    >
+      <span style="font-size: 0.82rem">⊞</span> Dashboard
+    </button>
     <div
       style="
-        padding: 0 20px 20px;
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        justify-content: center;
+        height: 1px;
+        background: var(--sidebar-border);
+        margin: 4px 4px 8px;
       "
-      id="pricing-cards"
+    ></div>
+
+    <!-- AI -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-ai"
+      onclick="mobSnavToggle('ai', this)"
     >
-      <div class="pricing-card" style="flex: 1; min-width: 150px">
-        <div class="pricing-name">Free</div>
-        <div class="pricing-price">$0 <span>/month</span></div>
-        <ul class="pricing-perks">
-          <li>Basic AI assistant</li>
-          <li>3 spaces</li>
-          <li>Unlimited tasks</li>
-          <li>Community access</li>
-        </ul>
-        <button class="pricing-btn free-btn">Current plan</button>
+      <span
+        class="snav-section-icon"
+        style="background: rgba(129, 140, 248, 0.15)"
+        >🧠</span
+      >
+      <span class="snav-section-label">AI</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-ai">
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMob('chat')"
+      >
+        <span class="snav-item-icon">💬</span> Chat
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMobAI('ask-notes')"
+      >
+        <span class="snav-item-icon">📄</span> Ask from Notes
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMob('quiz')"
+      >
+        <span class="snav-item-icon">✨</span> Generate Quiz
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMobAI('study-help')"
+      >
+        <span class="snav-item-icon">💡</span> Study Help
+      </button>
+    </div>
+
+    <!-- Academics -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-academics"
+      onclick="mobSnavToggle('academics', this)"
+    >
+      <span class="snav-section-icon">🎓</span>
+      <span class="snav-section-label">Academics</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-academics">
+      <button
+        class="snav-item"
+        style="--item-accent: #34d399"
+        onclick="navMob('courses')"
+      >
+        <span class="snav-item-icon">📚</span> Courses
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #34d399"
+        onclick="navMob('announcements')"
+      >
+        <span class="snav-item-icon">📢</span> Announcements
+      </button>
+    </div>
+
+    <!-- Planner / Work -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-planner"
+      onclick="mobSnavToggle('planner', this)"
+    >
+      <span class="snav-section-icon">📅</span>
+      <span class="snav-section-label">Work</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-planner">
+      <button
+        class="snav-item"
+        style="--item-accent: #fb923c"
+        onclick="navMob('flux')"
+      >
+        <span class="snav-item-icon">✅</span> Tasks
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #fb923c"
+        onclick="navMob('notes')"
+      >
+        <span class="snav-item-icon">📓</span> Docs &amp; Notes
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #fb923c"
+        onclick="navMob('calendar')"
+      >
+        <span class="snav-item-icon">📆</span> Calendar
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #fb923c"
+        onclick="navMob('lab')"
+      >
+        <span class="snav-item-icon">🧪</span> Study Deck
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #fb923c"
+        onclick="navMobAI('study-plan')"
+      >
+        <span class="snav-item-icon">🗺️</span> Study Plan
+      </button>
+    </div>
+
+    <!-- Assessments -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-assessments"
+      onclick="mobSnavToggle('assessments', this)"
+    >
+      <span class="snav-section-icon">📋</span>
+      <span class="snav-section-label">Assessments</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-assessments">
+      <button
+        class="snav-item"
+        style="--item-accent: #f472b6"
+        onclick="navMob('quiz')"
+      >
+        <span class="snav-item-icon">📝</span> Quizzes
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #f472b6"
+        onclick="navMob('stats')"
+      >
+        <span class="snav-item-icon">🏆</span> Results
+      </button>
+    </div>
+
+    <!-- Grow -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-grow"
+      onclick="mobSnavToggle('grow', this)"
+    >
+      <span class="snav-section-icon">🌱</span>
+      <span class="snav-section-label">Grow</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-grow">
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('goals')"
+      >
+        <span class="snav-item-icon">🎯</span> Goals
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('skills')"
+      >
+        <span class="snav-item-icon">🧠</span> Skills
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('finance')"
+      >
+        <span class="snav-item-icon">💰</span> Finance
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('habits')"
+      >
+        <span class="snav-item-icon">🔁</span> Habits
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('journal')"
+      >
+        <span class="snav-item-icon">✍️</span> Journal
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #059669"
+        onclick="navMob('stats')"
+      >
+        <span class="snav-item-icon">📈</span> Analytics
+      </button>
+    </div>
+
+    <!-- Connect -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-connect"
+      onclick="mobSnavToggle('connect', this)"
+    >
+      <span class="snav-section-icon">🌐</span>
+      <span class="snav-section-label">Connect</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-connect">
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMob('community')"
+      >
+        <span class="snav-item-icon">👥</span> Community
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #818cf8"
+        onclick="navMob('library')"
+      >
+        <span class="snav-item-icon">📚</span> Library
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #4f6ef7"
+        onclick="navMob('agents')"
+      >
+        <span class="snav-item-icon">🤖</span> Agents
+      </button>
+    </div>
+
+    <!-- Insights -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-insights"
+      onclick="mobSnavToggle('insights', this)"
+    >
+      <span class="snav-section-icon">📊</span>
+      <span class="snav-section-label">Insights</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-insights">
+      <button
+        class="snav-item"
+        style="--item-accent: #60a5fa"
+        onclick="navMob('stats')"
+      >
+        <span class="snav-item-icon">📈</span> Progress
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #60a5fa"
+        onclick="navMobAI('weak-areas')"
+      >
+        <span class="snav-item-icon">🎯</span> Weak Areas
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #60a5fa"
+        onclick="navMobAI('recommendations')"
+      >
+        <span class="snav-item-icon">💡</span> Recommendations
+      </button>
+    </div>
+
+    <div
+      style="height: 1px; background: var(--sidebar-border); margin: 8px 4px"
+    ></div>
+
+    <!-- Spaces -->
+    <button
+      class="snav-section-btn"
+      id="mob-sec-spaces"
+      onclick="mobSnavToggle('spaces', this)"
+    >
+      <span class="snav-section-icon">🏠</span>
+      <span class="snav-section-label">Spaces</span>
+      <span class="snav-chevron">▼</span>
+    </button>
+    <div class="snav-items" id="mob-items-spaces">
+      <button
+        class="snav-item"
+        style="--item-accent: #a78bfa"
+        onclick="navMob('personal-space')"
+      >
+        <span class="snav-item-icon">👤</span> Personal Space
+      </button>
+      <button
+        class="snav-item"
+        style="--item-accent: #a78bfa"
+        onclick="navMob('organization-space')"
+      >
+        <span class="snav-item-icon">🏢</span> Organization Space
+      </button>
+    </div>
+
+    <div
+      style="height: 1px; background: var(--sidebar-border); margin: 8px 4px"
+    ></div>
+
+    <button
+      class="snav-item"
+      style="--item-accent: #818cf8; margin-top: 4px"
+      onclick="navMob('settings')"
+    >
+      <span class="snav-item-icon">⚙️</span> Settings
+    </button>
+  </div>
+  <!-- end mob-sidebar-nav -->
+
+  <!-- User footer — mobile sidebar only -->
+  <div
+    style="
+      padding: 8px;
+      border-top: 1px solid var(--sidebar-border);
+      flex-shrink: 0;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 8px;
+      "
+    >
+      <div
+        id="mob-snav-av"
+        style="
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          flex-shrink: 0;
+          overflow: hidden;
+          background: linear-gradient(135deg, var(--accent), var(--accent2));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 10px;
+          color: #fff;
+        "
+      >
+        ?
       </div>
-      <div class="pricing-card featured" style="flex: 1; min-width: 150px">
-        <div class="pricing-name">Pro</div>
-        <div class="pricing-price">$19 <span>/month</span></div>
-        <ul class="pricing-perks">
-          <li>Advanced AI assistant</li>
-          <li>Unlimited spaces</li>
-          <li>Team collaboration</li>
-          <li>Priority support</li>
-          <li>API access</li>
-        </ul>
-        <button class="pricing-btn">Upgrade</button>
-      </div>
-      <div class="pricing-card" style="flex: 1; min-width: 150px">
-        <div class="pricing-name">Team</div>
-        <div class="pricing-price">$49 <span>/month</span></div>
-        <ul class="pricing-perks">
-          <li>Everything in Pro</li>
-          <li>Advanced analytics</li>
-          <li>SSO & SAML</li>
-          <li>Dedicated support</li>
-          <li>Custom integrations</li>
-        </ul>
-        <button class="pricing-btn">Contact sales</button>
+      <div style="flex: 1; min-width: 0">
+        <div
+          id="mob-snav-name"
+          style="
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          "
+        >
+          Your Name
+        </div>
+        <div style="font-size: 9.5px; color: var(--muted)">
+          Personal account
+        </div>
       </div>
     </div>
   </div>
 </div>
+<!-- end mob-sidebar-panel -->
 
-{# ── FEEDBACK MODAL ───────────────────────────────────────── #}
+<!-- ── Mobile FAB (quick capture) — real one, defined again lower in body
+         since app.js re-binds cnOpen() to this instance; kept here to travel
+         with the rest of the mobile shell chrome -->
+<button class="mob-fab" id="mob-fab" onclick="cnOpen()" title="Quick capture">
+  <i class="ti ti-plus"></i>
+</button>
+
+<!-- ── Mobile Bottom Navigation ─────────────────────────── -->
+<nav class="mobile-nav" id="mobile-nav">
+  <div class="mobile-nav-inner">
+    <button class="mob-nav-btn" id="mob-today" onclick="nav('home')">
+      <i class="ti ti-sun-high"></i>
+      <span>Today</span>
+    </button>
+
+    <button class="mob-nav-btn mob-ai-btn" id="mob-ai" onclick="nav('chat')">
+      <div class="mob-ai-orb">
+        <i class="ti ti-sparkles"></i>
+      </div>
+      <span>AI</span>
+    </button>
+
+    <button class="mob-nav-btn" id="mob-me" onclick="navMobileMe()">
+      <i class="ti ti-user"></i>
+      <span>Me</span>
+    </button>
+  </div>
+</nav>
+
+<!-- Mobile: Customize sidebar bottom-sheet -->
 <div
-  class="modal-overlay"
-  id="feedback-modal"
+  class="mob-cust-overlay"
+  id="mob-cust-overlay"
+  onclick="if (event.target === this) mobCustClose();"
+>
+  <div class="mob-cust-sheet" id="mob-cust-sheet">
+    <div class="mob-cust-head">
+      <h3>Customize Sidebar</h3>
+      <button class="mob-cust-done" onclick="mobCustClose()">Done</button>
+    </div>
+    <div class="mob-cust-body" id="mob-cust-body"></div>
+  </div>
+</div>
+{# ═══════════════════════════════════════════════════════════════ _modals.html
+— all modals, overlays, and banners Re-extracted VERBATIM from
+index_previous.html (byte-for-byte, no rewriting) to fix the content-loss issue
+found in the prior split.
+═══════════════════════════════════════════════════════════════ #} {# ── OFFLINE
+BANNER ── #}
+<div id="offline-banner" style="display: none">
+  <i class="ti ti-wifi-off"></i>
+  <span
+    >You're offline — your work is saved locally and will sync when you
+    reconnect</span
+  >
+  <span id="offline-queue-count" style="margin-left: auto; opacity: 0.7"></span>
+</div>
+
+{# ── EMAIL VERIFY BANNER ── #}
+<div
+  id="verify-banner"
   style="
     display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 1200;
-    background: rgba(0, 0, 0, 0.5);
+    background: #1a3a2e;
+    border-bottom: 1px solid var(--teal);
+    padding: 10px 20px;
+    display: none;
     align-items: center;
-    justify-content: center;
-    padding: 1rem;
-    -webkit-backdrop-filter: blur(4px);
-    backdrop-filter: blur(4px);
+    gap: 12px;
+    font-size: 0.88rem;
   "
 >
-  <div class="modal-box">
-    <div class="modal-hd">
-      <span class="modal-title">💬 Send Feedback</span>
-      <button class="modal-close" data-close="feedback-modal">✕</button>
+  <i class="ti ti-mail" style="color: var(--teal); font-size: 1.1rem"></i>
+  <span style="flex: 1; color: var(--text)"
+    >Please verify your email address. Check your inbox for the verification
+    link.</span
+  >
+  <button
+    type="button"
+    onclick="resendVerificationEmail()"
+    style="
+      color: var(--teal);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-decoration: underline;
+    "
+  >
+    Resend
+  </button>
+  <button
+    type="button"
+    onclick="this.closest('#verify-banner').style.display = 'none'"
+    style="
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+    "
+  >
+    &times;
+  </button>
+</div>
+
+{# ── TOAST NOTIFICATIONS ── #}
+<div class="toast" id="toast"></div>
+
+{# ── SLASH COMMAND MENU ── #}
+<div
+  id="slash-menu"
+  style="display: none; position: fixed; z-index: 9999"
+></div>
+
+{# ── COMMAND PALETTE (⌘K) ── #}
+<div class="cmd-bg" id="cmd-bg" onclick="cmdClose(event)">
+  <div class="cmd-box">
+    <div class="cmd-input-wrap">
+      <span class="cmd-icon">⌘</span>
+      <input
+        class="cmd-input"
+        id="cmd-input"
+        placeholder="Search panels, notes, actions..."
+        oninput="cmdSearch()"
+        onkeydown="cmdKey(event)"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <span class="cmd-hint">ESC</span>
     </div>
-    <div style="margin-bottom: 12px">
-      <div style="font-size: 0.8rem; color: var(--text3); margin-bottom: 8px">
-        How would you rate your experience?
-      </div>
-      <div style="display: flex; gap: 4px">
-        <button class="fb-star" data-star="1">☆</button>
-        <button class="fb-star" data-star="2">☆</button>
-        <button class="fb-star" data-star="3">☆</button>
-        <button class="fb-star" data-star="4">☆</button>
-        <button class="fb-star" data-star="5">☆</button>
-      </div>
+    <div class="cmd-results" id="cmd-results"></div>
+    <div class="cmd-capture-row" id="cmd-capture-row" style="display: none">
+      <span class="cmd-capture-label">Capture as:</span>
+      <button
+        class="cmd-cap-btn"
+        onmousedown="
+          event.preventDefault();
+          qcCapture('task');
+        "
+      >
+        📋 Task
+      </button>
+      <button
+        class="cmd-cap-btn"
+        onmousedown="
+          event.preventDefault();
+          qcCapture('event');
+        "
+      >
+        📅 Event
+      </button>
+      <button
+        class="cmd-cap-btn"
+        onmousedown="
+          event.preventDefault();
+          qcCapture('journal');
+        "
+      >
+        📓 Journal
+      </button>
+      <button
+        class="cmd-cap-btn"
+        onmousedown="
+          event.preventDefault();
+          qcCapture('goal');
+        "
+      >
+        🎯 Goal
+      </button>
+      <button
+        class="cmd-cap-btn"
+        onmousedown="
+          event.preventDefault();
+          qcCapture('note');
+        "
+      >
+        💡 Note
+      </button>
     </div>
-    <textarea
-      class="si-modal-input si-modal-textarea"
-      placeholder="Tell us what you think..."
-      rows="4"
-    ></textarea>
+    <div class="cmd-footer">
+      <div class="cmd-footer-hint"><kbd>↑↓</kbd> navigate</div>
+      <div class="cmd-footer-hint"><kbd>↵</kbd> open</div>
+      <div class="cmd-footer-hint"><kbd>ESC</kbd> close</div>
+    </div>
+  </div>
+</div>
+
+{# ── QUICK CAPTURE MODAL ── #}
+<div class="cn-modal-bg" id="cn-modal-bg" onclick="cnClose(event)">
+  <div class="cn-modal">
+    <div class="cn-handle"></div>
+
+    <!-- Tab bar -->
     <div
       style="
         display: flex;
-        gap: 8px;
-        margin-top: 12px;
-        justify-content: flex-end;
+        gap: 5px;
+        background: var(--card);
+        border-radius: 10px;
+        padding: 4px;
+        margin-bottom: 1.1rem;
       "
     >
       <button
-        class="si-modal-btn si-modal-btn-cancel"
-        data-close="feedback-modal"
+        id="cntab-create"
+        onclick="cnTab('create')"
+        style="
+          flex: 1;
+          padding: 7px;
+          border-radius: 7px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent2));
+          color: #fff;
+          font-family: var(--font);
+          font-size: 0.75rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s;
+        "
       >
-        Cancel
+        ✦ Create New
       </button>
-      <button class="si-modal-btn si-modal-btn-primary">Send Feedback</button>
-    </div>
-  </div>
-</div>
-
-{# ── ONBOARDING FLOW ──────────────────────────────────────── #}
-<div class="si-onboard-overlay" id="onboarding-overlay" style="display: none">
-  <div class="si-onboard-box">
-    <div class="si-ob-logo">✦ Sivarr</div>
-
-    <!-- Step 1: Welcome -->
-    <div id="ob-step-1">
-      <div class="si-ob-dots">
-        <span class="si-ob-dot active"></span><span class="si-ob-dot"></span
-        ><span class="si-ob-dot"></span><span class="si-ob-dot"></span
-        ><span class="si-ob-dot"></span>
-      </div>
-      <div class="si-ob-emoji">👋</div>
-      <div class="si-ob-title">Welcome to Sivarr</div>
-      <div class="si-ob-sub">
-        Your AI-powered workspace for getting things done. Let's set up your
-        space.
-      </div>
-      <button class="si-ob-btn-pri" onclick="onboardingNext()">
-        Get Started →
+      <button
+        id="cntab-space"
+        onclick="
+          $('cn-modal-bg').classList.remove('open');
+          openCreateSpaceModal();
+        "
+        style="
+          flex: 1;
+          padding: 7px;
+          border-radius: 7px;
+          border: none;
+          background: none;
+          color: var(--muted);
+          font-family: var(--font);
+          font-size: 0.75rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s;
+        "
+      >
+        🌐 Space
+      </button>
+      <button
+        id="cntab-framework"
+        onclick="cnTab('framework')"
+        style="
+          flex: 1;
+          padding: 7px;
+          border-radius: 7px;
+          border: none;
+          background: none;
+          color: var(--muted);
+          font-family: var(--font);
+          font-size: 0.75rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s;
+        "
+      >
+        ⚡ Framework
       </button>
     </div>
 
-    <!-- Step 2: Role -->
-    <div id="ob-step-2" style="display: none">
-      <div class="si-ob-dots">
-        <span class="si-ob-dot"></span><span class="si-ob-dot active"></span
-        ><span class="si-ob-dot"></span><span class="si-ob-dot"></span
-        ><span class="si-ob-dot"></span>
-      </div>
-      <div class="si-ob-title">What brings you here?</div>
-      <div class="si-ob-sub">Pick the role that best describes you</div>
-      <div class="si-ob-role-grid">
-        <div class="si-ob-role-card sel" data-role="student">
-          <div class="si-ob-role-icon">🧑‍🎓</div>
-          <div class="si-ob-role-label">Student</div>
-          <div class="si-ob-role-desc">Learning, courses, and study</div>
-        </div>
-        <div class="si-ob-role-card" data-role="professional">
-          <div class="si-ob-role-icon">💼</div>
-          <div class="si-ob-role-label">Professional</div>
-          <div class="si-ob-role-desc">Work, projects, and teams</div>
-        </div>
-        <div class="si-ob-role-card" data-role="creator">
-          <div class="si-ob-role-icon">🎨</div>
-          <div class="si-ob-role-label">Creator</div>
-          <div class="si-ob-role-desc">Building and making</div>
-        </div>
-        <div class="si-ob-role-card" data-role="other">
-          <div class="si-ob-role-icon">🌟</div>
-          <div class="si-ob-role-label">Other</div>
-          <div class="si-ob-role-desc">Something else</div>
-        </div>
-      </div>
-      <div class="si-ob-actions">
-        <button class="si-ob-btn-pri" onclick="onboardingNext()">
-          Continue →
+    <!-- Pane: Create New -->
+    <div id="cnpane-create">
+      <div class="cn-title" style="margin-bottom: 0.875rem">✦ Create New</div>
+      <div class="cn-grid">
+        <button
+          class="cn-item"
+          style="--cn-color: #4f6ef7"
+          onclick="cnAction('note')"
+        >
+          <div class="cn-item-icon">📝</div>
+          <div>
+            <div class="cn-item-label">Note</div>
+            <div class="cn-item-sub">Quick study note</div>
+          </div>
         </button>
-        <button class="si-ob-btn-sec" onclick="onboardingSkip()">Skip</button>
+        <button
+          class="cn-item"
+          style="--cn-color: #22c55e"
+          onclick="cnAction('task')"
+        >
+          <div class="cn-item-icon">✅</div>
+          <div>
+            <div class="cn-item-label">Task</div>
+            <div class="cn-item-sub">Add to Flux board</div>
+          </div>
+        </button>
+        <button
+          class="cn-item"
+          style="--cn-color: #f59e0b"
+          onclick="cnAction('studyplan')"
+        >
+          <div class="cn-item-icon">🗺️</div>
+          <div>
+            <div class="cn-item-label">Study Plan</div>
+            <div class="cn-item-sub">Exam countdown</div>
+          </div>
+        </button>
+        <button
+          class="cn-item"
+          style="--cn-color: #f472b6"
+          onclick="cnAction('quiz')"
+        >
+          <div class="cn-item-icon">📝</div>
+          <div>
+            <div class="cn-item-label">Quiz</div>
+            <div class="cn-item-sub">Test yourself</div>
+          </div>
+        </button>
+        <button
+          class="cn-item"
+          style="--cn-color: #a78bfa"
+          onclick="cnAction('studydeck')"
+        >
+          <div class="cn-item-icon">🧪</div>
+          <div>
+            <div class="cn-item-label">Study Deck</div>
+            <div class="cn-item-sub">Upload notes</div>
+          </div>
+        </button>
+        <button
+          class="cn-item"
+          style="--cn-color: #34d399"
+          onclick="cnAction('ask')"
+        >
+          <div class="cn-item-icon">💬</div>
+          <div>
+            <div class="cn-item-label">Ask AI</div>
+            <div class="cn-item-sub">Chat instantly</div>
+          </div>
+        </button>
       </div>
     </div>
 
-    <!-- Step 3: Goals -->
-    <div id="ob-step-3" style="display: none">
-      <div class="si-ob-dots">
-        <span class="si-ob-dot"></span><span class="si-ob-dot"></span
-        ><span class="si-ob-dot active"></span><span class="si-ob-dot"></span
-        ><span class="si-ob-dot"></span>
+    <!-- Pane: Create Space -->
+    <div id="cnpane-space" style="display: none">
+      <div class="cn-title" style="margin-bottom: 0.875rem">
+        🌐 Create a Space
       </div>
-      <div class="si-ob-title">What are your top goals?</div>
-      <div class="si-ob-sub">We'll personalize your dashboard around these</div>
-      <div class="si-ob-goal-form">
-        <div class="si-ob-goal-row">
-          <div>
-            <div
-              class="si-ob-label"
-              style="
-                font-size: 0.72rem;
-                font-weight: 700;
-                color: var(--text3);
-                margin-bottom: 4px;
-              "
-            >
-              Goal 1
-            </div>
-            <input class="si-ob-input" placeholder="e.g. Finish my course" />
-          </div>
-          <div>
-            <div
-              class="si-ob-label"
-              style="
-                font-size: 0.72rem;
-                font-weight: 700;
-                color: var(--text3);
-                margin-bottom: 4px;
-              "
-            >
-              Goal 2
-            </div>
-            <input class="si-ob-input" placeholder="e.g. Build a project" />
-          </div>
+
+      <!-- Step 1: Choose type -->
+      <div id="sp-s1">
+        <div
+          style="
+            font-size: 0.78rem;
+            color: var(--muted);
+            margin-bottom: 0.75rem;
+          "
+        >
+          Choose a space type:
         </div>
-        <div>
-          <div
-            class="si-ob-label"
+
+        <button
+          class="sp-type-btn"
+          id="sp-type-personal"
+          onclick="spPickType('personal')"
+        >
+          <div class="sp-type-icon" style="background: #4f6ef720">👤</div>
+          <div>
+            <div class="sp-type-label">Personal Space</div>
+            <div class="sp-type-sub">
+              Task Tracker, Document Hub, Meetings, Content Hub
+            </div>
+          </div>
+        </button>
+
+        <button
+          class="sp-type-btn"
+          id="sp-type-org"
+          onclick="spPickType('org')"
+        >
+          <div class="sp-type-icon" style="background: #7c3aed20">🏢</div>
+          <div>
+            <div class="sp-type-label">Organization Space</div>
+            <div class="sp-type-sub">
+              Goals, Team, Knowledge, Insights + add members
+            </div>
+          </div>
+        </button>
+
+        <div style="display: flex; gap: 8px; margin-top: 0.875rem">
+          <button
+            onclick="cnClose({ target: $('cn-modal-bg') })"
             style="
-              font-size: 0.72rem;
+              flex: 1;
+              padding: 9px;
+              border-radius: 9px;
+              background: none;
+              border: 1px solid var(--border);
+              color: var(--muted);
+              font-family: var(--font);
+              font-size: 0.82rem;
               font-weight: 700;
-              color: var(--text3);
-              margin-bottom: 4px;
+              cursor: pointer;
             "
           >
-            Goal 3
-          </div>
-          <input class="si-ob-input" placeholder="e.g. Learn a new skill" />
+            Cancel
+          </button>
+          <button
+            onclick="spNext()"
+            style="
+              flex: 1;
+              padding: 9px;
+              border-radius: 9px;
+              background: linear-gradient(
+                135deg,
+                var(--accent),
+                var(--accent2)
+              );
+              border: none;
+              color: #fff;
+              font-family: var(--font);
+              font-size: 0.82rem;
+              font-weight: 700;
+              cursor: pointer;
+            "
+          >
+            Continue →
+          </button>
         </div>
       </div>
-      <div class="si-ob-actions">
-        <button class="si-ob-btn-pri" onclick="onboardingNext()">
-          Continue →
-        </button>
-        <button class="si-ob-btn-sec" onclick="onboardingSkip()">Skip</button>
+
+      <!-- Step 2: Name + members -->
+      <div id="sp-s2" style="display: none">
+        <div
+          id="sp-s2-label"
+          style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.5rem"
+        >
+          Space name:
+        </div>
+        <input
+          id="sp-name"
+          type="text"
+          placeholder="e.g. My Study Space, MTH301 Team..."
+          style="
+            width: 100%;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 9px 12px;
+            color: var(--text);
+            font-family: var(--font-body);
+            font-size: 0.87rem;
+            outline: none;
+            transition: border-color 0.2s;
+            margin-bottom: 0.625rem;
+          "
+          onfocus="this.style.borderColor = 'var(--accent)'"
+          onblur="this.style.borderColor = 'var(--border)'"
+          onkeydown="if (event.key === 'Enter') spCreate();"
+        />
+
+        <div id="sp-members-wrap" style="display: none">
+          <div
+            style="
+              font-size: 0.78rem;
+              color: var(--muted);
+              margin-bottom: 0.5rem;
+            "
+          >
+            Add members
+            <span style="opacity: 0.6">(optional, comma-separated)</span>:
+          </div>
+          <input
+            id="sp-members"
+            type="text"
+            placeholder="Names or matric numbers..."
+            style="
+              width: 100%;
+              background: var(--card);
+              border: 1px solid var(--border);
+              border-radius: 9px;
+              padding: 9px 12px;
+              color: var(--text);
+              font-family: var(--font-body);
+              font-size: 0.87rem;
+              outline: none;
+              transition: border-color 0.2s;
+              margin-bottom: 0.625rem;
+            "
+            onfocus="this.style.borderColor = 'var(--accent)'"
+            onblur="this.style.borderColor = 'var(--border)'"
+          />
+        </div>
+
+        <div
+          id="sp-err"
+          style="
+            color: var(--red);
+            font-size: 0.75rem;
+            min-height: 14px;
+            margin-bottom: 4px;
+          "
+        ></div>
+
+        <div style="display: flex; gap: 8px">
+          <button
+            onclick="spBack()"
+            style="
+              flex: 1;
+              padding: 9px;
+              border-radius: 9px;
+              background: none;
+              border: 1px solid var(--border);
+              color: var(--muted);
+              font-family: var(--font);
+              font-size: 0.82rem;
+              font-weight: 700;
+              cursor: pointer;
+            "
+          >
+            ← Back
+          </button>
+          <button
+            onclick="spCreate()"
+            style="
+              flex: 1;
+              padding: 9px;
+              border-radius: 9px;
+              background: linear-gradient(
+                135deg,
+                var(--accent),
+                var(--accent2)
+              );
+              border: none;
+              color: #fff;
+              font-family: var(--font);
+              font-size: 0.82rem;
+              font-weight: 700;
+              cursor: pointer;
+            "
+          >
+            ✦ Create Space
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Step 4: Integrations -->
-    <div id="ob-step-4" style="display: none">
-      <div class="si-ob-dots">
-        <span class="si-ob-dot"></span><span class="si-ob-dot"></span
-        ><span class="si-ob-dot"></span><span class="si-ob-dot active"></span
-        ><span class="si-ob-dot"></span>
+    <!-- Pane: Framework -->
+    <div id="cnpane-framework" style="display: none">
+      <div class="cn-title" style="margin-bottom: 0.875rem">
+        ⚡ Create Framework
       </div>
-      <div class="si-ob-title">Connect your tools</div>
-      <div class="si-ob-sub">
-        We'll help you get started with these integrations
-      </div>
-      <div class="si-ob-int-grid">
-        <button class="si-ob-int-btn done" data-int="calendar">
-          📅<span class="si-ob-int-label">Calendar</span>
-        </button>
-        <button class="si-ob-int-btn" data-int="tasks">
-          📋<span class="si-ob-int-label">Tasks</span>
-        </button>
-        <button class="si-ob-int-btn" data-int="drive">
-          💾<span class="si-ob-int-label">Drive</span>
-        </button>
-        <button class="si-ob-int-btn" data-int="email">
-          📧<span class="si-ob-int-label">Email</span>
-        </button>
-        <button class="si-ob-int-btn" data-int="slack">
-          💬<span class="si-ob-int-label">Slack</span>
-        </button>
-        <button class="si-ob-int-btn" data-int="github">
-          🐙<span class="si-ob-int-label">GitHub</span>
-        </button>
-      </div>
-      <div class="si-ob-actions">
-        <button class="si-ob-btn-pri" onclick="onboardingNext()">
-          Continue →
-        </button>
-        <button class="si-ob-btn-sec" onclick="onboardingSkip()">Skip</button>
-      </div>
-    </div>
-
-    <!-- Step 5: Done -->
-    <div id="ob-step-5" style="display: none">
-      <div class="si-ob-dots">
-        <span class="si-ob-dot"></span><span class="si-ob-dot"></span
-        ><span class="si-ob-dot"></span><span class="si-ob-dot"></span
-        ><span class="si-ob-dot active"></span>
-      </div>
-      <div class="si-ob-emoji">🚀</div>
-      <div class="si-ob-title">You're all set!</div>
-      <div class="si-ob-sub">Welcome to Sivarr. Your workspace is ready.</div>
-      <div class="si-ob-done-actions">
-        <div
-          class="si-ob-action-card"
-          onclick="
-            nav('home');
-            closeOnboarding();
-          "
+      <p
+        style="
+          font-size: 0.8rem;
+          color: var(--muted);
+          line-height: 1.6;
+          margin-bottom: 1rem;
+        "
+      >
+        Structured templates for recurring workflows — study routines, project
+        pipelines, team sprints.
+      </p>
+      <div class="cn-grid">
+        <button
+          class="cn-item"
+          style="--cn-color: #f59e0b"
+          onclick="cnFramework('study-routine')"
         >
-          <span class="si-ob-action-icon">🏠</span>
+          <div class="cn-item-icon">📅</div>
           <div>
-            <div class="si-ob-action-label">Go to Dashboard</div>
-            <div class="si-ob-action-desc">Start using Sivarr</div>
+            <div class="cn-item-label">Study Routine</div>
+            <div class="cn-item-sub">Daily schedule</div>
           </div>
-        </div>
-        <div
-          class="si-ob-action-card"
-          onclick="
-            nav('chat');
-            closeOnboarding();
-          "
+        </button>
+        <button
+          class="cn-item"
+          style="--cn-color: #4f6ef7"
+          onclick="cnFramework('project-pipeline')"
         >
-          <span class="si-ob-action-icon">💬</span>
+          <div class="cn-item-icon">📊</div>
           <div>
-            <div class="si-ob-action-label">Chat with Sivarr</div>
-            <div class="si-ob-action-desc">Ask your AI assistant</div>
+            <div class="cn-item-label">Project Pipeline</div>
+            <div class="cn-item-sub">Track deliverables</div>
           </div>
-        </div>
+        </button>
+        <button
+          class="cn-item"
+          style="--cn-color: #34d399"
+          onclick="cnFramework('exam-prep')"
+        >
+          <div class="cn-item-icon">🎯</div>
+          <div>
+            <div class="cn-item-label">Exam Prep</div>
+            <div class="cn-item-sub">Structured revision</div>
+          </div>
+        </button>
+        <button
+          class="cn-item"
+          style="--cn-color: #7c3aed"
+          onclick="cnFramework('team-sprint')"
+        >
+          <div class="cn-item-icon">⚡</div>
+          <div>
+            <div class="cn-item-label">Team Sprint</div>
+            <div class="cn-item-sub">Weekly goals</div>
+          </div>
+        </button>
       </div>
-      <button class="si-ob-btn-pri" onclick="closeOnboarding()">
-        Let's go!
-      </button>
     </div>
   </div>
 </div>
 
-{# ── FOCUS MODE OVERLAY ───────────────────────────────────── #}
+{# ── NATURAL-LANGUAGE QUICK-ADD ── #}
+<div
+  class="nl-overlay"
+  id="nl-overlay"
+  onclick="if (event.target === this) nlClose();"
+>
+  <div class="nl-box" id="nl-box">
+    <div class="nl-header">
+      <div class="nl-hint">Type anything — Sivarr will figure it out</div>
+      <button class="nl-close" onclick="nlClose()">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <div class="nl-input-row">
+      <i class="ti ti-sparkles nl-spark"></i>
+      <input
+        class="nl-input"
+        id="nl-input"
+        placeholder="e.g. Remind me to follow up with the team tomorrow · Finish the report by Friday · Hit the gym this week"
+        maxlength="300"
+        onkeydown="
+          if (event.key === 'Enter') nlSubmit();
+          if (event.key === 'Escape') nlClose();
+        "
+      />
+    </div>
+    <!-- Parsed preview -->
+    <div class="nl-preview" id="nl-preview" style="display: none">
+      <div class="nl-prev-label">Creating as</div>
+      <div class="nl-prev-row" id="nl-prev-row">
+        <span class="nl-badge" id="nl-prev-type"></span>
+        <span class="nl-prev-title" id="nl-prev-title"></span>
+        <span class="nl-prev-meta" id="nl-prev-meta"></span>
+      </div>
+      <div class="nl-prev-actions">
+        <button class="nl-btn-sec" onclick="nlClose()">Cancel</button>
+        <button class="nl-btn-pri" id="nl-confirm-btn" onclick="nlConfirm()">
+          Add
+        </button>
+      </div>
+    </div>
+    <div class="nl-examples">
+      <span onclick="nlExample(this)" class="nl-ex-chip"
+        >📋 Draft email to team</span
+      >
+      <span onclick="nlExample(this)" class="nl-ex-chip"
+        >🎯 Read 2 books this month</span
+      >
+      <span onclick="nlExample(this)" class="nl-ex-chip"
+        >📅 Submit report by Friday</span
+      >
+      <span onclick="nlExample(this)" class="nl-ex-chip"
+        >📓 Write a quick note</span
+      >
+    </div>
+  </div>
+</div>
+
+{# ── FOCUS MODE ── #}
 <div class="focus-overlay" id="focus-overlay">
+  <!-- Active timer screen -->
   <div class="focus-screen" id="focus-screen">
-    <button class="focus-close-x" id="focus-close-btn">✕</button>
-    <div class="focus-task-name" id="focus-task-name">Focus session</div>
+    <button class="focus-close-x" onclick="focusEnd()">
+      <i class="ti ti-x"></i>
+    </button>
+    <div class="focus-task-name" id="focus-task-name">Focus Session</div>
+
     <div class="focus-ring-wrap">
       <svg class="focus-svg" viewBox="0 0 200 200">
         <circle
           cx="100"
           cy="100"
-          r="88"
+          r="86"
           fill="none"
           stroke="rgba(255,255,255,.08)"
-          stroke-width="6"
+          stroke-width="8"
         />
         <circle
+          id="focus-ring"
           cx="100"
           cy="100"
-          r="88"
+          r="86"
           fill="none"
-          stroke="var(--teal)"
-          stroke-width="6"
-          stroke-dasharray="553"
-          stroke-dashoffset="553"
+          stroke="url(#focusGrad)"
+          stroke-width="8"
           stroke-linecap="round"
-          id="focus-ring"
+          stroke-dasharray="540"
+          stroke-dashoffset="0"
+          style="
+            transition: stroke-dashoffset 0.6s ease;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+          "
         />
+        <defs>
+          <linearGradient id="focusGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#0D7A5F" />
+            <stop offset="100%" stop-color="#534AB7" />
+          </linearGradient>
+        </defs>
       </svg>
       <div class="focus-inner">
-        <div class="focus-time" id="focus-timer">25:00</div>
-        <div class="focus-label-sm">Focus</div>
+        <div class="focus-time" id="focus-time">25:00</div>
+        <div class="focus-label-sm" id="focus-label-sm">Focus</div>
       </div>
     </div>
+
     <div class="focus-controls">
-      <button class="focus-ctrl-btn focus-ctrl-sec" id="focus-reset-btn">
-        ⟳
+      <button
+        class="focus-ctrl-btn focus-ctrl-sec"
+        onclick="focusReset()"
+        title="Reset"
+      >
+        <i class="ti ti-refresh"></i>
       </button>
-      <button class="focus-ctrl-btn focus-ctrl-pri" id="focus-toggle-btn">
-        ▶
+      <button
+        class="focus-ctrl-btn focus-ctrl-pri"
+        id="focus-play-btn"
+        onclick="focusToggle()"
+      >
+        <i class="ti ti-player-play" id="focus-play-icon"></i>
       </button>
-      <button class="focus-ctrl-btn focus-ctrl-sec" id="focus-skip-btn">
-        ⏭
+      <button
+        class="focus-ctrl-btn focus-ctrl-sec"
+        onclick="focusEnd()"
+        title="End"
+      >
+        <i class="ti ti-player-stop"></i>
       </button>
     </div>
+
     <div class="focus-session-dots" id="focus-session-dots">
-      <span class="fsd"></span><span class="fsd"></span><span class="fsd"></span
-      ><span class="fsd"></span>
+      <div class="fsd fsd-active"></div>
+      <div class="fsd"></div>
+      <div class="fsd"></div>
+      <div class="fsd"></div>
     </div>
   </div>
 
-  <!-- Done screen -->
+  <!-- Post-session screen -->
   <div class="focus-done-screen" id="focus-done-screen" style="display: none">
     <div class="focus-done-emoji">🎉</div>
     <div class="focus-done-title">Session complete!</div>
-    <div class="focus-done-sub">Take a break or start another session.</div>
+    <div class="focus-done-sub" id="focus-done-sub">
+      You focused for 25 minutes. Great work.
+    </div>
     <textarea
       class="focus-done-input"
-      placeholder="Reflect on what you accomplished..."
-      rows="3"
+      id="focus-done-input"
+      placeholder="What did you complete? (optional)"
     ></textarea>
     <div class="focus-done-actions">
-      <button class="fda-sec" id="focus-done-break">☕ Take a break</button>
-      <button class="fda-pri" id="focus-done-continue">Continue working</button>
+      <button class="fda-sec" onclick="focusContinue()">
+        <i class="ti ti-refresh"></i> Another session
+      </button>
+      <button class="fda-pri" onclick="focusFinish()">Done for now</button>
     </div>
   </div>
 </div>
 
-{# ── DAILY BRIEF OVERLAY ──────────────────────────────────── #}
+{# ── DAILY BRIEF ── #}
 <div class="brief-overlay" id="brief-overlay">
   <div class="brief-card">
     <div class="brief-siva-row">
       <div class="brief-siva-av">
         <img src="/static/sivarrai.png" alt="Sivarr" />
       </div>
-      <span class="brief-siva-label">✦ Sivarr</span>
+      <div class="brief-siva-label">Sivarr · Your daily brief</div>
     </div>
-    <div class="brief-greeting" id="brief-greeting">
-      Good morning, <span id="brief-greeting-name">User</span>
-    </div>
-    <div class="brief-date-line" id="brief-date-line">
-      Today · A new day to build
-    </div>
-    <div class="brief-msg" id="brief-message">
-      You have 3 tasks due today. Your top priority: review the Q3 proposal.
-      You're on a 7-day habit streak — keep it going!
-    </div>
-    <div class="brief-chips">
-      <span class="brief-chip urgent">⚡ 3 urgent</span>
-      <span class="brief-chip streak">🔥 7 day streak</span>
-      <span class="brief-chip goal">🎯 2 goals on track</span>
-    </div>
-    <button class="brief-go-btn" id="brief-go-btn">Go to Dashboard →</button>
-    <button class="brief-skip-btn" id="brief-skip-btn">Skip today</button>
-  </div>
-</div>
-
-{# ── NL QUICK-ADD OVERLAY ────────────────────────────────── #}
-<div class="nl-overlay" id="nl-overlay">
-  <div class="nl-box">
-    <div class="nl-header">
-      <span class="nl-hint">✨ Quick Add</span>
-      <button class="nl-close" id="nl-close-btn">✕</button>
-    </div>
-    <div class="nl-input-row">
-      <span class="nl-spark">✦</span>
-      <input
-        class="nl-input"
-        id="nl-input"
-        placeholder="What do you want to create? (task, note, goal...)"
-        autofocus
-      />
-    </div>
-    <div class="nl-preview" id="nl-preview" style="display: none">
-      <div class="nl-prev-label">Preview</div>
-      <div class="nl-prev-row">
-        <span class="nl-badge" id="nl-type-badge">Task</span>
-        <span class="nl-prev-title" id="nl-prev-title">New task</span>
-        <span class="nl-prev-meta" id="nl-prev-meta">Today</span>
-      </div>
-      <div class="nl-prev-actions">
-        <button class="nl-btn-sec" id="nl-edit-btn">✏️ Edit</button>
-        <button class="nl-btn-pri" id="nl-create-btn">Create</button>
-      </div>
-    </div>
-    <div class="nl-examples">
-      <button
-        class="nl-ex-chip"
-        data-example="task: Review Q3 proposal due tomorrow"
-      >
-        📋 Task: Review Q3 proposal
-      </button>
-      <button
-        class="nl-ex-chip"
-        data-example="note: Meeting notes — project sync"
-      >
-        📝 Note: Meeting notes
-      </button>
-      <button
-        class="nl-ex-chip"
-        data-example="goal: Learn Python by end of month"
-      >
-        🎯 Goal: Learn Python
-      </button>
-      <button class="nl-ex-chip" data-example="habit: Exercise 3x per week">
-        💪 Habit: Exercise
-      </button>
-    </div>
-  </div>
-</div>
-
-{# ── UNIVERSAL DIALOG (siModal) ───────────────────────────── #}
-<div class="si-modal-overlay" id="siModal" style="display: none">
-  <div class="si-modal-box">
-    <div class="si-modal-hd">
-      <span class="si-modal-title" id="siModalTitle">Dialog</span>
-      <button class="si-modal-x" data-close="siModal">✕</button>
-    </div>
-    <div class="si-modal-desc" id="siModalDesc" style="display: none"></div>
-    <div class="si-modal-body" id="siModalBody"></div>
-    <div class="si-modal-ft" id="siModalFooter">
-      <button class="si-modal-btn si-modal-btn-cancel" id="siModalCancel">
-        Cancel
-      </button>
-      <button class="si-modal-btn si-modal-btn-primary" id="siModalConfirm">
-        Confirm
-      </button>
-    </div>
-  </div>
-</div>
-
-{# ── CONFIRM DIALOG (siModal confirm variant) ────────────── #}
-<div class="si-modal-overlay" id="siConfirmModal" style="display: none">
-  <div class="si-modal-box">
-    <div class="si-modal-hd">
-      <span class="si-modal-title" id="siConfirmTitle">Confirm</span>
-      <button class="si-modal-x" data-close="siConfirmModal">✕</button>
-    </div>
-    <div class="si-modal-confirm-body">
-      <div class="si-modal-confirm-msg" id="siConfirmMsg">Are you sure?</div>
-    </div>
-    <div class="si-modal-ft">
-      <button
-        class="si-modal-btn si-modal-btn-cancel"
-        data-close="siConfirmModal"
-      >
-        Cancel
-      </button>
-      <button class="si-modal-btn si-modal-btn-primary danger" id="siConfirmOk">
-        Confirm
-      </button>
-    </div>
-  </div>
-</div>
-
-{# ── DIFFICULTY MODAL (used by quiz/game features) ──────── #}
-<div class="si-modal-overlay" id="difficulty-modal" style="display: none">
-  <div class="si-modal-box">
-    <div class="si-modal-hd">
-      <span class="si-modal-title">🎯 Select Difficulty</span>
-      <button class="si-modal-x" data-close="difficulty-modal">✕</button>
-    </div>
-    <div class="si-modal-body">
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px">
-        <button class="gl-filter-btn active" data-difficulty="easy">
-          😊 Easy
-        </button>
-        <button class="gl-filter-btn" data-difficulty="medium">
-          🤔 Medium
-        </button>
-        <button class="gl-filter-btn" data-difficulty="hard">😤 Hard</button>
-      </div>
-    </div>
-    <div class="si-modal-ft">
-      <button
-        class="si-modal-btn si-modal-btn-cancel"
-        data-close="difficulty-modal"
-      >
-        Cancel
-      </button>
-      <button class="si-modal-btn si-modal-btn-primary" id="diff-start-btn">
-        Start
-      </button>
-    </div>
-  </div>
-</div>
-
-{# ── CREATE-NEW SHEET ──────────────────────────────────────── #}
-<div class="cn-modal-bg" id="cn-modal-bg">
-  <div class="cn-modal">
-    <div class="cn-handle"></div>
-    <div style="margin-bottom: 16px">
-      <div style="font-size: 1rem; font-weight: 800; color: var(--text1)">
-        ✨ Create New
-      </div>
-      <div style="font-size: 0.78rem; color: var(--text3)">
-        Choose what to create
-      </div>
-    </div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
-      <button
-        class="si-ob-action-card"
-        style="
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          padding: 12px;
-          background: var(--bg2);
-          text-align: center;
-          cursor: pointer;
-        "
-        onclick="
-          nlOpen();
-          closeCnSheet();
-        "
-      >
-        <span style="font-size: 1.2rem">💬</span>
-        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text1)">
-          Quick Add
-        </div>
-        <div style="font-size: 0.65rem; color: var(--text3)">
-          Natural language
-        </div>
-      </button>
-      <button
-        class="si-ob-action-card"
-        style="
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          padding: 12px;
-          background: var(--bg2);
-          text-align: center;
-          cursor: pointer;
-        "
-        onclick="
-          nav('notes');
-          closeCnSheet();
-        "
-      >
-        <span style="font-size: 1.2rem">📝</span>
-        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text1)">
-          New Note
-        </div>
-        <div style="font-size: 0.65rem; color: var(--text3)">Quick capture</div>
-      </button>
-      <button
-        class="si-ob-action-card"
-        style="
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          padding: 12px;
-          background: var(--bg2);
-          text-align: center;
-          cursor: pointer;
-        "
-        onclick="
-          nav('flux');
-          closeCnSheet();
-        "
-      >
-        <span style="font-size: 1.2rem">📋</span>
-        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text1)">
-          New Task
-        </div>
-        <div style="font-size: 0.65rem; color: var(--text3)">Add to flux</div>
-      </button>
-      <button
-        class="si-ob-action-card"
-        style="
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          padding: 12px;
-          background: var(--bg2);
-          text-align: center;
-          cursor: pointer;
-        "
-        onclick="
-          document.getElementById('create-space-modal').style.display = 'flex';
-          closeCnSheet();
-        "
-      >
-        <span style="font-size: 1.2rem">✨</span>
-        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text1)">
-          New Space
-        </div>
-        <div style="font-size: 0.65rem; color: var(--text3)">
-          Create workspace
-        </div>
-      </button>
-    </div>
-    <div style="margin-top: 12px; display: flex; justify-content: center">
-      <button
-        class="nl-btn-sec"
-        style="flex: 0; padding: 6px 16px"
-        onclick="closeCnSheet()"
-      >
-        Close
-      </button>
-    </div>
-  </div>
-</div>
-
-{# ── ANNOUNCEMENT POPUP ───────────────────────────────────── #}
-<div
-  id="ann-popup"
-  style="
-    display: none;
-    position: fixed;
-    top: 60px;
-    left: 50%;
-    transform: translateX(-50%) translateY(-110%);
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius2);
-    padding: 12px 16px;
-    max-width: 440px;
-    width: 90%;
-    z-index: 500;
-    box-shadow: var(--shadow2);
-    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  "
->
-  <div style="display: flex; align-items: flex-start; gap: 10px">
-    <span style="font-size: 1.1rem">📢</span>
-    <div style="flex: 1">
-      <div
-        style="font-weight: 700; font-size: 0.85rem; color: var(--text1)"
-        id="ann-title"
-      >
-        🎉 New Feature: AI Tasks
-      </div>
-      <div
-        style="font-size: 0.78rem; color: var(--text3); margin-top: 2px"
-        id="ann-body"
-      >
-        Sivarr can now suggest tasks based on your goals. Try it in the chat!
-      </div>
-    </div>
-    <button
-      style="
-        background: none;
-        border: none;
-        color: var(--text4);
-        cursor: pointer;
-        font-size: 0.8rem;
-        padding: 2px;
-      "
-      id="ann-close"
-    >
-      ✕
+    <div class="brief-greeting" id="brief-greeting">Good morning</div>
+    <div class="brief-date-line" id="brief-date-line">Saturday, 10 May</div>
+    <div class="brief-msg" id="brief-msg">Ready to make today count?</div>
+    <div class="brief-chips" id="brief-chips"></div>
+    <button class="brief-go-btn" onclick="briefDismiss()">Let's go →</button>
+    <button class="brief-skip-btn" onclick="briefDismiss()">
+      Skip for now
     </button>
   </div>
 </div>
 
-{# ── OFFLINE BANNER (default hidden — JS toggles style.display to 'flex' on the
-'offline' event, back to 'none' on 'online') ── #}
-<div
-  id="offline-banner"
-  style="
-    display: none;
-    position: fixed;
-    top: var(--topbar-h);
-    left: 0;
-    right: 0;
-    z-index: 95;
-    background: var(--amber3);
-    color: #1a1000;
-    padding: 7px 20px;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    animation: fadeIn 0.2s ease;
-  "
->
-  <span>📡</span>
-  <span>You are offline. Some features may be unavailable.</span>
+{# ── ONBOARDING FLOW ── #}
+<div id="si-onboard" class="si-onboard-overlay" style="display: none">
+  <button class="si-ob-skip" onclick="siObFinish()">Skip →</button>
+  <div class="si-onboard-box" id="si-onboard-box"></div>
 </div>
 
-{# ── PAYWALL OVERLAY ──────────────────────────────────────── #}
+{# ── PRICING MODAL ── #}
+<div
+  class="si-modal-bg"
+  id="pricing-modal"
+  style="display: none"
+  onclick="if (event.target === this) closePricing();"
+>
+  <div class="si-modal" style="max-width: 560px; padding: 32px">
+    <button class="si-modal-close" onclick="closePricing()">
+      <i class="ti ti-x"></i>
+    </button>
+    <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 4px">
+      Upgrade Sivarr
+    </h2>
+    <p style="font-size: 0.82rem; color: var(--muted); margin-bottom: 24px">
+      Unlock the full productivity OS.
+    </p>
+    <div
+      style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px"
+      id="pricing-cards"
+    >
+      <!-- rendered by JS -->
+    </div>
+    <p
+      style="
+        font-size: 0.72rem;
+        color: var(--muted);
+        text-align: center;
+        margin-top: 16px;
+      "
+    >
+      Payments via Paystack &amp; Flutterwave · NGN · Cancel anytime
+    </p>
+  </div>
+</div>
+
+{# ── CREATE SPACE MODAL ── #}
+<div
+  class="csp-overlay"
+  id="create-space-modal"
+  style="display: none"
+  onclick="if (event.target === this) closeCreateSpaceModal();"
+>
+  <div class="csp-modal">
+    <div class="csp-head">
+      <h2>Create a space</h2>
+      <button class="csp-close" onclick="closeCreateSpaceModal()">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <p class="csp-sub">
+      Pick a type to get started — you can always customise later.
+    </p>
+    <div class="csp-types" id="csp-types">
+      <div
+        class="csp-type"
+        data-type="personal"
+        onclick="cspSelectType('personal', this)"
+      >
+        <div class="csp-type-icon" style="background: var(--blue2)">
+          <i class="ti ti-user" style="color: var(--blue)"></i>
+        </div>
+        <div class="csp-type-name">Personal</div>
+        <div class="csp-type-desc">Tasks, goals, habits &amp; journal</div>
+      </div>
+      <div
+        class="csp-type"
+        data-type="org"
+        onclick="cspSelectType('org', this)"
+      >
+        <div class="csp-type-icon" style="background: var(--teal2)">
+          <i class="ti ti-building" style="color: var(--teal)"></i>
+        </div>
+        <div class="csp-type-name">Organisation</div>
+        <div class="csp-type-desc">Team tasks, projects &amp; chat</div>
+      </div>
+      <div
+        class="csp-type"
+        data-type="academic"
+        onclick="cspSelectType('academic', this)"
+      >
+        <div class="csp-type-icon" style="background: var(--amber2)">
+          <i class="ti ti-school" style="color: var(--amber3)"></i>
+        </div>
+        <div class="csp-type-name">Academic</div>
+        <div class="csp-type-desc">Courses, flashcards, quiz &amp; timer</div>
+      </div>
+    </div>
+    <div id="acadRoleStep" style="display: none; margin-top: 16px">
+      <label class="sp-label" style="display: block; margin-bottom: 8px"
+        >I am a…</label
+      >
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+        <div
+          class="acad-role-card acad-role-card--active"
+          data-role="student"
+          onclick="acadSelectRole('student')"
+        >
+          <div class="acad-role-icon">🎓</div>
+          <div class="acad-role-name">Student</div>
+          <div class="acad-role-desc">
+            Study tools, revision, AI tutor, research
+          </div>
+        </div>
+        <div
+          class="acad-role-card"
+          data-role="lecturer"
+          onclick="acadSelectRole('lecturer')"
+        >
+          <div class="acad-role-icon">📋</div>
+          <div class="acad-role-name">Lecturer</div>
+          <div class="acad-role-desc">
+            Courses, roster, assessments, analytics
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="csp-name-row" style="display: none">
+      <label class="sp-label" style="margin-top: 16px; display: block"
+        >Space name</label
+      >
+      <input
+        class="sp-input"
+        id="csp-name-input"
+        placeholder="e.g. My Study Hub, Q3 Projects…"
+        style="margin-top: 6px"
+      />
+    </div>
+    <div class="csp-footer" id="csp-footer" style="display: none">
+      <button class="sp-btn-ghost" onclick="closeCreateSpaceModal()">
+        Cancel
+      </button>
+      <button class="sp-btn-primary sp-btn-teal" onclick="cspCreate()">
+        Create space →
+      </button>
+    </div>
+  </div>
+</div>
+
+{# ── SPACE SETTINGS MODAL ── #}
+<div
+  id="spaceSettingsModal"
+  class="mkt-modal-overlay"
+  style="display: none"
+  onclick="closeSpaceSettings(event)"
+>
+  <div class="mkt-modal" style="max-width: 520px">
+    <button
+      class="mkt-modal-close"
+      onclick="closeSpaceSettings()"
+      aria-label="Close"
+    >
+      <i class="ti ti-x" aria-hidden="true"></i>
+    </button>
+    <div class="mkt-modal-name" id="spaceSettingsTitle">Space settings</div>
+    <div
+      class="mkt-item-author"
+      id="spaceSettingsSubtitle"
+      style="margin-bottom: 18px"
+    ></div>
+    <div class="mkt-modal-tabs">
+      <button
+        class="mkt-modal-tab active"
+        onclick="spaceSettingsTab('extensions', this)"
+      >
+        <i class="ti ti-puzzle" aria-hidden="true"></i> Extensions
+      </button>
+      <button
+        class="mkt-modal-tab"
+        onclick="spaceSettingsTab('integrations', this)"
+      >
+        <i class="ti ti-plug" aria-hidden="true"></i> Integrations
+      </button>
+      <button class="mkt-modal-tab" onclick="spaceSettingsTab('danger', this)">
+        <i class="ti ti-settings" aria-hidden="true"></i> Space
+      </button>
+    </div>
+    <div id="spaceSettingsTab-extensions">
+      <div class="mkt-brief-desc" style="margin-bottom: 14px">
+        Enable installed extensions for this Space. (Injection into the
+        dashboard is coming soon.)
+      </div>
+      <div id="spaceSettingsExtList">
+        <div class="mkt-empty-state" style="padding: 20px 0">
+          <div>No extensions installed yet.</div>
+          <button
+            class="mkt-btn-ghost"
+            style="margin-top: 8px"
+            onclick="
+              closeSpaceSettings();
+              nav('marketplace');
+            "
+          >
+            Browse Extensions
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="spaceSettingsTab-integrations" style="display: none">
+      <div class="mkt-brief-desc" style="margin-bottom: 14px">
+        Connect external tools from the Integrations panel, then choose which
+        apply here.
+      </div>
+      <div id="spaceSettingsIntList">
+        <div class="mkt-empty-state" style="padding: 20px 0">
+          <div>Manage connections in Integrations.</div>
+          <button
+            class="mkt-btn-ghost"
+            style="margin-top: 8px"
+            onclick="
+              closeSpaceSettings();
+              nav('library');
+            "
+          >
+            Open Integrations
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="spaceSettingsTab-danger" style="display: none">
+      <div class="mkt-field">
+        <label for="spaceRenameInput">Space name</label
+        ><input type="text" id="spaceRenameInput" placeholder="Space name" />
+      </div>
+      <button
+        class="mkt-btn-teal"
+        style="margin-bottom: 20px"
+        onclick="spaceRename()"
+      >
+        Save name
+      </button>
+      <div style="border-top: 1px solid var(--border); padding-top: 16px">
+        <div
+          class="mkt-section-label"
+          style="color: #f87171; margin-bottom: 8px"
+        >
+          Danger zone
+        </div>
+        <button class="mkt-btn-ghost mkt-btn-danger" onclick="spaceDelete()">
+          <i class="ti ti-trash" aria-hidden="true"></i> Delete this Space
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── MARKETPLACE DETAIL MODAL ── #}
+<div
+  id="mktDetailModal"
+  class="mkt-modal-overlay"
+  style="display: none"
+  onclick="mktCloseDetail(event)"
+>
+  <div class="mkt-modal">
+    <button
+      class="mkt-modal-close"
+      onclick="mktCloseDetail()"
+      aria-label="Close"
+    >
+      <i class="ti ti-x" aria-hidden="true"></i>
+    </button>
+    <div class="mkt-modal-header">
+      <div class="mkt-modal-icon" id="mktDetailIcon"></div>
+      <div>
+        <div class="mkt-modal-name" id="mktDetailName"></div>
+        <div class="mkt-modal-author" id="mktDetailAuthor"></div>
+        <div class="mkt-modal-meta-row" id="mktDetailMeta"></div>
+      </div>
+      <div class="mkt-modal-actions" id="mktDetailActions"></div>
+    </div>
+    <div class="mkt-modal-tabs">
+      <button
+        class="mkt-modal-tab active"
+        onclick="mktDetailTab('overview', this)"
+      >
+        Overview
+      </button>
+      <button class="mkt-modal-tab" onclick="mktDetailTab('reviews', this)">
+        Reviews
+      </button>
+      <button class="mkt-modal-tab" onclick="mktDetailTab('changelog', this)">
+        Changelog
+      </button>
+    </div>
+    <div id="mktDetailContent"></div>
+  </div>
+</div>
+
+{# ── MARKETPLACE PUBLISH MODAL ── #}
+<div
+  id="mktPublishModal"
+  class="mkt-modal-overlay"
+  style="display: none"
+  onclick="mktClosePublish(event)"
+>
+  <div class="mkt-modal">
+    <button
+      class="mkt-modal-close"
+      onclick="mktClosePublish()"
+      aria-label="Close"
+    >
+      <i class="ti ti-x" aria-hidden="true"></i>
+    </button>
+    <div class="mkt-modal-name" style="margin-bottom: 20px">
+      Publish to Marketplace
+    </div>
+    <div class="mkt-field">
+      <label>Item type</label>
+      <div
+        style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px"
+      >
+        <div
+          class="mkt-publish-type-card"
+          onclick="mktSelectPublishType('extension', this)"
+        >
+          <i
+            class="ti ti-puzzle"
+            style="font-size: 20px"
+            aria-hidden="true"
+          ></i>
+          <div style="font-size: 12px; font-weight: 700; margin-top: 6px">
+            Extension
+          </div>
+        </div>
+        <div
+          class="mkt-publish-type-card"
+          onclick="mktSelectPublishType('integration', this)"
+        >
+          <i class="ti ti-plug" style="font-size: 20px" aria-hidden="true"></i>
+          <div style="font-size: 12px; font-weight: 700; margin-top: 6px">
+            Integration
+          </div>
+        </div>
+        <div
+          class="mkt-publish-type-card"
+          onclick="mktSelectPublishType('template', this)"
+        >
+          <i
+            class="ti ti-layout-grid"
+            style="font-size: 20px"
+            aria-hidden="true"
+          ></i>
+          <div style="font-size: 12px; font-weight: 700; margin-top: 6px">
+            Template
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mkt-field">
+      <label for="pubName">Name</label
+      ><input
+        type="text"
+        id="pubName"
+        placeholder="A clear, descriptive name"
+      />
+    </div>
+    <div class="mkt-field">
+      <label for="pubDesc">Description</label
+      ><textarea
+        id="pubDesc"
+        style="min-height: 70px"
+        placeholder="What does it do? Who is it for?"
+      ></textarea>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+      <div class="mkt-field">
+        <label for="pubCategory">Category</label
+        ><select id="pubCategory">
+          <option value="">Select…</option>
+          <option value="productivity">Productivity</option>
+          <option value="academic">Academic</option>
+          <option value="finance">Finance</option>
+          <option value="work">Work</option>
+          <option value="communication">Communication</option>
+          <option value="developer">Developer</option>
+        </select>
+      </div>
+      <div class="mkt-field">
+        <label for="pubPrice">Pricing</label
+        ><select id="pubPrice">
+          <option value="free">Free</option>
+          <option value="paid">Paid</option>
+          <option value="freemium">Freemium</option>
+        </select>
+      </div>
+    </div>
+    <div class="mkt-field" id="pubPriceField" style="display: none">
+      <label for="pubAmount">Price (₦)</label
+      ><input type="number" id="pubAmount" placeholder="e.g. 2500" /><span
+        style="font-size: 10.5px; color: var(--muted2); margin-top: 4px"
+        >You receive 90% · Sivarr takes 10%</span
+      >
+    </div>
+    <div class="mkt-field">
+      <label for="pubRepo">GitHub repo or package URL</label
+      ><input
+        type="url"
+        id="pubRepo"
+        placeholder="https://github.com/you/your-item"
+      />
+    </div>
+    <button
+      class="mkt-generate-btn"
+      style="margin-top: 8px"
+      onclick="mktSubmitPublish()"
+    >
+      <i class="ti ti-upload" aria-hidden="true"></i> Submit for Review
+    </button>
+    <div
+      style="
+        font-size: 10.5px;
+        color: var(--muted2);
+        margin-top: 8px;
+        text-align: center;
+      "
+    >
+      Reviewed by the Sivarr team before going live · usually within 48 hours
+    </div>
+  </div>
+</div>
+
+{# ── TEMPLATE PREVIEW MODAL ── #}
+<div class="tpl-modal-backdrop" id="tplModalBackdrop">
+  <div class="tpl-modal">
+    <div class="tpl-modal-header">
+      <div>
+        <div class="tpl-modal-title" id="tplModalTitle">Preview</div>
+        <div class="tpl-modal-desc" id="tplModalDesc"></div>
+      </div>
+      <div class="tpl-modal-actions">
+        <button class="tpl-modal-use-btn" onclick="useTemplateFromModal()">
+          <i class="ti ti-plus"></i> Duplicate to Workspace
+        </button>
+        <button class="tpl-modal-close" onclick="closeTemplatePreview()">
+          <i class="ti ti-x"></i>
+        </button>
+      </div>
+    </div>
+    <div class="tpl-modal-body">
+      <div class="tpl-iframe-loader" id="tplIframeLoader">
+        <div class="tpl-spinner"></div>
+        <span>Loading preview…</span>
+      </div>
+      <!-- iframe injected by JS -->
+    </div>
+  </div>
+</div>
+
+{# ── DIFFICULTY MODAL ── #}
+<div class="modal-bg" id="diff-modal" onclick="closeDiff(event)">
+  <div class="modal">
+    <h3>🎯 Set Difficulty</h3>
+    <div class="diff-opt" onclick="setDiff('easy')">
+      <span class="di">🌱</span>
+      <div>
+        <div class="dl">Easy</div>
+        <div class="dd">Basic recall & definitions</div>
+      </div>
+    </div>
+    <div class="diff-opt sel" onclick="setDiff('medium')">
+      <span class="di">🔥</span>
+      <div>
+        <div class="dl">Medium</div>
+        <div class="dd">Apply concepts & reasoning</div>
+      </div>
+    </div>
+    <div class="diff-opt" onclick="setDiff('hard')">
+      <span class="di">⚡</span>
+      <div>
+        <div class="dl">Hard</div>
+        <div class="dd">Analysis & complex problems</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── FEEDBACK MODAL ── #}
+<div
+  id="feedback-modal"
+  class="modal-overlay"
+  style="display: none"
+  onclick="if (event.target === this) closeFeedback();"
+>
+  <div class="modal-box" style="max-width: 420px">
+    <div class="modal-header">
+      <h3 style="margin: 0; font-size: 1rem; font-weight: 700">
+        Share feedback
+      </h3>
+      <button class="tb-icon-btn" onclick="closeFeedback()">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <div style="padding: 20px">
+      <p style="margin: 0 0 16px; font-size: 0.88rem; color: var(--text2)">
+        How's Sivarr treating you? We read every message.
+      </p>
+      <div style="display: flex; gap: 8px; margin-bottom: 16px" id="fb-stars">
+        <button class="fb-star" data-v="1" onclick="fbSetRating(1)">★</button>
+        <button class="fb-star" data-v="2" onclick="fbSetRating(2)">★</button>
+        <button class="fb-star" data-v="3" onclick="fbSetRating(3)">★</button>
+        <button class="fb-star" data-v="4" onclick="fbSetRating(4)">★</button>
+        <button class="fb-star" data-v="5" onclick="fbSetRating(5)">★</button>
+      </div>
+      <textarea
+        id="fb-text"
+        rows="4"
+        placeholder="Tell us what's working, what's broken, or what you wish existed..."
+        style="
+          width: 100%;
+          resize: vertical;
+          padding: 10px;
+          background: var(--surface2);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          color: var(--text);
+          font-size: 0.88rem;
+          font-family: inherit;
+          box-sizing: border-box;
+        "
+      ></textarea>
+      <div
+        id="fb-error"
+        style="color: #e55; font-size: 0.8rem; margin-top: 6px; display: none"
+      ></div>
+      <button
+        class="cta-btn"
+        style="margin-top: 14px; width: 100%"
+        onclick="submitFeedback()"
+      >
+        Send feedback
+      </button>
+    </div>
+  </div>
+</div>
+
+{# ── UNIVERSAL DIALOG (siModal) ── #}
+<div
+  id="si-modal-overlay"
+  class="si-modal-overlay"
+  onclick="siModal._bgClose(event)"
+>
+  <div class="si-modal-box" id="si-modal-box"></div>
+</div>
+
+{# ── PAYWALL OVERLAY — NOTE: no matching markup exists anywhere in
+index_previous.html. CSS for .paywall-overlay/.paywall-card DOES exist in the
+original styles.css, but there is no original HTML div to verify against. The
+version below is carried over from the previous (regenerated) _modals.html as-is
+— it has NOT been verified against a true original, since none exists. Check
+with Joe whether this feature was ever wired up, or confirm with app.js whether
+a showPaywall()-style function expects it. ── #}
 <div
   class="paywall-overlay"
   id="paywall-overlay"
@@ -1256,38 +1822,5 @@
     >
       Upgrade Now
     </button>
-  </div>
-</div>
-
-{# ── TEMPLATE PREVIEW MODAL ───────────────────────────────── #}
-<div class="tpl-modal-backdrop" id="tpl-preview-modal">
-  <div class="tpl-modal">
-    <div class="tpl-modal-header">
-      <div>
-        <div class="tpl-modal-title" id="tpl-preview-title">Weekly Planner</div>
-        <div class="tpl-modal-desc" id="tpl-preview-desc">
-          Plan your week with this comprehensive weekly overview template.
-        </div>
-      </div>
-      <div class="tpl-modal-actions">
-        <button class="tpl-modal-use-btn" id="tpl-preview-use">
-          ✨ Use Template
-        </button>
-        <button class="tpl-modal-close" data-close="tpl-preview-modal">
-          ✕
-        </button>
-      </div>
-    </div>
-    <div class="tpl-modal-body">
-      <div class="tpl-iframe-loader">
-        <div class="tpl-spinner"></div>
-        <span>Loading preview...</span>
-      </div>
-      <iframe
-        id="tpl-preview-iframe"
-        style="width: 100%; height: 100%; border: none; display: none"
-        sandbox="allow-scripts allow-same-origin"
-      ></iframe>
-    </div>
   </div>
 </div>
