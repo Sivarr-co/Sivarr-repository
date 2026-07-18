@@ -1200,7 +1200,8 @@
   </div>
 </div>
 
-{# ── OFFLINE BANNER ───────────────────────────────────────── #}
+{# ── OFFLINE BANNER (default hidden — JS toggles style.display to 'flex' on the
+'offline' event, back to 'none' on 'online') ── #}
 <div
   id="offline-banner"
   style="
@@ -1213,7 +1214,6 @@
     background: var(--amber3);
     color: #1a1000;
     padding: 7px 20px;
-    display: flex;
     align-items: center;
     gap: 8px;
     font-size: 0.8rem;
@@ -1235,7 +1235,6 @@
     inset: 0;
     z-index: 50;
     background: var(--bg);
-    display: none;
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(2px);

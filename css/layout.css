@@ -7,6 +7,8 @@
 
 /* ── OFFLINE BANNER ────────────────────────────────────────── */
 #offline-banner {
+  /* default hidden — JS toggles style.display to 'flex' on the 'offline' event */
+  display: none;
   position: fixed;
   top: var(--topbar-h);
   left: 0;
@@ -15,7 +17,6 @@
   background: var(--amber3);
   color: #1a1000;
   padding: 7px 20px;
-  display: flex;
   align-items: center;
   gap: 8px;
   font-size: 0.8rem;
