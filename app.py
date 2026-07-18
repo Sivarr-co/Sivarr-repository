@@ -8917,7 +8917,7 @@ async def org_member_remove(data: dict):
     target = sanitize_text(str(data.get("sid", "")), 40)
     if target == sid:
         raise HTTPException(400, "You can't remove yourself.")
-    tgt = next((m for m in db.get_org_members(org["id]) if _org_member_sid(m) == target), None)
+    tgt = next((m for m in db.get_org_members(org["id"]) if _org_member_sid(m) == target), None)
     if not tgt:
         raise HTTPException(404, "Member not found.")
     trole = tgt.get("role", "member")
