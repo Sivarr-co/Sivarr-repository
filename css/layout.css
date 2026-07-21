@@ -1921,3 +1921,1276 @@ body.offline .layout {
 .tab-bar {
   display: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PARITY PATCH — rules restored from original styles.css that were
+   missing after the base/layout/panels/mobile split.
+   ═══════════════════════════════════════════════════════════════ */
+.sidebar.collapsed .sg {
+  padding: 6px 8px;
+  justify-content: center;
+}
+
+.sidebar.collapsed .sb-foot {
+  padding: 8px;
+}
+
+.sidebar.collapsed .u-av {
+  width: 32px;
+  height: 32px;
+}
+
+/* Pricing cards */
+.pricing-card {
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg2);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.pricing-card:hover {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px var(--teal2);
+}
+
+/* ── MODAL ─────────────────────────────────────────────────── */
+.modal-bg {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-bg.open {
+  display: flex;
+  animation: fadeUp 0.15s ease;
+}
+
+.modal-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius3);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+/* ── VOICE BTN ─────────────────────────────────────────────── */
+#voice-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text3);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+
+#voice-btn:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: var(--teal2);
+}
+
+#voice-btn.recording {
+  background: var(--red2);
+  border-color: var(--red3);
+  color: var(--red3);
+}
+
+/* ── STUDY GROUPS ──────────────────────────────────────────── */
+.group-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius2);
+  padding: 13px;
+  cursor: pointer;
+  transition: var(--transition);
+  margin-bottom: 8px;
+}
+
+.group-card:hover {
+  box-shadow: var(--shadow);
+}
+
+/* ── EXAM PANEL ────────────────────────────────────────────── */
+.exam-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius2);
+  padding: 14px;
+  margin-bottom: 10px;
+  transition: var(--transition);
+}
+
+.exam-card:hover {
+  box-shadow: var(--shadow);
+}
+
+/* Space items share .si styling; dot indicator */
+.sp-si-dot {
+  font-size: 10px !important;
+}
+
+/* Options button on hover */
+.sb-space-more {
+  opacity: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.si.sp-si:hover .sb-space-more {
+  opacity: 1;
+}
+
+.sb-space-more:hover {
+  background: var(--bg3);
+}
+
+/* ── Me mobile panel ── */
+#panel-me-mobile .me-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+#panel-me-mobile .me-av {
+  width: 52px;
+  height: 52px;
+  border-radius: 26px;
+  background: var(--ai-grad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+#panel-me-mobile .me-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text1);
+}
+
+#panel-me-mobile .me-plan {
+  font-size: 0.72rem;
+  color: var(--text3);
+  margin-top: 3px;
+}
+
+#panel-me-mobile .me-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+#panel-me-mobile .me-stat {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 10px;
+  text-align: center;
+}
+
+#panel-me-mobile .me-stat-val {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text1);
+  letter-spacing: -0.04em;
+}
+
+#panel-me-mobile .me-stat-lbl {
+  font-size: 0.68rem;
+  color: var(--text3);
+  margin-top: 3px;
+  font-weight: 600;
+}
+
+#panel-me-mobile .me-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+#panel-me-mobile .me-link-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+
+#panel-me-mobile .me-link-btn:hover {
+  border-color: var(--teal);
+}
+
+#panel-me-mobile .me-link-icon {
+  font-size: 1.4rem;
+}
+
+#panel-me-mobile .me-link-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text1);
+}
+
+#panel-me-mobile .me-link-sub {
+  font-size: 0.72rem;
+  color: var(--text3);
+}
+
+#panel-me-mobile .me-sign-out {
+  width: 100%;
+  padding: 13px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--coral);
+  font-family: var(--font);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ONBOARDING STEP 5 — Connect Integration
+   ═══════════════════════════════════════════════════════════════ */
+.si-ob-int-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+/* ── PARITY PATCH — restored @media content ── */
+
+@media (max-width: 720px) {
+  .help-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .help-wrap {
+    padding: 18px 14px 50px;
+  }
+
+  .st-layout {
+    flex-direction: column;
+    padding: 14px 16px;
+    gap: 14px;
+  }
+
+  .st-subnav {
+    width: auto;
+    flex-direction: row;
+    overflow-x: auto;
+    position: static;
+    gap: 6px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .st-subnav-item {
+    width: auto;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .st-content {
+    overflow-y: visible;
+  }
+
+  .st-wheel,
+  .st-light-slider {
+    width: 160px;
+  }
+
+  .st-wheel {
+    height: 160px;
+  }
+
+  :root {
+    --panel-max: 9999px;
+    --chat-max: 9999px;
+  }
+
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .tb-brand {
+    width: auto;
+  }
+
+  .tb-center {
+    display: none;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: var(--shadow2);
+  }
+
+  .overlay {
+    display: block;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .g2 {
+    grid-template-columns: 1fr;
+  }
+
+  .view-head {
+    padding: 0 14px;
+  }
+
+  /* Reset ALL centering on mobile — full width with small padding */
+  .home-wrap,
+  .habits-wrap,
+  .journal-wrap,
+  .community-wrap,
+  .library-wrap,
+  .quiz-wrap,
+  .stats-wrap,
+  .ask-notes-panel,
+  .quizzes-wrap,
+  .inbox-wrap {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Calendar: drop the side rail, let the main timeline take the full width */
+  .cal-rail {
+    display: none;
+  }
+
+  .cal-main-hd {
+    padding: 12px 14px;
+    flex-wrap: wrap;
+  }
+
+  .cal-range {
+    min-width: 0;
+    font-size: 0.95rem;
+  }
+
+  .cal-month-view {
+    padding: 12px 14px;
+  }
+
+  #panel-settings,
+  #panel-goals,
+  #panel-progress {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  #panel-settings > div,
+  #panel-goals > div,
+  #panel-progress > div {
+    max-width: 100% !important;
+  }
+
+  #panel-courses > div:last-child,
+  #panel-lab > div:last-child,
+  #panel-announcements > div:last-child,
+  #panel-studyplan > div:last-child,
+  #panel-contenthub > div:last-child {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  #panel-templates .tpl-scroll {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .content {
+    padding: 14px !important;
+  }
+
+  .chat-msgs {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  #chat-welcome {
+    max-width: 100%;
+  }
+
+  /* Keep the page title (and its actions) pinned while content scrolls.
+     Harmless no-op for panels whose header is already flex-pinned. */
+  .panel .view-head {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .chat-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  /* Native-feeling momentum scroll on the main scroll regions */
+  .sb-scroll,
+  .panel,
+  .chat-msgs,
+  .home-wrap,
+  .content,
+  .si-modal-form-body,
+  .mkt-modal {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Marketplace / Space-settings modal → slide-up bottom sheet
+     (consistent with the si-modal sheet already in place) */
+  .mkt-modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .mkt-modal {
+    max-width: none !important;
+    width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0)) !important;
+    animation: mob-sheet-up 0.26s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+
+  .mkt-modal::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border2, var(--border));
+    margin: 2px auto 14px;
+  }
+
+  /* Comfortable tap targets for modal actions */
+  .si-modal-btn {
+    min-height: 44px;
+  }
+
+  /* Feedback modal → slide-up bottom sheet (matches si-/mkt- sheets) */
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .modal-overlay .modal-box {
+    max-width: none !important;
+    width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0)) !important;
+    animation: mob-sheet-up 0.26s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+
+  .modal-overlay .modal-box::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border2, var(--border));
+    margin: -4px auto 14px;
+  }
+
+  /* Launcher Space rows: surface the ⋮ options (hover-only on desktop is
+     unreachable on touch) and drop the redundant drill chevron there */
+  .sidebar .si.sp-si::after {
+    content: none;
+  }
+
+  .sidebar .sb-space-more {
+    opacity: 1;
+    margin-left: auto;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .home-wrap {
+    padding: 20px 18px calc(52px + env(safe-area-inset-bottom, 0)) !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Softer, roomier cards */
+  .siva-brief {
+    padding: 22px 20px;
+    margin-bottom: 18px;
+    border-radius: 20px;
+  }
+
+  .gs-section {
+    padding: 20px 18px;
+    margin-bottom: 18px;
+    border-radius: 20px;
+  }
+
+  /* Stat cards — compact on mobile so the home page scrolls quicker (the 2x2
+     grid was eating too much vertical space). Desktop/tablet sizing unchanged. */
+  .h-stat-grid {
+    gap: 7px;
+    margin-bottom: 10px;
+  }
+
+  .h-stat-card {
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+
+  .h-stat-ic {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    font-size: 12px;
+    margin-bottom: 3px;
+  }
+
+  .h-stat-val {
+    font-size: 1.1rem;
+  }
+
+  .h-stat-lbl {
+    font-size: 0.68rem;
+    margin-top: 1px;
+  }
+
+  /* Two-column blocks stack with comfortable gaps */
+  .h2col {
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .h2col-card {
+    padding: 20px 18px;
+    border-radius: 18px;
+  }
+
+  /* Action pills → edge-to-edge swipeable row (no cramped wrapping) */
+  .siva-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 9px;
+    margin: 2px -18px 20px;
+    padding: 2px 18px 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .siva-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .siva-pill {
+    flex-shrink: 0;
+    padding: 9px 15px;
+    font-size: 0.82rem;
+    border-radius: 22px;
+  }
+
+  /* Global zoom — bigger, closer type across all panels (keeps font-scale) */
+  html {
+    font-size: calc(17px * var(--font-scale, 1));
+  }
+
+  /* Model selector → single swipeable row instead of wrapping to 2 lines
+     (the wrap was stealing vertical space at the top of the AI tab) */
+  .agent-selector {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 6px 14px 2px;
+    gap: 6px;
+  }
+
+  .agent-selector::-webkit-scrollbar {
+    display: none;
+  }
+
+  .agent-chip {
+    flex-shrink: 0;
+  }
+
+  /* Slim chat header so the conversation/composer gets more of the screen */
+  .chat-header {
+    padding: 10px 14px 9px;
+  }
+
+  /* Compact welcome — fits one screen, leaves the composer in view */
+  #chat-welcome {
+    padding: 1.25rem 1.25rem 0.5rem;
+  }
+
+  .chat-welcome-orb {
+    width: 62px;
+    height: 62px;
+    border-radius: 18px;
+    margin-bottom: 1rem;
+  }
+
+  .chat-welcome-orb img {
+    width: 34px;
+    height: 34px;
+  }
+
+  .chat-welcome-heading {
+    font-size: 1.55rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .chat-welcome-sub {
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .chat-welcome-hint {
+    margin-top: 1rem;
+  }
+
+  .chat-prompt-grid {
+    gap: 9px;
+  }
+
+  .chat-prompt-card {
+    padding: 14px 13px 12px;
+    border-radius: 14px;
+  }
+
+  /* Tighter, roomier message bubbles — closer reading like Notion */
+  .chat-msgs {
+    padding: 16px 14px 12px;
+    gap: 5px;
+  }
+
+  .msg {
+    max-width: 90%;
+  }
+
+  /* Chat bar — hide the inline msg counter on mobile; it takes horizontal space
+     from the textarea making it near-invisible. Counter shown in chat menu. */
+  .chat-msg-counter {
+    display: none;
+  }
+
+  .analytics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .os-pane-chat {
+    flex-direction: column !important;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Sidebar becomes an off-canvas drawer that slides in over the chat */
+  .oc-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 41;
+    width: 78%;
+    max-width: 280px;
+    height: auto !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: var(--shadow2);
+    border-right: 1px solid var(--border);
+  }
+
+  .oc-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .oc-ws-name,
+  .oc-section-lbl {
+    display: block;
+  }
+
+  .oc-ch-item,
+  .oc-dm-item {
+    padding: 9px 16px;
+  }
+
+  /* bigger tap targets */
+  .oc-drawer-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.42);
+  }
+
+  .oc-drawer-overlay.open {
+    display: block;
+  }
+
+  .oc-chan-toggle {
+    display: inline-flex !important;
+  }
+
+  .oc-main {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .oc-msgs {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── 1. Layout — no bottom nav anymore (Notion launcher redesign) ──
+     The old mobile bottom-nav/FAB were retired, so we no longer reserve
+     ~60px at the bottom. Reserving it left a dead gap under the chat
+     composer and every panel footer. Only honour the safe-area inset. */
+  .layout {
+    --mob-nav-h: 0px;
+  }
+
+  /* ── 2. Chat bar — lift above bottom nav ─────────────────────
+     The panel-chat uses flex column; chat-bar is the last child.
+     Adding padding-bottom here gives breathing room above the nav. */
+  .chat-bar {
+    margin-bottom: 0 !important;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+  }
+
+  /* Org chat input bar */
+  .oc-bar {
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+  }
+
+  /* ── 3. Org tabs — all 9 tabs scrollable without wrapping ─── */
+  .os-tabs {
+    padding: 0 8px !important;
+    gap: 0 !important;
+  }
+
+  .os-tab {
+    padding: 10px 10px !important;
+    font-size: 0.75rem !important;
+    min-height: 44px;
+  }
+
+  /* ── 4. Touch targets — min 44×44 px for all tappable things ─ */
+  .nav-btn {
+    min-height: 44px;
+  }
+
+  .tb-icon-btn,
+  .chat-icon-btn,
+  .chat-send-btn,
+  .si-modal-close,
+  .os-card-link,
+  .os-tool-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .mob-nav-btn {
+    min-height: 52px;
+  }
+
+  /* ── 5. Personal & academic space tabs ───────────────────────
+     Already have overflow-x:auto but need tab padding tightened */
+  .sp-tab {
+    padding: 10px 10px !important;
+    font-size: 0.76rem !important;
+    min-height: 44px;
+  }
+
+  /* ── 6. Home dashboard grid — single column ──────────────────  */
+  .home-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── 7. Doc editor toolbars — horizontal scroll not wrap ─────
+     Override "flex-wrap:wrap" which creates 3 rows on small screens */
+  .dh-toolbar,
+  .doc-toolbar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+
+  .dh-tool-btn,
+  .doc-tb-btn {
+    min-height: 38px;
+  }
+
+  /* ── 8. Profile dropdown — prevent off-screen right ─────────
+     On small phones right:0 can still overflow; clamp to viewport */
+  .profile-dropdown {
+    right: 0 !important;
+    left: auto !important;
+    max-width: calc(100vw - 16px);
+  }
+
+  /* ── 9. Library / integrations grids ─────────────────────────
+     3-column int-grid is too cramped; collapse to 2 then 1 */
+  .int-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .lib-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── 10. Topbar — tighten on small screens ───────────────────
+     The right action icons remain, search hidden (done already) */
+  .tb-brand {
+    gap: 6px;
+  }
+
+  .tb-name {
+    font-size: 13px;
+  }
+
+  /* ── 11. Org chat mobile — channel drawer handled in the dedicated
+     media query above (retractable off-canvas sidebar). ── */
+  .oc-main {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ── 12. Analytics grid — 2 columns on tablet ───────────────── */
+  .analytics-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* But keep placeholder styling readable */
+  input::placeholder,
+  textarea::placeholder {
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stat-val {
+    font-size: 18px;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .doc-sidebar {
+    width: 160px;
+  }
+
+  .doc-title-input {
+    font-size: 1.1rem;
+  }
+
+  .brief-card {
+    padding: 24px 20px;
+  }
+
+  .brief-greeting {
+    font-size: 1.3rem;
+  }
+
+  .chat-prompt-grid {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 360px;
+    gap: 7px;
+  }
+
+  .chat-prompt-card {
+    padding: 10px 10px 9px;
+    border-radius: 12px;
+  }
+
+  .cpc-title {
+    font-size: 0.76rem;
+  }
+
+  .cpc-sub {
+    font-size: 0.67rem;
+  }
+
+  .cpc-icon {
+    font-size: 0.85rem;
+    margin-bottom: 3px;
+  }
+
+  .chat-welcome-heading {
+    font-size: 1.5rem;
+  }
+
+  .chat-action-pills {
+    gap: 4px;
+  }
+
+  .chat-pill {
+    font-size: 0.72rem;
+    padding: 4px 10px;
+  }
+
+  .chat-header {
+    padding: 10px 14px;
+  }
+
+  .chat-header-av {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  .msg {
+    max-width: 90%;
+  }
+
+  .chat-hdr-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.78rem;
+  }
+
+  .h-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .h2col {
+    grid-template-columns: 1fr;
+  }
+
+  .siva-brief {
+    padding: 16px 16px;
+  }
+
+  .home-wrap {
+    padding: 16px;
+  }
+
+  .si-ob-role-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .si-ob-int-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .si-ob-goal-row {
+    grid-template-columns: 1fr;
+  }
+
+  .si-ob-title {
+    font-size: 1.3rem;
+  }
+
+  .analytics-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .si-onboard-box {
+    padding: 0 8px;
+  }
+
+  .si-ob-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .si-ob-btn-pri {
+    width: 100%;
+  }
+
+  .si-ob-int-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* ── Modals as bottom sheets ─────────────────────────────────
+     On small phones, center modals feel cramped.
+     Slide up from bottom instead — more thumb-friendly.          */
+  .si-modal-bg {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .si-modal {
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 88vh !important;
+    max-width: 100% !important;
+    animation: si-modal-mob-in 0.22s cubic-bezier(0.34, 1.1, 0.64, 1) !important;
+  }
+
+  @keyframes si-modal-mob-in {
+    from {
+      transform: translateY(40px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .si-modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .si-modal-box {
+    border-radius: 20px 20px 0 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Pricing modal — full-width bottom sheet */
+  #pricing-modal.si-modal-bg .si-modal {
+    padding: 24px 16px 32px !important;
+  }
+
+  /* ── Integrations / library — single column ────────────────── */
+  .int-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .lib-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Analytics — 2×3 grid on phone ─────────────────────────── */
+  .analytics-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* ── Org space ───────────────────────────────────────────────── */
+  .os-hero {
+    padding: 10px 12px !important;
+    gap: 10px;
+  }
+
+  .os-stat {
+    padding: 10px 12px !important;
+  }
+
+  .os-stat-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .os-scroll {
+    padding: 12px !important;
+  }
+
+  .os-card {
+    padding: 12px !important;
+  }
+
+  .os-grid2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Topbar — show logo icon only, hide name text ───────────── */
+  .tb-name {
+    display: none;
+  }
+
+  /* ── Content padding ─────────────────────────────────────────── */
+  .content {
+    padding: 12px !important;
+  }
+
+  .view-head {
+    padding: 0 12px !important;
+  }
+
+  /* ── Cards & grids ───────────────────────────────────────────── */
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .h-stat-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Onboarding ──────────────────────────────────────────────── */
+  .si-ob-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .si-ob-btn-pri {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --sb-width: 264px;
+    --panel-max: 1180px;
+    --chat-max: 860px;
+  }
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --sb-width: 272px;
+    --panel-max: 1240px;
+    --chat-max: 900px;
+    --topbar-h: 56px;
+  }
+
+  .view-head {
+    height: 56px;
+    padding: 0 28px;
+  }
+
+  .h-stat-grid {
+    gap: 16px;
+  }
+
+  .h-stat-card {
+    padding: 22px;
+  }
+}
+
+@media (min-width: 1920px) {
+  :root {
+    --sb-width: 300px;
+    --panel-max: 1380px;
+    --chat-max: 1000px;
+    --topbar-h: 58px;
+  }
+
+  html {
+    font-size: 17px;
+  }
+
+  .view-head {
+    height: 58px;
+    padding: 0 32px;
+  }
+
+  .msg {
+    max-width: 72%;
+  }
+
+  .h-stat-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+  }
+}
+
+@media (min-width: 2560px) {
+  :root {
+    --sb-width: 320px;
+    --panel-max: 1600px;
+    --chat-max: 1100px;
+  }
+
+  html {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 390px) {
+  #chat-welcome {
+    padding: 0.75rem 1rem 0.25rem;
+  }
+
+  .chat-welcome-orb {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    margin-bottom: 0.65rem;
+  }
+
+  .chat-welcome-orb img {
+    width: 26px;
+    height: 26px;
+  }
+
+  .chat-welcome-heading {
+    font-size: 1.3rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .chat-welcome-sub {
+    font-size: 0.82rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .chat-prompt-card {
+    padding: 9px 8px;
+  }
+
+  .cpc-icon {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .dh-toolbar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+
+  .dh-tool-btn,
+  .dh-tb-btn {
+    flex-shrink: 0;
+    min-height: 36px;
+  }
+}

@@ -1553,3 +1553,386 @@ select,
 button {
   max-width: 100% !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PARITY PATCH — rules restored from original styles.css that were
+   missing after the base/layout/panels/mobile split.
+   ═══════════════════════════════════════════════════════════════ */
+/* ── NGN / Currency toggle ───────────────────────────────── */
+.ag-currency-toggle {
+  display: flex;
+  align-items: center;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ag-currency-opt {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: var(--font);
+  white-space: nowrap;
+}
+
+.ag-currency-opt.active {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.ag-currency-opt.ngn.active {
+  color: #22c55e;
+}
+
+.ag-currency-opt.usd.active {
+  color: var(--accent);
+}
+
+/* ── Paystack button ─────────────────────────────────────── */
+.ag-paystack-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.88rem;
+  font-weight: 700;
+  background: #0ba4db;
+  color: #fff;
+  transition: var(--transition);
+  margin-bottom: 8px;
+  justify-content: center;
+}
+
+.ag-paystack-btn:hover {
+  background: #0991c4;
+}
+
+.ag-paystack-btn .ag-paystack-logo {
+  font-size: 0.72rem;
+  background: #fff;
+  color: #0ba4db;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
+.ag-paystack-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* NGN price display */
+.ag-price-ngn {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 1px;
+  font-weight: 600;
+}
+
+.ag-price.ngn-active {
+  display: none;
+}
+
+.ag-currency-ngn .ag-price {
+  display: none;
+}
+
+.ag-currency-ngn .ag-price-ngn {
+  display: block !important;
+  color: var(--green, #22c55e);
+}
+
+/* ── NGN price badge on cards ────────────────────────────── */
+.ag-ngn-price {
+  font-size: 0.8rem;
+  font-weight: 800;
+  font-family: var(--font);
+  color: #22c55e;
+}
+
+.ag-ngn-price.free {
+  color: var(--green, #22c55e);
+}
+
+/* ── Payment method selector ─────────────────────────────── */
+.ag-pay-methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ag-pay-method {
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: var(--transition);
+  background: var(--bg2);
+}
+
+.ag-pay-method:hover {
+  border-color: var(--accent);
+}
+
+.ag-pay-method.active.stripe {
+  border-color: var(--accent);
+  background: var(--accent) 10;
+}
+
+.ag-pay-method.active.paystack {
+  border-color: #0ba4db;
+  background: #0ba4db10;
+}
+
+.ag-pay-method-icon {
+  font-size: 1.3rem;
+  margin-bottom: 4px;
+}
+
+.ag-pay-method-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text2);
+}
+
+.ag-pay-method-sub {
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+/* override csp-types inside modal to have horizontal padding */
+#create-space-modal .csp-types {
+  padding: 0 20px;
+}
+
+#create-space-modal #csp-name-row {
+  padding: 0 20px;
+}
+
+#create-space-modal .csp-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* ── Quick-Add topbar button ───────────────────────────────── */
+.tb-quickadd-btn {
+  background: var(--teal) !important;
+  color: #fff !important;
+  border-radius: var(--radius) !important;
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.tb-quickadd-btn:hover {
+  opacity: 0.88;
+}
+
+/* ── PARITY PATCH — restored @media content ── */
+
+@media (max-width: 900px) {
+  .gs-tips {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .gs-tips {
+    grid-template-columns: 1fr;
+  }
+
+  .gs-header {
+    flex-direction: column;
+  }
+
+  .acad-metric-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .os-hero {
+    padding: 14px 16px 10px;
+    gap: 10px;
+  }
+
+  .os-hero-actions {
+    display: flex !important;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Icon-only on small screens — hide text labels, keep icons */
+  .os-hero-actions .btn-lbl {
+    display: none;
+  }
+
+  .os-hero-actions .os-btn-ghost,
+  .os-hero-actions .os-btn-primary {
+    padding: 7px 9px;
+  }
+
+  .os-scroll {
+    padding: 14px 16px;
+  }
+
+  .os-toolbar {
+    padding: 10px 14px;
+  }
+
+  .os-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .os-tabs {
+    padding: 0 12px;
+  }
+
+  .sp-hero {
+    padding: 12px 14px 10px;
+    gap: 10px;
+  }
+
+  .sp-hero-actions {
+    display: flex !important;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Icon-only on small screens — hide text labels, keep icons */
+  .sp-hero-actions .btn-lbl {
+    display: none;
+  }
+
+  .sp-hero-actions .sp-btn-ghost,
+  .sp-hero-actions .sp-btn-primary {
+    padding: 7px 9px;
+  }
+
+  .sp-scroll {
+    padding: 12px 14px;
+  }
+
+  .sp-toolbar {
+    padding: 8px 12px;
+  }
+
+  .sp-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .sp-tabs {
+    padding: 0 10px;
+  }
+
+  /* Modal becomes a bottom-anchored sheet so all content is reachable */
+  .csp-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .csp-modal {
+    border-radius: 20px 20px 0 0;
+    max-height: 92dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Keep 3-column grid but shrink the cards to not eat the screen */
+  .csp-types {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+  }
+
+  .csp-type {
+    padding: 10px 6px;
+    gap: 5px;
+  }
+
+  .csp-type-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+  }
+
+  .csp-type-name {
+    font-size: 0.72rem;
+  }
+
+  .csp-type-desc {
+    display: none;
+  }
+
+  /* Role cards — keep side-by-side but slimmer */
+  .acad-role-card {
+    padding: 10px 8px;
+  }
+
+  .acad-role-icon {
+    font-size: 20px;
+    margin-bottom: 3px;
+  }
+
+  .acad-role-name {
+    font-size: 12px;
+  }
+
+  .acad-role-desc {
+    font-size: 10px;
+  }
+
+  .ag-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ag-topbar {
+    padding: 0 12px;
+  }
+
+  .ag-tb-btn span {
+    display: none;
+  }
+
+  #create-space-modal .csp-types {
+    padding: 0 14px;
+  }
+
+  #create-space-modal #csp-name-row {
+    padding: 0 14px;
+  }
+
+  #create-space-modal #acadRoleStep {
+    padding: 0 14px;
+  }
+
+  .ps-stat-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .ps-grid2 {
+    grid-template-columns: 1fr !important;
+  }
+}
