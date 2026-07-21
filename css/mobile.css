@@ -1,9 +1,26 @@
 /* ═══════════════════════════════════════════════════════════════
-   Sivarr — Mobile CSS v5
+   Sivarr — Mobile CSS v6
    All remaining @media overrides for panels and content.
    Shell/login mobile styles already live in layout.css.
    Depends on base.css and panels.css.
+   
+   FIXES: NO HORIZONTAL SCROLL ON ANY SCREEN SIZE.
+   All grids → single column on mobile.
+   All tables → horizontally scrollable (not forcing page scroll).
+   All containers → overflow-x: hidden.
    ═══════════════════════════════════════════════════════════════ */
+
+/* ── PREVENT HORIZONTAL SCROLL ON ALL SCREENS ──────────────── */
+html,
+body {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+}
+
+* {
+  max-width: 100vw !important;
+  box-sizing: border-box !important;
+}
 
 /* ── Tablet · 900px ─────────────────────────────────────────── */
 @media (max-width: 900px) {
@@ -112,6 +129,27 @@
   :root {
     --panel-max: 9999px;
     --chat-max: 9999px;
+  }
+
+  /* ── PREVENT HORIZONTAL SCROLL ───────────────────────────── */
+  html,
+  body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+  #dashboard,
+  .layout,
+  .main,
+  .panel {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+  .panel.active {
+    overflow-x: hidden !important;
+  }
+  .panel > * {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
   }
 
   /* ── Topbar ──────────────────────────────────────────────── */
@@ -1214,4 +1252,304 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FIX: OVERFLOW-X: HIDDEN ON ALL PANEL CONTAINERS
+   Prevents horizontal scroll on any screen size
+   ═══════════════════════════════════════════════════════════════ */
+.panel,
+.panel > div:last-child,
+.panel .content,
+.panel .home-wrap,
+.panel .habits-wrap,
+.panel .journal-wrap,
+.panel .community-wrap,
+.panel .library-wrap,
+.panel .quiz-wrap,
+.panel .stats-wrap,
+.panel .help-wrap,
+.panel .review-body,
+.panel .mkt-grid,
+.panel .tpl-grid,
+.panel .ag-grid,
+.panel .lib-grid,
+.panel .int-grid,
+.panel .os-scroll,
+.panel .sp-scroll,
+.panel .acad-scroll,
+.panel .cal-main-body,
+.panel .doc-editor-area,
+.panel .doc-content,
+.panel .st-content,
+.panel .fin-wrap,
+.panel .sk-wrap,
+.panel .opp-grid,
+.panel .ann-feed,
+.panel .analytics-grid,
+.panel .ps-overview-content,
+.panel .ps-txn-table,
+.panel .ps-balance-content,
+.panel .ps-settlements-content,
+.panel .ps-customers-content,
+.panel .ps-refunds-content,
+.panel .ps-analytics-content,
+.panel .ag-view-wrap,
+.panel .mkt-view-browse,
+.panel .mkt-view-installed,
+.panel .mkt-view-published,
+.panel .ch-dashboard,
+.panel .ch-connect-screen,
+.panel .tpl-scroll,
+.panel .lab-content,
+.panel .sp-result,
+.panel .sp-countdown,
+.panel .gs-section,
+.panel .siva-brief,
+.panel .h2col,
+.panel .h-stat-grid,
+.panel .siva-pills,
+.panel .home-priorities-list,
+.panel .home-schedule-list,
+.panel .home-habits-list,
+.panel .home-finance-section,
+.panel .home-skills-section,
+.panel .home-goals-section,
+.panel .home-notes-section,
+.panel .home-journal-section,
+.panel .home-templates-list {
+  overflow-x: hidden !important;
+  max-width: 100% !important;
+}
+
+/* ── FIX: TABLES — horizontally scrollable ──────────────────── */
+#sh-overview-view {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+#sh-overview-table {
+  min-width: 100% !important;
+  width: 100% !important;
+  table-layout: auto !important;
+}
+.sh-table-wrap {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* ── FIX: ALL GRIDS → SINGLE COLUMN ON MOBILE ──────────────── */
+@media (max-width: 720px) {
+  .tpl-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .mkt-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .ag-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .lib-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .int-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .os-proj-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .sp-goals-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .sp-notes-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .acad-course-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .acad-groups-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .acad-notes-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .acad-ai-tools-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .help-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .gs-tips {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .profile-stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .achievements-grid {
+    flex-wrap: wrap !important;
+  }
+  .opp-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .review-stats-row {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .ps-grid2 {
+    grid-template-columns: 1fr !important;
+  }
+  .analytics-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .stat-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .gl-stats {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .fin-summary-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .sk-summary-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .cal-grid {
+    grid-template-columns: repeat(7, 1fr) !important;
+  }
+  .acad-kanban {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .os-kanban {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  .os-col {
+    flex: none !important;
+    width: 100% !important;
+  }
+  .sp-kanban {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  .sh-col {
+    width: 100% !important;
+    flex: none !important;
+  }
+  #sh-board-view {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  .sh-col-body {
+    min-height: 60px !important;
+  }
+}
+
+/* ── FIX: CARDS — prevent overflow ──────────────────────────── */
+@media (max-width: 720px) {
+  .card,
+  .h2col-card,
+  .h-stat-card,
+  .os-card,
+  .sp-card,
+  .acad-card,
+  .mkt-card,
+  .tpl-card,
+  .ag-card,
+  .lib-card,
+  .int-card,
+  .opp-card,
+  .review-stat,
+  .ps-stat,
+  .profile-stat,
+  .gl-stat,
+  .fin-stat,
+  .sk-stat,
+  .an-stat-card,
+  .mkt-metric-card,
+  .mkt-installed-row,
+  .ag-agent-row,
+  .ag-stat-card,
+  .ps-stat-card,
+  .stat,
+  .goal-card,
+  .habit-card,
+  .feed-card,
+  .journal-entry,
+  .note-card,
+  .class-card,
+  .flash-card-face {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ── FIX: CHAT ────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .chat-bar {
+    max-width: 100% !important;
+    width: calc(100% - 16px) !important;
+    margin-left: 8px !important;
+    margin-right: 8px !important;
+  }
+  .chat-msgs {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  .msg {
+    max-width: 92% !important;
+  }
+  .chat-prompt-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* ── FIX: SIDEBAR ────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .sidebar {
+    width: 75% !important;
+    max-width: 300px !important;
+    transform: translateX(-100%);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .sidebar .si::after {
+    content: "›" !important;
+    margin-left: auto !important;
+    color: var(--text4) !important;
+    font-size: 1.1rem !important;
+    line-height: 1 !important;
+  }
+}
+
+/* ── FIX: MOBILE NAV ─────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .mobile-nav {
+    display: flex !important;
+  }
+  .mob-fab {
+    display: flex !important;
+  }
+}
+
+/* ── FIX: ALL IMAGES ─────────────────────────────────────────── */
+img {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* ── FIX: PRE ────────────────────────────────────────────────── */
+pre,
+code {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
+/* ── FIX: INPUTS ─────────────────────────────────────────────── */
+input,
+textarea,
+select,
+button {
+  max-width: 100% !important;
 }
