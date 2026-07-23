@@ -961,6 +961,15 @@ body.offline .layout {
   overflow: hidden;
 }
 
+/* Belt-and-suspenders: once the dashboard is confirmed active, force the
+   login overlay (and its Google button) fully out of the layout and out
+   of the hit-testing tree, even if some code path fails to set the JS
+   inline style. Prevents #btn-google from swallowing topbar/sidebar taps. */
+body.dashboard-active #login-screen {
+  display: none !important;
+  pointer-events: none !important;
+}
+
 .login-left {
   width: 46%;
   flex-shrink: 0;
