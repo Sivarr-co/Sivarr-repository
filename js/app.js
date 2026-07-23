@@ -8749,13 +8749,16 @@ const MOB_SNAV_HEIGHTS = {
 };
 
 // ── Sidebar toggle (desktop: retract/restore · mobile: back to launcher) ──
-function toggleSidebar() {
-  if (window.innerWidth <= 720) { mobHome(); return; }
-  const sb = $('sidebar');
-  if (!sb) return;
-  const retracted = sb.classList.toggle('retracted');
-  document.body.classList.toggle('sb-retracted', retracted);
-  localStorage.setItem('sb_retracted', retracted ? '1' : '0');
+function toggleMobileSidebar(e) {
+  if (e) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+  const sidebar = $('sidebar');
+  if (!sidebar) return;
+  // Check if we're on the dashboard (sidebar exists and is visible)
+  if (sidebar.style.display === 'none') return;
+  sidebar.classList.contains('mobile-open') ? closeMobileSidebar() : openMobileSidebar();
 }
 
 // ── Mobile Notion launcher: return to the full-screen home (pop the
