@@ -952,22 +952,27 @@ body.offline .layout {
   display: none;
 }
 
+/* #login-screen defaults to fully OFF — not painted, not hit-tested.
+   It only becomes active while body.auth-screen is present (set by
+   _setAuthScreen() in app.js). This is the single source of truth for
+   whether the login page can be seen or interacted with; there is no
+   "on by default, turn it off" state for a race/duplicate-function bug
+   to fall through anymore. Paired with the `inert` attribute (toggled
+   in JS) so focus/keyboard/screen-reader access is cut too, not just
+   pointer events. */
 #login-screen {
   position: fixed;
   inset: 0;
   z-index: 500;
-  display: flex;
+  display: none;
+  pointer-events: none;
   background: var(--bg);
   overflow: hidden;
 }
 
-/* Belt-and-suspenders: once the dashboard is confirmed active, force the
-   login overlay (and its Google button) fully out of the layout and out
-   of the hit-testing tree, even if some code path fails to set the JS
-   inline style. Prevents #btn-google from swallowing topbar/sidebar taps. */
-body.dashboard-active #login-screen {
-  display: none !important;
-  pointer-events: none !important;
+body.auth-screen #login-screen {
+  display: flex;
+  pointer-events: auto;
 }
 
 .login-left {
@@ -1632,10 +1637,6 @@ body.dashboard-active #login-screen {
     cursor: pointer;
   }
 
-  body.mob-drilled .tb-mobback {
-    display: flex;
-  }
-
   .sb-mob-cust-btn {
     display: inline-flex;
     align-items: center;
@@ -1656,6 +1657,38 @@ body.dashboard-active #login-screen {
   }
   .sb-mob-cust-btn:active {
     opacity: 0.7;
+  }
+}
+
+/* ── HAMBURGER SIDEBAR OVERLAY (mobile) ───────────────────────
+   The hamburger opens the full nav menu (Home, Sivarr AI, Finance
+   Tracker, Journal, Marketplace, Plans, Settings, etc.) as a slide-in
+   overlay ON TOP of whatever panel you're currently viewing — from any
+   screen, at any drill depth. It is a pure visual toggle driven by the
+   `mobile-sidebar-open` body class (see toggleMobileSidebar() /
+   openMobileSidebar() / closeMobileSidebar() in app.js) and never
+   touches browser history, so it can't interact with or reintroduce
+   the login/OAuth history-back bug.
+   Deliberately declared AFTER the block above so it wins the cascade
+   tie (same selector specificity + !important on both sides) whenever
+   `mobile-sidebar-open` and `mob-drilled` are both present at once —
+   i.e. you open the menu while already inside a panel. */
+@media (max-width: 720px) {
+  .tb-ham {
+    display: flex !important;
+  }
+  body.mobile-sidebar-open .sidebar,
+  body.mobile-sidebar-open.mob-drilled .sidebar {
+    transform: translateX(0) !important;
+    z-index: 300 !important;
+    width: 80% !important;
+    box-shadow: var(--shadow3);
+  }
+  body.mobile-sidebar-open #overlay {
+    display: block !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 299 !important;
   }
 }
 

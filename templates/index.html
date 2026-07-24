@@ -87,7 +87,12 @@
       })();
     </script>
   </head>
-  <body>
+  <body class="auth-screen">
+    <!-- auth-screen: boots assuming "not logged in" — #login-screen (layout.css)
+         is only painted/hit-testable while this class is present. app.js's
+         _setAuthScreen() removes it (and adds dashboard-active) once a
+         session is confirmed, or re-adds it on logout. This is the single
+         source of truth for login-screen visibility — see layout.css. -->
     <!-- Apply saved theme before first paint (prevents a white flash on the loader) -->
     <script>
       (function () {

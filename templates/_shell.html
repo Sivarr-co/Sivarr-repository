@@ -1,7 +1,10 @@
 <!-- _shell.html -->
 <!-- Topbar -->
 <header class="topbar">
-  <!-- Hamburger (legacy — hidden on mobile by the Notion launcher) -->
+  <!-- Hamburger — opens the full nav menu (Home, Sivarr AI, Finance
+       Tracker, Journal, Marketplace, Plans, etc.) as a slide-in overlay,
+       from any screen, at any time. Pure visual toggle — never touches
+       browser history, so it can't collide with the OAuth login flow. -->
   <button
     class="tb-ham"
     id="hamburger"
@@ -297,9 +300,12 @@
   class="overlay"
   id="overlay"
   onclick="
-    window.innerWidth <= 720 && !document.body.classList.contains('mob-drilled')
-      ? _mobHomeVisual()
-      : closeMobileSidebar()
+    document.body.classList.contains('mobile-sidebar-open')
+      ? closeMobileSidebar()
+      : window.innerWidth <= 720 &&
+          !document.body.classList.contains('mob-drilled')
+        ? _mobHomeVisual()
+        : closeMobileSidebar()
   "
 ></div>
 
