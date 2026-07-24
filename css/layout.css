@@ -1532,9 +1532,6 @@ body.auth-screen #login-screen {
   .mob-fab {
     display: none !important;
   }
-  .tb-ham {
-    display: none !important;
-  }
   .main {
     padding-bottom: env(safe-area-inset-bottom, 0) !important;
   }
@@ -1586,7 +1583,9 @@ body.auth-screen #login-screen {
   .sidebar.collapsed .u-role {
     display: revert !important;
   }
-
+  body.mob-drilled .tb-ham {
+    display: flex;
+  }
   body.mob-drilled .sidebar,
   body.mob-drilled .sidebar.retracted,
   body.mob-drilled .sidebar.collapsed {
