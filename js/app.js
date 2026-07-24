@@ -9021,12 +9021,6 @@ document.addEventListener('fullscreenchange', () => {
   if (pdLabel) pdLabel.textContent = fs ? 'Exit Fullscreen' : 'Fullscreen';
 });
 
-function toggleMobileSidebar() {
-  const sidebar = $('sidebar');
-  if (!sidebar) return;
-  sidebar.classList.contains('mobile-open') ? closeMobileSidebar() : openMobileSidebar();
-}
-
 function openMobileSidebar() {
   const sidebar  = $('sidebar');
   const overlay  = $('overlay');
