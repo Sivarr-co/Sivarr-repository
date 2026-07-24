@@ -111,9 +111,6 @@ body.offline .layout {
   }
 }
 @media (min-width: 721px) {
-  body.hide-topbar .topbar {
-    display: none;
-  }
   body.hide-topbar .layout {
     padding-top: 0;
   }

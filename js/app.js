@@ -13179,7 +13179,6 @@ function nav(name, btn) {
   if (mob) mob.classList.add("active");
   // Desktop: the topbar is only shown on Home — every other panel gets the full
   // viewport height back. (Mobile keeps its own drill-down header handling.)
-  document.body.classList.toggle("hide-topbar", name !== "home");
   // Mobile: navigating to a real panel marks the drill-down/history state
   // (still used for hardware/OS back-button support via popstate) and closes
   // the hamburger menu overlay if it was open — picking a destination should
