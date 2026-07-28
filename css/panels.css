@@ -1061,29 +1061,42 @@
   background: rgba(239, 68, 68, 0.08);
 }
 
+/* ═══ Notion-style horizontal scroll row (video "Learn" cards) ═══ */
 .gs-videos-wrap {
-  overflow-x: auto;
+  display: block;
+  overflow-x: auto !important;
+  overflow-y: hidden;
   margin: 0 -20px;
   padding: 0 20px 6px;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 .gs-videos-wrap::-webkit-scrollbar {
   display: none;
 }
 .gs-videos {
-  display: flex;
-  gap: 12px;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 10px;
   padding-bottom: 2px;
   width: max-content;
 }
+
+/* Unified card — icon/thumb band on top, text body below, one shared
+   background/border, exactly like Notion's Recently-visited/Learn cards */
 .gs-vid-card {
-  width: 170px;
-  flex-shrink: 0;
+  width: 150px;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg3);
+  border: 1px solid var(--border);
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: var(--transition);
 }
 .gs-vid-card:hover {
-  transform: translateY(-2px);
+  border-color: var(--teal);
 }
 .gs-vid-card.done .gs-vid-thumb {
   opacity: 0.55;
@@ -1098,16 +1111,14 @@
 
 .gs-vid-thumb {
   width: 100%;
-  aspect-ratio: 16/9;
-  border-radius: 10px;
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  height: 84px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
-  margin-bottom: 8px;
 }
 .gs-vid-placeholder {
   display: flex;
@@ -1132,17 +1143,6 @@
 .gs-vid-card:hover .gs-vid-play {
   opacity: 1;
 }
-.gs-vid-duration {
-  position: absolute;
-  bottom: 6px;
-  right: 7px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #fff;
-  font-size: 0.65rem;
-  font-weight: 700;
-  padding: 2px 5px;
-  border-radius: 4px;
-}
 .gs-vid-done-badge {
   position: absolute;
   top: 6px;
@@ -1159,8 +1159,12 @@
   opacity: 0;
   transition: opacity 0.2s;
 }
+
+.gs-vid-body {
+  padding: 10px 12px 12px;
+}
 .gs-vid-title {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--text1);
   white-space: nowrap;
@@ -1168,17 +1172,32 @@
   text-overflow: ellipsis;
   transition: color 0.2s;
 }
-.gs-vid-desc {
-  font-size: 0.72rem;
+.gs-vid-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
   color: var(--muted);
-  margin-top: 2px;
+  margin-top: 4px;
+}
+.gs-vid-meta i {
+  font-size: 0.75rem;
 }
 
+/* ═══ Quick-tips row — same horizontal-scroll mechanic, not a grid ═══ */
 .gs-tips {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex !important;
+  flex-wrap: nowrap !important;
   gap: 10px;
-  margin-top: 16px;
+  margin: 16px -20px 0;
+  padding: 0 20px 2px;
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.gs-tips::-webkit-scrollbar {
+  display: none;
 }
 .gs-tip {
   display: flex;
@@ -1188,6 +1207,9 @@
   border-radius: 10px;
   padding: 10px 12px;
   border: 1px solid var(--border);
+  width: 210px;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
 }
 .gs-tip-icon {
   width: 32px;

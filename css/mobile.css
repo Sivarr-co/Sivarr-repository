@@ -1234,8 +1234,8 @@ body {
     padding: 12px 14px;
     margin-bottom: 10px;
   }
-  .gs-tips {
-    grid-template-columns: repeat(4, 1fr);
+  .gs-tip {
+    width: 190px;
   }
   .gs-vid-card {
     width: 140px;
@@ -1378,8 +1378,10 @@ body {
   .help-grid {
     grid-template-columns: 1fr !important;
   }
-  .gs-tips {
-    grid-template-columns: 1fr 1fr !important;
+  .gs-tips,
+  .gs-videos {
+    display: flex !important;
+    flex-wrap: nowrap !important;
   }
   .profile-stats-row {
     grid-template-columns: repeat(2, 1fr) !important;
@@ -1753,14 +1755,14 @@ button {
 /* ── PARITY PATCH — restored @media content ── */
 
 @media (max-width: 900px) {
-  .gs-tips {
-    grid-template-columns: 1fr 1fr;
+  .gs-tip {
+    width: 200px;
   }
 }
 
 @media (max-width: 560px) {
-  .gs-tips {
-    grid-template-columns: 1fr;
+  .gs-tip {
+    width: 180px;
   }
 
   .gs-header {
