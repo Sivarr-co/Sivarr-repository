@@ -1531,6 +1531,16 @@ body {
   .mob-fab {
     display: flex !important;
   }
+  /* The two rules above force these on for every screen ≤720px with no
+     awareness of the login/auth screen. Since #login-screen (z-index 500)
+     sits well below .mob-fab (z-index 7999), the FAB was painting on top
+     of the login form instead of being hidden behind it. Explicitly kill
+     both whenever the auth screen is showing — this must come after the
+     rules above (same specificity) to win. */
+  body.auth-screen .mobile-nav,
+  body.auth-screen .mob-fab {
+    display: none !important;
+  }
 }
 
 /* ── FIX: ALL IMAGES ─────────────────────────────────────────── */

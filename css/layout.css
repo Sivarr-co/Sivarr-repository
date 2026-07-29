@@ -1070,16 +1070,46 @@ body.auth-screen #login-screen {
 .login-right {
   flex: 1;
   display: flex;
-  align-items: center;
+  /* Dead-centering in 100dvh leaves a big empty gap above the card on
+     tall screens, so "Welcome back" reads as floating with nothing
+     anchoring it. Top-align with generous padding instead — same visual
+     weight as the left panel's content, which starts near the top too. */
+  align-items: flex-start;
   justify-content: center;
-  padding: 2.5rem 2rem;
+  padding: 6rem 2rem 2.5rem;
   overflow-y: auto;
   background: var(--bg);
+  /* Was pure flat --bg — reads as a blank void next to the rich gradient
+     panel on the left. A faint teal wash anchored top-left ties the two
+     halves together without competing with the form itself. */
+  background-image: radial-gradient(
+    circle at 0% 0%,
+    var(--teal2) 0%,
+    transparent 45%
+  );
+}
+[data-theme="dark"] .login-right {
+  background-image: radial-gradient(
+    circle at 0% 0%,
+    rgba(15, 219, 173, 0.06) 0%,
+    transparent 45%
+  );
 }
 .login-card {
   width: 100%;
   max-width: 420px;
   animation: fadeUp 0.4s ease;
+}
+.login-card-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--teal);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.85rem;
 }
 
 .lc-brand-mob {
@@ -1361,6 +1391,15 @@ body.auth-screen #login-screen {
   .login-right {
     width: 100%;
     padding: 2rem 1.25rem;
+    /* Was inheriting `align-items: center` from the base rule. When the
+       card's content (logo + heading + tabs + fields + Google button)
+       is taller than the viewport, centering an overflowing flex
+       container clips the START of the content with no way to scroll
+       up to it (scrollTop can't go negative) — that's what was slicing
+       the Sivarr wordmark off at the top. Top-aligning instead means
+       any overflow spills downward, where it's actually scrollable. */
+    align-items: flex-start;
+    padding-top: max(2rem, calc(env(safe-area-inset-top) + 1.5rem));
   }
   .lc-brand-mob {
     display: flex;
