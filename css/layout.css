@@ -972,16 +972,35 @@ body.auth-screen #login-screen {
   pointer-events: auto;
 }
 
+/* ── Hero / branding panel ──────────────────────────────────── */
 .login-left {
-  width: 46%;
+  width: 44%;
   flex-shrink: 0;
-  background: linear-gradient(145deg, #063d30 0%, #0d7a5f 55%, #14a882 100%);
+  background: linear-gradient(155deg, #1c1640 0%, #4a3fa0 52%, #7d6ef2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 4rem;
   position: relative;
   overflow: hidden;
+}
+/* Soft grain/grid overlay for depth so the gradient doesn't read flat */
+.login-left::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(
+      circle at 85% 15%,
+      rgba(255, 255, 255, 0.1) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 15% 85%,
+      rgba(255, 255, 255, 0.07) 0%,
+      transparent 45%
+    );
+  pointer-events: none;
 }
 .ll-content {
   position: relative;
@@ -1010,16 +1029,17 @@ body.auth-screen #login-screen {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.14);
   color: rgba(255, 255, 255, 0.95);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   border-radius: 99px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   padding: 5px 14px;
   margin-bottom: 1.5rem;
+  backdrop-filter: blur(6px);
 }
 .ll-headline {
   font-family: var(--font);
@@ -1033,25 +1053,43 @@ body.auth-screen #login-screen {
 .ll-features {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 0.65rem;
 }
 .ll-feat {
   display: flex;
   align-items: center;
   gap: 13px;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 1rem;
-  font-weight: 400;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 11px 14px;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+.ll-feat:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateX(2px);
 }
 .ll-feat i {
-  font-size: 1.2rem;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.05rem;
+  color: #fff;
   flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
 }
 .ll-orb {
   position: absolute;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.08);
   pointer-events: none;
 }
 .ll-orb1 {
@@ -1065,8 +1103,10 @@ body.auth-screen #login-screen {
   height: 300px;
   bottom: -110px;
   left: -90px;
+  background: rgba(255, 255, 255, 0.05);
 }
 
+/* ── Form panel ────────────────────────────────────────────── */
 .login-right {
   flex: 1;
   display: flex;
@@ -1080,18 +1120,18 @@ body.auth-screen #login-screen {
   overflow-y: auto;
   background: var(--bg);
   /* Was pure flat --bg — reads as a blank void next to the rich gradient
-     panel on the left. A faint teal wash anchored top-left ties the two
+     panel on the left. A faint purple wash anchored top-left ties the two
      halves together without competing with the form itself. */
   background-image: radial-gradient(
     circle at 0% 0%,
-    var(--teal2) 0%,
+    var(--purple2) 0%,
     transparent 45%
   );
 }
 [data-theme="dark"] .login-right {
   background-image: radial-gradient(
     circle at 0% 0%,
-    rgba(15, 219, 173, 0.06) 0%,
+    rgba(139, 128, 240, 0.07) 0%,
     transparent 45%
   );
 }
@@ -1104,7 +1144,7 @@ body.auth-screen #login-screen {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--teal);
+  color: var(--purple);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1122,7 +1162,7 @@ body.auth-screen #login-screen {
   width: 34px;
   height: 34px;
   border-radius: 9px;
-  background: var(--teal);
+  background: var(--purple);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1156,19 +1196,24 @@ body.auth-screen #login-screen {
   margin-bottom: 1.85rem;
 }
 
+/* Segmented pill tabs — reads more like a modern toggle than plain
+   underlined tabs, and gives the active state a clearer surface. */
 .auth-tabs {
   display: flex;
-  border-bottom: 1px solid var(--border);
+  gap: 4px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius2);
+  padding: 4px;
   margin-bottom: 1.85rem;
 }
 .auth-tab {
   flex: 1;
-  padding: 10px 0;
+  padding: 9px 0;
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  font-size: 0.95rem;
+  border-radius: calc(var(--radius2) - 4px);
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text3);
   cursor: pointer;
@@ -1179,8 +1224,9 @@ body.auth-screen #login-screen {
   color: var(--text1);
 }
 .auth-tab.active {
-  color: var(--teal);
-  border-bottom-color: var(--teal);
+  color: #fff;
+  background: var(--purple);
+  box-shadow: var(--shadow);
 }
 
 .field {
@@ -1206,9 +1252,9 @@ body.auth-screen #login-screen {
   transition: var(--transition);
 }
 .field-ic:focus-within {
-  border-color: var(--teal);
+  border-color: var(--purple);
   background: var(--bg2);
-  box-shadow: 0 0 0 3px rgba(13, 122, 95, 0.1);
+  box-shadow: 0 0 0 3px rgba(83, 74, 183, 0.12);
 }
 .field-ic > i.ti {
   font-size: 17px;
@@ -1220,7 +1266,7 @@ body.auth-screen #login-screen {
   flex: 1;
   border: none;
   background: transparent;
-  padding: 12px 14px;
+  padding: 13px 14px;
   color: var(--text1);
   font-size: 0.95rem;
   outline: none;
@@ -1250,14 +1296,14 @@ body.auth-screen #login-screen {
   background: var(--bg3);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 12px 14px;
+  padding: 13px 14px;
   color: var(--text1);
   font-size: 0.95rem;
   outline: none;
   transition: var(--transition);
 }
 .field input:not([class]):focus {
-  border-color: var(--teal);
+  border-color: var(--purple);
 }
 .field input::placeholder {
   color: var(--text4);
@@ -1273,7 +1319,7 @@ body.auth-screen #login-screen {
 
 .btn-login {
   width: 100%;
-  background: var(--teal);
+  background: linear-gradient(135deg, var(--purple) 0%, #6a5fd6 100%);
   color: #fff;
   border: none;
   border-radius: var(--radius);
@@ -1283,12 +1329,15 @@ body.auth-screen #login-screen {
   cursor: pointer;
   font-family: var(--font);
   letter-spacing: -0.01em;
+  box-shadow: 0 4px 14px rgba(83, 74, 183, 0.32);
   transition:
     opacity 0.2s,
-    transform 0.1s;
+    transform 0.1s,
+    box-shadow 0.2s;
 }
 .btn-login:hover {
-  opacity: 0.9;
+  opacity: 0.94;
+  box-shadow: 0 6px 18px rgba(83, 74, 183, 0.4);
 }
 .btn-login:active {
   transform: scale(0.99);
@@ -1320,7 +1369,7 @@ body.auth-screen #login-screen {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--teal);
+  color: var(--purple);
   font-size: 0.85rem;
   padding: 4px 0;
   display: inline-flex;
@@ -1339,6 +1388,9 @@ body.auth-screen #login-screen {
   color: var(--text4);
   margin-top: 1.1rem;
   line-height: 1.5;
+}
+.login-note a {
+  color: var(--purple);
 }
 .auth-or {
   display: flex;
@@ -1361,7 +1413,7 @@ body.auth-screen #login-screen {
   justify-content: center;
   gap: 10px;
   width: 100%;
-  padding: 11px;
+  padding: 12px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg);
@@ -1371,41 +1423,96 @@ body.auth-screen #login-screen {
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
-  transition: background 0.15s;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s,
+    transform 0.1s;
 }
 .btn-google:hover {
   background: var(--bg2);
+  box-shadow: var(--shadow);
+}
+.btn-google:active {
+  transform: scale(0.99);
 }
 
 [data-theme="dark"] .login-left {
-  background: linear-gradient(145deg, #042e24 0%, #085041 55%, #0a6b55 100%);
+  background: linear-gradient(155deg, #100c26 0%, #362d78 52%, #6458cc 100%);
 }
 
+/* ── Responsive ────────────────────────────────────────────────
+   Below 768px the split-screen no longer fits, but rather than dropping
+   the hero panel entirely (losing all brand context), it collapses into
+   a compact top strip. The form card then overlaps it slightly as a
+   rounded "sheet", which reads as one deliberate composition instead of
+   a bare form dropped on a blank background. */
 @media (max-width: 768px) {
   #login-screen {
     flex-direction: column;
+    overflow-y: auto;
   }
   .login-left {
+    width: 100%;
+    min-height: 0;
+    padding: max(2.75rem, calc(env(safe-area-inset-top) + 1.75rem)) 1.5rem
+      3.5rem;
+    align-items: flex-start;
+    justify-content: flex-end;
+    flex-shrink: 0;
+  }
+  .ll-orb1 {
+    width: 320px;
+    height: 320px;
+    top: -140px;
+    right: -140px;
+  }
+  .ll-orb2 {
+    width: 220px;
+    height: 220px;
+    bottom: -120px;
+    left: -80px;
+  }
+  .ll-tag {
+    margin-bottom: 0.9rem;
+  }
+  .ll-headline {
+    font-size: 1.7rem;
+    margin-bottom: 0;
+  }
+  .ll-features {
     display: none;
   }
   .login-right {
     width: 100%;
-    padding: 2rem 1.25rem;
-    /* Was inheriting `align-items: center` from the base rule. When the
-       card's content (logo + heading + tabs + fields + Google button)
-       is taller than the viewport, centering an overflowing flex
-       container clips the START of the content with no way to scroll
-       up to it (scrollTop can't go negative) — that's what was slicing
-       the Sivarr wordmark off at the top. Top-aligning instead means
-       any overflow spills downward, where it's actually scrollable. */
+    padding: 0 1.25rem 2.5rem;
     align-items: flex-start;
-    padding-top: max(2rem, calc(env(safe-area-inset-top) + 1.5rem));
+    justify-content: center;
+    background-image: none;
+  }
+  .login-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 22px 22px 0 0;
+    box-shadow: var(--shadow3);
+    padding: 1.85rem 1.35rem 2rem;
+    margin-top: -22px;
+    position: relative;
+    z-index: 2;
   }
   .lc-brand-mob {
-    display: flex;
+    display: none;
   }
   .login-card h1 {
-    font-size: 1.65rem;
+    font-size: 1.55rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .ll-headline {
+    font-size: 1.45rem;
+  }
+  .login-card {
+    padding: 1.6rem 1.1rem 1.75rem;
   }
 }
 
