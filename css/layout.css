@@ -945,6 +945,22 @@ body.offline .layout {
 }
 
 /* ── LOGIN ─────────────────────────────────────────────────── */
+/* Brand purple — matched to the Sivarr mark (deep violet-black ground,
+   glowing magenta-violet highlight). Scoped to the login screen so it
+   can't collide with anything else in the cascade. */
+:root {
+  --sv-purple-dark: #0d0221;
+  --sv-purple-deep: #2e1065;
+  --sv-purple-mid: #6d28d9;
+  --sv-purple: #7c3aed;
+  --sv-purple-bright: #a855f7;
+  --sv-purple-glow: #c084fc;
+  --sv-purple-tint: rgba(124, 58, 237, 0.1);
+}
+[data-theme="dark"] {
+  --sv-purple-tint: rgba(168, 85, 247, 0.12);
+}
+
 #dashboard {
   display: none;
 }
@@ -972,11 +988,18 @@ body.auth-screen #login-screen {
   pointer-events: auto;
 }
 
-/* ── Hero / branding panel ──────────────────────────────────── */
+/* ── Hero / branding panel — locked to an even 50/50 split with the
+   form panel on desktop ─────────────────────────────────────── */
 .login-left {
-  width: 44%;
-  flex-shrink: 0;
-  background: linear-gradient(155deg, #1c1640 0%, #4a3fa0 52%, #7d6ef2 100%);
+  width: 50%;
+  flex: 0 0 50%;
+  background: linear-gradient(
+    135deg,
+    var(--sv-purple-dark) 0%,
+    var(--sv-purple-deep) 45%,
+    var(--sv-purple-mid) 75%,
+    var(--sv-purple-bright) 100%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -984,21 +1007,21 @@ body.auth-screen #login-screen {
   position: relative;
   overflow: hidden;
 }
-/* Soft grain/grid overlay for depth so the gradient doesn't read flat */
+/* Glow highlight echoing the icon's light source, top-right */
 .login-left::before {
   content: "";
   position: absolute;
   inset: 0;
   background-image:
     radial-gradient(
-      circle at 85% 15%,
-      rgba(255, 255, 255, 0.1) 0%,
-      transparent 40%
+      circle at 85% 10%,
+      rgba(192, 132, 252, 0.35) 0%,
+      transparent 45%
     ),
     radial-gradient(
-      circle at 15% 85%,
-      rgba(255, 255, 255, 0.07) 0%,
-      transparent 45%
+      circle at 10% 90%,
+      rgba(124, 58, 237, 0.25) 0%,
+      transparent 50%
     );
   pointer-events: none;
 }
@@ -1059,11 +1082,11 @@ body.auth-screen #login-screen {
   display: flex;
   align-items: center;
   gap: 13px;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.92);
   font-size: 0.95rem;
   font-weight: 500;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   padding: 11px 14px;
   transition:
@@ -1071,7 +1094,7 @@ body.auth-screen #login-screen {
     transform 0.2s ease;
 }
 .ll-feat:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
   transform: translateX(2px);
 }
 .ll-feat i {
@@ -1083,13 +1106,13 @@ body.auth-screen #login-screen {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.16);
   border-radius: 9px;
 }
 .ll-orb {
   position: absolute;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(192, 132, 252, 0.1);
   pointer-events: none;
 }
 .ll-orb1 {
@@ -1103,12 +1126,13 @@ body.auth-screen #login-screen {
   height: 300px;
   bottom: -110px;
   left: -90px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(124, 58, 237, 0.12);
 }
 
-/* ── Form panel ────────────────────────────────────────────── */
+/* ── Form panel — same 50/50 share as the hero ────────────────── */
 .login-right {
-  flex: 1;
+  width: 50%;
+  flex: 0 0 50%;
   display: flex;
   /* Dead-centering in 100dvh leaves a big empty gap above the card on
      tall screens, so "Welcome back" reads as floating with nothing
@@ -1119,19 +1143,9 @@ body.auth-screen #login-screen {
   padding: 6rem 2rem 2.5rem;
   overflow-y: auto;
   background: var(--bg);
-  /* Was pure flat --bg — reads as a blank void next to the rich gradient
-     panel on the left. A faint purple wash anchored top-left ties the two
-     halves together without competing with the form itself. */
   background-image: radial-gradient(
     circle at 0% 0%,
-    var(--purple2) 0%,
-    transparent 45%
-  );
-}
-[data-theme="dark"] .login-right {
-  background-image: radial-gradient(
-    circle at 0% 0%,
-    rgba(139, 128, 240, 0.07) 0%,
+    var(--sv-purple-tint) 0%,
     transparent 45%
   );
 }
@@ -1144,12 +1158,15 @@ body.auth-screen #login-screen {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--purple);
+  color: var(--sv-purple);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: 0.85rem;
+}
+[data-theme="dark"] .login-card-kicker {
+  color: var(--sv-purple-glow);
 }
 
 .lc-brand-mob {
@@ -1162,7 +1179,11 @@ body.auth-screen #login-screen {
   width: 34px;
   height: 34px;
   border-radius: 9px;
-  background: var(--purple);
+  background: linear-gradient(
+    135deg,
+    var(--sv-purple) 0%,
+    var(--sv-purple-bright) 100%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1225,7 +1246,11 @@ body.auth-screen #login-screen {
 }
 .auth-tab.active {
   color: #fff;
-  background: var(--purple);
+  background: linear-gradient(
+    135deg,
+    var(--sv-purple) 0%,
+    var(--sv-purple-bright) 100%
+  );
   box-shadow: var(--shadow);
 }
 
@@ -1252,9 +1277,9 @@ body.auth-screen #login-screen {
   transition: var(--transition);
 }
 .field-ic:focus-within {
-  border-color: var(--purple);
+  border-color: var(--sv-purple);
   background: var(--bg2);
-  box-shadow: 0 0 0 3px rgba(83, 74, 183, 0.12);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
 }
 .field-ic > i.ti {
   font-size: 17px;
@@ -1303,7 +1328,7 @@ body.auth-screen #login-screen {
   transition: var(--transition);
 }
 .field input:not([class]):focus {
-  border-color: var(--purple);
+  border-color: var(--sv-purple);
 }
 .field input::placeholder {
   color: var(--text4);
@@ -1319,7 +1344,11 @@ body.auth-screen #login-screen {
 
 .btn-login {
   width: 100%;
-  background: linear-gradient(135deg, var(--purple) 0%, #6a5fd6 100%);
+  background: linear-gradient(
+    135deg,
+    var(--sv-purple) 0%,
+    var(--sv-purple-bright) 100%
+  );
   color: #fff;
   border: none;
   border-radius: var(--radius);
@@ -1329,7 +1358,7 @@ body.auth-screen #login-screen {
   cursor: pointer;
   font-family: var(--font);
   letter-spacing: -0.01em;
-  box-shadow: 0 4px 14px rgba(83, 74, 183, 0.32);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
   transition:
     opacity 0.2s,
     transform 0.1s,
@@ -1337,7 +1366,7 @@ body.auth-screen #login-screen {
 }
 .btn-login:hover {
   opacity: 0.94;
-  box-shadow: 0 6px 18px rgba(83, 74, 183, 0.4);
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.45);
 }
 .btn-login:active {
   transform: scale(0.99);
@@ -1369,7 +1398,7 @@ body.auth-screen #login-screen {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--purple);
+  color: var(--sv-purple);
   font-size: 0.85rem;
   padding: 4px 0;
   display: inline-flex;
@@ -1377,6 +1406,9 @@ body.auth-screen #login-screen {
   gap: 4px;
   font-family: inherit;
   transition: opacity 0.15s;
+}
+[data-theme="dark"] .auth-back-btn {
+  color: var(--sv-purple-glow);
 }
 .auth-back-btn:hover {
   opacity: 0.75;
@@ -1390,7 +1422,10 @@ body.auth-screen #login-screen {
   line-height: 1.5;
 }
 .login-note a {
-  color: var(--purple);
+  color: var(--sv-purple);
+}
+[data-theme="dark"] .login-note a {
+  color: var(--sv-purple-glow);
 }
 .auth-or {
   display: flex;
@@ -1436,86 +1471,32 @@ body.auth-screen #login-screen {
   transform: scale(0.99);
 }
 
-[data-theme="dark"] .login-left {
-  background: linear-gradient(155deg, #100c26 0%, #362d78 52%, #6458cc 100%);
-}
-
-/* ── Responsive ────────────────────────────────────────────────
-   Below 768px the split-screen no longer fits, but rather than dropping
-   the hero panel entirely (losing all brand context), it collapses into
-   a compact top strip. The form card then overlaps it slightly as a
-   rounded "sheet", which reads as one deliberate composition instead of
-   a bare form dropped on a blank background. */
+/* ── Responsive — form only below 768px ───────────────────────
+   The split-screen hero doesn't fit a phone viewport, and rather than
+   shrinking it into a strip it's dropped entirely: on mobile the login
+   form is the whole screen, full width, with just the compact brand
+   mark (.lc-brand-mob) standing in for the hero's context. */
 @media (max-width: 768px) {
   #login-screen {
     flex-direction: column;
-    overflow-y: auto;
   }
   .login-left {
-    width: 100%;
-    min-height: 0;
-    padding: max(2.75rem, calc(env(safe-area-inset-top) + 1.75rem)) 1.5rem
-      3.5rem;
-    align-items: flex-start;
-    justify-content: flex-end;
-    flex-shrink: 0;
-  }
-  .ll-orb1 {
-    width: 320px;
-    height: 320px;
-    top: -140px;
-    right: -140px;
-  }
-  .ll-orb2 {
-    width: 220px;
-    height: 220px;
-    bottom: -120px;
-    left: -80px;
-  }
-  .ll-tag {
-    margin-bottom: 0.9rem;
-  }
-  .ll-headline {
-    font-size: 1.7rem;
-    margin-bottom: 0;
-  }
-  .ll-features {
     display: none;
   }
   .login-right {
     width: 100%;
-    padding: 0 1.25rem 2.5rem;
+    flex: 1;
+    padding: 2rem 1.25rem;
     align-items: flex-start;
-    justify-content: center;
-    background-image: none;
-  }
-  .login-card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 22px 22px 0 0;
-    box-shadow: var(--shadow3);
-    padding: 1.85rem 1.35rem 2rem;
-    margin-top: -22px;
-    position: relative;
-    z-index: 2;
+    padding-top: max(2rem, calc(env(safe-area-inset-top) + 1.5rem));
   }
   .lc-brand-mob {
-    display: none;
+    display: flex;
   }
   .login-card h1 {
-    font-size: 1.55rem;
+    font-size: 1.65rem;
   }
 }
-
-@media (max-width: 400px) {
-  .ll-headline {
-    font-size: 1.45rem;
-  }
-  .login-card {
-    padding: 1.6rem 1.1rem 1.75rem;
-  }
-}
-
 /* ── PROFILE DROPDOWN ──────────────────────────────────────── */
 .profile-menu {
   position: relative;
