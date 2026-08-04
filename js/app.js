@@ -6715,7 +6715,7 @@ function stSetSecondary(v) {
     toast("Invalid colour");
     return;
   }
-  const primary = localStorage.getItem("sivarr_accent") || "#0fdbad";
+  const primary = localStorage.getItem("sivarr_accent") || "#41076b";
   stApplyColor(primary, hex, false);
 }
 function stPickPreset(c1, c2, el) {
@@ -6723,7 +6723,7 @@ function stPickPreset(c1, c2, el) {
   toast("Theme colour updated ✓");
 }
 function stResetAppearance() {
-  stApplyColor("#0FDBAD", "#534AB7", true);
+  stApplyColor("#41076b", "#41076b", true);
   toast("Reset to Sivarr default");
 }
 
