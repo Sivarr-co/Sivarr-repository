@@ -3,14 +3,14 @@
 
 :root {
   /* Brand colours */
-  --teal:      #0D7A5F;
-  --teal2:     rgba(13,122,95,.12);
-  --teal3:     rgba(13,122,95,.08);
-  --teal4:     #0a6350;
-  --accent:    #0D7A5F;
-  --accent2:   #534AB7;
-  --purple:    #534AB7;
-  --purple2:   rgba(83,74,183,.12);
+  --teal:      #41076B;
+  --teal2:     rgba(65,7,107,.12);
+  --teal3:     rgba(65,7,107,.08);
+  --teal4:     #2D0454;
+  --accent:    #41076B;
+  --accent2:   #41076B;
+  --purple:    #41076B;
+  --purple2:   rgba(65,7,107,.12);
   --coral:     #E8613A;
   --amber:     #F5A623;
   --amber2:    rgba(245,166,35,.12);
