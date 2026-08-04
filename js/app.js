@@ -6146,8 +6146,8 @@ function stInit() {
 
   // ── Colour wheel — restore from saved accent ──
   stWheelInit();
-  const _acc = localStorage.getItem("sivarr_accent") || "#41076b";
-  const _acc2 = localStorage.getItem("sivarr_accent2") || "#41076b";
+  const _acc = localStorage.getItem("sivarr_accent") || "#7C3AED";
+  const _acc2 = localStorage.getItem("sivarr_accent2") || "#534AB7";
   const _hsl = _hexToHsl(_acc);
   _stWheelH = _hsl.h;
   _stWheelS = _hsl.s;

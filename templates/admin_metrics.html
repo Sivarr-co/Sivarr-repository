@@ -7,11 +7,11 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f0f;color:#e8e8e8;font-size:15px;line-height:1.5}
-a{color:#0FDBAD;text-decoration:none}
+a{color:#7C3AED;text-decoration:none}
 
 /* ── Layout ── */
 .top{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid #1e1e1e;background:#151515}
-.brand{font-size:1.1rem;font-weight:800;color:#0FDBAD;letter-spacing:-.03em}
+.brand{font-size:1.1rem;font-weight:800;color:#7C3AED;letter-spacing:-.03em}
 .nav-links{display:flex;gap:18px;font-size:.85rem}
 .nav-links a{color:#888}
 .nav-links a:hover{color:#e8e8e8}
@@ -23,8 +23,8 @@ h1{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
 /* ── Login gate ── */
 #login-gate{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:12px}
 #login-gate input{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:9px;padding:11px 16px;color:#e8e8e8;font-size:.95rem;width:280px;outline:none}
-#login-gate input:focus{border-color:#0FDBAD}
-#login-gate button{background:#0FDBAD;color:#000;border:none;border-radius:9px;padding:11px 28px;font-weight:700;font-size:.95rem;cursor:pointer;width:280px}
+#login-gate input:focus{border-color:#7C3AED}
+#login-gate button{background:#7C3AED;color:#000;border:none;border-radius:9px;padding:11px 28px;font-weight:700;font-size:.95rem;cursor:pointer;width:280px}
 #login-err{color:#f87171;font-size:.82rem}
 
 /* ── KPI row ── */
@@ -42,8 +42,8 @@ h1{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
 
 /* ── DAU chart ── */
 .chart-wrap{height:100px;display:flex;align-items:flex-end;gap:3px;overflow:hidden}
-.chart-bar{flex:1;background:#0FDBAD22;border-radius:3px 3px 0 0;min-width:4px;position:relative;cursor:default;transition:background .15s}
-.chart-bar:hover{background:#0FDBAD55}
+.chart-bar{flex:1;background:#7C3AED22;border-radius:3px 3px 0 0;min-width:4px;position:relative;cursor:default;transition:background .15s}
+.chart-bar:hover{background:#7C3AED55}
 .chart-bar .tip{display:none;position:absolute;bottom:calc(100%+4px);left:50%;transform:translateX(-50%);background:#0f0f0f;border:1px solid #2a2a2a;border-radius:6px;padding:3px 8px;font-size:.68rem;white-space:nowrap;color:#e8e8e8;pointer-events:none}
 .chart-bar:hover .tip{display:block}
 .chart-labels{display:flex;justify-content:space-between;margin-top:6px;font-size:.65rem;color:#444}
@@ -53,13 +53,13 @@ h1{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
 .feat-row:last-child{border-bottom:none}
 .feat-name{font-size:.85rem;color:#ccc;flex:1;text-transform:capitalize}
 .feat-bar-wrap{width:140px;height:6px;background:#1e1e1e;border-radius:3px;overflow:hidden}
-.feat-bar{height:100%;background:#0FDBAD;border-radius:3px;transition:width .4s}
+.feat-bar{height:100%;background:#7C3AED;border-radius:3px;transition:width .4s}
 .feat-count{font-size:.78rem;color:#555;width:36px;text-align:right}
 
 /* ── Period selector ── */
 .period-row{display:flex;gap:8px;margin-bottom:24px}
 .period-btn{padding:6px 16px;border-radius:20px;border:1px solid #2a2a2a;background:transparent;color:#888;font-size:.8rem;cursor:pointer;transition:all .15s}
-.period-btn.active{background:#0FDBAD;color:#000;border-color:#0FDBAD;font-weight:700}
+.period-btn.active{background:#7C3AED;color:#000;border-color:#7C3AED;font-weight:700}
 </style>
 </head>
 <body>
