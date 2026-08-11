@@ -8479,6 +8479,14 @@ function _navRenderSec(hostId, panels) {
 }
 function navRenderSidebar() {
   _navRenderSec("sb-favs", NAV_CORE);
+  // Tabs starred via the ⌘K palette (toggleNavTab/getNavTabs) — previously
+  // saved correctly but never rendered anywhere in the sidebar. Exclude
+  // "connect"-section panels: those are always shown below regardless of
+  // star state, so including them here would just duplicate the entry.
+  _navRenderSec(
+    "sgi-pinned",
+    getNavTabs().filter((p) => NAV_TABS[p] && NAV_TABS[p].section !== "connect"),
+  );
   // Connect is a fixed, always-visible list (no pin-filtering) — matches the sidebar's flat layout.
   _navRenderSec("sgi-connect", _getSectionOrder("connect"));
   if (typeof sbRenderStats === "function") sbRenderStats();
