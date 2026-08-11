@@ -8426,6 +8426,31 @@ function setNavTabs(arr) {
     localStorage.setItem(NAV_KEY(), JSON.stringify(arr));
   } catch (e) {}
 }
+
+// ── Sidebar "Recents" — last 3 visited panels, most-recent-first ─────
+function RECENTS_KEY() {
+  return `sivarr_recents_${(typeof S !== "undefined" && S.sid) || ""}`;
+}
+function getRecentPanels() {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENTS_KEY()));
+    if (Array.isArray(v)) return v.filter((p) => NAV_TABS[p]);
+  } catch (e) {}
+  return [];
+}
+function pushRecentPanel(panel) {
+  const meta = NAV_TABS[panel];
+  // Core is always in Pinned already; connect panels are always shown in
+  // Connect regardless of recency — either would just be a duplicate row.
+  if (!meta || meta.section === "core" || meta.section === "connect") return;
+  try {
+    let r = JSON.parse(localStorage.getItem(RECENTS_KEY())) || [];
+    if (!Array.isArray(r)) r = [];
+    r = [panel, ...r.filter((p) => p !== panel)].slice(0, 3);
+    localStorage.setItem(RECENTS_KEY(), JSON.stringify(r));
+  } catch (e) {}
+}
+
 // In the sidebar right now? Core tabs always are; the rest depend on the user's store.
 function isNavTab(panel) {
   return NAV_CORE.includes(panel) || getNavTabs().includes(panel);
@@ -8479,12 +8504,14 @@ function _navRenderSec(hostId, panels) {
 }
 function navRenderSidebar() {
   _navRenderSec("sb-favs", NAV_CORE);
+  // Last 3 visited panels — see pushRecentPanel(), called from nav().
+  _navRenderSec("sgi-recents", getRecentPanels());
   // Tabs starred via the ⌘K palette (toggleNavTab/getNavTabs) — previously
   // saved correctly but never rendered anywhere in the sidebar. Exclude
   // "connect"-section panels: those are always shown below regardless of
   // star state, so including them here would just duplicate the entry.
   _navRenderSec(
-    "sgi-pinned",
+    "sgi-starred",
     getNavTabs().filter((p) => NAV_TABS[p] && NAV_TABS[p].section !== "connect"),
   );
   // Connect is a fixed, always-visible list (no pin-filtering) — matches the sidebar's flat layout.
@@ -12833,6 +12860,11 @@ function sidebarNav(btn) {
 // ═══════════════════════════ NAV ════════════════════════════════
 function nav(name, btn) {
   _pushRecentNav(name);
+  pushRecentPanel(name);
+  // Cheap, targeted re-render — just this section, not the whole sidebar —
+  // so Recents updates live on every navigation, not just on login/star/etc.
+  if (typeof _navRenderSec === "function")
+    _navRenderSec("sgi-recents", getRecentPanels());
   if (typeof cmdPushRecent === "function") cmdPushRecent(name);
   // Leaving the org space — tear down the live SSE + presence (it is kept alive
   // across all org tabs, so only a full nav-away should close it).

@@ -357,19 +357,32 @@
   </div>
 
   <div class="sb-scroll">
-    <!-- Favorites: Sivarr AI / Home / Inbox — flat, no section label (rendered by navRenderSidebar) -->
+    <!-- Pinned: Sivarr AI / Home / Inbox — always here, not user-editable -->
+    <div class="sb-section-row sb-sec-head" id="sb-favs-head">
+      <span class="sb-section-label" style="margin: 0">Pinned</span>
+    </div>
     <div class="sb-nav-group" id="sb-favs">
       <!-- rendered by navRenderSidebar() -->
     </div>
 
-    <!-- Pinned — tabs the user starred via the ⌘K palette (toggleNavTab/getNavTabs).
-         Was never rendered anywhere: navRenderSidebar() only ever painted the fixed
-         core group and Connect, so starring a tab saved to localStorage correctly
-         but nothing showed up in the sidebar. -->
-    <div class="sb-section-row sb-sec-head" id="sgi-pinned-head">
-      <span class="sb-section-label" style="margin: 0">Pinned</span>
+    <!-- Recents — the user's last 3 visited panels (pushRecentPanel/getRecentPanels),
+         most-recent-first. Excludes core (already in Pinned above) and connect-section
+         panels (always shown in Connect below regardless of recency). -->
+    <div class="sb-section-row sb-sec-head" id="sgi-recents-head">
+      <span class="sb-section-label" style="margin: 0">Recents</span>
     </div>
-    <div class="sb-nav-group" id="sgi-pinned">
+    <div class="sb-nav-group" id="sgi-recents">
+      <!-- rendered by navRenderSidebar() -->
+    </div>
+
+    <!-- Starred — tabs the user starred via the ⌘K palette (toggleNavTab/getNavTabs).
+         Was never rendered anywhere before this fix: navRenderSidebar() only ever
+         painted the fixed core group and Connect, so starring a tab saved to
+         localStorage correctly but nothing showed up in the sidebar. -->
+    <div class="sb-section-row sb-sec-head" id="sgi-starred-head">
+      <span class="sb-section-label" style="margin: 0">Starred</span>
+    </div>
+    <div class="sb-nav-group" id="sgi-starred">
       <!-- rendered by navRenderSidebar() -->
     </div>
 
