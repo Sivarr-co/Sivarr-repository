@@ -1,10 +1,15 @@
-const CACHE = 'sivarr-v6';
+const CACHE = 'sivarr-v7';
 
+// '/css/styles.css' used to be here — that file hasn't existed since the
+// base/layout/panels/mobile split, and caches.addAll() fails its whole
+// batch on any single 404, so the precache step may have been silently
+// no-op-ing since then. '/js/app.js' and the CSS files are intentionally
+// left off this list too now: they're always loaded with a cache-busting
+// ?v= query string from index.html, so precaching the bare unversioned
+// URL here doesn't help hit those specific requests anyway.
 const PRECACHE = [
   '/',
   '/app',
-  '/js/app.js',
-  '/css/styles.css',
   '/static/sivarrai.png',
   '/static/manifest.json',
 ];

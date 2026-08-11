@@ -12388,7 +12388,8 @@ function _mobCustRender() {
   const body = $("mob-cust-body");
   if (!body) return;
   // Connect is the only reorderable section left in the flat sidebar layout
-  // (Favorites is permanent, Watchlist/Spaces have their own controls).
+  // (Pinned is permanent, Starred/Recents are driven by starring/browsing,
+  // Spaces has its own controls).
   const order = _getSectionOrder("connect");
   let html = `<div class="mob-cust-section-label">Connect</div>`;
   order.forEach((panel, idx) => {
