@@ -1706,7 +1706,7 @@ button {
 
 .ag-pay-method.active.stripe {
   border-color: var(--accent);
-  background: var(--accent) 10;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .ag-pay-method.active.paystack {

@@ -819,8 +819,17 @@ def _is_valid_admin_session(token: str) -> bool:
         return False
     if time.time() - ts > _PRIV_SESSION_TTL_S:
         return False
+    if rcache.is_revoked(token):
+        return False
     expected = _hmac_sign(f"admin:{ts}", ADMIN_PASSWORD or "unset")
     return hmac.compare_digest(sig, expected)
+
+
+def _revoke_priv_session(token: str, issued_ts: int) -> None:
+    """Denylist an admin/lecturer token for whatever's left of its 2h lifetime."""
+    remaining = _PRIV_SESSION_TTL_S - (int(time.time()) - issued_ts)
+    if remaining > 0:
+        rcache.revoke_token(token, remaining)
 
 
 def _totp_verify(secret_b32: str, code: str, window: int = 1) -> bool:
@@ -864,6 +873,8 @@ def _is_valid_lecturer_session(token: str) -> bool:
     except (IndexError, ValueError):
         return False
     if time.time() - ts > _PRIV_SESSION_TTL_S:
+        return False
+    if rcache.is_revoked(token):
         return False
     expected = _hmac_sign(f"lec:{ts}", LECTURER_PASSWORD or "unset")
     return hmac.compare_digest(sig, expected)
@@ -5076,6 +5087,22 @@ async def admin_login(req: AdminLoginRequest, request: Request):
     return {"ok": True, "token": token}
 
 
+@app.post("/api/admin/logout")
+async def admin_logout(data: dict):
+    """Explicitly revoke this admin token now, instead of letting it linger
+    valid for up to 2h after the browser discards it client-side. Previously
+    'Sign out' only cleared local storage — the token itself stayed usable
+    against the API until it naturally expired, and the only way to kill one
+    compromised admin session early was rotating ADMIN_PASSWORD for everyone."""
+    token = data.get("token", "")
+    try:
+        ts = int(token.split("_")[1])
+    except (IndexError, ValueError):
+        return {"ok": True}
+    _revoke_priv_session(token, ts)
+    return {"ok": True}
+
+
 @app.get("/api/admin/students")
 async def admin_students(token: str):
     if not _is_valid_admin_session(token):
@@ -5673,6 +5700,18 @@ async def lecturer_login(req: LecturerLoginRequest, request: Request):
     return {"ok": True, "token": token}
 
 
+@app.post("/api/lecturer/logout")
+async def lecturer_logout(data: dict):
+    """Revoke this lecturer token now — see admin_logout for why this matters."""
+    token = data.get("token", "")
+    try:
+        ts = int(token.split("_")[1])
+    except (IndexError, ValueError):
+        return {"ok": True}
+    _revoke_priv_session(token, ts)
+    return {"ok": True}
+
+
 @app.get("/api/lecturer/students")
 async def lecturer_students(token: str):
     verify_lecturer(token)
@@ -5751,14 +5790,48 @@ async def get_class_topics():
     return {"topics": data}
 
 
+def _sanitize_exam_question(q):
+    """Preserve MCQ structure (options/answer) instead of flattening to
+    str(q). start_exam() checks isinstance(questions[0], dict) to decide
+    whether to build the real multiple-choice question or fall back to
+    placeholder options (A/B/C/D = True/False/Maybe/None) for every
+    student — str(q) here meant that branch never fired for any
+    lecturer-authored exam, silently discarding the real answer key."""
+    if isinstance(q, dict):
+        options = q.get("options", {})
+        if isinstance(options, dict):
+            options = {
+                sanitize_text(str(k), 2): sanitize_text(str(v), 300)
+                for k, v in list(options.items())[:8]
+            }
+        else:
+            options = {}
+        answer = sanitize_text(str(q.get("answer", "A")), 2).upper()
+        if answer not in options:
+            answer = next(iter(options), "A")
+        return {
+            "question":    sanitize_text(str(q.get("question", "")), 500),
+            "options":     options,
+            "answer":      answer,
+            "explanation": sanitize_text(str(q.get("explanation", "")), 500),
+            "type":        "mcq",
+        }
+    return sanitize_text(str(q), 500)
+
+
 @app.post("/api/lecturer/exam")
 async def save_exam(data: dict):
     verify_lecturer(data.get("token",""))
     exams = load_exams()
+    questions = [_sanitize_exam_question(q) for q in data.get("questions",[])[:100]]
     exam  = {
         "id":                   str(uuid.uuid4())[:10],
         "title":                sanitize_text(str(data.get("title","")), 200),
-        "questions":            [sanitize_text(str(q), 500) for q in data.get("questions",[])[:100]],
+        # Plain-text list for any display/listing code that expects strings
+        # (question count, previews) — the real MCQ structure lives in
+        # questions_full, which start_exam() actually builds sessions from.
+        "questions":            [q["question"] if isinstance(q, dict) else q for q in questions],
+        "questions_full":       questions,
         "questions_per_student": min(int(data.get("questions_per_student", 30)), 100),
         "duration":             min(int(data.get("duration", 60)), 300),
         "lecturer":             sanitize_text(str(data.get("lecturer","")), MAX_NAME_LEN),
@@ -11961,15 +12034,21 @@ async def _ps_call(secret_key: str, path: str, params: dict | None = None) -> di
 
 
 def _org_check(token: str) -> tuple[dict, str]:
-    """Validate token and return (session, org_id). Raises HTTPException on failure."""
+    """Validate token and return (session, org_id). Raises HTTPException on failure.
+
+    Previously read org_id from the user's personal progress blob
+    (p.get("org_id","")) — a field nothing in the codebase ever writes, so
+    this always raised 403 for every caller, including org owners. Every
+    other org endpoint resolves membership via db.get_org_by_member(sid);
+    this now matches that pattern.
+    """
     sess = get_session_from_token(token)
     if not sess:
         raise HTTPException(401, "Invalid session.")
-    p = load_progress(sess["sid"])
-    org_id = p.get("org_id", "")
-    if not org_id:
+    org = db.get_org_by_member(sess["sid"])
+    if not org:
         raise HTTPException(403, "Not in an organisation.")
-    return sess, org_id
+    return sess, org["id"]
 
 
 def _org_admin_check(token: str) -> tuple[dict, str]:

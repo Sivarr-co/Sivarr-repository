@@ -1414,12 +1414,47 @@ def get_all_sessions_admin() -> list:
 
 
 def delete_user_cascade(sid: str) -> bool:
-    """Delete a user and all associated data."""
+    """Delete a user and all associated data (privacy/GDPR erasure).
+
+    template_downloads.buyer_sid, template_reviews.reviewer_sid, and
+    agent_follows.follower_sid reference users(sid) with no ON DELETE clause
+    (Postgres defaults to RESTRICT), so without the explicit deletes below,
+    the final DELETE FROM users raises a FK violation and this whole
+    function silently returns False for anyone who ever bought/reviewed a
+    template or followed a creator — i.e. GDPR deletion was broken for the
+    marketplace's most active users. community_posts/feedback also have no
+    FK at all and were never scrubbed.
+
+    If the deleting user is themselves a marketplace creator (has an
+    `agents` row), we anonymize that row and detach it from the user
+    (user_sid = NULL) instead of letting it cascade-delete: agents.user_sid
+    is ON DELETE CASCADE, and that cascade would otherwise hit the same
+    RESTRICT wall on template_downloads/template_reviews/agent_follows/
+    agent_payouts rows that belong to OTHER users (their purchase history,
+    reviews, follows) — those are other people's data/accounting records,
+    not this user's PII, and must survive this user's own deletion.
+    """
     conn = _get_conn()
     if not conn:
         return False
     try:
         with conn.cursor() as cur:
+            # Creator profile: anonymize + detach rather than hard-delete, so
+            # other users' purchase/review/payout history referencing this
+            # creator's agent_id/templates isn't destroyed as a side effect.
+            cur.execute(
+                "UPDATE agents SET user_sid = NULL, display_name = %s, bio = '', "
+                "profile_photo_url = NULL, stripe_account_id = NULL, status = 'deleted' "
+                "WHERE user_sid = %s",
+                ("[deleted user]", sid),
+            )
+            # This user's own actions on other people's content — their PII,
+            # safe and correct to hard-delete.
+            cur.execute("DELETE FROM template_downloads WHERE buyer_sid = %s", (sid,))
+            cur.execute("DELETE FROM template_reviews   WHERE reviewer_sid = %s", (sid,))
+            cur.execute("DELETE FROM agent_follows       WHERE follower_sid = %s", (sid,))
+            cur.execute("DELETE FROM community_posts     WHERE author_sid = %s", (sid,))
+            cur.execute("DELETE FROM feedback            WHERE sid = %s", (sid,))
             cur.execute("DELETE FROM space_data  WHERE user_sid = %s", (sid,))
             cur.execute("DELETE FROM spaces       WHERE user_sid = %s", (sid,))
             cur.execute("DELETE FROM user_sessions WHERE sid = %s", (sid,))

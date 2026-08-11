@@ -132,3 +132,31 @@ def cache_bust(prefix: str) -> None:
             _client.delete(k)
     except Exception:
         pass
+
+
+# ── Token revocation (admin/lecturer stateless HMAC sessions) ────────────────
+# adm_*/lec_* tokens are verified by recomputing an HMAC signature, not by a DB
+# lookup, so there was previously no way to kill one without rotating the
+# shared ADMIN_PASSWORD/LECTURER_PASSWORD for every device at once. This is a
+# denylist, not a session store: entries are cheap (a key with a TTL capped to
+# the token's own remaining lifetime), so it never grows unbounded. If Redis is
+# unavailable, revocation silently no-ops — same fallback posture as the rest
+# of this file — the app already depends on Redis for correct cross-worker
+# rate-limit/lockout behavior, so this doesn't add a new single point of failure.
+def revoke_token(token: str, ttl: int) -> bool:
+    if not available() or not token or ttl <= 0:
+        return False
+    try:
+        _client.set(f"rv:{token}", "1", ex=ttl)
+        return True
+    except Exception:
+        return False
+
+
+def is_revoked(token: str) -> bool:
+    if not available() or not token:
+        return False
+    try:
+        return _client.exists(f"rv:{token}") > 0
+    except Exception:
+        return False

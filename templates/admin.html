@@ -1012,7 +1012,8 @@ function showDash() {
   startSessionPoller();
 }
 
-function signOut() {
+async function signOut() {
+  try { await apiPost('/api/admin/logout', {}); } catch {}
   TOKEN = '';
   sessionStorage.removeItem('sivarr_admin_token');
   location.reload();

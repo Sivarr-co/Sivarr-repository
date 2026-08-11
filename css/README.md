@@ -1,61 +1,49 @@
 # css/ — SIVARR Stylesheet Structure
 
+> Rewritten 2026-08 after a full read-through — the previous version of this
+> file described a `styles.css`-based structure that no longer exists (it
+> predates the base/layout/panels/mobile split below, which itself has since
+> shipped and is what's actually live).
+
 ## How styles are organised
 
 ```
 css/
-├── styles.css              ← Main file loaded by index.html (5,700 lines — full app)
-├── base/
-│   └── variables.css       ← CSS custom properties / design tokens ONLY
-├── components/
-│   └── (future splits)     ← One file per component when splitting begins
-├── layout/
-│   └── (future splits)     ← Sidebar, topbar, panel grid
-└── README.md               ← This file
+├── base.css       ← Design tokens (:root, light + dark), global reset, base
+│                     typography, boot-loader animation. Loaded first.
+├── layout.css      ← App shell: topbar, sidebar, login screen, mobile shell,
+│                     responsive breakpoint ladder.
+├── panels.css      ← All per-feature panel styling (~18,000 lines — by far
+│                     the largest file: Home, Chat, Tasks, Notes, Calendar,
+│                     Org Space, Marketplace, Academic Space, etc.)
+├── mobile.css      ← Remaining @media overrides for the ≤900px breakpoints.
+└── README.md       ← This file
 ```
 
-## Current state
-`styles.css` is the single source of truth. All styles are in this file.
-The sections inside styles.css are clearly marked with comment headers:
+Loaded in that exact order by `templates/index.html`. There is no
+`css/styles.css`, no `css/base/` subdirectory, and no `css/components/` — an
+earlier split attempt (the "Path A restructure" referenced in several
+in-file comments) lost rules during the split and had to be patched back in
+by hand in at least three places (search for `PARITY PATCH` / `recovered`
+comments in `panels.css` and `layout.css`). Treat this file's history as
+unreliable — if you touch it, diff the rendered page, not just the source.
 
-| Section | Approx Lines | Description |
-|---|---|---|
-| Design Tokens | 7–57 | CSS variables (already extracted to base/variables.css) |
-| Base/Reset | 58–84 | html, body, box-sizing reset |
-| Topbar | 85–182 | Top navigation bar |
-| Sidebar | 199–422 | Left sidebar, nav items, spaces |
-| Panels | 430–437 | Panel container system |
-| Buttons | 447–471 | .btn, .btn-primary, variants |
-| Login | 588–840 | Auth page, login card, Google button |
-| Chat | 906–1366 | Chat messages, input bar, welcome, typing |
-| Quiz | 1367–1407 | Quiz panel |
-| Notes | 1436–1463 | Notes panel |
-| Tasks (Flux) | 1464–1561 | Task list, kanban |
-| Settings | 1643–1716 | Settings panel, toggles |
-| Modals | 1717–1743 | siModal dialog system |
-| Toast | 1744–1753 | Notification toast |
-| Command Palette | 1754–1785 | Cmd+K overlay |
-| Home Panel | 1949–2074 | Dashboard home |
-| Habits | 2075–2100 | Habit tracker |
-| Journal | 2101–2129 | Journal entries |
-| Calendar | 2130–2176 | Calendar grid |
-| Community/Feed | 2239–2275 | Posts, likes, feed |
-| Doc Editor | 2406–2572 | Rich text editor |
-| Daily Brief | 2573–2648 | Morning brief overlay |
-| Org Space | 3428–3646 | Team chat, org analytics, OKRs |
-| Responsive | 3118–3162 | Mobile breakpoints |
+## Design system quick reference (verified against the live `:root` in base.css)
+- Primary/brand colour: `var(--teal)` = `#41076B` (purple — rebranded from
+  the earlier teal/green `#0D7A5F`; some older docs and `mobile/src/theme.ts`
+  still reference the old colour and haven't been updated)
+- `--accent` / `--accent2` are aliases for `--teal`, and are currently
+  identical values with no dark-mode re-tint (a real bug, not intentional —
+  see the audit notes)
+- Font: `var(--font)` / `var(--font-display)` = Plus Jakarta Sans (self-hosted)
+- Shape: `var(--radius)` = 9px, `var(--radius2)` = 14px, `var(--radius3)` = 18px
+- Dark mode: `[data-theme="dark"]` on `<body>`, redefining the same token set
 
-## How to split a component (for future engineers)
-1. Find the section in styles.css using the comment header
-2. Cut the CSS block
-3. Create `css/components/component-name.css` with that content
-4. Add `@import './components/component-name.css';` at the top of styles.css
-5. Test in browser — hot-reload confirms nothing broke
-
-## Design system quick reference
-- Primary colour: `var(--teal)` = `#0D7A5F`
-- Accent colour:  `var(--accent2)` = `#534AB7` (purple)
-- Font heading:   `var(--font-head)` = Syne
-- Font body:      `var(--font)` = Plus Jakarta Sans
-- Dark mode:      Applied via `[data-theme="dark"]` on `<body>`
-- Border radius:  `var(--radius)` = 10px, `var(--radius2)` = 16px
+## Known issues (from the 2026-08 full read-through)
+Several custom properties are referenced throughout `panels.css` but never
+defined anywhere live (`--shadow1`, `--surface2`, `--font-body`, `--hover`)
+— they silently no-op wherever used. There's also a widespread invalid
+`var(--token) NN` pattern (an attempted hex-alpha suffix that isn't valid
+CSS) that silently drops ~24 declarations. Both are worth a dedicated
+follow-up pass; not fixed as part of this cleanup beyond the highest-impact
+cases (see the audit artifact / Phase 5 of the remediation plan).

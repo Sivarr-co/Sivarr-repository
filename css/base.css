@@ -60,6 +60,12 @@
   --font-scale: 1;
   --sb-width: 256px;
   --topbar-h: 54px;
+  /* Base default so these have a real value between the ≤720px block
+     (which sets 9999px, i.e. unclamped) and the ≥1280px block (which
+     starts clamping) — previously unset for 721–1279px, a common laptop
+     range, silently invalidating any calc()/max-width using them there. */
+  --panel-max: 1080px;
+  --chat-max: 800px;
 
   /* Typography */
   --font: "Plus Jakarta Sans", -apple-system, sans-serif;
@@ -74,14 +80,27 @@
   --ai-glow: 0 0 32px rgba(65, 7, 107, 0.28), 0 0 12px rgba(65, 7, 107, 0.18);
 
   /* Legacy compat */
+  /* --accent2 was identical to --accent — every linear-gradient(135deg,
+     var(--accent), var(--accent2)) in panels.css rendered as a flat
+     colour instead of the intended two-tone gradient (~19 spots: doc/
+     write buttons, finance balance card, marketplace CTAs, etc). Kept
+     within the same purple family rather than reintroducing the old
+     teal brand hue. */
   --accent: #41076b;
-  --accent2: #41076b;
+  --accent2: #7b2cad;
   --surface: var(--bg2);
   --card: var(--bg2);
   --text: var(--text1);
   --muted: var(--text3);
   --muted2: var(--text4);
   --yellow: var(--amber3);
+  /* Referenced throughout panels.css but never defined anywhere (only in
+     the now-removed dead base/variables.css) — every box-shadow/background/
+     font-family using these silently resolved to nothing. */
+  --shadow1: var(--shadow);
+  --surface2: var(--bg3);
+  --font-body: var(--font);
+  --hover: var(--bg3);
   --fg: var(--text1);
 }
 
@@ -128,6 +147,13 @@
     0 0 32px rgba(15, 219, 173, 0.25), 0 0 12px rgba(139, 128, 240, 0.2);
   --glow-teal: 0 0 20px rgba(15, 219, 173, 0.3);
   --glow-purple: 0 0 20px rgba(139, 128, 240, 0.3);
+
+  /* --accent/--accent2 previously had no dark-mode entry at all, so every
+     element using them (see the light-mode comment above) stayed the
+     light-mode purple even after switching to dark. Mirrors --ai-grad's
+     existing dark-mode pairing (teal → purple) for consistency. */
+  --accent: #0fdbad;
+  --accent2: #8b80f0;
 
   --surface: var(--bg2);
   --card: var(--bg2);
@@ -237,14 +263,10 @@ h3,
     transform: translateY(0);
   }
 }
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+/* fadeIn used to be duplicated here with a different (opacity-only) body —
+   panels.css loads after this file, so its version (opacity + slight
+   translateY) silently won for every animation:fadeIn reference anyway.
+   Keeping the one that's actually been rendering; see panels.css. */
 @keyframes scaleIn {
   from {
     opacity: 0;

@@ -409,7 +409,8 @@ const siModal = (() => {
         <div class="si-modal-field">
           <label class="si-modal-label">${f.label}${f.required ? '<span style="color:var(--red3)"> *</span>' : ""}</label>
           <input id="si-mf-${f.id}" class="si-modal-input" type="${f.type || "text"}"
-            placeholder="${f.placeholder || ""}" value="${esc(f.default || "")}">
+            placeholder="${f.placeholder || ""}" value="${esc(f.default || "")}"
+            autocomplete="${f.type === "password" ? "new-password" : "off"}">
         </div>`;
       })
       .join("");
@@ -1019,6 +1020,54 @@ function logout() {
 //   shows what was changed elsewhere. Server = source of truth, BUT an empty
 //   server response never wipes local data (guards a fresh device from blanking
 //   a populated one). Runs on every login / session restore.
+// One-time fixup, per account: before chatSaveTask/_aiAddTask/useTemplate
+// mirrored into the SH store too, they wrote only to the flat
+// sivarr_tasks_ store — never synced to the server — so those tasks were
+// at risk of being silently dropped the moment _hydrateFromServer() below
+// overwrote local state with the server's copy (which never had them).
+// Fold any such orphaned tasks into SH once, so they get picked up by the
+// normal server sync from here on. Best-effort — never blocks login.
+function _migrateStrandedFlatTasks() {
+  const flagKey = `sivarr_tasks_migrated_${S.sid}`;
+  if (!S.sid || localStorage.getItem(flagKey)) return;
+  try {
+    const flat = JSON.parse(
+      localStorage.getItem(`sivarr_tasks_${S.sid}`) || "[]",
+    );
+    const sh = getSHData();
+    sh.tasks = sh.tasks || [];
+    const known = new Set(sh.tasks.map((t) => String(t.id)));
+    let added = false;
+    flat.forEach((t) => {
+      if (!t || known.has(String(t.id))) return;
+      sh.tasks.push({
+        id: t.id,
+        title: t.title || "",
+        status: t.done
+          ? "done"
+          : t.status === "inprogress"
+            ? "inprogress"
+            : "todo",
+        date: t.due || "",
+        priority: t.priority || "normal",
+        created:
+          typeof t.created === "number"
+            ? new Date(t.created).toLocaleDateString()
+            : t.created || new Date().toLocaleDateString(),
+      });
+      known.add(String(t.id));
+      added = true;
+    });
+    if (added) saveSHData(sh);
+  } catch (_) {
+    // best-effort — a migration failure must never block login
+  } finally {
+    try {
+      localStorage.setItem(flagKey, "1");
+    } catch (_) {}
+  }
+}
+
 async function _hydrateFromServer() {
   const token = getToken();
   if (!token || !S.sid) return;
@@ -1220,6 +1269,9 @@ function _applyLoginData(r) {
       } catch (_) {}
     }
 
+    // Fold any pre-fix orphaned flat-store-only tasks into SH BEFORE the
+    // server hydration below can overwrite local state without them.
+    _migrateStrandedFlatTasks();
     // Cross-device sync: pull this account's latest data from the server and
     // refresh the UI once it lands (non-blocking — local renders instantly).
     _hydrateFromServer();
@@ -3438,13 +3490,13 @@ async function _chatStream(fullMsg, context) {
       "beforeend",
       `
       <div class="msg-actions">
-        <button class="action-btn" onclick="chatSaveTask(this)">+ Task</button>
-        <button class="action-btn" onclick="chatSaveNote(this)">+ Note</button>
-        <button class="action-btn" onclick="chatCopyMsg(this)">Copy</button>
-        <button class="action-btn" onclick="chatRegenerate()" title="Regenerate response">↻</button>
-        <button class="action-btn" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
-        <button class="action-btn chat-react-btn" data-val="up"   onclick="chatReact(this,'up')"   title="Good response">👍</button>
-        <button class="action-btn chat-react-btn" data-val="down" onclick="chatReact(this,'down')" title="Bad response">👎</button>
+        <button class="msg-action-btn" onclick="chatSaveTask(this)">+ Task</button>
+        <button class="msg-action-btn" onclick="chatSaveNote(this)">+ Note</button>
+        <button class="msg-action-btn" onclick="chatCopyMsg(this)">Copy</button>
+        <button class="msg-action-btn" onclick="chatRegenerate()" title="Regenerate response">↻</button>
+        <button class="msg-action-btn" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
+        <button class="msg-action-btn chat-react-btn" data-val="up"   onclick="chatReact(this,'up')"   title="Good response">👍</button>
+        <button class="msg-action-btn chat-react-btn" data-val="down" onclick="chatReact(this,'down')" title="Bad response">👎</button>
       </div>`,
     );
     if (suggestions.length) {
@@ -3549,11 +3601,11 @@ function addMsg(role, text, uncertain = false, isError = false) {
         isAI && !isError
           ? `
         <div class="msg-actions">
-          <button class="action-btn" onclick="chatSaveTask(this)">+ Task</button>
-          <button class="action-btn" onclick="chatSaveNote(this)">+ Note</button>
-          <button class="action-btn" onclick="chatCopyMsg(this)">Copy</button>
-          <button class="action-btn" onclick="chatRegenerate()" title="Regenerate response">↻</button>
-          <button class="action-btn" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
+          <button class="msg-action-btn" onclick="chatSaveTask(this)">+ Task</button>
+          <button class="msg-action-btn" onclick="chatSaveNote(this)">+ Note</button>
+          <button class="msg-action-btn" onclick="chatCopyMsg(this)">Copy</button>
+          <button class="msg-action-btn" onclick="chatRegenerate()" title="Regenerate response">↻</button>
+          <button class="msg-action-btn" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
         </div>`
           : ""
       }
@@ -3686,8 +3738,9 @@ async function chatSaveTask(btn) {
   const tasks = JSON.parse(
     localStorage.getItem(`sivarr_tasks_${S.sid}`) || "[]",
   );
+  const id = Date.now();
   tasks.push({
-    id: Date.now(),
+    id,
     title,
     status: "todo",
     done: false,
@@ -3695,6 +3748,18 @@ async function chatSaveTask(btn) {
     source: "ai",
   });
   localStorage.setItem(`sivarr_tasks_${S.sid}`, JSON.stringify(tasks));
+  // Also mirror into the Tasks/Flux board's own store (different shape,
+  // separate key) so it shows up there immediately instead of only after
+  // the next login's hydration pass reconciles the two stores.
+  const sh = getSHData();
+  sh.tasks = sh.tasks || [];
+  sh.tasks.push({
+    id,
+    title,
+    status: "todo",
+    created: new Date().toLocaleDateString(),
+  });
+  saveSHData(sh);
   toast("Task added");
 }
 
@@ -3845,7 +3910,7 @@ async function answer(letter) {
   ex.style.display = "block";
   if (correct) S.quizScore++;
   await API("/api/quiz/submit", {
-    token: S.token,
+    token: getToken(),
     topic: q.topic || S.topics[0],
     difficulty: S.diff,
     answer: letter,
@@ -3869,7 +3934,7 @@ async function showResult() {
           ? "Good effort — keep going!"
           : "Keep practising!";
   await API("/api/quiz/complete", {
-    token: S.token,
+    token: getToken(),
     score: S.quizScore,
     topic: S.topics[0] || "general",
     difficulty: S.diff,
@@ -3918,7 +3983,7 @@ async function getSuggestions() {
   if (_st) _st.textContent = "Thinking...";
   try {
     const r = await fetch(
-      `/api/suggest?token=${encodeURIComponent(S.token || "")}`,
+      `/api/suggest?token=${encodeURIComponent(getToken() || "")}`,
     );
     const d = await r.json();
     if (_st) _st.textContent = d.suggestion;
@@ -3966,7 +4031,7 @@ async function loadWrong() {
 }
 
 async function clearWrong(idx) {
-  await API("/api/wrong/clear", { token: S.token, index: idx });
+  await API("/api/wrong/clear", { token: getToken(), index: idx });
   loadWrong();
   toast("Removed from revision ✓");
 }
@@ -4416,7 +4481,7 @@ async function glLoad() {
   if (!cached) skShow("gl-list", _SK.goal, 3);
   try {
     const r = await fetch(
-      `/api/goals?token=${encodeURIComponent(S.token || "")}`,
+      `/api/goals?token=${encodeURIComponent(getToken() || "")}`,
     );
     const d = await r.json();
     GL_GOALS = d.goals || [];
@@ -4611,7 +4676,7 @@ async function glSaveGoal() {
   }
   try {
     const r = await API("/api/goals/add", {
-      token: S.token,
+      token: getToken(),
       title,
       subject,
       target_score: target,
@@ -4649,7 +4714,7 @@ async function glUpdateProgress(id, current) {
   const pct = Math.min(Math.max(parseInt(val) || 0, 0), 100);
   try {
     await API("/api/goals/update", {
-      token: S.token,
+      token: getToken(),
       id,
       progress: pct,
       completed: pct >= 100,
@@ -4673,7 +4738,7 @@ async function glMarkDone(id) {
   const completed = !g.completed;
   try {
     await API("/api/goals/update", {
-      token: S.token,
+      token: getToken(),
       id,
       progress: completed ? 100 : g.progress,
       completed,
@@ -4705,7 +4770,7 @@ async function glDelete(id) {
   )
     return;
   try {
-    await API("/api/goals/delete", { token: S.token, id });
+    await API("/api/goals/delete", { token: getToken(), id });
     _calRemoveEvent(`goal_${id}`);
     GL_GOALS = GL_GOALS.filter((x) => x.id !== id);
     glRender();
@@ -4756,7 +4821,7 @@ async function glSaveKR(goalId) {
   }
   try {
     await API("/api/goals/kr/add", {
-      token: S.token,
+      token: getToken(),
       goal_id: goalId,
       title,
       target,
@@ -4773,7 +4838,7 @@ async function glSaveKR(goalId) {
 async function glUpdateKR(goalId, krId, current) {
   try {
     await API("/api/goals/kr/update", {
-      token: S.token,
+      token: getToken(),
       goal_id: goalId,
       kr_id: krId,
       current,
@@ -4809,7 +4874,7 @@ async function glDeleteKR(goalId, krId) {
     return;
   try {
     await API("/api/goals/kr/delete", {
-      token: S.token,
+      token: getToken(),
       goal_id: goalId,
       kr_id: krId,
     });
@@ -4857,7 +4922,7 @@ async function glSaveEdit(id) {
   }
   try {
     await API("/api/goals/edit", {
-      token: S.token,
+      token: getToken(),
       id,
       title,
       subject,
@@ -5316,7 +5381,7 @@ async function generateStudyPlan() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        token: S.token,
+        token: getToken(),
         subject,
         exam_date: date,
         hours_per_day: SP_HOURS,
@@ -7249,7 +7314,7 @@ async function stClearWrong() {
   )
     return;
   try {
-    await API("/api/wrong/clear", { token: S.token, index: "all" });
+    await API("/api/wrong/clear", { token: getToken(), index: "all" });
   } catch (e) {}
   toast("Revision list cleared ✓");
 }
@@ -7271,7 +7336,7 @@ async function stResetProgress() {
   )
     return;
   try {
-    await API("/api/reset-progress", { token: S.token });
+    await API("/api/reset-progress", { token: getToken() });
   } catch (e) {
     toast("Could not reset progress. Please try again.");
     return;
@@ -7287,434 +7352,6 @@ async function stResetProgress() {
   if (a) document.documentElement.style.setProperty("--accent", a);
   if (a2) document.documentElement.style.setProperty("--accent2", a2);
 })();
-
-// ═══════════════════ LEARNING HUB ══════════════════════════
-
-const LH_COURSES = [
-  // STEM
-  {
-    id: "lh01",
-    title: "Calculus Fundamentals",
-    author: "Dr. Adebayo",
-    emoji: "📐",
-    color: "#4f6ef7",
-    cat: "stem",
-    level: "Beginner",
-    rating: 4.8,
-    students: 3241,
-    lessons: 24,
-    desc: "Master differentiation, integration and applications.",
-  },
-  {
-    id: "lh02",
-    title: "Statistics & Probability",
-    author: "Prof. Okonkwo",
-    emoji: "📊",
-    color: "#7c3aed",
-    cat: "stem",
-    level: "Intermediate",
-    rating: 4.7,
-    students: 2180,
-    lessons: 20,
-    desc: "Data analysis and probability from first principles.",
-  },
-  {
-    id: "lh03",
-    title: "Physics: Mechanics",
-    author: "Dr. Emeka",
-    emoji: "⚙️",
-    color: "#06b6d4",
-    cat: "stem",
-    level: "Intermediate",
-    rating: 4.6,
-    students: 1890,
-    lessons: 18,
-    desc: "Forces, motion, energy and waves.",
-  },
-  {
-    id: "lh04",
-    title: "Organic Chemistry",
-    author: "Dr. Nwosu",
-    emoji: "🧪",
-    color: "#22c55e",
-    cat: "stem",
-    level: "Advanced",
-    rating: 4.5,
-    students: 1420,
-    lessons: 22,
-    desc: "Reactions, mechanisms and lab techniques.",
-  },
-  // Tech
-  {
-    id: "lh05",
-    title: "Python for Beginners",
-    author: "Chinedu Dev",
-    emoji: "🐍",
-    color: "#f59e0b",
-    cat: "tech",
-    level: "Beginner",
-    rating: 4.9,
-    students: 5210,
-    lessons: 30,
-    desc: "Learn programming from zero with Python.",
-  },
-  {
-    id: "lh06",
-    title: "Web Development Bootcamp",
-    author: "Sarah Afolabi",
-    emoji: "💻",
-    color: "#ef4444",
-    cat: "tech",
-    level: "Beginner",
-    rating: 4.8,
-    students: 4320,
-    lessons: 36,
-    desc: "HTML, CSS, JavaScript and React fundamentals.",
-  },
-  {
-    id: "lh07",
-    title: "Data Science Essentials",
-    author: "Dr. Mensah",
-    emoji: "🤖",
-    color: "#8b5cf6",
-    cat: "tech",
-    level: "Intermediate",
-    rating: 4.7,
-    students: 2890,
-    lessons: 28,
-    desc: "Data wrangling, ML and visualization.",
-  },
-  {
-    id: "lh08",
-    title: "Cybersecurity Basics",
-    author: "Tobi Secure",
-    emoji: "🔐",
-    color: "#64748b",
-    cat: "tech",
-    level: "Beginner",
-    rating: 4.6,
-    students: 1760,
-    lessons: 16,
-    desc: "Stay safe online and understand threats.",
-  },
-  // Business
-  {
-    id: "lh09",
-    title: "Entrepreneurship 101",
-    author: "Amara Chukwu",
-    emoji: "🚀",
-    color: "#f472b6",
-    cat: "business",
-    level: "Beginner",
-    rating: 4.8,
-    students: 3890,
-    lessons: 20,
-    desc: "From idea to product to paying customers.",
-  },
-  {
-    id: "lh10",
-    title: "Financial Accounting",
-    author: "Prof. Adeleke",
-    emoji: "💰",
-    color: "#22c55e",
-    cat: "business",
-    level: "Intermediate",
-    rating: 4.6,
-    students: 2340,
-    lessons: 24,
-    desc: "Balance sheets, P&L and financial statements.",
-  },
-  {
-    id: "lh11",
-    title: "Marketing Strategy",
-    author: "Ngozi Brands",
-    emoji: "📣",
-    color: "#f59e0b",
-    cat: "business",
-    level: "Beginner",
-    rating: 4.7,
-    students: 2890,
-    lessons: 18,
-    desc: "Digital, content and growth marketing.",
-  },
-  // Design
-  {
-    id: "lh12",
-    title: "UI/UX Design Fundamentals",
-    author: "Temi Creates",
-    emoji: "🎨",
-    color: "#ec4899",
-    cat: "design",
-    level: "Beginner",
-    rating: 4.9,
-    students: 4120,
-    lessons: 22,
-    desc: "Figma, wireframing, user research and prototyping.",
-  },
-  {
-    id: "lh13",
-    title: "Graphic Design Masterclass",
-    author: "Kofi Art",
-    emoji: "✏️",
-    color: "#a78bfa",
-    cat: "design",
-    level: "Beginner",
-    rating: 4.7,
-    students: 3210,
-    lessons: 26,
-    desc: "Typography, colour theory and branding.",
-  },
-  // Languages
-  {
-    id: "lh14",
-    title: "French for Beginners",
-    emoji: "🇫🇷",
-    color: "#3b82f6",
-    cat: "languages",
-    author: "Marie Dupont",
-    level: "Beginner",
-    rating: 4.6,
-    students: 1980,
-    lessons: 30,
-    desc: "Speak French confidently in 30 lessons.",
-  },
-  {
-    id: "lh15",
-    title: "Yoruba Language & Culture",
-    emoji: "🌍",
-    color: "#22c55e",
-    cat: "languages",
-    author: "Baba Akin",
-    level: "Beginner",
-    rating: 4.8,
-    students: 1240,
-    lessons: 20,
-    desc: "Greetings, grammar and everyday conversation.",
-  },
-  // Arts
-  {
-    id: "lh16",
-    title: "Creative Writing Workshop",
-    emoji: "📝",
-    color: "#f97316",
-    cat: "arts",
-    author: "Chinua Jr.",
-    level: "Beginner",
-    rating: 4.7,
-    students: 2100,
-    lessons: 16,
-    desc: "Fiction, essays and finding your voice.",
-  },
-];
-
-let LH_CAT = "all";
-let LH_ENROLLED = [];
-
-async function lhInit() {
-  try {
-    const r = await fetch(
-      `/api/learning-hub/enrolled?token=${encodeURIComponent(S.token || "")}`,
-    );
-    const d = await r.json();
-    LH_ENROLLED = d.enrolled || [];
-  } catch (e) {
-    LH_ENROLLED = JSON.parse(
-      localStorage.getItem(`lh_enrolled_${S.sid}`) || "[]",
-    );
-  }
-  lhRender();
-}
-
-function lhSetCat(cat, btn) {
-  LH_CAT = cat;
-  document
-    .querySelectorAll(".lh-filter")
-    .forEach((b) => b.classList.remove("active"));
-  if (btn) btn.classList.add("active");
-  lhRender();
-}
-
-function lhFilter() {
-  lhRender($("lh-search")?.value.trim().toLowerCase());
-}
-
-function lhRender(search = "") {
-  const grid = $("lh-grid");
-  if (!grid) return;
-  const contSec = $("lh-continue-section");
-  const contList = $("lh-continue-list");
-  const label = $("lh-section-label");
-  const count = $("lh-count");
-
-  let courses =
-    LH_CAT === "all" ? LH_COURSES : LH_COURSES.filter((c) => c.cat === LH_CAT);
-  if (search)
-    courses = courses.filter(
-      (c) =>
-        c.title.toLowerCase().includes(search) ||
-        c.author.toLowerCase().includes(search) ||
-        c.cat.includes(search),
-    );
-
-  // Continue learning — enrolled courses
-  const enrolled = courses.filter((c) => LH_ENROLLED.includes(c.id));
-  if (enrolled.length && !search) {
-    contSec.style.display = "block";
-    contList.innerHTML = enrolled
-      .slice(0, 2)
-      .map((c) => {
-        const prog = parseInt(
-          localStorage.getItem(`lh_prog_${S.sid}_${c.id}`) || "0",
-        );
-        return `
-        <div class="lh-continue-card" onclick="lhOpenCourse('${c.id}')">
-          <div class="lh-continue-icon" style="background:${c.color}22">${c.emoji}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-family:var(--font);font-size:.85rem;font-weight:700;margin-bottom:2px">${esc(c.title)}</div>
-            <div style="font-size:.7rem;color:var(--muted);margin-bottom:5px">by ${esc(c.author)} · ${c.lessons} lessons</div>
-            <div class="lh-continue-prog"><div class="lh-continue-fill" style="width:${prog}%"></div></div>
-            <div style="font-size:.68rem;color:var(--muted);margin-top:3px">${prog}% complete</div>
-          </div>
-        </div>`;
-      })
-      .join("");
-  } else {
-    contSec.style.display = "none";
-  }
-
-  // Grid
-  const notEnrolled = courses.filter((c) => !LH_ENROLLED.includes(c.id));
-  const display = search ? courses : notEnrolled;
-  if (label)
-    label.textContent = search
-      ? `Results for "${search}"`
-      : LH_CAT === "all"
-        ? "Recommended for You"
-        : LH_CAT.charAt(0).toUpperCase() + LH_CAT.slice(1);
-  if (count)
-    count.textContent = `${display.length} course${display.length !== 1 ? "s" : ""}`;
-
-  if (!display.length) {
-    grid.innerHTML = `<div style="grid-column:span 2;text-align:center;padding:2rem;color:var(--muted)">
-      <div style="font-size:2rem;margin-bottom:.5rem">🔍</div>
-      <div style="font-size:.85rem">No courses found.</div>
-    </div>`;
-    return;
-  }
-
-  const badgeCls = {
-    Beginner: "lh-badge-beginner",
-    Intermediate: "lh-badge-intermediate",
-    Advanced: "lh-badge-advanced",
-  };
-  grid.innerHTML = display
-    .map(
-      (c) => `
-    <div class="lh-course-card" onclick="lhOpenCourse('${c.id}')">
-      <div class="lh-course-thumb" style="background:${c.color}18">
-        ${c.emoji ? `<span style="font-size:2.5rem">${c.emoji}</span>` : ""}
-        <span class="lh-course-badge ${badgeCls[c.level] || ""}">${c.level}</span>
-      </div>
-      <div class="lh-course-body">
-        <div class="lh-course-title">${esc(c.title)}</div>
-        <div class="lh-course-author">by ${esc(c.author)}</div>
-        <div class="lh-course-meta">
-          <span class="lh-rating">★ ${c.rating} · ${(c.students / 1000).toFixed(1)}k</span>
-          ${LH_ENROLLED.includes(c.id) ? '<span class="lh-enrolled-badge">✓ Enrolled</span>' : `<span style="font-size:.7rem;color:var(--muted)">${c.lessons} lessons</span>`}
-        </div>
-      </div>
-    </div>`,
-    )
-    .join("");
-}
-
-function lhOpenCourse(id) {
-  const c = LH_COURSES.find((x) => x.id === id);
-  if (!c) return;
-  const enrolled = LH_ENROLLED.includes(id);
-  const prog = parseInt(localStorage.getItem(`lh_prog_${S.sid}_${id}`) || "0");
-
-  const modal = document.createElement("div");
-  modal.style.cssText =
-    "position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px);animation:fadeUp .2s ease";
-  modal.innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:1.5rem 1.25rem 2.5rem;max-height:85vh;overflow-y:auto">
-      <div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 1.25rem"></div>
-      <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:1rem">
-        <div style="width:56px;height:56px;border-radius:12px;background:${c.color}22;display:flex;align-items:center;justify-content:center;font-size:1.75rem;flex-shrink:0">${c.emoji}</div>
-        <div>
-          <div style="font-family:var(--font);font-size:1rem;font-weight:800;letter-spacing:-.02em">${esc(c.title)}</div>
-          <div style="font-size:.75rem;color:var(--muted);margin-top:2px">by ${esc(c.author)}</div>
-          <div style="display:flex;gap:8px;margin-top:5px;flex-wrap:wrap">
-            <span style="font-size:.68rem;color:var(--yellow);font-weight:700">★ ${c.rating}</span>
-            <span style="font-size:.68rem;color:var(--muted)">${c.lessons} lessons</span>
-            <span style="font-size:.68rem;color:var(--muted)">${c.students.toLocaleString()} students</span>
-          </div>
-        </div>
-      </div>
-      <p style="font-size:.82rem;color:var(--muted);line-height:1.6;margin-bottom:1rem">${esc(c.desc)}</p>
-      ${
-        enrolled
-          ? `
-        <div style="margin-bottom:1rem">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="font-size:.75rem;color:var(--muted)">Your progress</span>
-            <span style="font-size:.75rem;font-weight:700;color:var(--accent)">${prog}%</span>
-          </div>
-          <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-            <div style="height:100%;width:${prog}%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px"></div>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button onclick="lhUpdateProgress('${id}');this.closest('[style*=fixed]').remove()" style="flex:1;padding:11px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-family:var(--font);font-size:.85rem;font-weight:700;cursor:pointer">
-            📈 Update Progress
-          </button>
-          <button onclick="lhUnenroll('${id}');this.closest('[style*=fixed]').remove()" style="padding:11px 14px;border-radius:10px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer">
-            Leave
-          </button>
-        </div>`
-          : `
-        <button onclick="lhEnroll('${id}');this.closest('[style*=fixed]').remove()" style="width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-family:var(--font);font-size:.88rem;font-weight:700;cursor:pointer">
-          ✦ Enroll — Free
-        </button>`
-      }
-    </div>`;
-  document.body.appendChild(modal);
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) modal.remove();
-  });
-}
-
-async function lhEnroll(id) {
-  LH_ENROLLED.push(id);
-  localStorage.setItem(`lh_enrolled_${S.sid}`, JSON.stringify(LH_ENROLLED));
-  try {
-    await API("/api/learning-hub/enroll", { token: S.token, course_id: id });
-  } catch (e) {}
-  lhRender();
-  toast("Enrolled! 🎉 Start learning");
-}
-
-function lhUnenroll(id) {
-  LH_ENROLLED = LH_ENROLLED.filter((x) => x !== id);
-  localStorage.setItem(`lh_enrolled_${S.sid}`, JSON.stringify(LH_ENROLLED));
-  lhRender();
-  toast("Unenrolled");
-}
-
-async function lhUpdateProgress(id) {
-  const cur = localStorage.getItem(`lh_prog_${S.sid}_${id}`) || "0";
-  const val = await siModal.input("Update Progress", "0 – 100", cur, {
-    type: "number",
-    confirmLabel: "Update",
-  });
-  if (val === null) return;
-  const pct = Math.min(Math.max(parseInt(val) || 0, 0), 100);
-  localStorage.setItem(`lh_prog_${S.sid}_${id}`, pct);
-  lhRender();
-  if (pct >= 100) toast("Course completed! 🏆");
-  else toast(`Progress updated to ${pct}% ✓`);
-}
 
 // ═══════════════════════ VOICE INPUT ════════════════════════
 
@@ -7801,7 +7438,7 @@ async function sgInit() {
 async function sgLoadRooms() {
   try {
     const r = await fetch(
-      `/api/group/list?token=${encodeURIComponent(S.token || "")}`,
+      `/api/group/list?token=${encodeURIComponent(getToken() || "")}`,
     );
     const d = await r.json();
     sgRenderRooms(d.groups || []);
@@ -7855,7 +7492,7 @@ async function sgCreate() {
     return;
   }
   try {
-    await API("/api/group/create", { token: S.token, name });
+    await API("/api/group/create", { token: getToken(), name });
     $("sg-create-form").style.display = "none";
     $("sg-name-input").value = "";
     toast(`Group "${name}" created! Share your ID with friends.`);
@@ -7872,7 +7509,7 @@ async function sgJoin() {
     return;
   }
   try {
-    await API("/api/group/join", { token: S.token, group_id: gid });
+    await API("/api/group/join", { token: getToken(), group_id: gid });
     $("sg-join-form").style.display = "none";
     $("sg-join-input").value = "";
     toast("Joined group! 🎉");
@@ -7966,7 +7603,7 @@ async function sgLoadMessages(replace = false) {
   if (!SG_ACTIVE) return;
   try {
     const r = await fetch(
-      `/api/group/messages?group_id=${encodeURIComponent(SG_ACTIVE.id)}&token=${encodeURIComponent(S.token || "")}`,
+      `/api/group/messages?group_id=${encodeURIComponent(SG_ACTIVE.id)}&token=${encodeURIComponent(getToken() || "")}`,
     );
     const d = await r.json();
     sgRenderMessages(d.messages || [], replace);
@@ -8026,7 +7663,7 @@ async function sgSend() {
     // everyone — including us — so we don't append optimistically (avoids dupes).
     await API("/api/group/message", {
       group_id: SG_ACTIVE.id,
-      token: S.token,
+      token: getToken(),
       text,
     });
     if (SG_INTERVAL) sgLoadMessages(false); // polling fallback: pull immediately
@@ -9133,25 +8770,16 @@ function _gsRenderProgress(done) {
   });
 }
 
+// No real tutorial videos have been recorded yet — these previously all
+// pointed at the same placeholder (a rickroll) shipped to every new user.
+// Show an honest "coming soon" card instead of embedding anything.
 const _GS_VIDEOS = [
-  {
-    title: "Welcome to Sivarr",
-    embed: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-  },
-  {
-    title: "Sivarr AI Chat",
-    embed: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-  },
-  {
-    title: "Tasks & Goals",
-    embed: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-  },
-  { title: "Notes & Docs", embed: "https://www.youtube.com/embed/dQw4w9WgXcQ" },
-  { title: "Org Space", embed: "https://www.youtube.com/embed/dQw4w9WgXcQ" },
-  {
-    title: "Billing & Plans",
-    embed: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-  },
+  { title: "Welcome to Sivarr", embed: null },
+  { title: "Sivarr AI Chat", embed: null },
+  { title: "Tasks & Goals", embed: null },
+  { title: "Notes & Docs", embed: null },
+  { title: "Org Space", embed: null },
+  { title: "Billing & Plans", embed: null },
 ];
 
 function gsOpenVideo(idx, card) {
@@ -9163,13 +8791,19 @@ function gsOpenVideo(idx, card) {
   modal.id = "gs-video-modal";
   modal.style.cssText =
     "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center";
+  const body = v.embed
+    ? `<div style="position:relative;padding-top:56.25%;background:#000;border-radius:8px;overflow:hidden">
+        <iframe src="${v.embed}?autoplay=1" style="position:absolute;inset:0;width:100%;height:100%;border:none" allow="autoplay;encrypted-media" allowfullscreen></iframe>
+      </div>`
+    : `<div style="padding:40px 12px;text-align:center;color:var(--muted)">
+        <i class="ti ti-video" style="font-size:2rem;display:block;margin-bottom:10px"></i>
+        This walkthrough is still being recorded — check back soon.
+      </div>`;
   modal.innerHTML = `
     <div style="background:var(--bg);border-radius:14px;padding:20px;width:min(720px,95vw);position:relative">
       <button onclick="document.getElementById('gs-video-modal').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">×</button>
       <div style="font-weight:700;margin-bottom:12px;padding-right:24px">${esc(v.title)}</div>
-      <div style="position:relative;padding-top:56.25%;background:#000;border-radius:8px;overflow:hidden">
-        <iframe src="${v.embed}?autoplay=1" style="position:absolute;inset:0;width:100%;height:100%;border:none" allow="autoplay;encrypted-media" allowfullscreen></iframe>
-      </div>
+      ${body}
     </div>`;
   modal.addEventListener("click", (e) => {
     if (e.target === modal) modal.remove();
@@ -11736,8 +11370,9 @@ function _aiShowExtractedTasks(tasks) {
 function _aiAddTask(t) {
   const key = `sivarr_tasks_${S.sid}`;
   const tasks = JSON.parse(localStorage.getItem(key) || "[]");
+  const id = `t_ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   tasks.push({
-    id: `t_ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    id,
     title: t.title,
     priority: t.priority || "medium",
     due: t.due || "",
@@ -11746,6 +11381,19 @@ function _aiAddTask(t) {
     tags: [],
   });
   localStorage.setItem(key, JSON.stringify(tasks));
+  // Also mirror into the Tasks/Flux board's own store — see chatSaveTask()
+  // for why: two separate task stores exist and only reconcile at login.
+  const sh = getSHData();
+  sh.tasks = sh.tasks || [];
+  sh.tasks.push({
+    id,
+    title: t.title,
+    status: "todo",
+    priority: t.priority || "normal",
+    date: t.due || "",
+    created: new Date().toLocaleDateString(),
+  });
+  saveSHData(sh);
 }
 
 async function aiWriteAssist() {
@@ -12202,19 +11850,37 @@ async function oppSubmit() {
 }
 
 // ════════════ LIBRARY ════════════
+let _libActiveCat = "all";
+
 function libFilter(cat, btn) {
   document
     .querySelectorAll('[id^="lib-tab-"]')
     .forEach((b) => b.classList.remove("sp-add"));
   if (btn) btn.classList.add("sp-add");
+  _libActiveCat = cat || "all";
+  _libApplyFilters();
 }
 
 function libSearch(q) {
+  _libApplyFilters(q);
+}
+
+// Category pills previously only toggled their own active style — they
+// never actually filtered #lib-grid, unlike the search box next to them.
+function _libApplyFilters(q) {
+  const query = (q ?? $("lib-search")?.value ?? "").toLowerCase();
   const cards = document.querySelectorAll("#lib-grid .lib-card");
+  let visible = 0;
   cards.forEach((c) => {
-    const text = c.textContent.toLowerCase();
-    c.style.display = text.includes(q.toLowerCase()) ? "" : "none";
+    const cats = (c.dataset.cat || "").split(" ");
+    const matchesCat = _libActiveCat === "all" || cats.includes(_libActiveCat);
+    const matchesQuery = !query || c.textContent.toLowerCase().includes(query);
+    const show = matchesCat && matchesQuery;
+    c.style.display = show ? "" : "none";
+    if (show) visible++;
   });
+  const empty = $("lib-empty");
+  if (empty) empty.style.display = visible ? "none" : "";
 }
 
 // ═══════════════════════ TEMPLATES SYSTEM ════════════════════
@@ -12340,17 +12006,26 @@ function useTemplate(name) {
     const tasks = JSON.parse(
       localStorage.getItem(`sivarr_tasks_${S.sid}`) || "[]",
     );
+    const sh = getSHData();
+    sh.tasks = sh.tasks || [];
+    const todayLabel = new Date().toLocaleDateString();
     seed.tasks.forEach((t) => {
+      const id = ++base;
       tasks.push({
-        id: ++base,
+        id,
         title: t,
         status: "todo",
         done: false,
         created: Date.now(),
       });
+      // Also mirror into the Tasks/Flux board's own store — see
+      // chatSaveTask() for why: two separate task stores exist and only
+      // reconcile at login.
+      sh.tasks.push({ id, title: t, status: "todo", created: todayLabel });
       n++;
     });
     localStorage.setItem(`sivarr_tasks_${S.sid}`, JSON.stringify(tasks));
+    saveSHData(sh);
   }
   if (seed.habits) {
     const habits = JSON.parse(
@@ -12441,7 +12116,7 @@ function closeDiff(e) {
 }
 
 async function setDiff(level) {
-  await API("/api/difficulty", { token: S.token, level });
+  await API("/api/difficulty", { token: getToken(), level });
   S.diff = level;
   updateDiff(level);
   $("diff-modal").classList.remove("open");
@@ -12857,13 +12532,6 @@ function closeMobileSidebar() {
   const overlay = $("overlay");
   if (overlay) overlay.classList.remove("show");
   document.body.style.overflow = "";
-  // Legacy compat
-  const panel = $("mob-sidebar-panel");
-  const mOverlay = $("mob-sidebar-overlay");
-  const fab = $("mob-fab");
-  if (panel) panel.classList.remove("open");
-  if (mOverlay) mOverlay.classList.remove("visible");
-  if (fab) fab.classList.remove("open");
 }
 
 function mobSnavToggle(sectionId, btn) {
@@ -13282,22 +12950,40 @@ function nav(name, btn) {
     const qd = $("qd-label");
     if (qd) qd.textContent = S.diff.charAt(0).toUpperCase() + S.diff.slice(1);
   }
-  if (name === "team") teamInit();
   if (name === "orgchat") orgChatInit();
-  if (name === "projects") projectsInit();
-  if (name === "hr") hrInit();
   if (name === "automations") autoInit();
   if (name === "org") orgInit();
   if (name === "opportunities") oppInit();
   if (name === "profile") profileInit();
   if (name === "personal") psRenderOverview();
-  if (name === "academic") acRenderOverview();
+  // "academic" has no init here: its only caller, openSpace(), always
+  // calls acadInit(sp) itself immediately after nav("academic") — this
+  // used to call the (now-removed, dead) Academic Space v1 initializer.
   if (name === "agents") agInit();
   if (name === "review") reviewInit();
 }
 
 // Mobile tab bar navigation with smooth pill scroll
 function navTab(name, btn) {
+  // Same paywall guard nav() enforces — without it this was a bypass path
+  // for any Pro/Team-gated panel name reachable through this function.
+  const _GUARDED = {
+    org: "Pro",
+    orgchat: "Pro",
+    team: "Pro",
+    projects: "Pro",
+    founder: "Team",
+  };
+  if (_GUARDED[name]) {
+    const orgUnlocked =
+      name !== "founder" && !!(_ENTITLEMENTS && _ENTITLEMENTS.org_sub_active);
+    if (!orgUnlocked && !_hasPlan(_GUARDED[name])) {
+      _showPaywall(name);
+      return;
+    }
+    _removePaywall(name);
+  }
+
   document
     .querySelectorAll(".panel")
     .forEach((p) => p.classList.remove("active"));
@@ -13342,10 +13028,7 @@ function navTab(name, btn) {
     const qd = $("qd-label");
     if (qd) qd.textContent = S.diff.charAt(0).toUpperCase() + S.diff.slice(1);
   }
-  if (name === "team") teamInit();
   if (name === "orgchat") orgChatInit();
-  if (name === "projects") projectsInit();
-  if (name === "hr") hrInit();
   if (name === "automations") autoInit();
   if (name === "org") orgInit();
   if (name === "opportunities") oppInit();
@@ -13356,7 +13039,7 @@ async function getSuggestionsMobile() {
   $("sug-txt-m").textContent = "Thinking...";
   try {
     const r = await fetch(
-      `/api/suggest?token=${encodeURIComponent(S.token || "")}`,
+      `/api/suggest?token=${encodeURIComponent(getToken() || "")}`,
     );
     const d = await r.json();
     $("sug-txt-m").textContent = d.suggestion;
@@ -17298,15 +16981,34 @@ function orgRenderInsights() {
       done > 0
         ? Math.round((done / Math.max(1, ORG_TASKS.length)) * 100) + "%"
         : "—";
+  // No org-wide focus-session tracking exists yet (Focus Mode is
+  // per-device/local only) — "0" here is an honest "no data", not a stub.
   if (fhr) fhr.textContent = "0";
-  if (gac) gac.textContent = "0";
+  if (gac)
+    gac.textContent = String(
+      ORG_GOALS.filter((g) => g.status === "active").length,
+    );
 
   const chart = $("os-bar-chart");
   if (chart) {
-    const weeks = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const vals = weeks.map(() => Math.floor(Math.random() * done + 0.5));
+    // Real per-day completed-task counts for the current week (Mon-Sun),
+    // derived from each done task's updated_at — this used to be
+    // Math.random(), which re-randomized on every render.
+    const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const now = new Date();
+    const dow = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - dow);
+    const vals = dayLabels.map(() => 0);
+    ORG_TASKS.forEach((t) => {
+      if (t.status !== "done" || !t.updated_at) return;
+      const d = new Date(t.updated_at);
+      const diffDays = Math.floor((d - monday) / 86400000);
+      if (diffDays >= 0 && diffDays < 7) vals[diffDays]++;
+    });
     const max = Math.max(...vals, 1);
-    chart.innerHTML = weeks
+    chart.innerHTML = dayLabels
       .map(
         (w, i) => `
       <div class="os-bar-col">
@@ -18067,70 +17769,6 @@ async function orgMoreMenu() {
   }
 }
 
-/* ══════════════════════════════════════════════════
-   PHASE 5 — TEAM DASHBOARD
-   ══════════════════════════════════════════════════ */
-
-function teamInit() {
-  const key = `sivarr_team_${S.sid}`;
-  const data = JSON.parse(
-    localStorage.getItem(key) || '{"members":[],"activity":[]}',
-  );
-
-  // Ensure owner is always member #1
-  if (S.name && !data.members.find((m) => m.you)) {
-    data.members.unshift({ name: S.name, role: "Admin", you: true });
-    localStorage.setItem(key, JSON.stringify(data));
-  }
-
-  // Update stats
-  const tasks = JSON.parse(
-    localStorage.getItem(`sivarr_tasks_${S.sid}`) || "[]",
-  );
-  const openTasks = tasks.filter((t) => !t.done).length;
-  const projects = JSON.parse(
-    localStorage.getItem(`sivarr_projects_${S.sid}`) || "[]",
-  );
-
-  if ($("team-member-count"))
-    $("team-member-count").textContent = data.members.length;
-  if ($("team-project-count"))
-    $("team-project-count").textContent = projects.length;
-  if ($("team-task-count")) $("team-task-count").textContent = openTasks;
-
-  // Render members
-  const list = $("team-member-list");
-  if (list) {
-    list.innerHTML =
-      data.members
-        .map(
-          (m) => `
-      <div class="team-member-card">
-        <div class="tm-av">${(m.name || "?").charAt(0).toUpperCase()}</div>
-        <div class="tm-info">
-          <div class="tm-name">${escHtml(m.name)}${m.you ? " (you)" : ""}</div>
-          <div class="tm-role">${escHtml(m.role || "Member")}</div>
-        </div>
-        <span class="tm-badge">${escHtml(m.role || "Member")}</span>
-      </div>`,
-        )
-        .join("") || '<div class="hr-empty">No members yet.</div>';
-  }
-
-  // Render activity
-  const act = $("team-activity");
-  if (act && data.activity.length) {
-    act.innerHTML = data.activity
-      .slice(-5)
-      .reverse()
-      .map(
-        (a) =>
-          `<div class="ta-item"><span class="ta-dot" style="background:var(--teal)"></span><span class="ta-text">${escHtml(a)}</span></div>`,
-      )
-      .join("");
-  }
-}
-
 async function teamInvite() {
   if (!ORG) {
     toast("You need to be part of an organization first.");
@@ -18689,118 +18327,6 @@ async function projectNew() {
   }
 }
 
-function projectsRender() {
-  const key = `sivarr_projects_${S.sid}`;
-  const list = JSON.parse(localStorage.getItem(key) || "[]");
-  const grid = $("projects-grid");
-  if (!grid) return;
-  if (!list.length) {
-    grid.innerHTML =
-      '<div class="projects-empty">No projects yet — create your first one.</div>';
-    return;
-  }
-  grid.innerHTML = list
-    .map(
-      (p) => `
-    <div class="project-card">
-      <div class="proj-color" style="background:${p.color}"></div>
-      <div class="proj-name">${escHtml(p.name)}</div>
-      ${p.desc ? `<div class="proj-desc">${escHtml(p.desc)}</div>` : ""}
-      <div class="proj-meta">
-        <span class="proj-badge">${escHtml(p.status)}</span>
-        <span class="proj-tasks">${p.tasks} tasks</span>
-      </div>
-    </div>`,
-    )
-    .join("");
-}
-
-function projectsInit() {
-  projectsRender();
-}
-
-/* ══════════════════════════════════════════════════
-   PHASE 5 — HR / PEOPLE
-   ══════════════════════════════════════════════════ */
-
-function hrTab(tab, btn) {
-  ["directory", "leaves", "roles"].forEach((t) => {
-    const el = $("hr-" + t);
-    if (el) el.style.display = t === tab ? "" : "none";
-  });
-  document
-    .querySelectorAll(".hr-tab")
-    .forEach((b) => b.classList.remove("active"));
-  if (btn) btn.classList.add("active");
-}
-
-async function hrAddMember() {
-  const d = await siModal.form(
-    "Add Team Member",
-    [
-      {
-        id: "name",
-        label: "Full name",
-        placeholder: "e.g. Amaka Johnson",
-        required: true,
-      },
-      {
-        id: "role",
-        label: "Role",
-        placeholder: "e.g. Developer, Designer",
-        default: "Member",
-      },
-      {
-        id: "email",
-        label: "Email (optional)",
-        placeholder: "member@example.com",
-      },
-    ],
-    { confirmLabel: "Add Member" },
-  );
-  if (!d || !d.name) return;
-  const name = d.name;
-  const role = d.role || "Member";
-  const email = d.email || "";
-  const key = `sivarr_team_${S.sid}`;
-  const data = JSON.parse(
-    localStorage.getItem(key) || '{"members":[],"activity":[]}',
-  );
-  data.members.push({ name, role, email });
-  data.activity.push(`${name} was added to the team.`);
-  localStorage.setItem(key, JSON.stringify(data));
-  hrRenderDirectory();
-  toast(`${name} added`);
-}
-
-function hrRenderDirectory() {
-  const key = `sivarr_team_${S.sid}`;
-  const data = JSON.parse(localStorage.getItem(key) || '{"members":[]}');
-  const list = $("hr-dir-list");
-  if (!list) return;
-  if (!data.members.length) {
-    list.innerHTML = '<div class="hr-empty">No people added yet.</div>';
-    return;
-  }
-  list.innerHTML = data.members
-    .map(
-      (m) => `
-    <div class="hr-member-row">
-      <div class="tm-av">${(m.name || "?").charAt(0).toUpperCase()}</div>
-      <div class="tm-info">
-        <div class="tm-name">${escHtml(m.name)}</div>
-        <div class="tm-role">${escHtml(m.email || m.role || "")}</div>
-      </div>
-      <span class="tm-badge">${escHtml(m.role || "Member")}</span>
-    </div>`,
-    )
-    .join("");
-}
-
-function hrInit() {
-  hrRenderDirectory();
-}
-
 /* ══════════════════════════════════════════════════
    PHASE 8 — AUTOMATIONS
    ══════════════════════════════════════════════════ */
@@ -19065,19 +18591,26 @@ function oppRender() {
   }
 
   grid.innerHTML = visible
-    .map(
-      (o) => `
+    .map((o) => {
+      const isDemo = DEMO_OPPS.some((d) => d.id === o.id);
+      const hasLink = /^https?:\/\//i.test(o.url || "");
+      const applyBtn = isDemo
+        ? `<button class="opp-apply-btn" disabled title="Example listing — not a real posting">Example</button>`
+        : hasLink
+          ? `<button class="opp-apply-btn" onclick="window.open(${JSON.stringify(o.url)},'_blank')">Apply →</button>`
+          : `<span class="opp-deadline" style="opacity:.7">No link provided</span>`;
+      return `
     <div class="opp-card">
-      <div class="opp-card-type">${o.type}</div>
+      <div class="opp-card-type">${o.type}${isDemo ? ' <span class="chip c-amber" style="padding:1px 8px;font-size:11px">Example</span>' : ""}</div>
       <div class="opp-card-title">${escHtml(o.title)}</div>
       <div class="opp-card-org">${escHtml(o.org)}</div>
       <div class="opp-card-desc">${escHtml(o.desc)}</div>
       <div class="opp-card-meta">
         <span class="opp-deadline">Deadline: ${escHtml(o.deadline)}</span>
       </div>
-      <button class="opp-apply-btn" onclick="window.open(${JSON.stringify(o.url)},'_blank')">Apply →</button>
-    </div>`,
-    )
+      ${applyBtn}
+    </div>`;
+    })
     .join("");
 }
 
@@ -19121,12 +18654,18 @@ async function oppPost() {
         placeholder: "e.g. 2026-06-30 or Open",
         default: "Open",
       },
+      {
+        id: "url",
+        label: "Apply link (optional)",
+        placeholder: "https://…",
+      },
     ],
     { confirmLabel: "Post Opportunity" },
   );
   if (!d || !d.title) return;
   const key = `sivarr_opps_${S.sid}`;
   const list = JSON.parse(localStorage.getItem(key) || "[]");
+  const url = /^https?:\/\//i.test(d.url || "") ? d.url : "";
   list.push({
     id: Date.now(),
     title: d.title,
@@ -19134,7 +18673,9 @@ async function oppPost() {
     desc: d.desc,
     type: d.type || "job",
     deadline: d.deadline || "Open",
-    url: "#",
+    // Previously hardcoded to "#" for every listing — no field even
+    // existed to provide a real link, so Apply went nowhere.
+    url,
   });
   localStorage.setItem(key, JSON.stringify(list));
   oppRender();
@@ -19964,7 +19505,7 @@ function psRenderGoals() {
         Math.round((g.progress / (g.target || 100)) * 100),
       );
       return `<div class="sp-goal-card">
-      <div class="sp-goal-title">${g.title}</div>
+      <div class="sp-goal-title">${esc(g.title)}</div>
       <div class="sp-goal-bar-bg"><div class="sp-goal-bar-fill" style="width:${pct}%"></div></div>
       <div class="sp-goal-meta"><span>${pct}%</span><span onclick="psUpdateGoal(${g.id})" style="cursor:pointer;color:var(--blue)">Update</span></div>
     </div>`;
@@ -20074,8 +19615,8 @@ function psRenderJournal() {
       .map(
         (e) => `
     <div class="sp-journal-entry">
-      <div class="sp-journal-entry-date">${e.date}</div>
-      <div class="sp-journal-entry-text">${e.text}</div>
+      <div class="sp-journal-entry-date">${esc(e.date)}</div>
+      <div class="sp-journal-entry-text">${esc(e.text)}</div>
     </div>`,
       )
       .join("") ||
@@ -20113,9 +19654,9 @@ function psRenderNotes() {
     .map(
       (n) => `
     <div class="sp-note-card" onclick="psEditNote(${n.id})">
-      <div class="sp-note-title">${n.title}</div>
-      <div class="sp-note-preview">${n.body || "Empty note…"}</div>
-      <div class="sp-note-date">${n.date}</div>
+      <div class="sp-note-title">${esc(n.title)}</div>
+      <div class="sp-note-preview">${esc(n.body) || "Empty note…"}</div>
+      <div class="sp-note-date">${esc(n.date)}</div>
     </div>`,
     )
     .join("");
@@ -20135,569 +19676,6 @@ async function psEditNote(id) {
   n.body = body;
   psSave(d);
   psRenderNotes();
-}
-
-/* ════════════════════════════════════════════════════════════
-   ACADEMIC SPACE (ac-*)
-════════════════════════════════════════════════════════════ */
-let _acId = null;
-let _acTimer = null;
-let _acTimerRunning = false;
-let _acTimerSeconds = 25 * 60;
-let _acTimerMode = "focus";
-const _acTimerModes = { focus: 25 * 60, short: 5 * 60, long: 15 * 60 };
-let _acCards = [];
-let _acCardIdx = 0;
-let _acQuizQ = 0;
-let _acQuizScore = 0;
-let _acQuizItems = [];
-
-function acInit(id) {
-  _acId = id;
-  spTab("ac", "overview", document.querySelector("#panel-academic .sp-tab"));
-  acRenderOverview();
-}
-
-function acData() {
-  return getSpaceData(_acId || "academic");
-}
-function acSave(d) {
-  setSpaceData(_acId || "academic", d);
-}
-
-function acRenderOverview() {
-  const d = acData();
-  const courses = (d.courses || []).length;
-  const sessions = d.pomodoroSessions || 0;
-  const ratings = d.cardRatings || {};
-  const goodCount = Object.values(ratings).filter(
-    (r) => r === "good" || r === "easy",
-  ).length;
-  const total = Object.keys(ratings).length || 1;
-  const acc = total > 1 ? Math.round((goodCount / total) * 100) + "%" : "—";
-
-  const set = (id, v) => {
-    const el = $(id);
-    if (el) el.textContent = v;
-  };
-  set("ac-course-count", courses);
-  set("ac-cards-today", sessions > 0 ? Object.keys(ratings).length : 0);
-  set("ac-quiz-acc", acc);
-  set("ac-study-streak", (d.studyStreak || 0) + "🔥");
-  set("ac-exam-countdown", "—");
-}
-
-// ── Courses ──────────────────────────────────────────────────
-async function acAddCourse() {
-  const d2 = await siModal.form(
-    "Add Course",
-    [
-      {
-        id: "name",
-        label: "Course name",
-        placeholder: "e.g. Data Structures",
-        required: true,
-      },
-      {
-        id: "code",
-        label: "Course code (optional)",
-        placeholder: "e.g. CSC 301",
-      },
-    ],
-    { confirmLabel: "Add Course" },
-  );
-  if (!d2 || !d2.name) return;
-  const d = acData();
-  d.courses = d.courses || [];
-  d.courses.push({
-    id: Date.now(),
-    name: d2.name,
-    code: d2.code || "",
-    progress: 0,
-  });
-  acSave(d);
-  acRenderCourses();
-}
-
-function acRenderCourses() {
-  const grid = $("ac-courses-grid");
-  if (!grid) return;
-  const courses = acData().courses || [];
-  if (!courses.length) {
-    grid.innerHTML =
-      '<p style="color:var(--muted);font-size:.84rem">No courses yet.</p>';
-    return;
-  }
-  grid.innerHTML = courses
-    .map(
-      (c) => `
-    <div class="sp-course-card" onclick="acUpdateCourse(${c.id})">
-      <div class="sp-course-banner"></div>
-      <div class="sp-course-body">
-        <div class="sp-course-title">${c.name}</div>
-        <div class="sp-course-code">${c.code}</div>
-        <div class="sp-course-prog">
-          <div class="sp-course-bar"><div class="sp-course-bar-fill" style="width:${c.progress}%"></div></div>
-          <span class="sp-course-pct">${c.progress}%</span>
-        </div>
-      </div>
-    </div>`,
-    )
-    .join("");
-}
-
-async function acUpdateCourse(id) {
-  const d = acData();
-  const c = (d.courses || []).find((c) => c.id === id);
-  if (!c) return;
-  const v = await siModal.input(
-    `${c.name} Progress`,
-    "0 – 100",
-    String(c.progress),
-    { type: "number", confirmLabel: "Update" },
-  );
-  if (v === null) return;
-  c.progress = Math.max(0, Math.min(100, parseInt(v) || 0));
-  acSave(d);
-  acRenderCourses();
-}
-
-// ── Flashcards ───────────────────────────────────────────────
-function acLoadCards() {
-  _acCards = acData().cards || [];
-  _acCardIdx = 0;
-  acShowCard();
-}
-
-function acShowCard() {
-  const inner = $("ac-flashcard-inner");
-  const qEl = $("ac-fc-question");
-  const aEl = $("ac-fc-answer");
-  const nav = $("ac-fc-counter");
-  const rateRow = $("ac-rate-row");
-  if (!inner) return;
-  if (!_acCards.length) {
-    if (qEl) qEl.textContent = "No cards yet — add one below.";
-    if (aEl) aEl.textContent = "";
-    if (nav) nav.textContent = "Card 0 of 0";
-    if (rateRow) rateRow.style.display = "none";
-    return;
-  }
-  const card = _acCards[_acCardIdx];
-  inner.classList.remove("flipped");
-  if (qEl) qEl.textContent = card.q;
-  if (aEl) aEl.textContent = card.a;
-  if (nav) nav.textContent = `Card ${_acCardIdx + 1} of ${_acCards.length}`;
-  if (rateRow) rateRow.style.display = "flex";
-}
-
-function acFlipCard() {
-  const inner = $("ac-flashcard-inner");
-  if (inner) inner.classList.toggle("flipped");
-}
-
-function acRateCard(rating) {
-  if (!_acCards.length) return;
-  const d = acData();
-  d.cardRatings = d.cardRatings || {};
-  d.cardRatings[_acCards[_acCardIdx].id] = rating;
-  acSave(d);
-  _acCardIdx = (_acCardIdx + 1) % _acCards.length;
-  acShowCard();
-}
-
-function acPrevCard() {
-  if (!_acCards.length) return;
-  _acCardIdx = (_acCardIdx - 1 + _acCards.length) % _acCards.length;
-  acShowCard();
-}
-
-function acNextCard() {
-  if (!_acCards.length) return;
-  _acCardIdx = (_acCardIdx + 1) % _acCards.length;
-  acShowCard();
-}
-
-async function acAddCard() {
-  const qEl = $("ac-card-q");
-  const aEl = $("ac-card-a");
-  let q = qEl ? qEl.value.trim() : null;
-  let a = aEl ? aEl.value.trim() : null;
-  if (!q || !a) {
-    const d2 = await siModal.form(
-      "Add Flashcard",
-      [
-        {
-          id: "q",
-          label: "Question",
-          placeholder: "Front of card",
-          required: true,
-        },
-        {
-          id: "a",
-          label: "Answer",
-          placeholder: "Back of card",
-          required: true,
-        },
-      ],
-      { confirmLabel: "Add Card" },
-    );
-    if (!d2 || !d2.q || !d2.a) return;
-    q = d2.q;
-    a = d2.a;
-  }
-  if (!q || !a) return;
-  const d = acData();
-  d.cards = d.cards || [];
-  d.cards.push({ id: Date.now(), q, a });
-  acSave(d);
-  if (qEl) qEl.value = "";
-  if (aEl) aEl.value = "";
-  _acCards = d.cards;
-  _acCardIdx = d.cards.length - 1;
-  acShowCard();
-}
-
-// ── Pomodoro Timer ────────────────────────────────────────────
-function acSetMode(mode, btn) {
-  _acTimerMode = mode;
-  _acTimerSeconds = _acTimerModes[mode] || 25 * 60;
-  acTimerStop();
-  acRenderTimer();
-  document
-    .querySelectorAll(".sp-tmode-btn")
-    .forEach((b) => b.classList.remove("sp-tmode-active"));
-  if (btn) btn.classList.add("sp-tmode-active");
-  const lbl = $("ac-timer-label");
-  if (lbl)
-    lbl.textContent =
-      mode === "focus"
-        ? "Focus session"
-        : mode === "short"
-          ? "Short break"
-          : "Long break";
-}
-
-function acTimerToggle() {
-  if (_acTimerRunning) acTimerStop();
-  else acTimerStart();
-}
-
-function acTimerStart() {
-  if (_acTimerRunning) return;
-  _acTimerRunning = true;
-  const btn = $("ac-timer-start");
-  if (btn) btn.innerHTML = '<i class="ti ti-player-pause"></i> Pause';
-  const startBtn = $("ac-timer-start");
-  if (startBtn) startBtn.textContent = "Pause";
-  _acTimer = setInterval(() => {
-    if (_acTimerSeconds <= 0) {
-      acTimerStop();
-      if (_acTimerMode === "focus") {
-        const d = acData();
-        d.pomodoroSessions = (d.pomodoroSessions || 0) + 1;
-        d.studyStreak = (d.studyStreak || 0) + 1;
-        acSave(d);
-        const el = $("ac-t-today");
-        if (el) el.textContent = d.pomodoroSessions;
-      }
-      _acTimerSeconds = _acTimerModes[_acTimerMode] || 25 * 60;
-    } else {
-      _acTimerSeconds--;
-    }
-    acRenderTimer();
-  }, 1000);
-}
-
-function acTimerStop() {
-  _acTimerRunning = false;
-  if (_acTimer) {
-    clearInterval(_acTimer);
-    _acTimer = null;
-  }
-  const btn = $("ac-timer-start");
-  if (btn) btn.textContent = "Start";
-}
-
-function acTimerReset() {
-  acTimerStop();
-  _acTimerSeconds = _acTimerModes[_acTimerMode] || 25 * 60;
-  acRenderTimer();
-}
-
-function acRenderTimer() {
-  const m = Math.floor(_acTimerSeconds / 60)
-    .toString()
-    .padStart(2, "0");
-  const s = (_acTimerSeconds % 60).toString().padStart(2, "0");
-  const el = $("ac-timer-display");
-  if (el) el.textContent = `${m}:${s}`;
-}
-
-// ── Quiz ──────────────────────────────────────────────────────
-function acStartQuiz() {
-  const cards = acData().cards || [];
-  if (cards.length < 2) {
-    toast("Add at least 2 flashcards to start a quiz.");
-    return;
-  }
-  _acQuizItems = [...cards]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, Math.min(10, cards.length));
-  _acQuizQ = 0;
-  _acQuizScore = 0;
-  const cfg = $("ac-quiz-config");
-  const active = $("ac-quiz-active");
-  if (cfg) cfg.style.display = "none";
-  if (active) active.style.display = "flex";
-  acRenderQuizQ();
-}
-
-function acRenderQuizQ() {
-  const active = $("ac-quiz-active");
-  if (!active) return;
-  if (_acQuizQ >= _acQuizItems.length) {
-    active.innerHTML = `<div class="sp-quiz-result">
-      <div style="font-size:2rem">🎉</div>
-      <div style="font-size:1.1rem;font-weight:700;margin:8px 0">Quiz Complete!</div>
-      <div>Score: ${_acQuizScore} / ${_acQuizItems.length}</div>
-      <button class="sp-timer-btn sp-timer-start" style="margin-top:16px" onclick="acResetQuiz()">Try Again</button>
-    </div>`;
-    return;
-  }
-  const q = _acQuizItems[_acQuizQ];
-  const others = (acData().cards || []).filter((c) => c.id !== q.id);
-  const wrongs = others
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3)
-    .map((c) => c.a);
-  const opts = [...wrongs, q.a].sort(() => Math.random() - 0.5);
-  active.innerHTML = `
-    <div style="font-size:.72rem;color:var(--muted)">${_acQuizQ + 1} / ${_acQuizItems.length}</div>
-    <div class="sp-quiz-q">${q.q}</div>
-    <div class="sp-quiz-opts">
-      ${opts
-        .map(
-          (
-            o,
-          ) => `<button class="sp-quiz-opt" onclick="acAnswerQuiz(this,'${o.replace(/'/g, "\\'")}','${q.a.replace(/'/g, "\\'")}')">
-        ${o}
-      </button>`,
-        )
-        .join("")}
-    </div>`;
-}
-
-function acAnswerQuiz(btn, chosen, correct) {
-  document.querySelectorAll(".sp-quiz-opt").forEach((b) => (b.disabled = true));
-  if (chosen === correct) {
-    btn.classList.add("correct");
-    _acQuizScore++;
-  } else {
-    btn.classList.add("wrong");
-    document.querySelectorAll(".sp-quiz-opt").forEach((b) => {
-      if (b.textContent.trim() === correct) b.classList.add("correct");
-    });
-  }
-  setTimeout(() => {
-    _acQuizQ++;
-    acRenderQuizQ();
-  }, 1200);
-}
-
-function acResetQuiz() {
-  const cfg = $("ac-quiz-config");
-  const active = $("ac-quiz-active");
-  if (cfg) cfg.style.display = "flex";
-  if (active) active.style.display = "none";
-}
-
-// ── Study Groups ──────────────────────────────────────────────
-async function acNewGroup() {
-  const d2 = await siModal.form(
-    "New Study Group",
-    [
-      {
-        id: "name",
-        label: "Group name",
-        placeholder: "e.g. CSC 401 Study Team",
-        required: true,
-      },
-      {
-        id: "subject",
-        label: "Subject",
-        placeholder: "e.g. Operating Systems",
-      },
-    ],
-    { confirmLabel: "Create Group" },
-  );
-  if (!d2 || !d2.name) return;
-  const d = acData();
-  d.groups = d.groups || [];
-  d.groups.push({
-    id: Date.now(),
-    name: d2.name,
-    subject: d2.subject || "",
-    members: 1,
-  });
-  acSave(d);
-  acRenderGroups();
-}
-
-function acJoinGroup(id) {
-  const d = acData();
-  const g = (d.groups || []).find((g) => g.id === id);
-  if (!g) return;
-  g.members = (g.members || 1) + 1;
-  acSave(d);
-  acRenderGroups();
-}
-
-function acRenderGroups() {
-  const grid = $("ac-groups-grid");
-  if (!grid) return;
-  const groups = acData().groups || [];
-  if (!groups.length) {
-    grid.innerHTML =
-      '<p style="color:var(--muted);font-size:.84rem">No groups yet.</p>';
-    return;
-  }
-  grid.innerHTML = groups
-    .map(
-      (g) => `
-    <div class="sp-group-card">
-      <div class="sp-group-name">${g.name}</div>
-      <div class="sp-group-sub">${g.subject}</div>
-      <div class="sp-group-badge"><i class="ti ti-users"></i> ${g.members} member${g.members !== 1 ? "s" : ""}</div>
-      <button class="sp-timer-btn" style="margin-top:8px;background:var(--amber3);color:#fff;padding:6px 14px;font-size:.76rem" onclick="acJoinGroup(${g.id})">Join</button>
-    </div>`,
-    )
-    .join("");
-}
-
-// ── Quiz helpers ──────────────────────────────────────────────
-function acSetDiff(diff, btn) {
-  document
-    .querySelectorAll(".sp-diff-btn")
-    .forEach((b) => b.classList.remove("sp-diff-active"));
-  if (btn) btn.classList.add("sp-diff-active");
-}
-function acQuizSkip() {
-  _acQuizQ++;
-  acRenderQuizQ();
-}
-function acQuizNext() {
-  _acQuizQ++;
-  acRenderQuizQ();
-}
-
-// ── Course filter ─────────────────────────────────────────────
-function acFilterCourses(filter, btn) {
-  document
-    .querySelectorAll(".sp-tool-btn")
-    .forEach((b) => b.classList.remove("sp-tool-amber-active"));
-  if (btn) btn.classList.add("sp-tool-amber-active");
-  const d = acData();
-  let courses = d.courses || [];
-  if (filter === "active") courses = courses.filter((c) => c.progress < 100);
-  if (filter === "done") courses = courses.filter((c) => c.progress >= 100);
-  const grid = $("ac-courses-grid");
-  if (!grid) return;
-  if (!courses.length) {
-    grid.innerHTML =
-      '<p style="color:var(--muted);font-size:.84rem">No courses.</p>';
-    return;
-  }
-  grid.innerHTML = courses
-    .map(
-      (c) => `
-    <div class="sp-course-card" onclick="acUpdateCourse(${c.id})">
-      <div class="sp-course-banner"></div>
-      <div class="sp-course-body">
-        <div class="sp-course-title">${c.name}</div>
-        <div class="sp-course-code">${c.code}</div>
-        <div class="sp-course-prog">
-          <div class="sp-course-bar"><div class="sp-course-bar-fill" style="width:${c.progress}%"></div></div>
-          <span class="sp-course-pct">${c.progress}%</span>
-        </div>
-      </div>
-    </div>`,
-    )
-    .join("");
-}
-
-// ── Planner plan generator ────────────────────────────────────
-function acGenPlan() {
-  const subject = $("ac-plan-subject")?.value.trim();
-  const date = $("ac-plan-date")?.value;
-  const hrs = parseInt($("ac-plan-hrs")?.value || "2");
-  if (!subject) {
-    alert("Enter a subject or exam title.");
-    return;
-  }
-  const d = acData();
-  d.plan = d.plan || [];
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const items = days.slice(0, 5).map((day) => ({
-    id: Date.now() + Math.random(),
-    title: `${subject} — ${hrs}h review`,
-    due: day,
-  }));
-  d.plan = [...items, ...d.plan];
-  acSave(d);
-  acRenderPlan();
-}
-
-// ── Planner ───────────────────────────────────────────────────
-async function acCreatePlan() {
-  const d2 = await siModal.form(
-    "New Plan Item",
-    [
-      {
-        id: "title",
-        label: "Title",
-        placeholder: "Assignment or study plan",
-        required: true,
-      },
-      {
-        id: "due",
-        label: "Due date",
-        placeholder: "e.g. Mon, May 13",
-        default: "TBD",
-      },
-    ],
-    { confirmLabel: "Add to Plan" },
-  );
-  if (!d2 || !d2.title) return;
-  const d = acData();
-  d.plan = d.plan || [];
-  d.plan.unshift({ id: Date.now(), title: d2.title, due: d2.due || "TBD" });
-  acSave(d);
-  acRenderPlan();
-}
-
-function acRenderPlan() {
-  const cont = $("ac-plan-content");
-  if (!cont) return;
-  const items = acData().plan || [];
-  if (!items.length) {
-    cont.innerHTML =
-      '<p style="color:var(--muted);font-size:.84rem">No plan items yet.</p>';
-    return;
-  }
-  cont.innerHTML = `<div class="sp-plan-week">
-    <div class="sp-plan-week-hd">Upcoming</div>
-    ${items
-      .map(
-        (it) => `
-      <div class="sp-plan-item">
-        <div class="sp-plan-dot"></div>
-        <span class="sp-plan-text">${it.title}</span>
-        <span class="sp-plan-due">${it.due}</span>
-      </div>`,
-      )
-      .join("")}
-  </div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -20787,9 +19765,9 @@ function agLoadPaystackScript() {
 }
 
 async function agLoadMyAgent() {
-  if (!S.token) return;
+  if (!getToken()) return;
   try {
-    const r = await fetch(`/api/agents/me?token=${S.token}`);
+    const r = await fetch(`/api/agents/me?token=${getToken()}`);
     const d = await r.json();
     _ag.myAgent = d.agent || null;
   } catch {
@@ -21234,10 +20212,10 @@ async function agOpenTemplate(id) {
 
     // Check ownership
     let owned = false;
-    if (S.token) {
+    if (getToken()) {
       try {
         const or = await fetch(
-          `/api/agents/templates/${id}/owned?token=${S.token}`,
+          `/api/agents/templates/${id}/owned?token=${getToken()}`,
         );
         const od = await or.json();
         owned = od.owned;
@@ -21374,7 +20352,7 @@ async function agOpenTemplate(id) {
 
 // Stage 9 safety: let a signed-in user report/flag a template for moderation.
 async function agReportTemplate(id) {
-  if (!S.token) {
+  if (!getToken()) {
     (typeof showToast === "function" ? showToast : toast)(
       "Sign in to report a template.",
     );
@@ -21400,7 +20378,7 @@ async function agReportTemplate(id) {
     const r = await fetch(`/api/agents/templates/${id}/report`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: S.token, reason: reason.trim() }),
+      body: JSON.stringify({ token: getToken(), reason: reason.trim() }),
     });
     const d = await r.json();
     notify(
@@ -21485,7 +20463,7 @@ async function agInstallFree(templateId) {
     const r = await fetch(`/api/agents/templates/${templateId}/install`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: S.token }),
+      body: JSON.stringify({ token: getToken() }),
     });
     const d = await r.json();
     if (d.ok) {
@@ -21504,7 +20482,7 @@ async function agStartCheckout(templateId) {
     const r = await fetch("/api/payments/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: S.token, template_id: templateId }),
+      body: JSON.stringify({ token: getToken(), template_id: templateId }),
     });
     const d = await r.json();
     if (d.status === "installed") {
@@ -21529,7 +20507,7 @@ async function agStartPaystackCheckout(templateId) {
     const r = await fetch("/api/payments/paystack/initialize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: S.token, template_id: templateId }),
+      body: JSON.stringify({ token: getToken(), template_id: templateId }),
     });
     const d = await r.json();
     if (d.status === "installed") {
@@ -21568,7 +20546,7 @@ async function agHandlePaystackSuccess(transaction, templateId) {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: S.token }),
+        body: JSON.stringify({ token: getToken() }),
       },
     );
     const d = await r.json();
@@ -21599,34 +20577,40 @@ function agApplyContents(contents) {
     saveSpaces(spaces);
     syncSpaceMeta(space);
   });
-  // Tasks
+  // Tasks — keyed per-account (`_${S.sid}`) like every panel that reads
+  // this store; without the suffix, installed content was written
+  // somewhere no panel ever looked, so it silently never appeared.
   (contents.tasks || []).forEach((task) => {
-    const tasks = JSON.parse(localStorage.getItem("sivarr_tasks") || "[]");
+    const tasks = JSON.parse(
+      localStorage.getItem(`sivarr_tasks_${S.sid}`) || "[]",
+    );
     tasks.push({
       id: `task_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       ...task,
       done: false,
     });
-    localStorage.setItem("sivarr_tasks", JSON.stringify(tasks));
+    localStorage.setItem(`sivarr_tasks_${S.sid}`, JSON.stringify(tasks));
   });
   // Goals
   (contents.goals || []).forEach((g) => {
-    const goals = JSON.parse(localStorage.getItem("sivarr_goals") || "[]");
+    const goals = JSON.parse(
+      localStorage.getItem(`sivarr_goals_${S.sid}`) || "[]",
+    );
     goals.push({
       id: `gl_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       ...g,
       done: false,
     });
-    localStorage.setItem("sivarr_goals", JSON.stringify(goals));
+    localStorage.setItem(`sivarr_goals_${S.sid}`, JSON.stringify(goals));
   });
   // Habits
   (contents.habits || []).forEach((h) => {
-    const habits = JSON.parse(localStorage.getItem("sivarr_habits") || "[]");
+    const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || "[]");
     habits.push({
       id: `hb_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       ...h,
     });
-    localStorage.setItem("sivarr_habits", JSON.stringify(habits));
+    localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
   });
   // Sidebar re-render
   if (typeof spaceRenderSidebar === "function")
@@ -21660,7 +20644,7 @@ async function agOpenAgentProfile(agentId) {
 
     // Check follow state
     let isFollowing = false;
-    if (S.token) {
+    if (getToken()) {
       // Optimistic — no dedicated endpoint, infer from UI state
     }
 
@@ -21706,7 +20690,7 @@ async function agOpenAgentProfile(agentId) {
 
 async function agToggleFollow(agentId) {
   const btn = $(`ag-follow-btn-${agentId}`);
-  if (!btn || !S.token) return;
+  if (!btn || !getToken()) return;
   const following = btn.classList.contains("following");
   btn.classList.toggle("following", !following);
   btn.textContent = !following ? "Following" : "+ Follow";
@@ -21714,7 +20698,7 @@ async function agToggleFollow(agentId) {
     await fetch(`/api/agents/${agentId}/follow`, {
       method: following ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: S.token }),
+      body: JSON.stringify({ token: getToken() }),
     });
   } catch {}
 }
@@ -21943,7 +20927,7 @@ async function agSubmitApplication() {
     const r = await fetch("/api/agents/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: S.token, ..._agApply.data }),
+      body: JSON.stringify({ token: getToken(), ..._agApply.data }),
     });
     const d = await r.json();
     if (d.ok) {
@@ -22029,10 +21013,10 @@ async function agDashTab(tab, btn) {
 
 async function agDashLoadOverview() {
   const [earningsR, templatesR] = await Promise.all([
-    fetch(`/api/agents/me/earnings?token=${S.token}`)
+    fetch(`/api/agents/me/earnings?token=${getToken()}`)
       .then((r) => r.json())
       .catch(() => ({})),
-    fetch(`/api/agents/me/templates?token=${S.token}`)
+    fetch(`/api/agents/me/templates?token=${getToken()}`)
       .then((r) => r.json())
       .catch(() => ({ templates: [] })),
   ]);
@@ -22125,7 +21109,7 @@ async function agDashLoadOverview() {
 }
 
 async function agDashLoadTemplates() {
-  const r = await fetch(`/api/agents/me/templates?token=${S.token}`).catch(
+  const r = await fetch(`/api/agents/me/templates?token=${getToken()}`).catch(
     () => ({ ok: false }),
   );
   const d = r.ok !== false ? await r.json() : { templates: [] };
@@ -22185,7 +21169,7 @@ async function agPublishTemplate(id) {
   const r = await fetch(`/api/agents/me/templates/${id}/publish`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: S.token }),
+    body: JSON.stringify({ token: getToken() }),
   });
   const d = await r.json();
   if (d.ok) {
@@ -22205,7 +21189,7 @@ async function agDeleteTemplate(id) {
   const r = await fetch(`/api/agents/me/templates/${id}`, {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: S.token }),
+    body: JSON.stringify({ token: getToken() }),
   });
   const d = await r.json();
   if (d.ok) {
@@ -22216,10 +21200,10 @@ async function agDeleteTemplate(id) {
 
 async function agDashLoadEarnings() {
   const [earningsR, payoutsR] = await Promise.all([
-    fetch(`/api/agents/me/earnings?token=${S.token}`)
+    fetch(`/api/agents/me/earnings?token=${getToken()}`)
       .then((r) => r.json())
       .catch(() => ({})),
-    fetch(`/api/agents/me/payouts?token=${S.token}`)
+    fetch(`/api/agents/me/payouts?token=${getToken()}`)
       .then((r) => r.json())
       .catch(() => ({ payouts: [] })),
   ]);
@@ -22272,7 +21256,7 @@ async function agDashLoadEarnings() {
           .map(
             (p) => `
           <tr>
-            <td>${p.paid_at ? str(p.paid_at).slice(0, 10) : p.created_at?.slice(0, 10) || "—"}</td>
+            <td>${p.paid_at ? String(p.paid_at).slice(0, 10) : p.created_at?.slice(0, 10) || "—"}</td>
             <td style="font-weight:700">$${parseFloat(p.amount).toFixed(2)}</td>
             <td style="font-size:.72rem;color:var(--muted)">${p.stripe_transfer_id || "—"}</td>
             <td><span class="ag-status-badge ${p.status === "paid" ? "live" : "review"}">${p.status}</span></td>
@@ -22286,7 +21270,7 @@ async function agDashLoadEarnings() {
 }
 
 async function agDashLoadReviews() {
-  const r = await fetch(`/api/agents/me/reviews?token=${S.token}`).catch(
+  const r = await fetch(`/api/agents/me/reviews?token=${getToken()}`).catch(
     () => ({ ok: false }),
   );
   const d = r.ok !== false ? await r.json() : { reviews: [] };
@@ -22337,7 +21321,7 @@ async function agSaveSettings() {
   const r = await fetch("/api/agents/me", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: S.token, display_name: name, bio }),
+    body: JSON.stringify({ token: getToken(), display_name: name, bio }),
   });
   const d = await r.json();
   if (d.ok) {
@@ -22902,7 +21886,7 @@ async function agSaveTemplate(status) {
       ? parseFloat($("ab-price-ngn").value)
       : null;
   const body = {
-    token: S.token,
+    token: getToken(),
     name: d.name,
     short_description: d.short_description,
     full_description: d.full_description,
@@ -22937,7 +21921,7 @@ async function agSaveTemplate(status) {
         await fetch(`/api/agents/me/templates/${tid}/publish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: S.token }),
+          body: JSON.stringify({ token: getToken() }),
         });
       }
       showToast(
@@ -22985,7 +21969,7 @@ async function agLeaveReview(templateId) {
   fetch(`/api/agents/templates/${templateId}/review`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: S.token, rating, review_text: d.text || "" }),
+    body: JSON.stringify({ token: getToken(), rating, review_text: d.text || "" }),
   })
     .then((r) => r.json())
     .then((r) => {
@@ -23027,7 +22011,7 @@ async function agHandlePaystackReturn(reference, templateId) {
     const r = await fetch(`/api/payments/paystack/verify/${reference}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: S.token }),
+      body: JSON.stringify({ token: getToken() }),
     });
     const d = await r.json();
     if (d.ok) {
@@ -23337,7 +22321,7 @@ async function siObSaveGoal() {
   // Create goal in the same way glSaveGoal does
   try {
     await API("/api/goals/add", {
-      token: S.token,
+      token: getToken(),
       title,
       subject,
       deadline: deadline || null,
@@ -24369,17 +23353,21 @@ let _psTxnPage = 1;
 let _psTxnTotal = 0;
 
 function psGoTab(name, btn) {
+  // Prefixed pstk- (not ps-): _panels_spaces.html also has a Personal Space
+  // tab bar reusing "ps-tab-overview"/"ps-pane-overview" ids for a
+  // different feature — an unscoped $()/getElementById here previously
+  // only found the right (Paystack) element by DOM-order luck.
   _PS_TABS.forEach((t) => {
-    const tb = $("ps-tab-" + t),
-      pn = $("ps-pane-" + t);
+    const tb = $("pstk-tab-" + t),
+      pn = $("pstk-pane-" + t);
     if (tb) tb.classList.remove("on");
     if (pn) {
       pn.style.display = "none";
       pn.classList.remove("on");
     }
   });
-  const at = $("ps-tab-" + name),
-    ap = $("ps-pane-" + name);
+  const at = $("pstk-tab-" + name),
+    ap = $("pstk-pane-" + name);
   if (at) at.classList.add("on");
   if (ap) {
     ap.style.display = "flex";
@@ -24420,11 +23408,11 @@ async function psFinancialsLoad() {
 
   if (!_psConnected) {
     psGoTab("connect", null);
-    const btn = $("ps-tab-connect");
+    const btn = $("pstk-tab-connect");
     if (btn) btn.classList.add("on");
   } else {
     psGoTab("overview", null);
-    const btn = $("ps-tab-overview");
+    const btn = $("pstk-tab-overview");
     if (btn) btn.classList.add("on");
   }
 }
@@ -24969,7 +23957,7 @@ async function psDisconnect() {
     _psConnected = false;
     toast("Paystack disconnected.");
     psGoTab("connect", null);
-    const btn = $("ps-tab-connect");
+    const btn = $("pstk-tab-connect");
     if (btn) {
       document
         .querySelectorAll(".ps-tab")
@@ -25211,7 +24199,7 @@ function _reviewPopulateStats() {
 }
 
 async function reviewGenerate() {
-  if (!S.sid || !S.token) {
+  if (!S.sid || !getToken()) {
     toast("Journal your week to have a review.");
     return;
   }
@@ -25273,7 +24261,7 @@ async function reviewGenerate() {
 
   try {
     const res = await API("/api/ai/weekly-review", {
-      token: S.token,
+      token: getToken(),
       tasks_done: tasksDone,
       tasks_total: tasksTotal,
       habits_pct: habitsPct,
@@ -25364,7 +24352,7 @@ async function nlSubmit() {
     if (preview) preview.style.display = "none";
 
     try {
-      const res = await API("/api/ai/parse-intent", { token: S.token, text });
+      const res = await API("/api/ai/parse-intent", { token: getToken(), text });
       if (!res?.ok) return;
       _nlParsed = res.parsed;
       _nlShowPreview(res.parsed);
@@ -25430,7 +24418,7 @@ async function nlConfirm() {
     // Call goals API
     try {
       await API("/api/goals/add", {
-        token: S.token,
+        token: getToken(),
         title: p.title,
         subject: p.subject || "",
         deadline: p.due || "",
@@ -25502,7 +24490,7 @@ function adSave(patch) {
 async function acadAsk(message, context = "") {
   try {
     const r = await API("/api/chat", {
-      token: (window.S && S.token) || getToken() || "",
+      token: getToken(),
       message,
       context,
     });
@@ -26927,7 +25915,7 @@ function acadSelectRole(role) {
 /* ── Academic class bridge (shared lecturer<->student class) ── */
 async function acadAPI(path, body = {}) {
   return await API(path, {
-    token: (window.S && S.token) || getToken() || "",
+    token: getToken(),
     ...body,
   });
 }
@@ -28218,7 +27206,10 @@ function mktItemBtn(i) {
   if (i.type === "template")
     return `<button class="mkt-install-btn" onclick="event.stopPropagation();mktUseTemplate('${i.id}')">Use</button>`;
   const inst = mktInstalled.find((x) => x.id === i.id);
-  return `<button class="mkt-install-btn ${inst ? "mkt-install-btn--installed" : ""}" onclick="event.stopPropagation();${inst ? `mktUninstall('${i.id}')` : `mktInstall('${i.id}')`}">${inst ? "Installed ✓" : i.price > 0 ? "₦" + i.price.toLocaleString() : "Install"}</button>`;
+  // This catalogue is seed/preview content (see the "Preview" badge on the
+  // panel header) — no real checkout ever runs, so the button must never
+  // say "Buy"/show a price as if clicking it charges anything.
+  return `<button class="mkt-install-btn ${inst ? "mkt-install-btn--installed" : ""}" onclick="event.stopPropagation();${inst ? `mktUninstall('${i.id}')` : `mktInstall('${i.id}')`}">${inst ? "Installed ✓" : "Install"}</button>`;
 }
 
 function mktRenderGrid() {
@@ -28417,7 +27408,9 @@ function mktOpenDetail(id) {
         ? `<button class="mkt-install-btn mkt-btn-lg" onclick="mktUseTemplate('${item.id}')">Use template</button>`
         : (() => {
             const inst = mktInstalled.find((i) => i.id === item.id);
-            return `<button class="mkt-install-btn ${inst ? "mkt-install-btn--installed" : ""} mkt-btn-lg" onclick="${inst ? `mktUninstall('${item.id}')` : `mktInstall('${item.id}')`};mktCloseDetail()">${inst ? "✓ Installed — Remove" : item.price > 0 ? "Buy · ₦" + item.price.toLocaleString() : "Install free"}</button>`;
+            // See mktItemBtn() — no real checkout runs for this preview
+            // catalogue, so the button must never say "Buy" as if it does.
+            return `<button class="mkt-install-btn ${inst ? "mkt-install-btn--installed" : ""} mkt-btn-lg" onclick="${inst ? `mktUninstall('${item.id}')` : `mktInstall('${item.id}')`};mktCloseDetail()">${inst ? "✓ Installed — Remove" : "Install"}</button>`;
           })();
   document
     .querySelectorAll("#mktDetailModal .mkt-modal-tab")

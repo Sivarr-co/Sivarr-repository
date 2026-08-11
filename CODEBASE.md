@@ -1,6 +1,11 @@
 # SIVARR — Codebase Guide for Engineers
 > Read this first. It tells you where everything is and how it all connects.
 
+> **⚠️ The tree below describes a target split that was never carried out.**
+> `app.py` and `js/app.js` are still full monoliths; `routes/` is an empty
+> placeholder; `models.py` and `utils/` were dead code and have been removed.
+> See "Status of the split" further down for what's actually true today.
+
 ---
 
 ## Project structure
@@ -251,28 +256,23 @@ Every push to `main` triggers a Railway auto-deploy:
 
 ---
 
-## Status of the split (as of June 2026)
+## Status of the split (corrected 2026-08, after a full line-by-line audit)
+
+The split described above never actually happened, and the table that used to
+be here claimed otherwise. Ground truth, verified by reading every file:
 
 | File | Status |
 |---|---|
-| `config.py` | ✅ Complete — all constants extracted |
-| `models.py` | ✅ Complete — all Pydantic models extracted |
-| `utils/auth.py` | ✅ Complete |
-| `utils/email.py` | ✅ Complete — all email templates extracted |
-| `utils/storage.py` | ✅ Complete — all storage functions extracted |
-| `utils/rate_limit.py` | ✅ Complete |
-| `utils/helpers.py` | ✅ Complete — sanitize, validate, Gemini calls |
-| `routes/__init__.py` | ✅ Complete — documents all URL ownership |
-| `routes/billing.py` | 🔄 In progress — handlers in app.py lines 5660–5900 |
-| `routes/community.py` | 🔄 In progress — handlers in app.py lines 5833–5970 |
-| `routes/ai.py` | 🔄 In progress — handlers in app.py lines 5137–5280 |
-| `routes/auth.py` | 🔄 In progress — handlers in app.py lines 1455–1730 |
-| `routes/org.py` | 🔄 In progress — handlers in app.py lines 4486–5060 |
-| `routes/academic.py` | 🔄 In progress — handlers in app.py lines 2651–3590 |
-| `routes/admin.py` | 🔄 In progress — handlers in app.py lines 2196–2530 |
-| `routes/pages.py` | 🔄 In progress — handlers in app.py lines 1403–1450 |
-| `app.py` | 🔄 Transitional — still contains all handlers pending route extraction |
-| `js/core/*.js` | 📋 Mapped in js/core/README.md — pending extraction from app.js |
-| `js/features/*.js` | 📋 Mapped in js/features/README.md — pending extraction from app.js |
-| `css/base/variables.css` | ✅ Complete — design tokens extracted |
-| `css/components/` | 📋 Mapped in css/README.md — pending extraction from styles.css |
+| `config.py` | ✅ Real — all constants live here, correctly imported by app.py |
+| `database.py` | ✅ Real — all DB queries live here, correctly imported by app.py |
+| `models.py` | ❌ Removed — was never imported anywhere; app.py has always defined its own inline Pydantic models instead |
+| `utils/*.py` | ❌ Removed — was never imported anywhere; app.py has its own separate implementations of session/auth, email, storage, and rate-limiting (some of them better, e.g. Redis-backed lockout that `utils/auth.py`'s in-memory copy didn't have) |
+| `routes/` | 🔲 Not started — `routes/__init__.py` is a 22-line placeholder; every endpoint (250+) is still a `@app.get`/`@app.post` directly in `app.py`, which is genuinely the whole backend, not transitional |
+| `app.py` | This **is** the backend — 12,800+ lines, not a placeholder awaiting extraction |
+| `js/core/*.js`, `js/features/*.js` | 🔲 Not started — only README.md files exist in these directories; `js/app.js` (30,000+ lines) is genuinely the whole frontend |
+| `css/base/variables.css` | ❌ Removed — was dead code: not linked from any template, and its token values actively conflicted with the real tokens in `css/base.css` |
+| `css/components/` | 🔲 Not started — `css/panels.css` (18,000+ lines) holds all component styling |
+
+If you're planning any of these splits for real, treat this table as the
+starting point, not the aspirational one above it — the previous version of
+this doc materially overstated how far along it was.

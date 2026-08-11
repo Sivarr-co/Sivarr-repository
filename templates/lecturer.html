@@ -683,7 +683,13 @@ function showDash() {
   refreshAll();
 }
 
-function lecSignOut() {
+async function lecSignOut() {
+  try {
+    await fetch('/api/lecturer/logout', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({token: TOKEN})
+    });
+  } catch {}
   localStorage.removeItem('sivarr_lec_token');
   localStorage.removeItem('sivarr_lec_name');
   location.reload();
@@ -1646,66 +1652,6 @@ function toast(msg, ms=2500) {
   const el = $('toast'); el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), ms);
-}
-
-// ═══════════════════ LECTURER AI CHAT ═══════════════════
-
-let LEC_AI_HISTORY = [];
-
-function lecAIPrompt(text) {
-  const inp = $('lec-ai-input');
-  if (inp) { inp.value = text; inp.focus(); inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 120) + 'px'; }
-}
-
-function lecAIAddMsg(role, text) {
-  const welcome = $('lec-ai-welcome');
-  const msgs    = $('lec-ai-msgs');
-  if (welcome) welcome.style.display = 'none';
-  if (msgs)    msgs.style.display    = 'flex';
-
-  const div = document.createElement('div');
-  div.className = `lec-msg ${role}`;
-  const initials = role === 'sr' ? 'Sr' : NAME ? NAME[0].toUpperCase() : 'L';
-  div.innerHTML = `
-    <div class="lec-av ${role === 'sr' ? 'sr' : 'lec'}">${initials}</div>
-    <div class="lec-bubble">${esc(text)}</div>`;
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
-  return div;
-}
-
-async function lecAISend() {
-  const inp  = $('lec-ai-input');
-  const btn  = $('lec-ai-send');
-  const msg  = inp?.value.trim();
-  if (!msg) return;
-
-  inp.value = ''; inp.style.height = 'auto';
-  btn.disabled = true;
-  lecAIAddMsg('lec', msg);
-  LEC_AI_HISTORY.push({ role: 'user', content: msg });
-
-  // Typing indicator
-  const typing = lecAIAddMsg('sr', '...');
-  typing.querySelector('.lec-bubble').style.color = 'var(--muted)';
-
-  try {
-    const r = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sid:     'lecturer_' + (NAME || 'default').toLowerCase().replace(/\s+/g,'_'),
-        message: msg,
-      }),
-    });
-    const d = await r.json();
-    typing.remove();
-    lecAIAddMsg('sr', d.reply || d.response || 'Could not get a response — try again.');
-  } catch(e) {
-    typing.remove();
-    lecAIAddMsg('sr', 'Connection error — check your internet and try again.');
-  }
-  btn.disabled = false;
 }
 
 </script>
