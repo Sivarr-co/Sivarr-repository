@@ -2005,13 +2005,13 @@ body.auth-screen #login-screen {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 16px rgba(13, 122, 95, 0.5);
+  box-shadow: 0 0 16px rgba(65, 7, 107, 0.5);
   transition:
     box-shadow 0.2s,
     transform 0.15s;
 }
 .mob-ai-btn.active .mob-ai-orb {
-  box-shadow: 0 0 24px rgba(13, 122, 95, 0.7);
+  box-shadow: 0 0 24px rgba(65, 7, 107, 0.7);
   transform: translateY(-2px);
 }
 .mob-ai-btn .mob-ai-orb i {
@@ -2042,7 +2042,7 @@ body.auth-screen #login-screen {
   justify-content: center;
   color: #fff;
   font-size: 1.4rem;
-  box-shadow: 0 4px 16px rgba(13, 122, 95, 0.45);
+  box-shadow: 0 4px 16px rgba(65, 7, 107, 0.45);
   transition:
     transform 0.15s,
     box-shadow 0.15s;

@@ -29,12 +29,17 @@ comments in `panels.css` and `layout.css`). Treat this file's history as
 unreliable — if you touch it, diff the rendered page, not just the source.
 
 ## Design system quick reference (verified against the live `:root` in base.css)
-- Primary/brand colour: `var(--teal)` = `#41076B` (purple — rebranded from
-  the earlier teal/green `#0D7A5F`; some older docs and `mobile/src/theme.ts`
-  still reference the old colour and haven't been updated)
-- `--accent` / `--accent2` are aliases for `--teal`, and are currently
-  identical values with no dark-mode re-tint (a real bug, not intentional —
-  see the audit notes)
+- Primary/brand colour: `var(--purple)` = `#41076B` light / `#8b80f0` dark.
+  SIVARR's brand is purple-only — `--teal`/`--teal2`/`--teal3`/`--teal4` are
+  kept only as aliases of `--purple`/etc (hundreds of `var(--teal)` call
+  sites throughout `panels.css`), not a distinct colour. Dark mode used to
+  have a genuinely different teal-green (`#0fdbad`) here — that was the
+  actual leftover pre-rebrand colour, removed 2026-08. `mobile/src/theme.ts`
+  and the transactional email templates in `app.py` were also still on the
+  old teal/purple pair (`#0D7A5F`/`#534AB7`) — fixed at the same time.
+- `--accent` / `--accent2` are aliases for `--purple`/a secondary purple
+  shade — previously identical values with no dark-mode re-tint (a real
+  bug), now fixed: `#41076B`/`#7B2CAD` light, `#8b80f0`/`#6458cc` dark.
 - Font: `var(--font)` / `var(--font-display)` = Plus Jakarta Sans (self-hosted)
 - Shape: `var(--radius)` = 9px, `var(--radius2)` = 14px, `var(--radius3)` = 18px
 - Dark mode: `[data-theme="dark"]` on `<body>`, redefining the same token set

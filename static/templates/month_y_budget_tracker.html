@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --teal:#0D7A5F; --purple:#534AB7; --grad:linear-gradient(135deg,#0D7A5F,#534AB7);
+    --purple:#41076B; --teal:var(--purple); --grad:linear-gradient(135deg,#41076B,#7B2CAD);
     --bg:#F7F8FA; --card:#fff; --ink:#101828; --muted:#667085; --line:#EAECF0;
     --green:#027A48; --red:#B42318;
   }
@@ -85,7 +85,7 @@
 
 <script>
   document.getElementById('mlabel').textContent='— '+new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'});
-  const CATCOL={Income:'#027A48',Food:'#DC6803',Transport:'#534AB7',Bills:'#B42318',Shopping:'#0D7A5F',Other:'#667085'};
+  const CATCOL={Income:'#027A48',Food:'#DC6803',Transport:'#41076B',Bills:'#B42318',Shopping:'#7B2CAD',Other:'#667085'};
   let tx=[
     {n:'Salary',c:'Income',a:450000},
     {n:'Rent',c:'Bills',a:-120000},

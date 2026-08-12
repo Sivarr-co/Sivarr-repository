@@ -1100,7 +1100,7 @@ def _email_reset_html(reset_url: str) -> str:
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#41076B;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Reset your password</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 28px">
@@ -1108,7 +1108,7 @@ def _email_reset_html(reset_url: str) -> str:
     Click below to choose a new one. This link expires in <strong>1 hour</strong>.
   </p>
   <a href="{reset_url}"
-     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+     style="display:inline-block;background:#41076B;color:#fff;padding:13px 32px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
     Reset my password →
   </a>
@@ -1128,7 +1128,7 @@ def _email_verify_html(verify_url: str, name: str) -> str:
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#41076B;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Welcome, {name} 👋</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 28px">
@@ -1137,7 +1137,7 @@ def _email_verify_html(verify_url: str, name: str) -> str:
     This link expires in <strong>24 hours</strong>.
   </p>
   <a href="{verify_url}"
-     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+     style="display:inline-block;background:#41076B;color:#fff;padding:13px 32px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
     Confirm my email →
   </a>
@@ -1161,7 +1161,7 @@ def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#41076B;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">You're invited to join <strong>{org_name}</strong></h2>
   <p style="color:#555;line-height:1.6;margin:0 0 8px">
@@ -1172,7 +1172,7 @@ def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role
     Accept below to jump in — this invite expires in <strong>7 days</strong>.
   </p>
   <a href="{join_url}"
-     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+     style="display:inline-block;background:#41076B;color:#fff;padding:13px 32px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
     Accept Invite &amp; Join {org_name} →
   </a>
@@ -1200,7 +1200,7 @@ def _email_welcome_html(name: str) -> str:
 
         <!-- Logo -->
         <tr><td style="padding-bottom:32px">
-          <span style="font-size:1.4rem;font-weight:900;color:#0D7A5F;letter-spacing:-.04em">Sivarr</span>
+          <span style="font-size:1.4rem;font-weight:900;color:#41076B;letter-spacing:-.04em">Sivarr</span>
         </td></tr>
 
         <!-- Greeting -->
@@ -1305,7 +1305,7 @@ def _email_digest_html(name: str, tasks: list, goals: list) -> str:
     task_rows = ""
     for t in (due_today + overdue)[:6]:
         label = "due today" if t.get("date") == today else f'overdue ({t.get("date","")})'
-        colour = "#0D7A5F" if t.get("date") == today else "#E8614A"
+        colour = "#41076B" if t.get("date") == today else "#E8614A"
         task_rows += (
             f'<li style="margin-bottom:8px;color:#1a1a1a">'
             f'{t["title"]}'
@@ -1331,7 +1331,7 @@ def _email_digest_html(name: str, tasks: list, goals: list) -> str:
         goal_rows += (
             f'<li style="margin-bottom:8px;color:#1a1a1a">'
             f'{g["title"]}'
-            f'<span style="color:#534AB7;font-size:.78rem;margin-left:6px">'
+            f'<span style="color:#7B2CAD;font-size:.78rem;margin-left:6px">'
             f'deadline {label} · {pct}% done</span>'
             f'</li>'
         )
@@ -1348,11 +1348,11 @@ def _email_digest_html(name: str, tasks: list, goals: list) -> str:
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:40px auto;padding:24px;color:#1a1a1a;background:#fff">
   <div style="margin-bottom:28px;display:flex;align-items:center;gap:10px">
-    <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#0D7A5F,#534AB7);
+    <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#41076B,#7B2CAD);
                 display:inline-flex;align-items:center;justify-content:center">
       <span style="color:#fff;font-weight:900;font-size:.75rem">S</span>
     </div>
-    <span style="font-size:1.1rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
+    <span style="font-size:1.1rem;font-weight:800;color:#41076B;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 6px;font-size:1.35rem;font-weight:800;letter-spacing:-.02em">
     Good morning, {name} ☀️
@@ -1363,7 +1363,7 @@ def _email_digest_html(name: str, tasks: list, goals: list) -> str:
   {task_section}
   {goal_section}
   <a href="{BASE_URL}/app"
-     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+     style="display:inline-block;background:#41076B;color:#fff;padding:13px 32px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem;
             letter-spacing:-.01em">
     Open Sivarr →
@@ -1386,7 +1386,7 @@ def _email_task_reminder_html(name: str, tasks: list) -> str:
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#41076B;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Tasks due soon, {name}</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 16px">
@@ -1394,7 +1394,7 @@ def _email_task_reminder_html(name: str, tasks: list) -> str:
   </p>
   <ul style="padding-left:20px;margin:0 0 28px;line-height:1.8">{rows}</ul>
   <a href="{BASE_URL}"
-     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+     style="display:inline-block;background:#41076B;color:#fff;padding:13px 32px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
     Open Tasks
   </a>
@@ -1411,7 +1411,7 @@ def _email_billing_receipt_html(name: str, plan: str, amount: str, ref: str) -> 
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:28px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#41076B;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Payment confirmed ✓</h2>
   <p style="color:#555;line-height:1.6;margin:0 0 8px">Thanks, {name} — your payment went through and your subscription is active. Here's your receipt:</p>
@@ -1424,7 +1424,7 @@ def _email_billing_receipt_html(name: str, plan: str, amount: str, ref: str) -> 
         <td style="padding:10px 0;font-size:.78rem;color:#555">{ref}</td></tr>
   </table>
   <a href="{BASE_URL}"
-     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+     style="display:inline-block;background:#41076B;color:#fff;padding:13px 32px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.95rem">
     Open Sivarr
   </a>
@@ -1446,18 +1446,18 @@ def _email_org_mention_html(recipient_name: str, sender_name: str, org_name: str
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:24px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#41076B;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 6px;font-size:1.3rem;font-weight:800">You were mentioned, {first}</h2>
   <p style="color:#666;font-size:.9rem;margin:0 0 20px">
     <strong>{sender_name}</strong> mentioned you in <strong>#{channel}</strong> · {org_name}
   </p>
-  <div style="background:#f6f6f6;border-left:3px solid #0D7A5F;border-radius:4px;
+  <div style="background:#f6f6f6;border-left:3px solid #41076B;border-radius:4px;
               padding:14px 16px;margin-bottom:28px;font-size:.95rem;line-height:1.6;color:#333">
     {safe_preview}
   </div>
   <a href="{BASE_URL}/app"
-     style="display:inline-block;background:#0D7A5F;color:#fff;padding:12px 28px;
+     style="display:inline-block;background:#41076B;color:#fff;padding:12px 28px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem">
     View in Sivarr →
   </a>
@@ -1482,9 +1482,9 @@ def _email_org_announcement_html(recipient_name: str, org_name: str,
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:24px">
-    <span style="font-size:1.3rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
+    <span style="font-size:1.3rem;font-weight:800;color:#41076B;letter-spacing:-.03em">Sivarr</span>
   </div>
-  <div style="font-size:.75rem;font-weight:700;color:#534AB7;text-transform:uppercase;
+  <div style="font-size:.75rem;font-weight:700;color:#7B2CAD;text-transform:uppercase;
               letter-spacing:.06em;margin-bottom:8px">📢 Announcement · {org_name}</div>
   <h2 style="margin:0 0 6px;font-size:1.3rem;font-weight:800">{title}</h2>
   <p style="color:#888;font-size:.82rem;margin:0 0 20px">Posted by {author_name}</p>
@@ -1493,7 +1493,7 @@ def _email_org_announcement_html(recipient_name: str, org_name: str,
   </p>
   {"<div style='background:#f6f6f6;border-radius:8px;padding:16px;margin-bottom:28px;font-size:.95rem;line-height:1.7;color:#333'>" + safe_body + "</div>" if body else ""}
   <a href="{BASE_URL}/app"
-     style="display:inline-block;background:#534AB7;color:#fff;padding:12px 28px;
+     style="display:inline-block;background:#7B2CAD;color:#fff;padding:12px 28px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem">
     View Announcement →
   </a>
@@ -1516,7 +1516,7 @@ def _email_org_progress_html(recipient_name: str, org_name: str, period: str,
         f'<tr>'
         f'<td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#333;font-size:.88rem">{g.get("title","")}</td>'
         f'<td style="padding:8px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-size:.88rem">'
-        f'<span style="color:#0D7A5F;font-weight:700">{g.get("progress",0)}%</span></td>'
+        f'<span style="color:#41076B;font-weight:700">{g.get("progress",0)}%</span></td>'
         f'</tr>'
         for g in goals[:5]
     ) if goals else '<tr><td colspan="2" style="padding:8px 0;color:#aaa;font-size:.85rem">No active goals this week.</td></tr>'
@@ -1531,13 +1531,13 @@ def _email_org_progress_html(recipient_name: str, org_name: str, period: str,
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:40px auto;padding:24px;color:#1a1a1a">
   <div style="margin-bottom:24px;display:flex;align-items:center;gap:10px">
-    <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#0D7A5F,#534AB7);
+    <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#41076B,#7B2CAD);
                 display:inline-flex;align-items:center;justify-content:center">
       <span style="color:#fff;font-weight:900;font-size:.75rem">S</span>
     </div>
-    <span style="font-size:1.1rem;font-weight:800;color:#0D7A5F;letter-spacing:-.03em">Sivarr</span>
+    <span style="font-size:1.1rem;font-weight:800;color:#41076B;letter-spacing:-.03em">Sivarr</span>
   </div>
-  <div style="font-size:.75rem;font-weight:700;color:#0D7A5F;text-transform:uppercase;
+  <div style="font-size:.75rem;font-weight:700;color:#41076B;text-transform:uppercase;
               letter-spacing:.06em;margin-bottom:8px">Weekly Progress Report · {org_name}</div>
   <h2 style="margin:0 0 4px;font-size:1.35rem;font-weight:800">Here's how the team did, {first} 📊</h2>
   <p style="color:#888;font-size:.82rem;margin:0 0 28px">{period}</p>
@@ -1546,11 +1546,11 @@ def _email_org_progress_html(recipient_name: str, org_name: str, period: str,
   <h3 style="font-size:.88rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
              color:#888;margin:0 0 10px">Task Completion</h3>
   <div style="background:#f0f0f0;border-radius:6px;height:10px;overflow:hidden;margin-bottom:8px">
-    <div style="width:{bar_w}%;height:100%;background:linear-gradient(90deg,#0D7A5F,#534AB7);border-radius:6px"></div>
+    <div style="width:{bar_w}%;height:100%;background:linear-gradient(90deg,#41076B,#7B2CAD);border-radius:6px"></div>
   </div>
   <p style="font-size:.88rem;color:#555;margin:0 0 28px">
     <strong>{tasks_done}</strong> of <strong>{tasks_total}</strong> tasks completed this week
-    <span style="color:#0D7A5F;font-weight:700;margin-left:6px">({completion_pct}%)</span>
+    <span style="color:#41076B;font-weight:700;margin-left:6px">({completion_pct}%)</span>
   </p>
 
   <!-- Goals -->
@@ -1566,7 +1566,7 @@ def _email_org_progress_html(recipient_name: str, org_name: str, period: str,
   <ul style="padding-left:18px;margin:0 0 28px;line-height:1.8">{contrib_rows}</ul>
 
   <a href="{BASE_URL}/app"
-     style="display:inline-block;background:#0D7A5F;color:#fff;padding:13px 32px;
+     style="display:inline-block;background:#41076B;color:#fff;padding:13px 32px;
             border-radius:9px;text-decoration:none;font-weight:700;font-size:.92rem">
     Open Sivarr →
   </a>
@@ -9221,7 +9221,7 @@ async def org_project_create(data: dict):
     if not name: raise HTTPException(400, "Project name required.")
     project_id = uuid.uuid4().hex[:20]
     desc  = sanitize_text(str(data.get("description", "")), 500)
-    color = sanitize_text(str(data.get("color", "#0D7A5F")), 20)
+    color = sanitize_text(str(data.get("color", "#41076B")), 20)
     ok = db.create_org_project(org["id"], project_id, name, sid, desc, color)
     if not ok: raise HTTPException(500, "Failed to create project.")
     return {"ok": True, "project_id": project_id}

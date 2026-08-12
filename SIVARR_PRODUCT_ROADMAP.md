@@ -261,7 +261,7 @@ The `@app.get("/")` route serves `index.html` (the app) directly to everyone, lo
    - Testimonials: placeholder for now, real ones as they come in
    - Footer: links to Terms, Privacy, Twitter/X, Contact
 
-5. The design language is already established — dark premium aesthetic, teal (#0D7A5F) primary, Syne font for headings
+5. The design language is already established — dark premium aesthetic, purple (#41076B) primary, Syne font for headings
 6. No external CSS framework needed — build on the existing design system
 
 **Effort estimate:** 2–3 days for v1. Can be iterated rapidly after launch.

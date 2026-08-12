@@ -6,14 +6,17 @@
 
 /* ── DESIGN TOKENS ─────────────────────────────────────────── */
 :root {
-  /* Brand palette */
-  --teal: #41076b;
-  --teal2: rgba(65, 7, 107, 0.12);
-  --teal3: rgba(65, 7, 107, 0.22);
-  --teal4: #2d0454;
+  /* Brand palette — SIVARR's default is purple. --teal* is kept only as an
+     alias of --purple* (hundreds of call sites throughout panels.css still
+     reference var(--teal)) so nothing has to be renamed everywhere, but no
+     distinct teal hue renders anywhere in the app anymore. */
   --purple: #41076b;
   --purple2: rgba(65, 7, 107, 0.12);
   --purple3: #2d0454;
+  --teal: var(--purple);
+  --teal2: var(--purple2);
+  --teal3: rgba(65, 7, 107, 0.22);
+  --teal4: var(--purple3);
   --coral: #e8614a;
   --coral2: #fdf0ed;
   --coral3: #993c1d;
@@ -50,8 +53,8 @@
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow2: 0 4px 16px rgba(0, 0, 0, 0.08);
   --shadow3: 0 8px 32px rgba(0, 0, 0, 0.12);
-  --glow-teal: 0 0 20px rgba(13, 122, 95, 0.25);
-  --glow-purple: 0 0 20px rgba(83, 74, 183, 0.25);
+  --glow-purple: 0 0 20px rgba(65, 7, 107, 0.25);
+  --glow-teal: var(--glow-purple);
 
   /* Shape */
   --radius: 9px;
@@ -75,8 +78,9 @@
   --transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
   --spring: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  /* AI gradient */
-  --ai-grad: linear-gradient(135deg, #41076b 0%, #41076b 100%);
+  /* AI gradient — was also flat (both stops #41076b), same bug as --accent/
+     --accent2 below. */
+  --ai-grad: linear-gradient(135deg, #41076b 0%, #7b2cad 100%);
   --ai-glow: 0 0 32px rgba(65, 7, 107, 0.28), 0 0 12px rgba(65, 7, 107, 0.18);
 
   /* Legacy compat */
@@ -123,13 +127,18 @@
   --shadow2: 0 4px 20px rgba(0, 0, 0, 0.6);
   --shadow3: 0 12px 40px rgba(0, 0, 0, 0.7);
 
-  --teal: #0fdbad;
-  --teal2: rgba(15, 219, 173, 0.1);
-  --teal3: rgba(15, 219, 173, 0.2);
-  --teal4: #0ab58f;
+  /* Dark mode's --teal used to be a genuinely different colour (#0fdbad,
+     green-teal) from --purple — unlike light mode, where they'd already
+     converged to the same hex. That's exactly the leftover pre-rebrand
+     teal Hunter asked to remove: aliased to purple here too now, so the
+     brand is consistently purple-only in both themes. */
   --purple: #8b80f0;
   --purple2: rgba(139, 128, 240, 0.12);
   --purple3: #6458cc;
+  --teal: var(--purple);
+  --teal2: var(--purple2);
+  --teal3: rgba(139, 128, 240, 0.2);
+  --teal4: var(--purple3);
 
   --green3: #34d399;
   --red3: #f87171;
@@ -142,18 +151,22 @@
   --blue2: rgba(24, 95, 165, 0.1);
   --pink2: rgba(153, 53, 86, 0.1);
 
-  --ai-grad: linear-gradient(135deg, #0fdbad 0%, #8b80f0 100%);
+  /* Was teal → purple (#0fdbad → #8b80f0) — the one place in dark mode
+     where --teal held a genuinely different colour from --purple, i.e.
+     exactly the leftover pre-rebrand teal. Purple-only two-tone now. */
+  --ai-grad: linear-gradient(135deg, #8b80f0 0%, #6458cc 100%);
   --ai-glow:
-    0 0 32px rgba(15, 219, 173, 0.25), 0 0 12px rgba(139, 128, 240, 0.2);
-  --glow-teal: 0 0 20px rgba(15, 219, 173, 0.3);
+    0 0 32px rgba(139, 128, 240, 0.25), 0 0 12px rgba(139, 128, 240, 0.2);
   --glow-purple: 0 0 20px rgba(139, 128, 240, 0.3);
+  --glow-teal: var(--glow-purple);
 
   /* --accent/--accent2 previously had no dark-mode entry at all, so every
      element using them (see the light-mode comment above) stayed the
-     light-mode purple even after switching to dark. Mirrors --ai-grad's
-     existing dark-mode pairing (teal → purple) for consistency. */
-  --accent: #0fdbad;
-  --accent2: #8b80f0;
+     light-mode purple even after switching to dark. Purple-only two-tone,
+     matching --ai-grad above (this used to mirror --ai-grad's old teal →
+     purple pairing — no longer, per "remove teal, purple is default"). */
+  --accent: #8b80f0;
+  --accent2: #6458cc;
 
   --surface: var(--bg2);
   --card: var(--bg2);
@@ -239,11 +252,11 @@ h3,
 }
 
 ::selection {
-  background: rgba(13, 122, 95, 0.25);
+  background: rgba(65, 7, 107, 0.25);
   color: var(--text1);
 }
 [data-theme="dark"] ::selection {
-  background: rgba(15, 219, 173, 0.2);
+  background: rgba(139, 128, 240, 0.2);
 }
 
 :focus-visible {
@@ -362,12 +375,12 @@ h3,
   width: 104px;
   height: 104px;
   overflow: visible;
-  filter: drop-shadow(0 0 9px rgba(13, 122, 95, 0.4));
+  filter: drop-shadow(0 0 9px rgba(65, 7, 107, 0.4));
   animation: sivBootBreathe 2.8s ease-in-out infinite;
 }
 .sb-draw {
   fill: none;
-  stroke: var(--teal, #0d7a5f);
+  stroke: var(--purple, #41076b);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 1;
@@ -412,11 +425,11 @@ h3,
   0%,
   100% {
     transform: scale(1);
-    filter: drop-shadow(0 0 2px rgba(13, 122, 95, 0.25));
+    filter: drop-shadow(0 0 2px rgba(65, 7, 107, 0.25));
   }
   50% {
     transform: scale(1.07);
-    filter: drop-shadow(0 0 18px rgba(13, 122, 95, 0.55));
+    filter: drop-shadow(0 0 18px rgba(65, 7, 107, 0.55));
   }
 }
 .siv-boot-word {

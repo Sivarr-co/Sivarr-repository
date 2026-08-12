@@ -543,7 +543,7 @@ CREATE TABLE IF NOT EXISTS org_projects (
     name         TEXT NOT NULL,
     description  TEXT DEFAULT '',
     status       TEXT DEFAULT 'active',
-    color        TEXT DEFAULT '#0D7A5F',
+    color        TEXT DEFAULT '#41076B',
     created_by   TEXT REFERENCES users(sid) ON DELETE SET NULL,
     created_at   TIMESTAMPTZ DEFAULT NOW(),
     updated_at   TIMESTAMPTZ DEFAULT NOW()
@@ -3095,7 +3095,7 @@ def get_org_projects(org_id: str, limit: int = 100) -> list:
 
 
 def create_org_project(org_id: str, project_id: str, name: str, created_by: str,
-                       description: str = "", color: str = "#0D7A5F") -> bool:
+                       description: str = "", color: str = "#41076B") -> bool:
     conn = _get_conn()
     if not conn: return False
     try:
@@ -3749,7 +3749,7 @@ _SEED_TEMPLATES = [
         "category": "workspace",
         "price": 0.0,
         "price_ngn": 0.0,
-        "thumbnail_color": "#0D7A5F",
+        "thumbnail_color": "#41076B",
         "tags": ["planning", "productivity", "schedule"],
     },
     {
@@ -3774,7 +3774,7 @@ _SEED_TEMPLATES = [
         "short_description": "Generates a daily task list for corps members from PPA duties, CDS schedule, and personal goals.",
         "category": "workspace",
         "price": 0.0, "price_ngn": 0.0,
-        "thumbnail_color": "#0D7A5F",
+        "thumbnail_color": "#41076B",
         "tags": ["nysc", "tasks", "daily-planning"],
         "download_count": 234, "avg_rating": 4.7,
     },

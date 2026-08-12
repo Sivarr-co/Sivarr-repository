@@ -6211,8 +6211,8 @@ function stInit() {
 
   // ── Colour wheel — restore from saved accent ──
   stWheelInit();
-  const _acc = localStorage.getItem("sivarr_accent") || "#7C3AED";
-  const _acc2 = localStorage.getItem("sivarr_accent2") || "#534AB7";
+  const _acc = localStorage.getItem("sivarr_accent") || "#41076B";
+  const _acc2 = localStorage.getItem("sivarr_accent2") || "#7B2CAD";
   const _hsl = _hexToHsl(_acc);
   _stWheelH = _hsl.h;
   _stWheelS = _hsl.s;
@@ -6535,14 +6535,17 @@ const _ACCENT_MAP = {
     purple2: "rgba(124,58,237,.12)",
     glow: "0 0 20px rgba(79,110,247,.3)",
   },
-  "#0D7A5F": {
-    teal: "#0D7A5F",
-    teal2: "rgba(13,122,95,.12)",
-    teal3: "rgba(13,122,95,.22)",
-    teal4: "#085041",
-    purple: "#534AB7",
-    purple2: "rgba(83,74,183,.12)",
-    glow: "0 0 20px rgba(13,122,95,.3)",
+  // "Sivarr" default swatch (see the Settings preset button) — was the old
+  // pre-rebrand teal (#0D7A5F/#534AB7); matches base.css's actual current
+  // default (--accent/--accent2) now.
+  "#41076b": {
+    teal: "#41076b",
+    teal2: "rgba(65,7,107,.12)",
+    teal3: "rgba(65,7,107,.22)",
+    teal4: "#2d0454",
+    purple: "#7b2cad",
+    purple2: "rgba(123,44,173,.12)",
+    glow: "0 0 20px rgba(65,7,107,.3)",
   },
   "#06b6d4": {
     teal: "#06b6d4",
@@ -6558,8 +6561,8 @@ const _ACCENT_MAP = {
     teal2: "rgba(16,185,129,.12)",
     teal3: "rgba(16,185,129,.22)",
     teal4: "#059669",
-    purple: "#0D7A5F",
-    purple2: "rgba(13,122,95,.12)",
+    purple: "#7c3aed",
+    purple2: "rgba(124,58,237,.12)",
     glow: "0 0 20px rgba(16,185,129,.3)",
   },
   "#f59e0b": {
@@ -6788,7 +6791,10 @@ function stPickPreset(c1, c2, el) {
   toast("Theme colour updated ✓");
 }
 function stResetAppearance() {
-  stApplyColor("#41076b", "#41076b", true);
+  // Was flat (#41076b, #41076b) — same bug as the CSS --accent/--accent2
+  // duplicate-value bug: any two-tone gradient using both stops rendered
+  // as a solid colour. Matches base.css's actual default now.
+  stApplyColor("#41076b", "#7b2cad", true);
   toast("Reset to Sivarr default");
 }
 
@@ -8451,6 +8457,50 @@ function pushRecentPanel(panel) {
   } catch (e) {}
 }
 
+// ── Sidebar section collapse: Pinned (hides fully) + Recents (collapses
+// to just the single most-recent item instead of hiding) ────────────────
+function _favsCollapsed() {
+  try {
+    return localStorage.getItem("sivarr_sb_favs_collapsed") === "1";
+  } catch (e) {
+    return false;
+  }
+}
+function _recentsCollapsed() {
+  try {
+    return localStorage.getItem("sivarr_sb_recents_collapsed") === "1";
+  } catch (e) {
+    return false;
+  }
+}
+function sbTogglePinned() {
+  const grp = $("sb-favs"),
+    caret = $("sb-favs-caret");
+  if (!grp) return;
+  const collapsed = !grp.classList.contains("collapsed");
+  grp.classList.toggle("collapsed", collapsed);
+  if (caret) caret.classList.toggle("collapsed", collapsed);
+  try {
+    localStorage.setItem("sivarr_sb_favs_collapsed", collapsed ? "1" : "0");
+  } catch (e) {}
+}
+// Renders Recents at whatever depth the collapse state calls for — used on
+// initial render and on every nav() so a collapsed Recents section stays
+// collapsed (showing just the latest visit) as the user keeps browsing.
+function _renderRecentsSection() {
+  const all = getRecentPanels();
+  _navRenderSec("sgi-recents", _recentsCollapsed() ? all.slice(0, 1) : all);
+}
+function sbToggleRecents() {
+  const collapsed = !_recentsCollapsed();
+  try {
+    localStorage.setItem("sivarr_sb_recents_collapsed", collapsed ? "1" : "0");
+  } catch (e) {}
+  const caret = $("sgi-recents-caret");
+  if (caret) caret.classList.toggle("collapsed", collapsed);
+  _renderRecentsSection();
+}
+
 // In the sidebar right now? Core tabs always are; the rest depend on the user's store.
 function isNavTab(panel) {
   return NAV_CORE.includes(panel) || getNavTabs().includes(panel);
@@ -8504,8 +8554,14 @@ function _navRenderSec(hostId, panels) {
 }
 function navRenderSidebar() {
   _navRenderSec("sb-favs", NAV_CORE);
-  // Last 3 visited panels — see pushRecentPanel(), called from nav().
-  _navRenderSec("sgi-recents", getRecentPanels());
+  // Restore collapse state — Pinned hides fully, Recents drops to 1 item.
+  const favsCollapsed = _favsCollapsed();
+  $("sb-favs")?.classList.toggle("collapsed", favsCollapsed);
+  $("sb-favs-caret")?.classList.toggle("collapsed", favsCollapsed);
+  $("sgi-recents-caret")?.classList.toggle("collapsed", _recentsCollapsed());
+  // Last 3 visited panels (or just the latest, if collapsed) — see
+  // pushRecentPanel(), called from nav().
+  _renderRecentsSection();
   // Tabs starred via the ⌘K palette (toggleNavTab/getNavTabs) — previously
   // saved correctly but never rendered anywhere in the sidebar. Exclude
   // "connect"-section panels: those are always shown below regardless of
@@ -12864,8 +12920,8 @@ function nav(name, btn) {
   pushRecentPanel(name);
   // Cheap, targeted re-render — just this section, not the whole sidebar —
   // so Recents updates live on every navigation, not just on login/star/etc.
-  if (typeof _navRenderSec === "function")
-    _navRenderSec("sgi-recents", getRecentPanels());
+  // Respects collapse state (see sbToggleRecents()).
+  if (typeof _renderRecentsSection === "function") _renderRecentsSection();
   if (typeof cmdPushRecent === "function") cmdPushRecent(name);
   // Leaving the org space — tear down the live SSE + presence (it is kept alive
   // across all org tabs, so only a full nav-away should close it).
@@ -16103,8 +16159,8 @@ function docExportPdf() {
     .write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
     <style>body{font-family:Georgia,serif;max-width:680px;margin:40px auto;color:#1a1a2e;line-height:1.75;font-size:16px}
     h1{font-size:2rem;font-weight:800;margin:1.5rem 0 .5rem}h2{font-size:1.4rem;font-weight:700;margin:1.2rem 0 .5rem}
-    h3{font-size:1.15rem;font-weight:700;margin:1rem 0 .4rem}blockquote{border-left:3px solid #0D7A5F;padding:8px 16px;
-    margin:1rem 0;background:#f0faf6}pre{background:#1a1a2e;color:#e2e8f0;padding:16px;border-radius:8px;overflow-x:auto}
+    h3{font-size:1.15rem;font-weight:700;margin:1rem 0 .4rem}blockquote{border-left:3px solid #41076B;padding:8px 16px;
+    margin:1rem 0;background:#f5f0fa}pre{background:#1a1a2e;color:#e2e8f0;padding:16px;border-radius:8px;overflow-x:auto}
     code{font-family:monospace;font-size:.9em;background:#f1f5f9;padding:2px 5px;border-radius:3px}
     ul,ol{padding-left:1.5rem}@media print{body{margin:0}}</style>
     </head><body><h1>${title}</h1>${content}</body></html>`);
@@ -18348,7 +18404,7 @@ async function projectNew() {
         label: "Description (optional)",
         placeholder: "What is this project about?",
       },
-      { id: "color", label: "Color", type: "color", default: "#0D7A5F" },
+      { id: "color", label: "Color", type: "color", default: "#41076B" },
     ],
     { confirmLabel: "Create Project" },
   );
@@ -18359,7 +18415,7 @@ async function projectNew() {
       token,
       name: d.name,
       description: d.desc || "",
-      color: d.color || "#0D7A5F",
+      color: d.color || "#41076B",
     });
     await _orgRefresh();
     toast("Project created");

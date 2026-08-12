@@ -11,6 +11,17 @@ import TodayScreen from './src/screens/TodayScreen';
 import AIScreen    from './src/screens/AIScreen';
 import MeScreen    from './src/screens/MeScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import MoreScreen  from './src/screens/MoreScreen';
+
+// Previously built, fully wired to the backend, but never imported anywhere —
+// only reachable now via the "More" tab below.
+import GoalsScreen        from './src/screens/GoalsScreen';
+import HabitsScreen       from './src/screens/HabitsScreen';
+import JournalScreen      from './src/screens/JournalScreen';
+import FocusScreen        from './src/screens/FocusScreen';
+import CommunityScreen    from './src/screens/CommunityScreen';
+import WeeklyReviewScreen from './src/screens/WeeklyReviewScreen';
+import SettingsScreen     from './src/screens/SettingsScreen';
 
 import { useAuth } from './src/hooks/useAuth';
 import { COLORS }  from './src/theme';
@@ -21,7 +32,12 @@ import {
   scheduleHabitReminder,
 } from './src/services/notifications';
 
-// Prevent OS accessibility font-size from stretching/compressing all text
+// Prevent OS accessibility font-size from stretching/compressing all text.
+// This mutates RN's own Text/TextInput (class-based components maintained by
+// React Native, not plain function components defined in this codebase) —
+// so it isn't affected by React 19 dropping defaultProps support for function
+// components, and is the standard RN-ecosystem idiom for this exact use case.
+// Verified safe as-is rather than changed for the sake of it.
 if (Text.defaultProps == null) (Text as any).defaultProps = {};
 (Text as any).defaultProps.allowFontScaling = false;
 if (TextInput.defaultProps == null) (TextInput as any).defaultProps = {};
@@ -91,9 +107,38 @@ function MainTabs() {
           ),
         }}
       />
+
+      <Tab.Screen
+        name="More"
+        component={MoreScreen}
+        options={{
+          tabBarLabel: 'More',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="grid-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 }
+
+// Screens reached from the "More" tab (see MoreScreen.tsx). Registered
+// alongside "Main" in the root stack (not nested inside the tab navigator)
+// so they push on top of the tab bar the same way any "detail" screen would.
+// The root Stack.Navigator sets headerShown:false globally and none of these
+// screens implement their own back button, so each one gets its header
+// re-enabled here specifically — that's what actually gives the user a way
+// back (previously would have relied on iOS edge-swipe / Android hardware
+// back only).
+const MORE_SCREENS: { name: string; component: React.ComponentType<any>; title: string }[] = [
+  { name: 'WeeklyReview', component: WeeklyReviewScreen, title: 'Weekly Review' },
+  { name: 'Focus',        component: FocusScreen,        title: 'Focus' },
+  { name: 'Goals',        component: GoalsScreen,         title: 'Goals' },
+  { name: 'Habits',       component: HabitsScreen,        title: 'Habits' },
+  { name: 'Journal',      component: JournalScreen,       title: 'Journal' },
+  { name: 'Community',    component: CommunityScreen,     title: 'Community' },
+  { name: 'Settings',     component: SettingsScreen,      title: 'Settings' },
+];
 
 // ── Root ──────────────────────────────────────────────────────
 export default function App() {
@@ -117,7 +162,24 @@ export default function App() {
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
           {isLoggedIn ? (
-            <Stack.Screen name="Main" component={MainTabs} />
+            <>
+              <Stack.Screen name="Main" component={MainTabs} />
+              {MORE_SCREENS.map(({ name, component, title }) => (
+                <Stack.Screen
+                  key={name}
+                  name={name}
+                  component={component}
+                  options={{
+                    headerShown: true,
+                    title,
+                    headerStyle: { backgroundColor: COLORS.bg2 },
+                    headerTintColor: COLORS.text1,
+                    headerShadowVisible: false,
+                    animation: 'slide_from_right',
+                  }}
+                />
+              ))}
+            </>
           ) : (
             <Stack.Screen name="Login" component={LoginScreen} />
           )}
