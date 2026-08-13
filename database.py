@@ -96,6 +96,15 @@ def encryption_active() -> bool:
     third-party/org secrets are encrypted at rest. Exposes no key material."""
     return _cipher is not None
 
+def encrypt_secret(s: str) -> str:
+    """Public wrapper so callers outside this module (e.g. app.py's Google
+    Calendar OAuth token storage) can use the same at-rest encryption as
+    org integration secret keys, instead of each rolling their own."""
+    return _enc_secret(s)
+
+def decrypt_secret(s):
+    return _dec_secret(s)
+
 # ThreadedConnectionPool (lock-protected) — NOT SimpleConnectionPool. FastAPI runs
 # sync endpoints and asyncio.to_thread DB calls on a threadpool, so getconn/putconn
 # are called from multiple threads concurrently; SimpleConnectionPool has no internal

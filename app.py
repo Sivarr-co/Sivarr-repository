@@ -5425,7 +5425,7 @@ def _user_integrations(p: dict) -> dict:
     """Which third-party accounts this user has linked."""
     return {
         "github":     bool(p.get("github_token")),
-        "google_cal": bool(p.get("gcal_token") or p.get("google_refresh_token") or p.get("gcal_connected")),
+        "google_cal": bool(p.get("google_cal_tokens", {}).get("refresh_token")),
         "mono":       bool(p.get("mono_account_id")),
         "metatrader": bool(p.get("metaapi_account_id")),
     }
@@ -10465,9 +10465,14 @@ async def google_cal_callback(code: str = "", state: str = "", error: str = ""):
         return RedirectResponse("/app?gcal_error=failed")
 
     p   = load_progress(sid)
+    # Encrypted at rest (db.encrypt_secret — same Fernet cipher used for org
+    # integration secrets, APP_ENCRYPTION_KEY-gated). These are long-lived
+    # OAuth tokens with standing calendar access, stored in the progress blob
+    # which also lands in a plaintext JSON file + backup — worth encrypting
+    # even though the DB column itself may already be protected at rest.
     p["google_cal_tokens"] = {
-        "access_token":  tokens.get("access_token",""),
-        "refresh_token": tokens.get("refresh_token",""),
+        "access_token":  db.encrypt_secret(tokens.get("access_token","")),
+        "refresh_token": db.encrypt_secret(tokens.get("refresh_token","")),
         "expiry":        time.time() + tokens.get("expires_in", 3600),
     }
     save_progress(sid, p)
@@ -10481,16 +10486,17 @@ async def _gcal_access_token(sid: str) -> str | None:
         return None
     p    = load_progress(sid)
     gcal = p.get("google_cal_tokens", {})
-    if not gcal.get("refresh_token"):
+    refresh_token = db.decrypt_secret(gcal.get("refresh_token", ""))
+    if not refresh_token:
         return None
     if time.time() < gcal.get("expiry", 0) - 300:
-        return gcal["access_token"]
+        return db.decrypt_secret(gcal.get("access_token", ""))
     try:
         async with _httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(GOOGLE_TOKEN_URL, data={
                 "client_id":     GOOGLE_CLIENT_ID,
                 "client_secret": GOOGLE_CLIENT_SECRET,
-                "refresh_token": gcal["refresh_token"],
+                "refresh_token": refresh_token,
                 "grant_type":    "refresh_token",
             })
             data = resp.json()
@@ -10501,11 +10507,12 @@ async def _gcal_access_token(sid: str) -> str | None:
                     p.pop("google_cal_tokens", None)
                     save_progress(sid, p)
                 return None
-            gcal["access_token"] = data["access_token"]
+            new_access = data["access_token"]
+            gcal["access_token"] = db.encrypt_secret(new_access)
             gcal["expiry"]       = time.time() + data.get("expires_in", 3600)
             p["google_cal_tokens"] = gcal
             save_progress(sid, p)
-            return gcal["access_token"]
+            return new_access
     except Exception as exc:
         log.error(f"Google Calendar token refresh error: {exc}")
         return None
@@ -10620,7 +10627,7 @@ async def gcal_disconnect(data: dict):
     sid  = sess["sid"]
     p    = load_progress(sid)
     gcal = p.get("google_cal_tokens", {})
-    tok  = gcal.get("refresh_token") or gcal.get("access_token")
+    tok  = db.decrypt_secret(gcal.get("refresh_token", "")) or db.decrypt_secret(gcal.get("access_token", ""))
     # Best-effort revoke at Google so our access is actually withdrawn,
     # not just forgotten locally. Never let a revoke failure block disconnect.
     if tok and HTTPX_AVAILABLE:
