@@ -12443,11 +12443,32 @@ function mobCustClose() {
 function _mobCustRender() {
   const body = $("mob-cust-body");
   if (!body) return;
-  // Connect is the only reorderable section left in the flat sidebar layout
-  // (Pinned is permanent, Starred/Recents are driven by starring/browsing,
-  // Spaces has its own controls).
+  let html = "";
+
+  // Starred tabs (work/life panels pinned via the ⌘K star — same store as
+  // getNavTabs/toggleNavTab) — reorderable and removable here too, so
+  // "Customize Sidebar" actually covers the tabs a user interacts with daily,
+  // not just Connect.
+  const starred = getNavTabs().filter(
+    (p) => NAV_TABS[p] && NAV_TABS[p].section !== "connect",
+  );
+  if (starred.length) {
+    html += `<div class="mob-cust-section-label">Starred</div>`;
+    starred.forEach((panel) => {
+      const t = NAV_TABS[panel];
+      if (!t) return;
+      html += `<div class="mob-cust-row" data-panel="${panel}" data-section="starred" draggable="true">
+        <span class="mob-cust-handle"><i class="ti ti-grip-vertical"></i></span>
+        <span class="mob-cust-icon"><i class="ti ${t.icon}"></i></span>
+        <span class="mob-cust-label">${t.label}</span>
+        <button class="mob-cust-toggle on" onclick="toggleNavTab('${panel}');_mobCustRender();" title="Remove from sidebar" aria-label="Remove ${t.label} from sidebar"></button>
+      </div>`;
+    });
+  }
+
+  // Connect is a fixed, always-visible group — reorderable but not removable.
   const order = _getSectionOrder("connect");
-  let html = `<div class="mob-cust-section-label">Connect</div>`;
+  html += `<div class="mob-cust-section-label">Connect</div>`;
   order.forEach((panel, idx) => {
     const t = NAV_TABS[panel];
     if (!t) return;
@@ -12455,10 +12476,22 @@ function _mobCustRender() {
       <span class="mob-cust-handle"><i class="ti ti-grip-vertical"></i></span>
       <span class="mob-cust-icon"><i class="ti ${t.icon}"></i></span>
       <span class="mob-cust-label">${t.label}</span>
+      <button class="mob-cust-toggle locked" title="Always shown" aria-label="Always shown" disabled></button>
     </div>`;
   });
   body.innerHTML = html;
   _mobCustDragInit(body);
+}
+
+// Reorders the starred (non-connect) subset of getNavTabs() while leaving any
+// connect-section entries in that same array untouched — their order doesn't
+// matter (Connect's own order comes from _getSectionOrder("connect")), only
+// their presence does.
+function _mobCustSaveStarredOrder(newOrder) {
+  const connectPart = getNavTabs().filter(
+    (p) => NAV_TABS[p] && NAV_TABS[p].section === "connect",
+  );
+  setNavTabs([...newOrder, ...connectPart]);
 }
 
 function _mobCustDragInit(body) {
@@ -12494,7 +12527,9 @@ function _mobCustDragInit(body) {
       const newOrder = [
         ...body.querySelectorAll(`.mob-cust-row[data-section="${sect}"]`),
       ].map((r) => r.dataset.panel);
-      _setSectionOrder(sect, newOrder);
+      if (sect === "starred") _mobCustSaveStarredOrder(newOrder);
+      else _setSectionOrder(sect, newOrder);
+      navRenderSidebar();
     });
   });
 }
