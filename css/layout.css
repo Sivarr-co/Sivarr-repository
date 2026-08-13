@@ -2372,35 +2372,6 @@ body.auth-screen #login-screen {
     gap: 14px;
   }
 
-  .st-subnav {
-    width: auto;
-    flex-direction: row;
-    overflow-x: auto;
-    position: static;
-    gap: 6px;
-    padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .st-subnav-item {
-    width: auto;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .st-content {
-    overflow-y: visible;
-  }
-
-  .st-wheel,
-  .st-light-slider {
-    width: 160px;
-  }
-
-  .st-wheel {
-    height: 160px;
-  }
-
   :root {
     --panel-max: 9999px;
     --chat-max: 9999px;
@@ -2411,33 +2382,8 @@ body.auth-screen #login-screen {
     gap: 8px;
   }
 
-  .tb-brand {
-    width: auto;
-  }
-
-  .tb-center {
-    display: none;
-  }
-
-  .sidebar.mobile-open {
-    transform: translateX(0);
-    box-shadow: var(--shadow2);
-  }
-
-  .overlay {
-    display: block;
-  }
-
   .stat-grid {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .g2 {
-    grid-template-columns: 1fr;
-  }
-
-  .view-head {
-    padding: 0 14px;
   }
 
   /* Reset ALL centering on mobile — full width with small padding */
@@ -2460,31 +2406,11 @@ body.auth-screen #login-screen {
     display: none;
   }
 
-  .cal-main-hd {
-    padding: 12px 14px;
-    flex-wrap: wrap;
-  }
-
-  .cal-range {
-    min-width: 0;
-    font-size: 0.95rem;
-  }
-
-  .cal-month-view {
-    padding: 12px 14px;
-  }
-
   #panel-settings,
   #panel-goals,
   #panel-progress {
     padding-left: 16px !important;
     padding-right: 16px !important;
-  }
-
-  #panel-settings > div,
-  #panel-goals > div,
-  #panel-progress > div {
-    max-width: 100% !important;
   }
 
   #panel-courses > div:last-child,
@@ -2496,22 +2422,9 @@ body.auth-screen #login-screen {
     padding-right: 16px !important;
   }
 
-  #panel-templates .tpl-scroll {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  .content {
-    padding: 14px !important;
-  }
-
   .chat-msgs {
     padding-left: 12px !important;
     padding-right: 12px !important;
-  }
-
-  #chat-welcome {
-    max-width: 100%;
   }
 
   /* Keep the page title (and its actions) pinned while content scrolls.
@@ -2546,25 +2459,6 @@ body.auth-screen #login-screen {
     padding: 0 !important;
   }
 
-  .mkt-modal {
-    max-width: none !important;
-    width: 100% !important;
-    max-height: 92vh !important;
-    border-radius: 20px 20px 0 0 !important;
-    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0)) !important;
-    animation: mob-sheet-up 0.26s cubic-bezier(0.22, 1, 0.36, 1) !important;
-  }
-
-  .mkt-modal::before {
-    content: "";
-    display: block;
-    width: 40px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--border2, var(--border));
-    margin: 2px auto 14px;
-  }
-
   /* Comfortable tap targets for modal actions */
   .si-modal-btn {
     min-height: 44px;
@@ -2576,39 +2470,10 @@ body.auth-screen #login-screen {
     padding: 0 !important;
   }
 
-  .modal-overlay .modal-box {
-    max-width: none !important;
-    width: 100% !important;
-    max-height: 92vh !important;
-    border-radius: 20px 20px 0 0 !important;
-    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0)) !important;
-    animation: mob-sheet-up 0.26s cubic-bezier(0.22, 1, 0.36, 1) !important;
-  }
-
-  .modal-overlay .modal-box::before {
-    content: "";
-    display: block;
-    width: 40px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--border2, var(--border));
-    margin: -4px auto 14px;
-  }
-
   /* Launcher Space rows: surface the ⋮ options (hover-only on desktop is
      unreachable on touch) and drop the redundant drill chevron there */
   .sidebar .si.sp-si::after {
     content: none;
-  }
-
-  .sidebar .sb-space-more {
-    opacity: 1;
-    margin-left: auto;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .home-wrap {
@@ -2623,12 +2488,6 @@ body.auth-screen #login-screen {
     border-radius: 20px;
   }
 
-  .gs-section {
-    padding: 20px 18px;
-    margin-bottom: 18px;
-    border-radius: 20px;
-  }
-
   /* Stat cards — compact on mobile so the home page scrolls quicker (the 2x2
      grid was eating too much vertical space). Desktop/tablet sizing unchanged. */
   .h-stat-grid {
@@ -2636,37 +2495,10 @@ body.auth-screen #login-screen {
     margin-bottom: 10px;
   }
 
-  .h-stat-card {
-    padding: 8px 10px;
-    border-radius: 12px;
-  }
-
-  .h-stat-ic {
-    width: 22px;
-    height: 22px;
-    border-radius: 7px;
-    font-size: 12px;
-    margin-bottom: 3px;
-  }
-
-  .h-stat-val {
-    font-size: 1.1rem;
-  }
-
-  .h-stat-lbl {
-    font-size: 0.68rem;
-    margin-top: 1px;
-  }
-
   /* Two-column blocks stack with comfortable gaps */
   .h2col {
     gap: 14px;
     margin-bottom: 18px;
-  }
-
-  .h2col-card {
-    padding: 20px 18px;
-    border-radius: 18px;
   }
 
   /* Action pills → edge-to-edge swipeable row (no cramped wrapping) */
@@ -2678,17 +2510,6 @@ body.auth-screen #login-screen {
     padding: 2px 18px 8px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-  }
-
-  .siva-pills::-webkit-scrollbar {
-    display: none;
-  }
-
-  .siva-pill {
-    flex-shrink: 0;
-    padding: 9px 15px;
-    font-size: 0.82rem;
-    border-radius: 22px;
   }
 
   /* Global zoom — bigger, closer type across all panels (keeps font-scale) */
@@ -2706,14 +2527,6 @@ body.auth-screen #login-screen {
     gap: 6px;
   }
 
-  .agent-selector::-webkit-scrollbar {
-    display: none;
-  }
-
-  .agent-chip {
-    flex-shrink: 0;
-  }
-
   /* Slim chat header so the conversation/composer gets more of the screen */
   .chat-header {
     padding: 10px 14px 9px;
@@ -2724,49 +2537,10 @@ body.auth-screen #login-screen {
     padding: 1.25rem 1.25rem 0.5rem;
   }
 
-  .chat-welcome-orb {
-    width: 62px;
-    height: 62px;
-    border-radius: 18px;
-    margin-bottom: 1rem;
-  }
-
-  .chat-welcome-orb img {
-    width: 34px;
-    height: 34px;
-  }
-
-  .chat-welcome-heading {
-    font-size: 1.55rem;
-    margin-bottom: 0.3rem;
-  }
-
-  .chat-welcome-sub {
-    font-size: 0.9rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .chat-welcome-hint {
-    margin-top: 1rem;
-  }
-
-  .chat-prompt-grid {
-    gap: 9px;
-  }
-
-  .chat-prompt-card {
-    padding: 14px 13px 12px;
-    border-radius: 14px;
-  }
-
   /* Tighter, roomier message bubbles — closer reading like Notion */
   .chat-msgs {
     padding: 16px 14px 12px;
     gap: 5px;
-  }
-
-  .msg {
-    max-width: 90%;
   }
 
   /* Chat bar — hide the inline msg counter on mobile; it takes horizontal space
@@ -2804,20 +2578,6 @@ body.auth-screen #login-screen {
     border-right: 1px solid var(--border);
   }
 
-  .oc-sidebar.open {
-    transform: translateX(0);
-  }
-
-  .oc-ws-name,
-  .oc-section-lbl {
-    display: block;
-  }
-
-  .oc-ch-item,
-  .oc-dm-item {
-    padding: 9px 16px;
-  }
-
   /* bigger tap targets */
   .oc-drawer-overlay {
     display: none;
@@ -2825,24 +2585,6 @@ body.auth-screen #login-screen {
     inset: 0;
     z-index: 40;
     background: rgba(0, 0, 0, 0.42);
-  }
-
-  .oc-drawer-overlay.open {
-    display: block;
-  }
-
-  .oc-chan-toggle {
-    display: inline-flex !important;
-  }
-
-  .oc-main {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .oc-msgs {
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
   }
 
   /* ── 1. Layout — no bottom nav anymore (Notion launcher redesign) ──
@@ -2872,29 +2614,9 @@ body.auth-screen #login-screen {
     gap: 0 !important;
   }
 
-  .os-tab {
-    padding: 10px 10px !important;
-    font-size: 0.75rem !important;
-    min-height: 44px;
-  }
-
   /* ── 4. Touch targets — min 44×44 px for all tappable things ─ */
   .nav-btn {
     min-height: 44px;
-  }
-
-  .tb-icon-btn,
-  .chat-icon-btn,
-  .chat-send-btn,
-  .si-modal-close,
-  .os-card-link,
-  .os-tool-btn {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  .mob-nav-btn {
-    min-height: 52px;
   }
 
   /* ── 5. Personal & academic space tabs ───────────────────────
@@ -2918,11 +2640,6 @@ body.auth-screen #login-screen {
     overflow-x: auto !important;
   }
 
-  .dh-tool-btn,
-  .doc-tb-btn {
-    min-height: 38px;
-  }
-
   /* ── 8. Profile dropdown — prevent off-screen right ─────────
      On small phones right:0 can still overflow; clamp to viewport */
   .profile-dropdown {
@@ -2937,18 +2654,10 @@ body.auth-screen #login-screen {
     grid-template-columns: repeat(2, 1fr) !important;
   }
 
-  .lib-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-
   /* ── 10. Topbar — tighten on small screens ───────────────────
      The right action icons remain, search hidden (done already) */
   .tb-brand {
     gap: 6px;
-  }
-
-  .tb-name {
-    font-size: 13px;
   }
 
   /* ── 11. Org chat mobile — channel drawer handled in the dedicated
