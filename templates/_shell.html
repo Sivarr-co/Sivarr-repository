@@ -311,17 +311,15 @@
 
 <!-- Sidebar -->
 <aside class="sidebar" id="sidebar">
-  <!-- Brand (desktop only — sidebar is full-height now, so it carries the
-         logo/name that used to live in the topbar; mobile keeps it in the topbar) -->
+  <!-- Brand header — logo, name, search, and the collapse toggle all live in
+       this one fixed row now (shown on both desktop and mobile). This row is
+       deliberately kept out of everything .sidebar.collapsed hides/shrinks —
+       see the CSS: only .sb-scroll below it narrows to an icon rail. -->
   <div class="sb-brand">
     <div class="tb-logo">
       <img src="/static/sivarrai.png" alt="Sivarr" />
     </div>
     <span class="sb-brand-name">Sivarr</span>
-  </div>
-
-  <!-- Top row: search + customize + collapse -->
-  <div class="sb-header">
     <button
       class="sb-top-search"
       onclick="cmdOpen()"
@@ -331,29 +329,17 @@
       <span>Search or jump to…</span>
       <span class="sb-top-kbd">⌘K</span>
     </button>
-    <div class="sb-head-actions">
-      <button
-        class="sb-rail-btn sb-cust-btn"
-        onclick="mobCustOpen()"
-        title="Customize sidebar"
-        data-tip="Customize sidebar"
-        data-tip-pos="bottom"
-        aria-label="Customize sidebar"
-      >
-        <i class="ti ti-adjustments-horizontal"></i>
-      </button>
-      <button
-        class="sb-rail-btn"
-        onclick="sbToggleRail()"
-        title="Collapse sidebar"
-        data-tip="Collapse sidebar"
-        data-tip-pos="bottom"
-        aria-label="Collapse sidebar"
-      >
-        <i class="ti ti-layout-sidebar-left-collapse" id="sb-rail-icon"></i>
-        <i class="ti ti-arrow-left sb-mob-close-icon" style="display: none"></i>
-      </button>
-    </div>
+    <button
+      class="sb-rail-btn"
+      onclick="sbToggleRail()"
+      title="Collapse sidebar"
+      data-tip="Collapse sidebar"
+      data-tip-pos="bottom"
+      aria-label="Collapse sidebar"
+    >
+      <i class="ti ti-layout-sidebar-left-collapse" id="sb-rail-icon"></i>
+      <i class="ti ti-arrow-left sb-mob-close-icon" style="display: none"></i>
+    </button>
   </div>
 
   <div class="sb-scroll">

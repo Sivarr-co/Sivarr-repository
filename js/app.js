@@ -12407,7 +12407,8 @@ function _mobSidebarInit() {
 }
 document.addEventListener("DOMContentLoaded", _mobSidebarInit);
 
-// ── Mobile customize sidebar bottom-sheet ──
+// ── Connect section order (Customize Sidebar removed — this now only feeds
+// the fixed default order into navRenderSidebar's sgi-connect render) ──
 function NAV_ORDER_KEY() {
   return `sivarr_nav_order_${(typeof S !== "undefined" && S.sid) || ""}`;
 }
@@ -12419,119 +12420,6 @@ function _getSectionOrder(section) {
       return stored[section];
   } catch (e) {}
   return NAV_ORDER[section] ? NAV_ORDER[section].slice() : [];
-}
-function _setSectionOrder(section, arr) {
-  try {
-    const stored = JSON.parse(localStorage.getItem(NAV_ORDER_KEY()) || "{}");
-    stored[section] = arr;
-    localStorage.setItem(NAV_ORDER_KEY(), JSON.stringify(stored));
-  } catch (e) {}
-}
-
-function mobCustOpen() {
-  const overlay = $("mob-cust-overlay");
-  if (!overlay) return;
-  overlay.classList.add("open");
-  _mobCustRender();
-}
-function mobCustClose() {
-  const overlay = $("mob-cust-overlay");
-  if (overlay) overlay.classList.remove("open");
-  navRenderSidebar();
-}
-
-function _mobCustRender() {
-  const body = $("mob-cust-body");
-  if (!body) return;
-  let html = "";
-
-  // Starred tabs (work/life panels pinned via the ⌘K star — same store as
-  // getNavTabs/toggleNavTab) — reorderable and removable here too, so
-  // "Customize Sidebar" actually covers the tabs a user interacts with daily,
-  // not just Connect.
-  const starred = getNavTabs().filter(
-    (p) => NAV_TABS[p] && NAV_TABS[p].section !== "connect",
-  );
-  if (starred.length) {
-    html += `<div class="mob-cust-section-label">Starred</div>`;
-    starred.forEach((panel) => {
-      const t = NAV_TABS[panel];
-      if (!t) return;
-      html += `<div class="mob-cust-row" data-panel="${panel}" data-section="starred" draggable="true">
-        <span class="mob-cust-handle"><i class="ti ti-grip-vertical"></i></span>
-        <span class="mob-cust-icon"><i class="ti ${t.icon}"></i></span>
-        <span class="mob-cust-label">${t.label}</span>
-        <button class="mob-cust-toggle on" onclick="toggleNavTab('${panel}');_mobCustRender();" title="Remove from sidebar" aria-label="Remove ${t.label} from sidebar"></button>
-      </div>`;
-    });
-  }
-
-  // Connect is a fixed, always-visible group — reorderable but not removable.
-  const order = _getSectionOrder("connect");
-  html += `<div class="mob-cust-section-label">Connect</div>`;
-  order.forEach((panel, idx) => {
-    const t = NAV_TABS[panel];
-    if (!t) return;
-    html += `<div class="mob-cust-row" data-panel="${panel}" data-section="connect" data-idx="${idx}" draggable="true">
-      <span class="mob-cust-handle"><i class="ti ti-grip-vertical"></i></span>
-      <span class="mob-cust-icon"><i class="ti ${t.icon}"></i></span>
-      <span class="mob-cust-label">${t.label}</span>
-      <button class="mob-cust-toggle locked" title="Always shown" aria-label="Always shown" disabled></button>
-    </div>`;
-  });
-  body.innerHTML = html;
-  _mobCustDragInit(body);
-}
-
-// Reorders the starred (non-connect) subset of getNavTabs() while leaving any
-// connect-section entries in that same array untouched — their order doesn't
-// matter (Connect's own order comes from _getSectionOrder("connect")), only
-// their presence does.
-function _mobCustSaveStarredOrder(newOrder) {
-  const connectPart = getNavTabs().filter(
-    (p) => NAV_TABS[p] && NAV_TABS[p].section === "connect",
-  );
-  setNavTabs([...newOrder, ...connectPart]);
-}
-
-function _mobCustDragInit(body) {
-  let dragEl = null,
-    over = null;
-  body.querySelectorAll(".mob-cust-row").forEach((row) => {
-    row.addEventListener("dragstart", (e) => {
-      dragEl = row;
-      row.style.opacity = ".4";
-      e.dataTransfer.effectAllowed = "move";
-    });
-    row.addEventListener("dragend", () => {
-      if (dragEl) dragEl.style.opacity = "";
-      dragEl = null;
-      over = null;
-    });
-    row.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      if (!dragEl || dragEl === row) return;
-      const sect = row.dataset.section;
-      if (dragEl.dataset.section !== sect) return;
-      const r = row.getBoundingClientRect();
-      const mid = r.top + r.height / 2;
-      row.parentNode.insertBefore(
-        dragEl,
-        e.clientY < mid ? row : row.nextSibling,
-      );
-    });
-    row.addEventListener("drop", (e) => {
-      e.preventDefault();
-      if (!dragEl) return;
-      const sect = dragEl.dataset.section;
-      const newOrder = [
-        ...body.querySelectorAll(`.mob-cust-row[data-section="${sect}"]`),
-      ].map((r) => r.dataset.panel);
-      if (sect === "starred") _mobCustSaveStarredOrder(newOrder);
-      else _setSectionOrder(sect, newOrder);
-      navRenderSidebar();
-    });
-  });
 }
 
 // ── Command-center: parse the next upcoming event today → display label ──
