@@ -12390,11 +12390,11 @@ function sbToggleRail() {
   const ic = $("sb-rail-icon");
   if (ic)
     ic.className =
-      "ti " +
+      "ti sb-brand-caret " +
       (collapsed
         ? "ti-layout-sidebar-left-expand"
         : "ti-layout-sidebar-left-collapse");
-  const btn = ic && ic.closest(".sb-rail-btn");
+  const btn = ic && ic.closest(".sb-brand-btn");
   if (btn) btn.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
 }
 

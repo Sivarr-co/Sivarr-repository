@@ -389,6 +389,38 @@ body.offline .layout {
   flex-shrink: 0;
 }
 
+/* The logo+name is the collapse toggle — a bare button so it reads as
+   branding first, with a small caret + hover state as the only hint it's
+   interactive. Padding/negative-margin trick keeps its content flush with
+   .sb-brand's own edges while still giving it a real hit target. */
+.sb-brand-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  padding: 5px;
+  margin: -5px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.sb-brand-btn:hover,
+.sb-brand-btn:focus-visible {
+  background: var(--bg3);
+}
+.sb-brand-caret {
+  font-size: 12px;
+  color: var(--text4);
+  transition: color 0.15s;
+}
+.sb-brand-btn:hover .sb-brand-caret {
+  color: var(--text2);
+}
+
 .sb-top-search {
   flex: 1;
   min-width: 0;
@@ -790,27 +822,6 @@ body.offline .layout {
 .sb-icon-action:hover {
   background: var(--bg3);
   color: var(--text1);
-}
-
-.sb-rail-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  flex-shrink: 0;
-  border: 1px solid var(--border);
-  background: var(--bg3);
-  color: var(--text3);
-  font-size: 0.88rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: var(--transition);
-}
-.sb-rail-btn:hover {
-  border-color: var(--teal);
-  color: var(--teal);
-  background: var(--teal2);
 }
 
 .si-stat {
@@ -1639,6 +1650,11 @@ body.auth-screen #login-screen {
 
   .sidebar .sb-brand {
     padding: 10px 14px;
+  }
+  /* ⌘K is meaningless on a touch device — drop it so the search label gets
+     the room instead of truncating on narrow phones. */
+  .sb-top-kbd {
+    display: none;
   }
   #sb-rail-icon {
     display: none;

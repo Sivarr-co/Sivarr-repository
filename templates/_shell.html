@@ -316,10 +316,24 @@
        deliberately kept out of everything .sidebar.collapsed hides/shrinks —
        see the CSS: only .sb-scroll below it narrows to an icon rail. -->
   <div class="sb-brand">
-    <div class="tb-logo">
-      <img src="/static/sivarrai.png" alt="Sivarr" />
-    </div>
-    <span class="sb-brand-name">Sivarr</span>
+    <!-- The logo+name IS the collapse toggle now — no separate button, so it
+         actually does something instead of just sitting there, and the
+         search bar gets the space back (was cramped on narrow phones). -->
+    <button
+      class="sb-brand-btn"
+      onclick="sbToggleRail()"
+      title="Collapse sidebar"
+      data-tip="Collapse sidebar"
+      data-tip-pos="bottom"
+      aria-label="Collapse sidebar"
+    >
+      <div class="tb-logo">
+        <img src="/static/sivarrai.png" alt="Sivarr" />
+      </div>
+      <span class="sb-brand-name">Sivarr</span>
+      <i class="ti ti-layout-sidebar-left-collapse sb-brand-caret" id="sb-rail-icon"></i>
+      <i class="ti ti-arrow-left sb-mob-close-icon" style="display: none"></i>
+    </button>
     <button
       class="sb-top-search"
       onclick="cmdOpen()"
@@ -328,17 +342,6 @@
       <i class="ti ti-search"></i>
       <span>Search or jump to…</span>
       <span class="sb-top-kbd">⌘K</span>
-    </button>
-    <button
-      class="sb-rail-btn"
-      onclick="sbToggleRail()"
-      title="Collapse sidebar"
-      data-tip="Collapse sidebar"
-      data-tip-pos="bottom"
-      aria-label="Collapse sidebar"
-    >
-      <i class="ti ti-layout-sidebar-left-collapse" id="sb-rail-icon"></i>
-      <i class="ti ti-arrow-left sb-mob-close-icon" style="display: none"></i>
     </button>
   </div>
 
