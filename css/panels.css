@@ -921,17 +921,7 @@
   color: var(--text3);
 }
 
-/* ── Habit Check Rows ───────────────────────────────────────── */
-.habit-check-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-}
-.habit-check-row:last-child {
-  border-bottom: none;
-}
+/* ── Habit checkbox — shared with the real Habits panel (habitToggle) ── */
 .habit-cb {
   width: 18px;
   height: 18px;
@@ -944,6 +934,7 @@
   align-items: center;
   justify-content: center;
   transition: var(--transition);
+  padding: 0;
 }
 .habit-cb.done {
   background: var(--teal);
@@ -955,16 +946,256 @@
   font-size: 0.65rem;
   font-weight: 700;
 }
-.habit-name {
-  font-size: 0.9rem;
-  color: var(--text2);
-  flex: 1;
-  font-weight: 500;
+
+/* ── Discovery strip — conditional "get more" nudge cards ────── */
+.h-discover-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text3);
+  margin: 0 0 10px;
 }
-.habit-streak {
-  font-size: 0.7rem;
+.h-discover-label i {
+  color: var(--teal);
+  font-size: 0.85rem;
+}
+.h-discover-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  margin-bottom: 18px;
+  padding-bottom: 2px;
+}
+.h-discover-card {
+  min-width: 172px;
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius2);
+  padding: 13px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.h-discover-card:hover {
+  border-color: var(--teal);
+  box-shadow: var(--shadow);
+}
+.h-discover-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--teal2);
+  color: var(--teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  margin-bottom: 9px;
+}
+.h-discover-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text1);
+  margin-bottom: 3px;
+}
+.h-discover-sub {
+  font-size: 0.74rem;
+  color: var(--text3);
+  line-height: 1.4;
+}
+
+/* ── Today: merged tasks + habits reactive checklist ─────────── */
+.h-today-item {
+  border-bottom: 1px solid var(--border);
+}
+.h-today-item:last-child {
+  border-bottom: none;
+}
+.h-today-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+.h-today-body {
+  flex: 1;
+  min-width: 0;
+}
+.h-today-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.h-today-title {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text1);
+}
+.h-today-badge {
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+.h-today-badge.overdue {
+  background: var(--red2);
+  color: var(--red3);
+}
+.h-today-badge.today {
+  background: var(--amber2);
   color: var(--amber3);
+}
+.h-today-meta {
+  font-size: 0.72rem;
+  color: var(--text3);
+  margin-top: 3px;
+}
+.h-today-chev {
+  color: var(--text4);
+  font-size: 0.85rem;
+  margin-top: 3px;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.h-today-chev.open {
+  transform: rotate(90deg);
+}
+.h-today-streak {
+  font-size: 0.72rem;
+  color: var(--amber3);
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.h-today-subwrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease;
+  padding-left: 28px;
+}
+.h-today-subwrap.open {
+  max-height: 260px;
+}
+.h-today-subrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 0;
+}
+.h-today-subcheck {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+.h-today-subcheck.done::after {
+  font-size: 0.55rem;
+}
+.h-today-subname {
+  font-size: 0.8rem;
+  color: var(--text2);
+}
+.h-today-subname.done {
+  color: var(--text4);
+  text-decoration: line-through;
+}
+.h-today-more {
+  padding: 10px 0 2px;
+  font-size: 0.8rem;
+  color: var(--teal);
   font-weight: 600;
+  cursor: pointer;
+}
+
+/* ── Across your spaces — dynamic cross-space briefing rows ──── */
+.h-brief-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.h-brief-row:last-child {
+  border-bottom: none;
+}
+.h-brief-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.h-brief-icon.goal {
+  background: var(--green2);
+  color: var(--green3);
+}
+.h-brief-icon.journal {
+  background: var(--amber2);
+  color: var(--amber3);
+}
+.h-brief-icon.notes {
+  background: var(--blue2);
+  color: var(--blue);
+}
+.h-brief-text {
+  font-size: 0.82rem;
+  color: var(--text2);
+  line-height: 1.4;
+}
+.h-brief-tag {
+  font-size: 0.64rem;
+  color: var(--text4);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+  display: block;
+}
+.h-brief-arrow {
+  color: var(--text4);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+/* ── Trending in Marketplace — horizontal-scroll strip ───────── */
+.h-trend-strip {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.h-trend-card {
+  width: 128px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.h-trend-thumb {
+  width: 128px;
+  height: 82px;
+  border-radius: var(--radius2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+.h-trend-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text1);
+  line-height: 1.3;
+  margin-bottom: 2px;
+}
+.h-trend-tag {
+  font-size: 0.68rem;
+  color: var(--text4);
 }
 
 /* ── Getting Started Guide ──────────────────────────────────── */

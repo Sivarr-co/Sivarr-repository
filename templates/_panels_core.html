@@ -299,6 +299,15 @@ content-loss issue found in the prior split.
       <button class="siva-pill sp-add" onclick="nav('chat', null)">
         <i class="ti ti-sparkles"></i> Ask Sivarr
       </button>
+      <button class="siva-pill" onclick="nav('flux', null)">
+        <i class="ti ti-checkbox"></i> Tasks
+      </button>
+      <button class="siva-pill" onclick="nav('goals', null)">
+        <i class="ti ti-target"></i> Goals
+      </button>
+      <button class="siva-pill" onclick="nav('journal', null)">
+        <i class="ti ti-notebook"></i> Journal
+      </button>
       <span id="siva-recent-pills"></span>
     </div>
 
@@ -326,27 +335,25 @@ content-loss issue found in the prior split.
       </div>
     </div>
 
-    <!-- 2-column: Priorities + Schedule -->
+    <!-- Discovery strip — conditional "get more from Sivarr" nudges, entirely
+         JS-rendered; hidden when every nudge's condition is already satisfied. -->
+    <div id="home-discover-section" style="display: none">
+      <div class="h-discover-label">
+        <i class="ti ti-sparkles"></i> Get more from Sivarr
+      </div>
+      <div class="h-discover-strip" id="home-discover-strip"></div>
+    </div>
+
+    <!-- 2-column: Today (tasks + habits, reactive) + Schedule -->
     <div class="h2col">
-      <!-- Priorities / Tasks -->
       <div class="h2col-card">
         <div class="h-card-hd">
-          <span class="h-card-title">Today's Priorities</span>
+          <span class="h-card-title">Today</span>
           <button class="h-card-link" onclick="nav('flux', null)">
             View all →
           </button>
         </div>
-        <div id="home-priorities-list">
-          <div class="priority-item">
-            <div class="pr-dot" style="background: var(--red3)"></div>
-            <div class="pr-text">No tasks yet — add one in Tasks</div>
-            <span
-              class="pr-tag"
-              style="background: var(--bg3); color: var(--text3)"
-              >—</span
-            >
-          </div>
-        </div>
+        <div id="home-today-list"></div>
       </div>
 
       <!-- Schedule -->
@@ -366,33 +373,6 @@ content-loss issue found in the prior split.
               <div class="sched-sub">Add events in Calendar</div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Habit check-in -->
-    <div class="h2col-card" style="margin-bottom: 14px">
-      <div class="h-card-hd">
-        <span class="h-card-title">Habit Check-in</span>
-        <button class="h-card-link" onclick="nav('habits', null)">
-          All habits →
-        </button>
-      </div>
-      <div id="home-habits-list">
-        <div class="habit-check-row">
-          <div class="habit-cb" onclick="this.classList.toggle('done')"></div>
-          <div class="habit-name">Morning study session</div>
-          <div class="habit-streak">🔥 0 day streak</div>
-        </div>
-        <div class="habit-check-row">
-          <div class="habit-cb" onclick="this.classList.toggle('done')"></div>
-          <div class="habit-name">Review notes</div>
-          <div class="habit-streak">🔥 0 day streak</div>
-        </div>
-        <div class="habit-check-row">
-          <div class="habit-cb" onclick="this.classList.toggle('done')"></div>
-          <div class="habit-name">Daily reading</div>
-          <div class="habit-streak">🔥 0 day streak</div>
         </div>
       </div>
     </div>
@@ -423,68 +403,31 @@ content-loss issue found in the prior split.
       </div>
     </div>
 
-    <!-- Active Goals (hidden when empty) -->
-    <div id="home-goals-section" style="margin-bottom: 14px; display: none">
+    <!-- Across your spaces — dynamic, real-data-only cross-space briefing.
+         Built from a small set of candidate cards (goal progress, journal
+         nudge, notes draft) each conditional on real data; hidden entirely
+         when none apply. No Academic/Org/WhatsApp/Trading-Journal cards —
+         none of those are backed by real per-user data today. -->
+    <div id="home-spaces-section" style="margin-bottom: 14px; display: none">
       <div class="h2col-card">
         <div class="h-card-hd">
-          <span class="h-card-title">Active Goals</span>
-          <button class="h-card-link" onclick="nav('goals', null)">
-            View all →
-          </button>
+          <span class="h-card-title">Across your spaces</span>
         </div>
-        <div id="home-goals-list"></div>
+        <div id="home-brief-list"></div>
       </div>
     </div>
 
-    <!-- Recent Notes (hidden when empty) -->
-    <div id="home-notes-section" style="margin-bottom: 14px; display: none">
-      <div class="h2col-card">
-        <div class="h-card-hd">
-          <span class="h-card-title">Recent Notes</span>
-          <button class="h-card-link" onclick="nav('notes', null)">
-            View all →
-          </button>
-        </div>
-        <div id="home-notes-list"></div>
-      </div>
-    </div>
-
-    <!-- Latest Journal Entry -->
-    <div id="home-journal-section" style="margin-bottom: 14px; display: none">
-      <div class="h2col-card">
-        <div class="h-card-hd">
-          <span class="h-card-title">Latest Journal Entry</span>
-          <button class="h-card-link" onclick="nav('journal', null)">
-            Open journal →
-          </button>
-        </div>
-        <div style="padding: 10px 0 2px">
-          <div
-            id="home-journal-text"
-            style="
-              font-size: 0.83rem;
-              color: var(--text2);
-              line-height: 1.6;
-              font-style: italic;
-            "
-          ></div>
-          <div
-            id="home-journal-date"
-            style="font-size: 0.72rem; color: var(--text4); margin-top: 6px"
-          ></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Featured Templates -->
+    <!-- Trending in Marketplace — real popular-sort data from the agents
+         template API, not the old static TPL_LIBRARY placeholder list.
+         Always shown (global data, not per-user-conditional). -->
     <div class="h2col-card" style="margin-bottom: 14px">
       <div class="h-card-hd">
-        <span class="h-card-title">Featured Templates</span>
-        <button class="h-card-link" onclick="nav('templates', null)">
-          Browse all →
+        <span class="h-card-title">Trending in Marketplace</span>
+        <button class="h-card-link" onclick="nav('agents', null)">
+          See all →
         </button>
       </div>
-      <div id="home-templates-list"></div>
+      <div class="h-trend-strip" id="home-trending-list"></div>
     </div>
   </div>
 </div>

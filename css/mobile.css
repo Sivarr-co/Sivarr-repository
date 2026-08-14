@@ -634,6 +634,19 @@ body {
     border-radius: 18px;
   }
 
+  .h-discover-card {
+    min-width: 78vw;
+  }
+  .h-today-title {
+    font-size: 0.92rem;
+  }
+  .h-trend-card {
+    width: 136px;
+  }
+  .h-trend-thumb {
+    width: 136px;
+  }
+
   .siva-pills {
     flex-wrap: nowrap;
     overflow-x: auto;

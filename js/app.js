@@ -9173,32 +9173,19 @@ async function loadHome() {
   const gc = $("home-goals-count");
   if (gc) gc.textContent = activeGoals.length;
 
-  // ── Today's priorities ─────────────────────────────────────────
+  // ── Discovery strip — conditional "get more from Sivarr" nudges ─
   try {
-    const pl = $("home-priorities-list");
-    if (pl) {
-      const hi = openTasks.filter((t) => t.priority === "high").slice(0, 2);
-      const display = hi.length ? hi : openTasks.slice(0, 4);
-      const colors = {
-        high: "var(--red3)",
-        medium: "var(--amber3)",
-        low: "var(--green3)",
-      };
-      if (display.length) {
-        pl.innerHTML = display
-          .map(
-            (t) => `
-          <div class="priority-item" onclick="nav('flux',null)" style="cursor:pointer">
-            <div class="pr-dot" style="background:${colors[t.priority] || "var(--text4)"}"></div>
-            <div class="pr-text">${esc(t.title)}</div>
-            <span class="pr-tag" style="background:var(--bg3);color:var(--text3)">${t.priority || "task"}</span>
-          </div>`,
-          )
-          .join("");
-      } else {
-        pl.innerHTML = `<div class="priority-item"><div class="pr-dot" style="background:var(--text4)"></div><div class="pr-text" style="color:var(--text4)">All done — nice work.</div></div>`;
-      }
-    }
+    _homeRenderDiscovery(activeGoals, habits, notes);
+  } catch (_) {}
+
+  // ── Today: merged tasks + habits, reactive checklist ────────────
+  // Reads the SH store (getSHData/SH_KEY), not the flat sivarr_tasks_ store —
+  // subtasks (parent_id) only exist there. Known limitation, not fixed here:
+  // tasks added via cmd-k quick-add / NL capture / marketplace-content-install
+  // write only to the flat store and won't appear here until next-login
+  // hydration reconciles the two stores (see _hydrateFromServer).
+  try {
+    _homeRenderToday(today8601, habits);
   } catch (_) {}
 
   // ── Today's schedule ──────────────────────────────────────────
@@ -9240,28 +9227,6 @@ async function loadHome() {
         sl.innerHTML = schedItems.slice(0, 5).join("");
       } else {
         sl.innerHTML = `<div class="sched-item"><div class="sched-time">—</div><div class="sched-dot" style="background:var(--text4)"></div><div class="sched-info"><div class="sched-name" style="color:var(--text4)">No events today</div><div class="sched-sub">Add some in Calendar →</div></div></div>`;
-      }
-    }
-  } catch (_) {}
-
-  // ── Habits check-in ────────────────────────────────────────────
-  try {
-    const hl = $("home-habits-list");
-    if (hl) {
-      if (!habits.length) {
-        hl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:8px 0">No habits yet — <button onclick="nav('habits',null)" style="background:none;border:none;color:var(--teal);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">add one →</button></div>`;
-      } else {
-        hl.innerHTML = habits
-          .slice(0, 5)
-          .map((h, i) => {
-            const done = (h.completions || []).includes(today8601);
-            return `<div class="habit-check-row" onclick="homeHabitToggle(${i})" style="cursor:pointer">
-            <div class="habit-cb ${done ? "done" : ""}"></div>
-            <div class="habit-name">${esc(h.emoji || "📌")} ${esc(h.title)}</div>
-            <div class="habit-streak">${h.streak > 0 ? `🔥 ${h.streak}d` : "—"}</div>
-          </div>`;
-          })
-          .join("");
       }
     }
   } catch (_) {}
@@ -9357,94 +9322,290 @@ async function loadHome() {
     }
   } catch (_) {}
 
-  // ── Active goals ───────────────────────────────────────────────
+  // ── Across your spaces — dynamic, real-data-only briefing ───────
   try {
-    const gs = $("home-goals-section");
-    const gl = $("home-goals-list");
-    if (gs && gl) {
-      if (activeGoals.length) {
-        gs.style.display = "block";
-        gl.innerHTML = activeGoals
-          .slice(0, 3)
-          .map((g) => {
-            const pct = g.progress || 0;
-            const daysLeft = g.deadline
-              ? Math.ceil((new Date(g.deadline) - new Date()) / 86400000)
-              : null;
-            const urgency = daysLeft !== null && daysLeft <= 3 ? "red" : "teal";
-            return `<div class="priority-item" onclick="nav('goals',null)" style="cursor:pointer">
-            <div class="pr-dot" style="background:var(--${urgency})"></div>
-            <div style="flex:1;min-width:0">
-              <div class="pr-text">${esc(g.title)}</div>
-              <div style="height:3px;background:var(--border);border-radius:2px;margin-top:4px">
-                <div style="height:3px;width:${pct}%;background:var(--teal);border-radius:2px;transition:width .4s"></div>
-              </div>
+    _homeRenderSpaces(activeGoals, jnl, notes, today8601);
+  } catch (_) {}
+
+  // ── Trending in Marketplace — real popular-sort API ─────────────
+  try {
+    _homeRenderTrending();
+  } catch (_) {}
+}
+
+// ── Today: builds one merged, reactive list from real SH tasks
+// (due today / overdue / pinned, with real parent_id subtasks) and real
+// habits — same data homeHabitToggle()/moveSHTask() already operate on
+// elsewhere, just newly connected to this UI. ───────────────────────
+function _homeRenderToday(today8601, habits) {
+  const tl = $("home-today-list");
+  if (!tl) return;
+  const shAll = getSHData().tasks || [];
+  const topLevel = shAll.filter((t) => !t.parent_id);
+  const due = topLevel.filter(
+    (t) =>
+      t.status !== "done" &&
+      (t.date === today8601 || (t.date && t.date < today8601) || t.pinned),
+  );
+  due.sort((a, b) => {
+    const rank = (t) => (t.date && t.date < today8601 ? 0 : t.date === today8601 ? 1 : 2);
+    return rank(a) - rank(b);
+  });
+  const shownTasks = due.slice(0, 4);
+  const moreCount = due.length - shownTasks.length;
+  const shownHabits = (habits || []).slice(0, 5);
+
+  if (!shownTasks.length && !shownHabits.length) {
+    tl.innerHTML = `<div style="text-align:center;padding:22px 0">
+      <div style="font-size:1.4rem;margin-bottom:6px">☀️</div>
+      <div style="font-size:.86rem;color:var(--text3)">Nothing on your plate yet</div>
+      <div style="font-size:.76rem;color:var(--text4);margin-top:2px">Add a task or start a habit to see it here</div>
+    </div>`;
+    return;
+  }
+
+  const taskRows = shownTasks
+    .map((t) => {
+      const subs = shAll.filter((c) => String(c.parent_id) === String(t.id));
+      const doneSubs = subs.filter((c) => c.status === "done").length;
+      const overdue = t.date && t.date < today8601;
+      const badge = overdue
+        ? `<span class="h-today-badge overdue">Overdue</span>`
+        : t.date === today8601
+          ? `<span class="h-today-badge today">Due today</span>`
+          : "";
+      const meta = subs.length ? `${doneSubs}/${subs.length} subtasks` : "No subtasks";
+      const nextStatus = t.status === "done" ? "todo" : "done";
+      const subRows = subs.length
+        ? `<div class="h-today-subwrap" id="h-today-sub-${t.id}">
+            ${subs
+              .map((s) => {
+                const sNext = s.status === "done" ? "todo" : "done";
+                return `<div class="h-today-subrow">
+                <button class="habit-cb h-today-subcheck ${s.status === "done" ? "done" : ""}" onclick="event.stopPropagation();_homeTaskToggle(${s.id},'${sNext}')" aria-label="Toggle subtask"></button>
+                <span class="h-today-subname ${s.status === "done" ? "done" : ""}">${esc(s.title)}</span>
+              </div>`;
+              })
+              .join("")}
+          </div>`
+        : "";
+      return `<div class="h-today-item">
+        <div class="h-today-main" ${subs.length ? `onclick="_homeToggleSub('${t.id}')"` : ""}>
+          <button class="habit-cb" onclick="event.stopPropagation();_homeTaskToggle(${t.id},'${nextStatus}')" aria-label="Toggle task"></button>
+          <div class="h-today-body">
+            <div class="h-today-title-row">
+              <div class="h-today-title">${esc(t.title)}</div>
+              ${badge}
             </div>
-            <span class="pr-tag" style="background:var(--${urgency}2);color:var(--${urgency}4)">
-              ${daysLeft !== null ? `${daysLeft}d` : `${pct}%`}
-            </span>
-          </div>`;
-          })
-          .join("");
-      } else {
-        gs.style.display = "none";
-      }
+            <div class="h-today-meta">${meta}</div>
+          </div>
+          ${subs.length ? `<i class="ti ti-chevron-right h-today-chev" id="h-today-chev-${t.id}"></i>` : ""}
+        </div>
+        ${subRows}
+      </div>`;
+    })
+    .join("");
+
+  const habitRows = shownHabits
+    .map((h, i) => {
+      const done = (h.completions || []).includes(today8601);
+      return `<div class="h-today-item">
+        <div class="h-today-main" onclick="homeHabitToggle(${i})">
+          <button class="habit-cb ${done ? "done" : ""}" onclick="event.stopPropagation();homeHabitToggle(${i})" aria-label="Toggle habit"></button>
+          <div class="h-today-body">
+            <div class="h-today-title-row"><div class="h-today-title">${esc(h.emoji || "📌")} ${esc(h.title)}</div></div>
+          </div>
+          ${h.streak > 0 ? `<span class="h-today-streak">🔥 ${h.streak}d</span>` : ""}
+        </div>
+      </div>`;
+    })
+    .join("");
+
+  const moreRow = moreCount > 0
+    ? `<div class="h-today-more" onclick="nav('flux',null)">${moreCount} more waiting in Tasks →</div>`
+    : "";
+
+  tl.innerHTML = taskRows + habitRows + moreRow;
+}
+
+// Toggle a task/subtask's done state via the same moveSHTask() the Tasks
+// panel itself uses, then re-render just the Today section (cheap — avoids
+// a full loadHome() + AI-brief-cache touch for a single checkbox click).
+function _homeTaskToggle(id, newStatus) {
+  moveSHTask(id, newStatus);
+  const today8601 = new Date().toISOString().split("T")[0];
+  const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || "[]");
+  _homeRenderToday(today8601, habits);
+}
+
+// Expand/collapse a task's subtask list in place.
+function _homeToggleSub(id) {
+  const wrap = $(`h-today-sub-${id}`);
+  const chev = $(`h-today-chev-${id}`);
+  if (wrap) wrap.classList.toggle("open");
+  if (chev) chev.classList.toggle("open");
+}
+
+// ── Discovery strip — small, conditional "get more from Sivarr" nudges.
+// Each card only shows while its own real-data condition is unmet; the
+// whole strip hides once every applicable nudge has been satisfied. No
+// WhatsApp/Academic cards — neither is backed by real functionality today.
+function _homeRenderDiscovery(activeGoals, habits, notes) {
+  const sec = $("home-discover-section");
+  const strip = $("home-discover-strip");
+  if (!sec || !strip) return;
+  const cards = [];
+  if (!activeGoals.length)
+    cards.push({
+      icon: "ti-target",
+      title: "Set your first goal",
+      sub: "Link habits to it and watch progress add up",
+      go: "goals",
+    });
+  if (!habits.length)
+    cards.push({
+      icon: "ti-flame",
+      title: "Start a habit",
+      sub: "Small streaks compound — try one this week",
+      go: "habits",
+    });
+  if (!notes.length)
+    cards.push({
+      icon: "ti-notebook",
+      title: "Take your first note",
+      sub: "Jot down anything — organize it later",
+      go: "notes",
+    });
+  if (!_GCAL_CONNECTED)
+    cards.push({
+      icon: "ti-calendar",
+      title: "Connect Google Calendar",
+      sub: "See events alongside tasks, right on Home",
+      go: "settings",
+    });
+  cards.push({
+    icon: "ti-building-store",
+    title: "Explore the Marketplace",
+    sub: "Templates and AI agents built by other users",
+    go: "agents",
+  });
+
+  if (!cards.length) {
+    sec.style.display = "none";
+    return;
+  }
+  sec.style.display = "block";
+  strip.innerHTML = cards
+    .map(
+      (c) => `<div class="h-discover-card" onclick="nav('${c.go}',null)">
+        <div class="h-discover-icon"><i class="ti ${c.icon}"></i></div>
+        <div class="h-discover-title">${esc(c.title)}</div>
+        <div class="h-discover-sub">${esc(c.sub)}</div>
+      </div>`,
+    )
+    .join("");
+}
+
+// ── Across your spaces — candidate-builder pattern: each function returns
+// a card or null depending on real data; render whatever's non-null, hide
+// the section entirely when nothing qualifies. No Academic/Org/Trading-
+// Journal/WhatsApp cards — none are real, universal per-user data today.
+function _homeRenderSpaces(activeGoals, jnl, notes, today8601) {
+  const sec = $("home-spaces-section");
+  const list = $("home-brief-list");
+  if (!sec || !list) return;
+
+  const candidates = [];
+
+  if (activeGoals.length) {
+    const g = [...activeGoals].sort((a, b) => (b.progress || 0) - (a.progress || 0))[0];
+    candidates.push({
+      icon: "ti-target",
+      cls: "goal",
+      html: `<b>${esc(g.title)}</b> is ${g.progress || 0}% there`,
+      tag: "Goals",
+      go: "goals",
+    });
+  }
+
+  const journalledToday = jnl.some((e) => (e.date || "").startsWith(today8601));
+  if (!journalledToday) {
+    candidates.push({
+      icon: "ti-notebook",
+      cls: "journal",
+      html: `No journal entry today — <b>tap to write one</b>`,
+      tag: "Journal",
+      go: "journal",
+    });
+  }
+
+  // Real, reliable signal only — note dates are locale strings, not ISO,
+  // so "N notes this week" can't be computed correctly. The single global
+  // draft slot is a real boolean we do have.
+  try {
+    const draft = localStorage.getItem(`sivarr_note_draft_${S.sid}`);
+    if (draft && draft.trim()) {
+      candidates.push({
+        icon: "ti-file-text",
+        cls: "notes",
+        html: `You have <b>an unsaved draft</b> waiting to be finished`,
+        tag: "Notes & Docs",
+        go: "notes",
+      });
     }
   } catch (_) {}
 
-  // ── Recent notes ───────────────────────────────────────────────
-  try {
-    const ns = $("home-notes-section");
-    const nl = $("home-notes-list");
-    if (ns && nl && notes.length) {
-      ns.style.display = "block";
-      nl.innerHTML = notes
-        .slice(0, 3)
-        .map(
-          (n) => `
-        <div class="priority-item" onclick="nav('notes',null)" style="cursor:pointer">
-          <div class="pr-dot" style="background:var(--purple)"></div>
-          <div class="pr-text">${esc((n.text || "").split("\n")[0].slice(0, 60))}</div>
-          <span style="font-size:.7rem;color:var(--text4)">${n.date || ""}</span>
-        </div>`,
-        )
-        .join("");
-    } else if (ns) {
-      ns.style.display = "none";
-    }
-  } catch (_) {}
+  if (!candidates.length) {
+    sec.style.display = "none";
+    return;
+  }
+  sec.style.display = "block";
+  list.innerHTML = candidates
+    .slice(0, 4)
+    .map(
+      (c) => `<div class="h-brief-row" onclick="nav('${c.go}',null)">
+        <div class="h-brief-icon ${c.cls}"><i class="ti ${c.icon}"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="h-brief-text">${c.html}</div>
+          <span class="h-brief-tag">${esc(c.tag)}</span>
+        </div>
+        <i class="ti ti-chevron-right h-brief-arrow"></i>
+      </div>`,
+    )
+    .join("");
+}
 
-  // ── Journal latest entry ───────────────────────────────────────
+// ── Trending in Marketplace — real popular-sort data, not the old static
+// TPL_LIBRARY placeholder array. Independent fetch (doesn't touch the
+// agents-panel's own _ag.templates state) so it works even if that panel
+// has never been opened this session.
+async function _homeRenderTrending() {
+  const strip = $("home-trending-list");
+  if (!strip) return;
+  strip.innerHTML = `<span class="brief-pulse">Loading…</span>`;
   try {
-    const js = $("home-journal-section");
-    const jt = $("home-journal-text");
-    if (js && jt && jnl.length) {
-      const latest = jnl[0];
-      js.style.display = "block";
-      jt.textContent =
-        (latest.text || "").slice(0, 120) +
-        ((latest.text || "").length > 120 ? "…" : "");
-      const jd = $("home-journal-date");
-      if (jd) jd.textContent = latest.date || "";
+    const r = await fetch("/api/agents/templates?sort=popular&limit=6");
+    const d = await r.json();
+    const templates = d.templates || [];
+    if (!templates.length) {
+      strip.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:8px 0">Nothing trending yet — <button onclick="nav('agents',null)" style="background:none;border:none;color:var(--teal);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">browse the marketplace →</button></div>`;
+      return;
     }
-  } catch (_) {}
-
-  // ── Featured templates ─────────────────────────────────────────
-  try {
-    const htl = $("home-templates-list");
-    if (htl && typeof TPL_LIBRARY !== "undefined") {
-      htl.innerHTML = TPL_LIBRARY.slice(0, 3)
-        .map(
-          (t) => `
-        <div class="priority-item" onclick="nav('templates',null)" style="cursor:pointer">
-          <div style="font-size:1.1rem">${t.icon}</div>
-          <div class="pr-text" style="font-weight:500">${esc(t.name)}</div>
-          <span style="color:var(--text3);font-size:12px">→</span>
-        </div>`,
-        )
-        .join("");
-    }
-  } catch (_) {}
+    strip.innerHTML = templates
+      .map((t) => {
+        const color = t.thumbnail_color || AG_CAT_COLORS[t.category] || "var(--teal)";
+        const icon = AG_CAT_ICONS[t.category] || "ti-template";
+        const price = agFormatPrice(t);
+        return `<div class="h-trend-card" onclick="nav('agents',null);agOpenTemplate('${t.id}')">
+          <div class="h-trend-thumb" style="background:${color}1a;color:${color}"><i class="ti ${icon}"></i></div>
+          <div class="h-trend-name">${esc(t.name)}</div>
+          <div class="h-trend-tag">${esc(AG_CAT_LABELS[t.category] || "Template")} · ${price}</div>
+        </div>`;
+      })
+      .join("");
+  } catch (_) {
+    strip.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:8px 0">Couldn't load trending templates right now.</div>`;
+  }
 }
 
 async function _fetchHomeBrief({
