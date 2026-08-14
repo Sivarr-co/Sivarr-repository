@@ -160,12 +160,6 @@ body {
   .tb-brand {
     width: auto;
   }
-  .tb-center {
-    display: none;
-  }
-  .tb-ham {
-    display: flex;
-  }
 
   /* ── Sidebar mobile state ────────────────────────────────── */
   .sidebar {
@@ -994,11 +988,6 @@ body {
   }
   .view-head {
     padding: 0 12px !important;
-  }
-
-  /* ── Topbar ──────────────────────────────────────────────── */
-  .tb-name {
-    display: none;
   }
 
   /* ── Settings sub-nav ────────────────────────────────────── */

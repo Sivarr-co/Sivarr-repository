@@ -1,19 +1,26 @@
 <!-- _shell.html -->
 <!-- Topbar -->
 <header class="topbar">
-  <!-- Hamburger — opens the full nav menu (Home, Sivarr AI, Finance
-       Tracker, Journal, Marketplace, Plans, etc.) as a slide-in overlay,
-       from any screen, at any time. Pure visual toggle — never touches
-       browser history, so it can't collide with the OAuth login flow. -->
+  <!-- Mobile only (desktop hides this — the left sidebar carries its own
+       .sb-brand instead). Logo+name replaces the old hamburger icon as the
+       menu open/close trigger — same toggleMobileSidebar() handler, just
+       moved so there's one top row instead of two stacked ones, and the
+       search bar has real room instead of living in a second row below it. -->
   <button
-    class="tb-ham"
+    class="tb-brand"
     id="hamburger"
     onclick="toggleMobileSidebar(event)"
     title="Menu"
     type="button"
-    style="position: relative; z-index: 100"
   >
-    <i class="ti ti-menu-2"></i>
+    <div class="tb-logo">
+      <img src="/static/sivarrai.png" alt="Sivarr" />
+    </div>
+    <span class="tb-name">Sivarr</span>
+  </button>
+  <button class="tb-search" onclick="cmdOpen()" aria-label="Search or jump to">
+    <i class="ti ti-search"></i>
+    <span>Search…</span>
   </button>
 
   <!-- Autosave status -->

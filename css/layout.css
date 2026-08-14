@@ -54,15 +54,60 @@ body.offline .layout {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+/* Mobile-only — replaces the old hamburger icon. Same
+   toggleMobileSidebar() the hamburger used to call, just triggered from the
+   logo+name instead, so there's one top row instead of a hamburger row with
+   a second logo/search row stacked beneath it. Hidden on desktop below
+   (the left sidebar's own .sb-brand carries this there instead). */
 .tb-brand {
   display: flex;
   align-items: center;
-  gap: 9px;
-  width: var(--sb-width);
-  flex-shrink: 0;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  padding: 6px;
+  margin: -6px 0;
+  border-radius: 8px;
   cursor: pointer;
-  user-select: none;
-  text-decoration: none;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.tb-brand:hover,
+.tb-brand:focus-visible {
+  background: var(--bg3);
+}
+
+.tb-search {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text4);
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.tb-search:hover {
+  background: var(--bg2);
+  border-color: var(--teal);
+  color: var(--text3);
+}
+.tb-search i {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+.tb-search span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tb-logo {
@@ -97,7 +142,8 @@ body.offline .layout {
 }
 
 @media (min-width: 721px) {
-  .tb-brand {
+  .tb-brand,
+  .tb-search {
     display: none;
   }
   .topbar {
@@ -109,51 +155,15 @@ body.offline .layout {
   body.sb-retracted .tb-brand {
     display: flex;
   }
+  body.sb-retracted .tb-search {
+    display: flex;
+    max-width: 320px;
+  }
 }
 @media (min-width: 721px) {
   body.hide-topbar .layout {
     padding-top: 0;
   }
-}
-
-.tb-center {
-  flex: 1;
-  max-width: 520px;
-}
-
-.tb-search {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius2);
-  padding: 0 14px;
-  height: 36px;
-  cursor: pointer;
-  transition: var(--transition);
-}
-.tb-search:hover {
-  border-color: var(--teal);
-  background: var(--bg2);
-  box-shadow: 0 0 0 3px var(--teal2);
-}
-[data-theme="dark"] .tb-search:hover {
-  box-shadow: 0 0 0 3px rgba(15, 219, 173, 0.1);
-}
-.tb-search span {
-  font-size: 14px;
-  color: var(--text4);
-  flex: 1;
-}
-.tb-search kbd {
-  font-size: 11px;
-  color: var(--text4);
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 2px 6px;
-  font-family: var(--font);
 }
 
 .tb-right {
@@ -226,18 +236,6 @@ body.offline .layout {
   flex-shrink: 0;
   overflow: hidden;
   font-family: var(--font);
-}
-.tb-ham {
-  display: none;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius);
-  align-items: center;
-  justify-content: center;
-  color: var(--text3);
-  font-size: 20px;
-  border: none;
-  background: transparent;
 }
 .tb-mobback {
   display: none;
@@ -1648,20 +1646,10 @@ body.auth-screen #login-screen {
     padding-bottom: env(safe-area-inset-bottom, 0) !important;
   }
 
+  /* The topbar carries logo/name/search on mobile now (see .tb-brand /
+     .tb-search) — .sb-brand would just duplicate it a row below. */
   .sidebar .sb-brand {
-    padding: 10px 14px;
-  }
-  /* ⌘K is meaningless on a touch device — drop it so the search label gets
-     the room instead of truncating on narrow phones. */
-  .sb-top-kbd {
     display: none;
-  }
-  #sb-rail-icon {
-    display: none;
-  }
-  .sb-mob-close-icon {
-    display: inline-block;
-    font-size: 1.3rem;
   }
 
   .sidebar,
@@ -1694,18 +1682,12 @@ body.auth-screen #login-screen {
   .sidebar.collapsed .u-role {
     display: revert !important;
   }
-  body.mob-drilled .tb-ham {
-    display: flex;
-  }
   body.mob-drilled .sidebar,
   body.mob-drilled .sidebar.retracted,
   body.mob-drilled .sidebar.collapsed {
     transform: translateX(-100%) !important;
   }
 
-  .sidebar .sb-brand {
-    padding: 12px 18px;
-  }
   .sidebar .sb-scroll {
     padding: 6px 18px 32px;
   }
@@ -1749,23 +1731,16 @@ body.auth-screen #login-screen {
 
 }
 
-/* ── HAMBURGER SIDEBAR OVERLAY (mobile) ───────────────────────
-   The hamburger opens the full nav menu (Home, Sivarr AI, Finance
-   Tracker, Journal, Marketplace, Plans, Settings, etc.) as a slide-in
-   overlay ON TOP of whatever panel you're currently viewing — from any
-   screen, at any drill depth. It is a pure visual toggle driven by the
-   `mobile-sidebar-open` body class (see toggleMobileSidebar() /
+/* ── MOBILE SIDEBAR OVERLAY (mobile) ───────────────────────
+   .tb-brand (logo+name, was the hamburger icon) opens the full nav menu
+   (Home, Sivarr AI, Finance Tracker, Journal, Marketplace, Plans, Settings,
+   etc.) as a slide-in overlay ON TOP of whatever panel you're currently
+   viewing — from any screen, at any drill depth. It is a pure visual toggle
+   driven by the `mobile-sidebar-open` body class (see toggleMobileSidebar() /
    openMobileSidebar() / closeMobileSidebar() in app.js) and never
    touches browser history, so it can't interact with or reintroduce
-   the login/OAuth history-back bug.
-   Deliberately declared AFTER the block above so it wins the cascade
-   tie (same selector specificity + !important on both sides) whenever
-   `mobile-sidebar-open` and `mob-drilled` are both present at once —
-   i.e. you open the menu while already inside a panel. */
+   the login/OAuth history-back bug. */
 @media (max-width: 720px) {
-  .tb-ham {
-    display: flex !important;
-  }
   body.mobile-sidebar-open .sidebar,
   body.mobile-sidebar-open.mob-drilled .sidebar {
     transform: translateX(0) !important;
@@ -2746,11 +2721,6 @@ body.auth-screen #login-screen {
 
   .os-grid2 {
     grid-template-columns: 1fr !important;
-  }
-
-  /* ── Topbar — show logo icon only, hide name text ───────────── */
-  .tb-name {
-    display: none;
   }
 
   /* ── Content padding ─────────────────────────────────────────── */

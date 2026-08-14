@@ -704,18 +704,6 @@ async function doLogin(prefillEmail) {
     saveSession(r.name, r.email, r.token);
     track(isReg ? "Register" : "Login");
     _applyLoginData(r);
-
-    try {
-      const ann = await fetch("/api/lecturer/announcements");
-      const ad = await ann.json();
-      if (ad.announcements?.length) {
-        const latest = ad.announcements[0];
-        addMsg(
-          "sivarr",
-          `📢 New announcement:\n\n"${latest.message}"\n\n— ${latest.author}, ${latest.date}`,
-        );
-      }
-    } catch (_) {}
   } catch (e) {
     const status = e.status || 0;
     const detail = e.message || "";
@@ -1458,8 +1446,8 @@ async function submitResetPassword() {
     if (err) err.textContent = "Enter a new password.";
     return;
   }
-  if (pw.length < 6) {
-    if (err) err.textContent = "Password must be at least 6 characters.";
+  if (pw.length < 8) {
+    if (err) err.textContent = "Password must be at least 8 characters.";
     return;
   }
   if (pw !== cpw) {
