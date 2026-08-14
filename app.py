@@ -9660,6 +9660,7 @@ async def home_brief(data: dict):
         "2. Reference 1-2 real data points naturally, not as a list.",
         "3. End with one sharp, specific action suggestion.",
         "4. Max 3 sentences. No bullet points. No headers.",
+        f"5. Do NOT open with a greeting or salutation (no \"Good {tod}\", no \"{tod.capitalize()}, {first_name}\", no \"Hi\"/\"Hey\") — the page already shows a greeting above this text. Start directly with the substance.",
     ]
 
     prompt  = "\n".join(lines)

@@ -9059,13 +9059,14 @@ function briefDecorPick(key) {
 }
 
 // The header name-line is the single greeting (local time). Strip any leading
-// "Good morning/afternoon/evening[, Name]" the brief text may carry (often from
-// the server's timezone) so we never show two conflicting greetings.
+// "Good morning/afternoon/evening[, Name]" (or the bare "Morning[, Name]" form
+// the AI brief sometimes opens with, skipping "Good") the brief text may carry
+// (often from the server's timezone) so we never show two conflicting greetings.
 function _stripGreeting(s) {
   if (!s) return s;
   return s
     .replace(
-      /^\s*#*\s*good\s+(morning|afternoon|evening)\b[\s,!.…—-]*([A-Za-z][\w'’-]*[\s,!.]*)?/i,
+      /^\s*#*\s*(?:good\s+)?(morning|afternoon|evening)\b[\s,!.…—-]*([A-Za-z][\w'’-]*[\s,!.]*)?/i,
       "",
     )
     .replace(/^[\s,.!…—–-]+/, "");
