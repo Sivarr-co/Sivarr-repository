@@ -9163,16 +9163,6 @@ async function loadHome() {
     }
   }
 
-  // ── Stats ─────────────────────────────────────────────────────
-  const hq = $("home-questions");
-  if (hq) hq.textContent = S.stats?.questions || 0;
-  const hqz = $("home-quizzes");
-  if (hqz) hqz.textContent = S.stats?.quizzes || 0;
-  const hs = $("home-sessions");
-  if (hs) hs.textContent = streak || S.stats?.sessions || 1;
-  const gc = $("home-goals-count");
-  if (gc) gc.textContent = activeGoals.length;
-
   // ── Discovery strip — conditional "get more from Sivarr" nudges ─
   try {
     _homeRenderDiscovery(activeGoals, habits, notes);
