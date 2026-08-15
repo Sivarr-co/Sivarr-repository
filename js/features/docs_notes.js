@@ -117,7 +117,7 @@ const _DOC_TEMPLATES = {
     content: `<h1>Study Notes</h1><p><strong>Subject:</strong> </p><p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p><h2>Key Concepts</h2><ul><li></li></ul><h2>Notes</h2><p></p><h2>Summary</h2><p></p><h2>Questions to Revisit</h2><ul><li></li></ul>`,
   },
   journal: {
-    title: `Journal — ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}`,
+    title: `Journal: ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}`,
     content: `<h2>${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</h2><h3>Today's Highlights</h3><p></p><h3>What I Learned</h3><p></p><h3>What I'm Grateful For</h3><ul><li></li></ul><h3>Tomorrow's Focus</h3><p></p>`,
   },
   weekly: {
@@ -424,7 +424,7 @@ async function docAIGenerate() {
     if (insertBtn) insertBtn.style.display = "block";
     if (replaceBtn) replaceBtn.style.display = sel ? "block" : "none";
   } catch {
-    if (resultEl) resultEl.textContent = "Could not generate — try again.";
+    if (resultEl) resultEl.textContent = "Could not generate. Try again.";
   }
 }
 

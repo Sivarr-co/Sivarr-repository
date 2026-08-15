@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Sivarr — Admin</title>
+<title>Sivarr: Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -509,7 +509,7 @@ tbody tr:hover td{background:var(--hover)}
         <span class="sb-ico">🛡️</span><span>System Health</span>
       </div>
       <div class="sb-footer">
-        <div class="sb-footer-info" id="sb-version">v—</div>
+        <div class="sb-footer-info" id="sb-version">v–</div>
       </div>
     </nav>
 
@@ -530,12 +530,12 @@ tbody tr:hover td{background:var(--hover)}
 
         <!-- Stat cards -->
         <div class="stat-row" id="stat-row">
-          <div class="stat-card c-blue"><div class="stat-label">Total Users</div><div class="stat-val" id="ov-users">—</div><div class="stat-sub">Registered accounts</div></div>
-          <div class="stat-card c-green"><div class="stat-label">Active Sessions</div><div class="stat-val" id="ov-sessions">—</div><div class="stat-sub">Right now</div></div>
-          <div class="stat-card c-teal"><div class="stat-label">Spaces Created</div><div class="stat-val" id="ov-spaces">—</div><div class="stat-sub">Across all users</div></div>
-          <div class="stat-card c-amber"><div class="stat-label">Questions Asked</div><div class="stat-val" id="ov-questions">—</div><div class="stat-sub">Total AI interactions</div></div>
-          <div class="stat-card c-purple"><div class="stat-label">Quizzes Taken</div><div class="stat-val" id="ov-quizzes">—</div><div class="stat-sub">Completed quizzes</div></div>
-          <div class="stat-card c-red"><div class="stat-label">Avg Quiz Score</div><div class="stat-val" id="ov-avg">—</div><div class="stat-sub">Platform-wide average</div></div>
+          <div class="stat-card c-blue"><div class="stat-label">Total Users</div><div class="stat-val" id="ov-users">–</div><div class="stat-sub">Registered accounts</div></div>
+          <div class="stat-card c-green"><div class="stat-label">Active Sessions</div><div class="stat-val" id="ov-sessions">–</div><div class="stat-sub">Right now</div></div>
+          <div class="stat-card c-teal"><div class="stat-label">Spaces Created</div><div class="stat-val" id="ov-spaces">–</div><div class="stat-sub">Across all users</div></div>
+          <div class="stat-card c-amber"><div class="stat-label">Questions Asked</div><div class="stat-val" id="ov-questions">–</div><div class="stat-sub">Total AI interactions</div></div>
+          <div class="stat-card c-purple"><div class="stat-label">Quizzes Taken</div><div class="stat-val" id="ov-quizzes">–</div><div class="stat-sub">Completed quizzes</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Avg Quiz Score</div><div class="stat-val" id="ov-avg">–</div><div class="stat-sub">Platform-wide average</div></div>
         </div>
 
         <!-- Charts row -->
@@ -628,7 +628,7 @@ tbody tr:hover td{background:var(--hover)}
         <div class="page-hd">
           <div class="page-hd-l">
             <h2>Live Sessions</h2>
-            <p>Currently authenticated users — refreshes every 30s</p>
+            <p>Currently authenticated users, refreshes every 30s</p>
           </div>
           <div class="page-hd-r">
             <button class="btn btn-danger btn-sm" onclick="killAllSessions()">Kill All Sessions</button>
@@ -753,35 +753,35 @@ tbody tr:hover td{background:var(--hover)}
             <div class="health-icon ok">⚡</div>
             <div class="health-info">
               <div class="health-label">Active Sessions</div>
-              <div class="health-val" id="hc-sessions">—</div>
+              <div class="health-val" id="hc-sessions">–</div>
             </div>
           </div>
           <div class="health-card">
             <div class="health-icon ok">🏷️</div>
             <div class="health-info">
               <div class="health-label">App Version</div>
-              <div class="health-val" id="hc-version">—</div>
+              <div class="health-val" id="hc-version">–</div>
             </div>
           </div>
           <div class="health-card">
             <div class="health-icon ok">👥</div>
             <div class="health-info">
               <div class="health-label">Total Users</div>
-              <div class="health-val" id="hc-users">—</div>
+              <div class="health-val" id="hc-users">–</div>
             </div>
           </div>
           <div class="health-card">
             <div class="health-icon ok">🧩</div>
             <div class="health-info">
               <div class="health-label">Total Spaces</div>
-              <div class="health-val" id="hc-spaces">—</div>
+              <div class="health-val" id="hc-spaces">–</div>
             </div>
           </div>
           <div class="health-card">
             <div class="health-icon warn">🕐</div>
             <div class="health-info">
               <div class="health-label">Server Time (UTC)</div>
-              <div class="health-val mono-text" id="hc-time">—</div>
+              <div class="health-val mono-text" id="hc-time">–</div>
             </div>
           </div>
         </div>
@@ -808,10 +808,10 @@ tbody tr:hover td{background:var(--hover)}
           </div>
         </div>
         <div class="stat-row">
-          <div class="stat-card c-teal"><div class="stat-label">Paying Users</div><div class="stat-val" id="rv-paying">—</div><div class="stat-sub">Active subscriptions</div></div>
-          <div class="stat-card c-green"><div class="stat-label">Est. MRR</div><div class="stat-val" id="rv-mrr">—</div><div class="stat-sub">Monthly recurring</div></div>
-          <div class="stat-card c-blue"><div class="stat-label">Est. ARR</div><div class="stat-val" id="rv-arr">—</div><div class="stat-sub">Annualised</div></div>
-          <div class="stat-card c-amber"><div class="stat-label">All-time Revenue</div><div class="stat-val" id="rv-alltime">—</div><div class="stat-sub">Total collected</div></div>
+          <div class="stat-card c-teal"><div class="stat-label">Paying Users</div><div class="stat-val" id="rv-paying">–</div><div class="stat-sub">Active subscriptions</div></div>
+          <div class="stat-card c-green"><div class="stat-label">Est. MRR</div><div class="stat-val" id="rv-mrr">–</div><div class="stat-sub">Monthly recurring</div></div>
+          <div class="stat-card c-blue"><div class="stat-label">Est. ARR</div><div class="stat-val" id="rv-arr">–</div><div class="stat-sub">Annualised</div></div>
+          <div class="stat-card c-amber"><div class="stat-label">All-time Revenue</div><div class="stat-val" id="rv-alltime">–</div><div class="stat-sub">Total collected</div></div>
         </div>
         <div class="card" style="margin-bottom:16px">
           <div class="card-hd"><h3>USD → NGN exchange rate</h3></div>
@@ -824,7 +824,7 @@ tbody tr:hover td{background:var(--hover)}
             <button class="grad-btn" style="width:auto;padding:9px 18px" onclick="saveNairaRate()">Update rate</button>
             <div id="rv-rate-msg" style="font-size:.78rem;color:var(--muted);align-self:center"></div>
           </div>
-          <div style="padding:6px 4px 2px;font-size:.74rem;color:var(--muted)">USD is the price anchor. This rate sets the ₦ amount charged via Paystack/Flutterwave and the conversion users see at checkout. Applies live — no redeploy.</div>
+          <div style="padding:6px 4px 2px;font-size:.74rem;color:var(--muted)">USD is the price anchor. This rate sets the ₦ amount charged via Paystack/Flutterwave and the conversion users see at checkout. Applies live, no redeploy.</div>
         </div>
         <div class="grid2">
           <div class="card">
@@ -864,10 +864,10 @@ tbody tr:hover td{background:var(--hover)}
           </div>
         </div>
         <div class="stat-row">
-          <div class="stat-card c-blue"><div class="stat-label">DAU</div><div class="stat-val" id="gr-dau">—</div><div class="stat-sub">Active last 24h</div></div>
-          <div class="stat-card c-teal"><div class="stat-label">WAU</div><div class="stat-val" id="gr-wau">—</div><div class="stat-sub">Active last 7d</div></div>
-          <div class="stat-card c-purple"><div class="stat-label">MAU</div><div class="stat-val" id="gr-mau">—</div><div class="stat-sub">Active last 30d</div></div>
-          <div class="stat-card c-green"><div class="stat-label">New (period)</div><div class="stat-val" id="gr-new">—</div><div class="stat-sub">Signups in range</div></div>
+          <div class="stat-card c-blue"><div class="stat-label">DAU</div><div class="stat-val" id="gr-dau">–</div><div class="stat-sub">Active last 24h</div></div>
+          <div class="stat-card c-teal"><div class="stat-label">WAU</div><div class="stat-val" id="gr-wau">–</div><div class="stat-sub">Active last 7d</div></div>
+          <div class="stat-card c-purple"><div class="stat-label">MAU</div><div class="stat-val" id="gr-mau">–</div><div class="stat-sub">Active last 30d</div></div>
+          <div class="stat-card c-green"><div class="stat-label">New (period)</div><div class="stat-val" id="gr-new">–</div><div class="stat-sub">Signups in range</div></div>
         </div>
         <div class="card">
           <div class="card-hd"><h3>Signups Over Time</h3></div>
@@ -897,20 +897,20 @@ tbody tr:hover td{background:var(--hover)}
           </div>
         </div>
         <div class="stat-row">
-          <div class="stat-card c-purple"><div class="stat-label">AI Actions Today</div><div class="stat-val" id="ai-today">—</div><div class="stat-sub">Across all users</div></div>
-          <div class="stat-card c-amber"><div class="stat-label">Total Questions</div><div class="stat-val" id="ai-q">—</div><div class="stat-sub">All-time</div></div>
-          <div class="stat-card c-blue"><div class="stat-label">Total Quizzes</div><div class="stat-val" id="ai-qz">—</div><div class="stat-sub">All-time</div></div>
-          <div class="stat-card c-green"><div class="stat-label">Free Daily Cap</div><div class="stat-val" id="ai-cap">—</div><div class="stat-sub">AI actions / day</div></div>
+          <div class="stat-card c-purple"><div class="stat-label">AI Actions Today</div><div class="stat-val" id="ai-today">–</div><div class="stat-sub">Across all users</div></div>
+          <div class="stat-card c-amber"><div class="stat-label">Total Questions</div><div class="stat-val" id="ai-q">–</div><div class="stat-sub">All-time</div></div>
+          <div class="stat-card c-blue"><div class="stat-label">Total Quizzes</div><div class="stat-val" id="ai-qz">–</div><div class="stat-sub">All-time</div></div>
+          <div class="stat-card c-green"><div class="stat-label">Free Daily Cap</div><div class="stat-val" id="ai-cap">–</div><div class="stat-sub">AI actions / day</div></div>
         </div>
         <div class="health-grid" id="ai-health-grid">
           <div class="health-card"><div class="health-icon ok" id="aih-model-icon">🤖</div><div class="health-info"><div class="health-label">AI Model</div><div class="health-val" id="aih-model">Checking…</div></div></div>
-          <div class="health-card"><div class="health-icon ok" id="aih-breaker-icon">🔌</div><div class="health-info"><div class="health-label">Circuit Breaker</div><div class="health-val" id="aih-breaker">—</div></div></div>
-          <div class="health-card"><div class="health-icon ok" id="aih-db-icon">🗄️</div><div class="health-info"><div class="health-label">Database</div><div class="health-val" id="aih-db">—</div></div></div>
-          <div class="health-card"><div class="health-icon ok" id="aih-pool-icon">🌊</div><div class="health-info"><div class="health-label">DB Pool</div><div class="health-val" id="aih-pool">—</div></div></div>
-          <div class="health-card"><div class="health-icon ok" id="aih-redis-icon">⚡</div><div class="health-info"><div class="health-label">Redis</div><div class="health-val" id="aih-redis">—</div></div></div>
-          <div class="health-card"><div class="health-icon ok" id="aih-email-icon">✉️</div><div class="health-info"><div class="health-label">Email Provider</div><div class="health-val" id="aih-email">—</div></div></div>
-          <div class="health-card"><div class="health-icon ok" id="aih-enc-icon">🔐</div><div class="health-info"><div class="health-label">Secrets Encrypted</div><div class="health-val" id="aih-enc">—</div></div></div>
-          <div class="health-card"><div class="health-icon ok">⏱️</div><div class="health-info"><div class="health-label">Uptime</div><div class="health-val" id="aih-uptime">—</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-breaker-icon">🔌</div><div class="health-info"><div class="health-label">Circuit Breaker</div><div class="health-val" id="aih-breaker">–</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-db-icon">🗄️</div><div class="health-info"><div class="health-label">Database</div><div class="health-val" id="aih-db">–</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-pool-icon">🌊</div><div class="health-info"><div class="health-label">DB Pool</div><div class="health-val" id="aih-pool">–</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-redis-icon">⚡</div><div class="health-info"><div class="health-label">Redis</div><div class="health-val" id="aih-redis">–</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-email-icon">✉️</div><div class="health-info"><div class="health-label">Email Provider</div><div class="health-val" id="aih-email">–</div></div></div>
+          <div class="health-card"><div class="health-icon ok" id="aih-enc-icon">🔐</div><div class="health-info"><div class="health-label">Secrets Encrypted</div><div class="health-val" id="aih-enc">–</div></div></div>
+          <div class="health-card"><div class="health-icon ok">⏱️</div><div class="health-info"><div class="health-label">Uptime</div><div class="health-val" id="aih-uptime">–</div></div></div>
         </div>
         <div class="card">
           <div class="card-hd"><h3>Heaviest AI Users</h3></div>
@@ -1071,12 +1071,12 @@ function esc(s) {
 }
 
 function fmtDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return '–';
   try { return new Date(iso).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch { return iso; }
 }
 
 function fmtDT(iso) {
-  if (!iso) return '—';
+  if (!iso) return '–';
   try { return new Date(iso).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); } catch { return iso; }
 }
 
@@ -1108,7 +1108,7 @@ async function loadOverview() {
 
     // Version
     const sbVer = document.getElementById('sb-version');
-    if (sbVer) sbVer.textContent = 'v' + (d.version || '—');
+    if (sbVer) sbVer.textContent = 'v' + (d.version || '–');
 
     renderDiffChart(d.diff_counts || {});
     renderTopicsChart(d.top_topics || []);
@@ -1218,8 +1218,8 @@ function renderUsersTable(users) {
         <div style="font-weight:600;font-size:.85rem">${esc(u.name)}</div>
         <div style="font-size:.7rem;color:var(--muted)">${esc(u.sid||'').slice(0,12)}…</div>
       </td>
-      <td style="color:var(--muted)">${esc(u.email||'—')}</td>
-      <td class="mono-text">${esc(u.matric||'—')}</td>
+      <td style="color:var(--muted)">${esc(u.email||'–')}</td>
+      <td class="mono-text">${esc(u.matric||'–')}</td>
       <td>${u.sessions}</td>
       <td>${u.questions}</td>
       <td>${u.quizzes}</td>
@@ -1227,7 +1227,7 @@ function renderUsersTable(users) {
         ${u.quizzes > 0
           ? `<span style="font-weight:700">${u.avg_score}%</span>
              <span class="score-bar"><span class="score-track"><span class="score-fill" style="width:${u.avg_score}%"></span></span></span>`
-          : '<span style="color:var(--muted);font-size:.76rem">—</span>'}
+          : '<span style="color:var(--muted);font-size:.76rem">–</span>'}
       </td>
       <td><span class="badge b-${u.difficulty}">${u.difficulty}</span></td>
       <td style="color:var(--muted);font-size:.76rem">${esc(u.last_seen||'Never')}</td>
@@ -1255,7 +1255,7 @@ async function viewUser(idx) {
   }
   const sub = u.subscription || {}, ig = u.integrations || {}, us = u.usage || {};
   const planChip = u.plan_active
-    ? `<span class="chip chip-green">${esc(sub.name||'Paid')} · expires ${esc(sub.expires||'—')}</span>`
+    ? `<span class="chip chip-green">${esc(sub.name||'Paid')} · expires ${esc(sub.expires||'–')}</span>`
     : `<span class="chip">Free</span>`;
   const igChip = (on, label) => `<span class="tag${on?'':' weak'}" style="opacity:${on?1:.5}">${on?'✓':'○'} ${label}</span>`;
   const bh = u.billing_history || [];
@@ -1264,9 +1264,9 @@ async function viewUser(idx) {
     <div class="modal-section">
       <div class="modal-section-title">Account</div>
       <div class="detail-grid">
-        <div class="detail-item"><div class="lbl">Email</div><div class="val">${esc(u.email||'—')}</div></div>
-        <div class="detail-item"><div class="lbl">Matric</div><div class="val">${esc(u.matric||'—')}</div></div>
-        <div class="detail-item"><div class="lbl">Verified</div><div class="val">${u.verified===true?'✓ Yes':u.verified===false?'✗ No':'—'}</div></div>
+        <div class="detail-item"><div class="lbl">Email</div><div class="val">${esc(u.email||'–')}</div></div>
+        <div class="detail-item"><div class="lbl">Matric</div><div class="val">${esc(u.matric||'–')}</div></div>
+        <div class="detail-item"><div class="lbl">Verified</div><div class="val">${u.verified===true?'✓ Yes':u.verified===false?'✗ No':'–'}</div></div>
         <div class="detail-item"><div class="lbl">Joined</div><div class="val" style="font-size:.8rem">${esc(fmtDate(u.created_at))}</div></div>
         <div class="detail-item"><div class="lbl">User ID</div><div class="val mono-text" style="font-size:.72rem">${esc(u.sid||'')}</div></div>
         <div class="detail-item"><div class="lbl">Last Seen</div><div class="val" style="font-size:.8rem">${esc(u.last_seen||'Never')}</div></div>
@@ -1331,7 +1331,7 @@ async function signOutUser(sid) {
   if (!confirm('Force sign-out: kill all active sessions for this user?')) return;
   try {
     const d = await apiPost('/api/admin/user-signout', {sid});
-    alert(`Signed out — ${d.killed} session(s) killed.`);
+    alert(`Signed out. ${d.killed} session(s) killed.`);
   } catch { alert('Failed to sign out user.'); }
 }
 
@@ -1449,8 +1449,8 @@ function renderSpacesTable(spaces) {
         </div>
       </td>
       <td><span class="badge b-${s.type}">${s.type}</span></td>
-      <td style="font-weight:500">${esc(s.owner||'—')}</td>
-      <td style="color:var(--muted)">${esc(s.owner_email||'—')}</td>
+      <td style="font-weight:500">${esc(s.owner||'–')}</td>
+      <td style="color:var(--muted)">${esc(s.owner_email||'–')}</td>
       <td style="color:var(--muted);font-size:.76rem">${fmtDT(s.created_at)}</td>
     </tr>`).join('');
 }
@@ -1520,7 +1520,7 @@ async function loadHealth() {
       dbIcon.className = 'health-icon ' + (dbOk ? 'ok' : 'err');
     }
     document.getElementById('hc-sessions').textContent = d.active_sessions + ' active';
-    document.getElementById('hc-version').textContent  = 'v' + (d.version||'—');
+    document.getElementById('hc-version').textContent  = 'v' + (d.version||'–');
     document.getElementById('hc-users').textContent    = d.total_users + ' registered';
     document.getElementById('hc-spaces').textContent   = d.total_spaces + ' spaces';
     document.getElementById('hc-time').textContent     = new Date().toISOString().slice(0,19).replace('T',' ');
@@ -1584,7 +1584,7 @@ async function saveNairaRate() {
   try {
     await apiPost('/api/admin/billing/rate', { naira_rate: rate });
     _RV_RATE = rate;
-    if (msg) { msg.textContent = '✓ Saved — ₦' + rate.toLocaleString() + ' / $1'; msg.style.color = 'var(--green,#10b981)'; }
+    if (msg) { msg.textContent = '✓ Saved: ₦' + rate.toLocaleString() + ' / $1'; msg.style.color = 'var(--green,#10b981)'; }
     loadRevenue();
   } catch(e) {
     if (msg) { msg.textContent = 'Failed: ' + e; msg.style.color = 'var(--red,#ef4444)'; }
@@ -1618,13 +1618,13 @@ function renderRevenue() {
   const pays = d.recent_payments || [];
   tb.innerHTML = pays.length ? pays.map(p => `
     <tr>
-      <td style="color:var(--muted);font-size:.78rem">${esc(p.date||'—')}</td>
-      <td><div style="font-weight:600;font-size:.82rem">${esc(p.name||'—')}</div>
+      <td style="color:var(--muted);font-size:.78rem">${esc(p.date||'–')}</td>
+      <td><div style="font-weight:600;font-size:.82rem">${esc(p.name||'–')}</div>
           <div style="font-size:.7rem;color:var(--muted)">${esc(p.email||'')}</div></td>
-      <td>${esc(p.plan||'—')}</td>
+      <td>${esc(p.plan||'–')}</td>
       <td style="font-weight:700">${rvMoney(p.amount_num)}</td>
-      <td>${esc(p.gateway||'—')}</td>
-      <td><span class="chip ${p.status==='paid'?'chip-green':''}">${esc(p.status||'—')}</span></td>
+      <td>${esc(p.gateway||'–')}</td>
+      <td><span class="chip ${p.status==='paid'?'chip-green':''}">${esc(p.status||'–')}</span></td>
     </tr>`).join('')
     : '<tr><td colspan="6"><div class="tbl-empty">No payments recorded</div></td></tr>';
 }
@@ -1691,7 +1691,7 @@ async function loadAiHealth() {
     _hcSet('aih-db', 'aih-db-icon', inf.db ? `Connected${inf.db_ms!=null?` · ${inf.db_ms}ms`:''}` : 'Offline', inf.db);
     const pool = inf.db_pool || {};
     _hcSet('aih-pool', 'aih-pool-icon',
-      (pool.in_use!=null) ? `${pool.in_use}/${pool.max||'?'} used · ${pool.idle||0} idle` : '—', 'ok');
+      (pool.in_use!=null) ? `${pool.in_use}/${pool.max||'?'} used · ${pool.idle||0} idle` : '–', 'ok');
     _hcSet('aih-redis', 'aih-redis-icon', inf.redis ? 'Connected' : 'Not configured', inf.redis ? 'ok' : 'warn');
     _hcSet('aih-email', 'aih-email-icon', (inf.email_provider||'none'), inf.email_provider!=='none'?'ok':'warn');
     _hcSet('aih-enc', 'aih-enc-icon', inf.secrets_encrypted ? 'Yes' : 'No', inf.secrets_encrypted ? 'ok' : 'warn');
@@ -1701,7 +1701,7 @@ async function loadAiHealth() {
     document.getElementById('ai-heavy-tbody').innerHTML = heavy.length
       ? heavy.map((u, i) => `<tr><td class="mono-text">${i+1}</td>
           <td style="font-weight:600">${esc(u.name)}</td>
-          <td style="color:var(--muted)">${esc(u.email||'—')}</td>
+          <td style="color:var(--muted)">${esc(u.email||'–')}</td>
           <td style="font-weight:700">${u.questions}</td></tr>`).join('')
       : '<tr><td colspan="4"><div class="tbl-empty">No AI usage yet</div></td></tr>';
     setTimestamp();

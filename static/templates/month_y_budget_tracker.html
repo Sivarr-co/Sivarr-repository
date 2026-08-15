@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monthly Budget Tracker — Sivarr Template</title>
+<title>Monthly Budget Tracker: Sivarr Template</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -84,7 +84,7 @@
 </div>
 
 <script>
-  document.getElementById('mlabel').textContent='— '+new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  document.getElementById('mlabel').textContent='('+new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})+')';
   const CATCOL={Income:'#027A48',Food:'#DC6803',Transport:'#41076B',Bills:'#B42318',Shopping:'#7B2CAD',Other:'#667085'};
   let tx=[
     {n:'Salary',c:'Income',a:450000},

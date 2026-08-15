@@ -10,7 +10,7 @@ let SH_SELECTED = null;
 const SH_BULK_SEL = new Set();
 
 function _fmtDueDate(date, time) {
-  if (!date) return { label: "—", color: "var(--muted)", overdue: false };
+  if (!date) return { label: "–", color: "var(--muted)", overdue: false };
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const due = new Date(date + "T00:00:00");
@@ -226,7 +226,7 @@ function renderSHOverview() {
     high: { label: "🔴 High", color: "#ef4444" },
     medium: { label: "🟡 Medium", color: "#f59e0b" },
     low: { label: "🟢 Low", color: "#22c55e" },
-    normal: { label: "—", color: "var(--muted)" },
+    normal: { label: "Normal", color: "var(--muted)" },
   };
   const TYPE_ICONS = {
     assignment: "📋",
@@ -279,7 +279,7 @@ function renderSHOverview() {
       const pr = PRIORITY[t.priority] || PRIORITY.normal;
       const ico = TYPE_ICONS[t.type] || "⚙️";
       const dueFmt = _fmtDueDate(t.date, t.time);
-      const updated = t.updated || t.created || "—";
+      const updated = t.updated || t.created || "–";
       const isDone = t.status === "done";
       const isSel = SH_SELECTED === t.id;
 
@@ -307,8 +307,8 @@ function renderSHOverview() {
             </span></div></td>
       <td><div class="sh-cell editable" onclick="inlineEditSelect(${t.id},'type',this)">${ico} ${esc(t.type || "other")}</div></td>
       <td><div class="sh-cell editable" style="font-size:.75rem;color:var(--muted)"
-            onclick="inlineEdit(${t.id},'desc',this)">${esc(t.desc || "—")}</div></td>
-      <td><div class="sh-cell editable" onclick="inlineEdit(${t.id},'assignee',this)">${esc(t.assignee || "—")}</div></td>
+            onclick="inlineEdit(${t.id},'desc',this)">${esc(t.desc || "–")}</div></td>
+      <td><div class="sh-cell editable" onclick="inlineEdit(${t.id},'assignee',this)">${esc(t.assignee || "–")}</div></td>
       <td><div class="sh-cell editable" style="color:${isDone ? "var(--muted)" : dueFmt.color};font-size:.78rem;font-weight:${dueFmt.overdue ? "700" : "400"}"
             onclick="inlineEditDate(${t.id},this)">${dueFmt.label}</div></td>
       <td><div class="sh-cell" onclick="inlineEditSelect(${t.id},'priority',this)"
@@ -324,7 +324,7 @@ function renderSHOverview() {
           </div></td>
       <td><div class="sh-cell" style="font-size:.72rem;color:var(--muted)">${esc(updated)}</div></td>
       <td><div class="sh-cell editable" style="font-size:.75rem;color:var(--muted)"
-            onclick="inlineEdit(${t.id},'summary',this)">${esc(t.summary || "—")}</div></td>
+            onclick="inlineEdit(${t.id},'summary',this)">${esc(t.summary || "–")}</div></td>
       <td style="text-align:center">
         <div class="sh-cell" style="justify-content:center">
           <button onclick="moveSHTask(${t.id}, '${isDone ? "todo" : "done"}')"
@@ -377,7 +377,7 @@ function inlineEditSelect(id, field, cell) {
       ["done", "Done"],
     ],
     priority: [
-      ["normal", "— Normal"],
+      ["normal", "Normal"],
       ["high", "🔴 High"],
       ["medium", "🟡 Medium"],
       ["low", "🟢 Low"],
@@ -503,7 +503,7 @@ function _populateGoalPicker(selectedId = "") {
     localStorage.getItem(`sivarr_goals_${S.sid}`) || "[]",
   ).filter((g) => !g.completed);
   sel.innerHTML =
-    '<option value="">— No goal —</option>' +
+    '<option value="">No goal</option>' +
     goals
       .map(
         (g) =>
@@ -785,7 +785,7 @@ function shOpenDetail(id) {
     high: "🔴 High",
     medium: "🟡 Medium",
     low: "🟢 Low",
-    normal: "— Normal",
+    normal: "Normal",
   };
   const dueFmt = _fmtDueDate(task.date, task.time);
   const st = ST[task.status] || ST.todo;
@@ -804,7 +804,7 @@ function shOpenDetail(id) {
         onclick="inlineEditSelect(${task.id},'status',this)">${st.label}</span>
       <span style="background:var(--surface);border:1px solid var(--border);
                    border-radius:6px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;color:var(--text2)"
-        onclick="inlineEditSelect(${task.id},'priority',this)">${PR[task.priority] || "— Normal"}</span>
+        onclick="inlineEditSelect(${task.id},'priority',this)">${PR[task.priority] || "Normal"}</span>
       <span style="background:var(--surface);border:1px solid var(--border);
                    border-radius:6px;padding:3px 10px;font-size:.75rem;color:${dueFmt.color};font-weight:${dueFmt.overdue ? "700" : "500"};cursor:pointer"
         onclick="inlineEditDate(${task.id},this)">📅 ${dueFmt.label}</span>
@@ -826,8 +826,8 @@ function shOpenDetail(id) {
 
     <div style="margin-bottom:20px;display:flex;flex-direction:column;gap:5px">
       <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Activity</div>
-      ${task.created ? `<div style="font-size:.76rem;color:var(--muted)">📌 Created — ${task.created}</div>` : ""}
-      ${task.updated ? `<div style="font-size:.76rem;color:var(--muted)">✏️ Updated — ${task.updated}</div>` : ""}
+      ${task.created ? `<div style="font-size:.76rem;color:var(--muted)">📌 Created: ${task.created}</div>` : ""}
+      ${task.updated ? `<div style="font-size:.76rem;color:var(--muted)">✏️ Updated: ${task.updated}</div>` : ""}
     </div>
 
     ${(() => {
@@ -1032,7 +1032,7 @@ function renderSHListView() {
             ? "🟡 Med"
             : t.priority === "low"
               ? "🟢 Low"
-              : "—"
+              : "–"
       }</span></div>
       ${(() => {
         const d = _fmtDueDate(t.date, t.time);
@@ -1070,7 +1070,7 @@ async function generateTaskStructure() {
       res.style.display = "block";
     }
   } catch {
-    toast("Could not generate — try again.");
+    toast("Could not generate. Try again.");
   }
   if (btn) {
     btn.disabled = false;

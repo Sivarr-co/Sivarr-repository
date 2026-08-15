@@ -412,24 +412,25 @@ UNCERTAINTY_PHRASES = [
 
 TOPIC_STRIP = ["what is", "define", "explain", "solve", "calculate"]
 
-SYSTEM_PROMPT = f"""You are Sivarr — a brilliant, context-aware AI built into the Sivarr platform.
+SYSTEM_PROMPT = f"""You are Sivarr, a brilliant, context-aware AI built into the Sivarr platform.
 You are not a generic assistant. You live inside the user's personal workspace and know their tasks, goals, habits, journal, and progress.
-Sivarr was founded by a Lead City University student. Mission: student → skilled professional → employed talent → career growth. Version: {VERSION}
+Sivarr was founded by a Lead City University student. Mission: student to skilled professional to employed talent to career growth. Version: {VERSION}
 
 Personality:
-- Warm, direct, and energetic — like the smartest friend in the room, not a textbook.
+- Warm, direct, and energetic, like the smartest friend in the room, not a textbook.
 - Reference the user's actual data naturally when it's relevant (e.g. "Since you have 3 overdue tasks today...").
 - Celebrate wins. Call out patterns. Be proactive, not just reactive.
 
 Rules:
-1. Keep answers SHORT — 2 to 4 sentences by default. Expand only when asked.
+1. Keep answers SHORT: 2 to 4 sentences by default. Expand only when asked.
 2. Show step-by-step working ONLY when explicitly requested.
-3. Answer ANY question — academics, career, life, creativity, strategy.
+3. Answer ANY question: academics, career, life, creativity, strategy.
 4. For math: state the final answer only unless asked for working.
-5. If unsure, say so — never confidently guess wrong.
-6. Format cleanly — use line breaks for readability when helpful.
+5. If unsure, say so. Never confidently guess wrong.
+6. Format cleanly. Use line breaks for readability when helpful.
 7. When user context is provided at the start of a message, use it to personalise your response naturally. Do NOT echo it back verbatim.
 8. Address the user by their first name occasionally for warmth.
+9. Never use em dashes (—) or en dashes used as punctuation. Use commas, periods, or parentheses instead. Write like a real person texting a friend, not like an AI essay.
 """
 
 MATH_PROMPT = """You are Sivarr's math expert.
@@ -438,6 +439,7 @@ MATH_PROMPT = """You are Sivarr's math expert.
 3. One line is enough for simple problems e.g. x = 5.
 4. Be casual.
 5. If unsure, say so.
+6. Never use em dashes. Use commas or periods instead.
 """
 
 QUIZ_PROMPT = """Generate a {difficulty} multiple choice question about: {topic}
@@ -452,7 +454,8 @@ Reply ONLY with valid JSON:
 
 SUGGESTION_PROMPT = """You are Sivarr study advisor.
 Student: {name} | Studied: {topics} | Weakest: {weak} | Quiz: {quiz_summary} | Difficulty: {difficulty}
-Recommend exactly 3 specific topics. Numbered list, one sentence each. Be encouraging."""
+Recommend exactly 3 specific topics. Numbered list, one sentence each. Be encouraging.
+Never use em dashes. Use commas or periods instead."""
 
 FILE_SUMMARY_PROMPT = """A student uploaded a document. Here is the extracted text:
 
@@ -463,7 +466,7 @@ Please:
 2. List 5 key topics or concepts from the document
 3. Suggest 3 quiz questions based on the content
 
-Format clearly with headers."""
+Format clearly with headers. Never use em dashes. Use commas or periods instead."""
 
 FILE_QUIZ_PROMPT = """Based on this document content:
 {text}
@@ -1169,7 +1172,7 @@ def _email_org_invite_html(inviter_name: str, org_name: str, join_url: str, role
   </p>
   <p style="color:#555;line-height:1.6;margin:0 0 28px">
     Sivarr brings your team's tasks, projects, docs, AI, and chat into one workspace.
-    Accept below to jump in — this invite expires in <strong>7 days</strong>.
+    Accept below to jump in. This invite expires in <strong>7 days</strong>.
   </p>
   <a href="{join_url}"
      style="display:inline-block;background:#41076B;color:#fff;padding:13px 32px;
@@ -1210,7 +1213,7 @@ def _email_welcome_html(name: str) -> str:
 
         <!-- Opening line -->
         <tr><td style="font-size:1rem;color:#1a1a1a;padding-bottom:28px;line-height:1.6">
-          Your Sivarr workspace is ready — welcome aboard.
+          Your Sivarr workspace is ready. Welcome aboard.
         </td></tr>
 
         <!-- CTA Button 1 -->
@@ -1379,7 +1382,7 @@ def _email_digest_html(name: str, tasks: list, goals: list) -> str:
 def _email_task_reminder_html(name: str, tasks: list) -> str:
     rows = "".join(
         f'<li style="margin-bottom:8px;color:#333">{t["title"]}'
-        f'<span style="color:#888;font-size:.8rem"> — due {t.get("due","today")}</span></li>'
+        f'<span style="color:#888;font-size:.8rem"> · due {t.get("due","today")}</span></li>'
         for t in tasks[:5]
     )
     return f"""<!DOCTYPE html>
@@ -1414,7 +1417,7 @@ def _email_billing_receipt_html(name: str, plan: str, amount: str, ref: str) -> 
     <span style="font-size:1.3rem;font-weight:800;color:#41076B;letter-spacing:-.03em">Sivarr</span>
   </div>
   <h2 style="margin:0 0 10px;font-size:1.4rem">Payment confirmed ✓</h2>
-  <p style="color:#555;line-height:1.6;margin:0 0 8px">Thanks, {name} — your payment went through and your subscription is active. Here's your receipt:</p>
+  <p style="color:#555;line-height:1.6;margin:0 0 8px">Thanks, {name}. Your payment went through and your subscription is active. Here's your receipt:</p>
   <table style="width:100%;border-collapse:collapse;margin:16px 0 28px">
     <tr><td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Plan</td>
         <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600">{plan}</td></tr>
@@ -1523,7 +1526,7 @@ def _email_org_progress_html(recipient_name: str, org_name: str, period: str,
 
     contrib_rows = "".join(
         f'<li style="margin-bottom:6px;font-size:.88rem;color:#333">'
-        f'<strong>{c["name"]}</strong> — {c["done"]} task{"s" if c["done"]!=1 else ""} completed</li>'
+        f'<strong>{c["name"]}</strong>: {c["done"]} task{"s" if c["done"]!=1 else ""} completed</li>'
         for c in top_contributors[:5]
     ) if top_contributors else '<li style="color:#aaa;font-size:.85rem">No activity data yet.</li>'
 
@@ -1634,14 +1637,14 @@ def friendly_gemini_error(e):
     """Convert raw Gemini exceptions into short readable messages."""
     msg = str(e).lower()
     if "quota" in msg or "429" in msg or "resource_exhausted" in msg:
-        return "Sivarr is taking a short break — free tier quota reached. Please wait a minute and try again! ⏳"
+        return "Sivarr is taking a short break (free tier quota reached). Please wait a minute and try again! ⏳"
     if "api key" in msg or "invalid" in msg or "401" in msg or "403" in msg:
-        return "API key issue — please contact support."
+        return "API key issue. Please contact support."
     if "network" in msg or "connection" in msg or "timeout" in msg or "unavailable" in msg:
-        return "Connection issue — check your internet and try again."
+        return "Connection issue. Check your internet and try again."
     if "404" in msg or "not found" in msg:
-        return "AI model unavailable — try again in a moment."
-    return "Something went wrong — please try again shortly."
+        return "AI model unavailable. Try again in a moment."
+    return "Something went wrong. Please try again shortly."
 
 _AI_ERROR_PREFIXES = (
     "Sivarr is taking a short break",
@@ -2365,11 +2368,11 @@ _SEED_POSTS = [
     {"id": "seed_n01", "author": "Chidi Okeke", "category": "general", "likes": 14, "tags": ["habits", "journaling"],
      "content": "Just hit 30 days of consistent journaling on Sivarr 🔥 The weekly AI review is genuinely changing how I reflect. Anyone else using the weekly review feature?"},
     {"id": "seed_n02", "author": "Amara Nwosu", "category": "career", "likes": 27, "tags": ["opportunities", "remote-work"],
-     "content": "For anyone building in public from Lagos — the Opportunities board just dropped new remote roles from EU companies open to Nigerian applicants. Go check it. 🇳🇬"},
+     "content": "For anyone building in public from Lagos, the Opportunities board just dropped new remote roles from EU companies open to Nigerian applicants. Go check it. 🇳🇬"},
     {"id": "seed_n03", "author": "Tunde Fashola", "category": "general", "likes": 42, "tags": ["productivity", "africa"],
      "content": "Hot take: the problem with Nigerian productivity isn't motivation, it's systems. Most of us never had access to proper tools that fit our context. Sivarr is the first thing that feels like it was built for us."},
     {"id": "seed_n04", "author": "Ngozi Adeyemi", "category": "qa", "likes": 9, "tags": ["spaces", "workflow"],
-     "content": "Question for the community — how are you all using the Spaces feature? I've set up a Personal space for my freelance work and an Org space for my agency. What's your setup?"},
+     "content": "Question for the community: how are you all using the Spaces feature? I've set up a Personal space for my freelance work and an Org space for my agency. What's your setup?"},
     {"id": "seed_n05", "author": "Emeka Chibueze", "category": "general", "likes": 19, "tags": ["agents", "nysc"],
      "content": "Reminder: the Agents marketplace is live. I built a 'Daily NYSC Task Planner' and published it last week. Zero setup, just add it to your workspace."},
     {"id": "seed_n06", "author": "Fatima Bello", "category": "career", "likes": 31, "tags": ["freelance", "goals"],
@@ -2391,24 +2394,24 @@ _SEED_POSTS = [
 ]
 
 _SEED_OPPS = [
-    {"id": "opp_1", "title": "Frontend Developer — Remote", "description": "Build interfaces for a Lagos-based fintech. 2+ years React required.", "category": "job", "organisation": "PaystackHQ", "location": "Remote / Lagos", "deadline": "", "url": "#"},
+    {"id": "opp_1", "title": "Frontend Developer (Remote)", "description": "Build interfaces for a Lagos-based fintech. 2+ years React required.", "category": "job", "organisation": "PaystackHQ", "location": "Remote / Lagos", "deadline": "", "url": "#"},
     {"id": "opp_2", "title": "Google Africa Developer Scholarship", "description": "Scholarship for African developers to upskill in cloud and mobile development.", "category": "scholarship", "organisation": "Google", "location": "Africa-wide", "deadline": "", "url": "#"},
     {"id": "opp_3", "title": "Tony Elumelu Foundation Grant", "description": "₦5M grant for early-stage African entrepreneurs. Applications open now.", "category": "grant", "organisation": "TEF", "location": "Africa-wide", "deadline": "", "url": "#"},
     {"id": "opp_4", "title": "UI/UX Design Internship", "description": "3-month paid internship at a product studio in Yaba, Lagos. Stipend provided.", "category": "internship", "organisation": "Studio Yaba", "location": "Lagos, Nigeria", "deadline": "", "url": "#"},
     {"id": "opp_5", "title": "Binance Africa Web3 Hackathon", "description": "Build on-chain tools for African markets. Prizes up to $50,000.", "category": "grant", "organisation": "Binance", "location": "Remote", "deadline": "", "url": "#"},
     # ── Sprint C: Nigerian-context listings. Pay is folded into the description
     # because the opportunities schema has no salary column. ──
-    {"id": "opp_001", "title": "Senior Backend Engineer (Remote)", "category": "job", "organisation": "Andela", "location": "Remote — Open to Nigeria", "deadline": "2026-07-15", "url": "#",
+    {"id": "opp_001", "title": "Senior Backend Engineer (Remote)", "category": "job", "organisation": "Andela", "location": "Remote (Open to Nigeria)", "deadline": "2026-07-15", "url": "#",
      "description": "Build scalable microservices for global tech clients. Python/Go experience required. Pay: ₦800,000 – ₦1,200,000/month."},
     {"id": "opp_002", "title": "ALX Africa Tech Scholarship 2026", "category": "scholarship", "organisation": "ALX Africa", "location": "Online", "deadline": "2026-07-01", "url": "#",
-     "description": "12-month software engineering program. No prior experience required. Nigerian applicants encouraged. Full scholarship — ₦0 tuition."},
+     "description": "12-month software engineering program. No prior experience required. Nigerian applicants encouraged. Full scholarship, ₦0 tuition."},
     {"id": "opp_003", "title": "Product Design Intern", "category": "internship", "organisation": "Flutterwave", "location": "Lagos, Nigeria (Hybrid)", "deadline": "2026-06-30", "url": "#",
      "description": "6-month internship with Nigeria's leading fintech. Figma skills required. Stipend: ₦150,000/month."},
-    {"id": "opp_004", "title": "Data Analyst — Growth Team", "category": "job", "organisation": "Paystack", "location": "Lagos, Nigeria", "deadline": "2026-07-20", "url": "#",
+    {"id": "opp_004", "title": "Data Analyst (Growth Team)", "category": "job", "organisation": "Paystack", "location": "Lagos, Nigeria", "deadline": "2026-07-20", "url": "#",
      "description": "Drive growth insights using SQL and Python. Help scale Africa's leading payment stack. Pay: ₦500,000 – ₦700,000/month."},
     {"id": "opp_005", "title": "Google Africa Developer Scholarship", "category": "scholarship", "organisation": "Google / Pluralsight", "location": "Online", "deadline": "2026-08-01", "url": "#",
      "description": "Mobile Web Specialist or Android Developer tracks. Open to all Nigerians 18+. Full scholarship."},
-    {"id": "opp_006", "title": "Technical Content Writer (Remote)", "category": "job", "organisation": "Hashnode", "location": "Remote — Global", "deadline": "Rolling", "url": "#",
+    {"id": "opp_006", "title": "Technical Content Writer (Remote)", "category": "job", "organisation": "Hashnode", "location": "Remote (Global)", "deadline": "Rolling", "url": "#",
      "description": "Write in-depth technical tutorials on web development, AI, or DevOps. Nigerian writers welcome. Pay: $500 – $800/article."},
     {"id": "opp_007", "title": "Business Development Intern", "category": "internship", "organisation": "Cowrywise", "location": "Lagos, Nigeria", "deadline": "2026-07-10", "url": "#",
      "description": "Support the BD team in growing Cowrywise's B2B partnerships across Nigeria. Stipend: ₦120,000/month."},
@@ -2416,18 +2419,18 @@ _SEED_OPPS = [
      "description": "Annual programme for African entrepreneurs. Includes seed capital, mentorship, and training. $5,000 seed funding + mentorship."},
     {"id": "opp_009", "title": "DevOps / Cloud Engineer", "category": "job", "organisation": "Kuda Bank", "location": "Lagos, Nigeria (Hybrid)", "deadline": "2026-07-25", "url": "#",
      "description": "AWS-focused DevOps role at Nigeria's leading digital bank. Kubernetes and Terraform preferred. Pay: ₦600,000 – ₦900,000/month."},
-    {"id": "opp_010", "title": "Software Engineering Intern — Mobile", "category": "internship", "organisation": "Interswitch", "location": "Lagos, Nigeria", "deadline": "2026-07-05", "url": "#",
+    {"id": "opp_010", "title": "Software Engineering Intern (Mobile)", "category": "internship", "organisation": "Interswitch", "location": "Lagos, Nigeria", "deadline": "2026-07-05", "url": "#",
      "description": "Work on mobile banking SDKs used by millions of Nigerians. React Native or Flutter a plus. Stipend: ₦100,000/month."},
-    {"id": "opp_011", "title": "UI/UX Designer — Consumer Products", "category": "job", "organisation": "OPay", "location": "Lagos, Nigeria", "deadline": "2026-08-15", "url": "#",
+    {"id": "opp_011", "title": "UI/UX Designer (Consumer Products)", "category": "job", "organisation": "OPay", "location": "Lagos, Nigeria", "deadline": "2026-08-15", "url": "#",
      "description": "Design digital financial products for 30M+ Nigerian users. Portfolio required. Pay: ₦450,000 – ₦650,000/month."},
     {"id": "opp_012", "title": "Access Bank Women in Tech Scholarship", "category": "scholarship", "organisation": "Access Bank + CcHUB", "location": "Lagos + Online", "deadline": "2026-07-31", "url": "#",
      "description": "12-week intensive training for women in software development. No prior coding experience required. Full funding + ₦50,000/month stipend."},
-    {"id": "opp_013", "title": "AI / ML Engineer (Remote-first)", "category": "job", "organisation": "Recursion (African Hub)", "location": "Remote — Nigeria preferred", "deadline": "2026-08-01", "url": "#",
+    {"id": "opp_013", "title": "AI / ML Engineer (Remote-first)", "category": "job", "organisation": "Recursion (African Hub)", "location": "Remote (Nigeria preferred)", "deadline": "2026-08-01", "url": "#",
      "description": "Work on drug-discovery ML models. Python, PyTorch, and bioinformatics background useful. Pay: $2,000 – $3,500/month."},
     {"id": "opp_014", "title": "Marketing & Growth Intern", "category": "internship", "organisation": "Piggyvest", "location": "Lagos, Nigeria", "deadline": "2026-06-28", "url": "#",
      "description": "Support growth and brand marketing at Nigeria's #1 personal finance app. Ideal for marketing students. Stipend: ₦90,000/month."},
     {"id": "opp_015", "title": "MTN Nigeria Digital Skills Fund", "category": "scholarship", "organisation": "MTN Foundation", "location": "Online", "deadline": "Rolling", "url": "#",
-     "description": "Data science, cybersecurity, and cloud computing tracks. Available to 18–35 year olds across Nigeria. Full scholarship — ₦0 cost."},
+     "description": "Data science, cybersecurity, and cloud computing tracks. Available to 18–35 year olds across Nigeria. Full scholarship, ₦0 cost."},
 ]
 
 def _seed_post_to_storage(p, idx):
@@ -2633,7 +2636,7 @@ def _start_scheduler():
             if not unchecked:
                 continue
             result = _send_push(entry["subscription"],
-                                title="Sivarr — Streak at risk",
+                                title="Sivarr · Streak at risk",
                                 body="Log your habits before midnight to keep your streak.",
                                 url="/app#habits")
             if result == "expired":
@@ -2704,7 +2707,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """Return a clean 422 without exposing Pydantic's internal field paths."""
     return JSONResponse(
         status_code=422,
-        content={"detail": "Invalid request data — check your input and try again."}
+        content={"detail": "Invalid request data. Check your input and try again."}
     )
 
 # ── Request models with validation ────────────────────────────
@@ -3185,7 +3188,7 @@ async def test_email(data: dict):
         elif "auth" in low or "login" in low or "password" in low or "username" in low:
             hint = "Provider rejected credentials. Check GMAIL_APP_PASSWORD is a 16-char App Password (not your account password), or RESEND_API_KEY."
         else:
-            hint = "Send failed — see 'detail'. Confirm the active provider's credentials in Railway Variables."
+            hint = "Send failed. See 'detail'. Confirm the active provider's credentials in Railway Variables."
     return {
         "sent": ok,
         "detail": detail,
@@ -3289,7 +3292,7 @@ async def verify_email_endpoint(token: str, bg: BackgroundTasks):
         u = db.get_user(sid) or load_users().get(sid) or {}
         if email:
             bg.add_task(send_email, email,
-                        "Welcome to Sivarr — your workspace is ready",
+                        "Welcome to Sivarr, your workspace is ready",
                         _email_welcome_html(u.get("name", "")))
     return RedirectResponse(url="/app?verified=1", status_code=302)
 
@@ -3657,7 +3660,7 @@ async def acad_class_join(data: dict):
     code = sanitize_text(str(data.get("code", "")), 12).upper()
     cls = _acad_class_or_404(code)
     if cls.get("owner_sid") == sid:
-        raise HTTPException(400, "You own this class — you're already in it.")
+        raise HTTPException(400, "You own this class. You're already in it.")
     db.coll_put("acad_members", f"{code}:{sid}",
                 {"code": code, "sid": sid, "name": name,
                  "joined": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")},
@@ -4444,7 +4447,7 @@ def _chat_authorize(token: str) -> tuple[str, dict]:
                 raise HTTPException(
                     429,
                     f"You've reached today's fair-use limit of {limit} AI messages. "
-                    f"It resets tomorrow — reach out to support if you regularly need more.",
+                    f"It resets tomorrow. Reach out to support if you regularly need more.",
                 )
             raise HTTPException(
                 429,
@@ -4477,7 +4480,7 @@ def _ai_meter(sid: str) -> None:
             raise HTTPException(
                 429,
                 f"You've reached today's fair-use limit of {limit} AI actions. "
-                f"It resets tomorrow — reach out to support if you regularly need more.",
+                f"It resets tomorrow. Reach out to support if you regularly need more.",
             )
         raise HTTPException(
             429,
@@ -5048,7 +5051,7 @@ async def view_share(share_id: str):
     return HTMLResponse(f"""<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sivarr AI — {d['name']}'s Results</title>
+<title>Sivarr AI · {d['name']}'s Results</title>
 <meta property="og:title" content="{d['name']} scored {pct}% on Sivarr AI!">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
@@ -6767,7 +6770,7 @@ async def get_class_discuss(code: str):
 
 # ── Study Haven ───────────────────────────────────────────────
 
-STUDY_DECK_PROMPT = """You are Sivarr's Study Haven — an expert at turning raw lecture content into clean, structured study material.
+STUDY_DECK_PROMPT = """You are Sivarr's Study Haven, an expert at turning raw lecture content into clean, structured study material.
 
 A student uploaded the following lecture content:
 
@@ -6790,7 +6793,7 @@ Write a concise 4-6 sentence overview of the entire lecture. Capture the main ar
 - **Key Concept:** definition or explanation
 - **Key Concept:** definition or explanation
 
-(continue for all major topics — use actual topic names from the content)
+(continue for all major topics, using actual topic names from the content)
 
 ---
 ## ❓ PRACTICE QUESTIONS
@@ -6801,7 +6804,8 @@ Generate exactly 5 practice questions based on the content. Mix question types:
 4. [Question]
 5. [Question]
 
-Keep everything concise, clear and student-friendly. Use the actual content — don't make things up.
+Keep everything concise, clear and student-friendly. Use the actual content, don't make things up.
+Never use em dashes. Use commas or periods instead.
 """
 
 
@@ -6846,7 +6850,7 @@ async def study_deck(request: Request, token: str = Form(""), file: UploadFile =
     )
 
     if not result:
-        raise HTTPException(503, "AI is busy right now — try again in a moment.")
+        raise HTTPException(503, "AI is busy right now. Try again in a moment.")
 
     return {
         "filename": file.filename,
@@ -6998,7 +7002,7 @@ async def generate_exam_questions(data: dict, request: Request):
 
     result = await async_gemini_once(prompt, temp=0.7, tokens=4000)
     if not result:
-        raise HTTPException(503, "AI unavailable — try again")
+        raise HTTPException(503, "AI unavailable, try again")
 
     # Parse JSON from AI response
     try:
@@ -7008,7 +7012,7 @@ async def generate_exam_questions(data: dict, request: Request):
         if not isinstance(questions, list):
             raise ValueError("Not a list")
     except Exception:
-        raise HTTPException(500, "AI returned invalid format — try again")
+        raise HTTPException(500, "AI returned invalid format, try again")
 
     return {"ok": True, "questions": questions, "count": len(questions)}
 
@@ -7097,7 +7101,7 @@ async def submit_exam(data: dict, request: Request):
     session = get_exam_session(sid, exam_id)
 
     if not session:
-        raise HTTPException(404, "Exam session not found — may have expired")
+        raise HTTPException(404, "Exam session not found (it may have expired)")
 
     questions   = session["questions"]
     correct     = 0
@@ -7275,7 +7279,7 @@ Reply ONLY with a valid JSON array — no markdown, no extra text:
   {{"day": 1, "date": "Mon 14 Apr", "focus": "Specific topic name", "tasks": ["Concrete task 1", "Concrete task 2", "Concrete task 3"], "hours": {hours}}},
   ...
 ]
-Make tasks specific and actionable. Each day must have 2-4 tasks."""
+Make tasks specific and actionable. Each day must have 2-4 tasks. Never use em dashes in any text field, use commas or periods instead."""
 
     raw = await async_gemini_once(prompt, temp=0.7, tokens=2000)
     if not raw:
@@ -8277,7 +8281,7 @@ def _ag_demo_templates() -> list:
             "agent_id": "demo_agent_1",
         },
         {
-            "id": "demo_2", "name": "Exam Prep Deck — STEM",
+            "id": "demo_2", "name": "Exam Prep Deck: STEM",
             "short_description": "500 flashcards across Maths, Physics and Chemistry",
             "category": "study_decks", "price": 4.99, "download_count": 872,
             "avg_rating": 4.9, "review_count": 61, "status": "published",
@@ -8295,7 +8299,7 @@ def _ag_demo_templates() -> list:
             "agent_id": "demo_agent_3",
         },
         {
-            "id": "demo_4", "name": "AI Prompt Pack — Essays",
+            "id": "demo_4", "name": "AI Prompt Pack: Essays",
             "short_description": "100 prompts for academic writing and research",
             "category": "ai_prompts", "price": 1.99, "download_count": 421,
             "avg_rating": 4.6, "review_count": 29, "status": "published",
@@ -8966,7 +8970,7 @@ async def org_join(data: dict, bg: BackgroundTasks):
     if _join_org and _org_sub_active(_join_org):
         seats_paid = ((_join_org.get("settings") or {}).get("subscription") or {}).get("seats", 0)
         if db.count_org_members(invite["org_id"]) >= seats_paid:
-            raise HTTPException(402, "All seats in this organisation are in use — ask the owner to add seats.")
+            raise HTTPException(402, "All seats in this organisation are in use. Ask the owner to add seats.")
     ok = db.use_org_invite(invite_token, sid)
     if not ok:
         raise HTTPException(500, "Failed to join organization.")
@@ -9172,7 +9176,7 @@ async def org_message_send(data: dict, bg: BackgroundTasks):
                 bg.add_task(
                     send_email,
                     m["email"],
-                    f"{uname} mentioned you in #{channel} — {org['name']}",
+                    f"{uname} mentioned you in #{channel} · {org['name']}",
                     _email_org_mention_html(m["name"], uname, org["name"], channel, content),
                 )
 
@@ -9444,7 +9448,7 @@ Organization snapshot ({today}):
 Top overdue tasks: {', '.join([t['title'] for t in overdue[:3]]) or 'None'}
 High priority: {', '.join([t['title'] for t in high_pri[:3]]) or 'None'}
 
-Write a 3–5 sentence executive briefing. Be direct and actionable. Highlight risks, wins, and the #1 priority today. No bullet points — flowing prose."""
+Write a 3–5 sentence executive briefing. Be direct and actionable. Highlight risks, wins, and the #1 priority today. No bullet points, flowing prose. Never use em dashes, use commas or periods instead."""
 
     sessions = get_sessions(sid)
     briefing = await async_gemini_ask(sessions["chat"], context)
@@ -9505,17 +9509,18 @@ async def home_brief(data: dict):
     lines += [
         "",
         "Rules:",
-        "1. Be warm and direct — like the smartest friend in the room.",
+        "1. Be warm and direct, like the smartest friend in the room.",
         "2. Reference 1-2 real data points naturally, not as a list.",
         "3. End with one sharp, specific action suggestion.",
         "4. Max 3 sentences. No bullet points. No headers.",
-        f"5. Do NOT open with a greeting or salutation (no \"Good {tod}\", no \"{tod.capitalize()}, {first_name}\", no \"Hi\"/\"Hey\") — the page already shows a greeting above this text. Start directly with the substance.",
+        f"5. Do NOT open with a greeting or salutation (no \"Good {tod}\", no \"{tod.capitalize()}, {first_name}\", no \"Hi\"/\"Hey\"). The page already shows a greeting above this text. Start directly with the substance.",
+        "6. Never use em dashes. Use commas or periods instead.",
     ]
 
     prompt  = "\n".join(lines)
     brief   = await async_gemini_once(prompt, temp=0.75, tokens=120)
     if not brief:
-        brief = f"Good {tod}, {first_name}. Your workspace is ready — make today count."
+        brief = f"Good {tod}, {first_name}. Your workspace is ready, so make today count."
     return {"brief": brief, "date": today}
 
 
@@ -9771,7 +9776,7 @@ Data:
 Format your response in exactly 4 labelled sections:
 
 **This Week**
-2 sentences summarising their overall performance — be honest and specific.
+2 sentences summarising their overall performance. Be honest and specific.
 
 **Wins**
 - [win 1]
@@ -9786,11 +9791,12 @@ Two specific, actionable recommendations tied to their data.
 **Closing**
 One energising sentence using their first name.
 
-Keep it concise, personal, and grounded in the actual numbers. No generic filler."""
+Keep it concise, personal, and grounded in the actual numbers. No generic filler.
+Never use em dashes. Use commas or periods instead."""
 
     review = await async_gemini_once(prompt, temp=0.72, tokens=380)
     if not review:
-        review = f"Great effort this week, {first_name}! You completed {tasks_done} tasks and maintained {habits_pct}% of your habits. Keep building that momentum — next week, push one goal past its current mark."
+        review = f"Great effort this week, {first_name}! You completed {tasks_done} tasks and maintained {habits_pct}% of your habits. Keep building that momentum, next week push one goal past its current mark."
     # Cache the review server-side for auto-display next time
     import datetime as _dt2
     week_start_str = str(_dt2.date.today() - _dt2.timedelta(days=_dt2.date.today().weekday()))
@@ -10141,7 +10147,7 @@ async def google_oauth_callback(bg: BackgroundTasks, code: str = "", error: str 
         # New Google sign-up — email is pre-verified by Google, so there's no
         # verification step; welcome them here instead.
         bg.add_task(send_email, email,
-                    "Welcome to Sivarr — your workspace is ready",
+                    "Welcome to Sivarr, your workspace is ready",
                     _email_welcome_html(name))
 
     sid = user["sid"]
@@ -10810,7 +10816,7 @@ async def billing_org_subscribe(data: dict):
     seats = min(max(members, requested, 1), ORG_SELFSERVE_MAX)
     total_usd = org_seat_total_usd(seats, period)
     if total_usd is None:
-        raise HTTPException(400, "Orgs with 51+ seats use custom enterprise pricing — contact sales.")
+        raise HTTPException(400, "Orgs with 51+ seats use custom enterprise pricing. Contact sales.")
     charge_ngn = int(round(total_usd * get_naira_rate()))
     email   = sess.get("email", "") or load_progress(sid).get("email", "")
     gateway = "flutterwave" if str(data.get("gateway")) == "flutterwave" else "paystack"
@@ -11456,7 +11462,7 @@ async def flutterwave_verify(reference: str, token: str = "", plan_id: str = "")
     email = p.get("email","")
     name  = p.get("name","User")
     if email:
-        send_email(email, f"Sivarr {plan['name']} — Payment Confirmed",
+        send_email(email, f"Sivarr {plan['name']} · Payment Confirmed",
                    _email_billing_receipt_html(name, plan["name"],
                        f"₦{plan['amount_ngn']:,}", reference))
     return {"ok": True, "plan": p["subscription"]}
@@ -11825,7 +11831,7 @@ async def org_announce(data: dict, bg: BackgroundTasks):
         bg.add_task(
             send_email,
             m["email"],
-            f"📢 {title} — {org['name']}",
+            f"📢 {title} · {org['name']}",
             _email_org_announcement_html(m["name"], org["name"], author_name, title, body),
         )
 
@@ -12233,7 +12239,7 @@ async def notify_tasks(data: dict):
     name  = p.get("name","User")
     if not email:
         raise HTTPException(400, "No email on account.")
-    ok, detail = send_email(email, f"Tasks due soon — Sivarr",
+    ok, detail = send_email(email, f"Tasks due soon · Sivarr",
                             _email_task_reminder_html(name, tasks[:5]))
     if ok:
         p["last_reminder_date"] = today
@@ -12285,7 +12291,7 @@ async def notifications_digest(request: Request):
         if not html:
             skipped += 1
             continue
-        ok, _ = send_email(email, f"Good morning, {name} — your Sivarr daily briefing", html)
+        ok, _ = send_email(email, f"Good morning, {name}: your Sivarr daily briefing", html)
         if ok:
             p["last_digest_date"] = today
             save_progress(sid, p)
@@ -12352,7 +12358,7 @@ async def org_progress_report(request: Request):
                 continue
             ok, _ = send_email(
                 m["email"],
-                f"Weekly progress report — {org_name}",
+                f"Weekly progress report · {org_name}",
                 _email_org_progress_html(
                     m["name"], org_name, period,
                     len(tasks_done), len(all_tasks),
@@ -12607,7 +12613,7 @@ async def export_data(data: dict):
                 date = e.get("date", "")
                 text = (e.get("text") or e.get("content") or e.get("entry") or "").strip()
                 mood = e.get("mood", "")
-                header = f"## {date}" + (f" — {mood}" if mood else "")
+                header = f"## {date}" + (f" ({mood})" if mood else "")
                 lines.append(f"{header}\n\n{text}\n\n---\n")
             zf.writestr("journal.md", "\n".join(lines))
 

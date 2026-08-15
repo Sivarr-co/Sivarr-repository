@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sivarr — Metrics</title>
+<title>Sivarr: Metrics</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f0f;color:#e8e8e8;font-size:15px;line-height:1.5}
@@ -100,22 +100,22 @@ h1{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
     <div class="kpi-row">
       <div class="kpi">
         <div class="kpi-label">Total Users</div>
-        <div class="kpi-val" id="k-total">—</div>
+        <div class="kpi-val" id="k-total">–</div>
         <div class="kpi-sub">all time signups</div>
       </div>
       <div class="kpi">
         <div class="kpi-label">DAU</div>
-        <div class="kpi-val" id="k-dau">—</div>
+        <div class="kpi-val" id="k-dau">–</div>
         <div class="kpi-sub">active today</div>
       </div>
       <div class="kpi">
         <div class="kpi-label">WAU</div>
-        <div class="kpi-val" id="k-wau">—</div>
+        <div class="kpi-val" id="k-wau">–</div>
         <div class="kpi-sub">active this week</div>
       </div>
       <div class="kpi">
         <div class="kpi-label">DAU / WAU</div>
-        <div class="kpi-val" id="k-ratio">—</div>
+        <div class="kpi-val" id="k-ratio">–</div>
         <div class="kpi-sub">stickiness ratio</div>
       </div>
     </div>
@@ -192,10 +192,10 @@ async function load(days, btn) {
   if (!r.ok) return;
   const d = await r.json();
 
-  document.getElementById('k-total').textContent = d.total_users ?? '—';
+  document.getElementById('k-total').textContent = d.total_users ?? '–';
   document.getElementById('k-dau').textContent   = d.dau ?? 0;
   document.getElementById('k-wau').textContent   = d.wau ?? 0;
-  const ratio = d.wau ? Math.round((d.dau / d.wau) * 100) + '%' : '—';
+  const ratio = d.wau ? Math.round((d.dau / d.wau) * 100) + '%' : '–';
   document.getElementById('k-ratio').textContent = ratio;
 
   // DAU chart
@@ -229,7 +229,7 @@ async function load(days, btn) {
         <div class="feat-bar-wrap"><div class="feat-bar" style="width:${Math.round(count/maxF*100)}%"></div></div>
         <div class="feat-count">${count}</div>
       </div>`).join('')
-    : '<div style="color:#444;font-size:.85rem;padding:12px 0">No feature data yet — data builds up as users navigate.</div>';
+    : '<div style="color:#444;font-size:.85rem;padding:12px 0">No feature data yet. Data builds up as users navigate.</div>';
 }
 </script>
 </body>

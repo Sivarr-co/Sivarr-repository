@@ -35,7 +35,7 @@ export async function scheduleDailyBrief(hour = 8, minute = 0): Promise<void> {
     // Schedule new one
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '✦ Good morning — SIVARR',
+        title: '✦ Good morning from SIVARR',
         body: "Your daily brief is ready. Let's make today count.",
         data: { type: 'daily_brief' },
         sound: true,

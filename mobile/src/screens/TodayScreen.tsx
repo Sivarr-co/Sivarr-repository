@@ -349,7 +349,7 @@ export default function TodayScreen({ navigation }: { navigation: any }) {
 
                 <TextInput
                   style={s.captureInput}
-                  placeholder={captureType === 'task' ? 'What needs to be done?' : 'Dictate or type a note — SIVA will extract tasks from it…'}
+                  placeholder={captureType === 'task' ? 'What needs to be done?' : 'Dictate or type a note, and SIVA will extract tasks from it…'}
                   placeholderTextColor={COLORS.muted}
                   value={captureText}
                   onChangeText={setCaptureText}

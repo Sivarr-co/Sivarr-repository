@@ -61,7 +61,7 @@ export default function AIScreen() {
     {
       id:   '0',
       role: 'ai',
-      text: 'Hi! I\'m SIVARR AI — your intelligent productivity assistant.\n\nAsk me anything or use one of the quick actions below.',
+      text: 'Hi! I\'m SIVARR AI, your intelligent productivity assistant.\n\nAsk me anything or use one of the quick actions below.',
     },
   ]);
   const [input,   setInput]  = useState('');

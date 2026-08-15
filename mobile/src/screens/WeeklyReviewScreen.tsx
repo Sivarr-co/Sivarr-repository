@@ -34,7 +34,7 @@ export default function WeeklyReviewScreen() {
       const tasks    = JSON.parse(await AsyncStorage.getItem(TASKS_KEY) ?? '[]');
       const done     = tasks.filter((t: any) => t.done).length;
       results.push({ label: 'Tasks done', value: `${done}/${tasks.length}`, icon: 'checkbox-outline' });
-    } catch { results.push({ label: 'Tasks done', value: '—', icon: 'checkbox-outline' }); }
+    } catch { results.push({ label: 'Tasks done', value: 'N/A', icon: 'checkbox-outline' }); }
 
     try {
       const habits = JSON.parse(await AsyncStorage.getItem(HABITS_KEY) ?? '[]');
@@ -51,15 +51,15 @@ export default function WeeklyReviewScreen() {
         const pct = possible ? Math.round(completed / possible * 100) : 0;
         results.push({ label: 'Habits rate', value: `${pct}%`, icon: 'flame-outline' });
       } else {
-        results.push({ label: 'Habits rate', value: '—', icon: 'flame-outline' });
+        results.push({ label: 'Habits rate', value: 'N/A', icon: 'flame-outline' });
       }
-    } catch { results.push({ label: 'Habits rate', value: '—', icon: 'flame-outline' }); }
+    } catch { results.push({ label: 'Habits rate', value: 'N/A', icon: 'flame-outline' }); }
 
     try {
       const entries = JSON.parse(await AsyncStorage.getItem(JNL_KEY) ?? '[]');
       const thisWeek = entries.filter((e: any) => e.date && e.date >= wa).length;
       results.push({ label: 'Journal entries', value: String(thisWeek), icon: 'journal-outline' });
-    } catch { results.push({ label: 'Journal entries', value: '—', icon: 'journal-outline' }); }
+    } catch { results.push({ label: 'Journal entries', value: 'N/A', icon: 'journal-outline' }); }
 
     return results;
   }, []);
@@ -160,7 +160,7 @@ export default function WeeklyReviewScreen() {
             </View>
             <Text style={s.emptyTitle}>Your week, reflected</Text>
             <Text style={s.emptySub}>
-              SIVA reads your tasks, habits, and journal entries — then writes a personalised review to close out your week and sharpen your next.
+              SIVA reads your tasks, habits, and journal entries, then writes a personalised review to close out your week and sharpen your next.
             </Text>
             <TouchableOpacity style={s.emptyCta} onPress={generate} activeOpacity={0.85}>
               <Ionicons name="sparkles-outline" size={15} color="#fff" />

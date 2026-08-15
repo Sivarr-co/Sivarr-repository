@@ -184,7 +184,7 @@ export default function MeScreen() {
           {!habits.length && (
             <TouchableOpacity style={s.emptyRow} onPress={() => setHabModal(true)}>
               <Ionicons name="flame-outline" size={18} color={COLORS.muted} />
-              <Text style={s.emptyTxt}>No habits yet — add one to start building consistency</Text>
+              <Text style={s.emptyTxt}>No habits yet. Add one to start building consistency</Text>
             </TouchableOpacity>
           )}
 
@@ -223,7 +223,7 @@ export default function MeScreen() {
           {!activeGoals.length && (
             <TouchableOpacity style={s.emptyRow} onPress={() => setGoalModal(true)}>
               <Ionicons name="trophy-outline" size={18} color={COLORS.muted} />
-              <Text style={s.emptyTxt}>No active goals — set one to track your progress</Text>
+              <Text style={s.emptyTxt}>No active goals. Set one to track your progress</Text>
             </TouchableOpacity>
           )}
 

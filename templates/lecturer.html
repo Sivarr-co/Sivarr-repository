@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sivarr AI — Lecturer Dashboard</title>
+<title>Sivarr AI: Lecturer Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -266,10 +266,10 @@ textarea.form-input{min-height:100px;resize:vertical}
         <p style="color:var(--muted);font-size:.82rem;margin-top:2px">Real-time snapshot of your students</p>
       </div>
       <div class="summary">
-        <div class="sc"><div class="sc-label">Total Students</div><div class="sc-val" id="ov-total">—</div></div>
-        <div class="sc"><div class="sc-label">Questions Asked</div><div class="sc-val" id="ov-questions">—</div></div>
-        <div class="sc"><div class="sc-label">Quizzes Taken</div><div class="sc-val" id="ov-quizzes">—</div></div>
-        <div class="sc"><div class="sc-label">Class Avg Score</div><div class="sc-val" id="ov-avg">—</div></div>
+        <div class="sc"><div class="sc-label">Total Students</div><div class="sc-val" id="ov-total">–</div></div>
+        <div class="sc"><div class="sc-label">Questions Asked</div><div class="sc-val" id="ov-questions">–</div></div>
+        <div class="sc"><div class="sc-label">Quizzes Taken</div><div class="sc-val" id="ov-quizzes">–</div></div>
+        <div class="sc"><div class="sc-label">Class Avg Score</div><div class="sc-val" id="ov-avg">–</div></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
         <div class="card">
@@ -433,7 +433,7 @@ textarea.form-input{min-height:100px;resize:vertical}
       <div class="card" style="border-color:#4f6ef740;background:linear-gradient(135deg,#4f6ef708,transparent)">
         <h3>🤖 AI Question Generator</h3>
         <p style="color:var(--muted);font-size:.82rem;margin-bottom:1rem">
-          Describe a topic — Sivarr generates professional exam questions instantly.
+          Describe a topic, and Sivarr generates professional exam questions instantly.
         </p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
           <div class="form-group" style="margin:0">
@@ -550,7 +550,7 @@ textarea.form-input{min-height:100px;resize:vertical}
                       font-family:var(--font);font-weight:800;font-size:1.1rem;color:#fff;
                       box-shadow:0 0 30px #4f6ef740">Sr</div>
           <div style="font-family:var(--font);font-size:1.4rem;font-weight:800;margin-bottom:.3rem">Sivarr AI</div>
-          <p style="color:var(--muted);font-size:.85rem;margin-bottom:1.75rem">Your teaching assistant — ask anything</p>
+          <p style="color:var(--muted);font-size:.85rem;margin-bottom:1.75rem">Your teaching assistant, ask anything</p>
           <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:500px">
             <button class="lec-ai-pill" onclick="lecAIQuick('Generate 10 multiple choice questions on ')">📝 Generate exam questions</button>
             <button class="lec-ai-pill" onclick="lecAIQuick('Write an assignment brief for ')">📋 Write assignment brief</button>
@@ -572,7 +572,7 @@ textarea.form-input{min-height:100px;resize:vertical}
             style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;
                    padding:10px 14px;color:var(--text);font-family:var(--body);font-size:.88rem;
                    outline:none;resize:none;max-height:120px;transition:border-color .2s;line-height:1.5"
-            placeholder="Ask Sivarr AI anything — exam questions, lesson plans, announcements..."
+            placeholder="Ask Sivarr AI anything: exam questions, lesson plans, announcements..."
             rows="1"
             onfocus="this.style.borderColor='var(--accent)'"
             onblur="this.style.borderColor='var(--border)'"
@@ -784,10 +784,10 @@ async function sendLecAI() {
     if (typing) typing.remove();
     if (!r.ok) throw new Error(`${r.status}`);
     const d = await r.json();
-    lecAddMsg('sivarr', d.reply || d.response || 'Could not get a response — try again.');
+    lecAddMsg('sivarr', d.reply || d.response || 'Could not get a response, try again.');
   } catch(e) {
     if (typing) typing.remove();
-    lecAddMsg('sivarr', `Error: ${e.message || 'Could not connect to AI — check your connection.'}`);
+    lecAddMsg('sivarr', `Error: ${e.message || 'Could not connect to AI, check your connection.'}`);
   }
   btn.disabled = false;
 }
@@ -800,12 +800,12 @@ async function refreshAll() {
     const r = await fetch(`/api/lecturer/students?token=${TOKEN}`);
     if (r.status === 401) {
       // Only sign out on actual auth failure, not network errors
-      toast('Session expired — please log in again.');
+      toast('Session expired, please log in again.');
       setTimeout(() => lecSignOut(), 2000);
       return;
     }
     if (!r.ok) {
-      $('last-refresh').textContent = 'Error loading — try refreshing';
+      $('last-refresh').textContent = 'Error loading, try refreshing';
       return;
     }
     const d = await r.json();
@@ -825,7 +825,7 @@ async function refreshAll() {
     loadExams();
     $('last-refresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
   } catch(e) {
-    $('last-refresh').textContent = 'Connection error — try refreshing';
+    $('last-refresh').textContent = 'Connection error, try refreshing';
   }
 }
 
@@ -894,7 +894,7 @@ function renderStudentsTable(students) {
 
 function viewStudent(idx) {
   const s = ALL_STUDENTS[idx];
-  $('modal-title').textContent = `${s.name} — ${s.matric}`;
+  $('modal-title').textContent = `${s.name} (${s.matric})`;
   $('modal-body').innerHTML = `
     <div class="detail-row"><span class="dl">Sessions</span><span class="dv">${s.sessions}</span></div>
     <div class="detail-row"><span class="dl">Questions asked</span><span class="dv">${s.questions}</span></div>
@@ -922,7 +922,7 @@ function closeModal(e) {
 function downloadReport() {
   if (!ALL_STUDENTS.length) { toast('No student data to download.'); return; }
   const lines = [
-    'SIVARR AI — STUDENT PROGRESS REPORT',
+    'SIVARR AI: STUDENT PROGRESS REPORT',
     `Generated: ${new Date().toLocaleString()}`,
     `Lecturer: ${NAME}`,
     '='.repeat(60),
@@ -969,7 +969,7 @@ async function postAnnouncement() {
     $('ann-text').value = '';
     toast('Announcement posted ✓');
     loadAnnouncements();
-  } catch { toast('Failed to post — try again.'); }
+  } catch { toast('Failed to post, try again.'); }
 }
 
 async function loadAnnouncements() {
@@ -1120,7 +1120,7 @@ async function generateAIQuestions() {
     toast(`${d.questions.length} questions generated ✓`);
   } catch(e) {
     status.textContent = `❌ ${e.message}`;
-    toast('Generation failed — try again.');
+    toast('Generation failed, try again.');
   }
   btn.disabled = false; btn.textContent = '✨ Generate Questions with AI';
 }
@@ -1181,7 +1181,7 @@ async function loadExams() {
             </div>
           </div>`).join('')
       : '<div style="color:var(--muted);font-size:.82rem">No exams created yet.</div>';
-  } catch(e) { $('exams-list').innerHTML = '<div style="color:var(--muted);font-size:.82rem">Error loading — try refreshing.</div>'; }
+  } catch(e) { $('exams-list').innerHTML = '<div style="color:var(--muted);font-size:.82rem">Error loading, try refreshing.</div>'; }
 }
 
 async function viewExamAnalytics(examId) {
@@ -1229,7 +1229,7 @@ async function viewExamAnalytics(examId) {
         <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Hardest Questions</div>
         ${a.hardest_questions.map(([q,c]) => `
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:.82rem">
-            <span style="color:var(--red);font-weight:600">${c} wrong</span> — ${esc(q)}
+            <span style="color:var(--red);font-weight:600">${c} wrong</span>: ${esc(q)}
           </div>`).join('')}
       </div>` : ''}
 
@@ -1257,7 +1257,7 @@ async function viewExamAnalytics(examId) {
               <td style="padding:7px 10px;text-align:center">
                 <span style="font-weight:800;color:${r.grade==='A'?'#22c55e':r.grade==='B'?'#4f6ef7':r.grade==='C'?'#f59e0b':'#ef4444'}">${r.grade}</span>
               </td>
-              <td style="padding:7px 10px;text-align:center;color:var(--muted)">${r.time_taken || '—'}</td>
+              <td style="padding:7px 10px;text-align:center;color:var(--muted)">${r.time_taken || '–'}</td>
               <td style="padding:7px 10px;text-align:center;color:var(--muted);font-size:.72rem">${r.submitted_at}</td>
             </tr>`).join('')}
           </tbody>
@@ -1317,7 +1317,7 @@ async function createClass() {
     toast(`Class created! Code: ${d.code} 🎉`);
     loadLecturerClasses();
   } catch(e) {
-    toast('Failed to create class — check connection.');
+    toast('Failed to create class, check connection.');
   }
 }
 
@@ -1343,9 +1343,9 @@ async function loadLecturerClasses() {
               <button class="btn-outline" style="flex-shrink:0" onclick="event.stopPropagation();copyCode('${cls.code}')">Copy Code</button>
             </div>
           </div>`).join('')
-      : '<div style="color:var(--muted);font-size:.82rem">No classes yet — create one above.</div>';
+      : '<div style="color:var(--muted);font-size:.82rem">No classes yet, create one above.</div>';
   } catch(e) {
-    $('lec-classes-list').innerHTML = '<div style="color:var(--muted);font-size:.82rem">Error loading classes — try refreshing.</div>';
+    $('lec-classes-list').innerHTML = '<div style="color:var(--muted);font-size:.82rem">Error loading classes, try refreshing.</div>';
   }
 }
 
@@ -1454,7 +1454,7 @@ function switchLecTab(tab, btn) {
       <!-- Grade modal -->
       <div id="grade-modal-bg" style="display:none;position:fixed;inset:0;background:#00000060;z-index:1000;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
         <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.5rem;width:100%;max-width:400px">
-          <div style="font-weight:700;font-size:.95rem;margin-bottom:1rem">✓ Grade Submission — <span id="grade-modal-name"></span></div>
+          <div style="font-weight:700;font-size:.95rem;margin-bottom:1rem">✓ Grade Submission: <span id="grade-modal-name"></span></div>
           <div class="form-group">
             <label>Score (0–100)</label>
             <input class="form-input" id="grade-score-input" type="number" min="0" max="100" placeholder="e.g. 78">

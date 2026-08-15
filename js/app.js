@@ -471,7 +471,7 @@ function uploadProfilePic(input) {
   const file = input.files[0];
   if (!file) return;
   if (file.size > 2 * 1024 * 1024) {
-    toast("Image too large — max 2MB.");
+    toast("Image too large. Max 2MB.");
     input.value = "";
     return;
   }
@@ -711,7 +711,7 @@ async function doLogin(prefillEmail) {
       _authOfferSetPassword(
         err,
         email,
-        `This account uses Google sign-in. Use 'Continue with Google' below — or set a password:`,
+        `This account uses Google sign-in. Use 'Continue with Google' below, or set a password:`,
       );
       if (btn) {
         btn.disabled = false;
@@ -741,7 +741,7 @@ async function doLogin(prefillEmail) {
       _authOfferSetPassword(
         err,
         email,
-        `This email is registered with Google. Sign in with Google — or set a password:`,
+        `This email is registered with Google. Sign in with Google, or set a password:`,
       );
       if (btn) {
         btn.disabled = false;
@@ -759,9 +759,9 @@ async function doLogin(prefillEmail) {
             : status === 422
               ? "Check your details and try again."
               : status === 429
-                ? "Too many attempts — please wait a moment."
+                ? "Too many attempts. Please wait a moment."
                 : detail ||
-                  "Something went wrong — check your connection and try again.";
+                  "Something went wrong. Check your connection and try again.";
     if (err) err.textContent = text;
     if (btn) {
       btn.disabled = false;
@@ -933,7 +933,7 @@ function showAllAnnouncements() {
         "📢 Announcements:\n\n" +
           anns
             .map(
-              (a, i) => `${TYPE_ICONS[a.type] || "📘"} ${a.text}\n— ${a.date}`,
+              (a, i) => `${TYPE_ICONS[a.type] || "📘"} ${a.text}\n(${a.date})`,
             )
             .join("\n\n"),
       );
@@ -1566,7 +1566,7 @@ const _PAYWALL_CFG = {
     plan: "Team",
     icon: "ti-rocket",
     title: "Founder Mode",
-    desc: "Strategic tools for building your company — metrics, pipeline, and vision.",
+    desc: "Strategic tools for building your company: metrics, pipeline, and vision.",
     perks: [
       "Company metrics",
       "Fundraising pipeline",
@@ -1722,7 +1722,7 @@ function integrationsRender() {
       statusText:
         _BILLING_STATUS?.plan === "free" || !_BILLING_STATUS
           ? "Free plan"
-          : `${_BILLING_STATUS.name} — expires ${_BILLING_STATUS.expires || ""}`,
+          : `${_BILLING_STATUS.name} (expires ${_BILLING_STATUS.expires || ""})`,
       action: () => showPricing(),
       actionLabel:
         (_BILLING_STATUS?.plan || "free") !== "free" ? "Manage" : "Upgrade",
@@ -1771,10 +1771,10 @@ function integrationsRender() {
       bg: "#25D366",
       connected: false,
       comingSoon: true,
-      statusText: "Reports, alerts & SIVA briefings — coming soon",
+      statusText: "Reports, alerts & SIVA briefings (coming soon)",
       action: () =>
         toast(
-          "WhatsApp Business is coming soon — it will power SIVA reports, alerts & trading summaries.",
+          "WhatsApp Business is coming soon. It will power SIVA reports, alerts & trading summaries.",
         ),
       actionLabel: "Coming soon",
     },
@@ -2043,7 +2043,7 @@ async function showPricing() {
         local: localOf("creator_monthly"),
         per: "/month",
         perks: [
-          "Best AI model (Claude Opus — coming soon)",
+          "Best AI model (Claude Opus, coming soon)",
           "Unlimited personal spaces",
           "Sell on the marketplace",
           "Creator analytics",
@@ -2177,7 +2177,7 @@ async function billingVerify(reference, planId) {
     }
   } catch (_) {
     toast(
-      "Payment verification failed — contact support if funds were deducted.",
+      "Payment verification failed. Contact support if funds were deducted.",
     );
   }
 }
@@ -2270,7 +2270,7 @@ function checkAuthParams() {
     const msgs = {
       not_configured: "Google Calendar integration not configured.",
       denied: "Google Calendar access was denied.",
-      session_expired: "Session expired — please sign in again.",
+      session_expired: "Session expired. Please sign in again.",
       token_failed: "Google Calendar token exchange failed.",
       plan_limit:
         "Your plan’s integration limit is reached. Upgrade to connect more.",
@@ -2290,7 +2290,7 @@ function checkAuthParams() {
     const msgs = {
       not_configured: "GitHub integration not configured.",
       denied: "GitHub access was denied.",
-      session_expired: "Session expired — sign in again.",
+      session_expired: "Session expired. Sign in again.",
       token_failed: "GitHub token exchange failed.",
       plan_limit:
         "Your plan’s integration limit is reached. Upgrade to connect more.",
@@ -2364,7 +2364,7 @@ async function _orgAcceptInvite(inviteToken, orgName) {
       setTimeout(() => location.reload(), 900);
     }
   } catch (e) {
-    toast(e.message || "Could not join — the invite may be expired.");
+    toast(e.message || "Could not join. The invite may be expired.");
   }
 }
 
@@ -2450,16 +2450,16 @@ async function resendVerificationEmail() {
     await API("/api/auth/resend-verification", { token });
     toast("Verification email resent. Check your inbox.");
   } catch (e) {
-    toast("Could not resend — please try again shortly.");
+    toast("Could not resend. Please try again shortly.");
   }
 }
 
 async function requestVerificationEmail(email) {
   try {
     await API("/api/auth/request-verification", { email });
-    toast("Verification email sent — check your inbox (and spam folder).");
+    toast("Verification email sent. Check your inbox (and spam folder).");
   } catch (e) {
-    toast("Could not resend — try again in a moment.");
+    toast("Could not resend. Try again in a moment.");
   }
 }
 
@@ -2469,9 +2469,9 @@ async function requestVerificationEmail(email) {
 async function sendSetPasswordLink(email) {
   try {
     await API("/api/auth/forgot-password", { email });
-    toast("Check your inbox — we sent a link to set your password.");
+    toast("Check your inbox. We sent a link to set your password.");
   } catch (e) {
-    toast("Could not send the link — try again shortly.");
+    toast("Could not send the link. Try again shortly.");
   }
 }
 
@@ -2567,7 +2567,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         lastErr = e.message || "Network error";
       }
     }
-    toast("Google sign-in failed — please try again.");
+    toast("Google sign-in failed. Please try again.");
     if (btn) {
       btn.textContent = "Sign In";
       btn.disabled = false;
@@ -2590,7 +2590,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       _postLoginIntegrations();
       return;
     }
-    toast("Google sign-in failed — please try again.");
+    toast("Google sign-in failed. Please try again.");
     if (btn) {
       btn.textContent = "Sign In";
       btn.disabled = false;
@@ -2617,7 +2617,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       _postLoginIntegrations();
       return;
     }
-    toast("Your session expired — please sign in again.");
+    toast("Your session expired. Please sign in again.");
   }
 
   // Fallback: pre-fill email and show login form for expired/invalid tokens
@@ -2919,7 +2919,7 @@ function handleAttach(input, type) {
 
   const MAX = 5 * 1024 * 1024;
   if (file.size > MAX) {
-    toast("File too large — max 5MB.");
+    toast("File too large. Max 5MB.");
     input.value = "";
     return;
   }
@@ -3090,12 +3090,12 @@ function chatProactiveGreet() {
       `Your **${goals[0].title}** goal is at ${goals[0].progress || 0}%.`,
     );
   if (bestStreak >= 3)
-    lines.push(`🔥 ${bestStreak}-day habit streak — don't break it.`);
+    lines.push(`🔥 ${bestStreak}-day habit streak, don't break it.`);
   if (!journaledToday && jnl.length)
     lines.push(`Haven't journalled today yet.`);
   if (!tasks.length && !goals.length)
     lines.push(
-      `Your slate is clean — good time to set a goal or plan your week.`,
+      `Your slate is clean. Good time to set a goal or plan your week.`,
     );
   lines.push(`What are we working on?`);
 
@@ -3368,7 +3368,7 @@ async function _chatStream(fullMsg, context) {
     if (btn) btn.disabled = false;
     addMsg(
       "sivarr",
-      'Could not reach Sivarr — check your connection and tap "Try again".',
+      'Could not reach Sivarr. Check your connection and tap "Try again".',
       false,
       true,
     );
@@ -3382,7 +3382,7 @@ async function _chatStream(fullMsg, context) {
     if (res.status === 401) {
       addMsg(
         "sivarr",
-        "Your session expired — please sign in again to keep chatting.",
+        "Your session expired. Please sign in again to keep chatting.",
         false,
         true,
       );
@@ -3391,12 +3391,12 @@ async function _chatStream(fullMsg, context) {
       // Daily free-tier cap returns a descriptive `detail`; per-minute rate limit returns retryAfter.
       const limitMsg =
         data.detail ||
-        `You've sent a lot of messages — please wait ${data.retryAfter || 60} seconds before trying again.`;
+        `You've sent a lot of messages. Please wait ${data.retryAfter || 60} seconds before trying again.`;
       addMsg("sivarr", limitMsg, false, true);
     } else {
       addMsg(
         "sivarr",
-        'Could not reach Sivarr — check your connection and tap "Try again".',
+        'Could not reach Sivarr. Check your connection and tap "Try again".',
         false,
         true,
       );
@@ -3461,7 +3461,7 @@ async function _chatStream(fullMsg, context) {
     if (btn) btn.disabled = false;
     bub.classList.add("msg-error");
     bub.innerHTML =
-      'Stream interrupted — <button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>';
+      'Stream interrupted. <button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>';
     _lastFailedMsg = fullMsg;
     return null;
   }
@@ -3693,7 +3693,7 @@ function chatExport() {
     toast("Nothing to export yet.");
     return;
   }
-  let out = `Sivarr AI Chat Export — ${new Date().toLocaleString()}\n${"─".repeat(50)}\n\n`;
+  let out = `Sivarr AI Chat Export (${new Date().toLocaleString()})\n${"─".repeat(50)}\n\n`;
   msgs.forEach((m) => {
     const role = m.classList.contains("sivarr") ? "Sivarr AI" : S.name || "You";
     const text = m.querySelector(".msg-bub")?.innerText || "";
@@ -3854,7 +3854,7 @@ async function loadQ() {
     qw.innerHTML = `
       <div style="padding:2rem;text-align:center">
         <div style="font-size:1.5rem;margin-bottom:.5rem">⚠️</div>
-        <div style="color:var(--muted);font-size:.88rem;margin-bottom:1rem">Couldn't generate question — AI may be busy.</div>
+        <div style="color:var(--muted);font-size:.88rem;margin-bottom:1rem">Couldn't generate question. AI may be busy.</div>
         <button class="btn-start" style="padding:8px 20px;font-size:.82rem" onclick="loadQ()">Try Again</button>
         <button style="margin-left:8px;background:none;border:1px solid var(--border);border-radius:8px;padding:8px 16px;color:var(--muted);font-size:.82rem;cursor:pointer" onclick="resetQuiz()">Cancel</button>
       </div>`;
@@ -3919,7 +3919,7 @@ async function showResult() {
       : pct >= 80
         ? "Great job!"
         : pct >= 60
-          ? "Good effort — keep going!"
+          ? "Good effort, keep going!"
           : "Keep practising!";
   await API("/api/quiz/complete", {
     token: getToken(),
@@ -3977,7 +3977,7 @@ async function getSuggestions() {
     if (_st) _st.textContent = d.suggestion;
   } catch {
     const _stc = $("sug-txt");
-    if (_stc) _stc.textContent = "Couldn't load suggestions — try again.";
+    if (_stc) _stc.textContent = "Couldn't load suggestions. Try again.";
   }
 }
 
@@ -3999,7 +3999,7 @@ async function loadWrong() {
     const list = $("wrong-list");
     const listm = $("wrong-list-m");
     const html = !d.wrong.length
-      ? `<span style="color:var(--muted);font-size:.78rem">No wrong answers yet — keep quizzing!</span>`
+      ? `<span style="color:var(--muted);font-size:.78rem">No wrong answers yet, keep quizzing!</span>`
       : d.wrong
           .map(
             (w, i) => `
@@ -4945,7 +4945,7 @@ function glAskSivaGoal(id) {
         .join(", ") +
       "."
     : "";
-  const prompt = `My goal: "${g.title}"${g.subject ? " (" + g.subject + ")" : ""}. Progress: ${g.progress || 0}%${health ? ", status: " + health.label : ""}.${krSummary}${g.deadline ? ` Deadline: ${g.deadline}.` : ""} Help me stay on track — what should I focus on next?`;
+  const prompt = `My goal: "${g.title}"${g.subject ? " (" + g.subject + ")" : ""}. Progress: ${g.progress || 0}%${health ? ", status: " + health.label : ""}.${krSummary}${g.deadline ? ` Deadline: ${g.deadline}.` : ""} Help me stay on track. What should I focus on next?`;
   nav("chat");
   setTimeout(() => {
     const ci = $("ci");
@@ -5151,7 +5151,7 @@ function toggleSPTask(di, ti, el) {
 function downloadStudyPlan() {
   const subject = $("sp-subject")?.value.trim() || "Study Plan";
   const cards = document.querySelectorAll(".sp-day-card");
-  let text = `Sivarr STUDY PLAN — ${subject.toUpperCase()}\n`;
+  let text = `Sivarr STUDY PLAN: ${subject.toUpperCase()}\n`;
   text += `Generated: ${new Date().toLocaleDateString()}\n`;
   text += "=".repeat(40) + "\n\n";
   cards.forEach((card) => {
@@ -5405,7 +5405,7 @@ function chRenderDashboard() {
   // Sparkline for views
   chDrawSparkline(m.views || [], "#4f6ef7");
   const lbl = $("ch-chart-label");
-  if (lbl) lbl.textContent = "👁 Views — Last " + period + " days";
+  if (lbl) lbl.textContent = "👁 Views (last " + period + " days)";
 
   // AI Insight
   chGenerateInsight(m, engRate, CH_ACTIVE_PLATFORM);
@@ -5458,9 +5458,9 @@ function chGenerateInsight(m, engRate, platform) {
 
   let msg = "";
   if (eng > 5)
-    msg = `🔥 Your ${pName} engagement rate of ${engRate}% is above average — your audience is highly active. Keep posting consistently to maintain momentum.`;
+    msg = `🔥 Your ${pName} engagement rate of ${engRate}% is above average. Your audience is highly active. Keep posting consistently to maintain momentum.`;
   else if (eng > 3)
-    msg = `✅ Solid engagement at ${engRate}% on ${pName}. Focus on replies and saves to push past 5% — that's when the algorithm rewards you most.`;
+    msg = `✅ Solid engagement at ${engRate}% on ${pName}. Focus on replies and saves to push past 5%. That's when the algorithm rewards you most.`;
   else if (eng < 1)
     msg = `📉 Your engagement on ${pName} is below 1%. Try shorter content, stronger CTAs, and posting at peak hours (6–9pm local time).`;
   else
@@ -5563,7 +5563,7 @@ const _FRAMEWORKS = {
           desc: "Work through exercises",
         },
         {
-          title: `🔁 Review flashcards — ${subj}`,
+          title: `🔁 Review flashcards: ${subj}`,
           type: "revision",
           priority: "medium",
           desc: "Active recall session",
@@ -5591,37 +5591,37 @@ const _FRAMEWORKS = {
       const p = f.project;
       return [
         {
-          title: `🗺 Plan — ${p}`,
+          title: `🗺 Plan: ${p}`,
           type: "other",
           priority: "high",
           desc: "Define scope, goals, and timeline",
         },
         {
-          title: `🎨 Design — ${p}`,
+          title: `🎨 Design: ${p}`,
           type: "other",
           priority: "high",
           desc: "Wireframes, mockups, architecture",
         },
         {
-          title: `🔨 Build — ${p}`,
+          title: `🔨 Build: ${p}`,
           type: "project",
           priority: "high",
           desc: "Core implementation sprint",
         },
         {
-          title: `🧪 Test — ${p}`,
+          title: `🧪 Test: ${p}`,
           type: "other",
           priority: "medium",
           desc: "QA, bug fixes, review",
         },
         {
-          title: `🚀 Launch — ${p}`,
+          title: `🚀 Launch: ${p}`,
           type: "other",
           priority: "medium",
           desc: "Deploy and announce",
         },
         {
-          title: `📊 Retrospective — ${p}`,
+          title: `📊 Retrospective: ${p}`,
           type: "other",
           priority: "low",
           desc: "What worked, what to improve",
@@ -5655,37 +5655,37 @@ const _FRAMEWORKS = {
           desc: "List all topics and mark weak areas",
         },
         {
-          title: `📖 Revise ${s} — Week 1`,
+          title: `📖 Revise ${s}: Week 1`,
           type: "revision",
           priority: "high",
           desc: "Cover first third of syllabus",
         },
         {
-          title: `📖 Revise ${s} — Week 2`,
+          title: `📖 Revise ${s}: Week 2`,
           type: "revision",
           priority: "high",
           desc: "Cover second third of syllabus",
         },
         {
-          title: `📖 Revise ${s} — Week 3`,
+          title: `📖 Revise ${s}: Week 3`,
           type: "revision",
           priority: "high",
           desc: "Cover final third of syllabus",
         },
         {
-          title: `❓ Past papers — ${s}`,
+          title: `❓ Past papers: ${s}`,
           type: "exam",
           priority: "high",
           desc: "Timed practice with past questions",
         },
         {
-          title: `🔁 Weak spots review — ${s}`,
+          title: `🔁 Weak spots review: ${s}`,
           type: "revision",
           priority: "medium",
           desc: "Focus on topics that need more work",
         },
         {
-          title: `✅ Final revision — ${s}`,
+          title: `✅ Final revision: ${s}`,
           type: "revision",
           priority: "high",
           desc: "Quick-fire review of all key points",
@@ -5714,37 +5714,37 @@ const _FRAMEWORKS = {
       const g = f.goal;
       return [
         {
-          title: `⚡ Sprint planning — ${g}`,
+          title: `⚡ Sprint planning: ${g}`,
           type: "project",
           priority: "high",
           desc: "Define tasks, assign owners, set deadline",
         },
         {
-          title: `🎯 Set milestones — ${g}`,
+          title: `🎯 Set milestones: ${g}`,
           type: "project",
           priority: "high",
           desc: "Break goal into measurable checkpoints",
         },
         {
-          title: `🔨 Build sprint tasks — ${g}`,
+          title: `🔨 Build sprint tasks: ${g}`,
           type: "project",
           priority: "high",
           desc: "Execute the sprint backlog",
         },
         {
-          title: `📊 Mid-sprint check-in — ${g}`,
+          title: `📊 Mid-sprint check-in: ${g}`,
           type: "other",
           priority: "medium",
           desc: "Review progress, unblock team",
         },
         {
-          title: `🧪 Sprint review — ${g}`,
+          title: `🧪 Sprint review: ${g}`,
           type: "other",
           priority: "medium",
           desc: "Demo output, gather feedback",
         },
         {
-          title: `🔁 Sprint retrospective — ${g}`,
+          title: `🔁 Sprint retrospective: ${g}`,
           type: "other",
           priority: "low",
           desc: "What went well, what to change",
@@ -5957,7 +5957,7 @@ function stUpdateUsage() {
     if (isPaid) {
       meta.style.display = "";
       const expEl = $("st-plan-expires");
-      if (expEl) expEl.textContent = sub.expires || "—";
+      if (expEl) expEl.textContent = sub.expires || "–";
       const gwEl = $("st-plan-gateway");
       if (gwEl)
         gwEl.textContent = sub.gateway
@@ -6041,7 +6041,7 @@ table{width:100%;border-collapse:collapse;margin:20px 0}td,th{text-align:left;pa
 <div class="r"><div style="font-weight:700">INVOICE</div><div class="muted">${esc(ref)}</div><div class="muted">${esc(h.date || "")}</div></div></div>
 <div class="muted">Billed to</div><div style="font-weight:600;margin-bottom:4px">${esc(who || "Sivarr customer")}</div>${email ? `<div class="muted">${esc(email)}</div>` : ""}
 <table><thead><tr><th>Description</th><th class="r">Amount</th></tr></thead>
-<tbody><tr><td>${esc(h.plan || "Subscription")} — Sivarr plan</td><td class="r">${esc(h.amount || "")}</td></tr></tbody></table>
+<tbody><tr><td>${esc(h.plan || "Subscription")} (Sivarr plan)</td><td class="r">${esc(h.amount || "")}</td></tr></tbody></table>
 <div class="tot">Total: ${esc(h.amount || "")}</div>
 <div class="muted" style="margin-top:24px">Paid via ${esc(h.gateway || "Paystack")}. Thank you for using Sivarr.</div>
 <button class="noprint" onclick="window.print()" style="margin-top:24px;padding:10px 20px;background:#0ea5a4;color:#fff;border:0;border-radius:8px;font-weight:700;cursor:pointer">Print / Save as PDF</button>
@@ -6119,7 +6119,7 @@ async function stSaveProfile() {
     _saveStatus("saved");
     toast("Profile saved ✓");
   } catch {
-    toast("Could not save — try again.");
+    toast("Could not save. Try again.");
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -6696,7 +6696,7 @@ async function stChangePassword() {
     if ($("st-pw-input")) $("st-pw-input").value = "";
     if ($("st-pw2-input")) $("st-pw2-input").value = "";
   } catch {
-    toast("Network error — try again.");
+    toast("Network error. Try again.");
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -6761,7 +6761,7 @@ async function stExportAll() {
     URL.revokeObjectURL(url);
     toast("Export downloaded ✓");
   } catch (e) {
-    toast("Export failed — try again.");
+    toast("Export failed. Try again.");
   } finally {
     if (btn) {
       btn.textContent = "↓ Export my data (ZIP)";
@@ -6850,7 +6850,7 @@ async function stImportTasks(input) {
       }),
     });
   } catch (e) {
-    _setImportStatus("Import failed — check CSV format.");
+    _setImportStatus("Import failed. Check CSV format.");
     toast("Task import failed.");
   }
 }
@@ -6882,7 +6882,7 @@ async function stImportGoals(input) {
     _setImportStatus(`✓ ${d.imported} goals imported`);
     toast(`${d.imported} goals imported ✓`);
   } catch (e) {
-    _setImportStatus("Import failed — check CSV format.");
+    _setImportStatus("Import failed. Check CSV format.");
     toast("Goal import failed.");
   }
 }
@@ -6913,7 +6913,7 @@ async function stImportNotes(input) {
     _setImportStatus(
       `✓ Note imported as "${file.name.replace(".md", "").replace(".txt", "")}" in Docs`,
     );
-    toast("Note imported ✓ — check Docs & Notes");
+    toast("Note imported ✓. Check Docs & Notes");
   } catch (e) {
     _setImportStatus("Import failed.");
     toast("Note import failed.");
@@ -7068,7 +7068,7 @@ function toggleVoice() {
     updateVoiceBtn(false);
     const ci = $("ci");
     if (ci && ci.value.trim()) {
-      toast("Got it — sending... ✓");
+      toast("Got it, sending... ✓");
       setTimeout(() => send(), 500);
     }
   };
@@ -7078,7 +7078,7 @@ function toggleVoice() {
     toast(
       e.error === "not-allowed"
         ? "Microphone permission denied."
-        : "Voice error — try again.",
+        : "Voice error. Try again.",
     );
   };
   VOICE_REC.start();
@@ -7340,7 +7340,7 @@ async function sgSend() {
     if (SG_INTERVAL) sgLoadMessages(false); // polling fallback: pull immediately
   } catch (e) {
     input.value = text;
-    toast("Send failed — try again.");
+    toast("Send failed. Try again.");
   }
 }
 
@@ -7443,7 +7443,7 @@ function pomComplete() {
     if (POM_SESSION % 4 === 0) pomSetMode("long", null);
     else pomSetMode("short", null);
   } else {
-    toast("Break over — time to focus! 💪");
+    toast("Break over, time to focus! 💪");
     pomSetMode("focus", null);
     document
       .querySelectorAll(".pom-mode-btn")
@@ -8369,7 +8369,7 @@ function cmdRenderResults(q) {
 
   if (!CMD_VISIBLE.length) {
     res.innerHTML = q
-      ? `<div class="cmd-empty">No results for "<strong>${esc(q)}</strong>" — capture it below ↓</div>`
+      ? `<div class="cmd-empty">No results for "<strong>${esc(q)}</strong>". Capture it below ↓</div>`
       : `<div class="cmd-empty">Type to search panels, docs, tasks or actions…</div>`;
     return;
   }
@@ -8543,7 +8543,7 @@ function gsOpenVideo(idx, card) {
       </div>`
     : `<div style="padding:40px 12px;text-align:center;color:var(--muted)">
         <i class="ti ti-video" style="font-size:2rem;display:block;margin-bottom:10px"></i>
-        This walkthrough is still being recorded — check back soon.
+        This walkthrough is still being recorded. Check back soon.
       </div>`;
   modal.innerHTML = `
     <div style="background:var(--bg);border-radius:14px;padding:20px;width:min(720px,95vw);position:relative">
@@ -8791,13 +8791,13 @@ async function loadHome() {
               `${d.tasks_due_today} task${d.tasks_due_today > 1 ? "s" : ""} due today${d.overdue_tasks ? ` · ${d.overdue_tasks} overdue` : ""}.`,
             );
           if (d.streak_days)
-            parts.push(`${d.streak_days}-day streak — keep it going.`);
+            parts.push(`${d.streak_days}-day streak, keep it going.`);
           if (d.goals_at_risk)
             parts.push(
               `${d.goals_at_risk} goal${d.goals_at_risk > 1 ? "s" : ""} at risk.`,
             );
           if (!parts.length)
-            parts.push("You're all set — nothing urgent today. 🎯");
+            parts.push("You're all set, nothing urgent today. 🎯");
           if (!briefMsg.querySelector(".brief-pulse")) return; // AI beat us, skip
           briefMsg.textContent = parts.join(" ");
           // Still fire the AI brief in background to replace with richer text
@@ -8883,7 +8883,7 @@ async function loadHome() {
       if (schedItems.length) {
         sl.innerHTML = schedItems.slice(0, 5).join("");
       } else {
-        sl.innerHTML = `<div class="sched-item"><div class="sched-time">—</div><div class="sched-dot" style="background:var(--text4)"></div><div class="sched-info"><div class="sched-name" style="color:var(--text4)">No events today</div><div class="sched-sub">Add some in Calendar →</div></div></div>`;
+        sl.innerHTML = `<div class="sched-item"><div class="sched-time">–</div><div class="sched-dot" style="background:var(--text4)"></div><div class="sched-info"><div class="sched-name" style="color:var(--text4)">No events today</div><div class="sched-sub">Add some in Calendar →</div></div></div>`;
       }
     }
   } catch (_) {}
@@ -8932,7 +8932,7 @@ async function loadHome() {
               <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">${bal >= 0 ? "Surplus" : "Deficit"}</div>
             </div>
           </div>
-          ${topCatInfo ? `<div style="font-size:.75rem;color:var(--text3)">Top spend: <strong style="color:var(--text2)">${topCatInfo.icon} ${topCatInfo.label}</strong> — ${_finFmt(topCat[1])}</div>` : ""}`;
+          ${topCatInfo ? `<div style="font-size:.75rem;color:var(--text3)">Top spend: <strong style="color:var(--text2)">${topCatInfo.icon} ${topCatInfo.label}</strong>, ${_finFmt(topCat[1])}</div>` : ""}`;
       } else {
         fs.style.display = "none";
       }
@@ -9123,14 +9123,14 @@ function _homeRenderDiscovery(activeGoals, habits, notes) {
     cards.push({
       icon: "ti-flame",
       title: "Start a habit",
-      sub: "Small streaks compound — try one this week",
+      sub: "Small streaks compound, try one this week",
       go: "habits",
     });
   if (!notes.length)
     cards.push({
       icon: "ti-notebook",
       title: "Take your first note",
-      sub: "Jot down anything — organize it later",
+      sub: "Jot down anything, organize it later",
       go: "notes",
     });
   if (!_GCAL_CONNECTED)
@@ -9190,7 +9190,7 @@ function _homeRenderSpaces(activeGoals, jnl, notes, today8601) {
     candidates.push({
       icon: "ti-notebook",
       cls: "journal",
-      html: `No journal entry today — <b>tap to write one</b>`,
+      html: `No journal entry today, <b>tap to write one</b>`,
       tag: "Journal",
       go: "journal",
     });
@@ -9245,7 +9245,7 @@ async function _homeRenderTrending() {
     const d = await r.json();
     const templates = d.templates || [];
     if (!templates.length) {
-      strip.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:8px 0">Nothing trending yet — <button onclick="nav('agents',null)" style="background:none;border:none;color:var(--teal);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">browse the marketplace →</button></div>`;
+      strip.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:8px 0">Nothing trending yet, <button onclick="nav('agents',null)" style="background:none;border:none;color:var(--teal);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">browse the marketplace →</button></div>`;
       return;
     }
     strip.innerHTML = templates
@@ -10203,7 +10203,7 @@ function skillsRender() {
     : `<div class="sk-empty">
     <div class="sk-empty-icon">🧠</div>
     <div class="sk-empty-title">${_skFilter === "all" ? "No skills yet" : `No ${_skFilter} skills`}</div>
-    <div class="sk-empty-sub">${_skFilter === "all" ? "Track what you're learning — click <strong>+ Add Skill</strong> to start." : "Try another category filter."}</div>
+    <div class="sk-empty-sub">${_skFilter === "all" ? "Track what you're learning. Click <strong>+ Add Skill</strong> to start." : "Try another category filter."}</div>
   </div>`;
 
   el.innerHTML = `
@@ -10322,7 +10322,7 @@ async function skillLog(id) {
   sk.last_practiced = new Date().toISOString().slice(0, 10);
   _skSave(data);
   skillsRender();
-  toast(`Session logged — ${mins} min ✓`);
+  toast(`Session logged: ${mins} min ✓`);
 }
 
 async function skillEdit(id) {
@@ -10634,7 +10634,7 @@ function finRenderOverview() {
       ${
         recent.length
           ? `<div class="fin-tx-list">${recent.map((t) => _finTxHtml(t)).join("")}</div>`
-          : `<div class="fin-empty">No transactions yet — add your first one above.</div>`
+          : `<div class="fin-empty">No transactions yet. Add your first one above.</div>`
       }
     </div>`;
 }
@@ -10956,7 +10956,7 @@ function reflectWithAI(idx) {
 async function aiTaskExtractor() {
   const text = await siModal.input(
     "✨ Extract Tasks with AI",
-    "Paste an email, note, or message — Sivarr will pull out the tasks.",
+    "Paste an email, note, or message. Sivarr will pull out the tasks.",
     "",
     { confirmLabel: "Extract", type: "text" },
   );
@@ -11220,7 +11220,7 @@ function _commApplyFilters() {
   if (!list.length) {
     feed.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">${
       _commCategory === "saved"
-        ? "No saved posts yet — tap the bookmark icon on a post to save it here."
+        ? "No saved posts yet. Tap the bookmark icon on a post to save it here."
         : _commAllPosts.length
           ? "No posts in this category yet."
           : "No posts yet. Be the first to share!"
@@ -11326,7 +11326,7 @@ function _commRenderPost(p) {
 function commDraftReply(postId) {
   const p = _commAllPosts.find((x) => x.id === postId);
   if (!p) return;
-  const prompt = `Draft a short, friendly reply to this Community post: "${p.body}" — reply as ${S.name || "me"}, keep it under 3 sentences.`;
+  const prompt = `Draft a short, friendly reply to this Community post: "${p.body}". Reply as ${S.name || "me"}, keep it under 3 sentences.`;
   nav("chat", null);
   if (typeof quickPrompt === "function") quickPrompt(prompt);
 }
@@ -11384,7 +11384,7 @@ async function communityPost() {
       commLoadFeed();
     }
   } catch (_) {
-    toast("Could not post — try again.");
+    toast("Could not post. Try again.");
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -11591,7 +11591,7 @@ function _oppApplyFilters() {
   if (!list.length) {
     feed.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">${
       _oppCategory === "saved"
-        ? "No saved opportunities yet — tap the bookmark icon on a listing to save it here."
+        ? "No saved opportunities yet. Tap the bookmark icon on a listing to save it here."
         : _oppAllList.length
           ? query
             ? "No opportunities match your search."
@@ -11909,7 +11909,7 @@ const TEMPLATE_SEEDS = {
 function useTemplate(name) {
   const seed = TEMPLATE_SEEDS[name];
   if (!seed || !S.sid) {
-    toast("Couldn't use this template — try again.");
+    toast("Couldn't use this template. Try again.");
     return;
   }
   let n = 0,
@@ -11972,7 +11972,7 @@ function useTemplate(name) {
     });
     localStorage.setItem(`sivarr_finance_${S.sid}`, JSON.stringify(fin));
   }
-  toast(`"${name}" added — ${n} item${n !== 1 ? "s" : ""} created ✓`);
+  toast(`"${name}" added: ${n} item${n !== 1 ? "s" : ""} created ✓`);
   if (seed.nav) nav(seed.nav, null);
 }
 
@@ -12320,7 +12320,7 @@ function sbRenderStats() {
     // Today snapshot
     set("sb-today-tasks", tasksDue);
     set("sb-today-streak", streak);
-    set("sb-today-next", nextLabel || "—");
+    set("sb-today-next", nextLabel || "–");
     // Inline nav stats (blank string → CSS :empty hides them)
     set("sbstat-tasks", tasksDue ? `${tasksDue} due` : "");
     set("sbstat-goals", goalsAvg !== null ? `${goalsAvg}% avg` : "");
@@ -12903,7 +12903,7 @@ async function getSuggestionsMobile() {
     const d = await r.json();
     $("sug-txt-m").textContent = d.suggestion;
   } catch {
-    $("sug-txt-m").textContent = "Couldn't load — try again.";
+    $("sug-txt-m").textContent = "Couldn't load. Try again.";
   }
 }
 
@@ -13374,7 +13374,7 @@ function _downloadLab() {
     return;
   }
   const blob = new Blob(
-    [`Sivarr AI — LECTURE LAB\n${"─".repeat(40)}\n\n${LAB_RESULT_TEXT}`],
+    [`Sivarr AI: LECTURE LAB\n${"─".repeat(40)}\n\n${LAB_RESULT_TEXT}`],
     { type: "text/plain" },
   );
   const a = document.createElement("a");
@@ -13411,7 +13411,7 @@ async function loadLeaderboard() {
 
     if (!students.length) {
       list.innerHTML =
-        '<div class="empty-state"><div class="es-icon">🏆</div><div class="es-text">No rankings yet — take a quiz to appear here!</div></div>';
+        '<div class="empty-state"><div class="es-icon">🏆</div><div class="es-text">No rankings yet, take a quiz to appear here!</div></div>';
       return;
     }
 
@@ -13453,7 +13453,7 @@ async function loadLeaderboard() {
     }
   } catch (e) {
     list.innerHTML =
-      '<div class="empty-state"><div class="es-icon">⚠️</div><div class="es-text">Couldn\'t load leaderboard — try again.</div></div>';
+      '<div class="empty-state"><div class="es-icon">⚠️</div><div class="es-text">Couldn\'t load leaderboard. Try again.</div></div>';
   }
 }
 
@@ -13652,7 +13652,7 @@ async function shareResult(score, topic) {
     await navigator.clipboard.writeText(url);
     toast("Share link copied to clipboard! 🔗");
   } catch (e) {
-    toast("Could not create share link — try again.");
+    toast("Could not create share link. Try again.");
   }
 }
 
@@ -13840,9 +13840,9 @@ function briefBuild() {
   if (goals.length)
     msg += `${goals.length} active goal${goals.length > 1 ? "s" : ""} in progress. `;
   if (journalLen > 0)
-    msg += `Keep your journaling streak alive — write something today. `;
+    msg += `Keep your journaling streak alive. Write something today. `;
   if (!tasks.length && !goals.length)
-    msg += `Looks like a clean slate — great time to set a goal or plan your day.`;
+    msg += `Looks like a clean slate. Great time to set a goal or plan your day.`;
 
   const msgEl = $("brief-msg");
   if (msgEl) msgEl.textContent = msg;
@@ -14135,7 +14135,7 @@ async function orgInit() {
     _clearOrgSk();
     _orgShowSetup();
     if (e.status !== 404 && e.status !== 401 && e.status !== 403) {
-      toast("Could not load organization — please refresh.");
+      toast("Could not load organization. Please refresh.");
     }
     return;
   }
@@ -14306,7 +14306,7 @@ function orgRenderOverview() {
   const invEl = $("os-invite-lbl");
   if (invEl)
     invEl.textContent =
-      ORG_MEMBERS.length <= 1 ? "Just you — invite your team" : "";
+      ORG_MEMBERS.length <= 1 ? "Just you, invite your team" : "";
   const gcEl = $("os-goal-count");
   if (gcEl)
     gcEl.textContent = ORG_GOALS.filter((g) => g.status === "active").length;
@@ -14433,7 +14433,7 @@ function orgRenderTaskList() {
   if (!wrap) return;
   if (!ORG_TASKS.length) {
     wrap.innerHTML =
-      '<div class="os-empty" style="padding:20px 0">No tasks yet — add one to get started.</div>';
+      '<div class="os-empty" style="padding:20px 0">No tasks yet. Add one to get started.</div>';
     return;
   }
   wrap.innerHTML = ORG_KANBAN_COLS.map((col) => {
@@ -14469,7 +14469,7 @@ function orgRenderProjects() {
   if (!grid) return;
   if (!ORG_PROJECTS.length) {
     grid.innerHTML =
-      '<div class="os-empty" style="padding:20px 0">No projects yet — create your first one.</div>';
+      '<div class="os-empty" style="padding:20px 0">No projects yet. Create your first one.</div>';
     return;
   }
   grid.innerHTML = ORG_PROJECTS.map((p) => {
@@ -14500,7 +14500,7 @@ function orgRenderDocs() {
   if (!grid) return;
   if (!ORG_DOCS.length) {
     grid.innerHTML =
-      '<div class="os-empty" style="padding:20px 0">No docs yet — create one to share with your team.</div>';
+      '<div class="os-empty" style="padding:20px 0">No docs yet. Create one to share with your team.</div>';
     return;
   }
   grid.innerHTML = ORG_DOCS.map(
@@ -14583,7 +14583,7 @@ async function orgBilling(period, seats) {
   const maxSeats = q.max_seats || 50;
   const custom = q.custom;
   const priceLine = custom
-    ? `<div style="font-size:1.1rem;font-weight:700">Custom pricing</div><div style="font-size:.8rem;color:var(--muted)">51+ seats — contact sales.</div>`
+    ? `<div style="font-size:1.1rem;font-weight:700">Custom pricing</div><div style="font-size:.8rem;color:var(--muted)">51+ seats. Contact sales.</div>`
     : `<div style="font-size:1.6rem;font-weight:800">${esc(q.display_usd)}<span style="font-size:.85rem;color:var(--muted)">/${period === "yearly" ? "yr" : "mo"}</span></div>
        <div style="font-size:.78rem;color:var(--muted)">${esc(q.fx?.display_local || "")} · billed via Paystack${q.discount ? ` · ${q.discount}% volume discount` : ""}</div>`;
   const m = document.createElement("div");
@@ -14615,7 +14615,7 @@ async function orgBilling(period, seats) {
              <button class="btn" style="width:100%" onclick="orgBillingSubscribe('${period}', ${n}, 'flutterwave')">Pay with Flutterwave →</button>
            </div>`
       }
-      <div style="font-size:.72rem;color:var(--muted);margin-top:10px">Buy seats ahead of inviting — each member takes one seat. You can add more anytime.</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:10px">Buy seats ahead of inviting. Each member takes one seat. You can add more anytime.</div>
     </div>`;
   m.addEventListener("click", (e) => {
     if (e.target === m) m.remove();
@@ -14650,12 +14650,12 @@ function orgRenderInsights() {
   const done = ORG_TASKS.filter((t) => t.status === "done").length;
   if (vel)
     vel.textContent =
-      done > 0 ? (done / Math.max(1, Math.ceil(done / 5))).toFixed(1) : "—";
+      done > 0 ? (done / Math.max(1, Math.ceil(done / 5))).toFixed(1) : "–";
   if (otr)
     otr.textContent =
       done > 0
         ? Math.round((done / Math.max(1, ORG_TASKS.length)) * 100) + "%"
-        : "—";
+        : "–";
   // No org-wide focus-session tracking exists yet (Focus Mode is
   // per-device/local only) — "0" here is an honest "no data", not a stub.
   if (fhr) fhr.textContent = "0";
@@ -14721,7 +14721,7 @@ function orgRenderInsights() {
         : 0;
       ai.innerHTML = `<div style="font-size:.84rem;color:var(--fg);line-height:1.6;padding:4px 0">
         Your team has completed <strong>${done}</strong> tasks (${rate}% completion rate).
-        ${rate >= 70 ? " Great momentum — keep it up!" : rate >= 40 ? " Solid progress. Focus on clearing the backlog." : " Consider breaking tasks into smaller steps to build momentum."}
+        ${rate >= 70 ? " Great momentum, keep it up!" : rate >= 40 ? " Solid progress. Focus on clearing the backlog." : " Consider breaking tasks into smaller steps to build momentum."}
       </div>`;
     }
   }
@@ -14736,7 +14736,7 @@ function orgRenderGoals() {
   if (!list) return;
   if (!ORG_GOALS.length) {
     list.innerHTML =
-      '<div class="os-empty" style="padding:40px 0">No goals yet — create your first OKR to connect your team\'s work to strategy.</div>';
+      '<div class="os-empty" style="padding:40px 0">No goals yet. Create your first OKR to connect your team\'s work to strategy.</div>';
     return;
   }
   const statusColor = {
@@ -14993,7 +14993,7 @@ async function orgGetBriefing() {
     }
   } catch (e) {
     if (text)
-      text.textContent = "Could not generate briefing — try again shortly.";
+      text.textContent = "Could not generate briefing. Try again shortly.";
     if (btn) {
       btn.textContent = "Generate →";
       btn.disabled = false;
@@ -15033,7 +15033,7 @@ function founderRender() {
     if (el) el.textContent = v;
   };
   setV("fd-burn", fmt(burn));
-  setV("fd-runway", runway !== null ? `${runway}` : "—");
+  setV("fd-runway", runway !== null ? `${runway}` : "–");
   setV("fd-mrr", fmt(mrr));
   setV("fd-raised", fmt(raised));
   setV("fd-stage", f.funding_stage || "pre-seed");
@@ -16159,7 +16159,7 @@ function _autoRunAction(rule, context) {
 
     case "log_activity":
       _recordActivity();
-      toast(`📋 Activity logged — ${rule.name}`);
+      toast(`📋 Activity logged: ${rule.name}`);
       break;
   }
 }
@@ -16242,7 +16242,7 @@ async function profileInit() {
   const sl = $("profile-skills-list");
   if (sl) {
     if (!skills.length) {
-      sl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:6px 0">No skills tracked yet — <button onclick="nav('skills',null)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">add one →</button></div>`;
+      sl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:6px 0">No skills tracked yet, <button onclick="nav('skills',null)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">add one →</button></div>`;
     } else {
       sl.innerHTML =
         skills
@@ -16273,7 +16273,7 @@ async function profileInit() {
   const pl = $("profile-posts-list");
   if (pl) {
     if (!myPosts.length) {
-      pl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:6px 0">No posts yet — <button onclick="nav('community',null)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">share something →</button></div>`;
+      pl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:6px 0">No posts yet, <button onclick="nav('community',null)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">share something →</button></div>`;
     } else {
       pl.innerHTML = myPosts
         .slice(0, 5)
@@ -16850,7 +16850,7 @@ async function psNewTask() {
     localStorage.getItem(`sivarr_goals_${S.sid}`) || "[]",
   ).filter((g) => !g.completed);
   const goalOpts = [
-    { value: "", label: "— None" },
+    { value: "", label: "None" },
     ...goals.map((g) => ({ value: String(g.id), label: g.title })),
   ];
   const f = await siModal.form(
@@ -16966,7 +16966,7 @@ function psMoveTask(id) {
           g.progress = Math.min(100, (g.progress || 0) + 10);
           if (g.progress >= 100) g.completed = true;
           localStorage.setItem(`sivarr_goals_${S.sid}`, JSON.stringify(goals));
-          toast(`Goal: ${g.title} — ${g.progress}%`);
+          toast(`Goal: ${g.title} (${g.progress}%)`);
         }
       } catch (_) {}
     }
@@ -17507,7 +17507,7 @@ async function agRenderMarketplace() {
     if (!_ag.agents.length) {
       cont.innerHTML = `<div class="ag-empty" style="padding:24px 20px">
         <div class="ag-empty-icon">👋</div>
-        <p>No agents yet — <span style="color:var(--accent);cursor:pointer;font-weight:600" onclick="agNav('apply');agRenderApply()">be the first to join</span>.</p>
+        <p>No agents yet, <span style="color:var(--accent);cursor:pointer;font-weight:600" onclick="agNav('apply');agRenderApply()">be the first to join</span>.</p>
       </div>`;
       return;
     }
@@ -17885,7 +17885,7 @@ async function agReportTemplate(id) {
     const d = await r.json();
     notify(
       d && d.ok
-        ? "Report submitted — thank you. Our team will review it."
+        ? "Report submitted, thank you. Our team will review it."
         : d.detail || "Could not submit report.",
     );
   } catch {
@@ -18369,9 +18369,9 @@ function agRenderApply(step) {
         <div style="font-size:.84rem;line-height:2">
           <strong>Name:</strong> ${esc(d.display_name || "")}<br>
           <strong>Bio:</strong> ${esc(d.bio || "")}<br>
-          <strong>Speciality:</strong> ${(d.speciality || []).join(", ") || "—"}<br>
-          <strong>Payout email:</strong> ${esc(d.stripe_email || "—")}<br>
-          <strong>Country:</strong> ${esc(d.country || "—")}
+          <strong>Speciality:</strong> ${(d.speciality || []).join(", ") || "–"}<br>
+          <strong>Payout email:</strong> ${esc(d.stripe_email || "–")}<br>
+          <strong>Country:</strong> ${esc(d.country || "–")}
         </div>
       </div>
       <div class="ag-apply-card" style="background:linear-gradient(135deg,#4f6ef710,transparent);border-color:#4f6ef730">
@@ -18758,9 +18758,9 @@ async function agDashLoadEarnings() {
           .map(
             (p) => `
           <tr>
-            <td>${p.paid_at ? String(p.paid_at).slice(0, 10) : p.created_at?.slice(0, 10) || "—"}</td>
+            <td>${p.paid_at ? String(p.paid_at).slice(0, 10) : p.created_at?.slice(0, 10) || "–"}</td>
             <td style="font-weight:700">$${parseFloat(p.amount).toFixed(2)}</td>
-            <td style="font-size:.72rem;color:var(--muted)">${p.stripe_transfer_id || "—"}</td>
+            <td style="font-size:.72rem;color:var(--muted)">${p.stripe_transfer_id || "–"}</td>
             <td><span class="ag-status-badge ${p.status === "paid" ? "live" : "review"}">${p.status}</span></td>
           </tr>`,
           )
@@ -18955,7 +18955,7 @@ function agRenderBuilder() {
   if (step === 1) {
     body = `
       <div class="ag-apply-card">
-        <div class="ag-apply-title">Step 1 — Basics</div>
+        <div class="ag-apply-title">Step 1: Basics</div>
         <div class="ag-field"><label>Template name <span style="color:var(--muted)">(max 60 chars)</span></label>
           <input id="ab-name" maxlength="60" placeholder="My awesome template" value="${esc(d.name)}"></div>
         <div class="ag-field"><label>Short description <span style="color:var(--muted)">(max 120)</span></label>
@@ -18988,7 +18988,7 @@ function agRenderBuilder() {
   } else if (step === 2) {
     body = `
       <div class="ag-apply-card">
-        <div class="ag-apply-title">Step 2 — Contents</div>
+        <div class="ag-apply-title">Step 2: Contents</div>
         <div class="ag-apply-sub">Select content types and add the actual items that get installed with this template.</div>
         <div class="ag-contents-list">
           ${AG_CONTENTS.map((c) => {
@@ -19028,7 +19028,7 @@ function agRenderBuilder() {
   } else if (step === 3) {
     body = `
       <div class="ag-apply-card">
-        <div class="ag-apply-title">Step 3 — Pricing</div>
+        <div class="ag-apply-title">Step 3: Pricing</div>
         <div class="ag-pricing-toggle">
           <button class="ag-pricing-opt${d.free ? " active" : ""}" onclick="agBuilderSetPricing(true)">🆓 Free</button>
           <button class="ag-pricing-opt${!d.free ? " active" : ""}" onclick="agBuilderSetPricing(false)">💰 Paid</button>
@@ -19042,7 +19042,7 @@ function agRenderBuilder() {
             _ag.paystackAvailable
               ? `
           <div class="ag-field" style="margin-top:8px">
-            <label>Price (NGN) <span style="font-size:.7rem;font-weight:400;color:var(--muted)">— leave blank to auto-calculate (≈ USD × ${_ag.nairaRate})</span></label>
+            <label>Price (NGN) <span style="font-size:.7rem;font-weight:400;color:var(--muted)">(leave blank to auto-calculate ≈ USD × ${_ag.nairaRate})</span></label>
             <input id="ab-price-ngn" type="number" min="100" step="50" placeholder="Auto"
               value="${d.price_ngn || ""}" oninput="agBuilderUpdateNgn()">
           </div>`
@@ -19058,7 +19058,7 @@ function agRenderBuilder() {
     const icon = AG_CAT_ICONS[d.category] || "ti-template";
     body = `
       <div class="ag-apply-card">
-        <div class="ag-apply-title">Step 4 — Preview & publish</div>
+        <div class="ag-apply-title">Step 4: Preview & publish</div>
         <div class="ag-apply-sub">This is how your template will appear in the marketplace.</div>
         <div style="max-width:240px;margin-bottom:20px">
           <div class="ag-card">
@@ -19449,11 +19449,11 @@ async function agLeaveReview(templateId) {
         label: "Rating",
         type: "select",
         options: [
-          { value: "5", label: "⭐⭐⭐⭐⭐ — Excellent" },
-          { value: "4", label: "⭐⭐⭐⭐ — Good" },
-          { value: "3", label: "⭐⭐⭐ — Average" },
-          { value: "2", label: "⭐⭐ — Poor" },
-          { value: "1", label: "⭐ — Terrible" },
+          { value: "5", label: "⭐⭐⭐⭐⭐ Excellent" },
+          { value: "4", label: "⭐⭐⭐⭐ Good" },
+          { value: "3", label: "⭐⭐⭐ Average" },
+          { value: "2", label: "⭐⭐ Poor" },
+          { value: "1", label: "⭐ Terrible" },
         ],
         default: "5",
       },
@@ -19550,7 +19550,7 @@ const _OB_ROLES = [
     id: "founder",
     icon: "🚀",
     label: "Founder",
-    desc: "Build a company — org space, team & metrics",
+    desc: "Build a company: org space, team & metrics",
   },
   {
     id: "freelancer",
@@ -19571,7 +19571,7 @@ const _OB_DONE_ACTIONS = {
     {
       icon: "🤖",
       label: "Ask SIVA anything",
-      desc: "Your AI tutor is ready — try it now",
+      desc: "Your AI tutor is ready, try it now",
       nav: "chat",
     },
     {
@@ -19583,7 +19583,7 @@ const _OB_DONE_ACTIONS = {
     {
       icon: "🎯",
       label: "View your first goal",
-      desc: "You just set it — track progress in Goals",
+      desc: "You just set it, track progress in Goals",
       nav: "goals",
     },
   ],
@@ -19603,7 +19603,7 @@ const _OB_DONE_ACTIONS = {
     {
       icon: "🎯",
       label: "View your first goal",
-      desc: "You just set it — track progress in Goals",
+      desc: "You just set it, track progress in Goals",
       nav: "goals",
     },
   ],
@@ -19623,7 +19623,7 @@ const _OB_DONE_ACTIONS = {
     {
       icon: "🎯",
       label: "View your first goal",
-      desc: "You just set it — track progress in Goals",
+      desc: "You just set it, track progress in Goals",
       nav: "goals",
     },
   ],
@@ -19643,7 +19643,7 @@ const _OB_DONE_ACTIONS = {
     {
       icon: "🎯",
       label: "View your first goal",
-      desc: "You just set it — track progress in Goals",
+      desc: "You just set it, track progress in Goals",
       nav: "goals",
     },
   ],
@@ -19716,7 +19716,7 @@ function siObRender() {
       .join("");
     content = `
       <div class="si-ob-title">How will you use Sivarr?</div>
-      <div class="si-ob-sub">Choose your primary focus — you can use every feature regardless.</div>
+      <div class="si-ob-sub">Choose your primary focus. You can use every feature regardless.</div>
       <div class="si-ob-role-grid">${cards}</div>
       <div class="si-ob-actions">
         <button class="si-ob-btn-sec" onclick="siObPrev()">← Back</button>
@@ -19759,7 +19759,7 @@ function siObRender() {
     content = `
       <div class="si-ob-emoji">🔗</div>
       <div class="si-ob-title">Connect your tools</div>
-      <div class="si-ob-sub">Link your favourite apps — you can always do this later in Integrations.</div>
+      <div class="si-ob-sub">Link your favourite apps. You can always do this later in Integrations.</div>
       <div class="si-ob-int-grid">
         <button class="si-ob-int-btn ${_GCAL_CONNECTED ? "done" : ""}" onclick="gcalConnect()">
           <span class="si-ob-int-icon">📅</span>
@@ -19791,7 +19791,7 @@ function siObRender() {
     content = `
       <div class="si-ob-emoji">🎉</div>
       <div class="si-ob-title">You're all set!</div>
-      <div class="si-ob-sub">Here's where to start — pick one and dive in.</div>
+      <div class="si-ob-sub">Here's where to start. Pick one and dive in.</div>
       <div class="si-ob-done-actions">${actions}</div>
       <div class="si-ob-actions">
         <button class="si-ob-btn-pri" onclick="siObFinish()">Go to dashboard →</button>
@@ -19918,7 +19918,7 @@ function _buildNotifs() {
           id,
           type: "streak",
           icon: "🔥",
-          msg: `${streakHabit.streak}-day streak at risk — complete "${streakHabit.title.slice(0, 30)}"`,
+          msg: `${streakHabit.streak}-day streak at risk: complete "${streakHabit.title.slice(0, 30)}"`,
           read: false,
           ts: nowMs,
         });
@@ -19939,7 +19939,7 @@ function _buildNotifs() {
             id,
             type: "journal",
             icon: "📓",
-            msg: `Last journal entry was ${daysSince} days ago — write something today.`,
+            msg: `Last journal entry was ${daysSince} days ago. Write something today.`,
             read: false,
             ts: nowMs,
           });
@@ -20120,7 +20120,7 @@ async function flutterwaveVerify(ref, planId) {
       _unlockAfterPayment(d.name || planId || "Pro");
     }
   } catch (e) {
-    toast("Could not verify payment — please contact support.");
+    toast("Could not verify payment. Please contact support.");
   }
 }
 
@@ -20220,7 +20220,7 @@ function monoRender() {
   const txns = _MONO_ACCOUNT?.transactions || [];
   const balance = acc.balance
     ? `₦${(acc.balance / 100).toLocaleString()}`
-    : "—";
+    : "–";
   container.innerHTML = `
     <div class="mono-account-card">
       <div class="mono-acc-head">
@@ -20381,7 +20381,7 @@ async function mtConnect() {
         platform: f.platform || "mt5",
       };
       toast(
-        "MetaTrader linked — syncing your account (this can take a minute).",
+        "MetaTrader linked, syncing your account (this can take a minute).",
       );
       if (typeof integrationsRender === "function") integrationsRender();
       mtLoadAccount();
@@ -20535,15 +20535,15 @@ function orgAnalyticsRender(d) {
     const el = $(id);
     if (el) el.textContent = val;
   };
-  set("an-members", d.members ?? "—");
+  set("an-members", d.members ?? "–");
   set(
     "an-completion",
-    d.completion_rate != null ? d.completion_rate + "%" : "—",
+    d.completion_rate != null ? d.completion_rate + "%" : "–",
   );
-  set("an-tasks-total", d.tasks_total ?? "—");
-  set("an-tasks-done", d.tasks_done ?? "—");
-  set("an-messages", d.messages ?? "—");
-  set("an-docs", d.docs ?? "—");
+  set("an-tasks-total", d.tasks_total ?? "–");
+  set("an-tasks-done", d.tasks_done ?? "–");
+  set("an-messages", d.messages ?? "–");
+  set("an-docs", d.docs ?? "–");
 
   // Message trend bar chart
   const chart = $("an-msg-chart");
@@ -20781,7 +20781,7 @@ async function submitFeedback() {
     track("Feedback_Sent", { rating: _fbRating });
   } catch (e) {
     if (ferr) {
-      ferr.textContent = e.message || "Failed to send — try again.";
+      ferr.textContent = e.message || "Failed to send. Try again.";
       ferr.style.display = "block";
     }
   }
@@ -20889,7 +20889,7 @@ function _psNgn(kobo) {
 }
 
 function _psDate(iso) {
-  if (!iso) return "—";
+  if (!iso) return "–";
   return new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -20911,7 +20911,7 @@ function _psBadge(status) {
     awaiting: "ps-badge-a",
   };
   const cls = map[status?.toLowerCase()] || "ps-badge-n";
-  return `<span class="ps-badge ${cls}">${status || "—"}</span>`;
+  return `<span class="ps-badge ${cls}">${status || "–"}</span>`;
 }
 
 async function psLoadOverview() {
@@ -20985,7 +20985,7 @@ async function psLoadOverview() {
           Total volume of <strong>${vol}</strong> across ${d.success_count || 0} successful transactions this period.
         </div>
         <div class="ps-insight ${sr < 90 ? "ps-insight-a" : "ps-insight-g"}"><i class="ti ti-${sr < 90 ? "alert-triangle" : "circle-check"}" style="color:var(--${sr < 90 ? "amber3" : "teal"});margin-right:5px"></i>
-          <strong>${sr}% success rate</strong> — ${sr < 90 ? "above the 5% failure threshold. Review failed transactions for decline patterns." : "excellent, below the 5% industry failure threshold."}.
+          <strong>${sr}% success rate</strong>, ${sr < 90 ? "above the 5% failure threshold. Review failed transactions for decline patterns." : "excellent, below the 5% industry failure threshold."}.
         </div>
         <div class="ps-insight ps-insight-b"><i class="ti ti-building-bank" style="color:var(--blue);margin-right:5px"></i>
           Available balance: <strong>${_psNgn(d.available_bal || 0)}</strong>. ${d.pending_stl_amt ? `Settlement of ${_psNgn(d.pending_stl_amt)} expected ${d.pending_stl_date ? "on " + _psDate(d.pending_stl_date) : "soon"}.` : "No pending settlements."}
@@ -21004,7 +21004,7 @@ async function psLoadOverview() {
             (
               t,
             ) => `<div class="ps-tr" style="grid-template-columns:1fr 90px 110px 80px 80px">
-          <div><div class="ps-cust-name">${t.customer_name || t.customer || "—"}</div><div class="ps-cust-email">${t.customer}</div></div>
+          <div><div class="ps-cust-name">${t.customer_name || t.customer || "–"}</div><div class="ps-cust-email">${t.customer}</div></div>
           <span class="ps-amount ${t.status === "success" ? "ps-amount-g" : "ps-amount-r"}">${_psNgn(t.amount)}</span>
           <span style="color:var(--text3);font-size:.78rem">${_psChan(t)}</span>
           <span style="color:var(--text4);font-size:.78rem">${_psDate(t.paid_at)}</span>
@@ -21023,7 +21023,7 @@ function _psChan(t) {
   let s = (t.channel || "").replace("_", " ");
   if (t.card_type) s += ` · ${t.card_type}`;
   if (t.last4) s += ` ···${t.last4}`;
-  return s || "—";
+  return s || "–";
 }
 
 let _psTxnData = [];
@@ -21091,10 +21091,10 @@ function _psRenderTxnTable(txns) {
             t,
           ) => `<div class="ps-tr" style="grid-template-columns:130px 1fr 90px 110px 70px 90px 80px">
       <span class="ps-ref">${t.reference}</span>
-      <div><div class="ps-cust-name">${t.customer_name || t.customer || "—"}</div><div class="ps-cust-email">${t.customer}</div></div>
+      <div><div class="ps-cust-name">${t.customer_name || t.customer || "–"}</div><div class="ps-cust-email">${t.customer}</div></div>
       <span class="ps-amount ${t.status === "success" ? "ps-amount-g" : "ps-amount-r"}">${_psNgn(t.amount)}</span>
       <span style="color:var(--text3);font-size:.78rem">${_psChan(t)}</span>
-      <span style="color:var(--text4);font-size:.78rem">${t.fees ? _psNgn(t.fees) : "—"}</span>
+      <span style="color:var(--text4);font-size:.78rem">${t.fees ? _psNgn(t.fees) : "–"}</span>
       <span style="color:var(--text4);font-size:.78rem">${_psDate(t.paid_at)}</span>
       ${_psBadge(t.status)}
     </div>`,
@@ -21120,7 +21120,7 @@ async function psLoadBalance() {
       if (el) el.textContent = v;
     };
     set("ps-bal-avail", _psNgn(d.available || 0));
-    set("ps-bal-pending", "—");
+    set("ps-bal-pending", "–");
     set("ps-bal-currency", d.currency || "NGN");
     const hist = $("ps-bal-history");
     if (hist && d.history) {
@@ -21304,7 +21304,7 @@ async function psLoadAnalytics() {
           return `<div class="ps-wd-row">
           <span class="ps-wd-lbl">${day}</span>
           <div class="ps-wd-bar-bg"><div class="ps-wd-bar-fill" style="width:${pct}%;opacity:${0.4 + pct / 160}"></div></div>
-          <span class="ps-wd-val">${v ? _psNgn(v) : "—"}</span>
+          <span class="ps-wd-val">${v ? _psNgn(v) : "–"}</span>
         </div>`;
         })
         .join("");
@@ -21334,7 +21334,7 @@ async function psLoadAnalytics() {
           ${topDay ? `<strong>Peak day:</strong> ${topDay[0]} generates ${_psNgn(topDay[1])} on average. Schedule billing reminders and promotions on ${topDay[0]}s for maximum conversion.` : "Collect more transactions to see peak day analytics."}
         </div>
         <div class="ps-insight ${sr < 90 ? "ps-insight-a" : "ps-insight-g"}">
-          <strong>Success rate: ${sr}%</strong> — ${sr < 90 ? "above the 5% industry failure threshold. Consider adding bank transfer as a fallback for card declines." : "excellent performance, within industry benchmarks."}
+          <strong>Success rate: ${sr}%</strong>, ${sr < 90 ? "above the 5% industry failure threshold. Consider adding bank transfer as a fallback for card declines." : "excellent performance, within industry benchmarks."}
         </div>
         <div class="ps-insight ps-insight-b">
           <strong>Paystack fees:</strong> ${_psNgn(d.total_fees || 0)} paid across all transactions. Optimise by encouraging bank transfers (lower fee per transaction).
@@ -21518,7 +21518,7 @@ async function _moodChartLoad() {
     const pts = d.data || [];
     if (pts.length < 3) {
       container.innerHTML =
-        '<div style="font-weight:700;margin-bottom:8px;font-size:.9rem">Mood trend — last 30 days</div><div style="font-size:.82rem;color:var(--muted)">Keep journalling to see your mood trend.</div>';
+        '<div style="font-weight:700;margin-bottom:8px;font-size:.9rem">Mood trend (last 30 days)</div><div style="font-size:.82rem;color:var(--muted)">Keep journalling to see your mood trend.</div>';
       return;
     }
     const W = 480,
@@ -21568,7 +21568,7 @@ async function _moodChartLoad() {
       })
       .join("");
     container.innerHTML = `
-      <div style="font-weight:700;margin-bottom:10px;font-size:.9rem">Mood trend — last 30 days</div>
+      <div style="font-weight:700;margin-bottom:10px;font-size:.9rem">Mood trend (last 30 days)</div>
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;display:block;overflow:visible">
         ${yLabels}
         <polyline points="${poly}" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linejoin="round"/>
@@ -21626,7 +21626,7 @@ function _reviewPopulateStats() {
       if (hv) hv.textContent = `${pct}%`;
     } else {
       const hv = $("rs-habits-val");
-      if (hv) hv.textContent = "—";
+      if (hv) hv.textContent = "–";
     }
   } catch (_) {}
 
@@ -22021,7 +22021,7 @@ function acadInit(space) {
     set("acadRoleName", "Student");
     set(
       "acadWelcomeSub",
-      "Your study hub — modules, revision, research, and AI tutor.",
+      "Your study hub: modules, revision, research, and AI tutor.",
     );
     if (lDash) lDash.style.display = "none";
     if (sDash) sDash.style.display = "block";
@@ -22068,10 +22068,10 @@ function lRenderMetrics() {
     const el = document.getElementById(id);
     if (el) el.innerHTML = v;
   };
-  set("lm-students", lData.students.length || "—");
-  set("lm-courses", lData.courses.length || "—");
+  set("lm-students", lData.students.length || "–");
+  set("lm-courses", lData.courses.length || "–");
   const pending = lData.submissions.filter((s) => !s.graded).length;
-  set("lm-submissions", pending || "—");
+  set("lm-submissions", pending || "–");
   const scores = lData.students
     .filter((s) => s.avg_score != null)
     .map((s) => s.avg_score);
@@ -22080,7 +22080,7 @@ function lRenderMetrics() {
     scores.length
       ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) +
           "<span>%</span>"
-      : "—<span>%</span>",
+      : "–<span>%</span>",
   );
 }
 function lSwitchTab(tabId) {
@@ -22175,10 +22175,10 @@ function lRenderStudents(filter = "", courseId = "") {
             : "var(--red3)";
       return `<tr>
       <td><div style="font-weight:600;color:var(--text);">${acEsc(s.name)}</div><div style="font-size:10.5px;color:var(--text4);">${acEsc(s.email || "")}</div></td>
-      <td style="font-size:11px;">${(s.courses || []).map(acEsc).join(", ") || "—"}</td>
+      <td style="font-size:11px;">${(s.courses || []).map(acEsc).join(", ") || "–"}</td>
       <td><div style="display:flex;align-items:center;gap:6px;"><div class="acad-attend-bar"><div class="acad-attend-fill" style="width:${pct}%;background:${bc};"></div></div><span style="font-size:11px;font-weight:600;color:${bc};">${pct}%</span></div></td>
-      <td style="font-size:11px;font-weight:600;color:var(--text);">${s.avg_score != null ? s.avg_score + "%" : "—"}</td>
-      <td style="font-size:11px;color:var(--text4);">${acEsc(s.last_active || "—")}</td>
+      <td style="font-size:11px;font-weight:600;color:var(--text);">${s.avg_score != null ? s.avg_score + "%" : "–"}</td>
+      <td style="font-size:11px;color:var(--text4);">${acEsc(s.last_active || "–")}</td>
       <td><span class="acad-tag ${pct >= 80 ? "acad-tag--teal" : pct >= 60 ? "acad-tag--orange" : "acad-tag--red"}">${pct >= 80 ? "Active" : pct >= 60 ? "At risk" : "Critical"}</span></td>
       <td><button class="acad-btn-ghost acad-btn-sm" onclick="lViewStudent('${s.id}')">View</button></td>
     </tr>`;
@@ -22263,7 +22263,7 @@ function lRenderAssessLists() {
       ? lData.quizzes
           .map(
             (q) =>
-              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(q.title)}</div><div class="acad-priority-sub">${acEsc(q.course || "—")}${q.questions ? " · " + acEsc(q.questions) + " Qs" : ""}</div></div><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteAssess('quiz','${q.id}')">Delete</button></div>`,
+              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(q.title)}</div><div class="acad-priority-sub">${acEsc(q.course || "–")}${q.questions ? " · " + acEsc(q.questions) + " Qs" : ""}</div></div><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteAssess('quiz','${q.id}')">Delete</button></div>`,
           )
           .join("")
       : `<div class="acad-empty-state"><i class="ti ti-help" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No quizzes yet. Create your first quiz.</div></div>`;
@@ -22273,7 +22273,7 @@ function lRenderAssessLists() {
       ? lData.assignments
           .map(
             (a) =>
-              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.title)}</div><div class="acad-priority-sub">${acEsc(a.course || "—")}${a.due ? " · due " + acEsc(a.due) : ""}</div></div><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteAssess('assign','${a.id}')">Delete</button></div>`,
+              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.title)}</div><div class="acad-priority-sub">${acEsc(a.course || "–")}${a.due ? " · due " + acEsc(a.due) : ""}</div></div><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteAssess('assign','${a.id}')">Delete</button></div>`,
           )
           .join("")
       : `<div class="acad-empty-state"><i class="ti ti-file-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No assignments yet.</div></div>`;
@@ -22302,7 +22302,7 @@ async function lLoadExams() {
     lRenderExams(d.exams || []);
   } catch (e) {
     if (list)
-      list.innerHTML = `<div class="acad-empty-state"><i class="ti ti-alert-triangle" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Couldn't load exams — try again.</div></div>`;
+      list.innerHTML = `<div class="acad-empty-state"><i class="ti ti-alert-triangle" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Couldn't load exams. Try again.</div></div>`;
   }
 }
 function lRenderExams(exams) {
@@ -22348,7 +22348,7 @@ async function lCreateExam() {
       {
         id: "bank",
         label:
-          'Question bank — one per line. For multiple-choice: "Question? | option | *correct | option" (mark the right answer with *)',
+          'Question bank, one per line. For multiple-choice: "Question? | option | *correct | option" (mark the right answer with *)',
         type: "textarea",
         placeholder:
           "Explain photosynthesis.\nWhat is 2 + 2? | 3 | *4 | 5\nDefine osmosis.",
@@ -22429,7 +22429,7 @@ async function lExamResults(examId) {
           (s) => `
     <div class="sx-q">
       <div class="sx-qn">${acEsc(s.name || "Student")} ${s.auto && s.auto.mcq_total ? '<span class="sx-qtag">auto ' + s.auto.auto_pct + "% · " + s.auto.mcq_correct + "/" + s.auto.mcq_total + "</span>" : ""} ${s.graded ? "· <strong>" + acEsc(s.grade) + "</strong>" : ""}</div>
-      <div class="sx-answers">${(s.answers || []).map((a) => `<div class="sx-ar"><div class="sx-arq">${acEsc(a.q)}</div><div class="sx-ara ${a.correct === true ? "sx-ok" : a.correct === false ? "sx-bad" : ""}">${acEsc(a.a) || "—"} ${a.correct === true ? "✓" : a.correct === false ? "✗" : ""}</div></div>`).join("") || '<div class="acad-priority-sub">No answers.</div>'}</div>
+      <div class="sx-answers">${(s.answers || []).map((a) => `<div class="sx-ar"><div class="sx-arq">${acEsc(a.q)}</div><div class="sx-ara ${a.correct === true ? "sx-ok" : a.correct === false ? "sx-bad" : ""}">${acEsc(a.a) || "–"} ${a.correct === true ? "✓" : a.correct === false ? "✗" : ""}</div></div>`).join("") || '<div class="acad-priority-sub">No answers.</div>'}</div>
       <div class="sx-grade-row"><input class="acad-search-inline" style="width:90px" id="lxg-${acEsc(s.sid)}" placeholder="Grade" value="${acEsc(s.grade || "")}"><button class="acad-action-btn acad-action-btn--teal" onclick="lSaveExamGrade('${acEsc(code)}','${acEsc(examId)}','${acEsc(s.sid)}')">Save grade</button></div>
     </div>`,
         )
@@ -22438,7 +22438,7 @@ async function lExamResults(examId) {
   const ov = document.createElement("div");
   ov.className = "sx-overlay";
   ov.id = "sxOverlay";
-  ov.innerHTML = `<div class="sx-modal"><div class="sx-head"><div class="sx-title">${acEsc(ex.title || "Exam")} — results (${results.length})</div><button class="sx-x" onclick="sExamCloseTaker()" aria-label="Close">✕</button></div><div class="sx-body">${rowsHtml}</div><div class="sx-foot"><button class="acad-action-btn acad-action-btn--teal" onclick="sExamCloseTaker()">Close</button></div></div>`;
+  ov.innerHTML = `<div class="sx-modal"><div class="sx-head"><div class="sx-title">${acEsc(ex.title || "Exam")}: results (${results.length})</div><button class="sx-x" onclick="sExamCloseTaker()" aria-label="Close">✕</button></div><div class="sx-body">${rowsHtml}</div><div class="sx-foot"><button class="acad-action-btn acad-action-btn--teal" onclick="sExamCloseTaker()">Close</button></div></div>`;
   document.body.appendChild(ov);
 }
 async function lSaveExamGrade(code, examId, sid) {
@@ -22451,7 +22451,7 @@ async function lSaveExamGrade(code, examId, sid) {
       sid,
       grade,
     });
-    acToast("Grade saved — student notified");
+    acToast("Grade saved, student notified");
   } catch (e) {
     acToast((e && e.message) || "Could not save grade");
   }
@@ -22728,10 +22728,10 @@ function sRenderMetrics() {
     const el = document.getElementById(id);
     if (el) el.innerHTML = v;
   };
-  set("sm-questions", d.aiQuestions || "—");
-  set("sm-quizzes", sSprintCards.mastered.length || "—");
+  set("sm-questions", d.aiQuestions || "–");
+  set("sm-quizzes", sSprintCards.mastered.length || "–");
   set("sm-streak", (d.studyStreak || 0) + "<span> days</span>");
-  set("sm-cgpa", (d.cgpaProjection || "—") + "<span>/5.0</span>");
+  set("sm-cgpa", (d.cgpaProjection || "–") + "<span>/5.0</span>");
 }
 function sSwitchTab(tabId) {
   document
@@ -22855,9 +22855,9 @@ function sRenderModules(filter = "") {
       const dl = daysLeft(m.exam_date);
       return `<tr>
       <td><span class="acad-module-name">${acEsc(m.name)}</span></td>
-      <td><span class="acad-module-code">${acEsc(m.code || "—")}</span></td>
-      <td><span style="font-weight:600;font-size:11px;">${m.exam_date ? acEsc(m.exam_date) + (dl != null ? " · " + dl + "d" : "") : "—"}</span></td>
-      <td style="font-size:11px;">${acEsc(m.lecturer || "—")}</td>
+      <td><span class="acad-module-code">${acEsc(m.code || "–")}</span></td>
+      <td><span style="font-weight:600;font-size:11px;">${m.exam_date ? acEsc(m.exam_date) + (dl != null ? " · " + dl + "d" : "") : "–"}</span></td>
+      <td style="font-size:11px;">${acEsc(m.lecturer || "–")}</td>
       <td><div style="display:flex;align-items:center;gap:6px;"><div class="acad-attend-bar"><div class="acad-attend-fill" style="width:${pct}%;background:${bc};"></div></div><span style="font-size:11px;font-weight:600;color:${bc};">${pct}%</span></div></td>
       <td><span class="acad-tag ${pct >= 85 ? "acad-tag--teal" : pct >= 70 ? "acad-tag--orange" : "acad-tag--red"}">${pct >= 85 ? "On Track" : pct >= 70 ? "At Risk" : "Critical"}</span></td>
       <td><button class="acad-btn-ghost acad-btn-sm" onclick="sAskAI('Summarise the key topics for ${acEsc(m.name)}')"><i class="ti ti-bolt" aria-hidden="true"></i></button></td>
@@ -23016,7 +23016,7 @@ async function sGenAIFlashcards() {
       });
   });
   if (!cards.length) {
-    acToast("No cards parsed — try a clearer topic");
+    acToast("No cards parsed, try a clearer topic");
     return;
   }
   sSprintCards.flashcard.push(...cards);
@@ -23351,7 +23351,7 @@ function sFlashcardRespond(rating) {
   sFlashIdx++;
   sFlashFlipped = false;
   sShowFlashcard();
-  if (rating === "easy" || rating === "good") acToast("Nice — keep going!");
+  if (rating === "easy" || rating === "good") acToast("Nice, keep going!");
 }
 
 // ── Create-space modal: academic role selector ──
@@ -23388,7 +23388,7 @@ async function lPublishClass() {
       adSave({ classCode: r.code });
       lRenderClassCode(r.code);
       lLoadRoster();
-      acToast("Class published — code " + r.code);
+      acToast("Class published, code " + r.code);
     }
   } catch (e) {
     acToast((e && e.message) || "Could not publish class");
@@ -23399,7 +23399,7 @@ function lRenderClassCode(code) {
   if (btn) btn.style.display = "none";
   const body = document.getElementById("lClassCodeBody");
   if (body)
-    body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><div style="font-size:28px;font-weight:800;letter-spacing:4px;color:var(--acad-accent);font-family:monospace;">${acEsc(code)}</div><button class="acad-btn-ghost acad-btn-sm" onclick="navigator.clipboard&&navigator.clipboard.writeText('${acEsc(code)}');acToast('Code copied')">Copy</button></div><p class="acad-brief-desc" style="margin-top:8px;">Share this code — joined students appear in your Students tab automatically.</p>`;
+    body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><div style="font-size:28px;font-weight:800;letter-spacing:4px;color:var(--acad-accent);font-family:monospace;">${acEsc(code)}</div><button class="acad-btn-ghost acad-btn-sm" onclick="navigator.clipboard&&navigator.clipboard.writeText('${acEsc(code)}');acToast('Code copied')">Copy</button></div><p class="acad-brief-desc" style="margin-top:8px;">Share this code. Joined students appear in your Students tab automatically.</p>`;
 }
 async function lLoadRoster() {
   const d = adData();
@@ -23449,7 +23449,7 @@ async function sJoinClass() {
       acToast("Joined " + (r.class.name || "class"));
     }
   } catch (e) {
-    acToast((e && e.message) || "Could not join — check the code");
+    acToast((e && e.message) || "Could not join, check the code");
   }
 }
 function sRenderMyClasses() {
@@ -23460,7 +23460,7 @@ function sRenderMyClasses() {
   body.innerHTML = list
     .map(
       (c) =>
-        `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(c.name || "Class")}</div><div class="acad-priority-sub">${acEsc(c.subject || "")}${c.owner_name ? " · " + acEsc(c.owner_name) : ""} · code ${acEsc(c.code)}</div><div class="acad-priority-sub" id="sAtt-${acEsc(c.code)}">Attendance —</div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" onclick="sCheckIn('${acEsc(c.code)}')"><i class="ti ti-user-check" aria-hidden="true"></i> Check in</button><button class="acad-action-btn acad-action-btn--red" onclick="sLeaveClass('${acEsc(c.code)}')">Leave</button></div></div></div>`,
+        `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(c.name || "Class")}</div><div class="acad-priority-sub">${acEsc(c.subject || "")}${c.owner_name ? " · " + acEsc(c.owner_name) : ""} · code ${acEsc(c.code)}</div><div class="acad-priority-sub" id="sAtt-${acEsc(c.code)}">Attendance –</div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" onclick="sCheckIn('${acEsc(c.code)}')"><i class="ti ti-user-check" aria-hidden="true"></i> Check in</button><button class="acad-action-btn acad-action-btn--red" onclick="sLeaveClass('${acEsc(c.code)}')">Leave</button></div></div></div>`,
     )
     .join("");
   list.forEach((c) => sLoadMyAtt(c.code));
@@ -23594,7 +23594,7 @@ async function sCheckIn(code) {
       checkin_code: cc.trim().toUpperCase(),
     });
     if (r && r.ok) {
-      acToast("Checked in — " + r.status);
+      acToast("Checked in: " + r.status);
       sLoadMyAtt(code);
     }
   } catch (e) {
@@ -23624,7 +23624,7 @@ async function lPostAnnounce() {
     const r = await acadAPI("/api/acad/announce", { code: d.classCode, text });
     if (r && r.ok) {
       if (ta) ta.value = "";
-      acToast("Posted — students notified");
+      acToast("Posted, students notified");
       lLoadAnnouncements();
     }
   } catch (e) {
@@ -23757,7 +23757,7 @@ async function lSubmitGrade(aid, sid) {
       sid,
       grade,
     });
-    acToast("Grade saved — student notified");
+    acToast("Grade saved, student notified");
     lLoadGrading();
   } catch (e) {
     acToast((e && e.message) || "Could not save grade");
@@ -23829,7 +23829,7 @@ async function sLoadExams() {
       const auto = e.auto_pct != null ? ` · auto ${e.auto_pct}%` : "";
       const status =
         (e.graded
-          ? "Graded: " + acEsc(e.grade || "—")
+          ? "Graded: " + acEsc(e.grade || "–")
           : e.submitted
             ? "Submitted"
             : "Not taken") + auto;
@@ -23881,9 +23881,9 @@ function sExamRenderTaker(code, exam, submission) {
     })
     .join("");
   const banner = graded
-    ? `<div class="sx-graded">Graded: <strong>${acEsc(submission.grade || "—")}</strong>${submission.feedback ? " — " + acEsc(submission.feedback) : ""}</div>`
+    ? `<div class="sx-graded">Graded: <strong>${acEsc(submission.grade || "–")}</strong>${submission.feedback ? " (" + acEsc(submission.feedback) + ")" : ""}</div>`
     : submission
-      ? `<div class="sx-graded">Submitted — you can revise and resubmit until it's graded.</div>`
+      ? `<div class="sx-graded">Submitted, you can revise and resubmit until it's graded.</div>`
       : "";
   const foot = graded
     ? `<button class="acad-action-btn acad-action-btn--teal" onclick="sExamCloseTaker()">Close</button>`
@@ -23906,7 +23906,7 @@ function sExamRenderTaker(code, exam, submission) {
       if (ms <= 0) {
         clearInterval(_sxTimer);
         _sxTimer = null;
-        acToast("Time up — submitting");
+        acToast("Time up, submitting");
         sSubmitExam(code, exam.id, true);
         return;
       }
@@ -23984,7 +23984,7 @@ async function lGoLive() {
       link: link || "",
       title: "Live class",
     });
-    acToast("Class is live — students notified");
+    acToast("Class is live, students notified");
     lLoadLive();
   } catch (e) {
     acToast((e && e.message) || "Could not go live");
@@ -24390,7 +24390,7 @@ function mktSeedItems() {
       "📅",
       "Sivarr",
       "productivity",
-      "Your Google Calendar — upcoming events in any space.",
+      "Your Google Calendar: upcoming events in any space.",
       4.8,
       0,
       0,
@@ -24431,7 +24431,7 @@ function mktSeedItems() {
     })),
     tmpl(
       "tmpl-academic-student",
-      "Academic OS — Student",
+      "Academic OS: Student",
       "🎓",
       "Sivarr",
       "academic",
@@ -24443,7 +24443,7 @@ function mktSeedItems() {
     ),
     tmpl(
       "tmpl-academic-lect",
-      "Academic OS — Lecturer",
+      "Academic OS: Lecturer",
       "📋",
       "Sivarr",
       "academic",
@@ -24874,7 +24874,7 @@ function mktOpenDetail(id) {
             const inst = mktInstalled.find((i) => i.id === item.id);
             // See mktItemBtn() — no real checkout runs for this preview
             // catalogue, so the button must never say "Buy" as if it does.
-            return `<button class="mkt-install-btn ${inst ? "mkt-install-btn--installed" : ""} mkt-btn-lg" onclick="${inst ? `mktUninstall('${item.id}')` : `mktInstall('${item.id}')`};mktCloseDetail()">${inst ? "✓ Installed — Remove" : "Install"}</button>`;
+            return `<button class="mkt-install-btn ${inst ? "mkt-install-btn--installed" : ""} mkt-btn-lg" onclick="${inst ? `mktUninstall('${item.id}')` : `mktInstall('${item.id}')`};mktCloseDetail()">${inst ? "✓ Installed · Remove" : "Install"}</button>`;
           })();
   document
     .querySelectorAll("#mktDetailModal .mkt-modal-tab")
@@ -24984,7 +24984,7 @@ function mktSubmitReview(itemId) {
   document
     .querySelectorAll(".mkt-star")
     .forEach((s) => s.classList.remove("mkt-star--active"));
-  mktToast("Review submitted — thank you!");
+  mktToast("Review submitted, thank you!");
   fetch("/api/marketplace/reviews", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -25018,7 +25018,7 @@ function mktSubmitPublish() {
     mktToast("Fill in name, description, and pick a type");
     return;
   }
-  mktToast("Submitted for review — you'll hear back within 48 hours");
+  mktToast("Submitted for review, you'll hear back within 48 hours");
   mktClosePublish();
   fetch("/api/marketplace/publish", {
     method: "POST",
@@ -25055,8 +25055,8 @@ async function creatorInit() {
     if (el) el.textContent = v;
   };
   const installs = creatorListings.reduce((s, l) => s + (l.installs || 0), 0);
-  set("creatorTotalInstalls", installs || "—");
-  set("creatorListingCount", creatorListings.length || "—");
+  set("creatorTotalInstalls", installs || "–");
+  set("creatorListingCount", creatorListings.length || "–");
   set(
     "creatorAvgRating",
     creatorListings.length
@@ -25065,7 +25065,7 @@ async function creatorInit() {
             creatorListings.reduce((s, l) => s + (l.rating || 0), 0) /
             creatorListings.length
           ).toFixed(1)
-      : "—",
+      : "–",
   );
   set(
     "creatorRevenue",
@@ -25185,7 +25185,7 @@ function spaceSettingsRenderIntegrations() {
       available.map((c) => row(c, false, true)).join("");
   list.innerHTML =
     html +
-    `<div class="mkt-brief-desc" style="margin-top:10px">Connect accounts in the <a onclick="closeSpaceSettings();nav('library')" style="color:var(--teal);cursor:pointer">Integrations</a> panel — toggles here choose which apply to this Space.</div>`;
+    `<div class="mkt-brief-desc" style="margin-top:10px">Connect accounts in the <a onclick="closeSpaceSettings();nav('library')" style="color:var(--teal);cursor:pointer">Integrations</a> panel. Toggles here choose which apply to this Space.</div>`;
 }
 function spaceIntToggle(intId, spaceId, enable) {
   if (enable && !intIsConnected(intId)) {
@@ -25509,7 +25509,7 @@ function extFcInner() {
   const c = cards[i];
   return (
     top +
-    `<div onclick="extFcFlip()" style="cursor:pointer;border:1px solid var(--border);border-radius:14px;padding:28px 18px;min-height:120px;display:flex;align-items:center;justify-content:center;text-align:center;background:var(--card)"><div><div class="acad-label" style="margin-bottom:8px">${_extFcFlip ? "Answer" : "Question"}</div><div style="font-size:15px;font-weight:600;color:var(--text)">${mktEsc(_extFcFlip ? c.a || "—" : c.q)}</div><div style="font-size:10px;color:var(--muted2);margin-top:10px">tap to flip</div></div></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px"><button class="mkt-btn-ghost mkt-btn-sm" onclick="extFcNav(-1)">‹ Prev</button><span style="font-size:11px;color:var(--muted)">${i + 1} / ${cards.length}</span><button class="mkt-btn-ghost mkt-btn-sm" onclick="extFcNav(1)">Next ›</button></div>`
+    `<div onclick="extFcFlip()" style="cursor:pointer;border:1px solid var(--border);border-radius:14px;padding:28px 18px;min-height:120px;display:flex;align-items:center;justify-content:center;text-align:center;background:var(--card)"><div><div class="acad-label" style="margin-bottom:8px">${_extFcFlip ? "Answer" : "Question"}</div><div style="font-size:15px;font-weight:600;color:var(--text)">${mktEsc(_extFcFlip ? c.a || "–" : c.q)}</div><div style="font-size:10px;color:var(--muted2);margin-top:10px">tap to flip</div></div></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px"><button class="mkt-btn-ghost mkt-btn-sm" onclick="extFcNav(-1)">‹ Prev</button><span style="font-size:11px;color:var(--muted)">${i + 1} / ${cards.length}</span><button class="mkt-btn-ghost mkt-btn-sm" onclick="extFcNav(1)">Next ›</button></div>`
   );
 }
 function extFcRender() {
@@ -25590,7 +25590,7 @@ async function extCiteGen() {
   } catch (e) {}
   if (inp) inp.disabled = false;
   if (!text) {
-    mktToast("Citation failed — try again");
+    mktToast("Citation failed, try again");
     if (inp) inp.value = q;
     return;
   }
@@ -25934,7 +25934,7 @@ async function orgSettingsLoadAudit() {
         .slice(0, 20)
         .map(
           (a) =>
-            `<div style="font-size:.74rem;color:var(--muted);padding:3px 0"><strong style="color:var(--text)">${esc(a.actor || "")}</strong> — ${esc(a.action || "")} <span style="opacity:.6">· ${esc(
+            `<div style="font-size:.74rem;color:var(--muted);padding:3px 0"><strong style="color:var(--text)">${esc(a.actor || "")}</strong>: ${esc(a.action || "")} <span style="opacity:.6">· ${esc(
               String(a.ts || "")
                 .replace("T", " ")
                 .slice(0, 16),
@@ -26009,7 +26009,7 @@ async function stExportData() {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     if (typeof toast === "function") toast("Data exported");
   } catch (e) {
-    if (typeof toast === "function") toast("Export failed — try again");
+    if (typeof toast === "function") toast("Export failed, try again");
   }
 }
 async function stClearChat() {
@@ -26026,7 +26026,7 @@ async function stDeleteAccount() {
     !confirm("Delete your account permanently? All your data will be removed.")
   )
     return;
-  if (!confirm("This is final — there is no undo. Delete everything?")) return;
+  if (!confirm("This is final. There is no undo. Delete everything?")) return;
   try {
     await acadAPI("/api/account/delete", {});
   } catch (e) {
@@ -26034,7 +26034,7 @@ async function stDeleteAccount() {
     // or redirect (that would falsely look like a successful deletion).
     if (typeof toast === "function")
       toast(
-        (e && e.message) || "Could not delete your account — please try again.",
+        (e && e.message) || "Could not delete your account. Please try again.",
       );
     return;
   }
@@ -26125,7 +26125,7 @@ function extAgPipeline() {
     ["review", "Review"],
     ["done", "Delivered"],
   ];
-  return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">${COL.map(([k, label]) => `<div style="background:rgba(127,127,127,.05);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;min-height:150px"><div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-bottom:1px solid var(--border)"><span style="font-size:11px;font-weight:700;color:var(--text)">${label}</span><span class="mkt-count-badge">${(d.pipeline[k] || []).length}</span></div><div style="padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">${(d.pipeline[k] || []).map((c) => `<div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:8px"><div style="font-size:11.5px;font-weight:600;color:var(--text);margin-bottom:3px">${mktEsc(c.title)}</div><div style="font-size:9.5px;color:var(--muted)">${mktEsc(c.client || "")}${c.revisions ? ` · ${c.revisions} rev` : ""}</div><div style="display:flex;gap:5px;margin-top:6px">${k !== "done" ? `<button class="mkt-btn-ghost mkt-btn-sm" onclick="extAgMove('${c.id}')">Move →</button>` : ""}<button class="mkt-btn-ghost mkt-btn-sm" onclick="extAgRev('${c.id}')" title="Log a revision">↻</button><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extAgDel('${c.id}')">✕</button></div></div>`).join("") || '<div class="mkt-brief-desc" style="padding:6px">—</div>'}</div><div style="padding:8px;border-top:1px solid var(--border)"><button class="mkt-btn-ghost mkt-btn-sm" style="width:100%" onclick="extAgAddCard('${k}')">+ Add</button></div></div>`).join("")}</div>`;
+  return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">${COL.map(([k, label]) => `<div style="background:rgba(127,127,127,.05);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;min-height:150px"><div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-bottom:1px solid var(--border)"><span style="font-size:11px;font-weight:700;color:var(--text)">${label}</span><span class="mkt-count-badge">${(d.pipeline[k] || []).length}</span></div><div style="padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">${(d.pipeline[k] || []).map((c) => `<div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:8px"><div style="font-size:11.5px;font-weight:600;color:var(--text);margin-bottom:3px">${mktEsc(c.title)}</div><div style="font-size:9.5px;color:var(--muted)">${mktEsc(c.client || "")}${c.revisions ? ` · ${c.revisions} rev` : ""}</div><div style="display:flex;gap:5px;margin-top:6px">${k !== "done" ? `<button class="mkt-btn-ghost mkt-btn-sm" onclick="extAgMove('${c.id}')">Move →</button>` : ""}<button class="mkt-btn-ghost mkt-btn-sm" onclick="extAgRev('${c.id}')" title="Log a revision">↻</button><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extAgDel('${c.id}')">✕</button></div></div>`).join("") || '<div class="mkt-brief-desc" style="padding:6px">–</div>'}</div><div style="padding:8px;border-top:1px solid var(--border)"><button class="mkt-btn-ghost mkt-btn-sm" style="width:100%" onclick="extAgAddCard('${k}')">+ Add</button></div></div>`).join("")}</div>`;
 }
 async function extAgAddCard(col) {
   const title = await siModal.input(
@@ -26190,7 +26190,7 @@ function extAgRevisions() {
     .filter((c) => (c.revisions || 0) > 0)
     .sort((a, b) => b.revisions - a.revisions);
   if (!withRev.length)
-    return `<div class="mkt-empty-state"><i class="ti ti-refresh" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No revisions logged yet — use ↻ on a project card.</div></div>`;
+    return `<div class="mkt-empty-state"><i class="ti ti-refresh" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No revisions logged yet. Use ↻ on a project card.</div></div>`;
   return (
     withRev
       .map(
@@ -26301,7 +26301,7 @@ function _tjRBadge(t) {
       ? `${d.r > 0 ? "+" : ""}${d.r}R`
       : d.pnl != null
         ? `${d.pnl > 0 ? "+" : ""}${d.pnl}`
-        : "—";
+        : "–";
   return { col, arrow, rTxt, d };
 }
 function extTjTrades() {
@@ -26310,14 +26310,14 @@ function extTjTrades() {
   if (!d.trades.length)
     return (
       top +
-      `<div class="mkt-empty-state"><i class="ti ti-chart-candle" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No trades yet — add your first or import a CSV.</div></div>`
+      `<div class="mkt-empty-state"><i class="ti ti-chart-candle" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No trades yet. Add your first or import a CSV.</div></div>`
     );
   const rows = d.trades
     .slice()
     .reverse()
     .map((t) => {
       const b = _tjRBadge(t);
-      return `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${b.arrow} ${mktEsc(t.symbol || "—")} <span style="font-size:9.5px;color:var(--muted);font-weight:500">${mktEsc(t.dir || "long")}</span></div><div class="mkt-item-author">${mktEsc(t.date || "")}${t.emotion ? " · " + mktEsc(t.emotion) : ""}</div></div><span style="font-weight:700;font-size:12px;color:${b.col};margin-right:10px">${b.rTxt}</span><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extTjDel('${t.id}')">✕</button></div>`;
+      return `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${b.arrow} ${mktEsc(t.symbol || "–")} <span style="font-size:9.5px;color:var(--muted);font-weight:500">${mktEsc(t.dir || "long")}</span></div><div class="mkt-item-author">${mktEsc(t.date || "")}${t.emotion ? " · " + mktEsc(t.emotion) : ""}</div></div><span style="font-weight:700;font-size:12px;color:${b.col};margin-right:10px">${b.rTxt}</span><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extTjDel('${t.id}')">✕</button></div>`;
     })
     .join("");
   return top + rows;
@@ -26413,7 +26413,7 @@ async function extTjImport() {
       type: "text",
       confirmLabel: "Import",
       description:
-        "Paste one trade per line: symbol,dir,entry,exit,stop,size,emotion,date — only symbol is required.",
+        "Paste one trade per line: symbol,dir,entry,exit,stop,size,emotion,date. Only symbol is required.",
     },
   );
   // input() is single-line; accept comma rows separated by " ; " too. For multi-line use the textarea form.
@@ -26470,7 +26470,7 @@ function extTjJournal() {
   if (!journaled.length)
     return (
       head +
-      `<div class="mkt-empty-state"><i class="ti ti-notebook" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No journal entries yet — add notes or an emotion when logging a trade.</div></div>`
+      `<div class="mkt-empty-state"><i class="ti ti-notebook" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No journal entries yet. Add notes or an emotion when logging a trade.</div></div>`
     );
   return (
     head +
@@ -26479,7 +26479,7 @@ function extTjJournal() {
       .reverse()
       .map((t) => {
         const b = _tjRBadge(t);
-        return `<div class="mkt-installed-row" style="align-items:flex-start"><div style="flex:1"><div class="mkt-item-name">${mktEsc(t.symbol || "—")} <span style="color:${b.col};font-weight:700">${b.rTxt}</span></div>${t.emotion ? `<div class="mkt-item-author">${mktEsc(t.emotion)}</div>` : ""}${t.notes ? `<div class="mkt-brief-desc" style="margin-top:4px">${mktEsc(t.notes)}</div>` : ""}</div><span style="font-size:9.5px;color:var(--muted)">${mktEsc(t.date || "")}</span></div>`;
+        return `<div class="mkt-installed-row" style="align-items:flex-start"><div style="flex:1"><div class="mkt-item-name">${mktEsc(t.symbol || "–")} <span style="color:${b.col};font-weight:700">${b.rTxt}</span></div>${t.emotion ? `<div class="mkt-item-author">${mktEsc(t.emotion)}</div>` : ""}${t.notes ? `<div class="mkt-brief-desc" style="margin-top:4px">${mktEsc(t.notes)}</div>` : ""}</div><span style="font-size:9.5px;color:var(--muted)">${mktEsc(t.date || "")}</span></div>`;
       })
       .join("")
   );
@@ -26532,7 +26532,7 @@ function extTjStats() {
   const ts = d.trades.map((t) => Object.assign({}, t, _tjDerive(t)));
   const n = ts.length;
   if (!n)
-    return `<div class="mkt-empty-state"><i class="ti ti-chart-bar" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No stats yet — log some trades.</div></div>`;
+    return `<div class="mkt-empty-state"><i class="ti ti-chart-bar" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No stats yet. Log some trades.</div></div>`;
   const wins = ts.filter((t) => t.outcome === "win").length;
   const losses = ts.filter((t) => t.outcome === "loss").length;
   const decided = wins + losses;
@@ -26544,7 +26544,7 @@ function extTjStats() {
   const totalPnl = pnlVals.reduce((a, b) => a + b, 0);
   const stat = (label, val) =>
     `<div style="flex:1;min-width:90px;background:rgba(127,127,127,.05);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--text)">${val}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">${label}</div></div>`;
-  const grid = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">${stat("Trades", n)}${stat("Win rate", winRate + "%")}${stat("Avg R", avgR != null ? avgR : "—")}${stat("Total R", rVals.length ? (totalR > 0 ? "+" : "") + +totalR.toFixed(2) : "—")}${stat("Net P&L", pnlVals.length ? (totalPnl > 0 ? "+" : "") + +totalPnl.toFixed(2) : "—")}</div>`;
+  const grid = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">${stat("Trades", n)}${stat("Win rate", winRate + "%")}${stat("Avg R", avgR != null ? avgR : "–")}${stat("Total R", rVals.length ? (totalR > 0 ? "+" : "") + +totalR.toFixed(2) : "–")}${stat("Net P&L", pnlVals.length ? (totalPnl > 0 ? "+" : "") + +totalPnl.toFixed(2) : "–")}</div>`;
   // Equity curve from cumulative R (chronological)
   let curve = "";
   if (rVals.length > 1) {
@@ -26571,7 +26571,7 @@ function extTjStats() {
 // ── Live tab: pull the connected MetaTrader account and visualize it ──
 function _tjMoney(v, cur) {
   const n = parseFloat(v);
-  if (!isFinite(n)) return "—";
+  if (!isFinite(n)) return "–";
   const s =
     (n > 0 ? "+" : "") +
     n.toLocaleString(undefined, {
@@ -26586,7 +26586,7 @@ function extTjLive() {
     return `<div class="mkt-card" style="max-width:440px;margin:0 auto;padding:20px;text-align:center">
       <div style="font-size:30px">📈</div>
       <div class="mkt-item-name" style="margin:6px 0 4px">Connect MetaTrader</div>
-      <div class="mkt-brief-desc" style="margin-bottom:14px">Link your MT4/MT5 account to see your live balance, equity, open positions and trade history — and import closed trades straight into this journal.</div>
+      <div class="mkt-brief-desc" style="margin-bottom:14px">Link your MT4/MT5 account to see your live balance, equity, open positions and trade history, and import closed trades straight into this journal.</div>
       <button class="mkt-btn-teal" onclick="mtConnect()"><i class="ti ti-plug-connected" aria-hidden="true"></i> Connect MetaTrader</button>
     </div>`;
   }
@@ -26595,7 +26595,7 @@ function extTjLive() {
   if (!a || a.state === "pending") {
     return `<div class="mkt-empty-state"><i class="ti ti-loader-2 ps-spin" style="font-size:26px;opacity:.35" aria-hidden="true"></i>
       <div>Syncing ${mktEsc(_MT_STATUS.login || "your account")} (${(_MT_STATUS.platform || "mt5").toUpperCase()})…</div>
-      <div class="mkt-brief-desc" style="margin-top:4px">MetaApi is connecting to your broker — this can take a minute on first link.</div>
+      <div class="mkt-brief-desc" style="margin-top:4px">MetaApi is connecting to your broker. This can take a minute on first link.</div>
       <button class="mkt-btn-ghost mkt-btn-sm" style="margin-top:10px" onclick="mtLoadAccount()">Refresh</button></div>`;
   }
   const info = a.info || {};
@@ -26614,7 +26614,7 @@ function extTjLive() {
     ${stat("Balance", `${(+info.balance || 0).toLocaleString()} ${cur}`)}
     ${stat("Equity", `${(+info.equity || 0).toLocaleString()} ${cur}`, equityCol)}
     ${stat("Free margin", `${(+info.freeMargin || 0).toLocaleString()}`)}
-    ${stat("Leverage", info.leverage ? `1:${info.leverage}` : "—")}
+    ${stat("Leverage", info.leverage ? `1:${info.leverage}` : "–")}
   </div>`;
 
   // ── Header row: who / refresh / import ──
@@ -26712,7 +26712,7 @@ function extTjImportLive() {
   toast(
     n
       ? `${n} trade${n !== 1 ? "s" : ""} imported from MetaTrader`
-      : "Already up to date — no new trades.",
+      : "Already up to date, no new trades.",
   );
   if (n) {
     _extTjSeg = "trades";
@@ -26745,7 +26745,7 @@ function extShowOnboarding(item) {
   const c = document.getElementById("mktDetailContent");
   if (!m || !c) {
     mktToast(
-      `${item.name} installed — enable it in any space via ⋮ → Settings & extensions`,
+      `${item.name} installed. Enable it in any space via ⋮ → Settings & extensions`,
     );
     return;
   }
@@ -26759,8 +26759,8 @@ function extShowOnboarding(item) {
     `<button class="mkt-install-btn mkt-btn-lg" onclick="mktCloseDetail()">Done</button>`;
   c.innerHTML = `<div class="mkt-reviews-section"><div class="mkt-section-label" style="margin-bottom:8px">Set up ${mktEsc(item.name)}</div>
     <div class="mkt-onboard-step">✅ Installed</div>
-    <div class="mkt-onboard-step">▢ <strong>Enable it in a space</strong> — open any space → ⋮ → <em>Settings &amp; extensions</em> → toggle ${mktEsc(item.name)} on.</div>
-    <div class="mkt-onboard-step">▢ <strong>Open the space</strong> — a new <em>${mktEsc(item.name)}</em> tab appears in that space.</div>
+    <div class="mkt-onboard-step">▢ <strong>Enable it in a space</strong>: open any space → ⋮ → <em>Settings &amp; extensions</em> → toggle ${mktEsc(item.name)} on.</div>
+    <div class="mkt-onboard-step">▢ <strong>Open the space</strong>: a new <em>${mktEsc(item.name)}</em> tab appears in that space.</div>
     <div style="margin-top:12px"><button class="mkt-btn-teal" onclick="mktCloseDetail(); if(typeof orgAddExtension==='function') orgAddExtension();">Enable in my Org</button></div></div>`;
   m.style.display = "flex";
 }
