@@ -2451,7 +2451,6 @@ body.auth-screen #login-screen {
 
   /* ── 7. Doc editor toolbars — horizontal scroll not wrap ─────
      Override "flex-wrap:wrap" which creates 3 rows on small screens */
-  .dh-toolbar,
   .doc-toolbar {
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
@@ -2855,18 +2854,5 @@ body.auth-screen #login-screen {
 
   .cpc-icon {
     display: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .dh-toolbar {
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
-  }
-
-  .dh-tool-btn,
-  .dh-tb-btn {
-    flex-shrink: 0;
-    min-height: 36px;
   }
 }

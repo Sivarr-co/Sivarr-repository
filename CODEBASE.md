@@ -267,12 +267,29 @@ be here claimed otherwise. Ground truth, verified by reading every file:
 | `database.py` | ✅ Real — all DB queries live here, correctly imported by app.py |
 | `models.py` | ❌ Removed — was never imported anywhere; app.py has always defined its own inline Pydantic models instead |
 | `utils/*.py` | ❌ Removed — was never imported anywhere; app.py has its own separate implementations of session/auth, email, storage, and rate-limiting (some of them better, e.g. Redis-backed lockout that `utils/auth.py`'s in-memory copy didn't have) |
-| `routes/` | 🔲 Not started — `routes/__init__.py` is a 22-line placeholder; every endpoint (250+) is still a `@app.get`/`@app.post` directly in `app.py`, which is genuinely the whole backend, not transitional |
-| `app.py` | This **is** the backend — 12,800+ lines, not a placeholder awaiting extraction |
-| `js/core/*.js`, `js/features/*.js` | 🔲 Not started — only README.md files exist in these directories; `js/app.js` (30,000+ lines) is genuinely the whole frontend |
+| `routes/` | 🔲 Mostly not started, but `routes/tasks.py`, `routes/habits.py`, `routes/docs_notes.py` are real (2026-08-14) — see below. The other 250+ endpoints are still `@app.get`/`@app.post` directly in `app.py` |
+| `app.py` | Still the vast majority of the backend, but no longer 100% of it — Tasks/Habits/Docs routes were extracted into `routes/` (see below) |
+| `js/core/*.js` | 🔲 Not started — only a README.md exists |
+| `js/features/*.js` | 🔲 Mostly not started, but `tasks.js`, `habits.js`, `docs_notes.js` are real (2026-08-14) — see below. `js/app.js` (~26,700 lines) is still the rest of the frontend |
 | `css/base/variables.css` | ❌ Removed — was dead code: not linked from any template, and its token values actively conflicted with the real tokens in `css/base.css` |
-| `css/components/` | 🔲 Not started — `css/panels.css` (18,000+ lines) holds all component styling |
+| `css/components/` | 🔲 Mostly not started, but `css/features/tasks.css`, `habits.css`, `docs_notes.css` are real (2026-08-14) — see below. `css/panels.css` (~17,300 lines) holds the rest |
 
 If you're planning any of these splits for real, treat this table as the
 starting point, not the aspirational one above it — the previous version of
 this doc materially overstated how far along it was.
+
+### Docs & Notes / Habits & Tasks split (2026-08-14)
+
+The personal-space Docs & Notes and Habits & Tasks panels were fully extracted
+so a second engineer can own them without touching the same files as the rest
+of the app: `routes/{tasks,habits,docs_notes}.py`,
+`js/features/{tasks,habits,docs_notes}.js`,
+`css/features/{tasks,habits,docs_notes}.css`, and
+`templates/_panel_{flux,habits,notes}.html`. This is a real, narrow slice of
+the aspirational split above — not the whole thing. Two pieces of dead code
+that predated this split were deleted in the process: a "Document Hub"
+(`dh*`/`DH_KEY`) and a separate orphaned `loadNotes()`/`renderNotes()` block,
+neither wired to any template. Org-space and Spaces-demo variants of these
+same feature names (`orgRenderDocs`, `psRenderHabits`, etc.) are a different,
+untouched feature area. See `js/features/README.md` for the exact function
+lists.

@@ -768,12 +768,10 @@ body {
   }
 
   /* ── Doc editor toolbars — horizontal scroll ──────────────── */
-  .dh-toolbar,
   .doc-toolbar {
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
   }
-  .dh-tool-btn,
   .doc-tb-btn {
     min-height: 38px;
   }
@@ -1010,7 +1008,6 @@ body {
   }
 
   /* ── Doc editor ──────────────────────────────────────────── */
-  .dh-tool-btn,
   .doc-tb-btn {
     min-height: 36px;
   }

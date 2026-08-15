@@ -20,3 +20,6 @@
 # admin.py        /api/admin/*, /api/lecturer/*
 # integrations.py /api/integrations/*, /api/integrations/mono/*
 # notifications.py /api/notify/*
+# tasks.py        / /api/tasks/*, /api/import/tasks   (implemented)
+# habits.py       / /api/habits/*                       (implemented)
+# docs_notes.py   / /api/docs/*, /api/import/notes      (implemented)

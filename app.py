@@ -7326,161 +7326,17 @@ def load_goals(sid: str) -> list:
 def save_goals(sid: str, goals: list):
     _save_user_list(sid, "goals", goals)
 
-# ── Personal tasks — server-side mirror of localStorage ───────────────────────
-def load_tasks(sid: str) -> list:
-    return _load_user_list(sid, "tasks")
-
-def save_tasks(sid: str, tasks: list):
-    _save_user_list(sid, "tasks", tasks)
-
-@app.post("/api/tasks/sync")
-async def sync_tasks(data: dict):
-    """Bulk-sync personal tasks from client localStorage to server. Called silently on every save."""
-    token = data.get("token", "")
-    sess  = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid   = sess["sid"]
-    tasks = data.get("tasks", [])
-    if not isinstance(tasks, list):
-        raise HTTPException(400, "tasks must be a list.")
-    clean = []
-    for t in tasks[:500]:
-        clean.append({
-            "id":                 sanitize_text(str(t.get("id","")), 50),
-            "title":              sanitize_text(str(t.get("title","")), 200),
-            "status":             sanitize_text(str(t.get("status","todo")), 20),
-            "done":               bool(t.get("done", False)),
-            "date":               sanitize_text(str(t.get("date","")), 20),
-            "time":               sanitize_text(str(t.get("time","")), 10),
-            "priority":           sanitize_text(str(t.get("priority","normal")), 20),
-            "type":               sanitize_text(str(t.get("type","other")), 30),
-            "goal_id":            sanitize_text(str(t.get("goal_id","")), 50),
-            "parent_id":          sanitize_text(str(t.get("parent_id","")), 50),
-            "recurrence":         sanitize_text(str(t.get("recurrence","")), 20) or None,
-            "recurrence_spawned": bool(t.get("recurrence_spawned", False)),
-        })
-
-    # ── Recurring task spawn ──────────────────────────────────────────────────
-    # When a recurring task is marked done, create the next occurrence and mark
-    # the original as spawned so we don't create duplicates on the next sync.
-    import datetime as _dt
-    existing_ids = {t["id"] for t in clean}
-    new_occurrences = []
-    _RECUR_INTERVALS = {
-        "daily":   _dt.timedelta(days=1),
-        "weekly":  _dt.timedelta(weeks=1),
-        "monthly": _dt.timedelta(days=30),
-    }
-    for t in clean:
-        if (t.get("done")
-                and t.get("recurrence") and t["recurrence"] not in ("", "none", None)
-                and not t.get("recurrence_spawned")
-                and t.get("date")):
-            interval = _RECUR_INTERVALS.get(t["recurrence"])
-            if not interval:
-                continue
-            try:
-                base_due = _dt.date.fromisoformat(t["date"])
-            except ValueError:
-                continue
-            new_due = str(base_due + interval)
-            new_id  = f"rec_{t['id']}_{int(_dt.datetime.utcnow().timestamp() * 1000)}"
-            new_occurrences.append({
-                "id":                 new_id,
-                "title":              t["title"],
-                "status":             "todo",
-                "done":               False,
-                "date":               new_due,
-                "time":               t.get("time", ""),
-                "priority":           t.get("priority", "normal"),
-                "type":               t.get("type", "other"),
-                "goal_id":            t.get("goal_id", ""),
-                "parent_id":          t["id"],
-                "recurrence":         t["recurrence"],
-                "recurrence_spawned": False,
-            })
-            t["recurrence_spawned"] = True  # prevent re-creation on next sync
-
-    clean.extend(new_occurrences)
-    save_tasks(sid, clean)
-    spawned = [o["id"] for o in new_occurrences]
-    return {"ok": True, "count": len(clean), "spawned": spawned}
-
-@app.get("/api/tasks/restore")
-async def restore_tasks(token: str = ""):
-    """Return the server-stored task list so the client can sync back after a spawn."""
-    sess = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    return {"tasks": load_tasks(sess["sid"])}
-
-# ── Personal docs — server-side mirror of localStorage ────────────────────────
-def load_docs(sid: str) -> list:
-    p = DATA_DIR / f"{sid}_docs.json"
-    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
-
-def save_docs(sid: str, docs: list):
-    p = DATA_DIR / f"{sid}_docs.json"
-    save_json(p, docs)
-
-@app.post("/api/docs/sync")
-async def sync_docs(data: dict):
-    """Bulk-sync personal docs from client localStorage to server."""
-    token = data.get("token", "")
-    sess  = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid  = sess["sid"]
-    docs = data.get("docs", [])
-    if not isinstance(docs, list):
-        raise HTTPException(400, "docs must be a list.")
-    import re as _re
-    clean = []
-    for d in docs[:200]:
-        raw_content = str(d.get("content", ""))
-        text_only   = _re.sub(r'<[^>]+>', ' ', raw_content)[:5000]
-        clean.append({
-            "id":       sanitize_text(str(d.get("id", "")),    50),
-            "title":    sanitize_text(str(d.get("title", "")), 200),
-            "content":  text_only,
-            "updated":  sanitize_text(str(d.get("updated", "")), 30),
-        })
-    save_docs(sid, clean)
-    return {"ok": True, "count": len(clean)}
-
-# ── Personal habits — server-side mirror ──────────────────────
-def load_habits(sid: str) -> list:
-    p = DATA_DIR / f"{sid}_habits.json"
-    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
-
-def save_habits(sid: str, habits: list):
-    p = DATA_DIR / f"{sid}_habits.json"
-    save_json(p, habits)
-
-@app.post("/api/habits/sync")
-async def sync_habits(data: dict):
-    """Bulk-sync habits from client localStorage to server."""
-    token = data.get("token", "")
-    sess  = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid    = sess["sid"]
-    habits = data.get("habits", [])
-    if not isinstance(habits, list):
-        raise HTTPException(400, "habits must be a list.")
-    clean = []
-    for h in habits[:200]:
-        clean.append({
-            "id":          sanitize_text(str(h.get("id","")),    50),
-            "title":       sanitize_text(str(h.get("title","")), 100),
-            "emoji":       sanitize_text(str(h.get("emoji","")), 10),
-            "frequency":   sanitize_text(str(h.get("frequency","daily")), 20),
-            "streak":      int(h.get("streak", 0)),
-            "completions": [sanitize_text(str(d), 12) for d in (h.get("completions") or [])[:400]],
-        })
-    save_habits(sid, clean)
-    return {"ok": True, "count": len(clean)}
+# Tasks, Habits, and Docs & Notes live in their own route modules (routes/tasks.py,
+# routes/habits.py, routes/docs_notes.py) — this import must stay below
+# _load_user_list/_save_user_list/load_goals/save_goals since the route modules
+# import those (and get_session_from_token/sanitize_text/save_json/DATA_DIR) from
+# this partially-loaded app module.
+from routes.tasks import router as _tasks_router, load_tasks, save_tasks
+from routes.habits import router as _habits_router, load_habits, save_habits
+from routes.docs_notes import router as _docs_notes_router, load_docs, save_docs
+app.include_router(_tasks_router)
+app.include_router(_habits_router)
+app.include_router(_docs_notes_router)
 
 # ── Personal journal — server-side mirror ─────────────────────
 def load_journal(sid: str) -> list:
@@ -7584,26 +7440,13 @@ async def restore_finance(token: str = ""):
 
 # ── Cross-device pull: return the server-stored copy so a second device
 #    can hydrate its localStorage on boot (server = source of truth). ──────────
-@app.get("/api/habits/restore")
-async def restore_habits(token: str = ""):
-    sess = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    return {"habits": load_habits(sess["sid"])}
-
+# (habits/docs restore live in routes/habits.py / routes/docs_notes.py)
 @app.get("/api/journal/restore")
 async def restore_journal(token: str = ""):
     sess = get_session_from_token(token)
     if not sess:
         raise HTTPException(401, "Invalid session.")
     return {"entries": load_journal(sess["sid"])}
-
-@app.get("/api/docs/restore")
-async def restore_docs(token: str = ""):
-    sess = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    return {"docs": load_docs(sess["sid"])}
 
 @app.get("/api/skills/restore")
 async def restore_skills(token: str = ""):
@@ -12800,37 +12643,6 @@ async def export_data(data: dict):
 #  DATA IMPORT
 # ═══════════════════════════════════════════════════════════════
 
-@app.post("/api/import/tasks")
-async def import_tasks(data: dict):
-    token = data.get("token", "")
-    sess  = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid  = sess["sid"]
-    rows = data.get("tasks", [])
-    if not isinstance(rows, list):
-        raise HTTPException(400, "tasks must be a list.")
-    existing = load_tasks(sid)
-    imported = []
-    for r in rows[:500]:
-        title = sanitize_text(str(r.get("title", "")), 200).strip()
-        if not title:
-            continue
-        imported.append({
-            "id":       str(uuid.uuid4())[:8],
-            "title":    title,
-            "status":   sanitize_text(str(r.get("status", "todo")), 20),
-            "done":     str(r.get("done", "")).lower() in ("yes", "true", "1"),
-            "date":     sanitize_text(str(r.get("date", "")), 20),
-            "time":     sanitize_text(str(r.get("time", "")), 10),
-            "priority": sanitize_text(str(r.get("priority", "normal")), 20),
-            "type":     sanitize_text(str(r.get("type", "other")), 30),
-            "goal_id":  "",
-        })
-    save_tasks(sid, existing + imported)
-    return {"ok": True, "imported": len(imported)}
-
-
 @app.post("/api/import/goals")
 async def import_goals(data: dict):
     token = data.get("token", "")
@@ -12865,41 +12677,6 @@ async def import_goals(data: dict):
     return {"ok": True, "imported": len(imported)}
 
 
-@app.post("/api/import/notes")
-async def import_notes(data: dict):
-    """Accept markdown text and create a doc from it."""
-    token = data.get("token", "")
-    sess  = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid      = sess["sid"]
-    markdown = sanitize_text(str(data.get("markdown", "")), 200000)
-    filename = sanitize_text(str(data.get("filename", "Imported note")), 100)
-    if not markdown.strip():
-        raise HTTPException(400, "Empty content.")
-
-    # Convert markdown to simple HTML for the doc editor
-    lines    = markdown.split("\n")
-    html_parts = []
-    for line in lines:
-        if line.startswith("### "): html_parts.append(f"<h3>{line[4:]}</h3>")
-        elif line.startswith("## "): html_parts.append(f"<h2>{line[3:]}</h2>")
-        elif line.startswith("# "):  html_parts.append(f"<h1>{line[2:]}</h1>")
-        elif line.strip() == "---": html_parts.append("<hr>")
-        elif line.strip():           html_parts.append(f"<p>{line}</p>")
-    html_content = "\n".join(html_parts)
-
-    existing = load_docs(sid)
-    doc = {
-        "id":      int(datetime.datetime.now().timestamp() * 1000),
-        "title":   filename.replace(".md", ""),
-        "content": html_content,
-        "updated": int(datetime.datetime.now().timestamp() * 1000),
-    }
-    existing.insert(0, doc)
-    save_docs(sid, existing)
-    return {"ok": True, "doc_id": doc["id"]}
-
 
 @app.get("/health")
 async def railway_health():
@@ -12922,4 +12699,4 @@ async def railway_health():
     }
     _health_cache["result"] = result
     _health_cache["ts"]     = now
-    return result
+    return resultto 

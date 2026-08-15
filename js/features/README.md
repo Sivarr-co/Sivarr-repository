@@ -3,6 +3,13 @@
 Each file is self-contained for its feature. They depend on js/core/ being loaded first.
 All functions remain global (no ES modules) — load as separate <script> tags in index.html.
 
+**Status**: `tasks.js`, `habits.js`, and `docs_notes.js` are implemented (see their
+entries below, marked DONE) — everything else in this file is still the original
+aspirational plan, not yet carried out. `js/core/` doesn't exist yet either; the
+three done files currently load directly before `app.js` in `templates/index.html`,
+depending on app.js's shared globals (`S`/`API`/`$`/`toast`/`_queueMutation`) rather
+than a `js/core/` module.
+
 ## Load order in index.html (after core/)
 ```html
 <script src="/js/features/billing.js"></script>
@@ -50,18 +57,20 @@ All functions remain global (no ES modules) — load as separate <script> tags i
 - `commLoadOpportunities()`, `oppFilter()`, `oppSubmit()`
 - `_commRenderPost()`, `_timeAgo()`
 
-### tasks.js (app.js — Flux panel + task helpers)
-- Task add, complete, delete, priority toggle
-- Focus mode (`focusStart()`, `focusEnd()`)
-- Task filter + sort
+### tasks.js — DONE (2026-08-14)
+Internal name "flux"/`SH_` prefix. Task board/list/overview views, detail panel,
+bulk actions, filter/sort, drag-drop. Focus mode (`focusStart()`/`focusEnd()`)
+stays in app.js — it's a separate feature that happens to read task data.
 
 ### goals.js (app.js lines ~2510–2630)
 - `glRender()`, `glToggleForm()`
 - `glLoad()`, `glAdd()`, `glUpdate()`, `glDelete()`
 
-### habits.js (app.js — habits panel)
-- `habitInit()`, `habitRender()`
-- Streak calculation, daily check-in
+### habits.js — DONE (2026-08-14)
+- `habitInit()`, `habitAdd()`, `habitEdit()`, `habitToggle()`, `habitDelete()`
+- Streak/best-streak calculation, 28-day completion rate
+- `.habit-cb` (the checkbox class) stays in css/panels.css — shared with the
+  Home "Today" widget's habit checkboxes, not habits.js-exclusive.
 
 ### calendar.js (app.js lines ~4784–4900)
 - `calInit()`, `calRender()`
@@ -71,10 +80,15 @@ All functions remain global (no ES modules) — load as separate <script> tags i
 - `journalInit()`, `journalSave()`, `journalRender()`
 - `reflectWithAI()`
 
-### notes.js (app.js lines ~8193–8380 + docHub ~2625–2850)
-- `docInit()`, `dhInit()`
-- `dhNewDoc()`, `dhOpenDoc()`, `dhSaveDoc()`
-- `dhFormat()`, `dhBlock()`
+### docs_notes.js — DONE (2026-08-14), named docs_notes.js not notes.js
+Docs & Notes panel: Tiptap rich-text editor + slash-command menu.
+- `docInit()`, `docFromTemplate()`, doc list/search/rename/delete
+- Slash-command menu (`_slashOpen()`, `_slashExec()`, etc.)
+- An earlier "Document Hub" (`dh*` functions, `DH_KEY`) and a separate orphaned
+  `loadNotes()`/`renderNotes()` block were found to be dead code — not wired to
+  any template, colliding with this feature's localStorage keys — and were
+  deleted rather than migrated. If you're looking for `dhNewDoc()`-style
+  functions from an earlier version of this doc, they no longer exist.
 
 ### org.js (app.js — org space functions)
 - Org chat, channels, members, presence

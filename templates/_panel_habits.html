@@ -1,0 +1,96 @@
+{# ── HABITS ── #}
+<div class="panel" id="panel-habits">
+  <div class="view-head">
+    <i class="ti ti-flame vh-icon"></i>
+    <span class="vh-title">Habits</span>
+    <button class="btn primary" onclick="habitAdd()" style="margin-left: auto">
+      + Habit
+    </button>
+  </div>
+  <div class="habits-wrap">
+    <!-- Streak summary -->
+    <div class="h2col-card" style="margin-bottom: 14px">
+      <div
+        style="
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          text-align: center;
+        "
+      >
+        <div>
+          <div
+            style="font-size: 1.6rem; font-weight: 800; color: var(--teal)"
+            id="hab-streak"
+          >
+            0
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text3)">Best Streak</div>
+        </div>
+        <div>
+          <div
+            style="font-size: 1.6rem; font-weight: 800; color: var(--amber3)"
+            id="hab-today"
+          >
+            0
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text3)">Done Today</div>
+        </div>
+        <div>
+          <div
+            style="font-size: 1.6rem; font-weight: 800; color: var(--purple)"
+            id="hab-rate"
+          >
+            —
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text3)">28-Day Rate</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Habit list -->
+    <div id="habits-list">
+      <div class="habit-card">
+        <div class="habit-emoji">📚</div>
+        <div class="habit-info">
+          <div class="habit-title">Morning Study</div>
+          <div class="habit-sub2">Every day · 30 mins</div>
+          <div class="hdots" id="hdots-0">
+            <div class="hdot f"></div>
+            <div class="hdot f"></div>
+            <div class="hdot f"></div>
+            <div class="hdot e"></div>
+            <div class="hdot e"></div>
+            <div class="hdot e"></div>
+            <div class="hdot e"></div>
+          </div>
+        </div>
+        <div style="text-align: right">
+          <div class="habit-pct">43%</div>
+          <div style="font-size: 0.7rem; color: var(--text4)">this week</div>
+        </div>
+      </div>
+      <div class="habit-card">
+        <div class="habit-emoji">🧘</div>
+        <div class="habit-info">
+          <div class="habit-title">Review Notes</div>
+          <div class="habit-sub2">Every day · 15 mins</div>
+          <div class="hdots">
+            <div class="hdot f"></div>
+            <div class="hdot f"></div>
+            <div class="hdot e"></div>
+            <div class="hdot f"></div>
+            <div class="hdot e"></div>
+            <div class="hdot e"></div>
+            <div class="hdot e"></div>
+          </div>
+        </div>
+        <div style="text-align: right">
+          <div class="habit-pct">43%</div>
+          <div style="font-size: 0.7rem; color: var(--text4)">this week</div>
+        </div>
+      </div>
+    </div>
+    <button class="new-habit-btn" onclick="habitAdd()">+ Add new habit</button>
+  </div>
+</div>
