@@ -4264,7 +4264,9 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LIBRARY PANEL  (#panel-library)
+   INTEGRATIONS & LIBRARY  — 2026-08: moved from the standalone
+   #panel-library into Marketplace's #mktView-integrations tab. Classes
+   unchanged, still shared/reused as-is.
    ═══════════════════════════════════════════════════════════════ */
 .library-wrap {
   flex: 1;
@@ -5023,6 +5025,19 @@
   display: flex;
   border-bottom: 1px solid var(--border);
   margin-bottom: 18px;
+  /* 4 tabs incl. the longer "Integrations & Library" label won't always
+     fit a narrow viewport — wrap to a second line rather than clip. */
+  flex-wrap: wrap;
+  row-gap: 4px;
+  /* A pre-existing global rule (mobile.css's ".panel > * { overflow-x:
+     hidden !important }", there to stop horizontal scroll) forces every
+     direct .panel child's overflow-y to compute to auto per the CSS
+     Overflow spec, which in turn makes a flex item's min-height resolve
+     to 0 instead of its content size — collapsing this row to ~12px once
+     it had to wrap to 2 lines. min-height here isn't decorative, it's
+     what keeps the row from collapsing. Confirmed via CDP matched-styles,
+     not a guess. */
+  min-height: fit-content;
 }
 .mkt-subnav-btn {
   padding: 8px 16px;
@@ -5038,6 +5053,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 .mkt-subnav-btn.active {
   color: var(--teal);
@@ -11078,118 +11094,9 @@
   gap: 10px;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   OPPORTUNITIES PANEL  (#panel-opportunities)
-   ═══════════════════════════════════════════════════════════════ */
-#panel-opportunities {
-  overflow-y: auto;
-}
-.opp-filter-bar {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-.opp-filter {
-  padding: 5px 14px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: var(--bg2);
-  color: var(--text4);
-  font-family: var(--font);
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition);
-}
-.opp-filter:hover {
-  border-color: var(--teal);
-  color: var(--text2);
-}
-.opp-filter.active {
-  background: var(--teal);
-  color: #fff;
-  border-color: var(--teal);
-}
-.opp-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-.opp-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  cursor: pointer;
-  transition: var(--transition);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.opp-card:hover {
-  border-color: var(--teal);
-  box-shadow: var(--shadow1);
-}
-.opp-card-type {
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 8px;
-  border-radius: 20px;
-  background: var(--teal2);
-  color: var(--teal4);
-  width: fit-content;
-}
-.opp-card-title {
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--text);
-}
-.opp-card-org {
-  font-size: 0.78rem;
-  color: var(--text4);
-}
-.opp-card-desc {
-  font-size: 0.8rem;
-  color: var(--text2);
-  line-height: 1.5;
-}
-.opp-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-}
-.opp-deadline {
-  font-size: 0.72rem;
-  color: var(--amber);
-  font-weight: 600;
-}
-.opp-apply-btn {
-  margin-top: auto;
-  padding: 7px 14px;
-  border-radius: 8px;
-  border: none;
-  background: var(--teal);
-  color: #fff;
-  font-family: var(--font);
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition);
-  width: fit-content;
-}
-.opp-apply-btn:hover {
-  opacity: 0.85;
-}
-.opp-empty {
-  color: var(--text4);
-  font-size: 0.85rem;
-  padding: 40px 0;
-}
+/* Opportunities panel CSS removed 2026-08 — Opportunities merged into
+   Community's own tab (comm-view-opp), which uses .siva-pill / #opp-feed,
+   not these classes. Confirmed zero remaining references before deleting. */
 
 /* ═══════════════════════════════════════════════════════════════
    SETTINGS PANEL  (#panel-settings)

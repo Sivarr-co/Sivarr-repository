@@ -710,207 +710,8 @@ SUPPORT ── #}
   </div>
 </div>
 
-{# ── LIBRARY ── #}
-<div class="panel" id="panel-library">
-  <div class="library-wrap">
-    <div style="margin-bottom: 24px">
-      <h2
-        style="
-          font-size: 1.1rem;
-          font-weight: 800;
-          letter-spacing: -0.02em;
-          margin-bottom: 4px;
-        "
-      >
-        Integrations
-      </h2>
-      <p style="font-size: 0.78rem; color: var(--text3); margin-bottom: 14px">
-        Connect your tools to Sivarr.
-      </p>
-      <div class="int-grid" id="integrations-grid">
-        <!-- rendered by integrationsRender() in JS -->
-      </div>
-    </div>
-
-    <div
-      style="
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 16px;
-      "
-    >
-      <div>
-        <h2
-          style="font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em"
-        >
-          Library
-        </h2>
-        <p style="font-size: 0.78rem; color: var(--text3); margin-top: 2px">
-          Curated resources, tools, and platforms.
-        </p>
-      </div>
-    </div>
-
-    <!-- Search -->
-    <div style="margin-bottom: 14px">
-      <div
-        style="
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: var(--bg3);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          padding: 0 12px;
-          height: 36px;
-        "
-      >
-        <i
-          class="ti ti-search"
-          style="color: var(--text4); font-size: 15px"
-        ></i>
-        <input
-          id="lib-search"
-          type="text"
-          placeholder="Search resources..."
-          style="
-            flex: 1;
-            border: none;
-            background: transparent;
-            font-family: var(--font);
-            font-size: 0.83rem;
-            color: var(--text1);
-            outline: none;
-          "
-          oninput="libSearch(this.value)"
-        />
-      </div>
-    </div>
-
-    <!-- Category tabs -->
-    <div style="display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap">
-      <button
-        class="siva-pill sp-add"
-        id="lib-tab-all"
-        onclick="libFilter('all', this)"
-      >
-        All
-      </button>
-      <button
-        class="siva-pill"
-        id="lib-tab-study"
-        onclick="libFilter('study', this)"
-      >
-        📚 Study
-      </button>
-      <button
-        class="siva-pill"
-        id="lib-tab-tools"
-        onclick="libFilter('tools', this)"
-      >
-        🛠 Tools
-      </button>
-      <button
-        class="siva-pill"
-        id="lib-tab-career"
-        onclick="libFilter('career', this)"
-      >
-        🎯 Career
-      </button>
-      <button
-        class="siva-pill"
-        id="lib-tab-health"
-        onclick="libFilter('health', this)"
-      >
-        🧠 Wellbeing
-      </button>
-    </div>
-
-    <!-- Resource grid -->
-    <div class="lib-grid" id="lib-grid">
-      <div class="lib-card" data-cat="study">
-        <div class="lib-logo" style="background: var(--teal2)">📖</div>
-        <div class="lib-name">Khan Academy</div>
-        <div class="lib-desc">
-          Free world-class education for anyone, anywhere.
-        </div>
-        <button
-          class="lib-btn"
-          onclick="window.open('https://khanacademy.org', '_blank')"
-        >
-          Open →
-        </button>
-      </div>
-      <div class="lib-card" data-cat="study career">
-        <div class="lib-logo" style="background: var(--purple2)">🎓</div>
-        <div class="lib-name">Coursera</div>
-        <div class="lib-desc">
-          Online courses from top universities and companies.
-        </div>
-        <button
-          class="lib-btn"
-          onclick="window.open('https://coursera.org', '_blank')"
-        >
-          Open →
-        </button>
-      </div>
-      <div class="lib-card" data-cat="tools">
-        <div class="lib-logo" style="background: var(--amber2)">⚡</div>
-        <div class="lib-name">Notion</div>
-        <div class="lib-desc">All-in-one workspace for notes and projects.</div>
-        <button
-          class="lib-btn"
-          onclick="window.open('https://notion.so', '_blank')"
-        >
-          Open →
-        </button>
-      </div>
-      <div class="lib-card" data-cat="study tools">
-        <div class="lib-logo" style="background: var(--coral2)">🧠</div>
-        <div class="lib-name">Anki</div>
-        <div class="lib-desc">
-          Spaced repetition flashcard system for memory.
-        </div>
-        <button
-          class="lib-btn"
-          onclick="window.open('https://apps.ankiweb.net', '_blank')"
-        >
-          Open →
-        </button>
-      </div>
-      <div class="lib-card" data-cat="study">
-        <div class="lib-logo" style="background: var(--green2)">📹</div>
-        <div class="lib-name">YouTube Edu</div>
-        <div class="lib-desc">
-          Thousands of free educational video lectures.
-        </div>
-        <button class="lib-btn" onclick="nav('contenthub', null)">
-          Open →
-        </button>
-      </div>
-      <div class="lib-card" data-cat="study career">
-        <div class="lib-logo" style="background: var(--blue2)">🔬</div>
-        <div class="lib-name">Google Scholar</div>
-        <div class="lib-desc">
-          Search academic papers and research articles.
-        </div>
-        <button
-          class="lib-btn"
-          onclick="window.open('https://scholar.google.com', '_blank')"
-        >
-          Open →
-        </button>
-      </div>
-    </div>
-    <p
-      id="lib-empty"
-      style="display: none; color: var(--muted); font-size: 0.84rem; text-align: center; padding: 24px 0"
-    >
-      No resources in this category yet.
-    </p>
-  </div>
-</div>
+{# ── LIBRARY ── merged into Marketplace's "Integrations & Library" tab
+   (#mktView-integrations, below) 2026-08 — this standalone panel is gone. #}
 
 {# ── MARKETPLACE ── #}
 <div class="panel" id="panel-marketplace">
@@ -978,6 +779,13 @@ SUPPORT ── #}
     <button class="mkt-subnav-btn active" onclick="mktSetView('browse', this)">
       Browse
     </button>
+    <button
+      class="mkt-subnav-btn"
+      id="mkt-subnav-integrations-btn"
+      onclick="mktSetView('integrations', this)"
+    >
+      Integrations &amp; Library
+    </button>
     <button class="mkt-subnav-btn" onclick="mktSetView('installed', this)">
       Installed
       <span class="mkt-count-badge" id="mktInstalledCount">0</span>
@@ -1040,6 +848,206 @@ SUPPORT ── #}
       </button>
     </div>
     <div class="mkt-grid" id="mktGrid"></div>
+  </div>
+  <div id="mktView-integrations" style="display: none">
+    <div class="library-wrap" style="padding: 0">
+      <div style="margin-bottom: 24px">
+        <h2
+          style="
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 4px;
+          "
+        >
+          Integrations
+        </h2>
+        <p style="font-size: 0.78rem; color: var(--text3); margin-bottom: 14px">
+          Connect your tools to Sivarr.
+        </p>
+        <div class="int-grid" id="integrations-grid">
+          <!-- rendered by integrationsRender() in JS -->
+        </div>
+      </div>
+
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        "
+      >
+        <div>
+          <h2
+            style="font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em"
+          >
+            Library
+          </h2>
+          <p style="font-size: 0.78rem; color: var(--text3); margin-top: 2px">
+            Curated resources, tools, and platforms.
+          </p>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div style="margin-bottom: 14px">
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 0 12px;
+            height: 36px;
+          "
+        >
+          <i
+            class="ti ti-search"
+            style="color: var(--text4); font-size: 15px"
+          ></i>
+          <input
+            id="lib-search"
+            type="text"
+            placeholder="Search resources..."
+            style="
+              flex: 1;
+              border: none;
+              background: transparent;
+              font-family: var(--font);
+              font-size: 0.83rem;
+              color: var(--text1);
+              outline: none;
+            "
+            oninput="libSearch(this.value)"
+          />
+        </div>
+      </div>
+
+      <!-- Category tabs -->
+      <div style="display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap">
+        <button
+          class="siva-pill sp-add"
+          id="lib-tab-all"
+          onclick="libFilter('all', this)"
+        >
+          All
+        </button>
+        <button
+          class="siva-pill"
+          id="lib-tab-study"
+          onclick="libFilter('study', this)"
+        >
+          📚 Study
+        </button>
+        <button
+          class="siva-pill"
+          id="lib-tab-tools"
+          onclick="libFilter('tools', this)"
+        >
+          🛠 Tools
+        </button>
+        <button
+          class="siva-pill"
+          id="lib-tab-career"
+          onclick="libFilter('career', this)"
+        >
+          🎯 Career
+        </button>
+        <button
+          class="siva-pill"
+          id="lib-tab-health"
+          onclick="libFilter('health', this)"
+        >
+          🧠 Wellbeing
+        </button>
+      </div>
+
+      <!-- Resource grid -->
+      <div class="lib-grid" id="lib-grid">
+        <div class="lib-card" data-cat="study">
+          <div class="lib-logo" style="background: var(--teal2)">📖</div>
+          <div class="lib-name">Khan Academy</div>
+          <div class="lib-desc">
+            Free world-class education for anyone, anywhere.
+          </div>
+          <button
+            class="lib-btn"
+            onclick="window.open('https://khanacademy.org', '_blank')"
+          >
+            Open →
+          </button>
+        </div>
+        <div class="lib-card" data-cat="study career">
+          <div class="lib-logo" style="background: var(--purple2)">🎓</div>
+          <div class="lib-name">Coursera</div>
+          <div class="lib-desc">
+            Online courses from top universities and companies.
+          </div>
+          <button
+            class="lib-btn"
+            onclick="window.open('https://coursera.org', '_blank')"
+          >
+            Open →
+          </button>
+        </div>
+        <div class="lib-card" data-cat="tools">
+          <div class="lib-logo" style="background: var(--amber2)">⚡</div>
+          <div class="lib-name">Notion</div>
+          <div class="lib-desc">All-in-one workspace for notes and projects.</div>
+          <button
+            class="lib-btn"
+            onclick="window.open('https://notion.so', '_blank')"
+          >
+            Open →
+          </button>
+        </div>
+        <div class="lib-card" data-cat="study tools">
+          <div class="lib-logo" style="background: var(--coral2)">🧠</div>
+          <div class="lib-name">Anki</div>
+          <div class="lib-desc">
+            Spaced repetition flashcard system for memory.
+          </div>
+          <button
+            class="lib-btn"
+            onclick="window.open('https://apps.ankiweb.net', '_blank')"
+          >
+            Open →
+          </button>
+        </div>
+        <div class="lib-card" data-cat="study">
+          <div class="lib-logo" style="background: var(--green2)">📹</div>
+          <div class="lib-name">YouTube Edu</div>
+          <div class="lib-desc">
+            Thousands of free educational video lectures.
+          </div>
+          <button class="lib-btn" onclick="nav('contenthub', null)">
+            Open →
+          </button>
+        </div>
+        <div class="lib-card" data-cat="study career">
+          <div class="lib-logo" style="background: var(--blue2)">🔬</div>
+          <div class="lib-name">Google Scholar</div>
+          <div class="lib-desc">
+            Search academic papers and research articles.
+          </div>
+          <button
+            class="lib-btn"
+            onclick="window.open('https://scholar.google.com', '_blank')"
+          >
+            Open →
+          </button>
+        </div>
+      </div>
+      <p
+        id="lib-empty"
+        style="display: none; color: var(--muted); font-size: 0.84rem; text-align: center; padding: 24px 0"
+      >
+        No resources in this category yet.
+      </p>
+    </div>
   </div>
   <div id="mktView-installed" style="display: none">
     <div class="mkt-installed-header">
@@ -1275,43 +1283,8 @@ SUPPORT ── #}
   </div>
 </div>
 
-{# ── OPPORTUNITIES ── #}
-<div class="panel" id="panel-opportunities">
-  <div class="np-wrap">
-    <div class="np-head">
-      <div>
-        <h2 class="np-title">🎯 Opportunities</h2>
-        <p class="np-sub">
-          Jobs, grants, gigs and scholarships curated for you
-        </p>
-      </div>
-      <button class="np-action-btn" onclick="oppPost()">
-        <i class="ti ti-plus"></i> Post
-      </button>
-    </div>
-    <div class="opp-filter-bar">
-      <button class="opp-filter active" onclick="oppSetCat('all', this)">
-        All
-      </button>
-      <button class="opp-filter" onclick="oppSetCat('job', this)">
-        💼 Jobs
-      </button>
-      <button class="opp-filter" onclick="oppSetCat('grant', this)">
-        💰 Grants
-      </button>
-      <button class="opp-filter" onclick="oppSetCat('gig', this)">
-        ⚡ Gigs
-      </button>
-      <button class="opp-filter" onclick="oppSetCat('scholarship', this)">
-        🎓 Scholarships
-      </button>
-      <button class="opp-filter" onclick="oppSetCat('internship', this)">
-        🏢 Internships
-      </button>
-    </div>
-    <div class="opp-grid" id="opp-grid"></div>
-  </div>
-</div>
+{# ── OPPORTUNITIES ── merged into Community's own Opportunities tab
+   (comm-view-opp, above) 2026-08 — this standalone panel is gone. #}
 
 {# ── ANNOUNCEMENTS ── #}
 <div class="panel" id="panel-announcements">

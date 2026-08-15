@@ -8020,19 +8020,9 @@ const NAV_TABS = {
     section: "life",
   },
   community: { label: "Community", icon: "ti-users", section: "connect" },
-  opportunities: {
-    label: "Opportunities",
-    icon: "ti-briefcase",
-    section: "connect",
-  },
   marketplace: {
     label: "Marketplace",
     icon: "ti-building-store",
-    section: "connect",
-  },
-  library: {
-    label: "Integrations",
-    icon: "ti-plug-connected",
     section: "connect",
   },
   agents: { label: "Agents", icon: "ti-robot", section: "connect" },
@@ -8047,12 +8037,14 @@ const NAV_TABS = {
 const NAV_ORDER = {
   work: ["flux", "goals", "calendar", "notes", "templates"],
   life: ["skills", "finance", "habits", "journal", "stats", "review"],
-  connect: ["community", "opportunities", "marketplace", "library", "agents"],
+  connect: ["community", "marketplace", "agents"],
 };
 const NAV_CORE = ["chat", "home", "announcements"]; // permanent, top group, not removable
 // Default tabs shown in the sidebar — rebalanced toward daily-use (Phase 2):
-// Work: Tasks/Goals/Calendar/Docs&Notes · Life: Finance/Habits/Journal · Connect: Marketplace/Integrations.
+// Work: Tasks/Goals/Calendar/Docs&Notes · Life: Finance/Habits/Journal.
 // Anything not here lives only in ⌘K search until the user stars it in.
+// (Connect tabs aren't part of this list — that section always renders in
+// full via NAV_ORDER.connect, unaffected by starring.)
 const NAV_DEFAULT = [
   "flux",
   "goals",
@@ -8061,8 +8053,6 @@ const NAV_DEFAULT = [
   "finance",
   "habits",
   "journal",
-  "marketplace",
-  "library",
 ];
 // Extra trailing markup per tab (inline stat placeholders, New badges, inbox dot) — preserved across re-render.
 const NAV_EXTRA = {
@@ -12409,7 +12399,27 @@ function sidebarNav(btn) {
 }
 
 // ═══════════════════════════ NAV ════════════════════════════════
+// Opportunities and Integrations no longer have their own panels/sidebar
+// rows (2026-08) — Opportunities is a tab inside Community, Integrations
+// (+ the curated Library) is a tab inside Marketplace. Redirecting here,
+// at the single chokepoint every nav('opportunities'/'library', ...) call
+// already goes through, means every existing caller (⌘K, marketplace
+// buttons, space-settings links, etc.) lands in the right place with zero
+// per-call-site changes.
 function nav(name, btn) {
+  if (name === "opportunities") {
+    nav("community", btn);
+    if (typeof commSetMode === "function") {
+      const oppBtn = $("comm-mode-opp");
+      if (oppBtn) commSetMode("opp", oppBtn);
+    }
+    return;
+  }
+  if (name === "library") {
+    _mktPendingView = "integrations";
+    nav("marketplace", btn);
+    return;
+  }
   _pushRecentNav(name);
   pushRecentPanel(name);
   // Cheap, targeted re-render — just this section, not the whole sidebar —
@@ -12544,7 +12554,6 @@ function nav(name, btn) {
   if (name === "orgchat") orgChatInit();
   if (name === "automations") autoInit();
   if (name === "org") orgInit();
-  if (name === "opportunities") oppInit();
   if (name === "profile") profileInit();
   if (name === "personal") psRenderOverview();
   // "academic" has no init here: its only caller, openSpace(), always
@@ -12622,7 +12631,6 @@ function navTab(name, btn) {
   if (name === "orgchat") orgChatInit();
   if (name === "automations") autoInit();
   if (name === "org") orgInit();
-  if (name === "opportunities") oppInit();
   if (name === "profile") profileInit();
 }
 
@@ -15919,179 +15927,6 @@ function _autoCelebrate() {
   setTimeout(() => overlay.remove(), 2500);
 }
 
-/* ══════════════════════════════════════════════════
-   PHASE 7 — OPPORTUNITIES BOARD
-   ══════════════════════════════════════════════════ */
-
-let _oppCat = "all";
-
-const DEMO_OPPS = [
-  {
-    id: 1,
-    type: "job",
-    title: "Frontend Developer Intern",
-    org: "TechStart Lagos",
-    desc: "React, TypeScript, 3-month paid internship.",
-    deadline: "2026-06-15",
-    url: "#",
-  },
-  {
-    id: 2,
-    type: "scholarship",
-    title: "African Excellence Scholarship",
-    org: "DAAD",
-    desc: "Full scholarship for masters studies in Germany.",
-    deadline: "2026-05-31",
-    url: "#",
-  },
-  {
-    id: 3,
-    type: "grant",
-    title: "Youth Innovation Grant",
-    org: "Tony Elumelu Foundation",
-    desc: "$5,000 seed funding for young African entrepreneurs.",
-    deadline: "2026-07-01",
-    url: "#",
-  },
-  {
-    id: 4,
-    type: "gig",
-    title: "Brand Identity Designer",
-    org: "Freelance",
-    desc: "Logo, colours, and brand guide for fintech startup.",
-    deadline: "Open",
-    url: "#",
-  },
-  {
-    id: 5,
-    type: "internship",
-    title: "Product Design Intern",
-    org: "Flutterwave",
-    desc: "6-month internship for final-year design students.",
-    deadline: "2026-06-30",
-    url: "#",
-  },
-];
-
-function oppSetCat(cat, btn) {
-  _oppCat = cat;
-  document
-    .querySelectorAll(".opp-filter")
-    .forEach((b) => b.classList.remove("active"));
-  if (btn) btn.classList.add("active");
-  oppRender();
-}
-
-function oppRender() {
-  const key = `sivarr_opps_${S.sid}`;
-  const custom = JSON.parse(localStorage.getItem(key) || "[]");
-  const all = [...DEMO_OPPS, ...custom];
-  const visible =
-    _oppCat === "all" ? all : all.filter((o) => o.type === _oppCat);
-  const grid = $("opp-grid");
-  if (!grid) return;
-
-  if (!visible.length) {
-    grid.innerHTML =
-      '<div class="opp-empty">No opportunities in this category yet.</div>';
-    return;
-  }
-
-  grid.innerHTML = visible
-    .map((o) => {
-      const isDemo = DEMO_OPPS.some((d) => d.id === o.id);
-      const hasLink = /^https?:\/\//i.test(o.url || "");
-      const applyBtn = isDemo
-        ? `<button class="opp-apply-btn" disabled title="Example listing — not a real posting">Example</button>`
-        : hasLink
-          ? `<button class="opp-apply-btn" onclick="window.open(${JSON.stringify(o.url)},'_blank')">Apply →</button>`
-          : `<span class="opp-deadline" style="opacity:.7">No link provided</span>`;
-      return `
-    <div class="opp-card">
-      <div class="opp-card-type">${o.type}${isDemo ? ' <span class="chip c-amber" style="padding:1px 8px;font-size:11px">Example</span>' : ""}</div>
-      <div class="opp-card-title">${escHtml(o.title)}</div>
-      <div class="opp-card-org">${escHtml(o.org)}</div>
-      <div class="opp-card-desc">${escHtml(o.desc)}</div>
-      <div class="opp-card-meta">
-        <span class="opp-deadline">Deadline: ${escHtml(o.deadline)}</span>
-      </div>
-      ${applyBtn}
-    </div>`;
-    })
-    .join("");
-}
-
-async function oppPost() {
-  const d = await siModal.form(
-    "Post Opportunity",
-    [
-      {
-        id: "title",
-        label: "Title",
-        placeholder: "e.g. Frontend Developer Intern",
-        required: true,
-      },
-      {
-        id: "org",
-        label: "Organisation",
-        placeholder: "Company or institution name",
-      },
-      {
-        id: "desc",
-        label: "Short description",
-        type: "textarea",
-        placeholder: "What is this opportunity about?",
-      },
-      {
-        id: "type",
-        label: "Type",
-        type: "select",
-        options: [
-          { value: "job", label: "Job" },
-          { value: "internship", label: "Internship" },
-          { value: "scholarship", label: "Scholarship" },
-          { value: "grant", label: "Grant" },
-          { value: "gig", label: "Gig" },
-        ],
-        default: "job",
-      },
-      {
-        id: "deadline",
-        label: "Deadline",
-        placeholder: "e.g. 2026-06-30 or Open",
-        default: "Open",
-      },
-      {
-        id: "url",
-        label: "Apply link (optional)",
-        placeholder: "https://…",
-      },
-    ],
-    { confirmLabel: "Post Opportunity" },
-  );
-  if (!d || !d.title) return;
-  const key = `sivarr_opps_${S.sid}`;
-  const list = JSON.parse(localStorage.getItem(key) || "[]");
-  const url = /^https?:\/\//i.test(d.url || "") ? d.url : "";
-  list.push({
-    id: Date.now(),
-    title: d.title,
-    org: d.org,
-    desc: d.desc,
-    type: d.type || "job",
-    deadline: d.deadline || "Open",
-    // Previously hardcoded to "#" for every listing — no field even
-    // existed to provide a real link, so Apply went nowhere.
-    url,
-  });
-  localStorage.setItem(key, JSON.stringify(list));
-  oppRender();
-  toast("Opportunity posted");
-}
-
-function oppInit() {
-  oppRender();
-}
 
 /* ══════════════════════════════════════════════════
    PHASE 7 — USER PROFILE
@@ -24467,6 +24302,11 @@ async function mktLoadInstalled() {
     mktInstalled = [];
   }
 }
+// Set by nav()'s "library" redirect to land Marketplace straight on the
+// Integrations & Library tab instead of the Browse default — consumed
+// (and cleared) once mktInit()'s own async setup has finished, so it can't
+// race mktInit()'s view:"browse" reset below.
+let _mktPendingView = null;
 async function mktInit() {
   mktEnsureLoaded();
   await mktLoadInstalled();
@@ -24481,6 +24321,11 @@ async function mktInit() {
   mktRenderFeatured();
   mktRenderGrid();
   mktUpdateInstalledCount();
+  if (_mktPendingView) {
+    const v = _mktPendingView;
+    _mktPendingView = null;
+    mktSetView(v, document.getElementById(`mkt-subnav-${v}-btn`));
+  }
 }
 function mktSaveInstalled() {
   localStorage.setItem(MKT_INSTALLED_KEY, JSON.stringify(mktInstalled));
@@ -24639,12 +24484,13 @@ function mktSetView(view, btn) {
     .querySelectorAll(".mkt-subnav-btn")
     .forEach((b) => b.classList.remove("active"));
   if (btn) btn.classList.add("active");
-  ["browse", "installed", "published"].forEach((v) => {
+  ["browse", "installed", "published", "integrations"].forEach((v) => {
     const el = document.getElementById(`mktView-${v}`);
     if (el) el.style.display = v === view ? "block" : "none";
   });
   if (view === "installed") mktRenderInstalled();
   if (view === "published") creatorInit();
+  if (view === "integrations") integrationsRender();
 }
 
 // ── Install / use ──
