@@ -2315,11 +2315,17 @@ async def startup():
         else:
             log.info("Running on JSON file storage (no DATABASE_URL set)")
 
-        # Seed community/opportunities JSON files
-        try:
-            _seed_community_and_opps()
-        except Exception as exc:
-            log.warning(f"Seed community/opps skipped: {exc}")
+        # Demo/seed community posts + opportunities — intentionally disabled
+        # 2026-08 (Hunter, approaching launch): Sivarr uses real data only from
+        # here on, Feed and Opportunities should start genuinely empty for a
+        # fresh install. _seed_community_and_opps()/_SEED_POSTS/_SEED_OPPS are
+        # left in place (not deleted) in case a demo/staging environment wants
+        # them later — just no longer called automatically on every boot.
+        # NOTE: this only stops *new* fake rows going forward — it does not
+        # retroactively delete any already inserted into a live database by
+        # an earlier boot. That needs a manual cleanup pass against the real
+        # DB (delete rows with id starting "opp_"/matching _SEED_POSTS ids),
+        # which isn't something to run from here without direct prod access.
 
         # APScheduler — jobs for weekly review + push notifications
         try:
@@ -11108,12 +11114,16 @@ async def submit_opportunity(data: dict, request: Request):
     category = sanitize_text(str(data.get("category","other")), 20)
     deadline = sanitize_text(str(data.get("deadline","")), 20)
     org      = sanitize_text(str(data.get("organisation","")), 80)
+    # location has always been a real column (database.py's `opportunities` table,
+    # get_opportunities()/create_opportunity()) but this endpoint never read it —
+    # every user-submitted listing silently got an empty location. Fixed here.
+    location = sanitize_text(str(data.get("location","")), 80)
     if len(title) < 3:
         raise HTTPException(400, "Title required.")
     opp = {
         "id": uuid.uuid4().hex[:14], "title": title, "desc": desc, "link": link,
         "category": category, "deadline": deadline, "organisation": org,
-        "submitted_by": sess["sid"],
+        "location": location, "submitted_by": sess["sid"],
         "created": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     if db.is_available():

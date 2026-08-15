@@ -4263,6 +4263,285 @@
   color: #f87171;
 }
 
+/* ── Community header (title, per-tab action button, subtitle, tabs) ── */
+.comm-head {
+  padding: 18px 24px 0;
+  border-bottom: 1px solid var(--border);
+}
+.comm-head-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.comm-head-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.comm-head-title i {
+  font-size: 19px;
+  color: var(--accent);
+}
+.comm-head-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text1);
+  border-radius: 8px;
+  padding: 7px 13px;
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.comm-head-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.comm-head-sub {
+  font-size: 0.78rem;
+  color: var(--text4);
+  margin: 3px 0 16px 28px;
+  min-height: 1.1em;
+}
+.comm-tabs {
+  display: flex;
+  gap: 22px;
+}
+.comm-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0 0 10px;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: var(--transition);
+}
+.comm-tab.active {
+  color: var(--text1);
+  font-weight: 700;
+  border-bottom-color: var(--accent);
+}
+
+/* ── Filter chip rows (Feed categories, Opportunity categories) ── */
+.comm-chip-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.comm-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  background: var(--bg2);
+  color: var(--text3);
+  font-family: var(--font);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+.comm-chip i {
+  font-size: 13px;
+}
+.comm-chip:hover {
+  border-color: var(--accent);
+}
+.comm-chip.active {
+  background: var(--purple2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Bookmark/save toggle — reused on both post and opportunity cards ── */
+.comm-save-btn {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--border2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+.comm-save-btn i {
+  font-size: 14px;
+  color: var(--text4);
+}
+.comm-save-btn.saved {
+  border-color: var(--accent);
+  background: var(--purple2);
+}
+.comm-save-btn.saved i {
+  color: var(--accent);
+}
+
+/* ── Opportunities: search + sort tools ── */
+.opp-tools-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.opp-search-wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+.opp-search-wrap i {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--text4);
+}
+.opp-search-wrap input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 8px 12px 8px 32px;
+  color: var(--text1);
+  font-family: var(--font);
+  font-size: 0.82rem;
+  outline: none;
+}
+.opp-search-wrap input:focus {
+  border-color: var(--accent);
+}
+.opp-sort {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: var(--text2);
+  font-family: var(--font);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* ── Opportunity card — richer than a feed card: meta pills + apply CTA ── */
+.opp-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius2);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  transition: var(--transition);
+}
+.opp-card:hover {
+  border-color: var(--border2);
+  box-shadow: var(--shadow);
+}
+.opp-card-hd {
+  display: flex;
+  gap: 12px;
+}
+.opp-card-ic {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  background: var(--purple2);
+  color: var(--accent);
+}
+.opp-card-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text1);
+}
+.opp-card-org {
+  font-size: 0.74rem;
+  color: var(--text4);
+  margin-top: 1px;
+}
+.opp-card-desc {
+  font-size: 0.8rem;
+  color: var(--text2);
+  line-height: 1.55;
+  margin: 8px 0 10px;
+}
+.opp-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.opp-meta-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.opp-meta-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text3);
+  background: var(--bg3);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.opp-meta-pill i {
+  font-size: 12px;
+}
+.opp-badge-urgent {
+  color: var(--red);
+  background: var(--red2);
+}
+.opp-badge-soon {
+  color: var(--amber);
+  background: var(--amber2);
+}
+.opp-apply-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: var(--font);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+.opp-apply-btn:hover {
+  opacity: 0.85;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    INTEGRATIONS & LIBRARY  — 2026-08: moved from the standalone
    #panel-library into Marketplace's #mktView-integrations tab. Classes

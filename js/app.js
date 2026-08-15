@@ -11126,26 +11126,21 @@ let _commCategory = "all";
 let _oppCategory = "all";
 
 function commSetMode(mode, btn) {
-  document.querySelectorAll(".comm-mode-btn").forEach((b) => {
-    b.classList.remove("active");
-    b.style.background = "transparent";
-    b.style.color = "var(--muted)";
-    b.style.boxShadow = "none";
-  });
+  document
+    .querySelectorAll(".comm-tab")
+    .forEach((b) => b.classList.remove("active"));
   btn.classList.add("active");
-  btn.style.background = "var(--card)";
-  btn.style.color = "var(--text1)";
-  btn.style.boxShadow = "0 1px 3px #0002";
   const isFeed = mode === "feed";
   const fv = $("comm-view-feed");
   if (fv) fv.style.display = isFeed ? "" : "none";
   const ov = $("comm-view-opp");
   if (ov) ov.style.display = isFeed ? "none" : "";
-  const postBtn = document.querySelector("#comm-actions button:first-child");
+  const postBtn = $("comm-post-quick-btn");
   const oppBtn = $("comm-opp-btn");
   if (postBtn) postBtn.style.display = isFeed ? "" : "none";
   if (oppBtn) oppBtn.style.display = isFeed ? "none" : "";
-  if (!isFeed) commLoadOpportunities();
+  if (isFeed) commLoadFeed();
+  else commLoadOpportunities();
 }
 
 async function communityInit() {
@@ -11155,26 +11150,115 @@ async function communityInit() {
   await commLoadFeed();
 }
 
-async function commLoadFeed(category) {
-  if (category) _commCategory = category;
+function commFocusComposer() {
+  const ta = $("comm-post-text");
+  if (ta) {
+    ta.scrollIntoView({ behavior: "smooth", block: "center" });
+    ta.focus();
+  }
+}
+
+// ── Saved/bookmarked posts — local-only (mirrors Marketplace's installed-
+// items pattern, MKT_INSTALLED_KEY). No backend: genuinely empty until a
+// user actually saves something themselves. ──
+const COMM_SAVED_KEY = () => `sivarr_comm_saved_${S.sid || "guest"}`;
+function _commSavedIds() {
+  try {
+    return JSON.parse(localStorage.getItem(COMM_SAVED_KEY()) || "[]");
+  } catch (_) {
+    return [];
+  }
+}
+function _commIsSaved(id) {
+  return _commSavedIds().includes(id);
+}
+function commToggleSave(id, btn) {
+  const saved = _commSavedIds();
+  const on = saved.includes(id);
+  const next = on ? saved.filter((x) => x !== id) : [...saved, id];
+  localStorage.setItem(COMM_SAVED_KEY(), JSON.stringify(next));
+  if (btn) {
+    btn.classList.toggle("saved", !on);
+    const icon = btn.querySelector("i");
+    if (icon) icon.className = `ti ${!on ? "ti-bookmark-filled" : "ti-bookmark"}`;
+  }
+  if (_commCategory === "saved") _commApplyFilters();
+  else _commUpdateChipCounts();
+}
+
+// Full unfiltered batch, fetched once per load — chip/search/sort below
+// are pure client-side filters over this, no per-click refetch.
+let _commAllPosts = [];
+
+async function commLoadFeed() {
   const feed = $("community-feed");
   if (!feed) return;
   skShow("community-feed", _SK.post, 4);
   try {
-    const r = await fetch(
-      `/api/community/posts?category=${_commCategory}&limit=40`,
-    );
+    const r = await fetch(`/api/community/posts?category=all&limit=100`);
     const d = await r.json();
-    if (!d.posts || d.posts.length === 0) {
-      feed.innerHTML =
-        '<div style="text-align:center;padding:40px;color:var(--muted)">No posts yet. Be the first to share!</div>';
-      return;
-    }
-    feed.innerHTML = d.posts.map((p) => _commRenderPost(p)).join("");
+    _commAllPosts = d.posts || [];
+    _commApplyFilters();
   } catch (_) {
     feed.innerHTML =
       '<div style="text-align:center;padding:40px;color:var(--muted)">Could not load posts.</div>';
   }
+}
+
+function _commApplyFilters() {
+  const feed = $("community-feed");
+  if (!feed) return;
+  const savedIds = _commSavedIds();
+  const list =
+    _commCategory === "all"
+      ? _commAllPosts
+      : _commCategory === "saved"
+        ? _commAllPosts.filter((p) => savedIds.includes(p.id))
+        : _commAllPosts.filter((p) => p.category === _commCategory);
+  _commUpdateChipCounts();
+  _commUpdateSubtitle();
+  if (!list.length) {
+    feed.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">${
+      _commCategory === "saved"
+        ? "No saved posts yet — tap the bookmark icon on a post to save it here."
+        : _commAllPosts.length
+          ? "No posts in this category yet."
+          : "No posts yet. Be the first to share!"
+    }</div>`;
+    return;
+  }
+  feed.innerHTML = list.map((p) => _commRenderPost(p)).join("");
+}
+
+function _commUpdateChipCounts() {
+  const savedIds = _commSavedIds();
+  const counts = { all: _commAllPosts.length, saved: savedIds.length };
+  _commAllPosts.forEach((p) => {
+    counts[p.category] = (counts[p.category] || 0) + 1;
+  });
+  document.querySelectorAll("#comm-chip-row .comm-chip").forEach((chip) => {
+    const f = chip.dataset.filter;
+    const span = chip.querySelector(".chip-count");
+    if (span) span.textContent = counts[f] ? ` · ${counts[f]}` : "";
+  });
+}
+
+function _commUpdateSubtitle() {
+  const el = $("comm-head-sub");
+  if (!el) return;
+  // Guard against the opp/feed loads racing and stomping each other's text
+  // in the shared subtitle element (both can be in-flight around a tab switch).
+  if ($("comm-mode-feed") && !$("comm-mode-feed").classList.contains("active"))
+    return;
+  if (!_commAllPosts.length) {
+    el.textContent = "";
+    return;
+  }
+  const today = new Date().toDateString();
+  const todayCount = _commAllPosts.filter(
+    (p) => p.created && new Date(p.created).toDateString() === today,
+  ).length;
+  el.textContent = `${_commAllPosts.length} post${_commAllPosts.length === 1 ? "" : "s"}${todayCount ? ` · ${todayCount} today` : ""}`;
 }
 
 function _commRenderPost(p) {
@@ -11183,6 +11267,7 @@ function _commRenderPost(p) {
   const allReps = p.replies || [];
   const liked = (p.likes || []).includes(S.sid || "");
   const isOwn = p.sid && p.sid === S.sid;
+  const isSaved = _commIsSaved(p.id);
   const initials = (p.author || "U")[0].toUpperCase();
   const tags = (p.tags || [])
     .map((t) => `<span class="feed-tag">${esc(t)}</span>`)
@@ -11208,6 +11293,9 @@ function _commRenderPost(p) {
           <div class="feed-time">${ago}</div>
         </div>
         ${p.category && p.category !== "general" ? `<span class="feat-badge">${esc(p.category)}</span>` : ""}
+        <button class="comm-save-btn ${isSaved ? "saved" : ""}" title="${isSaved ? "Remove from saved" : "Save"}" onclick="commToggleSave('${esc(p.id)}',this)">
+          <i class="ti ${isSaved ? "ti-bookmark-filled" : "ti-bookmark"}"></i>
+        </button>
         ${isOwn ? `<button class="feed-delete-btn" onclick="commDeletePost('${esc(p.id)}')" title="Delete post"><i class="ti ti-trash"></i></button>` : ""}
       </div>
       <div class="feed-body">${esc(p.body)}</div>
@@ -11221,8 +11309,26 @@ function _commRenderPost(p) {
         <button class="feed-action-btn" onclick="commReply('${esc(p.id)}',this)">
           <i class="ti ti-message"></i> <span>${allReps.length}</span>
         </button>
+        <button class="feed-action-btn" title="Draft a reply with Sivarr AI" onclick="commDraftReply('${esc(p.id)}')">
+          <i class="ti ti-sparkles"></i> Draft with AI
+        </button>
       </div>
     </div>`;
+}
+
+// Reply drafting reuses the real chat, not a bespoke one-off completion
+// call — quickPrompt() (js/app.js:3557) already does exactly "switch to
+// chat, fill the input, send", the same thing the chat welcome screen's
+// own prompt cards use. The user reviews/edits the AI's draft in the real
+// chat UI, then pastes what they want into the existing Reply prompt back
+// on the post to actually publish it via commReply() below — nothing
+// posts automatically without the user choosing to.
+function commDraftReply(postId) {
+  const p = _commAllPosts.find((x) => x.id === postId);
+  if (!p) return;
+  const prompt = `Draft a short, friendly reply to this Community post: "${p.body}" — reply as ${S.name || "me"}, keep it under 3 sentences.`;
+  nav("chat", null);
+  if (typeof quickPrompt === "function") quickPrompt(prompt);
 }
 
 function _timeAgo(iso) {
@@ -11376,59 +11482,206 @@ async function commReply(postId, btn) {
 }
 
 function commFilter(cat, btn) {
+  _commCategory = cat;
   document
-    .querySelectorAll('[id^="comm-tab-"]')
-    .forEach((b) => b.classList.remove("sp-add"));
-  if (btn) btn.classList.add("sp-add");
-  commLoadFeed(cat);
+    .querySelectorAll("#comm-chip-row .comm-chip")
+    .forEach((b) => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  _commApplyFilters();
 }
 
 // ════════════ OPPORTUNITIES ════════════
-async function commLoadOpportunities(category) {
-  if (category) _oppCategory = category;
+
+// Local-only saves, same pattern as posts above.
+const OPP_SAVED_KEY = () => `sivarr_opp_saved_${S.sid || "guest"}`;
+function _oppSavedIds() {
+  try {
+    return JSON.parse(localStorage.getItem(OPP_SAVED_KEY()) || "[]");
+  } catch (_) {
+    return [];
+  }
+}
+function _oppIsSaved(id) {
+  return _oppSavedIds().includes(id);
+}
+function oppToggleSave(id, btn) {
+  const saved = _oppSavedIds();
+  const on = saved.includes(id);
+  const next = on ? saved.filter((x) => x !== id) : [...saved, id];
+  localStorage.setItem(OPP_SAVED_KEY(), JSON.stringify(next));
+  if (btn) {
+    btn.classList.toggle("saved", !on);
+    const icon = btn.querySelector("i");
+    if (icon) icon.className = `ti ${!on ? "ti-bookmark-filled" : "ti-bookmark"}`;
+  }
+  if (_oppCategory === "saved") _oppApplyFilters();
+  else _oppUpdateChipCounts();
+}
+
+// Urgency badge for a deadline. Most real listings have a clean ISO date
+// (see app.py's _SEED_OPPS-era comment), but the field has always been
+// freeform text server-side (sanitize_text, no date validation) — "Rolling",
+// "Open", or blank are real, valid values that must render gracefully
+// with no urgency claim rather than "Invalid Date".
+function _oppDeadlineMeta(deadline) {
+  if (!deadline) return null;
+  const d = new Date(deadline);
+  if (isNaN(d.getTime()))
+    return { cls: "", label: deadline };
+  const days = Math.ceil((d.getTime() - Date.now()) / 86400000);
+  if (days < 0) return { cls: "", label: "Closed" };
+  const cls = days <= 7 ? "opp-badge-urgent" : days <= 30 ? "opp-badge-soon" : "";
+  const label = days === 0 ? "Today" : `${days} day${days === 1 ? "" : "s"} left`;
+  return { cls, label };
+}
+
+let _oppAllList = [];
+
+async function commLoadOpportunities() {
   const feed = $("opp-feed");
   if (!feed) return;
   skShow("opp-feed", _SK.post, 3);
   try {
-    const r = await fetch(
-      `/api/opportunities?category=${_oppCategory}&limit=50`,
-    );
+    const r = await fetch(`/api/opportunities?category=all&limit=100`);
     const d = await r.json();
-    if (!d.opportunities || d.opportunities.length === 0) {
-      feed.innerHTML =
-        '<div style="text-align:center;padding:40px;color:var(--muted)">No opportunities listed yet. Add the first one!</div>';
-      return;
-    }
-    feed.innerHTML = d.opportunities
-      .map(
-        (o) => `
-      <div class="feed-card" style="cursor:default">
-        <div class="feed-hd">
-          <div class="feed-av" style="background:var(--accent2,#7c3aed)">🎯</div>
-          <div style="flex:1">
-            <div class="feed-name">${esc(o.title)}</div>
-            <div class="feed-time">${o.organisation ? esc(o.organisation) + " · " : ""}${_timeAgo(o.created)}</div>
-          </div>
-          <span class="feat-badge" style="background:var(--accent2,#7c3aed)22;color:var(--accent2,#7c3aed)">${esc(o.category)}</span>
-        </div>
-        ${o.desc ? `<div class="feed-body">${esc(o.desc)}</div>` : ""}
-        ${o.deadline ? `<div style="font-size:.75rem;color:var(--muted);margin:6px 0">⏰ Deadline: ${esc(o.deadline)}</div>` : ""}
-        ${o.link ? `<a href="${esc(o.link)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:.78rem;font-weight:700;color:var(--accent);text-decoration:none">Apply / Learn more →</a>` : ""}
-      </div>`,
-      )
-      .join("");
+    _oppAllList = d.opportunities || [];
+    _oppApplyFilters();
   } catch (_) {
     feed.innerHTML =
       '<div style="text-align:center;padding:40px;color:var(--muted)">Could not load opportunities.</div>';
   }
 }
 
+function _oppApplyFilters() {
+  const feed = $("opp-feed");
+  if (!feed) return;
+  const savedIds = _oppSavedIds();
+  const query = ($("opp-search")?.value || "").trim().toLowerCase();
+  const sort = $("opp-sort")?.value || "newest";
+
+  let list =
+    _oppCategory === "all"
+      ? _oppAllList
+      : _oppCategory === "saved"
+        ? _oppAllList.filter((o) => savedIds.includes(o.id))
+        : _oppAllList.filter((o) => o.category === _oppCategory);
+
+  if (query) {
+    list = list.filter((o) =>
+      [o.title, o.desc, o.organisation, o.location]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }
+
+  list = [...list].sort((a, b) => {
+    if (sort === "deadline") {
+      const da = new Date(a.deadline).getTime();
+      const db = new Date(b.deadline).getTime();
+      return (isNaN(da) ? Infinity : da) - (isNaN(db) ? Infinity : db);
+    }
+    return new Date(b.created) - new Date(a.created);
+  });
+
+  _oppUpdateChipCounts();
+  _oppUpdateSubtitle();
+
+  if (!list.length) {
+    feed.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">${
+      _oppCategory === "saved"
+        ? "No saved opportunities yet — tap the bookmark icon on a listing to save it here."
+        : _oppAllList.length
+          ? query
+            ? "No opportunities match your search."
+            : "No opportunities in this category yet."
+          : "No opportunities listed yet. Add the first one!"
+    }</div>`;
+    return;
+  }
+  feed.innerHTML = list.map((o) => _oppRenderCard(o)).join("");
+}
+
+function _oppUpdateChipCounts() {
+  const savedIds = _oppSavedIds();
+  const counts = { all: _oppAllList.length, saved: savedIds.length };
+  _oppAllList.forEach((o) => {
+    counts[o.category] = (counts[o.category] || 0) + 1;
+  });
+  document.querySelectorAll("#opp-chip-row .comm-chip").forEach((chip) => {
+    const f = chip.dataset.filter;
+    const span = chip.querySelector(".chip-count");
+    if (span) span.textContent = counts[f] ? ` · ${counts[f]}` : "";
+  });
+}
+
+function _oppUpdateSubtitle() {
+  const el = $("comm-head-sub");
+  if (!el) return;
+  // Only overwrite the subtitle when Opportunities is actually the active
+  // tab — commSetMode() re-runs each load, so this can't stomp Feed's text.
+  if ($("comm-mode-opp") && !$("comm-mode-opp").classList.contains("active"))
+    return;
+  if (!_oppAllList.length) {
+    el.textContent = "";
+    return;
+  }
+  const closingSoon = _oppAllList.filter((o) => {
+    const meta = _oppDeadlineMeta(o.deadline);
+    return meta && meta.cls === "opp-badge-urgent";
+  }).length;
+  el.textContent = `${_oppAllList.length} open posting${_oppAllList.length === 1 ? "" : "s"}${closingSoon ? ` · ${closingSoon} closing this week` : ""}`;
+}
+
+function _oppRenderCard(o) {
+  const initial = (o.organisation || o.title || "?")[0].toUpperCase();
+  const isSaved = _oppIsSaved(o.id);
+  const deadlineMeta = _oppDeadlineMeta(o.deadline);
+  const pills = [
+    o.location
+      ? `<span class="opp-meta-pill"><i class="ti ti-map-pin"></i>${esc(o.location)}</span>`
+      : "",
+    deadlineMeta
+      ? `<span class="opp-meta-pill ${deadlineMeta.cls}"><i class="ti ti-clock"></i>${esc(deadlineMeta.label)}</span>`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("");
+  return `
+    <div class="opp-card" data-id="${esc(o.id)}">
+      <div class="opp-card-hd">
+        <div class="opp-card-ic">${esc(initial)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div>
+              <div class="opp-card-title">${esc(o.title)}</div>
+              <div class="opp-card-org">${o.organisation ? esc(o.organisation) + " · " : ""}${_timeAgo(o.created)}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+              <span class="feat-badge">${esc(o.category)}</span>
+              <button class="comm-save-btn ${isSaved ? "saved" : ""}" title="${isSaved ? "Remove from saved" : "Save"}" onclick="oppToggleSave('${esc(o.id)}',this)">
+                <i class="ti ${isSaved ? "ti-bookmark-filled" : "ti-bookmark"}"></i>
+              </button>
+            </div>
+          </div>
+          ${o.desc ? `<div class="opp-card-desc">${esc(o.desc)}</div>` : ""}
+          <div class="opp-card-meta">
+            <div class="opp-meta-pills">${pills}</div>
+            ${o.link && o.link !== "#" ? `<a class="opp-apply-btn" href="${esc(o.link)}" target="_blank" rel="noopener">Apply <i class="ti ti-arrow-up-right"></i></a>` : ""}
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
 function oppFilter(cat, btn) {
+  _oppCategory = cat;
   document
-    .querySelectorAll('[id^="opp-tab-"]')
-    .forEach((b) => b.classList.remove("sp-add"));
-  if (btn) btn.classList.add("sp-add");
-  commLoadOpportunities(cat);
+    .querySelectorAll("#opp-chip-row .comm-chip")
+    .forEach((b) => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  _oppApplyFilters();
 }
 
 async function oppSubmit() {
@@ -11462,6 +11715,12 @@ async function oppSubmit() {
         default: "internship",
       },
       {
+        id: "location",
+        label: "Location (optional)",
+        type: "text",
+        placeholder: "e.g. Remote, or Lagos, Nigeria",
+      },
+      {
         id: "deadline",
         label: "Deadline (optional)",
         type: "text",
@@ -11488,6 +11747,7 @@ async function oppSubmit() {
         desc: (vals.desc || "").trim(),
         link: (vals.link || "").trim(),
         category: vals.category || "other",
+        location: (vals.location || "").trim(),
         deadline: (vals.deadline || "").trim(),
       }),
     });
