@@ -10105,7 +10105,14 @@ async def google_oauth_callback(bg: BackgroundTasks, code: str = "", error: str 
             })
             tokens = tok_resp.json()
             if "error" in tokens:
-                log.error(f"Google token exchange error: {tokens.get('error_description', tokens)}")
+                # warning, not error: this is normal OAuth code-replay/expiry
+                # behavior (double-click "Continue with Google", back/refresh
+                # after completing the flow once, or a slow consent screen
+                # outliving the code's short TTL) — already handled gracefully
+                # below (redirect to a retry-able error page, no crash). Kept
+                # at warning so it stays in Railway logs without cluttering
+                # Sentry's error feed for something that isn't actually a bug.
+                log.warning(f"Google token exchange error: {tokens.get('error_description', tokens)}")
                 return RedirectResponse("/app?auth_error=google_token_failed")
             info_resp = await client.get(
                 GOOGLE_USERINFO_URL,
