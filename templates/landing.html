@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Favicon (browser tab + search results) -->
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=20260813b" />
-    <link rel="icon" type="image/png" href="/static/sivarrai.png?v=20260815a" />
-    <link rel="apple-touch-icon" href="/static/sivarrai.png?v=20260815a" />
+    <link rel="icon" type="image/png" href="/static/sivarrai.png?v=20260815b" />
+    <link rel="apple-touch-icon" href="/static/sivarrai.png?v=20260815b" />
     <script>
       // If user is already logged in, go straight to the app
       if (localStorage.getItem("sivarr_token")) {
@@ -121,9 +121,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.75rem;
-        color: #fff;
-        font-weight: 900;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .nav-logo-dot img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
       }
       .nav-links {
         display: flex;
@@ -375,6 +379,13 @@
         height: 24px;
         border-radius: 6px;
         background: linear-gradient(135deg, var(--teal), var(--purple));
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .mock-logo-av img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
       }
       .mock-nav {
         padding: 8px 10px;
@@ -425,6 +436,13 @@
         height: 32px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .mock-av img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
       }
       .mock-g-name {
         font-family: var(--head);
@@ -692,10 +710,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.75rem;
-        font-weight: 800;
-        color: #fff;
+        overflow: hidden;
         flex-shrink: 0;
+      }
+      .ai-av img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
       }
       .ai-name {
         font-weight: 700;
@@ -1150,7 +1171,9 @@
     <!-- ── NAV ─────────────────────────────────────────────────────── -->
     <nav>
       <div class="nav-logo">
-        <div class="nav-logo-dot">S</div>
+        <div class="nav-logo-dot">
+          <img src="/static/sivarrai.png?v=20260815b" alt="Sivarr" />
+        </div>
         Sivarr
       </div>
       <div class="nav-links">
@@ -1164,7 +1187,7 @@
         <button class="btn-outline" onclick="window.location = '/app'">
           Sign In
         </button>
-        <button class="btn-primary" onclick="window.location = '/app'">
+        <button class="btn-primary" onclick="window.location = '/app?auth=register'">
           Get Started Free
         </button>
       </div>
@@ -1191,7 +1214,7 @@
       </p>
 
       <div class="hero-actions fade-up delay-3">
-        <button class="btn-hero" onclick="window.location = '/app'">
+        <button class="btn-hero" onclick="window.location = '/app?auth=register'">
           Start for free, no card needed
         </button>
         <button class="btn-hero-ghost">
@@ -1213,7 +1236,9 @@
         <div class="mockup-body">
           <div class="mockup-sidebar">
             <div class="mock-logo">
-              <div class="mock-logo-av"></div>
+              <div class="mock-logo-av">
+                <img src="/static/sivarrai.png?v=20260815b" alt="" />
+              </div>
               Sivarr
             </div>
             <div class="mock-nav active"><i class="ti ti-home"></i> Home</div>
@@ -1230,7 +1255,9 @@
           <div class="mockup-main">
             <div class="mock-greeting">
               <div class="mock-greeting-top">
-                <div class="mock-av"></div>
+                <div class="mock-av">
+                  <img src="/static/sivarrai.png?v=20260815b" alt="" />
+                </div>
                 <div>
                   <div class="mock-g-name">Good morning, Nonso 👋</div>
                   <div class="mock-g-sub">Monday, 2 June</div>
@@ -1608,7 +1635,9 @@
         </div>
         <div class="ai-chat-demo">
           <div class="ai-chat-header">
-            <div class="ai-av">S</div>
+            <div class="ai-av">
+              <img src="/static/sivarrai.png?v=20260815b" alt="Sivarr AI" />
+            </div>
             <div>
               <div class="ai-name">Sivarr AI</div>
               <div class="ai-status">● Online</div>
@@ -1838,7 +1867,7 @@
                 <i class="ti ti-x"></i>AI Writing tools
               </div>
             </div>
-            <button class="price-btn" onclick="window.location = '/app'">
+            <button class="price-btn" onclick="window.location = '/app?auth=register'">
               Get started free
             </button>
           </div>
@@ -1892,7 +1921,7 @@
             </div>
             <button
               class="price-btn primary"
-              onclick="window.location = '/app'"
+              onclick="window.location = '/app?auth=register'"
             >
               Upgrade to Pro
             </button>
@@ -1940,7 +1969,7 @@
                 <i class="ti ti-check"></i>Early access to new features
               </div>
             </div>
-            <button class="price-btn" onclick="window.location = '/app'">
+            <button class="price-btn" onclick="window.location = '/app?auth=register'">
               Upgrade to Creator
             </button>
           </div>
@@ -1965,7 +1994,7 @@
           <button
             class="btn-hero"
             style="white-space: nowrap; padding: 13px 24px"
-            onclick="window.location = '/app'"
+            onclick="window.location = '/app?auth=register'"
           >
             Get started →
           </button>
@@ -1982,7 +2011,9 @@
         <div class="footer-top">
           <div class="footer-brand">
             <div class="nav-logo" style="margin-bottom: 12px">
-              <div class="nav-logo-dot">S</div>
+              <div class="nav-logo-dot">
+                <img src="/static/sivarrai.png?v=20260815b" alt="Sivarr" />
+              </div>
               Sivarr
             </div>
             <p>

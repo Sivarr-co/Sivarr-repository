@@ -2318,6 +2318,14 @@ function checkAuthParams() {
       sessionStorage.getItem("flw_billing_plan") || "",
     );
   }
+
+  // Landing page "Get Started Free" — pre-select the Sign Up tab so it
+  // actually differs from "Sign In" (both used to just land on the default
+  // Sign In tab).
+  if (params.get("auth") === "register") {
+    history.replaceState(null, "", "/");
+    if (typeof setAuthTab === "function") setAuthTab("register");
+  }
 }
 
 async function _acceptPendingOrgInvite() {
@@ -3680,7 +3688,7 @@ async function chatClearConfirm() {
     : "";
   // Simpler: reload the welcome screen
   w.innerHTML = `<div id="chat-welcome" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:2.5rem 1.5rem;text-align:center;animation:fadeUp .5s cubic-bezier(.4,0,.2,1)">
-    <div class="chat-welcome-orb"><img src="/static/sivarrai.png?v=20260815a" alt="Sivarr"></div>
+    <div class="chat-welcome-orb"><img src="/static/sivarrai.png?v=20260815b" alt="Sivarr"></div>
     <h1 class="chat-welcome-heading" id="welcome-greeting">Chat cleared</h1>
     <p class="chat-welcome-sub">Start a new conversation below.</p>
   </div>`;

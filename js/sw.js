@@ -10,7 +10,7 @@ const CACHE = 'sivarr-v8';
 const PRECACHE = [
   '/',
   '/app',
-  '/static/sivarrai.png?v=20260815a',
+  '/static/sivarrai.png?v=20260815b',
   '/static/manifest.json',
 ];
 
@@ -40,8 +40,8 @@ self.addEventListener('push', e => {
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body:  data.body,
-      icon:  '/static/sivarrai.png?v=20260815a',
-      badge: '/static/sivarrai.png?v=20260815a',
+      icon:  '/static/sivarrai.png?v=20260815b',
+      badge: '/static/sivarrai.png?v=20260815b',
       tag:   data.tag || 'sivarr',
       data:  { url: data.url || '/app' },
       requireInteraction: false,
