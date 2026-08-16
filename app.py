@@ -1674,7 +1674,17 @@ def gemini_once(prompt, temp=0.8, tokens=600):
         )
         return model.generate_content(prompt).text.strip()
     except Exception as e:
-        log.error(f"Gemini once error: {e}")
+        # Quota/429 is an expected, already-handled condition on the free
+        # tier (every caller falls back gracefully when this returns None,
+        # e.g. home_brief's generic greeting) — kept at warning so it stops
+        # cluttering Sentry's error feed. Every other failure (bad API key,
+        # outage, etc.) stays at error since those genuinely need attention.
+        # Same detection `friendly_gemini_error()` already uses below.
+        msg = str(e).lower()
+        if "quota" in msg or "429" in msg or "resource_exhausted" in msg:
+            log.warning(f"Gemini once error: {e}")
+        else:
+            log.error(f"Gemini once error: {e}")
         return None
 
 
