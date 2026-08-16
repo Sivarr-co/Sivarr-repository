@@ -115,12 +115,10 @@ body.offline .layout {
   height: 28px;
   border-radius: 8px;
   flex-shrink: 0;
-  background: linear-gradient(135deg, var(--logo-purple), var(--logo-purple2));
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: var(--glow-teal);
 }
 .tb-logo img {
   width: 100%;
@@ -1163,11 +1161,6 @@ body.auth-screen #login-screen {
   width: 34px;
   height: 34px;
   border-radius: 9px;
-  background: linear-gradient(
-    135deg,
-    var(--logo-purple) 0%,
-    var(--logo-purple2) 100%
-  );
   display: flex;
   align-items: center;
   justify-content: center;

@@ -606,14 +606,12 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--logo-purple), var(--logo-purple2));
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 17px;
   flex-shrink: 0;
   overflow: hidden;
-  border: 1px solid var(--border);
 }
 .siva-brief-av img {
   width: 100%;
@@ -1492,22 +1490,9 @@
   height: 40px;
   border-radius: 14px;
   flex-shrink: 0;
-  background: linear-gradient(135deg, var(--logo-purple), var(--logo-purple2));
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--glow-teal);
-  position: relative;
-}
-.chat-header-av::after {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: 15px;
-  background: linear-gradient(135deg, var(--logo-purple), var(--logo-purple2));
-  z-index: -1;
-  filter: blur(6px);
-  opacity: 0.4;
 }
 .chat-header-av img {
   width: 100%;
@@ -1860,41 +1845,11 @@
   width: 92px;
   height: 92px;
   border-radius: 26px;
-  background: linear-gradient(135deg, var(--logo-purple), var(--logo-purple2));
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 1.75rem;
   position: relative;
-  box-shadow:
-    var(--ai-glow),
-    0 0 0 1px rgba(255, 255, 255, 0.07);
-  animation: orbPulse 3.5s ease-in-out infinite;
-}
-@keyframes orbPulse {
-  0%,
-  100% {
-    box-shadow:
-      var(--ai-glow),
-      0 0 0 1px rgba(255, 255, 255, 0.06);
-  }
-  50% {
-    box-shadow:
-      0 0 56px rgba(var(--teal-rgb, 65, 7, 107), 0.45),
-      0 0 20px rgba(65, 7, 107, 0.3),
-      0 0 0 1px rgba(255, 255, 255, 0.1);
-  }
-}
-.chat-welcome-orb::after {
-  content: "";
-  position: absolute;
-  inset: -6px;
-  border-radius: 32px;
-  background: linear-gradient(135deg, var(--logo-purple), var(--logo-purple2));
-  opacity: 0.2;
-  filter: blur(16px);
-  z-index: -1;
-  animation: orbPulse 3.5s ease-in-out infinite;
 }
 .chat-welcome-orb img {
   width: 100%;
@@ -15394,12 +15349,10 @@ html {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--logo-purple), var(--logo-purple2));
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 2px solid var(--logo-purple);
 }
 .brief-siva-av img {
   width: 100%;
