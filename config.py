@@ -141,12 +141,11 @@ GITHUB_API             = "https://api.github.com"
 # ── Gemini AI ────────────────────────────────────────────────────
 API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODELS = [
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
-    "gemini-1.5-pro",
-    "gemini-pro",
-    "gemini-1.0-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-flash-latest",
+    "gemini-pro-latest",
+    "gemini-2.5-flash-lite",
 ]
 
 # ── Sivarr subscription plans ────────────────────────────────────

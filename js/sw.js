@@ -1,4 +1,4 @@
-const CACHE = 'sivarr-v7';
+const CACHE = 'sivarr-v8';
 
 // '/css/styles.css' used to be here — that file hasn't existed since the
 // base/layout/panels/mobile split, and caches.addAll() fails its whole
@@ -10,7 +10,7 @@ const CACHE = 'sivarr-v7';
 const PRECACHE = [
   '/',
   '/app',
-  '/static/sivarrai.png',
+  '/static/sivarrai.png?v=20260815a',
   '/static/manifest.json',
 ];
 
@@ -40,8 +40,8 @@ self.addEventListener('push', e => {
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body:  data.body,
-      icon:  '/static/sivarrai.png',
-      badge: '/static/sivarrai.png',
+      icon:  '/static/sivarrai.png?v=20260815a',
+      badge: '/static/sivarrai.png?v=20260815a',
       tag:   data.tag || 'sivarr',
       data:  { url: data.url || '/app' },
       requireInteraction: false,

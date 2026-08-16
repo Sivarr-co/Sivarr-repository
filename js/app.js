@@ -3680,7 +3680,7 @@ async function chatClearConfirm() {
     : "";
   // Simpler: reload the welcome screen
   w.innerHTML = `<div id="chat-welcome" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:2.5rem 1.5rem;text-align:center;animation:fadeUp .5s cubic-bezier(.4,0,.2,1)">
-    <div class="chat-welcome-orb"><img src="/static/sivarrai.png" alt="Sivarr"></div>
+    <div class="chat-welcome-orb"><img src="/static/sivarrai.png?v=20260815a" alt="Sivarr"></div>
     <h1 class="chat-welcome-heading" id="welcome-greeting">Chat cleared</h1>
     <p class="chat-welcome-sub">Start a new conversation below.</p>
   </div>`;
@@ -8088,42 +8088,10 @@ function setNavTabs(arr) {
   } catch (e) {}
 }
 
-// ── Sidebar "Recents" — last 3 visited panels, most-recent-first ─────
-function RECENTS_KEY() {
-  return `sivarr_recents_${(typeof S !== "undefined" && S.sid) || ""}`;
-}
-function getRecentPanels() {
-  try {
-    const v = JSON.parse(localStorage.getItem(RECENTS_KEY()));
-    if (Array.isArray(v)) return v.filter((p) => NAV_TABS[p]);
-  } catch (e) {}
-  return [];
-}
-function pushRecentPanel(panel) {
-  const meta = NAV_TABS[panel];
-  // Core is always in Pinned already; connect panels are always shown in
-  // Connect regardless of recency — either would just be a duplicate row.
-  if (!meta || meta.section === "core" || meta.section === "connect") return;
-  try {
-    let r = JSON.parse(localStorage.getItem(RECENTS_KEY())) || [];
-    if (!Array.isArray(r)) r = [];
-    r = [panel, ...r.filter((p) => p !== panel)].slice(0, 3);
-    localStorage.setItem(RECENTS_KEY(), JSON.stringify(r));
-  } catch (e) {}
-}
-
-// ── Sidebar section collapse: Pinned (hides fully) + Recents (collapses
-// to just the single most-recent item instead of hiding) ────────────────
+// ── Sidebar section collapse: Pinned (hides fully) ────────────────────
 function _favsCollapsed() {
   try {
     return localStorage.getItem("sivarr_sb_favs_collapsed") === "1";
-  } catch (e) {
-    return false;
-  }
-}
-function _recentsCollapsed() {
-  try {
-    return localStorage.getItem("sivarr_sb_recents_collapsed") === "1";
   } catch (e) {
     return false;
   }
@@ -8138,22 +8106,6 @@ function sbTogglePinned() {
   try {
     localStorage.setItem("sivarr_sb_favs_collapsed", collapsed ? "1" : "0");
   } catch (e) {}
-}
-// Renders Recents at whatever depth the collapse state calls for — used on
-// initial render and on every nav() so a collapsed Recents section stays
-// collapsed (showing just the latest visit) as the user keeps browsing.
-function _renderRecentsSection() {
-  const all = getRecentPanels();
-  _navRenderSec("sgi-recents", _recentsCollapsed() ? all.slice(0, 1) : all);
-}
-function sbToggleRecents() {
-  const collapsed = !_recentsCollapsed();
-  try {
-    localStorage.setItem("sivarr_sb_recents_collapsed", collapsed ? "1" : "0");
-  } catch (e) {}
-  const caret = $("sgi-recents-caret");
-  if (caret) caret.classList.toggle("collapsed", collapsed);
-  _renderRecentsSection();
 }
 
 // In the sidebar right now? Core tabs always are; the rest depend on the user's store.
@@ -8209,14 +8161,10 @@ function _navRenderSec(hostId, panels) {
 }
 function navRenderSidebar() {
   _navRenderSec("sb-favs", NAV_CORE);
-  // Restore collapse state — Pinned hides fully, Recents drops to 1 item.
+  // Restore collapse state — Pinned hides fully.
   const favsCollapsed = _favsCollapsed();
   $("sb-favs")?.classList.toggle("collapsed", favsCollapsed);
   $("sb-favs-caret")?.classList.toggle("collapsed", favsCollapsed);
-  $("sgi-recents-caret")?.classList.toggle("collapsed", _recentsCollapsed());
-  // Last 3 visited panels (or just the latest, if collapsed) — see
-  // pushRecentPanel(), called from nav().
-  _renderRecentsSection();
   // Tabs starred via the ⌘K palette (toggleNavTab/getNavTabs) — previously
   // saved correctly but never rendered anywhere in the sidebar. Exclude
   // "connect"-section panels: those are always shown below regardless of
@@ -12681,11 +12629,6 @@ function nav(name, btn) {
     return;
   }
   _pushRecentNav(name);
-  pushRecentPanel(name);
-  // Cheap, targeted re-render — just this section, not the whole sidebar —
-  // so Recents updates live on every navigation, not just on login/star/etc.
-  // Respects collapse state (see sbToggleRecents()).
-  if (typeof _renderRecentsSection === "function") _renderRecentsSection();
   if (typeof cmdPushRecent === "function") cmdPushRecent(name);
   // Leaving the org space — tear down the live SSE + presence (it is kept alive
   // across all org tabs, so only a full nav-away should close it).

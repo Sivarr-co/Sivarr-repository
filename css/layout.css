@@ -115,7 +115,7 @@ body.offline .layout {
   height: 28px;
   border-radius: 8px;
   flex-shrink: 0;
-  background: var(--ai-grad);
+  background: linear-gradient(135deg, var(--logo-purple), var(--logo-purple2));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -123,10 +123,9 @@ body.offline .layout {
   box-shadow: var(--glow-teal);
 }
 .tb-logo img {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-  filter: brightness(0) invert(1);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .tb-name {
@@ -1025,7 +1024,6 @@ body.auth-screen #login-screen {
   width: 42px;
   height: 42px;
   object-fit: contain;
-  filter: brightness(0) invert(1);
 }
 .ll-logo span {
   font-family: var(--font);
@@ -1167,8 +1165,8 @@ body.auth-screen #login-screen {
   border-radius: 9px;
   background: linear-gradient(
     135deg,
-    var(--sv-purple) 0%,
-    var(--sv-purple-bright) 100%
+    var(--logo-purple) 0%,
+    var(--logo-purple2) 100%
   );
   display: flex;
   align-items: center;
@@ -1176,10 +1174,9 @@ body.auth-screen #login-screen {
   overflow: hidden;
 }
 .lc-logo-sm img {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
-  filter: brightness(0) invert(1);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .lc-brand-mob span {
   font-family: var(--font);

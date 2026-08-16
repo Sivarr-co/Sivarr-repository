@@ -17,6 +17,14 @@
   --teal2: var(--purple2);
   --teal3: rgba(65, 7, 107, 0.22);
   --teal4: var(--purple3);
+
+  /* Fixed brand purple for the Sivarr logo mark ONLY — unlike --purple/--accent
+     above, this is never overridden by _applyAccentColor()/the Settings accent
+     picker (js/app.js). The logo itself should always render brand-purple
+     regardless of the user's chosen accent color. Matches static/favicon.svg's
+     gradient exactly. */
+  --logo-purple: #41076b;
+  --logo-purple2: #7b2cad;
   --coral: #e8614a;
   --coral2: #fdf0ed;
   --coral3: #993c1d;
@@ -380,7 +388,7 @@ h3,
 }
 .sb-draw {
   fill: none;
-  stroke: var(--purple, #41076b);
+  stroke: var(--logo-purple);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 1;

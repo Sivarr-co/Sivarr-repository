@@ -385,12 +385,11 @@ MAX_MATRIC_LEN   = 30      # max matric number length
 MAX_FILE_SIZE    = 5 * 1024 * 1024  # 5MB max file size
 
 GEMINI_MODELS = [
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
-    "gemini-1.5-pro",
-    "gemini-pro",
-    "gemini-1.0-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-flash-latest",
+    "gemini-pro-latest",
+    "gemini-2.5-flash-lite",
 ]
 
 MATH_TRIGGERS = [
@@ -4629,7 +4628,7 @@ async def chat_stream(req: ChatRequest, request: Request):
                 raw = await async_gemini_once(
                     f"Based on this AI response, suggest exactly 3 short follow-up questions a user might ask next. "
                     f"Return ONLY a JSON array of 3 strings, no other text.\n\nResponse:\n{full_text[:800]}",
-                    temp=0.7, tokens=120
+                    temp=0.7, tokens=1200
                 )
                 if raw:
                     raw = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`")
@@ -9528,7 +9527,7 @@ async def home_brief(data: dict):
     ]
 
     prompt  = "\n".join(lines)
-    brief   = await async_gemini_once(prompt, temp=0.75, tokens=120)
+    brief   = await async_gemini_once(prompt, temp=0.75, tokens=1200)
     if not brief:
         brief = f"Good {tod}, {first_name}. Your workspace is ready, so make today count."
     return {"brief": brief, "date": today}
@@ -9859,7 +9858,7 @@ Rules:
 - Keep title concise (max 70 chars), remove filler words like "remind me to" or "I need to"
 - subject is only for goals (the subject area, e.g. "Physics")"""
 
-    raw = await async_gemini_once(prompt, temp=0.1, tokens=120)
+    raw = await async_gemini_once(prompt, temp=0.1, tokens=1200)
     parsed = None
     if raw:
         try:
