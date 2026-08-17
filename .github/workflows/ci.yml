@@ -40,7 +40,7 @@ jobs:
         # pre-existing unused-import and unused-variable noise that would drown a
         # full pyflakes gate; tighten this over time rather than all at once.
         run: |
-          python -m pyflakes app.py core.py database.py routes/*.py tests/*.py \
+          python -m pyflakes app.py core.py ai_core.py database.py routes/*.py tests/*.py \
             | grep -E "undefined name|invalid syntax" && {
               echo "::error::pyflakes found undefined names"; exit 1;
             } || echo "No undefined names."

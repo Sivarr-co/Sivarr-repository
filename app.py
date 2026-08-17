@@ -3,8 +3,6 @@ Sivarr AI Web App — FastAPI Backend v4.2
 Added: Rate limiting, Input validation, Error logging
 """
 
-import ast
-import collections
 import csv
 import datetime
 import hashlib
@@ -130,14 +128,13 @@ BANK_LIMIT    = 20
 # These names are re-exported here unchanged — every existing reference in this
 # file keeps working, and _session_tokens is the same dict object core.py mutates.
 from core import (
-    VERSION, _BASE, DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR,
-    MAX_MESSAGE_LEN, SESSION_TTL_DAYS, SESSION_REVALIDATE_SECONDS,
+    VERSION, DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR,
+    MAX_MESSAGE_LEN, SESSION_TTL_DAYS,
     sanitize_text, save_json, _load_json_file, _save_json_file,
     _session_tokens, create_session_token, create_session_token_for_existing,
     delete_all_sessions, get_session_from_token, delete_session_token,
-    _load_user_list, _save_user_list,
     _req_token, _resolve_token,
-    RATE_LIMIT_WINDOW, RateLimiter, limiter, _client_ip, get_client_key, check_rate_limit,
+    RATE_LIMIT_WINDOW, limiter, get_client_key, check_rate_limit,
     asset, sw_cache_version,
 )
 
@@ -1501,10 +1498,10 @@ from ai_core import (
 # can be included here at the top rather than 7,000 lines down. Adding a new
 # router is now a two-line change with no ordering constraint.
 from routes.tasks import router as _tasks_router, load_tasks, save_tasks
-from routes.habits import router as _habits_router, load_habits, save_habits
-from routes.docs_notes import router as _docs_notes_router, load_docs, save_docs
-from routes.goals import router as _goals_router, load_goals, save_goals
-from routes.journal import router as _journal_router, load_journal, save_journal
+from routes.habits import router as _habits_router, load_habits
+from routes.docs_notes import router as _docs_notes_router, load_docs
+from routes.goals import router as _goals_router, load_goals
+from routes.journal import router as _journal_router, load_journal
 from routes.skills import router as _skills_router
 from routes.finance import router as _finance_router
 

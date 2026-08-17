@@ -299,15 +299,27 @@ def test_finance_round_trip(client, session_token):
     assert data["budgets"]["food"] == 5000
 
 
-def test_goals_and_journal_reexported_for_internal_callers():
-    """load_goals/save_goals/load_journal/save_journal moved into routes/goals.py
-    and routes/journal.py, but app.py's weekly review, Home brief, daily digest
-    and /api/export still call them directly — confirms the re-export at the
-    include_router import block still resolves."""
+def test_load_helpers_reexported_for_internal_callers():
+    """load_tasks/load_habits/load_docs/load_goals/load_journal moved into their
+    routes/*.py modules, but app.py's weekly review, Home brief, daily digest and
+    /api/export still read this data directly — confirms the re-export at the
+    include_router import block still resolves. The save_* counterparts were
+    re-exported too in earlier passes on the assumption app.py needed direct
+    write access; a later audit found zero real call sites for any of them (all
+    writes happen through the route endpoints themselves, not from within
+    app.py's other features) and the unused imports were removed — asserting
+    only what's actually true keeps this test from masking that again."""
+    assert callable(app_module.load_tasks)
+    assert callable(app_module.load_habits)
+    assert callable(app_module.load_docs)
     assert callable(app_module.load_goals)
-    assert callable(app_module.save_goals)
     assert callable(app_module.load_journal)
-    assert callable(app_module.save_journal)
+    for name in ("save_habits", "save_docs", "save_goals", "save_journal"):
+        assert not hasattr(app_module, name), (
+            f"app_module.{name} exists but has no real caller in app.py — "
+            f"either a genuine new use appeared (re-add the import, drop this "
+            f"line) or it's dead weight again (remove the import in app.py)."
+        )
 
 
 def test_chat_rejects_invalid_token(client):
