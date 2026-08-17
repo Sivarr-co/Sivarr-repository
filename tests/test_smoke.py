@@ -300,6 +300,23 @@ def test_goals_trash_requires_auth(client):
     assert r.status_code == 401
 
 
+def test_search_excludes_deleted_goal(client, session_token):
+    """unified_search reads load_goals(sid) directly, not through GET /api/goals
+    — bypasses that endpoint's own deleted-item filter, so it needed its own
+    fix. Regression test for exactly that gap."""
+    unique = "Zzyzx9Search"
+    add = client.post("/api/goals/add", json={"token": session_token, "title": unique})
+    goal_id = add.json()["goal"]["id"]
+
+    found = client.get(f"/api/search?q={unique}&token={session_token}").json()["results"]
+    assert any(r["title"] == unique for r in found)
+
+    client.post("/api/goals/delete", json={"token": session_token, "id": goal_id})
+
+    found_after = client.get(f"/api/search?q={unique}&token={session_token}").json()["results"]
+    assert not any(r["title"] == unique for r in found_after)
+
+
 def test_purge_deleted_goals_respects_30_day_retention():
     """Exercises app.py's _purge_deleted_goals job logic directly (it's a
     closure inside _start_scheduler, not importable) by reproducing its exact

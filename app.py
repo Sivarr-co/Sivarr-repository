@@ -2085,9 +2085,9 @@ def _start_scheduler():
             review_path = reviews_dir / f"{sid}_{week_start}.json"
             if review_path.exists():
                 continue
-            tasks      = load_tasks(sid)
-            habits     = load_habits(sid)
-            goals      = load_goals(sid)
+            tasks      = [t for t in load_tasks(sid) if not t.get("deleted_at")]
+            habits     = [h for h in load_habits(sid) if not h.get("deleted_at")]
+            goals      = [g for g in load_goals(sid) if not g.get("deleted_at")]
             tasks_done = sum(1 for t in tasks if t.get("done"))
             habit_logs = sum(len(h.get("completions", [])) for h in habits)
             if tasks_done < 3 and habit_logs < 5:
@@ -2131,7 +2131,7 @@ def _start_scheduler():
         for sid, entry in list(subs.items()):
             if "streak" not in entry.get("types", []):
                 continue
-            habits    = load_habits(sid)
+            habits    = [h for h in load_habits(sid) if not h.get("deleted_at")]
             unchecked = [h for h in habits if today_str not in h.get("completions", [])]
             if not unchecked:
                 continue
@@ -2154,7 +2154,7 @@ def _start_scheduler():
                 continue
             tasks = load_tasks(sid)
             for t in tasks:
-                if t.get("done"):
+                if t.get("done") or t.get("deleted_at"):
                     continue
                 due = t.get("date", "")
                 if not due or not (today_str <= due <= window):
@@ -6567,6 +6567,8 @@ async def unified_search(q: str = "", token: str = ""):
 
     # ── Tasks ──────────────────────────────────────────────────
     for t in load_tasks(sid):
+        if t.get("deleted_at"):
+            continue
         if q in t.get("title", "").lower():
             results.append({
                 "type": "task",
@@ -6578,6 +6580,8 @@ async def unified_search(q: str = "", token: str = ""):
 
     # ── Goals ──────────────────────────────────────────────────
     for g in load_goals(sid):
+        if g.get("deleted_at"):
+            continue
         if q in g.get("title", "").lower() or q in g.get("subject", "").lower():
             results.append({
                 "type":  "goal",
@@ -6589,6 +6593,8 @@ async def unified_search(q: str = "", token: str = ""):
 
     # ── Docs ───────────────────────────────────────────────────
     for d in load_docs(sid):
+        if d.get("deleted_at"):
+            continue
         title   = d.get("title", "").lower()
         content = d.get("content", "").lower()
         if q in title or q in content:
@@ -8406,9 +8412,9 @@ async def home_briefing_data(token: str = ""):
     hr    = _dt.datetime.now().hour
     greeting = "Good morning" if hr < 12 else "Good afternoon" if hr < 17 else "Good evening"
 
-    tasks  = load_tasks(sid)
-    habits = load_habits(sid)
-    goals  = load_goals(sid)
+    tasks  = [t for t in load_tasks(sid) if not t.get("deleted_at")]
+    habits = [h for h in load_habits(sid) if not h.get("deleted_at")]
+    goals  = [g for g in load_goals(sid) if not g.get("deleted_at")]
 
     tasks_due_today = sum(1 for t in tasks if not t.get("done") and t.get("date") == today)
     overdue_tasks   = sum(1 for t in tasks if not t.get("done") and t.get("date","") and t.get("date","") < today)
@@ -10853,8 +10859,8 @@ async def notifications_digest(request: Request):
         if p.get("last_digest_date") == today:
             skipped += 1
             continue
-        tasks = load_tasks(sid)
-        goals = load_goals(sid)
+        tasks = [t for t in load_tasks(sid) if not t.get("deleted_at")]
+        goals = [g for g in load_goals(sid) if not g.get("deleted_at")]
         html  = _email_digest_html(name, tasks, goals)
         if not html:
             skipped += 1
@@ -11143,28 +11149,36 @@ async def export_data(data: dict):
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
 
         # ── tasks.csv ──────────────────────────────────────────
-        tasks = load_tasks(sid)
+        # Trashed items excluded — export reflects what the user currently
+        # has, matching the in-app lists, not a full history including
+        # things they deliberately deleted.
+        tasks = [t for t in load_tasks(sid) if not t.get("deleted_at")]
         if tasks:
             zf.writestr("tasks.csv", _csv_bytes(tasks, [
                 "title", "status", "done", "date", "time", "priority", "type"
             ]))
 
         # ── goals.csv ──────────────────────────────────────────
-        goals = load_goals(sid)
+        goals = [g for g in load_goals(sid) if not g.get("deleted_at")]
         if goals:
             zf.writestr("goals.csv", _csv_bytes(goals, [
                 "title", "subject", "target_score", "deadline", "progress", "completed"
             ]))
 
         # ── habits.csv ─────────────────────────────────────────
-        habits = client_habits or load_habits(sid)
+        # client_habits comes straight from the frontend's localStorage read
+        # (two separate call sites — js/app.js's export button and Settings'
+        # stExportData()), which now can carry soft-deleted entries the same
+        # way the local tasks/docs arrays do. Filtered here rather than at
+        # both call sites so a future third caller can't reintroduce the leak.
+        habits = [h for h in (client_habits or load_habits(sid)) if not h.get("deleted_at")]
         if habits:
             zf.writestr("habits.csv", _csv_bytes(habits, [
                 "title", "emoji", "frequency", "streak"
             ]))
 
         # ── notes.md (docs) ────────────────────────────────────
-        docs = load_docs(sid)
+        docs = [d for d in load_docs(sid) if not d.get("deleted_at")]
         if docs:
             lines = []
             for d in docs:

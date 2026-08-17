@@ -47,6 +47,17 @@ function getSHData() {
   }
 }
 
+// Soft-deleted tasks (deleted_at set) stay in getSHData()'s full array forever
+// — deleteSHTask() never removes them, only marks them — so any read-modify-
+// write cycle through saveSHData() keeps preserving them. Every render/count/
+// search/calendar site must filter through this instead of reading
+// `.tasks` raw, or a trashed task would silently reappear in the UI. Mutation
+// sites (edit/move/add-subtask) that look a task up by id don't need this:
+// a deleted task has no rendered element to click in the first place.
+function shActiveTasks(tasks) {
+  return (tasks || []).filter((t) => !t.deleted_at);
+}
+
 function saveSHData(data) {
   localStorage.setItem(SH_KEY(), JSON.stringify(data));
   _syncTasksToServer(data.tasks || []);
@@ -89,7 +100,28 @@ function _syncTasksToServer(tasks) {
     .catch(() => _queueMutation("/api/tasks/sync", { token, tasks }));
 }
 
+// Permanently drops tombstones older than the 30-day Trash retention window.
+// There's no server-side purge for tasks the way there is for Goals (see
+// app.py's _purge_deleted_goals) — tasks only ever exist as whatever the
+// client's own array contains, so the client has to be the one to let old
+// deleted items go, or they'd sit in localStorage (and the server mirror)
+// forever. Runs once per Tasks-panel visit; cheap and idempotent.
+function _shPruneExpiredTrash() {
+  const data = getSHData();
+  const cutoff = Date.now() - 30 * 86400000;
+  const kept = (data.tasks || []).filter((t) => {
+    if (!t.deleted_at) return true;
+    const ts = Date.parse(t.deleted_at);
+    return Number.isNaN(ts) || ts >= cutoff; // malformed timestamp: keep, don't guess
+  });
+  if (kept.length !== (data.tasks || []).length) {
+    data.tasks = kept;
+    saveSHData(data);
+  }
+}
+
 function loadStudyHelp() {
+  _shPruneExpiredTrash();
   SH_BULK_SEL.clear();
   _shBulkUpdateBar();
   const overviewBtn = $("sh-view-overview");
@@ -213,7 +245,7 @@ function setSHView(view, btn) {
 
 function renderSHOverview() {
   const data = getSHData();
-  const tasks = _shFilterAndSort(data.tasks || []);
+  const tasks = _shFilterAndSort(shActiveTasks(data.tasks));
   const tbody = $("sh-overview-rows");
   if (!tbody) return;
 
@@ -591,7 +623,20 @@ function saveSHModal() {
 
 function deleteSHTask(id) {
   const data = getSHData();
-  data.tasks = (data.tasks || []).filter((t) => t.id !== id);
+  const task = (data.tasks || []).find((t) => t.id === id);
+  if (!task) return;
+  task.deleted_at = new Date().toISOString();
+  saveSHData(data);
+  renderSHBoard();
+  if (SH_VIEW === "list") renderSHListView();
+  toast("Task moved to Trash");
+}
+
+function restoreSHTask(id) {
+  const data = getSHData();
+  const task = (data.tasks || []).find((t) => t.id === id);
+  if (!task) return;
+  delete task.deleted_at;
   saveSHData(data);
   renderSHBoard();
   if (SH_VIEW === "list") renderSHListView();
@@ -696,7 +741,7 @@ function _shBulkUpdateBar() {
     count.textContent = `${size} task${size !== 1 ? "s" : ""} selected`;
   const allCb = $("sh-bulk-all");
   if (allCb) {
-    const total = (getSHData().tasks || []).length;
+    const total = shActiveTasks(getSHData().tasks).length;
     allCb.checked = size > 0 && size === total;
     allCb.indeterminate = size > 0 && size < total;
   }
@@ -709,7 +754,10 @@ function _shToggleBulk(id, checked) {
 }
 
 function _shBulkSelectAll(checked) {
-  const tasks = getSHData().tasks || [];
+  // Active tasks only — selecting all must never sweep up an already-trashed
+  // task (it has no checkbox to have been individually selected, so "all"
+  // silently including it would let bulk-complete resurrect a deleted task).
+  const tasks = shActiveTasks(getSHData().tasks);
   if (checked) tasks.forEach((t) => SH_BULK_SEL.add(t.id));
   else SH_BULK_SEL.clear();
   _shBulkUpdateBar();
@@ -739,12 +787,15 @@ function _shBulkDelete() {
   const n = SH_BULK_SEL.size;
   if (!confirm(`Delete ${n} task${n !== 1 ? "s" : ""}?`)) return;
   const data = getSHData();
-  data.tasks = (data.tasks || []).filter((t) => !SH_BULK_SEL.has(t.id));
+  const now = new Date().toISOString();
+  (data.tasks || []).forEach((t) => {
+    if (SH_BULK_SEL.has(t.id)) t.deleted_at = now;
+  });
   saveSHData(data);
   SH_BULK_SEL.clear();
   _shBulkUpdateBar();
   renderSHBoard();
-  toast(`🗑 ${n} task${n !== 1 ? "s" : ""} deleted`);
+  toast(`🗑 ${n} task${n !== 1 ? "s" : ""} moved to Trash`);
 }
 
 function _shBulkPriority(p) {
@@ -831,7 +882,7 @@ function shOpenDetail(id) {
     </div>
 
     ${(() => {
-      const allTasks = getSHData().tasks || [];
+      const allTasks = shActiveTasks(getSHData().tasks);
       const subs = allTasks.filter(
         (c) => String(c.parent_id) === String(task.id),
       );
@@ -918,7 +969,7 @@ async function addSubtask(parentId) {
 
 function renderSHBoard() {
   const data = getSHData();
-  const tasks = data.tasks || [];
+  const tasks = shActiveTasks(data.tasks);
   const done = tasks.filter((t) => t.status === "done").length;
   const total = tasks.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
@@ -992,7 +1043,7 @@ function renderSHBoard() {
 
 function renderSHListView() {
   const data = getSHData();
-  const tasks = data.tasks || [];
+  const tasks = shActiveTasks(data.tasks);
   const container = $("sh-list-container");
   if (!container) return;
 

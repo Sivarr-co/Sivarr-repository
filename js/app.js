@@ -8798,7 +8798,7 @@ async function loadHome() {
       const todayEvts = events
         .filter((e) => (e.date || "").startsWith(today8601))
         .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
-      const shTasksToday = (getSHData().tasks || [])
+      const shTasksToday = shActiveTasks(getSHData().tasks)
         .filter((t) => t.date === today8601 && t.status !== "done")
         .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
 
@@ -8943,7 +8943,7 @@ async function loadHome() {
 function _homeRenderToday(today8601, habits) {
   const tl = $("home-today-list");
   if (!tl) return;
-  const shAll = getSHData().tasks || [];
+  const shAll = shActiveTasks(getSHData().tasks);
   const topLevel = shAll.filter((t) => !t.parent_id);
   const due = topLevel.filter(
     (t) =>
@@ -9504,7 +9504,7 @@ function _calNormalize() {
     });
   });
   if (f.has("task")) {
-    (getSHData().tasks || [])
+    shActiveTasks(getSHData().tasks)
       .filter((t) => t.date && t.status !== "done")
       .forEach((t) => {
         const startMin = _calToMin(t.time);

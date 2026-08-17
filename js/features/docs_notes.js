@@ -234,7 +234,10 @@ function _relTime(ts) {
 
 function docDelete(id, e) {
   e?.stopPropagation();
-  const list = docGetAll().filter((d) => d.id !== id);
+  const list = docGetAll();
+  const doc = list.find((d) => d.id === id);
+  if (!doc) return;
+  doc.deleted_at = new Date().toISOString();
   docSaveAll(list);
   if (_docId === id) {
     _docId = null;
@@ -245,12 +248,36 @@ function docDelete(id, e) {
     if (wrap) wrap.style.display = "none";
   }
   docRenderList();
+  toast("Note moved to Trash");
+}
+
+function docRestore(id) {
+  const list = docGetAll();
+  const doc = list.find((d) => d.id === id);
+  if (!doc) return;
+  delete doc.deleted_at;
+  docSaveAll(list);
+  docRenderList();
+}
+
+// Same reasoning as tasks'/habits' prune helpers — no server-side purge for
+// docs, so the client lets old tombstones go itself. Runs once per Docs &
+// Notes panel visit.
+function _docPruneExpiredTrash() {
+  const list = docGetAll();
+  const cutoff = Date.now() - 30 * 86400000;
+  const kept = list.filter((d) => {
+    if (!d.deleted_at) return true;
+    const ts = Date.parse(d.deleted_at);
+    return Number.isNaN(ts) || ts >= cutoff;
+  });
+  if (kept.length !== list.length) docSaveAll(kept);
 }
 
 function docRenderList(filter) {
   const list = $("doc-list");
   if (!list) return;
-  let docs = docGetAll();
+  let docs = docGetAll().filter((d) => !d.deleted_at);
   const q = filter ?? ($("doc-search")?.value?.toLowerCase() || "");
   if (q)
     docs = docs.filter(
@@ -637,11 +664,13 @@ function _initTiptapEditor() {
 }
 
 function docInit() {
+  _docPruneExpiredTrash();
   docRenderList();
   _waitForTiptap(() => {
     _initTiptapEditor();
     if (!_docId) {
-      const docs = docGetAll();
+      // Auto-open the most recent doc — must never land on a trashed one.
+      const docs = docGetAll().filter((d) => !d.deleted_at);
       if (docs.length) docOpen(docs[0].id);
       else {
         const emptyState = $("doc-empty-state");
@@ -650,7 +679,7 @@ function docInit() {
         if (wrap) wrap.style.display = "none";
       }
     } else {
-      const doc = docGetAll().find((d) => d.id === _docId);
+      const doc = docGetAll().find((d) => d.id === _docId && !d.deleted_at);
       if (doc) docOpenEditor(doc);
     }
   });

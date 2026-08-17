@@ -31,16 +31,30 @@ function _habHeatmap(h) {
   return `<div class="hab-heatmap-grid">${cells.join("")}</div>`;
 }
 
+// habitToggle/habitEdit/habitDelete all address habits by their position in
+// the FULL localStorage array, not a stable id (unlike tasks/goals/docs) —
+// pre-existing, not something this pass changes. So when soft-deleted habits
+// are filtered out of what's rendered, each visible card must still carry
+// its ORIGINAL index from the full array, not its position in the filtered
+// list, or clicking a button would silently act on the wrong habit.
+function _habVisible(habits) {
+  return (habits || [])
+    .map((h, i) => ({ h, i }))
+    .filter(({ h }) => !h.deleted_at);
+}
+
 function habitInit() {
-  const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || "[]");
+  _habPruneExpiredTrash();
+  const allHabits = JSON.parse(localStorage.getItem(HAB_KEY()) || "[]");
+  const habits = _habVisible(allHabits); // [{h, i}], i = index into allHabits
   const today = new Date().toISOString().split("T")[0];
 
   // Stats
   const bestEver = habits.reduce(
-    (m, h) => Math.max(m, h.best_streak || h.streak || 0),
+    (m, { h }) => Math.max(m, h.best_streak || h.streak || 0),
     0,
   );
-  const doneToday = habits.filter((h) =>
+  const doneToday = habits.filter(({ h }) =>
     (h.completions || []).includes(today),
   ).length;
   const hs = $("hab-streak");
@@ -57,7 +71,7 @@ function habitInit() {
     }
     const totalPossible = habits.length * 28;
     const totalDone = habits.reduce(
-      (s, h) =>
+      (s, { h }) =>
         s + dateRange.filter((ds) => (h.completions || []).includes(ds)).length,
       0,
     );
@@ -78,7 +92,7 @@ function habitInit() {
   }
 
   list.innerHTML = habits
-    .map((h, i) => {
+    .map(({ h, i }) => {
       const isToday = (h.completions || []).includes(today);
       const streak = h.streak || 0;
       const best = Math.max(h.best_streak || 0, streak);
@@ -237,14 +251,40 @@ async function habitDelete(idx) {
   if (!h) return;
   if (
     !(await siModal.confirm(
-      `Delete "${h.title}"? All completion history will be lost.`,
+      `Delete "${h.title}"? You can restore it from Trash within 30 days.`,
       { title: "Delete Habit", confirmLabel: "Delete", danger: true },
     ))
   )
     return;
-  habits.splice(idx, 1);
+  habits[idx].deleted_at = new Date().toISOString();
   localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
   _syncHabitsToServer(habits);
   habitInit();
-  toast("Habit deleted");
+  toast("Habit moved to Trash");
+}
+
+function habitRestore(idx) {
+  const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || "[]");
+  if (!habits[idx]) return;
+  delete habits[idx].deleted_at;
+  localStorage.setItem(HAB_KEY(), JSON.stringify(habits));
+  _syncHabitsToServer(habits);
+  habitInit();
+}
+
+// Same reasoning as tasks' _shPruneExpiredTrash — no server-side purge exists
+// for habits, so the client has to let old tombstones go itself. Runs once
+// per Habits-panel visit.
+function _habPruneExpiredTrash() {
+  const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || "[]");
+  const cutoff = Date.now() - 30 * 86400000;
+  const kept = habits.filter((h) => {
+    if (!h.deleted_at) return true;
+    const ts = Date.parse(h.deleted_at);
+    return Number.isNaN(ts) || ts >= cutoff;
+  });
+  if (kept.length !== habits.length) {
+    localStorage.setItem(HAB_KEY(), JSON.stringify(kept));
+    _syncHabitsToServer(kept);
+  }
 }
