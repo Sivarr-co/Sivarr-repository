@@ -256,6 +256,85 @@ def test_goals_add_rejects_empty_title(client, session_token):
     assert r.status_code == 400
 
 
+# ── Soft delete (goals) ────────────────────────────────────────────────────────
+#
+# Tasks/Habits/Docs & Notes are soft-deleted client-side (deleted_at rides along
+# in the existing whole-array /sync payload — see js/features/*.js), so there's
+# no new server contract to test for those beyond "the field survives a sync
+# round trip," covered in test_tasks_round_trip-style tests via the deleted_at
+# key. Goals is the one domain with real per-entity server endpoints, so the
+# full delete -> trash -> restore -> purge lifecycle is testable end to end here.
+
+def test_goal_delete_is_soft_not_hard(client, session_token):
+    add = client.post("/api/goals/add", json={"token": session_token, "title": "Learn Rust"})
+    goal_id = add.json()["goal"]["id"]
+
+    client.post("/api/goals/delete", json={"token": session_token, "id": goal_id})
+
+    # Gone from the normal list...
+    goals = client.get(f"/api/goals?token={session_token}").json()["goals"]
+    assert goal_id not in [g["id"] for g in goals]
+
+    # ...but recoverable from Trash, not actually destroyed.
+    trash = client.get(f"/api/goals/trash?token={session_token}").json()["goals"]
+    trashed = next((g for g in trash if g["id"] == goal_id), None)
+    assert trashed is not None
+    assert trashed["deleted_at"]  # a real timestamp, not just truthy-by-accident
+
+
+def test_goal_restore_brings_it_back(client, session_token):
+    add = client.post("/api/goals/add", json={"token": session_token, "title": "Learn Zig"})
+    goal_id = add.json()["goal"]["id"]
+    client.post("/api/goals/delete", json={"token": session_token, "id": goal_id})
+
+    client.post("/api/goals/restore", json={"token": session_token, "id": goal_id})
+
+    goals = client.get(f"/api/goals?token={session_token}").json()["goals"]
+    assert goal_id in [g["id"] for g in goals]
+    trash = client.get(f"/api/goals/trash?token={session_token}").json()["goals"]
+    assert goal_id not in [g["id"] for g in trash]
+
+
+def test_goals_trash_requires_auth(client):
+    r = client.get("/api/goals/trash")
+    assert r.status_code == 401
+
+
+def test_purge_deleted_goals_respects_30_day_retention():
+    """Exercises app.py's _purge_deleted_goals job logic directly (it's a
+    closure inside _start_scheduler, not importable) by reproducing its exact
+    filter rule against a real load_goals/save_goals round trip — a fresh
+    deletion must survive, one from 31 days ago must not.
+
+    Uses its own sid rather than CI_TEST_SID (that fixture's other tests don't
+    expect goals with fabricated deleted_at timestamps mixed in), so it cleans
+    up its own JSON-fallback file directly rather than relying on the
+    session-scoped _clean_ci_test_sid_data_files fixture."""
+    import datetime as _dt
+    sid = "purge_test_sid"
+    goals_file = REPO / "data" / f"{sid}_goals.json"
+    try:
+        now = _dt.datetime.utcnow()
+        fresh_id, old_id = "g_fresh", "g_old"
+        app_module.save_goals(sid, [
+            {"id": fresh_id, "title": "Just deleted", "deleted_at": now.isoformat()},
+            {"id": old_id,   "title": "Long gone",    "deleted_at": (now - _dt.timedelta(days=31)).isoformat()},
+            {"id": "g_keep", "title": "Never deleted"},
+        ])
+
+        cutoff = now - _dt.timedelta(days=30)
+        goals = app_module.load_goals(sid)
+        kept = [g for g in goals if not g.get("deleted_at")
+                or _dt.datetime.fromisoformat(g["deleted_at"]) >= cutoff]
+
+        kept_ids = {g["id"] for g in kept}
+        assert fresh_id in kept_ids
+        assert old_id not in kept_ids
+        assert "g_keep" in kept_ids
+    finally:
+        goals_file.unlink(missing_ok=True)
+
+
 # ── core.py contracts ─────────────────────────────────────────────────────────
 
 def test_sanitize_text_strips_control_chars_and_truncates():
@@ -325,18 +404,22 @@ def test_load_helpers_reexported_for_internal_callers():
     """load_tasks/load_habits/load_docs/load_goals/load_journal moved into their
     routes/*.py modules, but app.py's weekly review, Home brief, daily digest and
     /api/export still read this data directly — confirms the re-export at the
-    include_router import block still resolves. The save_* counterparts were
-    re-exported too in earlier passes on the assumption app.py needed direct
-    write access; a later audit found zero real call sites for any of them (all
-    writes happen through the route endpoints themselves, not from within
-    app.py's other features) and the unused imports were removed — asserting
-    only what's actually true keeps this test from masking that again."""
+    include_router import block still resolves.
+
+    The save_* counterparts were re-exported too in an earlier pass on the
+    assumption app.py needed direct write access; an audit found zero real
+    call sites for any of them and the unused imports were removed. save_goals
+    came back for a real reason since then — the goal-trash-purge scheduler
+    job in app.py needs it — so it's asserted present, not absent, unlike its
+    still-genuinely-unused siblings. Asserting the true state (not "all
+    save_* absent") keeps this test from masking either direction of drift."""
     assert callable(app_module.load_tasks)
     assert callable(app_module.load_habits)
     assert callable(app_module.load_docs)
     assert callable(app_module.load_goals)
     assert callable(app_module.load_journal)
-    for name in ("save_habits", "save_docs", "save_goals", "save_journal"):
+    assert callable(app_module.save_goals)
+    for name in ("save_habits", "save_docs", "save_journal"):
         assert not hasattr(app_module, name), (
             f"app_module.{name} exists but has no real caller in app.py — "
             f"either a genuine new use appeared (re-add the import, drop this "

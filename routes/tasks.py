@@ -41,6 +41,11 @@ async def sync_tasks(data: dict):
             "parent_id":          sanitize_text(str(t.get("parent_id","")), 50),
             "recurrence":         sanitize_text(str(t.get("recurrence","")), 20) or None,
             "recurrence_spawned": bool(t.get("recurrence_spawned", False)),
+            # Soft delete: an ISO timestamp string, or None if not deleted. The
+            # client sets this instead of removing the task from the array so a
+            # sync doesn't permanently destroy it — see js/features/tasks.js's
+            # deleteSHTask()/restoreSHTask() and the Trash panel.
+            "deleted_at":         sanitize_text(str(t.get("deleted_at","") or ""), 30) or None,
         })
 
     # ── Recurring task spawn ──────────────────────────────────────────────────
@@ -57,6 +62,7 @@ async def sync_tasks(data: dict):
         if (t.get("done")
                 and t.get("recurrence") and t["recurrence"] not in ("", "none", None)
                 and not t.get("recurrence_spawned")
+                and not t.get("deleted_at")
                 and t.get("date")):
             interval = _RECUR_INTERVALS.get(t["recurrence"])
             if not interval:

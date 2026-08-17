@@ -38,6 +38,9 @@ async def sync_docs(data: dict):
             "title":    sanitize_text(str(d.get("title", "")), 200),
             "content":  text_only,
             "updated":  sanitize_text(str(d.get("updated", "")), 30),
+            # Soft delete — see routes/tasks.py's identical field for the full
+            # rationale (client sets this instead of removing the row).
+            "deleted_at": sanitize_text(str(d.get("deleted_at","") or ""), 30) or None,
         })
     save_docs(sid, clean)
     return {"ok": True, "count": len(clean)}

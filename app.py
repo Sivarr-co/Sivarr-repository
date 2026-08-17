@@ -1421,7 +1421,7 @@ from ai_core import (
 from routes.tasks import router as _tasks_router, load_tasks, save_tasks
 from routes.habits import router as _habits_router, load_habits
 from routes.docs_notes import router as _docs_notes_router, load_docs
-from routes.goals import router as _goals_router, load_goals
+from routes.goals import router as _goals_router, load_goals, save_goals
 from routes.journal import router as _journal_router, load_journal
 from routes.skills import router as _skills_router
 from routes.finance import router as _finance_router
@@ -2174,15 +2174,48 @@ def _start_scheduler():
                 save_tasks(sid, tasks)
         _save_push_subs(subs)
 
+    async def _purge_deleted_goals():
+        """Permanently remove goals that have sat in Trash past the 30-day
+        retention window (soft delete lands in routes/goals.py's delete_goal).
+        Sweeps both storage backends explicitly — a JSON-file-only glob (like
+        the pre-existing pattern in _auto_weekly_reviews above) would silently
+        purge nothing for any user once a database is configured, since
+        _load_user_list/_save_user_list stop writing per-user JSON files the
+        moment db.is_available() is true."""
+        import datetime as _dt
+        cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=30)
+        sids = set(db.get_sids_with_blob_key("goals")) if db.is_available() else set(
+            p.name.replace("_goals.json", "") for p in DATA_DIR.glob("*_goals.json")
+        )
+        purged = 0
+        for sid in sids:
+            goals = load_goals(sid)
+            kept = []
+            for g in goals:
+                deleted_at = g.get("deleted_at")
+                if deleted_at:
+                    try:
+                        if _dt.datetime.fromisoformat(deleted_at) < cutoff:
+                            purged += 1
+                            continue  # past retention — actually gone now
+                    except ValueError:
+                        pass  # malformed timestamp — keep it rather than guess
+                kept.append(g)
+            if len(kept) != len(goals):
+                save_goals(sid, kept)
+        if purged:
+            log.info(f"Purged {purged} goals past the 30-day trash retention window")
+
     # ── Register jobs and start — wrapped so a failure never crashes the app ──
     try:
         import datetime as _tz_dt
         scheduler = AsyncIOScheduler(timezone=_tz_dt.timezone.utc)
         scheduler.add_job(_auto_weekly_reviews, CronTrigger(day_of_week="mon", hour=6, minute=0))
+        scheduler.add_job(_purge_deleted_goals, CronTrigger(hour=4, minute=30))
         scheduler.add_job(_streak_reminders,    CronTrigger(hour=19, minute=0))
         scheduler.add_job(_task_due_alerts,     IntervalTrigger(minutes=15))
         scheduler.start()
-        log.info("APScheduler started — weekly review (Mon 06:00 UTC) + push jobs registered")
+        log.info("APScheduler started — weekly review (Mon 06:00 UTC) + push + goal-trash-purge (daily 04:30 UTC) jobs registered")
     except Exception as exc:
         log.warning(f"APScheduler failed to start ({exc}) — scheduled jobs disabled, app continues normally")
 

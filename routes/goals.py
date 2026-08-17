@@ -22,7 +22,20 @@ async def get_goals(sid: str = "", token: str = ""):
     sess = get_session_from_token(sanitize_text(token, 100)) if token else None
     if not sess:
         raise HTTPException(401, "Invalid session.")
-    return {"goals": load_goals(sess["sid"])}
+    # Soft-deleted goals stay in storage (see delete_goal below) but never show
+    # up in the normal list — only in /api/goals/trash.
+    goals = [g for g in load_goals(sess["sid"]) if not g.get("deleted_at")]
+    return {"goals": goals}
+
+
+@router.get("/api/goals/trash")
+async def get_goals_trash(token: str = ""):
+    sess = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    trashed = [g for g in load_goals(sess["sid"]) if g.get("deleted_at")]
+    trashed.sort(key=lambda g: g.get("deleted_at", ""), reverse=True)
+    return {"goals": trashed}
 
 
 @router.post("/api/goals/add")
@@ -72,9 +85,29 @@ async def update_goal(data: dict):
 
 @router.post("/api/goals/delete")
 async def delete_goal(data: dict):
+    """Soft delete — marks the goal deleted_at instead of removing it, so it
+    can be recovered from Trash for 30 days. Actually purged by the
+    _purge_deleted_goals background job in app.py."""
     sid, _  = _resolve_token(data)
     goal_id = sanitize_text(str(data.get("id","")), 20)
-    goals   = [g for g in load_goals(sid) if g["id"] != goal_id]
+    goals   = load_goals(sid)
+    for g in goals:
+        if g["id"] == goal_id:
+            g["deleted_at"] = datetime.datetime.utcnow().isoformat()
+            break
+    save_goals(sid, goals)
+    return {"ok": True}
+
+
+@router.post("/api/goals/restore")
+async def restore_goal(data: dict):
+    sid, _  = _resolve_token(data)
+    goal_id = sanitize_text(str(data.get("id","")), 20)
+    goals   = load_goals(sid)
+    for g in goals:
+        if g["id"] == goal_id:
+            g["deleted_at"] = None
+            break
     save_goals(sid, goals)
     return {"ok": True}
 

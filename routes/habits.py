@@ -36,6 +36,9 @@ async def sync_habits(data: dict):
             "frequency":   sanitize_text(str(h.get("frequency","daily")), 20),
             "streak":      int(h.get("streak", 0)),
             "completions": [sanitize_text(str(d), 12) for d in (h.get("completions") or [])[:400]],
+            # Soft delete — see routes/tasks.py's identical field for the full
+            # rationale (client sets this instead of removing the row).
+            "deleted_at":  sanitize_text(str(h.get("deleted_at","") or ""), 30) or None,
         })
     save_habits(sid, clean)
     return {"ok": True, "count": len(clean)}

@@ -2326,6 +2326,20 @@ def get_user_blob(sid: str, key: str) -> dict | None:
         _release(conn)
 
 
+def get_sids_with_blob_key(key: str) -> list[str]:
+    """Every sid that has a user_blobs row under `key` — for background jobs that
+    need to sweep all users' data of one kind (e.g. purging expired trash)."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT sid FROM user_blobs WHERE key = %s", (key,))
+            return [r[0] for r in cur.fetchall()]
+    finally:
+        _release(conn)
+
+
 # ── Generic collections (relational global stores) ───────────
 # Per-record CRUD so concurrent writers no longer clobber a whole-file blob.
 
