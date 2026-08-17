@@ -129,8 +129,18 @@ def build_router(load_progress, save_progress) -> APIRouter:
     router = APIRouter()
 
     @router.get("/api/quiz/question")
-    async def quiz_question(request: Request, sid: str, topic: str = "", difficulty: str = "medium", file_id: str = ""):
-        sid = validate_sid(sid)  # strips path-traversal chars; sid is interpolated into the upload path
+    async def quiz_question(request: Request, token: str = "", topic: str = "", difficulty: str = "medium", file_id: str = ""):
+        # Auth is by session token only (IDOR fix). This endpoint used to accept
+        # a bare `sid` query param with no token check at all — since file_id is
+        # interpolated into a path to the user's own uploaded document
+        # (UPLOADS_DIR / f"{sid}_{file_id}.txt"), anyone who knew or guessed
+        # another user's sid could get quiz questions generated straight from
+        # that person's uploaded file content. sid now always comes from the
+        # authenticated session, never the client.
+        sess = get_session_from_token(sanitize_text(token, 100)) if token else None
+        if not sess:
+            raise HTTPException(401, "Invalid session.")
+        sid = validate_sid(sess["sid"])  # strips path-traversal chars; sid is interpolated into the upload path
         key = get_client_key(request, sid)
         check_rate_limit(key, RATE_LIMIT_QUIZ, "quiz")
 

@@ -3837,7 +3837,7 @@ async function loadQ() {
 
   try {
     const r = await fetch(
-      `/api/quiz/question?sid=${encodeURIComponent(S.sid)}&topic=${encodeURIComponent(topic)}&difficulty=${encodeURIComponent(S.diff)}`,
+      `/api/quiz/question?token=${encodeURIComponent(getToken())}&topic=${encodeURIComponent(topic)}&difficulty=${encodeURIComponent(S.diff)}`,
     );
     if (!r.ok) throw new Error(`Server error ${r.status}`);
     const q = await r.json();
@@ -13537,7 +13537,7 @@ async function startQuizFromFile(fileId) {
   const qw = $("qw");
   qw.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--muted)">Generating question 1/5 from your document...</div>`;
   const r = await fetch(
-    `/api/quiz/question?sid=${S.sid}&difficulty=${S.diff}&file_id=${fileId}`,
+    `/api/quiz/question?token=${encodeURIComponent(getToken())}&difficulty=${S.diff}&file_id=${fileId}`,
   );
   const q = await r.json();
   if (q.error) {

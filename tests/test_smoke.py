@@ -33,6 +33,28 @@ def client():
     return TestClient(app_module.app)
 
 
+CI_TEST_SID = "ci_test_sid"
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _clean_ci_test_sid_data_files():
+    """Without a database configured, session_token's fixture data (tasks,
+    goals, habits, etc. for CI_TEST_SID) falls back to real JSON files in the
+    same data/ directory a local dev server uses — confirmed the hard way when
+    a stale data/ci_test_sid_progress.json from an earlier local run made
+    test_quiz_submit_and_complete_round_trip fail on a second run (wrong_answers
+    had 2 entries, not 1) despite nothing being wrong. Wipes before AND after
+    the whole session so interrupted runs don't leave debris either, and so
+    repeated local `pytest` invocations are actually idempotent, not just
+    fresh CI checkouts."""
+    def _wipe():
+        for f in (REPO / "data").glob(f"*{CI_TEST_SID}*"):
+            f.unlink(missing_ok=True)
+    _wipe()
+    yield
+    _wipe()
+
+
 # ── Boot ──────────────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("path", ["/", "/app", "/health", "/sw.js", "/terms", "/privacy"])
@@ -119,7 +141,7 @@ def test_service_worker_fully_renders(client):
 @pytest.fixture
 def session_token():
     """A real session, minted directly — sidesteps the email-verification gate."""
-    return core.create_session_token("ci_test_sid", "CI", "ci@example.com")
+    return core.create_session_token(CI_TEST_SID, "CI", "ci@example.com")
 
 
 def test_routes_reject_missing_session(client):
@@ -351,7 +373,7 @@ def test_chat_clear_empties_history(client, session_token):
     r = client.post("/api/chat/clear", json={"token": session_token})
     assert r.status_code == 200 and r.json()["ok"]
 
-    p = app_module.load_progress("ci_test_sid")
+    p = app_module.load_progress(CI_TEST_SID)
     assert p["chat_history"] == []
 
 
@@ -395,7 +417,7 @@ def test_quiz_submit_and_complete_round_trip(client, session_token):
     })
     assert complete.status_code == 200 and complete.json()["ok"]
 
-    p = app_module.load_progress("ci_test_sid")
+    p = app_module.load_progress(CI_TEST_SID)
     assert len(p["wrong_answers"]) == 1
     assert p["quizzes"][-1]["topic"] == "algebra"
 
@@ -408,13 +430,21 @@ def test_quiz_submit_rejects_invalid_difficulty(client, session_token):
     assert r.status_code == 422
 
 
-def test_quiz_question_requires_no_auth_but_router_is_wired(client):
-    """quiz_question authenticates via a bare `sid` query param, not a session
-    token — verified pre-existing behavior during extraction (byte-identical
-    to the original), not something this pass changed. This just confirms the
-    route exists and validate_sid()'s length check runs before any Gemini call."""
-    r = client.get("/api/quiz/question", params={"sid": "ab"})  # below validate_sid's 3-char minimum
-    assert r.status_code == 400
+def test_quiz_question_requires_a_real_session_token(client):
+    """Was a bare `sid` query param with no token check at all — an IDOR letting
+    anyone read another user's uploaded-document quiz content by guessing their
+    sid + file_id. Fixed immediately after being found during extraction (see
+    the comment in routes/quiz.py); this asserts the fix, not the old behavior."""
+    no_token = client.get("/api/quiz/question", params={"topic": "algebra"})
+    assert no_token.status_code == 401
+
+    bad_token = client.get("/api/quiz/question", params={"token": "not-a-real-token"})
+    assert bad_token.status_code == 401
+    # `sid` is no longer a parameter this endpoint accepts at all (see
+    # routes/quiz.py's signature) — a client-supplied one is structurally
+    # impossible to honor now, not just ignored at runtime. Not asserting the
+    # authenticated happy path here since every non-error branch calls Gemini
+    # (see the module note above) — the auth check itself is the real fix.
 
 
 def test_weekly_review_latest_with_no_cached_review(client, session_token):
