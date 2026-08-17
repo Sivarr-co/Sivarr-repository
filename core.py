@@ -101,6 +101,24 @@ def save_json(p, data):
     shutil.move(tmp, str(p))
 
 
+def _load_json_file(path: Path, default):
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return default
+
+
+def _save_json_file(path: Path, data):
+    # Unique tmp name per call: with 4 Gunicorn workers sharing this file, a fixed
+    # ".tmp" name lets two processes race — the second one's .replace() fails with
+    # FileNotFoundError because the first already consumed/renamed it away.
+    tmp = str(path) + f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
+    Path(tmp).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    Path(tmp).replace(path)
+
+
 # ═══════════════════════════════════════════════════════════════
 #  TOKEN-BASED SESSION MANAGEMENT
 # ═══════════════════════════════════════════════════════════════

@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 
 import app as app_module
 import core
+import database as db
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -122,7 +123,8 @@ def session_token():
 
 
 def test_routes_reject_missing_session(client):
-    for path in ["/api/tasks/sync", "/api/habits/sync", "/api/docs/sync", "/api/journal/sync"]:
+    for path in ["/api/tasks/sync", "/api/habits/sync", "/api/docs/sync", "/api/journal/sync",
+                 "/api/skills/sync", "/api/finance/sync"]:
         assert client.post(path, json={"token": "not-a-real-token"}).status_code == 401
     assert client.post("/api/goals/add", json={"token": "not-a-real-token", "title": "x"}).status_code == 401
 
@@ -254,6 +256,47 @@ def test_app_and_core_share_one_session_store():
     """app.py mutates core's _session_tokens by reference in ~20 places. If an
     import ever rebinds it instead, sessions silently split in two."""
     assert app_module._session_tokens is core._session_tokens
+
+
+def test_skills_sync_and_restore_contract(client, session_token):
+    """Skills has no JSON-file fallback (unlike every other feature here) — it
+    only persists through db.save_user_blob/get_user_blob, so sync silently
+    no-ops and restore returns empty when no database is configured, which is
+    the environment this suite runs in. That's pre-existing behavior (verified
+    byte-identical against the original code during extraction), not something
+    this pass changes — asserting a round trip here would be testing a lie. This
+    checks the parts of the contract that hold either way: the endpoint accepts
+    the payload, echoes back a truthful count, and restore never 500s or returns
+    a malformed shape."""
+    r = client.post("/api/skills/sync", json={
+        "token": session_token,
+        "skills": [{"id": "s1", "name": "Piano", "level": 40, "target": 90}],
+    })
+    assert r.status_code == 200 and r.json()["synced"] == 1
+
+    back = client.get(f"/api/skills/restore?token={session_token}")
+    assert back.status_code == 200
+    assert isinstance(back.json().get("skills"), list)
+
+    if db.is_available():
+        assert "Piano" in [s["name"] for s in back.json()["skills"]]
+
+
+def test_finance_round_trip(client, session_token):
+    r = client.post("/api/finance/sync", json={
+        "token": session_token,
+        "data": {
+            "transactions": [{"id": "t1", "type": "expense", "amount": 500, "category": "food"}],
+            "budgets": {"food": 5000},
+        },
+    })
+    assert r.status_code == 200 and r.json()["synced"] == 1
+
+    back = client.get(f"/api/finance/restore?token={session_token}")
+    assert back.status_code == 200
+    data = back.json()["data"]
+    assert data["transactions"][0]["category"] == "food"
+    assert data["budgets"]["food"] == 5000
 
 
 def test_goals_and_journal_reexported_for_internal_callers():

@@ -135,7 +135,7 @@ BANK_LIMIT    = 20
 from core import (
     _BASE, DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR,
     MAX_MESSAGE_LEN, SESSION_TTL_DAYS, SESSION_REVALIDATE_SECONDS,
-    sanitize_text, save_json,
+    sanitize_text, save_json, _load_json_file, _save_json_file,
     _session_tokens, create_session_token, create_session_token_for_existing,
     delete_all_sessions, get_session_from_token, delete_session_token,
     _load_user_list, _save_user_list,
@@ -1890,12 +1890,16 @@ from routes.habits import router as _habits_router, load_habits, save_habits
 from routes.docs_notes import router as _docs_notes_router, load_docs, save_docs
 from routes.goals import router as _goals_router, load_goals, save_goals
 from routes.journal import router as _journal_router, load_journal, save_journal
+from routes.skills import router as _skills_router
+from routes.finance import router as _finance_router
 
 app.include_router(_tasks_router)
 app.include_router(_habits_router)
 app.include_router(_docs_notes_router)
 app.include_router(_goals_router)
 app.include_router(_journal_router)
+app.include_router(_skills_router)
+app.include_router(_finance_router)
 _START_TIME    = time.time()
 _health_cache: dict = {"result": None, "ts": 0.0}
 _db_health_cache: dict = {"info": None, "ts": 0.0}
@@ -7244,92 +7248,11 @@ Make tasks specific and actionable. Each day must have 2-4 tasks. Never use em d
 # in routes/goals.py and routes/journal.py — imported back below via
 # include_router, same pattern as tasks/habits/docs_notes.
 
-@app.post("/api/skills/sync")
-async def sync_skills(data: dict):
-    token = data.get("token", "")
-    sess  = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid    = sess["sid"]
-    skills = data.get("skills", [])
-    if not isinstance(skills, list):
-        raise HTTPException(400, "skills must be a list.")
-    clean = []
-    for s in skills[:500]:
-        clean.append({
-            "id":             sanitize_text(str(s.get("id", "")), 30),
-            "name":           sanitize_text(str(s.get("name", "")), 80),
-            "emoji":          sanitize_text(str(s.get("emoji", "💡")), 10),
-            "category":       sanitize_text(str(s.get("category", "Other")), 30),
-            "level":          min(100, max(0, int(s.get("level", 0)))),
-            "target":         min(100, max(0, int(s.get("target", 80)))),
-            "sessions":       int(s.get("sessions", 0)),
-            "total_mins":     int(s.get("total_mins", 0)),
-            "created":        sanitize_text(str(s.get("created", "")), 20),
-            "last_practiced": sanitize_text(str(s.get("last_practiced") or ""), 20),
-        })
-    if db.is_available():
-        db.save_user_blob(sid, "skills", {"skills": clean})
-    return {"ok": True, "synced": len(clean)}
+# Skills (routes/skills.py) and Finance (routes/finance.py) sync/restore now
+# live in their own route modules, same pattern as tasks/habits/docs/goals/journal.
 
 
 # ═══════════════════════════════════════════════════════════════
-@app.post("/api/finance/sync")
-async def sync_finance(data: dict):
-    token = data.get("token", "")
-    sess  = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid     = sess["sid"]
-    payload = data.get("data", {})
-    if not isinstance(payload, dict):
-        raise HTTPException(400, "data must be an object.")
-    txs     = payload.get("transactions", [])
-    budgets = payload.get("budgets", {})
-    clean_txs = [
-        {
-            "id":       sanitize_text(str(t.get("id", "")), 30),
-            "type":     sanitize_text(str(t.get("type", "expense")), 10),
-            "amount":   float(t.get("amount", 0)),
-            "category": sanitize_text(str(t.get("category", "other")), 30),
-            "note":     sanitize_text(str(t.get("note", "")), 200),
-            "date":     sanitize_text(str(t.get("date", "")), 20),
-        }
-        for t in (txs if isinstance(txs, list) else [])[:2000]
-    ]
-    clean_budgets = { sanitize_text(str(k), 30): float(v) for k, v in (budgets if isinstance(budgets, dict) else {}).items() if v }
-    blob = {"transactions": clean_txs, "budgets": clean_budgets}
-    if db.is_available():
-        db.save_user_blob(sid, "finance", blob)
-    else:
-        _save_json_file(DATA_DIR / f"finance_{sid}.json", blob)
-    return {"ok": True, "synced": len(clean_txs)}
-
-
-@app.get("/api/finance/restore")
-async def restore_finance(token: str = ""):
-    sess = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid  = sess["sid"]
-    blob = db.get_user_blob(sid, "finance") if db.is_available() else _load_json_file(DATA_DIR / f"finance_{sid}.json", {})
-    return {"ok": True, "data": blob or {"transactions": [], "budgets": {}}}
-
-
-# ── Cross-device pull: return the server-stored copy so a second device
-#    can hydrate its localStorage on boot (server = source of truth). ──────────
-# (tasks/habits/docs/journal/goals restore all live in their own routes/*.py
-# modules now — this file only still has the ones without one yet.)
-@app.get("/api/skills/restore")
-async def restore_skills(token: str = ""):
-    sess = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid  = sess["sid"]
-    blob = db.get_user_blob(sid, "skills") if db.is_available() else {}
-    return {"skills": (blob or {}).get("skills", [])}
-
-
 #  UNIFIED SEARCH  — GET /api/search?q=&token=
 # ═══════════════════════════════════════════════════════════════
 
@@ -10608,22 +10531,7 @@ _comm_lock = threading.Lock()
 _opp_lock  = threading.Lock()
 
 
-def _load_json_file(path: Path, default):
-    if path.exists():
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    return default
-
-
-def _save_json_file(path: Path, data):
-    # Unique tmp name per call: with 4 Gunicorn workers sharing this file, a fixed
-    # ".tmp" name lets two processes race — the second one's .replace() fails with
-    # FileNotFoundError because the first already consumed/renamed it away.
-    tmp = str(path) + f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
-    Path(tmp).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    Path(tmp).replace(path)
+# _load_json_file / _save_json_file now live in core.py (imported at the top).
 
 
 @app.get("/api/community/posts")
