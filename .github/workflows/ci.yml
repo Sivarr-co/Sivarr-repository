@@ -1,0 +1,100 @@
+name: CI
+
+# Railway auto-deploys from main and more than one person pushes to it directly,
+# so until now the only thing standing between a bad commit and production was a
+# human reading the diff. This is the safety net.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pyflakes
+
+      - name: Import check
+        run: python -c "import app"
+
+      - name: Lint for undefined names
+        # Only the fatal classes (undefined name / syntax error). The codebase has
+        # pre-existing unused-import and unused-variable noise that would drown a
+        # full pyflakes gate; tighten this over time rather than all at once.
+        run: |
+          python -m pyflakes app.py core.py database.py routes/*.py tests/*.py \
+            | grep -E "undefined name|invalid syntax" && {
+              echo "::error::pyflakes found undefined names"; exit 1;
+            } || echo "No undefined names."
+
+      - name: Tests
+        # Storage falls back to JSON files when DATABASE_URL is unset, so the
+        # suite runs with no external services.
+        run: python -m pytest tests/ -q
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Syntax-check every JS file
+        run: |
+          fail=0
+          for f in $(find js -name '*.js' -not -path '*/vendor/*'); do
+            node --check "$f" || { echo "::error file=$f::syntax error"; fail=1; }
+          done
+          exit $fail
+
+      - name: Check CSS brace balance
+        # A line-range deletion in CSS has cut a rule in half before, leaving an
+        # orphaned closing brace that silently changed which selectors applied.
+        run: |
+          fail=0
+          for f in css/*.css css/features/*.css; do
+            open=$(tr -cd '{' < "$f" | wc -c)
+            close=$(tr -cd '}' < "$f" | wc -c)
+            if [ "$open" -ne "$close" ]; then
+              echo "::error file=$f::unbalanced braces ($open open, $close close)"
+              fail=1
+            fi
+          done
+          exit $fail
+
+  assets:
+    name: Asset versioning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No hand-written cache-busters in templates
+        # Version strings are derived from file content by core.py:asset().
+        # A hand-written ?v= drifts out of sync and pins a stale file forever.
+        run: |
+          if grep -rn "?v=" templates/ --include='*.html' | grep -v "asset("; then
+            echo "::error::Hand-written ?v= found. Use {{ asset('/path') }} instead."
+            exit 1
+          fi
+          echo "No hand-written cache-busters."

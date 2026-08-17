@@ -26,6 +26,7 @@ import traceback
 import uuid
 import warnings
 from pathlib import Path
+from typing import Callable
 
 warnings.filterwarnings("ignore")
 
@@ -126,13 +127,20 @@ VERSION       = "3"
 CACHE_EXPIRY  = 30
 HISTORY_LIMIT = 40
 BANK_LIMIT    = 20
-# Use Railway persistent volume if available, else local
-# Set RAILWAY_VOLUME_MOUNT_PATH in Railway environment variables
-_BASE = Path(os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", "."))
-DATA_DIR    = _BASE / "data"
-UPLOADS_DIR = _BASE / "uploads"
-SHARES_DIR  = _BASE / "shares"
-LOG_DIR     = _BASE / "logs"
+
+# Shared leaf-level primitives live in core.py so routes/*.py can import them
+# without importing this partially-loaded module. See core.py's module docstring.
+# These names are re-exported here unchanged — every existing reference in this
+# file keeps working, and _session_tokens is the same dict object core.py mutates.
+from core import (
+    _BASE, DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR,
+    MAX_MESSAGE_LEN, SESSION_TTL_DAYS, SESSION_REVALIDATE_SECONDS,
+    sanitize_text, save_json,
+    _session_tokens, create_session_token, create_session_token_for_existing,
+    delete_all_sessions, get_session_from_token, delete_session_token,
+    _load_user_list, _save_user_list,
+    asset, sw_cache_version,
+)
 
 for d in [DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
@@ -379,7 +387,7 @@ RATE_LIMIT_LOGIN    = int(os.environ.get("RATE_LIMIT_LOGIN", 10))     # max logi
 RATE_LIMIT_VERIFY   = int(os.environ.get("RATE_LIMIT_VERIFY", 3))      # max verify-email resends per window
 
 # ── Input validation config ───────────────────────────────────
-MAX_MESSAGE_LEN  = 2000    # max characters in a chat message
+# MAX_MESSAGE_LEN now lives in core.py (imported at the top of this file).
 MAX_NAME_LEN     = 80      # max student name length
 MAX_MATRIC_LEN   = 30      # max matric number length
 MAX_FILE_SIZE    = 5 * 1024 * 1024  # 5MB max file size
@@ -594,25 +602,7 @@ def check_rate_limit(key: str, limit: int, endpoint: str) -> None:
 #  INPUT VALIDATION
 # ═══════════════════════════════════════════════════════════════
 
-def sanitize_text(text: str, max_len: int = MAX_MESSAGE_LEN) -> str:
-    """
-    Clean and validate text input.
-    - Strips whitespace
-    - Removes null bytes and control characters
-    - Enforces max length
-
-    NOTE: this does NOT strip path-traversal sequences (../, /, \\). For any
-    value interpolated into a filesystem path (e.g. sid), use validate_sid().
-    """
-    if not text:
-        return ""
-    # Remove null bytes and non-printable control chars (keep newlines/tabs)
-    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
-    text = text.strip()
-    if len(text) > max_len:
-        text = text[:max_len]
-        log.info(f"Input truncated to {max_len} chars")
-    return text
+# sanitize_text now lives in core.py (imported at the top of this file).
 
 
 # ── Auth input hardening (login/register) ───────────────────────────
@@ -723,7 +713,8 @@ API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 
 _model_name = None
 _chat_sessions: dict = {}          # sid → {chat, math, last_used}
-_session_tokens:    dict = {}   # token → {sid, name, email, expires}
+# _session_tokens now lives in core.py (imported at the top of this file). It is
+# the same dict object — the ~20 mutation sites below continue to work unchanged.
 # Admin/lecturer sessions are now stateless HMAC tokens — no in-memory dicts needed
 _failed_logins:     dict = {}   # email → {count, locked_until}
 
@@ -774,8 +765,7 @@ def _clear_failed_login(email: str) -> None:
 # Auth token lifetime. Env-configurable so the exposure window of a stolen token
 # can be tightened without a code change. 30d is convenient but long for a money
 # app — consider 7 (or lower) once session-restore UX is solid. Clamped to 1..90.
-SESSION_TTL_DAYS  = max(1, min(int(os.environ.get("SESSION_TTL_DAYS", "30")), 90))
-SESSION_REVALIDATE_SECONDS = 30    # how often a cached session is re-checked against the DB
+# SESSION_TTL_DAYS / SESSION_REVALIDATE_SECONDS now live in core.py (imported above).
                                    # (bounds how long a revoked session lingers per worker)
 # P3b: httpOnly session cookie. Set on every token-issuing path and read by
 # _BearerTokenMiddleware as a fallback, so SSE/EventSource (can't set headers)
@@ -893,14 +883,10 @@ def _evict_stale_chat_sessions():
 
 # ── Token-based session management ────────────────────────────────
 
-def create_session_token(sid: str, name: str, email: str) -> str:
-    token   = secrets.token_urlsafe(32)
-    expires = datetime.datetime.utcnow() + datetime.timedelta(days=SESSION_TTL_DAYS)
-    _session_tokens[token] = {"sid": sid, "name": name, "email": email, "expires": expires,
-                              "checked": datetime.datetime.utcnow()}
-    if db.is_available():
-        db.create_db_session(token, sid, name, email, expires)
-    return token
+# create_session_token / create_session_token_for_existing / delete_all_sessions /
+# get_session_from_token / delete_session_token all now live in core.py (imported
+# at the top of this file). The cookie helpers below stay here — they depend on
+# FastAPI's Response and this module's cookie constants.
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
@@ -927,28 +913,6 @@ def _clear_session_cookie(response: Response) -> None:
     response.delete_cookie(_CSRF_COOKIE, path="/", samesite="strict", secure=_COOKIE_SECURE)
 
 
-def create_session_token_for_existing(token: str, sid: str, name: str, email: str) -> None:
-    """Register an already-issued token on this worker (cross-worker session recovery)."""
-    expires = datetime.datetime.utcnow() + datetime.timedelta(days=SESSION_TTL_DAYS)
-    _session_tokens[token] = {"sid": sid, "name": name, "email": email, "expires": expires,
-                              "checked": datetime.datetime.utcnow()}
-    if db.is_available():
-        db.create_db_session(token, sid, name, email, expires)
-
-
-def delete_all_sessions(sid: str, except_token: str | None = None) -> None:
-    """Revoke every session for a user (optionally keeping the current one).
-    Called on password change/reset. The DB delete is authoritative across workers;
-    other workers drop their cached copy within SESSION_REVALIDATE_SECONDS via the
-    re-check in get_session_from_token."""
-    if db.is_available():
-        db.delete_sessions_for_sid(sid, except_token)
-    # Purge this worker's in-memory cache immediately.
-    for tok in [t for t, e in list(_session_tokens.items())
-                if e.get("sid") == sid and t != except_token]:
-        _session_tokens.pop(tok, None)
-
-
 def _persist_password(sid: str, hashed: str) -> None:
     """Update a user's password in BOTH stores. login() reads the JSON user file
     first (load_users) and only falls back to the DB, so a DB-only update would
@@ -962,58 +926,6 @@ def _persist_password(sid: str, hashed: str) -> None:
             save_users(users)
     except Exception as exc:
         log.error(f"_persist_password file sync failed for {sid}: {exc}")
-
-
-def get_session_from_token(token: str) -> dict | None:
-    if not token:
-        return None
-    # Check in-memory first
-    entry = _session_tokens.get(token)
-    if entry:
-        if datetime.datetime.utcnow() >= entry["expires"]:
-            del _session_tokens[token]
-            return None
-        # Periodically re-validate against the DB so a session revoked on another
-        # worker (e.g. password reset) stops working within SESSION_REVALIDATE_SECONDS
-        # instead of lingering in this worker's cache until its 30-day TTL.
-        if db.is_available():
-            checked = entry.get("checked")
-            if checked is None or (datetime.datetime.utcnow() - checked).total_seconds() > SESSION_REVALIDATE_SECONDS:
-                if db.get_db_session(token) is None:
-                    del _session_tokens[token]
-                    return None
-                entry["checked"] = datetime.datetime.utcnow()
-        return entry
-    # Fallback: check DB and warm this worker's cache for subsequent requests
-    if db.is_available():
-        db_entry = db.get_db_session(token)
-        if not db_entry:
-            return None
-        # Normalise the DB row to the in-memory shape before caching. get_db_session
-        # returns a tz-aware "expires_at" (TIMESTAMPTZ); the in-memory cache + the
-        # stale-eviction sweep expect a naive-UTC "expires". Caching the raw DB shape
-        # makes the next lookup KeyError on entry["expires"] and the eviction sweep
-        # treat the entry as already-expired (v.get("expires", now) <= now) — both of
-        # which silently log the user out on reload. Map the key and drop the tzinfo.
-        exp = db_entry.get("expires_at")
-        if exp is not None and exp.tzinfo is not None:
-            exp = exp.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-        entry = {
-            "sid":     db_entry["sid"],
-            "name":    db_entry["name"],
-            "email":   db_entry["email"],
-            "expires": exp,
-            "checked": datetime.datetime.utcnow(),
-        }
-        _session_tokens[token] = entry
-        return entry
-    return None
-
-
-def delete_session_token(token: str) -> None:
-    _session_tokens.pop(token, None)
-    if db.is_available():
-        db.delete_db_session(token)
 
 
 def _gmail_configured() -> bool:
@@ -1034,7 +946,7 @@ def send_email(to: str, subject: str, html_body: str) -> tuple[bool, str]:
     silently drop verification/reset email.
     """
     # Ordered list of (name, fn) providers that are actually configured.
-    providers: list[tuple[str, "Callable[[str, str, str], tuple[bool, str]]"]] = []
+    providers: list[tuple[str, Callable[[str, str, str], tuple[bool, str]]]] = []
     if _gmail_configured():
         providers.append(("gmail", _send_email_gmail))
     if _resend_configured():
@@ -1792,11 +1704,7 @@ def load_json(p):
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
 
 
-def save_json(p, data):
-    tmp = str(p) + f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, indent=2)
-    shutil.move(tmp, str(p))
+# save_json now lives in core.py (imported at the top of this file).
 
 
 _PROGRESS_DEFAULTS = {
@@ -1974,6 +1882,18 @@ def parse_quiz_json(raw: str, topic: str) -> dict:
 # ═══════════════════════════════════════════════════════════════
 
 app = FastAPI(title="Sivarr AI", version=VERSION)
+
+# ── Feature route modules ─────────────────────────────────────────
+# These import their shared helpers from core.py, not from this module, so they
+# can be included here at the top rather than 7,000 lines down. Adding a new
+# router is now a two-line change with no ordering constraint.
+from routes.tasks import router as _tasks_router, load_tasks, save_tasks
+from routes.habits import router as _habits_router, load_habits, save_habits
+from routes.docs_notes import router as _docs_notes_router, load_docs, save_docs
+
+app.include_router(_tasks_router)
+app.include_router(_habits_router)
+app.include_router(_docs_notes_router)
 _START_TIME    = time.time()
 _health_cache: dict = {"result": None, "ts": 0.0}
 _db_health_cache: dict = {"info": None, "ts": 0.0}
@@ -1989,6 +1909,11 @@ def _get_jinja_env():
             autoescape=select_autoescape(["html", "xml"]),
             enable_async=False,
         )
+        # asset("/js/app.js") -> "/js/app.js?v=<content-hash>". Templates must use
+        # this for every /css/, /js/ and /static/ URL — those paths are served
+        # immutable for a year, so an unversioned URL can never be updated in a
+        # browser that has already loaded it. See core.py's asset() for the detail.
+        _JINJA_ENV.globals["asset"] = asset
     return _JINJA_ENV
 
 # ── Cached HTML for production ──
@@ -2079,11 +2004,23 @@ class _StaticCacheMiddleware:
         if scope.get("type") != "http":
             await self.app(scope, receive, send)
             return
-        cacheable = scope.get("path", "").startswith(("/css/", "/js/", "/static/"))
+        path = scope.get("path", "")
+        cacheable = path.startswith(("/css/", "/js/", "/static/"))
+        # Only a URL carrying a content hash may be cached immutably — that is what
+        # makes the hash safe to trust. An unversioned URL (a reference from inside a
+        # CSS or JS file, which cannot call asset()) gets a short revalidating TTL
+        # instead, so it can still be updated. Previously EVERY path under these
+        # prefixes was pinned for a year regardless, which is how js/features/*.js
+        # and css/features/*.css ended up permanently uncacheable-bustable, and how a
+        # stale hardcoded ?v= in panels.css could pin an old logo forever.
+        versioned = b"v=" in scope.get("query_string", b"")
 
         async def send_wrapper(message):
             if cacheable and message["type"] == "http.response.start":
-                MutableHeaders(scope=message)["Cache-Control"] = "public, max-age=31536000, immutable"
+                MutableHeaders(scope=message)["Cache-Control"] = (
+                    "public, max-age=31536000, immutable" if versioned
+                    else "public, max-age=300, must-revalidate"
+                )
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
@@ -2816,9 +2753,11 @@ async def app_config():
 
 @app.get("/", response_class=HTMLResponse)
 async def landing():
-    """Public landing page — served to everyone at the root URL."""
+    """Public landing page — served to everyone at the root URL.
+    Rendered through Jinja (rather than read as raw text) so its asset URLs get
+    the same content-hash cache-busting as the app shell — see core.py's asset()."""
     if Path("templates/landing.html").exists():
-        return Path("templates/landing.html").read_text(encoding="utf-8")
+        return HTMLResponse(_get_jinja_env().get_template("landing.html").render())
     return RedirectResponse(url="/app", status_code=302)
 
 
@@ -2889,8 +2828,12 @@ async def billing_callback(reference: str = "", trxref: str = "", plan: str = ""
 
 @app.get("/sw.js")
 async def service_worker():
+    # Rendered so its precache URLs carry the same content hashes index.html uses,
+    # and so CACHE changes automatically when any of those assets change.
+    src = Path("js/sw.js").read_text(encoding="utf-8")
+    rendered = _get_jinja_env().from_string(src).render(sw_version=sw_cache_version())
     return Response(
-        content=Path("js/sw.js").read_text(encoding="utf-8"),
+        content=rendered,
         media_type="application/javascript",
         headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-store, no-cache"},
     )
@@ -4689,8 +4632,12 @@ async def quiz_question(request: Request, sid: str, topic: str = "", difficulty:
 
     raw = await async_gemini_once(QUIZ_PROMPT.format(topic=t, difficulty=difficulty), temp=0.9, tokens=300)
     if not raw:
-        log.warning(f"Gemini unavailable for quiz — using fallback question bank")
-        return get_fallback_question(t, [])
+        log.warning("Gemini unavailable for quiz — no question generated")
+        # Was `return get_fallback_question(t, [])` — that function does not exist
+        # anywhere in the codebase, so this path raised NameError instead of
+        # degrading, precisely when the AI was already down. Returns the same
+        # error shape the file-quiz path above uses.
+        return {"error": "Could not generate a question right now. Please try again."}
 
     q = parse_quiz_json(raw, t)
     if not q:
@@ -4698,8 +4645,9 @@ async def quiz_question(request: Request, sid: str, topic: str = "", difficulty:
         raw2 = await async_gemini_once(QUIZ_PROMPT.format(topic=t, difficulty=difficulty), temp=0.5, tokens=300)
         q = parse_quiz_json(raw2 or "", t)
     if not q:
-        log.warning(f"Quiz parse failed twice — using fallback question bank")
-        return get_fallback_question(t, [])
+        log.warning("Quiz parse failed twice — no question generated")
+        # See the note above: get_fallback_question() never existed.
+        return {"error": "Could not generate a question right now. Please try again."}
 
     bank.setdefault(key2, [])
     if q["question"] not in [x["question"] for x in bank[key2]]:
@@ -7309,34 +7257,7 @@ Make tasks specific and actionable. Each day must have 2-4 tasks. Never use em d
 GOALS_PATH = DATA_DIR / "goals.json"
 
 
-def _load_user_list(sid: str, key: str) -> list:
-    """Load a per-user JSON list (goals/tasks/journal). DB-first via the user_blobs
-    table — atomic row writes, shared across workers/instances, included in Supabase
-    backups, and free of the whole-file read-modify-write races the per-user JSON
-    files had. Lazily migrates a legacy `{sid}_{key}.json` file into the DB on first
-    access. Falls back to the file only when no DB is configured."""
-    legacy = DATA_DIR / f"{sid}_{key}.json"
-    if db.is_available():
-        blob = db.get_user_blob(sid, key)
-        if isinstance(blob, list):
-            return blob
-        if legacy.exists():
-            try:
-                items = json.loads(legacy.read_text(encoding="utf-8"))
-                if isinstance(items, list):
-                    db.save_user_blob(sid, key, items)
-                    return items
-            except Exception as exc:
-                log.warning(f"{key} file→DB migrate failed for {sid[:8]}: {exc}")
-        return []
-    return json.loads(legacy.read_text(encoding="utf-8")) if legacy.exists() else []
-
-
-def _save_user_list(sid: str, key: str, items: list) -> None:
-    if db.is_available():
-        db.save_user_blob(sid, key, items)
-        return
-    save_json(DATA_DIR / f"{sid}_{key}.json", items)
+# _load_user_list / _save_user_list now live in core.py (imported at the top).
 
 
 def load_goals(sid: str) -> list:
@@ -7345,17 +7266,6 @@ def load_goals(sid: str) -> list:
 def save_goals(sid: str, goals: list):
     _save_user_list(sid, "goals", goals)
 
-# Tasks, Habits, and Docs & Notes live in their own route modules (routes/tasks.py,
-# routes/habits.py, routes/docs_notes.py) — this import must stay below
-# _load_user_list/_save_user_list/load_goals/save_goals since the route modules
-# import those (and get_session_from_token/sanitize_text/save_json/DATA_DIR) from
-# this partially-loaded app module.
-from routes.tasks import router as _tasks_router, load_tasks, save_tasks
-from routes.habits import router as _habits_router, load_habits, save_habits
-from routes.docs_notes import router as _docs_notes_router, load_docs, save_docs
-app.include_router(_tasks_router)
-app.include_router(_habits_router)
-app.include_router(_docs_notes_router)
 
 # ── Personal journal — server-side mirror ─────────────────────
 def load_journal(sid: str) -> list:

@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Favicon (browser tab + search results) -->
-    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=20260813b" />
-    <link rel="icon" type="image/png" href="/static/sivarrai.png?v=20260815b" />
-    <link rel="apple-touch-icon" href="/static/sivarrai.png?v=20260815b" />
+    <link rel="icon" type="image/svg+xml" href="{{ asset('/static/favicon.svg') }}" />
+    <link rel="icon" type="image/png" href="{{ asset('/static/sivarrai.png') }}" />
+    <link rel="apple-touch-icon" href="{{ asset('/static/sivarrai.png') }}" />
     <script>
       // If user is already logged in, go straight to the app
       if (localStorage.getItem("sivarr_token")) {
@@ -35,8 +35,11 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <!-- Self-hosted: the CDN copy is blocked by this site's own CSP
+         (style-src 'self'), so every icon on this page silently failed to
+         render. The app shell already ships this exact file. -->
     <link
-      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"
+      href="{{ asset('/static/vendor/tabler/tabler-icons.min.css') }}"
       rel="stylesheet"
     />
     <style>
@@ -1168,7 +1171,7 @@
     <nav>
       <div class="nav-logo">
         <div class="nav-logo-dot">
-          <img src="/static/sivarrai.png?v=20260815b" alt="Sivarr" />
+          <img src="{{ asset('/static/sivarrai.png') }}" alt="Sivarr" />
         </div>
         Sivarr
       </div>
@@ -1233,7 +1236,7 @@
           <div class="mockup-sidebar">
             <div class="mock-logo">
               <div class="mock-logo-av">
-                <img src="/static/sivarrai.png?v=20260815b" alt="" />
+                <img src="{{ asset('/static/sivarrai.png') }}" alt="" />
               </div>
               Sivarr
             </div>
@@ -1252,7 +1255,7 @@
             <div class="mock-greeting">
               <div class="mock-greeting-top">
                 <div class="mock-av">
-                  <img src="/static/sivarrai.png?v=20260815b" alt="" />
+                  <img src="{{ asset('/static/sivarrai.png') }}" alt="" />
                 </div>
                 <div>
                   <div class="mock-g-name">Good morning, Nonso 👋</div>
@@ -1632,7 +1635,7 @@
         <div class="ai-chat-demo">
           <div class="ai-chat-header">
             <div class="ai-av">
-              <img src="/static/sivarrai.png?v=20260815b" alt="Sivarr AI" />
+              <img src="{{ asset('/static/sivarrai.png') }}" alt="Sivarr AI" />
             </div>
             <div>
               <div class="ai-name">Sivarr AI</div>
@@ -2008,7 +2011,7 @@
           <div class="footer-brand">
             <div class="nav-logo" style="margin-bottom: 12px">
               <div class="nav-logo-dot">
-                <img src="/static/sivarrai.png?v=20260815b" alt="Sivarr" />
+                <img src="{{ asset('/static/sivarrai.png') }}" alt="Sivarr" />
               </div>
               Sivarr
             </div>

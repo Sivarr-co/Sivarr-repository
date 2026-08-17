@@ -1,12 +1,9 @@
-# Imported partway through app.py's own load — must stay below the helper defs it
-# needs (get_session_from_token, sanitize_text, _load_user_list, _save_user_list).
-# See app.py's include_router block.
 import datetime as _dt
 import uuid
 
 from fastapi import APIRouter, HTTPException
 
-from app import get_session_from_token, sanitize_text, _load_user_list, _save_user_list
+from core import get_session_from_token, sanitize_text, _load_user_list, _save_user_list
 
 router = APIRouter()
 

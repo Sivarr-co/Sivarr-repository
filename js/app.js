@@ -106,18 +106,8 @@ function track(event, props = {}) {
   if (window.plausible) window.plausible(event, { props });
 }
 
-// Escapes & < > AND quotes so values are safe in BOTH text and attribute
-// contexts (e.g. value="${esc(userTitle)}"). A bare " or ' previously allowed
-// attribute breakout → XSS. Matches the stricter acEsc/mktEsc variants.
-const esc = (s) =>
-  String(s == null ? "" : s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-const escHtml = esc;
-const $ = (id) => document.getElementById(id);
+// esc / escHtml / $ / toast now live in js/core/dom.js, which loads before this
+// file and before js/features/*.js. See that file's header for why.
 
 // ═══════════════════════ SKELETON LOADING ════════════════════
 // HTML templates for shimmer placeholders shown while async data loads.
@@ -3688,7 +3678,7 @@ async function chatClearConfirm() {
     : "";
   // Simpler: reload the welcome screen
   w.innerHTML = `<div id="chat-welcome" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:2.5rem 1.5rem;text-align:center;animation:fadeUp .5s cubic-bezier(.4,0,.2,1)">
-    <div class="chat-welcome-orb"><img src="/static/sivarrai.png?v=20260815b" alt="Sivarr"></div>
+    <div class="chat-welcome-orb"><img src="/static/sivarrai.png" alt="Sivarr"></div>
     <h1 class="chat-welcome-heading" id="welcome-greeting">Chat cleared</h1>
     <p class="chat-welcome-sub">Start a new conversation below.</p>
   </div>`;
@@ -12907,16 +12897,7 @@ async function refreshTopics() {
   renderTopics(S.topics, S.weak);
 }
 
-function toast(msg, ms = 2500) {
-  const el = $("toast");
-  if (!el) return;
-  clearTimeout(el._toastTimer);
-  el.classList.remove("show");
-  el.textContent = msg;
-  void el.offsetWidth; // force reflow so animation replays on consecutive toasts
-  el.classList.add("show");
-  el._toastTimer = setTimeout(() => el.classList.remove("show"), ms);
-}
+// toast() now lives in js/core/dom.js.
 
 async function runStudyHavenP(input) {
   const file = input.files[0];

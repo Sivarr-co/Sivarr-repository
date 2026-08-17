@@ -1,17 +1,26 @@
-const CACHE = 'sivarr-v8';
+// This file is rendered through Jinja by the /sw.js route (served no-store, so
+// it is always fresh) — asset() stamps each URL with its content hash, exactly
+// matching the URLs index.html requests. Previously the precache list carried a
+// hand-written ?v= that drifted out of sync with index.html's, so the precached
+// URL was never the one the page actually asked for.
+//
+// CACHE is derived from those same hashes, so the whole cache is invalidated
+// automatically whenever any precached asset changes. No more manual v8 -> v9.
+const CACHE = 'sivarr-{{ sw_version }}';
 
 // '/css/styles.css' used to be here — that file hasn't existed since the
 // base/layout/panels/mobile split, and caches.addAll() fails its whole
-// batch on any single 404, so the precache step may have been silently
-// no-op-ing since then. '/js/app.js' and the CSS files are intentionally
-// left off this list too now: they're always loaded with a cache-busting
-// ?v= query string from index.html, so precaching the bare unversioned
-// URL here doesn't help hit those specific requests anyway.
+// batch on any single 404.
 const PRECACHE = [
   '/',
   '/app',
-  '/static/sivarrai.png?v=20260815b',
-  '/static/manifest.json',
+  '{{ asset("/static/sivarrai.png") }}',
+  '{{ asset("/static/manifest.json") }}',
+  '{{ asset("/css/base.css") }}',
+  '{{ asset("/css/layout.css") }}',
+  '{{ asset("/css/panels.css") }}',
+  '{{ asset("/css/mobile.css") }}',
+  '{{ asset("/js/app.js") }}',
 ];
 
 // Install: pre-cache the app shell
@@ -40,8 +49,8 @@ self.addEventListener('push', e => {
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body:  data.body,
-      icon:  '/static/sivarrai.png?v=20260815b',
-      badge: '/static/sivarrai.png?v=20260815b',
+      icon:  '/static/sivarrai.png',
+      badge: '/static/sivarrai.png',
       tag:   data.tag || 'sivarr',
       data:  { url: data.url || '/app' },
       requireInteraction: false,

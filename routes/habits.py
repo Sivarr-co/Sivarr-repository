@@ -1,11 +1,8 @@
-# Imported partway through app.py's own load — must stay below the helper defs it
-# needs (get_session_from_token, sanitize_text, save_json, DATA_DIR).
-# See app.py's include_router block.
 import json
 
 from fastapi import APIRouter, HTTPException
 
-from app import get_session_from_token, sanitize_text, save_json, DATA_DIR
+from core import get_session_from_token, sanitize_text, save_json, DATA_DIR
 
 router = APIRouter()
 

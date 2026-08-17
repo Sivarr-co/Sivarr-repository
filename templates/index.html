@@ -12,7 +12,7 @@
     />
     <title>Sivarr</title>
     <!-- PWA -->
-    <link rel="manifest" href="/static/manifest.json" />
+    <link rel="manifest" href="{{ asset('/static/manifest.json') }}" />
     <meta name="theme-color" content="#41076B" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,38 +21,38 @@
       content="black-translucent"
     />
     <meta name="apple-mobile-web-app-title" content="Sivarr" />
-    <link rel="apple-touch-icon" href="/static/sivarrai.png?v=20260815b" />
+    <link rel="apple-touch-icon" href="{{ asset('/static/sivarrai.png') }}" />
     <!-- Favicon (browser tab + search results) -->
-    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=20260813b" />
-    <link rel="icon" type="image/png" href="/static/sivarrai.png?v=20260815b" />
+    <link rel="icon" type="image/svg+xml" href="{{ asset('/static/favicon.svg') }}" />
+    <link rel="icon" type="image/png" href="{{ asset('/static/sivarrai.png') }}" />
     <!-- Open Graph (sharing previews) -->
     <meta property="og:title" content="Sivarr: Your Productivity OS" />
     <meta
       property="og:description"
       content="Tasks, Notes, AI assistant, and Learning, all in one workspace."
     />
-    <meta property="og:image" content="/static/sivarrai.png?v=20260815b" />
+    <meta property="og:image" content="{{ asset('/static/sivarrai.png') }}" />
     <meta property="og:type" content="website" />
     <!-- Resource hints: warm up external origins for faster first paint -->
     <link rel="dns-prefetch" href="https://js.sentry-cdn.com" />
     <!-- Plus Jakarta Sans is self-hosted (was fonts.googleapis.com) — no third-party font CDN, tighter CSP, no user-IP leak to Google. -->
     <link
       rel="stylesheet"
-      href="/static/vendor/fonts/plus-jakarta-sans/plus-jakarta-sans.css?v=20260701c"
+      href="{{ asset('/static/vendor/fonts/plus-jakarta-sans/plus-jakarta-sans.css') }}"
     />
     <link
       rel="stylesheet"
-      href="/static/vendor/tabler/tabler-icons.min.css?v=3.31.0"
+      href="{{ asset('/static/vendor/tabler/tabler-icons.min.css') }}"
     />
-    <script src="/static/vendor/dompurify/purify.min.js?v=3.1.6"></script>
+    <script src="{{ asset('/static/vendor/dompurify/purify.min.js') }}"></script>
     <!-- CSS split: base → layout → panels → mobile -->
-    <link rel="stylesheet" href="/css/base.css?v=20260815a" />
-    <link rel="stylesheet" href="/css/layout.css?v=20260815b" />
-    <link rel="stylesheet" href="/css/panels.css?v=20260815d" />
-    <link rel="stylesheet" href="/css/mobile.css?v=20260814b" />
-    <link rel="stylesheet" href="/css/features/docs_notes.css" />
-    <link rel="stylesheet" href="/css/features/tasks.css" />
-    <link rel="stylesheet" href="/css/features/habits.css" />
+    <link rel="stylesheet" href="{{ asset('/css/base.css') }}" />
+    <link rel="stylesheet" href="{{ asset('/css/layout.css') }}" />
+    <link rel="stylesheet" href="{{ asset('/css/panels.css') }}" />
+    <link rel="stylesheet" href="{{ asset('/css/mobile.css') }}" />
+    <link rel="stylesheet" href="{{ asset('/css/features/docs_notes.css') }}" />
+    <link rel="stylesheet" href="{{ asset('/css/features/tasks.css') }}" />
+    <link rel="stylesheet" href="{{ asset('/css/features/habits.css') }}" />
     <!-- Tiptap rich-text editor (self-hosted ESM bundle — keeps CSP tight) -->
     <script type="module">
       import {
@@ -192,9 +192,11 @@
     {# ── MODALS & OVERLAYS — sibling of #dashboard, matching original
     body-level placement ── #} {% include "_modals.html" %}
 
-    <script src="/js/features/habits.js" defer></script>
-    <script src="/js/features/tasks.js" defer></script>
-    <script src="/js/features/docs_notes.js" defer></script>
-    <script src="/js/app.js?v=20260815a" defer></script>
+    <!-- core/ must load before features/ and app.js — see js/core/dom.js -->
+    <script src="{{ asset('/js/core/dom.js') }}" defer></script>
+    <script src="{{ asset('/js/features/habits.js') }}" defer></script>
+    <script src="{{ asset('/js/features/tasks.js') }}" defer></script>
+    <script src="{{ asset('/js/features/docs_notes.js') }}" defer></script>
+    <script src="{{ asset('/js/app.js') }}" defer></script>
   </body>
 </html>
