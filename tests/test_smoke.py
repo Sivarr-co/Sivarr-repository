@@ -363,6 +363,80 @@ def test_ai_chat_router_is_wired(client):
     assert r.status_code != 404
 
 
+# ── Quiz, home-brief, AI-features routers ─────────────────────────────────────
+#
+# Unlike chat, none of these have a local-only shortcut (chat's solve_local()
+# short-circuits before touching Gemini) — every non-trivial code path in
+# quiz_question/home_brief/extract-tasks/write/weekly-review/parse-intent/
+# voice-to-task calls async_gemini_once(), which without GEMINI_API_KEY would
+# either fail fast or attempt a real, possibly-slow network call depending on
+# the SDK's internals. Rather than gamble on that, these tests only exercise
+# what's genuinely deterministic: auth rejection (checked before any Gemini
+# call in every one of them) and the two endpoints that never call Gemini at
+# all (quiz_submit, quiz_complete — pure progress-dict writes).
+
+def test_quiz_submit_and_complete_round_trip(client, session_token):
+    submit = client.post("/api/quiz/submit", json={
+        "token": session_token, "topic": "algebra", "difficulty": "medium",
+        "answer": "b", "question": "2+2=?", "correct": "B", "explanation": "It's 4.",
+    })
+    assert submit.status_code == 200
+    body = submit.json()
+    assert body["correct"] is True and body["correct_answer"] == "B"
+
+    wrong = client.post("/api/quiz/submit", json={
+        "token": session_token, "topic": "algebra", "difficulty": "medium",
+        "answer": "a", "question": "2+2=?", "correct": "B", "explanation": "It's 4.",
+    })
+    assert wrong.json()["correct"] is False
+
+    complete = client.post("/api/quiz/complete", json={
+        "token": session_token, "score": 4, "topic": "algebra", "difficulty": "medium",
+    })
+    assert complete.status_code == 200 and complete.json()["ok"]
+
+    p = app_module.load_progress("ci_test_sid")
+    assert len(p["wrong_answers"]) == 1
+    assert p["quizzes"][-1]["topic"] == "algebra"
+
+
+def test_quiz_submit_rejects_invalid_difficulty(client, session_token):
+    r = client.post("/api/quiz/submit", json={
+        "token": session_token, "topic": "x", "difficulty": "impossible",
+        "answer": "a", "question": "q", "correct": "a", "explanation": "e",
+    })
+    assert r.status_code == 422
+
+
+def test_quiz_question_requires_no_auth_but_router_is_wired(client):
+    """quiz_question authenticates via a bare `sid` query param, not a session
+    token — verified pre-existing behavior during extraction (byte-identical
+    to the original), not something this pass changed. This just confirms the
+    route exists and validate_sid()'s length check runs before any Gemini call."""
+    r = client.get("/api/quiz/question", params={"sid": "ab"})  # below validate_sid's 3-char minimum
+    assert r.status_code == 400
+
+
+def test_weekly_review_latest_with_no_cached_review(client, session_token):
+    """Pure filesystem read, no Gemini call — safe to test fully."""
+    r = client.get(f"/api/ai/weekly-review/latest?token={session_token}")
+    assert r.status_code == 200
+    assert r.json()["review"] is None
+
+
+@pytest.mark.parametrize("path,payload", [
+    ("/api/home/brief", {"token": ""}),
+    ("/api/ai/extract-tasks", {"token": "", "text": "call mom tomorrow"}),
+    ("/api/ai/write", {"token": "", "text": "hello there"}),
+    ("/api/ai/weekly-review", {"token": ""}),
+    ("/api/ai/parse-intent", {"token": "", "text": "buy milk"}),
+    ("/api/ai/voice-to-task", {"token": "", "transcript": "call mom"}),
+])
+def test_ai_endpoints_reject_missing_auth_before_any_gemini_call(client, path, payload):
+    r = client.post(path, json=payload)
+    assert r.status_code == 401
+
+
 def test_routes_do_not_import_from_app():
     """The whole point of core.py: routers must not import a half-loaded app."""
     offenders = [

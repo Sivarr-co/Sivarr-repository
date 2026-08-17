@@ -130,7 +130,7 @@ BANK_LIMIT    = 20
 from core import (
     VERSION, DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR,
     MAX_MESSAGE_LEN, SESSION_TTL_DAYS,
-    sanitize_text, save_json, _load_json_file, _save_json_file,
+    sanitize_text, validate_sid, save_json, _load_json_file, _save_json_file,
     _session_tokens, create_session_token, create_session_token_for_existing,
     delete_all_sessions, get_session_from_token, delete_session_token,
     _req_token, _resolve_token,
@@ -391,15 +391,7 @@ MAX_FILE_SIZE    = 5 * 1024 * 1024  # 5MB max file size
 # GEMINI_MODELS/MATH_TRIGGERS/UNCERTAINTY_PHRASES/TOPIC_STRIP/SYSTEM_PROMPT/
 # MATH_PROMPT now live in ai_core.py.
 
-QUIZ_PROMPT = """Generate a {difficulty} multiple choice question about: {topic}
-Difficulty: easy=basic recall, medium=application, hard=analysis
-Reply ONLY with valid JSON:
-{{
-  "question": "...",
-  "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}},
-  "answer": "A",
-  "explanation": "One sentence."
-}}"""
+# QUIZ_PROMPT now lives in routes/quiz.py.
 
 SUGGESTION_PROMPT = """You are Sivarr study advisor.
 Student: {name} | Studied: {topics} | Weakest: {weak} | Quiz: {quiz_summary} | Difficulty: {difficulty}
@@ -417,17 +409,7 @@ Please:
 
 Format clearly with headers. Never use em dashes. Use commas or periods instead."""
 
-FILE_QUIZ_PROMPT = """Based on this document content:
-{text}
-
-Generate a {difficulty} multiple choice question.
-Reply ONLY with valid JSON:
-{{
-  "question": "...",
-  "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}},
-  "answer": "A",
-  "explanation": "One sentence."
-}}"""
+# FILE_QUIZ_PROMPT now lives in routes/quiz.py.
 
 # RateLimiter/limiter/check_rate_limit/get_client_key now live in core.py
 # (imported at the top of this file).
@@ -456,22 +438,7 @@ def _strip_html(text: str) -> str:
     return _AUTH_TAG_RE.sub("", text).replace("<", "").replace(">", "")
 
 
-def validate_sid(sid: str) -> str:
-    """
-    Validate and sanitize student session ID.
-    - Must be alphanumeric + underscores only
-    - Max 100 chars
-    - Prevents path traversal (no dots, slashes)
-    """
-    sid = sanitize_text(sid, 100)
-    # Remove any path traversal characters
-    sid = re.sub(r"[^a-z0-9_]", "_", sid.lower())
-    if not sid or len(sid) < 3:
-        raise HTTPException(400, "Invalid session ID.")
-    # Block traversal patterns
-    if ".." in sid or "/" in sid or "\\" in sid:
-        raise HTTPException(400, "Invalid session ID.")
-    return sid
+# validate_sid now lives in core.py (imported at the top of this file).
 
 
 def safe_path(base_dir: Path, filename: str) -> Path:
@@ -1429,52 +1396,7 @@ def get_all_students():
 #  QUIZ JSON PARSER
 # ═══════════════════════════════════════════════════════════════
 
-def parse_quiz_json(raw: str, topic: str) -> dict:
-    """
-    Robustly parse a quiz question from Gemini output.
-    Handles markdown fences, extra text, partial JSON, and
-    common formatting issues Gemini produces.
-    """
-    if not raw:
-        return None
-    try:
-        # Step 1 — strip markdown code fences
-        raw = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
-
-        # Step 2 — extract just the JSON object if there's extra text around it
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if match:
-            raw = match.group(0)
-
-        # Step 3 — parse
-        q = json.loads(raw)
-
-        # Step 4 — validate required fields
-        required = ["question", "options", "answer", "explanation"]
-        if not all(k in q for k in required):
-            log.warning(f"Quiz JSON missing fields: {list(q.keys())}")
-            return None
-
-        # Step 5 — validate options has A B C D
-        opts = q.get("options", {})
-        if not all(k in opts for k in ["A", "B", "C", "D"]):
-            log.warning(f"Quiz options incomplete: {list(opts.keys())}")
-            return None
-
-        # Step 6 — normalize answer to uppercase single letter
-        q["answer"] = str(q["answer"]).strip().upper()[:1]
-        if q["answer"] not in ["A", "B", "C", "D"]:
-            q["answer"] = "A"
-
-        q["topic"] = topic
-        return q
-
-    except json.JSONDecodeError as e:
-        log.error(f"Quiz JSON parse error: {e} | raw: {raw[:200]}")
-        return None
-    except Exception as e:
-        log.error(f"Quiz parse unexpected error: {e}")
-        return None
+# parse_quiz_json now lives in routes/quiz.py.
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1490,7 +1412,6 @@ from ai_core import (
     GEMINI_AVAILABLE,
     get_sessions, gemini_once, async_gemini_once, async_gemini_ask,
     _chat_sessions, _AI_BREAKER, _AI_BREAK_THRESHOLD, _AI_BREAK_COOLDOWN, _ai_breaker_open,
-    load_json, bpath,
 )
 
 # ── Feature route modules ─────────────────────────────────────────
@@ -1504,6 +1425,7 @@ from routes.goals import router as _goals_router, load_goals
 from routes.journal import router as _journal_router, load_journal
 from routes.skills import router as _skills_router
 from routes.finance import router as _finance_router
+from routes.home_brief import router as _home_brief_router
 
 app.include_router(_tasks_router)
 app.include_router(_habits_router)
@@ -1512,9 +1434,17 @@ app.include_router(_goals_router)
 app.include_router(_journal_router)
 app.include_router(_skills_router)
 app.include_router(_finance_router)
+app.include_router(_home_brief_router)
 
-# routes/ai_chat.py is NOT included here — it needs _chat_authorize (which needs
-# _plan_caps/_plan_is_active, billing logic not defined until further down), so
+# routes/quiz.py's build_router() only needs load_progress/save_progress, which
+# are both already defined above this point (see just above "app = FastAPI(...)")
+# — no real ordering constraint, unlike ai_chat/ai_features below.
+from routes.quiz import build_router as _build_quiz_router
+app.include_router(_build_quiz_router(load_progress, save_progress))
+
+# routes/ai_chat.py and routes/ai_features.py are NOT included here — they need
+# _chat_authorize/_ai_meter (which need _plan_caps/_plan_is_active, billing
+# logic not defined until further down), so
 # its build_router(...) call and include_router() sit right after
 # _chat_authorize's own definition instead (see routes/ai_chat.py's module
 # docstring for why _chat_authorize itself stays in app.py rather than moving).
@@ -2304,28 +2234,7 @@ class LoginRequest(BaseModel):
 # ChatRequest now lives in routes/ai_chat.py, the only place that uses it.
 
 
-class QuizRequest(BaseModel):
-    sid: str = ""
-    token: str = ""
-    topic: str
-    difficulty: str
-    answer: str
-    question: str
-    correct: str
-    explanation: str
-
-    @validator("difficulty")
-    def diff_valid(cls, v):
-        if v not in ["easy", "medium", "hard"]:
-            raise ValueError("Invalid difficulty.")
-        return v
-
-    @validator("answer", "correct")
-    def answer_valid(cls, v):
-        v = v.strip().upper()
-        if v not in ["A", "B", "C", "D"]:
-            raise ValueError("Answer must be A, B, C, or D.")
-        return v
+# QuizRequest now lives in routes/quiz.py.
 
 
 class DifficultyRequest(BaseModel):
@@ -4039,118 +3948,15 @@ def _ai_meter(sid: str) -> None:
     save_progress(sid, p)
 
 
+from routes.ai_features import build_router as _build_ai_features_router
+app.include_router(_build_ai_features_router(_ai_meter))
+
+
 # /api/chat and /api/chat/stream now live in routes/ai_chat.py.
 
 
-@app.get("/api/quiz/question")
-async def quiz_question(request: Request, sid: str, topic: str = "", difficulty: str = "medium", file_id: str = ""):
-    sid = validate_sid(sid)  # strips path-traversal chars; sid is interpolated into the upload path
-    key = get_client_key(request, sid)
-    check_rate_limit(key, RATE_LIMIT_QUIZ, "quiz")
-
-    if difficulty not in ["easy","medium","hard"]:
-        difficulty = "medium"
-
-    p = load_progress(sid)
-
-    if file_id:
-        file_id = re.sub(r"[^a-z0-9]", "", file_id.lower())[:20]  # alnum only; file_id is interpolated into the path
-        fpath = UPLOADS_DIR / f"{sid}_{file_id}.txt"
-        if fpath.exists():
-            content = fpath.read_text(encoding="utf-8")[:3000]
-            raw = await async_gemini_once(FILE_QUIZ_PROMPT.format(text=content, difficulty=difficulty), temp=0.9, tokens=300)
-            if raw:
-                try:
-                    raw = re.sub(r"```(?:json)?","",raw).strip().rstrip("`")
-                    q   = json.loads(raw)
-                    q["topic"] = "uploaded document"
-                    return q
-                except Exception as e:
-                    log.error(f"File quiz parse error: {e}")
-        return {"error": "Could not generate question from file."}
-
-    topics = list(p["topics"].keys())
-
-    # Allow quiz even with no studied topics if a topic was provided
-    if not topics and not topic:
-        topic = "general knowledge"
-
-    t = topic if topic else (random.choice(topics) if topics else "general knowledge")
-    bank = load_json(bpath())
-    key2 = f"{t}_{difficulty}"
-
-    stored = bank.get(key2, [])
-    if stored:
-        q = random.choice(stored)
-        q["topic"] = t
-        return q
-
-    raw = await async_gemini_once(QUIZ_PROMPT.format(topic=t, difficulty=difficulty), temp=0.9, tokens=300)
-    if not raw:
-        log.warning("Gemini unavailable for quiz — no question generated")
-        # Was `return get_fallback_question(t, [])` — that function does not exist
-        # anywhere in the codebase, so this path raised NameError instead of
-        # degrading, precisely when the AI was already down. Returns the same
-        # error shape the file-quiz path above uses.
-        return {"error": "Could not generate a question right now. Please try again."}
-
-    q = parse_quiz_json(raw, t)
-    if not q:
-        # Retry once with lower temperature
-        raw2 = await async_gemini_once(QUIZ_PROMPT.format(topic=t, difficulty=difficulty), temp=0.5, tokens=300)
-        q = parse_quiz_json(raw2 or "", t)
-    if not q:
-        log.warning("Quiz parse failed twice — no question generated")
-        # See the note above: get_fallback_question() never existed.
-        return {"error": "Could not generate a question right now. Please try again."}
-
-    bank.setdefault(key2, [])
-    if q["question"] not in [x["question"] for x in bank[key2]]:
-        bank[key2] = (bank[key2] + [q])[-BANK_LIMIT:]
-    save_json(bpath(), bank)
-    return q
-
-
-@app.post("/api/quiz/submit")
-async def quiz_submit(req: QuizRequest):
-    # Auth is by session token only; the body `sid` is ignored (IDOR fix).
-    sess = get_session_from_token(sanitize_text(req.token, 100)) if req.token else None
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid     = sess["sid"]
-    p       = load_progress(sid)
-    correct = req.answer.upper() == req.correct.upper()
-    if not correct:
-        p.setdefault("wrong_answers", []).append({
-            "topic": sanitize_text(req.topic, 100),
-            "question": sanitize_text(req.question, 500),
-            "your_answer": req.answer,
-            "correct": req.correct,
-            "explanation": sanitize_text(req.explanation, 500),
-            "difficulty": req.difficulty,
-            "date": datetime.date.today().isoformat(),
-        })
-    save_progress(sid, p)
-    return {"correct": correct, "correct_answer": req.correct}
-
-
-@app.post("/api/quiz/complete")
-async def quiz_complete(data: dict):
-    sid, _ = _resolve_token(data)   # IDOR fix: sid from session token, body sid ignored
-    score = min(max(int(data.get("score",0)), 0), 5)
-    topic = sanitize_text(str(data.get("topic","general")), 100)
-    diff  = data.get("difficulty","medium")
-    if diff not in ["easy","medium","hard"]:
-        diff = "medium"
-    p = load_progress(sid)
-    p.setdefault("quizzes", []).append({
-        "topic": topic, "score": score / 5,
-        "pct": int(score / 5 * 100), "difficulty": diff,
-        "date": datetime.date.today().isoformat(),
-    })
-    save_progress(sid, p)
-    log.info(f"Quiz complete: {sid[:20]} | {score}/5 | {topic} | {diff}")
-    return {"ok": True}
+# /api/quiz/question, /api/quiz/submit, /api/quiz/complete now live in
+# routes/quiz.py.
 
 
 @app.get("/api/progress")
@@ -8552,73 +8358,7 @@ Write a 3–5 sentence executive briefing. Be direct and actionable. Highlight r
     return {"briefing": briefing}
 
 
-@app.post("/api/home/brief")
-async def home_brief(data: dict):
-    """Generate a personalised AI morning brief for the Home dashboard."""
-    sid, uname = _resolve_token(data)
-    import datetime as _dt
-    first_name = uname.split()[0] if uname else "there"
-    today      = str(_dt.date.today())
-    hr         = _dt.datetime.now().hour
-    tod        = "morning" if hr < 12 else "afternoon" if hr < 17 else "evening"
-
-    # Personal data sent from the client
-    open_tasks    = int(data.get("open_tasks", 0))
-    overdue_tasks = int(data.get("overdue_tasks", 0))
-    top_goal      = sanitize_text(str(data.get("top_goal", "")), 80)
-    goal_pct      = int(data.get("goal_pct", 0))
-    streak        = int(data.get("streak", 0))
-    events_today  = int(data.get("events_today", 0))
-    journalled    = bool(data.get("journalled", False))
-    high_pri      = sanitize_text(str(data.get("high_priority_task", "")), 80)
-
-    # Org data (if user is in an org)
-    org_name      = ""
-    org_tasks     = 0
-    if db.is_available():
-        try:
-            org = db.get_org_by_member(sid)
-            if org:
-                org_name  = org["name"]
-                org_tasks = db.count_org_tasks(org["id"], exclude_status="done")
-        except Exception:
-            pass
-
-    lines = [
-        f"Generate a 2-3 sentence {tod} brief for {first_name}. Today is {today}.",
-        "",
-        "Workspace data:",
-        f"- Open tasks: {open_tasks}" + (f" ({overdue_tasks} overdue)" if overdue_tasks else ""),
-    ]
-    if high_pri:
-        lines.append(f"- Highest priority: \"{high_pri}\"")
-    if top_goal:
-        lines.append(f"- Top goal: \"{top_goal}\" at {goal_pct}%")
-    if streak > 1:
-        lines.append(f"- Activity streak: {streak} days")
-    if events_today:
-        lines.append(f"- Events scheduled today: {events_today}")
-    if not journalled:
-        lines.append("- Has NOT journalled today")
-    if org_name:
-        lines.append(f"- Organisation: {org_name} ({org_tasks} open org tasks)")
-
-    lines += [
-        "",
-        "Rules:",
-        "1. Be warm and direct, like the smartest friend in the room.",
-        "2. Reference 1-2 real data points naturally, not as a list.",
-        "3. End with one sharp, specific action suggestion.",
-        "4. Max 3 sentences. No bullet points. No headers.",
-        f"5. Do NOT open with a greeting or salutation (no \"Good {tod}\", no \"{tod.capitalize()}, {first_name}\", no \"Hi\"/\"Hey\"). The page already shows a greeting above this text. Start directly with the substance.",
-        "6. Never use em dashes. Use commas or periods instead.",
-    ]
-
-    prompt  = "\n".join(lines)
-    brief   = await async_gemini_once(prompt, temp=0.75, tokens=1200)
-    if not brief:
-        brief = f"Good {tod}, {first_name}. Your workspace is ready, so make today count."
-    return {"brief": brief, "date": today}
+# /api/home/brief now lives in routes/home_brief.py.
 
 
 @app.get("/api/home/briefing")
@@ -8700,264 +8440,9 @@ async def analytics_mood(token: str = "", days: int = 30):
     return {"data": result}
 
 
-@app.post("/api/ai/extract-tasks")
-async def ai_extract_tasks(data: dict, request: Request):
-    """Extract actionable tasks from free-form text using AI."""
-    sess = get_session_from_token(data.get("token",""))
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    check_rate_limit(get_client_key(request), 15, "ai_extract")
-    _ai_meter(sess["sid"])
-    text = sanitize_text(str(data.get("text","")), 3000)
-    if len(text.strip()) < 10:
-        raise HTTPException(400, "Text too short.")
-    prompt = f"""Extract all actionable tasks from the text below.
-Return ONLY a JSON array of objects, each with:
-  "title": short task title (max 60 chars)
-  "priority": "high", "medium", or "low"
-  "due": ISO date string if mentioned, else null
-
-Text:
-{text}
-
-Return only valid JSON. No explanation. No markdown. Example:
-[{{"title":"Reply to John","priority":"high","due":null}}]"""
-    raw = await async_gemini_once(prompt, temp=0.2, tokens=400)
-    tasks = []
-    if raw:
-        try:
-            import re as _re
-            m = _re.search(r'\[.*\]', raw, _re.DOTALL)
-            if m:
-                tasks = json.loads(m.group(0))
-        except Exception:
-            pass
-    return {"tasks": tasks[:20]}
-
-
-@app.post("/api/ai/write")
-async def ai_write_assist(data: dict, request: Request):
-    """AI writing assistant — improve, shorten, expand, or reformat text."""
-    sess = get_session_from_token(data.get("token",""))
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    check_rate_limit(get_client_key(request), 20, "ai_write")
-    _ai_meter(sess["sid"])
-    text   = sanitize_text(str(data.get("text","")), 4000)
-    action = sanitize_text(str(data.get("action","improve")), 20)
-    tone   = sanitize_text(str(data.get("tone","professional")), 20)
-    if len(text.strip()) < 5:
-        raise HTTPException(400, "Text too short.")
-    actions = {
-        "improve":   "Rewrite to improve clarity, flow, and impact.",
-        "shorten":   "Shorten significantly while keeping the core message.",
-        "expand":    "Expand with relevant detail and depth.",
-        "formal":    "Rewrite in a formal, professional tone.",
-        "casual":    "Rewrite in a warm, conversational tone.",
-        "bullets":   "Convert into clear, concise bullet points.",
-        "email":     "Rewrite as a professional email.",
-        "summarise": "Summarise in 2-3 sentences.",
-    }
-    instruction = actions.get(action, actions["improve"])
-    prompt = f"""{instruction}
-
-Text:
-{text}
-
-Respond with ONLY the rewritten text. No preamble, no explanation."""
-    result = await async_gemini_once(prompt, temp=0.7, tokens=600)
-    if not result:
-        raise HTTPException(502, "AI unavailable. Try again.")
-    return {"result": result}
-
-
-@app.post("/api/ai/weekly-review")
-async def weekly_review(data: dict, request: Request):
-    """Generate a personalised AI weekly review digest."""
-    sid, name = _resolve_token(data)
-    check_rate_limit(get_client_key(request), 10, "weekly_review")
-    _ai_meter(sid)
-    import datetime as _dt
-    first_name    = name.split()[0] if name else "there"
-    week_end      = _dt.date.today()
-    week_start    = week_end - _dt.timedelta(days=6)
-    week_range    = f"{week_start.strftime('%b %d')}–{week_end.strftime('%b %d')}"
-
-    tasks_done    = max(0, int(data.get("tasks_done", 0)))
-    tasks_total   = max(0, int(data.get("tasks_total", 0)))
-    habits_pct    = max(0, min(100, int(data.get("habits_pct", 0))))
-    mood          = sanitize_text(str(data.get("mood", "")), 20)
-    raw_goals     = data.get("goals", [])
-    goals         = [g for g in raw_goals if isinstance(g, dict)][:5]
-
-    goals_txt = "\n".join(
-        f"  - {sanitize_text(str(g.get('title','')),60)}: {int(g.get('progress',0))}%"
-        for g in goals
-    ) if goals else "  - No active goals"
-
-    # Skills context
-    skills_txt = ""
-    if db.is_available():
-        sk_blob = db.get_user_blob(sid, "skills") or {}
-        sk_list = (sk_blob.get("skills") or [])[:5]
-        if sk_list:
-            skills_txt = "\n".join(
-                f"  - {sanitize_text(str(s.get('name','?')),40)}: {s.get('level',0)}% proficiency, {s.get('sessions',0)} sessions"
-                for s in sk_list
-            )
-
-    # Finance context
-    finance_txt = ""
-    if db.is_available():
-        fin_blob = db.get_user_blob(sid, "finance") or {}
-        fin_txs  = (fin_blob.get("transactions") or [])
-        month    = str(week_end)[:7]
-        m_txs    = [t for t in fin_txs if str(t.get("date","")).startswith(month)]
-        if m_txs:
-            inc = sum(t.get("amount",0) for t in m_txs if t.get("type")=="income")
-            exp = sum(t.get("amount",0) for t in m_txs if t.get("type")=="expense")
-            finance_txt = f"  - This month: ₦{inc:,.0f} income, ₦{exp:,.0f} expenses, ₦{inc-exp:,.0f} net"
-
-    extras = ""
-    if skills_txt:  extras += f"\n- Skills tracked:\n{skills_txt}"
-    if finance_txt: extras += f"\n- Finance:\n{finance_txt}"
-
-    prompt = f"""You are Sivarr AI. Write a warm, insightful weekly review for {first_name} covering {week_range}.
-
-Data:
-- Tasks completed: {tasks_done} of {tasks_total}
-- Habits completion rate: {habits_pct}%
-- Goals:
-{goals_txt}{extras}
-{"- Dominant mood: " + mood if mood else ""}
-
-Format your response in exactly 4 labelled sections:
-
-**This Week**
-2 sentences summarising their overall performance. Be honest and specific.
-
-**Wins**
-- [win 1]
-- [win 2]
-Two genuine achievements based on the data.
-
-**Focus Next Week**
-- [action 1]
-- [action 2]
-Two specific, actionable recommendations tied to their data.
-
-**Closing**
-One energising sentence using their first name.
-
-Keep it concise, personal, and grounded in the actual numbers. No generic filler.
-Never use em dashes. Use commas or periods instead."""
-
-    review = await async_gemini_once(prompt, temp=0.72, tokens=380)
-    if not review:
-        review = f"Great effort this week, {first_name}! You completed {tasks_done} tasks and maintained {habits_pct}% of your habits. Keep building that momentum, next week push one goal past its current mark."
-    # Cache the review server-side for auto-display next time
-    import datetime as _dt2
-    week_start_str = str(_dt2.date.today() - _dt2.timedelta(days=_dt2.date.today().weekday()))
-    reviews_dir = DATA_DIR / "weekly_reviews"
-    reviews_dir.mkdir(exist_ok=True)
-    review_path = reviews_dir / f"{sid}_{week_start_str}.json"
-    save_json(review_path, {"review": review, "week_start": week_start_str, "generated_at": str(_dt2.date.today())})
-
-    return {"review": review, "week": week_range}
-
-
-@app.get("/api/ai/weekly-review/latest")
-async def weekly_review_latest(token: str = ""):
-    """Return the most recent auto-generated or manual review for the current week."""
-    sess = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid = sess["sid"]
-    import datetime as _dt
-    today      = _dt.date.today()
-    week_start = str(today - _dt.timedelta(days=today.weekday()))
-    review_path = DATA_DIR / "weekly_reviews" / f"{sid}_{week_start}.json"
-    if not review_path.exists():
-        return {"review": None, "week_start": week_start}
-    data = json.loads(review_path.read_text(encoding="utf-8"))
-    return {"review": data.get("review",""), "week_start": data.get("week_start", week_start)}
-
-
-@app.post("/api/ai/parse-intent")
-async def parse_intent(data: dict, request: Request):
-    """Parse a natural-language string into a structured action (task, goal, or note)."""
-    sid, _ = _resolve_token(data)
-    check_rate_limit(get_client_key(request), 30, "parse_intent")
-    text = sanitize_text(str(data.get("text", "")), 300)
-    if not text.strip():
-        raise HTTPException(400, "Text required.")
-    today = str(__import__('datetime').date.today())
-    prompt = f"""Parse the following natural-language input into a structured action. Today is {today}.
-
-Input: "{text}"
-
-Respond with a single JSON object — no explanation, no markdown fences. Schema:
-{{"action":"task"|"goal"|"note","title":"string","priority":"high"|"normal"|"low","due":"YYYY-MM-DD"|null,"subject":"string"|null}}
-
-Rules:
-- action = "task" if it describes something to do, complete, or finish
-- action = "goal" if it describes a target, aim, score, or achievement
-- action = "note" for everything else
-- Extract any explicit date or relative date (tomorrow, Friday, next week) and convert to YYYY-MM-DD
-- Keep title concise (max 70 chars), remove filler words like "remind me to" or "I need to"
-- subject is only for goals (the subject area, e.g. "Physics")"""
-
-    raw = await async_gemini_once(prompt, temp=0.1, tokens=1200)
-    parsed = None
-    if raw:
-        try:
-            import re as _re, json as _json
-            m = _re.search(r'\{.*\}', raw, _re.DOTALL)
-            if m:
-                parsed = _json.loads(m.group(0))
-        except Exception:
-            pass
-    if not parsed:
-        parsed = {"action": "task", "title": text[:70], "priority": "normal", "due": None, "subject": None}
-    return {"ok": True, "parsed": parsed}
-
-
-@app.post("/api/ai/voice-to-task")
-async def voice_to_task(data: dict, request: Request):
-    """Convert a voice-note transcript into structured tasks."""
-    sid, _ = _resolve_token(data)
-    check_rate_limit(get_client_key(request), 20, "voice_to_task")
-    transcript = sanitize_text(str(data.get("transcript", "")), 600)
-    if not transcript.strip():
-        raise HTTPException(400, "Transcript required.")
-    today = str(__import__('datetime').date.today())
-    prompt = f"""Extract all actionable tasks from this voice note. Today is {today}.
-
-Voice note: "{transcript}"
-
-Return a JSON array of task objects (max 5). Each object:
-{{"title":"string","priority":"high"|"normal"|"low","due":"YYYY-MM-DD"|null}}
-
-Rules:
-- Only extract clear action items — skip context-setting or general remarks
-- Keep titles concise (max 60 chars)
-- Respond with the JSON array only, no explanation"""
-
-    raw = await async_gemini_once(prompt, temp=0.15, tokens=250)
-    tasks = []
-    if raw:
-        try:
-            import re as _re, json as _json
-            m = _re.search(r'\[.*\]', raw, _re.DOTALL)
-            if m:
-                result = _json.loads(m.group(0))
-                if isinstance(result, list):
-                    tasks = result[:5]
-        except Exception:
-            pass
-    if not tasks:
-        tasks = [{"title": transcript[:60], "priority": "normal", "due": None}]
-    return {"ok": True, "tasks": tasks}
+# /api/ai/extract-tasks, /api/ai/write, /api/ai/weekly-review,
+# /api/ai/weekly-review/latest, /api/ai/parse-intent, /api/ai/voice-to-task
+# now live in routes/ai_features.py.
 
 
 @app.post("/api/feedback")

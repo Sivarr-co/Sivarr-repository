@@ -211,6 +211,24 @@ def sanitize_text(text: str, max_len: int = MAX_MESSAGE_LEN) -> str:
     return text
 
 
+def validate_sid(sid: str) -> str:
+    """
+    Validate and sanitize student session ID.
+    - Must be alphanumeric + underscores only
+    - Max 100 chars
+    - Prevents path traversal (no dots, slashes)
+    """
+    sid = sanitize_text(sid, 100)
+    # Remove any path traversal characters
+    sid = re.sub(r"[^a-z0-9_]", "_", sid.lower())
+    if not sid or len(sid) < 3:
+        raise HTTPException(400, "Invalid session ID.")
+    # Block traversal patterns
+    if ".." in sid or "/" in sid or "\\" in sid:
+        raise HTTPException(400, "Invalid session ID.")
+    return sid
+
+
 # ═══════════════════════════════════════════════════════════════
 #  ATOMIC JSON WRITE
 # ═══════════════════════════════════════════════════════════════
