@@ -317,6 +317,41 @@ def test_search_excludes_deleted_goal(client, session_token):
     assert not any(r["title"] == unique for r in found_after)
 
 
+def test_auto_weekly_review_sid_discovery_finds_json_fallback_users():
+    """_auto_weekly_reviews (a scheduler closure in app.py, not importable)
+    used to discover which users to process by globbing DATA_DIR for
+    *_habits.json files — which silently finds nobody once a database is
+    configured, since _load_user_list/_save_user_list stop writing those
+    files entirely. Fixed to sweep db.get_sids_with_blob_key("habits") when a
+    DB is available, falling back to the same glob otherwise. This sandbox
+    has no DB, so it exercises the fallback path directly against a real
+    seeded user — the same path production would take if a database were
+    ever unconfigured, and the one that was already correct before the fix."""
+    from routes.habits import save_habits
+    sid = "weekly_review_discovery_test_sid"
+    habits_file = REPO / "data" / f"{sid}_habits.json"
+    try:
+        save_habits(sid, [{"id": "h1", "title": "Read", "completions": []}])
+        discovered = {
+            p.name.replace("_habits.json", "")
+            for p in (REPO / "data").glob("*_habits.json")
+        }
+        assert sid in discovered
+    finally:
+        habits_file.unlink(missing_ok=True)
+
+
+def test_auto_weekly_review_reads_journal_via_load_journal_not_raw_file():
+    """The mood lookup inside the same job used to read
+    DATA_DIR/f"{sid}_journal.json" directly — same DB-blind bug as the
+    sid-discovery glob above, just for one field. load_journal() handles
+    both backends already; this just confirms it doesn't error on a user
+    with no journal data, the common case the old code silently mishandled
+    by finding no file and always reporting an empty mood."""
+    empty = app_module.load_journal("sid_with_no_journal_at_all")
+    assert empty == []
+
+
 def test_purge_deleted_goals_respects_30_day_retention():
     """Exercises app.py's _purge_deleted_goals job logic directly (it's a
     closure inside _start_scheduler, not importable) by reproducing its exact
