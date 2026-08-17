@@ -4748,7 +4748,7 @@ async function glMarkDone(id) {
 
 async function glDelete(id) {
   if (
-    !(await siModal.confirm("This goal will be permanently deleted.", {
+    !(await siModal.confirm("Delete this goal? You can restore it from Trash within 30 days.", {
       title: "Delete Goal",
       confirmLabel: "Delete",
       danger: true,
@@ -4760,10 +4760,154 @@ async function glDelete(id) {
     _calRemoveEvent(`goal_${id}`);
     GL_GOALS = GL_GOALS.filter((x) => x.id !== id);
     glRender();
-    toast("Goal deleted");
+    toast("Goal moved to Trash");
   } catch (e) {
     toast("Delete failed.");
   }
+}
+
+async function glRestore(id) {
+  try {
+    await API("/api/goals/restore", { token: getToken(), id });
+    await glLoad();
+  } catch (e) {
+    toast("Restore failed.");
+  }
+}
+
+// ══════════════════════ TRASH ══════════════════════
+//
+// One combined view over four different storage shapes: Tasks/Habits/Docs
+// are client-array-sync domains (see js/features/*.js — no server-side
+// delete endpoint exists for them, deleted_at rides along in the normal
+// /sync payload), so their trashed items are already sitting in localStorage
+// and need no network call. Goals is server-authoritative, so its trash is a
+// real fetch. Habits deserve a special note: they're addressed by array
+// INDEX, not id (see js/features/habits.js's _habVisible) — the index this
+// panel hands back to habitRestore() must be the habit's position in the
+// FULL localStorage array, exactly what habits.deleted_at-carrying entries
+// already have from JSON.parse, so no extra bookkeeping is needed here.
+
+let _TRASH_GOALS = [];
+
+async function trashLoadGoals() {
+  const token = getToken();
+  if (!token) {
+    _TRASH_GOALS = [];
+    return;
+  }
+  try {
+    const r = await fetch(`/api/goals/trash?token=${encodeURIComponent(token)}`);
+    const d = await r.json();
+    _TRASH_GOALS = d.goals || [];
+  } catch (e) {
+    _TRASH_GOALS = [];
+  }
+}
+
+function _trashLocalItems() {
+  const items = [];
+
+  (getSHData().tasks || []).forEach((t) => {
+    if (t.deleted_at) {
+      items.push({
+        type: "task",
+        icon: "ti-checkbox",
+        id: t.id,
+        title: t.title || "Untitled task",
+        deleted_at: t.deleted_at,
+      });
+    }
+  });
+
+  JSON.parse(localStorage.getItem(HAB_KEY()) || "[]").forEach((h, i) => {
+    if (h.deleted_at) {
+      items.push({
+        type: "habit",
+        icon: "ti-flame",
+        id: i,
+        title: h.title || "Untitled habit",
+        deleted_at: h.deleted_at,
+      });
+    }
+  });
+
+  docGetAll().forEach((d) => {
+    if (d.deleted_at) {
+      items.push({
+        type: "doc",
+        icon: "ti-notebook",
+        id: d.id,
+        title: d.title || "Untitled note",
+        deleted_at: d.deleted_at,
+      });
+    }
+  });
+
+  return items;
+}
+
+function _trashRelTime(iso) {
+  const ts = Date.parse(iso);
+  if (Number.isNaN(ts)) return "";
+  const days = Math.floor((Date.now() - ts) / 86400000);
+  if (days <= 0) return "today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
+}
+
+const _TRASH_TYPE_LABEL = { task: "Task", habit: "Habit", doc: "Note", goal: "Goal" };
+
+function trashRender() {
+  const list = $("trash-list");
+  if (!list) return;
+
+  const items = _trashLocalItems().concat(
+    _TRASH_GOALS.map((g) => ({
+      type: "goal",
+      icon: "ti-target",
+      id: g.id,
+      title: g.title || "Untitled goal",
+      deleted_at: g.deleted_at,
+    })),
+  );
+  items.sort((a, b) => (b.deleted_at || "").localeCompare(a.deleted_at || ""));
+
+  const empty = $("trash-empty");
+  if (!items.length) {
+    list.innerHTML = "";
+    if (empty) empty.style.display = "flex";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  list.innerHTML = items
+    .map(
+      (it) => `
+    <div class="trash-item">
+      <i class="ti ${it.icon} trash-item-icon"></i>
+      <div class="trash-item-info">
+        <div class="trash-item-title">${esc(it.title)}</div>
+        <div class="trash-item-meta">${_TRASH_TYPE_LABEL[it.type]} · deleted ${_trashRelTime(it.deleted_at)}</div>
+      </div>
+      <button class="btn" onclick="trashRestore('${it.type}','${esc(String(it.id))}')">Restore</button>
+    </div>`,
+    )
+    .join("");
+}
+
+async function trashRestore(type, id) {
+  if (type === "task") restoreSHTask(id);
+  else if (type === "habit") habitRestore(Number(id));
+  else if (type === "doc") docRestore(id);
+  else if (type === "goal") await glRestore(id);
+  toast("Restored");
+  await trashInit();
+}
+
+async function trashInit() {
+  await trashLoadGoals();
+  trashRender();
 }
 
 // ── Goal Key Results ──────────────────────────────────────────────────────────
@@ -7954,6 +8098,14 @@ const CMD_ITEMS = [
     action: () => nav("profile", null),
   },
   {
+    icon: "🗑️",
+    label: "Trash",
+    tag: "",
+    panel: "trash",
+    keywords: "deleted restore recover",
+    action: () => nav("trash", null),
+  },
+  {
     icon: "⚙️",
     label: "Settings",
     tag: "",
@@ -8029,6 +8181,7 @@ const NAV_TABS = {
   studyplan: { label: "Study Plan", icon: "ti-map", section: "tools" },
   contenthub: { label: "Content Hub", icon: "ti-news", section: "tools" },
   profile: { label: "My Profile", icon: "ti-user", section: "tools" },
+  trash: { label: "Trash", icon: "ti-trash", section: "tools" },
   settings: { label: "Settings", icon: "ti-settings", section: "tools" },
 };
 // Canonical render order within each customizable section.
@@ -12756,6 +12909,7 @@ function nav(name, btn) {
   if (name === "automations") autoInit();
   if (name === "org") orgInit();
   if (name === "profile") profileInit();
+  if (name === "trash") trashInit();
   if (name === "personal") psRenderOverview();
   // "academic" has no init here: its only caller, openSpace(), always
   // calls acadInit(sp) itself immediately after nav("academic") — this
@@ -12833,6 +12987,7 @@ function navTab(name, btn) {
   if (name === "automations") autoInit();
   if (name === "org") orgInit();
   if (name === "profile") profileInit();
+  if (name === "trash") trashInit();
 }
 
 async function getSuggestionsMobile() {

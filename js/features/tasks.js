@@ -633,8 +633,14 @@ function deleteSHTask(id) {
 }
 
 function restoreSHTask(id) {
+  // String comparison, not ===: task ids aren't uniformly numeric (recurring
+  // spawns get "rec_<id>_<ts>", CSV imports get a uuid slice) — id also
+  // arrives here from the Trash panel's onclick attribute, a string
+  // regardless of the original type, so a strict-equals check against a
+  // numeric id would silently never match. Same class of bug documented
+  // elsewhere in this codebase for exactly this reason.
   const data = getSHData();
-  const task = (data.tasks || []).find((t) => t.id === id);
+  const task = (data.tasks || []).find((t) => String(t.id) === String(id));
   if (!task) return;
   delete task.deleted_at;
   saveSHData(data);

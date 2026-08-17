@@ -252,8 +252,12 @@ function docDelete(id, e) {
 }
 
 function docRestore(id) {
+  // String comparison, not === — id arrives here from the Trash panel's
+  // onclick attribute (always a string) but doc ids are numeric (Date.now()),
+  // so a strict-equals check would silently never match. Same reasoning as
+  // restoreSHTask() in js/features/tasks.js.
   const list = docGetAll();
-  const doc = list.find((d) => d.id === id);
+  const doc = list.find((d) => String(d.id) === String(id));
   if (!doc) return;
   delete doc.deleted_at;
   docSaveAll(list);
