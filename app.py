@@ -139,6 +139,7 @@ from core import (
     _session_tokens, create_session_token, create_session_token_for_existing,
     delete_all_sessions, get_session_from_token, delete_session_token,
     _load_user_list, _save_user_list,
+    _req_token, _resolve_token,
     asset, sw_cache_version,
 )
 
@@ -780,12 +781,9 @@ _SESSION_COOKIE_KEY = f"__Host-{SESSION_COOKIE}" if _COOKIE_SECURE else SESSION_
 # CSRF double-submit cookie: non-httpOnly so JS can read + echo as X-CSRF-Token header.
 # Belt-and-suspenders with SameSite=Lax; validated in _BearerTokenMiddleware.
 _CSRF_COOKIE = "sivarr_csrf"
-# P3b: the token resolved per-request by _BearerTokenMiddleware (query > Bearer >
-# cookie), stashed here so body-token endpoints (_resolve_token / session_restore)
-# can authenticate from the httpOnly cookie when no token is in the JSON body —
-# the step that lets the frontend stop putting the token in localStorage.
-from contextvars import ContextVar as _ContextVar
-_req_token: "_ContextVar[str]" = _ContextVar("sivarr_req_token", default="")
+# _req_token / _resolve_token now live in core.py (imported at the top of this
+# file). _BearerTokenMiddleware below does _req_token.set(...) on the same
+# ContextVar object core.py's _resolve_token reads from.
 CHAT_SESSION_TTL  = 4 * 3600      # evict idle AI sessions after 4 hours
 _PRIV_SESSION_TTL_S = 7200  # 2 hours in seconds
 
@@ -1890,10 +1888,14 @@ app = FastAPI(title="Sivarr AI", version=VERSION)
 from routes.tasks import router as _tasks_router, load_tasks, save_tasks
 from routes.habits import router as _habits_router, load_habits, save_habits
 from routes.docs_notes import router as _docs_notes_router, load_docs, save_docs
+from routes.goals import router as _goals_router, load_goals, save_goals
+from routes.journal import router as _journal_router, load_journal, save_journal
 
 app.include_router(_tasks_router)
 app.include_router(_habits_router)
 app.include_router(_docs_notes_router)
+app.include_router(_goals_router)
+app.include_router(_journal_router)
 _START_TIME    = time.time()
 _health_cache: dict = {"result": None, "ts": 0.0}
 _db_health_cache: dict = {"info": None, "ts": 0.0}
@@ -3355,22 +3357,7 @@ async def leaderboard():
 
 
 # ── Spaces API ────────────────────────────────────────────────────
-
-def _resolve_token(data: dict) -> tuple[str, str]:
-    """Return (sid, name) from a token or raise 401.
-
-    Token source: the JSON body `token` first (current clients), then the
-    per-request `_req_token` ContextVar (P3b: httpOnly cookie / Bearer header),
-    so the backend authenticates cookie-only requests too — additive."""
-    token = sanitize_text(str(data.get("token", "")), 100)
-    if not token:
-        token = sanitize_text(_req_token.get(""), 100)
-    if not token:
-        raise HTTPException(401, "Token required.")
-    entry = get_session_from_token(token)
-    if not entry:
-        raise HTTPException(401, "Session expired.")
-    return entry["sid"], entry["name"]
+# _resolve_token now lives in core.py (imported at the top of this file).
 
 
 @app.post("/api/spaces/list")
@@ -7253,47 +7240,9 @@ Make tasks specific and actionable. Each day must have 2-4 tasks. Never use em d
     log.info(f"Study plan generated: {req.sid[:20]} | {subject} | {days_left} days")
     return {"plan": plan, "days_left": days_left, "subject": subject, "exam_date": req.exam_date}
 
-# ── Goals ─────────────────────────────────────────────────────
-GOALS_PATH = DATA_DIR / "goals.json"
-
-
-# _load_user_list / _save_user_list now live in core.py (imported at the top).
-
-
-def load_goals(sid: str) -> list:
-    return _load_user_list(sid, "goals")
-
-def save_goals(sid: str, goals: list):
-    _save_user_list(sid, "goals", goals)
-
-
-# ── Personal journal — server-side mirror ─────────────────────
-def load_journal(sid: str) -> list:
-    return _load_user_list(sid, "journal")
-
-def save_journal(sid: str, entries: list):
-    _save_user_list(sid, "journal", entries)
-
-@app.post("/api/journal/sync")
-async def sync_journal(data: dict):
-    """Bulk-sync journal entries from client localStorage to server."""
-    token = data.get("token", "")
-    sess  = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid     = sess["sid"]
-    entries = data.get("entries", [])
-    if not isinstance(entries, list):
-        raise HTTPException(400, "entries must be a list.")
-    clean = []
-    for e in entries[:1000]:
-        clean.append({
-            "date":    sanitize_text(str(e.get("date","")),    20),
-            "text":    sanitize_text(str(e.get("text","") or e.get("content","") or e.get("entry","")), 10000),
-            "mood":    sanitize_text(str(e.get("mood","")),    10),
-        })
-    save_journal(sid, clean)
-    return {"ok": True, "count": len(clean)}
+# Goals (load_goals/save_goals) and Journal (load_journal/save_journal) now live
+# in routes/goals.py and routes/journal.py — imported back below via
+# include_router, same pattern as tasks/habits/docs_notes.
 
 @app.post("/api/skills/sync")
 async def sync_skills(data: dict):
@@ -7369,14 +7318,8 @@ async def restore_finance(token: str = ""):
 
 # ── Cross-device pull: return the server-stored copy so a second device
 #    can hydrate its localStorage on boot (server = source of truth). ──────────
-# (habits/docs restore live in routes/habits.py / routes/docs_notes.py)
-@app.get("/api/journal/restore")
-async def restore_journal(token: str = ""):
-    sess = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    return {"entries": load_journal(sess["sid"])}
-
+# (tasks/habits/docs/journal/goals restore all live in their own routes/*.py
+# modules now — this file only still has the ones without one yet.)
 @app.get("/api/skills/restore")
 async def restore_skills(token: str = ""):
     sess = get_session_from_token(token)
@@ -7494,151 +7437,6 @@ async def unified_search(q: str = "", token: str = ""):
             pass
 
     return {"results": results[:30]}
-
-@app.get("/api/goals")
-async def get_goals(sid: str = "", token: str = ""):
-    # Auth is by session token only; the `sid` query param is ignored (IDOR fix).
-    sess = get_session_from_token(sanitize_text(token, 100)) if token else None
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    return {"goals": load_goals(sess["sid"])}
-
-@app.post("/api/goals/add")
-async def add_goal(data: dict):
-    sid, _    = _resolve_token(data)
-    title     = sanitize_text(str(data.get("title","")), 100)
-    subject   = sanitize_text(str(data.get("subject","")), 100)
-    target    = int(data.get("target_score", 70))
-    deadline  = sanitize_text(str(data.get("deadline","")), 20)
-    goal_type = sanitize_text(str(data.get("goal_type", "okr")), 20)
-    if goal_type not in ("okr", "score"):
-        goal_type = "okr"
-    if not title:
-        raise HTTPException(400, "Goal title required.")
-    goals = load_goals(sid)
-    goal = {
-        "id":           str(uuid.uuid4())[:8],
-        "title":        title,
-        "subject":      subject,
-        "target_score": min(max(target, 1), 100),
-        "deadline":     deadline,
-        "created":      datetime.date.today().isoformat(),
-        "progress":     0,
-        "completed":    False,
-        "goal_type":    goal_type,
-    }
-    goals.append(goal)
-    save_goals(sid, goals)
-    return {"goal": goal}
-
-@app.post("/api/goals/update")
-async def update_goal(data: dict):
-    sid, _   = _resolve_token(data)
-    goal_id  = sanitize_text(str(data.get("id","")), 20)
-    progress = int(data.get("progress", 0))
-    completed = bool(data.get("completed", False))
-    goals = load_goals(sid)
-    for g in goals:
-        if g["id"] == goal_id:
-            g["progress"]  = min(max(progress, 0), 100)
-            g["completed"] = completed
-            break
-    save_goals(sid, goals)
-    return {"ok": True}
-
-@app.post("/api/goals/delete")
-async def delete_goal(data: dict):
-    sid, _  = _resolve_token(data)
-    goal_id = sanitize_text(str(data.get("id","")), 20)
-    goals   = [g for g in load_goals(sid) if g["id"] != goal_id]
-    save_goals(sid, goals)
-    return {"ok": True}
-
-
-@app.post("/api/goals/edit")
-async def edit_goal(data: dict):
-    sid, _  = _resolve_token(data)
-    goal_id = sanitize_text(str(data.get("id","")), 20)
-    goals   = load_goals(sid)
-    for g in goals:
-        if g["id"] == goal_id:
-            if data.get("title"):
-                g["title"] = sanitize_text(str(data["title"]), 200)
-            if "subject" in data:
-                g["subject"] = sanitize_text(str(data.get("subject", "")), 100)
-            if "deadline" in data:
-                dl = data.get("deadline") or None
-                g["deadline"] = sanitize_text(str(dl), 20) if dl else None
-            break
-    save_goals(sid, goals)
-    return {"ok": True}
-
-
-def _calc_goal_progress(g: dict) -> int:
-    krs = g.get("key_results", [])
-    if not krs:
-        return g.get("progress", 0)
-    pcts = [min(100.0, (kr["current"] / max(0.01, kr["target"])) * 100) for kr in krs]
-    return round(sum(pcts) / len(krs))
-
-
-@app.post("/api/goals/kr/add")
-async def add_goal_kr(data: dict):
-    sid, _  = _resolve_token(data)
-    goal_id = sanitize_text(str(data.get("goal_id","")), 20)
-    title   = sanitize_text(str(data.get("title","")), 200)
-    target  = float(data.get("target", 100))
-    current = float(data.get("current", 0))
-    unit    = sanitize_text(str(data.get("unit","")), 50)
-    if not title:
-        raise HTTPException(400, "KR title required.")
-    goals = load_goals(sid)
-    for g in goals:
-        if g["id"] == goal_id:
-            kr = {"id": str(uuid.uuid4())[:8], "title": title,
-                  "target": max(0.1, target), "current": max(0.0, current), "unit": unit}
-            g.setdefault("key_results", []).append(kr)
-            g["progress"] = _calc_goal_progress(g)
-            break
-    save_goals(sid, goals)
-    return {"ok": True}
-
-
-@app.post("/api/goals/kr/update")
-async def update_goal_kr(data: dict):
-    sid, _  = _resolve_token(data)
-    goal_id = sanitize_text(str(data.get("goal_id","")), 20)
-    kr_id   = sanitize_text(str(data.get("kr_id","")), 20)
-    current = float(data.get("current", 0))
-    goals   = load_goals(sid)
-    for g in goals:
-        if g["id"] == goal_id:
-            for kr in g.get("key_results", []):
-                if kr["id"] == kr_id:
-                    kr["current"] = max(0.0, current)
-                    break
-            g["progress"] = _calc_goal_progress(g)
-            if g["progress"] >= 100:
-                g["completed"] = True
-            break
-    save_goals(sid, goals)
-    return {"ok": True}
-
-
-@app.post("/api/goals/kr/delete")
-async def delete_goal_kr(data: dict):
-    sid, _  = _resolve_token(data)
-    goal_id = sanitize_text(str(data.get("goal_id","")), 20)
-    kr_id   = sanitize_text(str(data.get("kr_id","")), 20)
-    goals   = load_goals(sid)
-    for g in goals:
-        if g["id"] == goal_id:
-            g["key_results"] = [kr for kr in g.get("key_results", []) if kr["id"] != kr_id]
-            g["progress"] = _calc_goal_progress(g)
-            break
-    save_goals(sid, goals)
-    return {"ok": True}
-
 
 @app.post("/api/learning-hub/enroll")
 async def enroll_course(data: dict):
@@ -9488,46 +9286,7 @@ async def home_briefing_data(token: str = ""):
     }
 
 
-JOURNAL_PROMPTS = [
-    "What's one decision you made this week you'd make differently?",
-    "What's something you've been avoiding that needs your attention?",
-    "Describe a moment today where you felt fully present.",
-    "What would you do this week if you weren't afraid of failing?",
-    "What's one thing you learned today that surprised you?",
-    "Who made a positive impact on you recently, and have you told them?",
-    "What does success look like for you one year from now?",
-    "What habit is quietly holding you back?",
-    "What are you most grateful for right now?",
-    "What's one thing you want to stop doing? One thing to start?",
-    "Describe your energy level today. What drained you? What filled you?",
-    "What problem have you been overthinking that needs a decision, not more thought?",
-    "What did you build, create, or contribute today?",
-    "If today was the only evidence someone had of who you are, what would it say?",
-    "What's been on your mind that you haven't written down yet?",
-    "Where did you spend the most focus today? Was it worth it?",
-    "What's one conversation you need to have that you've been putting off?",
-    "What's working well right now that you should protect?",
-    "Name one thing you're proud of this week, however small.",
-    "What boundary did you hold or fail to hold today?",
-    "How has your thinking on a big goal shifted recently?",
-    "What would you tell yourself 3 months ago?",
-    "What's one thing you want to remember about today?",
-    "Where are you being too hard on yourself?",
-    "What would make next week significantly better than this one?",
-    "Describe your ideal version of tomorrow.",
-    "What are you currently building, and why does it matter to you?",
-    "What's one relationship you want to invest more in?",
-    "What does your gut say about a decision you're facing?",
-    "What's the most important thing you didn't do today, and why?",
-]
-
-@app.get("/api/journal/prompt")
-async def journal_prompt():
-    """Return today's journal prompt — consistent for all users on the same day."""
-    import datetime as _dt
-    day_of_year = _dt.date.today().timetuple().tm_yday
-    prompt = JOURNAL_PROMPTS[day_of_year % len(JOURNAL_PROMPTS)]
-    return {"prompt": prompt}
+# JOURNAL_PROMPTS and /api/journal/prompt now live in routes/journal.py.
 
 
 @app.get("/api/analytics/mood")
@@ -12584,39 +12343,9 @@ async def export_data(data: dict):
 # ═══════════════════════════════════════════════════════════════
 #  DATA IMPORT
 # ═══════════════════════════════════════════════════════════════
-
-@app.post("/api/import/goals")
-async def import_goals(data: dict):
-    token = data.get("token", "")
-    sess  = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid  = sess["sid"]
-    rows = data.get("goals", [])
-    if not isinstance(rows, list):
-        raise HTTPException(400, "goals must be a list.")
-    existing = load_goals(sid)
-    imported = []
-    for r in rows[:200]:
-        title = sanitize_text(str(r.get("title", "")), 100).strip()
-        if not title:
-            continue
-        try:
-            target = min(max(int(float(r.get("target_score", 70))), 1), 100)
-        except (ValueError, TypeError):
-            target = 70
-        imported.append({
-            "id":           str(uuid.uuid4())[:8],
-            "title":        title,
-            "subject":      sanitize_text(str(r.get("subject", "")), 100),
-            "target_score": target,
-            "deadline":     sanitize_text(str(r.get("deadline", "")), 20),
-            "created":      datetime.date.today().isoformat(),
-            "progress":     0,
-            "completed":    str(r.get("completed", "")).lower() in ("yes", "true", "1"),
-        })
-    save_goals(sid, existing + imported)
-    return {"ok": True, "imported": len(imported)}
+# /api/import/goals now lives in routes/goals.py, colocated with the rest of
+# the goals API. /api/import/tasks and /api/import/notes are in their own
+# route modules the same way.
 
 
 

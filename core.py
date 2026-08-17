@@ -36,7 +36,10 @@ import re
 import secrets
 import shutil
 import uuid
+from contextvars import ContextVar
 from pathlib import Path
+
+from fastapi import HTTPException
 
 import database as db
 
@@ -187,6 +190,30 @@ def delete_session_token(token: str) -> None:
     _session_tokens.pop(token, None)
     if db.is_available():
         db.delete_db_session(token)
+
+
+# Per-request token carried outside the JSON body (httpOnly cookie / Bearer
+# header). app.py's _BearerTokenMiddleware does `_req_token.set(...)` on this
+# exact object each request — importing it here binds the same ContextVar, so
+# the set() in app.py and the get() in _resolve_token below see each other.
+_req_token: ContextVar[str] = ContextVar("sivarr_req_token", default="")
+
+
+def _resolve_token(data: dict) -> tuple[str, str]:
+    """Return (sid, name) from a token or raise 401.
+
+    Token source: the JSON body `token` first (current clients), then the
+    per-request `_req_token` ContextVar (P3b: httpOnly cookie / Bearer header),
+    so the backend authenticates cookie-only requests too — additive."""
+    token = sanitize_text(str(data.get("token", "")), 100)
+    if not token:
+        token = sanitize_text(_req_token.get(""), 100)
+    if not token:
+        raise HTTPException(401, "Token required.")
+    entry = get_session_from_token(token)
+    if not entry:
+        raise HTTPException(401, "Session expired.")
+    return entry["sid"], entry["name"]
 
 
 # ═══════════════════════════════════════════════════════════════

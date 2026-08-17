@@ -122,8 +122,9 @@ def session_token():
 
 
 def test_routes_reject_missing_session(client):
-    for path in ["/api/tasks/sync", "/api/habits/sync", "/api/docs/sync"]:
+    for path in ["/api/tasks/sync", "/api/habits/sync", "/api/docs/sync", "/api/journal/sync"]:
         assert client.post(path, json={"token": "not-a-real-token"}).status_code == 401
+    assert client.post("/api/goals/add", json={"token": "not-a-real-token", "title": "x"}).status_code == 401
 
 
 def test_tasks_round_trip(client, session_token):
@@ -168,6 +169,69 @@ def test_docs_round_trip(client, session_token):
     assert isinstance(back.json().get("docs"), list)
 
 
+def test_journal_round_trip(client, session_token):
+    r = client.post("/api/journal/sync", json={
+        "token": session_token,
+        "entries": [{"date": "2026-08-16", "text": "Shipped Pass 1.", "mood": "good"}],
+    })
+    assert r.status_code == 200 and r.json()["count"] == 1
+
+    back = client.get(f"/api/journal/restore?token={session_token}")
+    assert back.status_code == 200
+    texts = [e["text"] for e in back.json()["entries"]]
+    assert "Shipped Pass 1." in texts
+
+
+def test_journal_prompt_is_stable_within_a_day(client):
+    r1 = client.get("/api/journal/prompt")
+    r2 = client.get("/api/journal/prompt")
+    assert r1.status_code == 200
+    assert r1.json()["prompt"] == r2.json()["prompt"]
+
+
+def test_goals_round_trip(client, session_token):
+    add = client.post("/api/goals/add", json={"token": session_token, "title": "Ship Pass 1"})
+    assert add.status_code == 200
+    goal_id = add.json()["goal"]["id"]
+
+    listed = client.get(f"/api/goals?token={session_token}")
+    assert goal_id in [g["id"] for g in listed.json()["goals"]]
+
+    upd = client.post("/api/goals/update", json={
+        "token": session_token, "id": goal_id, "progress": 60, "completed": False,
+    })
+    assert upd.status_code == 200
+
+    goals_after = client.get(f"/api/goals?token={session_token}").json()["goals"]
+    assert next(g for g in goals_after if g["id"] == goal_id)["progress"] == 60
+
+
+def test_goal_key_results_drive_progress(client, session_token):
+    add = client.post("/api/goals/add", json={"token": session_token, "title": "Read 10 books"})
+    goal_id = add.json()["goal"]["id"]
+
+    kr = client.post("/api/goals/kr/add", json={
+        "token": session_token, "goal_id": goal_id,
+        "title": "Books read", "target": 10, "current": 0,
+    })
+    assert kr.status_code == 200
+
+    goals = client.get(f"/api/goals?token={session_token}").json()["goals"]
+    kr_id = next(g for g in goals if g["id"] == goal_id)["key_results"][0]["id"]
+
+    client.post("/api/goals/kr/update", json={
+        "token": session_token, "goal_id": goal_id, "kr_id": kr_id, "current": 10,
+    })
+    goals = client.get(f"/api/goals?token={session_token}").json()["goals"]
+    g = next(g for g in goals if g["id"] == goal_id)
+    assert g["progress"] == 100 and g["completed"] is True
+
+
+def test_goals_add_rejects_empty_title(client, session_token):
+    r = client.post("/api/goals/add", json={"token": session_token, "title": ""})
+    assert r.status_code == 400
+
+
 # ── core.py contracts ─────────────────────────────────────────────────────────
 
 def test_sanitize_text_strips_control_chars_and_truncates():
@@ -190,6 +254,17 @@ def test_app_and_core_share_one_session_store():
     """app.py mutates core's _session_tokens by reference in ~20 places. If an
     import ever rebinds it instead, sessions silently split in two."""
     assert app_module._session_tokens is core._session_tokens
+
+
+def test_goals_and_journal_reexported_for_internal_callers():
+    """load_goals/save_goals/load_journal/save_journal moved into routes/goals.py
+    and routes/journal.py, but app.py's weekly review, Home brief, daily digest
+    and /api/export still call them directly — confirms the re-export at the
+    include_router import block still resolves."""
+    assert callable(app_module.load_goals)
+    assert callable(app_module.save_goals)
+    assert callable(app_module.load_journal)
+    assert callable(app_module.save_journal)
 
 
 def test_routes_do_not_import_from_app():
