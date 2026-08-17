@@ -38,11 +38,8 @@ from pydantic import BaseModel, validator
 # ── Jinja2 template engine ──
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+# GEMINI_AVAILABLE now lives in ai_core.py (imported further down, alongside
+# the rest of the AI infra re-exports).
 
 try:
     import stripe as _stripe
@@ -123,8 +120,8 @@ log = logging.getLogger("sivarr")
 #  CONFIGURATION
 # ═══════════════════════════════════════════════════════════════
 
-VERSION       = "3"
-CACHE_EXPIRY  = 30
+# VERSION now lives in core.py (imported at the top of this file).
+# CACHE_EXPIRY now lives in ai_core.py.
 HISTORY_LIMIT = 40
 BANK_LIMIT    = 20
 
@@ -133,13 +130,14 @@ BANK_LIMIT    = 20
 # These names are re-exported here unchanged — every existing reference in this
 # file keeps working, and _session_tokens is the same dict object core.py mutates.
 from core import (
-    _BASE, DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR,
+    VERSION, _BASE, DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR,
     MAX_MESSAGE_LEN, SESSION_TTL_DAYS, SESSION_REVALIDATE_SECONDS,
     sanitize_text, save_json, _load_json_file, _save_json_file,
     _session_tokens, create_session_token, create_session_token_for_existing,
     delete_all_sessions, get_session_from_token, delete_session_token,
     _load_user_list, _save_user_list,
     _req_token, _resolve_token,
+    RATE_LIMIT_WINDOW, RateLimiter, limiter, _client_ip, get_client_key, check_rate_limit,
     asset, sw_cache_version,
 )
 
@@ -370,7 +368,7 @@ def save_users(users: dict):
                 log.warning(f"DB sync user {sid}: {e}")
 
 # ── Rate limiting config ──────────────────────────────────────
-RATE_LIMIT_CHAT     = int(os.environ.get("RATE_LIMIT_CHAT", 20))      # max chat msgs per window
+# RATE_LIMIT_CHAT now lives in routes/ai_chat.py, the only place that uses it.
 FREE_DAILY_CHAT     = int(os.environ.get("FREE_DAILY_CHAT", 15))      # free-tier AI messages per day (server-enforced)
 AI_DAILY_FREE       = int(os.environ.get("AI_DAILY_FREE", 40))        # free-tier non-chat AI actions per day (study/write/review/etc.)
 # Paid-tier daily AI fair-use ceilings — high enough to feel unlimited for real
@@ -383,7 +381,7 @@ CREATOR_DAILY_CHAT  = int(os.environ.get("CREATOR_DAILY_CHAT", 600))
 CREATOR_DAILY_AI    = int(os.environ.get("CREATOR_DAILY_AI", 800))
 RATE_LIMIT_QUIZ     = int(os.environ.get("RATE_LIMIT_QUIZ", 5))      # max quiz questions per window
 RATE_LIMIT_UPLOAD   = int(os.environ.get("RATE_LIMIT_UPLOAD", 5))     # max uploads per window
-RATE_LIMIT_WINDOW   = int(os.environ.get("RATE_LIMIT_WINDOW", 60))    # window in seconds
+# RATE_LIMIT_WINDOW now lives in core.py (imported at the top of this file).
 RATE_LIMIT_LOGIN    = int(os.environ.get("RATE_LIMIT_LOGIN", 10))     # max login attempts per window
 RATE_LIMIT_VERIFY   = int(os.environ.get("RATE_LIMIT_VERIFY", 3))      # max verify-email resends per window
 
@@ -393,62 +391,8 @@ MAX_NAME_LEN     = 80      # max student name length
 MAX_MATRIC_LEN   = 30      # max matric number length
 MAX_FILE_SIZE    = 5 * 1024 * 1024  # 5MB max file size
 
-GEMINI_MODELS = [
-    "gemini-2.5-flash",
-    "gemini-2.5-pro",
-    "gemini-flash-latest",
-    "gemini-pro-latest",
-    "gemini-2.5-flash-lite",
-]
-
-MATH_TRIGGERS = [
-    "solve", "calculate", "differentiate", "integrate", "expand",
-    "factorise", "factorize", "simplify", "equation", "algebra",
-    "quadratic", "derivative", "integral", "calculus", "gradient",
-    "inequality", "simultaneous", "matrix", "fraction", "percentage",
-    "ratio", "proof", "theorem", "logarithm", "log", "sin", "cos",
-    "tan", "trigonometry", "polynomial", "find x", "find the value",
-    "work out", "volume", "perimeter", "probability", "statistics",
-    "mean", "median", "mode",
-]
-
-UNCERTAINTY_PHRASES = [
-    "i'm not sure", "i am not sure", "i'm not certain", "i cannot verify",
-    "i don't know", "i do not know", "may not be accurate", "cannot confirm",
-    "you should verify", "double check", "consult a", "limited information",
-]
-
-TOPIC_STRIP = ["what is", "define", "explain", "solve", "calculate"]
-
-SYSTEM_PROMPT = f"""You are Sivarr, a brilliant, context-aware AI built into the Sivarr platform.
-You are not a generic assistant. You live inside the user's personal workspace and know their tasks, goals, habits, journal, and progress.
-Sivarr was founded by a Lead City University student. Mission: student to skilled professional to employed talent to career growth. Version: {VERSION}
-
-Personality:
-- Warm, direct, and energetic, like the smartest friend in the room, not a textbook.
-- Reference the user's actual data naturally when it's relevant (e.g. "Since you have 3 overdue tasks today...").
-- Celebrate wins. Call out patterns. Be proactive, not just reactive.
-
-Rules:
-1. Keep answers SHORT: 2 to 4 sentences by default. Expand only when asked.
-2. Show step-by-step working ONLY when explicitly requested.
-3. Answer ANY question: academics, career, life, creativity, strategy.
-4. For math: state the final answer only unless asked for working.
-5. If unsure, say so. Never confidently guess wrong.
-6. Format cleanly. Use line breaks for readability when helpful.
-7. When user context is provided at the start of a message, use it to personalise your response naturally. Do NOT echo it back verbatim.
-8. Address the user by their first name occasionally for warmth.
-9. Never use em dashes (—) or en dashes used as punctuation. Use commas, periods, or parentheses instead. Write like a real person texting a friend, not like an AI essay.
-"""
-
-MATH_PROMPT = """You are Sivarr's math expert.
-1. State the final answer clearly and concisely.
-2. Do NOT show steps unless asked.
-3. One line is enough for simple problems e.g. x = 5.
-4. Be casual.
-5. If unsure, say so.
-6. Never use em dashes. Use commas or periods instead.
-"""
+# GEMINI_MODELS/MATH_TRIGGERS/UNCERTAINTY_PHRASES/TOPIC_STRIP/SYSTEM_PROMPT/
+# MATH_PROMPT now live in ai_core.py.
 
 QUIZ_PROMPT = """Generate a {difficulty} multiple choice question about: {topic}
 Difficulty: easy=basic recall, medium=application, hard=analysis
@@ -488,116 +432,9 @@ Reply ONLY with valid JSON:
   "explanation": "One sentence."
 }}"""
 
-# ═══════════════════════════════════════════════════════════════
-#  RATE LIMITER
-# ═══════════════════════════════════════════════════════════════
+# RateLimiter/limiter/check_rate_limit/get_client_key now live in core.py
+# (imported at the top of this file).
 
-class RateLimiter:
-    """
-    Persistent rate limiter using sliding window.
-    Backed by a JSON file so limits survive server restarts.
-    In-memory cache for speed, flushed to disk periodically.
-    """
-    def __init__(self):
-        self._counts   = collections.defaultdict(list)
-        self._dirty    = False
-        self._path     = None   # set after DATA_DIR is defined
-        self._last_save = time.time()
-        self._save_interval = 30  # seconds between disk flushes
-
-    def _set_path(self, path: Path):
-        self._path = path
-        self._load()
-
-    def _load(self):
-        """Load persisted rate limit state from disk."""
-        if self._path and self._path.exists():
-            try:
-                data = json.loads(self._path.read_text(encoding="utf-8"))
-                now  = time.time()
-                # Only load recent entries — discard old ones
-                self._counts = collections.defaultdict(list, {
-                    k: [t for t in v if now - t < RATE_LIMIT_WINDOW * 2]
-                    for k, v in data.items()
-                })
-            except Exception:
-                self._counts = collections.defaultdict(list)
-
-    def _save(self):
-        """Flush rate limit state to disk."""
-        if self._path and self._dirty:
-            try:
-                tmp = str(self._path) + f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
-                with open(tmp, "w") as f:
-                    json.dump(dict(self._counts), f)
-                shutil.move(tmp, str(self._path))
-                self._dirty = False
-                self._last_save = time.time()
-            except Exception:
-                pass
-
-    def is_allowed(self, key: str, limit: int, window: int = RATE_LIMIT_WINDOW) -> bool:
-        now   = time.time()
-        calls = self._counts[key]
-        self._counts[key] = [t for t in calls if now - t < window]
-        if len(self._counts[key]) >= limit:
-            return False
-        self._counts[key].append(now)
-        self._dirty = True
-        # Periodic save
-        if now - self._last_save > self._save_interval:
-            self._save()
-        return True
-
-    def remaining(self, key: str, limit: int, window: int = RATE_LIMIT_WINDOW) -> int:
-        now = time.time()
-        self._counts[key] = [t for t in self._counts[key] if now - t < window]
-        return max(0, limit - len(self._counts[key]))
-
-
-limiter = RateLimiter()
-
-
-# How many proxies sit in front of the app (Railway = 1; add 1 for Cloudflare, etc.).
-# The client can spoof the *leftmost* X-Forwarded-For entries, so we trust only the
-# IP appended by our own outermost proxy — the Nth entry from the right.
-_TRUSTED_PROXY_HOPS = max(1, int(os.environ.get("TRUSTED_PROXY_HOPS", "1")))
-
-def _client_ip(request: Request) -> str:
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        parts = [p.strip() for p in xff.split(",") if p.strip()]
-        if parts:
-            idx = len(parts) - _TRUSTED_PROXY_HOPS
-            return parts[idx] if 0 <= idx < len(parts) else parts[0]
-    return request.client.host if request.client else "unknown"
-
-def get_client_key(request: Request, sid: str = "") -> str:
-    """Get a unique key for rate limiting — prefer student ID, fall back to IP.
-    Uses the proxy-appended client IP (spoof-resistant), not the raw leftmost XFF."""
-    if sid:
-        return f"student_{sid}"
-    return f"ip_{_client_ip(request)}"
-
-
-def check_rate_limit(key: str, limit: int, endpoint: str) -> None:
-    """Raise 429 if rate limit exceeded. Uses PostgreSQL when available (multi-worker safe)."""
-    full_key = f"{endpoint}_{key}"
-    # Redis first (atomic, keeps rate-limit traffic off Postgres); falls back to
-    # the DB limiter, then the per-worker in-memory limiter, if Redis is unavailable.
-    allowed = rcache.rate_allow(full_key, limit, RATE_LIMIT_WINDOW)
-    if allowed is None:
-        if db.is_available():
-            allowed = db.db_check_rate_limit(full_key, limit, RATE_LIMIT_WINDOW)
-        else:
-            allowed = limiter.is_allowed(full_key, limit)
-    if not allowed:
-        log.warning(f"Rate limit exceeded | key={key} | endpoint={endpoint}")
-        raise HTTPException(
-            status_code=429,
-            detail=f"Too many requests. Please wait {RATE_LIMIT_WINDOW} seconds before trying again.",
-            headers={"Retry-After": str(RATE_LIMIT_WINDOW)},
-        )
 
 # ═══════════════════════════════════════════════════════════════
 #  INPUT VALIDATION
@@ -706,14 +543,7 @@ def load_env():
         os.environ.setdefault(k.strip(), v.strip())
 
 load_env()
-API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-
-# ═══════════════════════════════════════════════════════════════
-#  GEMINI
-# ═══════════════════════════════════════════════════════════════
-
-_model_name = None
-_chat_sessions: dict = {}          # sid → {chat, math, last_used}
+# API_KEY/_model_name/_chat_sessions now live in ai_core.py.
 # _session_tokens now lives in core.py (imported at the top of this file). It is
 # the same dict object — the ~20 mutation sites below continue to work unchanged.
 # Admin/lecturer sessions are now stateless HMAC tokens — no in-memory dicts needed
@@ -784,7 +614,7 @@ _CSRF_COOKIE = "sivarr_csrf"
 # _req_token / _resolve_token now live in core.py (imported at the top of this
 # file). _BearerTokenMiddleware below does _req_token.set(...) on the same
 # ContextVar object core.py's _resolve_token reads from.
-CHAT_SESSION_TTL  = 4 * 3600      # evict idle AI sessions after 4 hours
+# CHAT_SESSION_TTL now lives in ai_core.py.
 _PRIV_SESSION_TTL_S = 7200  # 2 hours in seconds
 
 
@@ -870,13 +700,6 @@ def _is_valid_lecturer_session(token: str) -> bool:
     return hmac.compare_digest(sig, expected)
 
 
-def _evict_stale_chat_sessions():
-    cutoff = time.time() - CHAT_SESSION_TTL
-    stale  = [k for k, v in _chat_sessions.items() if v.get("last_used", 0) < cutoff]
-    for k in stale:
-        del _chat_sessions[k]
-    if stale:
-        log.info(f"Evicted {len(stale)} stale AI chat sessions")
 
 
 # ── Token-based session management ────────────────────────────────
@@ -1498,211 +1321,13 @@ def cleanup_expired_tokens():
     if db.is_available():
         db.cleanup_db_sessions()
 
-def get_model():
-    global _model_name
-    if _model_name:
-        return _model_name
-    if not API_KEY or not GEMINI_AVAILABLE:
-        return GEMINI_MODELS[0]
-    genai.configure(api_key=API_KEY)
-    try:
-        available = [
-            m.name.replace("models/", "") for m in genai.list_models()
-            if "generateContent" in m.supported_generation_methods
-        ]
-        for m in GEMINI_MODELS:
-            if m in available:
-                _model_name = m
-                log.info(f"Gemini model selected: {m}")
-                return m
-        _model_name = available[0] if available else GEMINI_MODELS[0]
-    except Exception as e:
-        log.error(f"Gemini model selection failed: {e}")
-        _model_name = GEMINI_MODELS[0]
-    return _model_name
-
-
-def get_sessions(sid, memory=""):
-    if len(_chat_sessions) > 500:
-        _evict_stale_chat_sessions()
-    if sid not in _chat_sessions:
-        model  = get_model()
-        system = SYSTEM_PROMPT + (f"\n\n{memory}" if memory else "")
-        def mk(sys):
-            m = genai.GenerativeModel(
-                model_name=model,
-                system_instruction=sys,
-                generation_config=genai.GenerationConfig(temperature=0.7, max_output_tokens=400),
-            )
-            return m.start_chat(history=[])
-        _chat_sessions[sid] = {"chat": mk(system), "math": mk(MATH_PROMPT), "last_used": time.time()}
-        log.info(f"New chat session created for: {sid}")
-    else:
-        _chat_sessions[sid]["last_used"] = time.time()
-    return _chat_sessions[sid]
-
-
-def friendly_gemini_error(e):
-    """Convert raw Gemini exceptions into short readable messages."""
-    msg = str(e).lower()
-    if "quota" in msg or "429" in msg or "resource_exhausted" in msg:
-        return "Sivarr is taking a short break (free tier quota reached). Please wait a minute and try again! ⏳"
-    if "api key" in msg or "invalid" in msg or "401" in msg or "403" in msg:
-        return "API key issue. Please contact support."
-    if "network" in msg or "connection" in msg or "timeout" in msg or "unavailable" in msg:
-        return "Connection issue. Check your internet and try again."
-    if "404" in msg or "not found" in msg:
-        return "AI model unavailable. Try again in a moment."
-    return "Something went wrong. Please try again shortly."
-
-_AI_ERROR_PREFIXES = (
-    "Sivarr is taking a short break",
-    "API key issue",
-    "Connection issue",
-    "AI model unavailable",
-    "Something went wrong",
-)
-
-def _is_ai_error(text: str) -> bool:
-    return any(text.startswith(p) for p in _AI_ERROR_PREFIXES)
-
-
-def gemini_ask(session, question):
-    try:
-        return session.send_message(question).text.strip()
-    except Exception as e:
-        log.error(f"Gemini ask error: {e}")
-        return friendly_gemini_error(e)
-
-
-def gemini_once(prompt, temp=0.8, tokens=600):
-    try:
-        model = genai.GenerativeModel(
-            model_name=get_model(),
-            generation_config=genai.GenerationConfig(temperature=temp, max_output_tokens=tokens),
-        )
-        return model.generate_content(prompt).text.strip()
-    except Exception as e:
-        # Quota/429 is an expected, already-handled condition on the free
-        # tier (every caller falls back gracefully when this returns None,
-        # e.g. home_brief's generic greeting) — kept at warning so it stops
-        # cluttering Sentry's error feed. Every other failure (bad API key,
-        # outage, etc.) stays at error since those genuinely need attention.
-        # Same detection `friendly_gemini_error()` already uses below.
-        msg = str(e).lower()
-        if "quota" in msg or "429" in msg or "resource_exhausted" in msg:
-            log.warning(f"Gemini once error: {e}")
-        else:
-            log.error(f"Gemini once error: {e}")
-        return None
-
-
-# ── AI circuit breaker ────────────────────────────────────────────────────────
-# Per-worker breaker: after repeated Gemini failures (outage / quota wall), stop
-# hammering the API for a short cooldown so failing calls don't tie up worker
-# threads and cascade into slow requests for everyone. In-memory per worker is
-# fine — each worker protects its own thread pool. All AI flows through the two
-# wrappers below, so this covers every endpoint at once.
-_AI_BREAKER = {"fails": 0, "open_until": 0.0}
-_AI_BREAK_THRESHOLD = int(os.environ.get("AI_BREAK_THRESHOLD", 8))   # consecutive fails to trip
-_AI_BREAK_COOLDOWN  = int(os.environ.get("AI_BREAK_COOLDOWN", 30))   # seconds to stay open
-
-
-def _ai_breaker_open() -> bool:
-    return time.time() < _AI_BREAKER["open_until"]
-
-
-def _ai_breaker_record(ok: bool) -> None:
-    if ok:
-        _AI_BREAKER["fails"] = 0
-        return
-    _AI_BREAKER["fails"] += 1
-    if _AI_BREAKER["fails"] >= _AI_BREAK_THRESHOLD:
-        _AI_BREAKER["open_until"] = time.time() + _AI_BREAK_COOLDOWN
-        _AI_BREAKER["fails"] = 0
-        log.error(f"AI circuit breaker OPEN for {_AI_BREAK_COOLDOWN}s after repeated Gemini failures")
-
-
-async def async_gemini_once(prompt, temp=0.8, tokens=600):
-    """Non-blocking wrapper — runs gemini_once in a thread so the event loop stays free."""
-    if _ai_breaker_open():
-        return None
-    result = await asyncio.to_thread(gemini_once, prompt, temp, tokens)
-    _ai_breaker_record(result is not None)
-    return result
-
-
-async def async_gemini_ask(session, question):
-    """Non-blocking wrapper — runs gemini_ask in a thread so the event loop stays free."""
-    if _ai_breaker_open():
-        return friendly_gemini_error(Exception("AI temporarily unavailable — please retry shortly."))
-    answer = await asyncio.to_thread(gemini_ask, session, question)
-    _ai_breaker_record(not _is_ai_error(answer))
-    return answer
-
-# ═══════════════════════════════════════════════════════════════
-#  MATH
-# ═══════════════════════════════════════════════════════════════
-
-def _safe_eval_node(node):
-    """Recursive arithmetic evaluator — no eval() call, only safe AST nodes."""
-    if isinstance(node, ast.Expression):
-        return _safe_eval_node(node.body)
-    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
-        return float(node.value)
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
-        v = _safe_eval_node(node.operand)
-        return -v if isinstance(node.op, ast.USub) else v
-    if isinstance(node, ast.BinOp):
-        left  = _safe_eval_node(node.left)
-        right = _safe_eval_node(node.right)
-        if isinstance(node.op, ast.Add):  return left + right
-        if isinstance(node.op, ast.Sub):  return left - right
-        if isinstance(node.op, ast.Mult): return left * right
-        if isinstance(node.op, ast.Div):
-            if right == 0: raise ZeroDivisionError
-            return left / right
-        if isinstance(node.op, ast.Pow):
-            if abs(right) > 100: raise ValueError("exponent too large")
-            return left ** right
-    raise ValueError(f"unsafe node: {type(node).__name__}")
-
-
-def solve_local(text):
-    if not re.fullmatch(r"[\d+\-*/().^ \s]+", text.strip()):
-        return None
-    for c in [text] + re.findall(r"[\d+\-*/().^ ]+", text):
-        try:
-            tree = ast.parse(c.strip(), mode="eval")
-            r = _safe_eval_node(tree)
-            display = int(r) if isinstance(r, float) and r.is_integer() else round(r, 6)
-            return f"Result = {display}"
-        except Exception:
-            continue
-    return None
-
-
-def is_math(text):
-    return any(t in text.lower() for t in MATH_TRIGGERS)
-
-
-def is_uncertain(text):
-    return any(p in text.lower() for p in UNCERTAINTY_PHRASES)
-
-# ═══════════════════════════════════════════════════════════════
-#  DATA HELPERS
-# ═══════════════════════════════════════════════════════════════
+# get_model/get_sessions/friendly_gemini_error/gemini_ask/gemini_once/the AI
+# circuit breaker/async_gemini_once/async_gemini_ask/the local math solver
+# (solve_local/is_math/is_uncertain)/the topic answer cache (lpath/load_json/
+# get_cached/set_cached/strip_topic)/bpath now all live in ai_core.py, imported
+# back below for the endpoints in this file that still use them.
 
 def ppath(sid):  return DATA_DIR / f"{sid}_progress.json"
-def lpath():     return DATA_DIR / "library.json"
-def bpath():     return DATA_DIR / "bank.json"
-
-
-def load_json(p):
-    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
-
-
-# save_json now lives in core.py (imported at the top of this file).
 
 
 _PROGRESS_DEFAULTS = {
@@ -1748,26 +1373,6 @@ def save_progress(sid, p):
         save_json(path, p)
     except Exception as e:
         log.warning(f"JSON save_progress failed for {sid}: {e}")
-
-
-def get_cached(lib, topic):
-    e = lib.get(topic)
-    if not e:
-        return None
-    if isinstance(e, str):
-        return e
-    age = (datetime.date.today() - datetime.date.fromisoformat(e.get("date","2000-01-01"))).days
-    return e["answer"] if age <= CACHE_EXPIRY else None
-
-
-def set_cached(lib, topic, ans):
-    lib[topic] = {"answer": ans, "date": datetime.date.today().isoformat()}
-
-
-def strip_topic(q):
-    for w in TOPIC_STRIP:
-        q = q.lower().replace(w, "")
-    return q.strip()
 
 
 def build_memory(p):
@@ -1881,6 +1486,16 @@ def parse_quiz_json(raw: str, topic: str) -> dict:
 
 app = FastAPI(title="Sivarr AI", version=VERSION)
 
+# AI/Gemini infrastructure re-exported from ai_core.py — the endpoints in this
+# file that haven't been extracted yet (quiz, weekly review, Home brief, the
+# writing assistant, admin AI-health metrics) still call these directly.
+from ai_core import (
+    GEMINI_AVAILABLE,
+    get_sessions, gemini_once, async_gemini_once, async_gemini_ask,
+    _chat_sessions, _AI_BREAKER, _AI_BREAK_THRESHOLD, _AI_BREAK_COOLDOWN, _ai_breaker_open,
+    load_json, bpath,
+)
+
 # ── Feature route modules ─────────────────────────────────────────
 # These import their shared helpers from core.py, not from this module, so they
 # can be included here at the top rather than 7,000 lines down. Adding a new
@@ -1900,6 +1515,12 @@ app.include_router(_goals_router)
 app.include_router(_journal_router)
 app.include_router(_skills_router)
 app.include_router(_finance_router)
+
+# routes/ai_chat.py is NOT included here — it needs _chat_authorize (which needs
+# _plan_caps/_plan_is_active, billing logic not defined until further down), so
+# its build_router(...) call and include_router() sit right after
+# _chat_authorize's own definition instead (see routes/ai_chat.py's module
+# docstring for why _chat_authorize itself stays in app.py rather than moving).
 _START_TIME    = time.time()
 _health_cache: dict = {"result": None, "ts": 0.0}
 _db_health_cache: dict = {"info": None, "ts": 0.0}
@@ -2683,25 +2304,7 @@ class LoginRequest(BaseModel):
         return _strip_html(sanitize_text(raw, MAX_EMAIL_LEN)).lower().strip()
 
 
-class ChatRequest(BaseModel):
-    sid: str
-    message: str
-    context: str = ""
-    token: str = ""
-
-    @validator("message")
-    def msg_valid(cls, v):
-        v = sanitize_text(v, MAX_MESSAGE_LEN)
-        if not v:
-            raise ValueError("Message cannot be empty.")
-        return v
-
-    @validator("sid")
-    def sid_valid(cls, v):
-        v = sanitize_text(v, 100)
-        if not v:
-            raise ValueError("Session ID required.")
-        return v
+# ChatRequest now lives in routes/ai_chat.py, the only place that uses it.
 
 
 class QuizRequest(BaseModel):
@@ -4402,6 +4005,10 @@ def _chat_authorize(token: str) -> tuple[str, dict]:
     return sid, p
 
 
+from routes.ai_chat import build_router as _build_ai_chat_router
+app.include_router(_build_ai_chat_router(_chat_authorize, load_progress, save_progress, add_history))
+
+
 def _ai_meter(sid: str) -> None:
     """Per-user daily cap across the non-chat AI endpoints (study deck/plan, write
     assist, task extraction, weekly review). Free tier only — paid plans unmetered.
@@ -4435,147 +4042,7 @@ def _ai_meter(sid: str) -> None:
     save_progress(sid, p)
 
 
-@app.post("/api/chat")
-async def chat(req: ChatRequest, request: Request):
-    sid, p = _chat_authorize(req.token)
-    key = get_client_key(request, sid)
-    check_rate_limit(key, RATE_LIMIT_CHAT, "chat")
-
-    msg = req.message
-    # Prepend user context snapshot if provided (injected by frontend on first message)
-    if req.context:
-        msg = f"{req.context}\n\nUser: {req.message}"
-    cmd = msg.lower()
-
-    log.info(f"Chat: {sid[:20]} | {req.message[:60]}")
-
-    local = solve_local(msg)
-    if local:
-        add_history(p, sid, "user", msg)
-        add_history(p, sid, "sivarr", local)
-        p["questions"] += 1
-        p["topics"]["math"] = p["topics"].get("math", 0) + 1
-        save_progress(sid, p)
-        return {"reply": local, "uncertain": False, "error": False}
-
-    sessions = get_sessions(sid)
-
-    if is_math(cmd):
-        ans = await async_gemini_ask(sessions["math"], msg)
-        uncertain = is_uncertain(ans)
-        is_err = _is_ai_error(ans)
-        if not is_err:
-            p["questions"] += 1
-            p["topics"]["math"] = p["topics"].get("math", 0) + 1
-            add_history(p, sid, "user", msg)
-            add_history(p, sid, "sivarr", ans)
-            save_progress(sid, p)
-        return {"reply": ans, "uncertain": uncertain, "error": is_err}
-
-    lib    = load_json(lpath())
-    topic  = strip_topic(cmd)
-    cached = get_cached(lib, topic)
-    if cached:
-        p["questions"] += 1
-        p["topics"][topic] = p["topics"].get(topic, 0) + 1
-        save_progress(sid, p)
-        return {"reply": cached, "uncertain": False, "error": False}
-
-    ans       = await async_gemini_ask(sessions["chat"], msg)
-    uncertain = is_uncertain(ans)
-    is_err    = _is_ai_error(ans)
-
-    if not is_err:
-        if topic and any(kw in cmd for kw in ["what is","define","explain"]) and not uncertain:
-            set_cached(lib, topic, ans)
-            save_json(lpath(), lib)
-        p["questions"] += 1
-        p["topics"][topic or "general"] = p["topics"].get(topic or "general", 0) + 1
-        add_history(p, sid, "user", msg)
-        add_history(p, sid, "sivarr", ans)
-        save_progress(sid, p)
-
-    return {"reply": ans, "uncertain": uncertain, "error": is_err}
-
-
-@app.post("/api/chat/stream")
-async def chat_stream(req: ChatRequest, request: Request):
-    sid, p = _chat_authorize(req.token)
-    key = get_client_key(request, sid)
-    check_rate_limit(key, RATE_LIMIT_CHAT, "chat")
-
-    msg = req.message
-    if req.context:
-        msg = f"{req.context}\n\nUser: {req.message}"
-
-    # Local math solver — stream the single result
-    local = solve_local(msg)
-    if local:
-        add_history(p, sid, "user", msg)
-        add_history(p, sid, "sivarr", local)
-        p["questions"] += 1
-        save_progress(sid, p)
-        async def _math():
-            yield f"data: {json.dumps({'token': local})}\n\n"
-            yield "data: [DONE]\n\n"
-        return StreamingResponse(_math(), media_type="text/event-stream",
-                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
-
-    sessions = get_sessions(sid)
-    loop = asyncio.get_running_loop()
-    q: asyncio.Queue = asyncio.Queue()
-
-    def _run_gemini():
-        try:
-            resp = sessions["chat"].send_message(msg, stream=True)
-            for chunk in resp:
-                txt = getattr(chunk, "text", None)
-                if txt:
-                    loop.call_soon_threadsafe(q.put_nowait, {"token": txt})
-        except Exception as e:
-            loop.call_soon_threadsafe(q.put_nowait, {"token": friendly_gemini_error(e), "error": True})
-        loop.call_soon_threadsafe(q.put_nowait, None)
-
-    loop.run_in_executor(None, _run_gemini)
-
-    async def _stream():
-        full: list[str] = []
-        while True:
-            item = await q.get()
-            if item is None:
-                break
-            yield f"data: {json.dumps(item)}\n\n"
-            if not item.get("error"):
-                full.append(item["token"])
-
-        full_text = "".join(full)
-        if full_text and not _is_ai_error(full_text):
-            add_history(p, sid, "user", req.message)
-            add_history(p, sid, "sivarr", full_text)
-            p["questions"] += 1
-            save_progress(sid, p)
-
-        # Generate 3 follow-up suggestions (fast, non-blocking)
-        suggestions: list[str] = []
-        if full_text and not _is_ai_error(full_text):
-            try:
-                raw = await async_gemini_once(
-                    f"Based on this AI response, suggest exactly 3 short follow-up questions a user might ask next. "
-                    f"Return ONLY a JSON array of 3 strings, no other text.\n\nResponse:\n{full_text[:800]}",
-                    temp=0.7, tokens=1200
-                )
-                if raw:
-                    raw = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`")
-                    parsed = json.loads(raw)
-                    if isinstance(parsed, list):
-                        suggestions = [str(s).strip() for s in parsed[:3] if s]
-            except Exception:
-                pass
-
-        yield f"data: {json.dumps({'done': True, 'suggestions': suggestions})}\n\n"
-
-    return StreamingResponse(_stream(), media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+# /api/chat and /api/chat/stream now live in routes/ai_chat.py.
 
 
 @app.get("/api/quiz/question")
@@ -4836,14 +4303,7 @@ async def reset_progress(data: dict):
     return {"ok": True}
 
 
-@app.post("/api/chat/clear")
-async def chat_clear(data: dict):
-    """Clear only the authenticated user's chat history (token-authed, IDOR-safe)."""
-    sid, _ = _resolve_token(data)
-    p = load_progress(sid)
-    p["chat_history"] = []
-    save_progress(sid, p)
-    return {"ok": True}
+# /api/chat/clear now lives in routes/ai_chat.py.
 
 
 @app.post("/api/account/delete")

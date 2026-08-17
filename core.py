@@ -27,6 +27,7 @@ mutation is shared. Never rebind it (`_session_tokens = {}`); clear it in place
 
 from __future__ import annotations
 
+import collections
 import datetime
 import hashlib
 import json
@@ -35,19 +36,23 @@ import os
 import re
 import secrets
 import shutil
+import time
 import uuid
 from contextvars import ContextVar
 from pathlib import Path
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 import database as db
+import rcache  # optional Redis layer (rate limiting + shared cache); degrades gracefully
 
 log = logging.getLogger("sivarr")
 
 # ═══════════════════════════════════════════════════════════════
 #  PATHS & LIMITS
 # ═══════════════════════════════════════════════════════════════
+
+VERSION = "3"
 
 # Railway persistent volume if mounted, else the repo root.
 _BASE       = Path(os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", "."))
@@ -60,6 +65,122 @@ MAX_MESSAGE_LEN = 2000    # max characters in a chat message
 
 SESSION_TTL_DAYS = max(1, min(int(os.environ.get("SESSION_TTL_DAYS", "30")), 90))
 SESSION_REVALIDATE_SECONDS = 30    # how often a cached session is re-checked against the DB
+
+
+# ═══════════════════════════════════════════════════════════════
+#  RATE LIMITING
+# ═══════════════════════════════════════════════════════════════
+
+RATE_LIMIT_WINDOW = int(os.environ.get("RATE_LIMIT_WINDOW", 60))    # window in seconds
+
+
+class RateLimiter:
+    """
+    Persistent rate limiter using sliding window.
+    Backed by a JSON file so limits survive server restarts.
+    In-memory cache for speed, flushed to disk periodically.
+    """
+    def __init__(self):
+        self._counts   = collections.defaultdict(list)
+        self._dirty    = False
+        self._path     = None   # set after DATA_DIR is defined
+        self._last_save = time.time()
+        self._save_interval = 30  # seconds between disk flushes
+
+    def _set_path(self, path: Path):
+        self._path = path
+        self._load()
+
+    def _load(self):
+        """Load persisted rate limit state from disk."""
+        if self._path and self._path.exists():
+            try:
+                data = json.loads(self._path.read_text(encoding="utf-8"))
+                now  = time.time()
+                # Only load recent entries — discard old ones
+                self._counts = collections.defaultdict(list, {
+                    k: [t for t in v if now - t < RATE_LIMIT_WINDOW * 2]
+                    for k, v in data.items()
+                })
+            except Exception:
+                self._counts = collections.defaultdict(list)
+
+    def _save(self):
+        """Flush rate limit state to disk."""
+        if self._path and self._dirty:
+            try:
+                tmp = str(self._path) + f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
+                with open(tmp, "w") as f:
+                    json.dump(dict(self._counts), f)
+                shutil.move(tmp, str(self._path))
+                self._dirty = False
+                self._last_save = time.time()
+            except Exception:
+                pass
+
+    def is_allowed(self, key: str, limit: int, window: int = RATE_LIMIT_WINDOW) -> bool:
+        now   = time.time()
+        calls = self._counts[key]
+        self._counts[key] = [t for t in calls if now - t < window]
+        if len(self._counts[key]) >= limit:
+            return False
+        self._counts[key].append(now)
+        self._dirty = True
+        # Periodic save
+        if now - self._last_save > self._save_interval:
+            self._save()
+        return True
+
+    def remaining(self, key: str, limit: int, window: int = RATE_LIMIT_WINDOW) -> int:
+        now = time.time()
+        self._counts[key] = [t for t in self._counts[key] if now - t < window]
+        return max(0, limit - len(self._counts[key]))
+
+
+limiter = RateLimiter()
+
+# How many proxies sit in front of the app (Railway = 1; add 1 for Cloudflare, etc.).
+# The client can spoof the *leftmost* X-Forwarded-For entries, so we trust only the
+# IP appended by our own outermost proxy — the Nth entry from the right.
+_TRUSTED_PROXY_HOPS = max(1, int(os.environ.get("TRUSTED_PROXY_HOPS", "1")))
+
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        parts = [p.strip() for p in xff.split(",") if p.strip()]
+        if parts:
+            idx = len(parts) - _TRUSTED_PROXY_HOPS
+            return parts[idx] if 0 <= idx < len(parts) else parts[0]
+    return request.client.host if request.client else "unknown"
+
+
+def get_client_key(request: Request, sid: str = "") -> str:
+    """Get a unique key for rate limiting — prefer student ID, fall back to IP.
+    Uses the proxy-appended client IP (spoof-resistant), not the raw leftmost XFF."""
+    if sid:
+        return f"student_{sid}"
+    return f"ip_{_client_ip(request)}"
+
+
+def check_rate_limit(key: str, limit: int, endpoint: str) -> None:
+    """Raise 429 if rate limit exceeded. Uses PostgreSQL when available (multi-worker safe)."""
+    full_key = f"{endpoint}_{key}"
+    # Redis first (atomic, keeps rate-limit traffic off Postgres); falls back to
+    # the DB limiter, then the per-worker in-memory limiter, if Redis is unavailable.
+    allowed = rcache.rate_allow(full_key, limit, RATE_LIMIT_WINDOW)
+    if allowed is None:
+        if db.is_available():
+            allowed = db.db_check_rate_limit(full_key, limit, RATE_LIMIT_WINDOW)
+        else:
+            allowed = limiter.is_allowed(full_key, limit)
+    if not allowed:
+        log.warning(f"Rate limit exceeded | key={key} | endpoint={endpoint}")
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many requests. Please wait {RATE_LIMIT_WINDOW} seconds before trying again.",
+            headers={"Retry-After": str(RATE_LIMIT_WINDOW)},
+        )
 
 
 # ═══════════════════════════════════════════════════════════════

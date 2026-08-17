@@ -310,6 +310,47 @@ def test_goals_and_journal_reexported_for_internal_callers():
     assert callable(app_module.save_journal)
 
 
+def test_chat_rejects_invalid_token(client):
+    r = client.post("/api/chat", json={
+        "sid": "x", "message": "hi", "token": "not-a-real-token",
+    })
+    assert r.status_code == 401
+
+
+def test_chat_rejects_empty_message(client, session_token):
+    r = client.post("/api/chat", json={"sid": "x", "message": "", "token": session_token})
+    assert r.status_code == 422
+
+
+def test_chat_solves_local_math_without_calling_gemini(client, session_token):
+    """solve_local() short-circuits before any Gemini call, so this is safe to
+    run with no GEMINI_API_KEY configured — deterministic, no network."""
+    r = client.post("/api/chat", json={
+        "sid": "x", "message": "12 + 30", "token": session_token,
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["reply"] == "Result = 42"
+    assert body["error"] is False
+
+
+def test_chat_clear_empties_history(client, session_token):
+    client.post("/api/chat", json={"sid": "x", "message": "5 * 5", "token": session_token})
+    r = client.post("/api/chat/clear", json={"token": session_token})
+    assert r.status_code == 200 and r.json()["ok"]
+
+    p = app_module.load_progress("ci_test_sid")
+    assert p["chat_history"] == []
+
+
+def test_ai_chat_router_is_wired(client):
+    """Confirms build_router(...)'s output actually reached the app — a
+    misconfigured factory call (wrong dependency order, forgotten
+    include_router) would 404 here instead of 401/422."""
+    r = client.post("/api/chat", json={"sid": "x", "message": "hi", "token": ""})
+    assert r.status_code != 404
+
+
 def test_routes_do_not_import_from_app():
     """The whole point of core.py: routers must not import a half-loaded app."""
     offenders = [
