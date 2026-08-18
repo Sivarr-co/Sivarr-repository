@@ -43,21 +43,31 @@ _RECUR_INTERVALS = {
     "monthly": _dt.timedelta(days=30),
 }
 
+def _s(v, maxlen: int) -> str:
+    """None-safe sanitize_text. str(None) is the literal text "None", not "" —
+    without this, a client explicitly clearing a field with JSON null (e.g.
+    unassigning a task: {"assignee": null}) would store the four characters
+    "None" instead of an empty value. Caught via a live HTTP round trip
+    against a real database, where a freshly-created task's recurrence field
+    came back as the string "None" instead of JSON null."""
+    return sanitize_text(str(v), maxlen) if v is not None else ""
+
+
 # Every real task field, and how to sanitize one incoming value for it.
 # Shared by full-object cleaning (create/replace-all) and partial-update
 # cleaning (only the keys actually present in a request) so the two paths
 # can't drift out of sync with different length limits or types.
 _TASK_FIELD_SANITIZERS = {
-    "title":              lambda v: sanitize_text(str(v), 200),
-    "status":             lambda v: sanitize_text(str(v), 20),
+    "title":              lambda v: _s(v, 200),
+    "status":             lambda v: _s(v, 20),
     "done":               lambda v: bool(v),
-    "date":               lambda v: sanitize_text(str(v), 20),
-    "time":               lambda v: sanitize_text(str(v), 10),
-    "priority":           lambda v: sanitize_text(str(v), 20),
-    "type":               lambda v: sanitize_text(str(v), 30),
-    "goal_id":            lambda v: sanitize_text(str(v), 50),
-    "parent_id":          lambda v: sanitize_text(str(v), 50),
-    "recurrence":         lambda v: sanitize_text(str(v), 20) or None,
+    "date":               lambda v: _s(v, 20),
+    "time":               lambda v: _s(v, 10),
+    "priority":           lambda v: _s(v, 20),
+    "type":               lambda v: _s(v, 30),
+    "goal_id":            lambda v: _s(v, 50),
+    "parent_id":          lambda v: _s(v, 50),
+    "recurrence":         lambda v: _s(v, 20) or None,
     "recurrence_spawned": lambda v: bool(v),
     # Fields the old whole-array sync silently dropped every save (its
     # per-item rebuild whitelist never included them, even though the
@@ -65,15 +75,15 @@ _TASK_FIELD_SANITIZERS = {
     # task object) — real columns now, closing that gap as part of this
     # migration. attachName is the client's field name; attach_name is the
     # server column, mapped in _clean_partial below.
-    "description":        lambda v: sanitize_text(str(v), 4000),
-    "assignee":           lambda v: sanitize_text(str(v), 100),
-    "summary":            lambda v: sanitize_text(str(v), 4000),
-    "attach_name":        lambda v: sanitize_text(str(v), 200),
+    "description":        lambda v: _s(v, 4000),
+    "assignee":           lambda v: _s(v, 100),
+    "summary":            lambda v: _s(v, 4000),
+    "attach_name":        lambda v: _s(v, 200),
     # Soft delete: an ISO timestamp string, or None if not deleted. The
     # client sets this instead of removing the task from the array so a
     # sync doesn't permanently destroy it — see js/features/tasks.js's
     # deleteSHTask()/restoreSHTask() and the Trash panel.
-    "deleted_at":         lambda v: sanitize_text(str(v or ""), 30) or None,
+    "deleted_at":         lambda v: _s(v, 30) or None,
 }
 
 _TASK_DEFAULTS = {

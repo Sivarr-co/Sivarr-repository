@@ -1,9 +1,14 @@
 {# ── FLUX / TASKS ── #}
-<!-- If not already loaded in your base <head>, add once:
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css"> -->
+<!-- Self-hosted: the CDN copy is blocked by this app's own CSP
+     (style-src 'self'), so this was a live console error on every visit
+     to the Tasks panel. index.html already loads this exact file once for
+     the whole app shell — this second load was pure redundancy even before
+     the CSP block. Found via a live browser check while verifying the
+     tasks-table migration; unrelated to that change, same class of bug as
+     the earlier landing.html/index.html icon-font fixes this session. -->
 <link
   rel="stylesheet"
-  href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css"
+  href="{{ asset('/static/vendor/tabler/tabler-icons.min.css') }}"
 />
 
 <style>

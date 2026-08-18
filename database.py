@@ -689,7 +689,7 @@ CREATE TABLE IF NOT EXISTS user_blobs (
 -- client's own id), not DB-generated, matching org_tasks and every other
 -- per-entity table in this schema.
 CREATE TABLE IF NOT EXISTS tasks (
-    id                  TEXT PRIMARY KEY,
+    id                  TEXT NOT NULL,
     sid                 TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
     title               TEXT NOT NULL,
     status              TEXT DEFAULT 'todo',
@@ -712,9 +712,21 @@ CREATE TABLE IF NOT EXISTS tasks (
     attach_name         TEXT DEFAULT '',
     deleted_at          TIMESTAMPTZ,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ DEFAULT NOW()
+    updated_at          TIMESTAMPTZ DEFAULT NOW(),
+    -- (sid, id), NOT a bare `id TEXT PRIMARY KEY` — client-generated ids are
+    -- Date.now() timestamps (see js/features/tasks.js), unique per browser
+    -- session but NOT globally unique. Two different users creating a task
+    -- in the same millisecond would collide under a global PK. The old
+    -- user_blobs-per-user JSONB blob never had this risk since each user's
+    -- array was independent storage. Caught by testing this schema against a
+    -- real Postgres instance before shipping, not by inspection: a same-id
+    -- INSERT across two different sids failed exactly this way.
+    -- (Note for future schema comments in this file: init_db() splits
+    -- _SCHEMA on bare semicolons, including ones inside comments, so a
+    -- semicolon used as punctuation here would silently truncate this
+    -- statement. Learned that the hard way writing this very comment.)
+    PRIMARY KEY (sid, id)
 );
-CREATE INDEX IF NOT EXISTS idx_tasks_sid         ON tasks(sid);
 CREATE INDEX IF NOT EXISTS idx_tasks_sid_deleted ON tasks(sid, deleted_at);
 
 CREATE TABLE IF NOT EXISTS community_posts (
@@ -2462,8 +2474,11 @@ def get_task(task_id: str, sid: str) -> dict | None:
 
 
 def create_task(sid: str, task_id: str, title: str, **fields) -> bool:
-    """fields may include any of _TASK_COLUMNS; unknown keys are ignored."""
-    cols = {k: v for k, v in fields.items() if k in _TASK_COLUMNS}
+    """fields may include any of _TASK_COLUMNS; unknown keys are ignored. id/
+    sid/title always come from the positional args, never from **fields, even
+    if a caller's dict happens to still contain them — see replace_all_tasks'
+    identical guard for why this matters."""
+    cols = {k: v for k, v in fields.items() if k in _TASK_COLUMNS and k not in ("id", "sid", "title")}
     conn = _get_conn()
     if not conn:
         return False
@@ -2564,7 +2579,11 @@ def replace_all_tasks(sid: str, tasks: list) -> bool:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM tasks WHERE sid=%s", (sid,))
             for t in tasks:
-                cols = {k: v for k, v in t.items() if k in _TASK_COLUMNS}
+                # id/sid/title always go in the fixed prefix below — excluded
+                # here too (not just by callers) so this can't silently
+                # double-list "title" if a caller's dict happens to include
+                # it, the way a first version of this function did.
+                cols = {k: v for k, v in t.items() if k in _TASK_COLUMNS and k not in ("id", "sid", "title")}
                 names = ["id", "sid", "title"] + list(cols.keys())
                 vals  = [t["id"], sid, t.get("title", "")] + list(cols.values())
                 placeholders = ", ".join(["%s"] * len(vals))
