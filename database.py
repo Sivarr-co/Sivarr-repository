@@ -681,6 +681,42 @@ CREATE TABLE IF NOT EXISTS user_blobs (
     PRIMARY KEY (sid, key)
 );
 
+-- Personal tasks — a real table, one row per task, replacing the
+-- user_blobs(key='tasks') JSONB-blob-per-user pattern. Mirrors org_tasks'
+-- shape deliberately (same id/column/index conventions) since that table is
+-- this codebase's own proven precedent for "per-entity personal-space data as
+-- a real table." id is app-generated TEXT (uuid.uuid4().hex[:20] or the
+-- client's own id), not DB-generated, matching org_tasks and every other
+-- per-entity table in this schema.
+CREATE TABLE IF NOT EXISTS tasks (
+    id                  TEXT PRIMARY KEY,
+    sid                 TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    title               TEXT NOT NULL,
+    status              TEXT DEFAULT 'todo',
+    done                BOOLEAN DEFAULT FALSE,
+    date                TEXT DEFAULT '',
+    time                TEXT DEFAULT '',
+    priority            TEXT DEFAULT 'normal',
+    type                TEXT DEFAULT 'other',
+    goal_id             TEXT DEFAULT '',
+    parent_id           TEXT DEFAULT '',
+    recurrence          TEXT,
+    recurrence_spawned  BOOLEAN DEFAULT FALSE,
+    -- Fields the old whole-array sync silently dropped on every save (its
+    -- per-item rebuild whitelist never included them, even though the client
+    -- modal/detail-panel UI has always written them onto the local task
+    -- object) — real columns now, closing that gap as part of this migration.
+    description         TEXT DEFAULT '',
+    assignee            TEXT DEFAULT '',
+    summary             TEXT DEFAULT '',
+    attach_name         TEXT DEFAULT '',
+    deleted_at          TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_sid         ON tasks(sid);
+CREATE INDEX IF NOT EXISTS idx_tasks_sid_deleted ON tasks(sid, deleted_at);
+
 CREATE TABLE IF NOT EXISTS community_posts (
     id          TEXT PRIMARY KEY,
     author_name TEXT NOT NULL DEFAULT 'Sivarr User',
@@ -2336,6 +2372,222 @@ def get_sids_with_blob_key(key: str) -> list[str]:
         with conn.cursor() as cur:
             cur.execute("SELECT sid FROM user_blobs WHERE key = %s", (key,))
             return [r[0] for r in cur.fetchall()]
+    finally:
+        _release(conn)
+
+
+# ── Personal tasks (real table, per-entity ops) ───────────────
+# Same conventions as org_tasks (see that block above): app-generated TEXT id,
+# plain _get_conn()/_release() (no _with_conn — that helper is documented as
+# reads/idempotent-upserts only, and these writes aren't idempotent),
+# RealDictCursor for row reads, partial updates via an explicit column
+# whitelist, every write scoped by "AND sid=%s" as a defense-in-depth tenant
+# check even though sid is already the primary lookup key.
+
+_TASK_COLUMNS = {
+    "title", "status", "done", "date", "time", "priority", "type",
+    "goal_id", "parent_id", "recurrence", "recurrence_spawned",
+    "description", "assignee", "summary", "attach_name",
+    # deleted_at is writable through the generic whitelist too, not just via
+    # soft_delete_task()/undelete_task() below — replace_all_tasks() (the
+    # bulk /api/tasks/sync path, kept for CSV import and as a fallback) needs
+    # to persist a client-set tombstone the same way it persists every other
+    # field. Omitting it here would silently drop soft-deletes on every bulk
+    # sync — the exact bug the soft-delete feature was built to prevent.
+    "deleted_at",
+}
+
+
+def get_tasks(sid: str, include_deleted: bool = False) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if include_deleted:
+                cur.execute("SELECT * FROM tasks WHERE sid=%s ORDER BY created_at", (sid,))
+            else:
+                cur.execute("SELECT * FROM tasks WHERE sid=%s AND deleted_at IS NULL ORDER BY created_at", (sid,))
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_tasks: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def get_trashed_tasks(sid: str) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM tasks WHERE sid=%s AND deleted_at IS NOT NULL ORDER BY deleted_at DESC", (sid,))
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_trashed_tasks: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def get_task(task_id: str, sid: str) -> dict | None:
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM tasks WHERE id=%s AND sid=%s", (task_id, sid))
+            row = cur.fetchone()
+            return dict(row) if row else None
+    except Exception as exc:
+        log.error(f"get_task: {exc}")
+        return None
+    finally:
+        _release(conn)
+
+
+def create_task(sid: str, task_id: str, title: str, **fields) -> bool:
+    """fields may include any of _TASK_COLUMNS; unknown keys are ignored."""
+    cols = {k: v for k, v in fields.items() if k in _TASK_COLUMNS}
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            names = ["id", "sid", "title"] + list(cols.keys())
+            vals  = [task_id, sid, title] + list(cols.values())
+            placeholders = ", ".join(["%s"] * len(vals))
+            cur.execute(
+                f"INSERT INTO tasks ({', '.join(names)}) VALUES ({placeholders})",
+                vals,
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_task: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def update_task(task_id: str, sid: str, updates: dict) -> bool:
+    """Partial update — only columns in _TASK_COLUMNS are ever touched."""
+    sets = {k: v for k, v in updates.items() if k in _TASK_COLUMNS}
+    if not sets:
+        return True
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cols = ", ".join(f"{k}=%s" for k in sets)
+            cur.execute(
+                f"UPDATE tasks SET {cols}, updated_at=NOW() WHERE id=%s AND sid=%s",
+                (*sets.values(), task_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"update_task: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def soft_delete_task(task_id: str, sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE tasks SET deleted_at=NOW(), updated_at=NOW() WHERE id=%s AND sid=%s",
+                (task_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"soft_delete_task: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def undelete_task(task_id: str, sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE tasks SET deleted_at=NULL, updated_at=NOW() WHERE id=%s AND sid=%s",
+                (task_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"undelete_task: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def replace_all_tasks(sid: str, tasks: list) -> bool:
+    """Bulk replace — delete every row for sid, reinsert the given list. Used
+    only by /api/tasks/sync (CSV import, and any full-resync path) — the
+    per-entity functions above are what live single-task edits use now. Keeps
+    the exact whole-array-overwrite semantics the old user_blobs blob had, so
+    existing bulk callers don't need to change shape."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM tasks WHERE sid=%s", (sid,))
+            for t in tasks:
+                cols = {k: v for k, v in t.items() if k in _TASK_COLUMNS}
+                names = ["id", "sid", "title"] + list(cols.keys())
+                vals  = [t["id"], sid, t.get("title", "")] + list(cols.values())
+                placeholders = ", ".join(["%s"] * len(vals))
+                cur.execute(
+                    f"INSERT INTO tasks ({', '.join(names)}) VALUES ({placeholders})",
+                    vals,
+                )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"replace_all_tasks: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def purge_expired_tasks(cutoff_iso: str) -> int:
+    """Permanently remove tasks soft-deleted before `cutoff_iso` (an ISO
+    timestamp string), across every user in one query — for the scheduled
+    purge job. Returns the number of rows removed."""
+    conn = _get_conn()
+    if not conn:
+        return 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < %s",
+                (cutoff_iso,),
+            )
+            count = cur.rowcount
+        conn.commit()
+        return count
+    except Exception as exc:
+        log.error(f"purge_expired_tasks: {exc}")
+        conn.rollback()
+        return 0
     finally:
         _release(conn)
 

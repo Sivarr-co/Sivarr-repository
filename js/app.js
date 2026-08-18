@@ -8190,7 +8190,7 @@ const NAV_ORDER = {
   life: ["skills", "finance", "habits", "journal", "stats", "review"],
   connect: ["community", "marketplace", "agents"],
 };
-const NAV_CORE = ["chat", "home", "announcements"]; // permanent, top group, not removable
+const NAV_CORE = ["home", "chat", "announcements"]; // permanent, top group, not removable
 // Default tabs shown in the sidebar — rebalanced toward daily-use (Phase 2):
 // Work: Tasks/Goals/Calendar/Docs&Notes · Life: Finance/Habits/Journal.
 // Anything not here lives only in ⌘K search until the user stars it in.
