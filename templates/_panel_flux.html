@@ -1,70 +1,825 @@
 {# ── FLUX / TASKS ── #}
+<!-- If not already loaded in your base <head>, add once:
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css"> -->
+<link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css"
+/>
+
+<style>
+  /* ══ Flux design tokens (scoped, doesn't leak outside #panel-flux) ══ */
+  #panel-flux {
+    --fx-bg: #000000;
+    --fx-bg2: #050505;
+    --fx-card: #0c0c0c;
+    --fx-card2: #111111;
+    --fx-line: #1c1c1c;
+    --fx-line2: #262626;
+    --fx-accent: #8a2be2;
+    --fx-accent-dim: #1c0e2e;
+    --fx-accent-soft: #c9a8f0;
+    --fx-green: #1d9e75;
+    --fx-green-dim: #0a2416;
+    --fx-red: #e24b4a;
+    --fx-red-dim: #2a0a0a;
+    --fx-blue: #378add;
+    --fx-blue-dim: #0a1a2a;
+    --fx-amber: #e0a040;
+    --fx-amber-dim: #2a1a04;
+    --fx-t1: #f5f4f2;
+    --fx-t2: #9b9891;
+    --fx-t3: #666660;
+    --fx-t4: #3d3c39;
+
+    background: var(--fx-bg);
+    color: var(--fx-t1);
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI",
+      var(--font-body, system-ui), sans-serif;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  #panel-flux * {
+    box-sizing: border-box;
+  }
+  #panel-flux ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  #panel-flux ::-webkit-scrollbar-thumb {
+    background: var(--fx-line2);
+    border-radius: 99px;
+  }
+
+  /* ── Header ── */
+  #panel-flux .fx-header {
+    padding: 14px 20px 10px;
+    border-bottom: 1px solid var(--fx-line);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  #panel-flux .fx-title {
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  #panel-flux .fx-title i {
+    color: var(--fx-accent-soft);
+    font-size: 1.05rem;
+  }
+  #panel-flux .fx-sub {
+    font-size: 0.72rem;
+    color: var(--fx-t3);
+    margin-top: 2px;
+  }
+  #panel-flux .fx-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  #panel-flux .sh-view-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--fx-t2);
+    background: transparent;
+    border: 1px solid var(--fx-line);
+    border-radius: 20px;
+    padding: 7px 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  #panel-flux .sh-view-btn i {
+    font-size: 0.9rem;
+  }
+  #panel-flux .sh-view-btn:hover {
+    border-color: var(--fx-line2);
+    color: var(--fx-t1);
+  }
+  #panel-flux .sh-view-btn.active {
+    background: var(--fx-t1);
+    border-color: var(--fx-t1);
+    color: #000;
+    font-weight: 700;
+  }
+
+  #panel-flux .sh-add-task-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--fx-accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 15px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  #panel-flux .sh-add-task-btn:hover {
+    filter: brightness(1.1);
+  }
+  #panel-flux .sh-add-task-btn i {
+    font-size: 0.95rem;
+  }
+
+  #panel-flux .fx-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--fx-line);
+    background: transparent;
+    color: var(--fx-t2);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  /* ── Filter / Sort dropdowns ── */
+  #panel-flux .sh-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 200;
+    background: var(--fx-card);
+    border: 1px solid var(--fx-line2);
+    border-radius: 12px;
+    padding: 12px 14px;
+    min-width: 200px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  }
+  #panel-flux .sh-dropdown-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--fx-t3);
+    margin: 8px 0 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  #panel-flux .sh-dropdown-label:first-child {
+    margin-top: 0;
+  }
+  #panel-flux .sh-filter-opt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--fx-t2);
+    padding: 4px 0;
+    cursor: pointer;
+  }
+  #panel-flux .sh-filter-opt input {
+    accent-color: var(--fx-accent);
+    cursor: pointer;
+  }
+  #panel-flux .sh-filter-opt:hover {
+    color: var(--fx-t1);
+  }
+
+  /* ── Progress bar ── */
+  #panel-flux .fx-progress-wrap {
+    padding: 0.55rem 1.25rem;
+    border-bottom: 1px solid var(--fx-line);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #panel-flux .fx-progress-track {
+    flex: 1;
+    height: 4px;
+    background: var(--fx-line);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  #panel-flux #sh-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--fx-accent), #a855f7);
+    border-radius: 99px;
+    transition: width 0.5s ease;
+  }
+  #panel-flux #sh-pct {
+    font-size: 0.72rem;
+    color: var(--fx-t3);
+    white-space: nowrap;
+  }
+
+  /* ── Overview table ── */
+  #panel-flux #sh-overview-view {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  #panel-flux #sh-overview-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1100px;
+    table-layout: fixed;
+  }
+  #panel-flux .sh-th {
+    background: var(--fx-bg2);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--fx-t3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--fx-line);
+  }
+  #panel-flux #sh-bulk-all {
+    accent-color: var(--fx-accent);
+    cursor: pointer;
+  }
+  #panel-flux #sh-overview-rows tr {
+    border-bottom: 1px solid var(--fx-line);
+    transition: background 0.1s;
+  }
+  #panel-flux #sh-overview-rows tr:hover {
+    background: rgba(255, 255, 255, 0.025);
+  }
+  #panel-flux #sh-overview-rows td {
+    padding: 10px 10px;
+    font-size: 0.8rem;
+    color: var(--fx-t2);
+    vertical-align: middle;
+  }
+  #panel-flux #sh-overview-rows input[type="checkbox"] {
+    accent-color: var(--fx-accent);
+    cursor: pointer;
+  }
+  #panel-flux tfoot td {
+    padding: 0;
+    border-top: 1px dashed var(--fx-line);
+  }
+  #panel-flux tfoot button {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 10px 16px;
+    color: var(--fx-t3);
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s;
+  }
+  #panel-flux tfoot button:hover {
+    background: var(--fx-card);
+    color: var(--fx-t1);
+  }
+
+  /* Status pill (dot + label) — use inside injected status cells if desired */
+  #panel-flux .fx-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.76rem;
+    font-weight: 600;
+  }
+  #panel-flux .fx-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  #panel-flux .fx-status-dot.todo {
+    background: var(--fx-t3);
+  }
+  #panel-flux .fx-status-dot.inprogress {
+    background: var(--fx-blue);
+  }
+  #panel-flux .fx-status-dot.done {
+    background: var(--fx-green);
+  }
+
+  /* Priority flag */
+  #panel-flux .fx-priority {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.76rem;
+    font-weight: 600;
+  }
+  #panel-flux .fx-priority i {
+    font-size: 0.85rem;
+  }
+  #panel-flux .fx-priority.high {
+    color: var(--fx-red);
+  }
+  #panel-flux .fx-priority.medium {
+    color: var(--fx-amber);
+  }
+  #panel-flux .fx-priority.low,
+  #panel-flux .fx-priority.normal {
+    color: var(--fx-t3);
+  }
+
+  /* ── Bulk action bar ── */
+  #panel-flux #sh-bulk-bar {
+    display: none;
+    position: sticky;
+    bottom: 0;
+    background: var(--fx-bg2);
+    border-top: 2px solid var(--fx-accent);
+    padding: 10px 16px;
+    align-items: center;
+    gap: 8px;
+    z-index: 5;
+    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+  }
+  #panel-flux #sh-bulk-count {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--fx-accent-soft);
+    min-width: 100px;
+  }
+  #panel-flux .fx-bulk-btn {
+    border-radius: 8px;
+    padding: 6px 13px;
+    font-family: inherit;
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid;
+  }
+  #panel-flux .fx-bulk-btn.complete {
+    background: var(--fx-green-dim);
+    border-color: #1d9e7550;
+    color: #3fcf9e;
+  }
+  #panel-flux .fx-bulk-btn.delete {
+    background: var(--fx-red-dim);
+    border-color: #e24b4a50;
+    color: #f07271;
+  }
+  #panel-flux .fx-bulk-select {
+    background: var(--fx-card);
+    border: 1px solid var(--fx-line2);
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: var(--fx-t1);
+    font-family: inherit;
+    font-size: 0.76rem;
+    cursor: pointer;
+    outline: none;
+  }
+  #panel-flux .fx-bulk-clear {
+    background: none;
+    border: 1px solid var(--fx-line2);
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: var(--fx-t3);
+    font-family: inherit;
+    font-size: 0.76rem;
+    cursor: pointer;
+  }
+
+  /* ── Board / Kanban ── */
+  #panel-flux #sh-board-view {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 1rem;
+    display: none;
+    gap: 14px;
+    align-items: flex-start;
+    min-height: 0;
+  }
+  #panel-flux .sh-col {
+    width: 260px;
+    flex-shrink: 0;
+  }
+  #panel-flux .sh-col-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 4px 12px;
+  }
+  #panel-flux .sh-col-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  #panel-flux .sh-col-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--fx-t1);
+  }
+  #panel-flux .sh-col-count {
+    font-size: 0.72rem;
+    color: var(--fx-t4);
+    margin-left: auto;
+  }
+  #panel-flux .sh-col-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 20px;
+  }
+  /* Fallback card styling for whatever markup JS injects as direct children */
+  #panel-flux .sh-col-body > * {
+    background: var(--fx-card) !important;
+    border: 1px solid var(--fx-line) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    cursor: pointer;
+    font-size: 0.78rem;
+    color: var(--fx-t1);
+    transition: border-color 0.12s;
+  }
+  #panel-flux .sh-col-body > *:hover {
+    border-color: var(--fx-line2) !important;
+  }
+  #panel-flux .sh-col-add {
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--fx-line2);
+    border-radius: 10px;
+    padding: 9px;
+    color: var(--fx-t3);
+    font-size: 0.76rem;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.12s;
+  }
+  #panel-flux .sh-col-add:hover {
+    border-color: var(--fx-accent);
+    color: var(--fx-accent-soft);
+  }
+
+  #panel-flux .sh-ai-card {
+    background: var(--fx-card);
+    border: 1px solid var(--fx-line);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  #panel-flux .sh-ai-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #panel-flux .sh-input {
+    background: var(--fx-bg2);
+    border: 1px solid var(--fx-line2);
+    border-radius: 9px;
+    padding: 9px 11px;
+    color: var(--fx-t1);
+    font-family: inherit;
+    outline: none;
+    width: 100%;
+  }
+  #panel-flux .sh-input:focus {
+    border-color: var(--fx-accent);
+  }
+  #panel-flux .sh-input::placeholder {
+    color: var(--fx-t4);
+  }
+  #panel-flux .sh-add-btn {
+    background: var(--fx-accent-dim);
+    border: 1px solid #2a1a3e;
+    color: var(--fx-accent-soft);
+    border-radius: 9px;
+    padding: 9px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.12s;
+  }
+  #panel-flux .sh-add-btn:hover {
+    filter: brightness(1.2);
+  }
+
+  /* ── List view (task rows) ── */
+  #panel-flux #sh-list-view {
+    flex: 1;
+    overflow: auto;
+    padding: 1rem 1.25rem;
+    display: none;
+    min-height: 0;
+  }
+  #panel-flux #sh-list-container > * {
+    display: flex !important;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0 !important;
+    border-bottom: 1px solid var(--fx-line) !important;
+    cursor: pointer;
+    background: transparent !important;
+  }
+  #panel-flux #sh-list-container > *:last-child {
+    border-bottom: none !important;
+  }
+  #panel-flux #sh-list-container {
+    color: var(--fx-t1);
+    font-size: 0.82rem;
+  }
+
+  /* ── Add / Edit task modal ── */
+  #panel-flux #sh-modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  #panel-flux .fx-modal-card {
+    background: var(--fx-card);
+    border: 1px solid var(--fx-line2);
+    border-radius: 18px;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  }
+  #panel-flux .fx-modal-heading {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #panel-flux .fx-modal-close {
+    background: none;
+    border: none;
+    color: var(--fx-t3);
+    cursor: pointer;
+    font-size: 1.15rem;
+  }
+  #panel-flux .fx-modal-close:hover {
+    color: var(--fx-t1);
+  }
+  #panel-flux .sh-field-group {
+    margin-bottom: 12px;
+  }
+  #panel-flux .sh-field-label {
+    font-size: 0.72rem;
+    color: var(--fx-t3);
+    margin-bottom: 6px;
+    display: block;
+  }
+  #panel-flux .fx-sheet-handle {
+    display: none;
+  }
+
+  #panel-flux .fx-btn-primary {
+    background: var(--fx-accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 11px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    flex: 1;
+    transition: filter 0.12s;
+  }
+  #panel-flux .fx-btn-primary:hover {
+    filter: brightness(1.1);
+  }
+  #panel-flux .fx-btn-ghost {
+    background: none;
+    border: 1px solid var(--fx-line2);
+    border-radius: 10px;
+    padding: 11px;
+    color: var(--fx-t2);
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    flex: 1;
+    transition: all 0.12s;
+  }
+  #panel-flux .fx-btn-ghost:hover {
+    border-color: var(--fx-t3);
+    color: var(--fx-t1);
+  }
+  #panel-flux .fx-attach-btn {
+    background: var(--fx-bg2);
+    border: 1px solid var(--fx-line2);
+    border-radius: 9px;
+    padding: 8px 13px;
+    color: var(--fx-t2);
+    font-size: 0.76rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  #panel-flux .fx-attach-btn:hover {
+    border-color: var(--fx-accent);
+  }
+
+  /* ── Task detail panel ── */
+  #panel-flux #sh-detail-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 400px;
+    max-width: 95vw;
+    height: 100vh;
+    background: var(--fx-card);
+    border-left: 1px solid var(--fx-line2);
+    z-index: 300;
+    box-shadow: -8px 0 36px rgba(0, 0, 0, 0.55);
+    transform: translateX(100%);
+    transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #panel-flux .fx-detail-head {
+    position: sticky;
+    top: 0;
+    background: var(--fx-card);
+    border-bottom: 1px solid var(--fx-line);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  #panel-flux .fx-detail-head span {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--fx-t3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  #panel-flux .fx-detail-close {
+    background: none;
+    border: none;
+    color: var(--fx-t3);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 2px 6px;
+  }
+  #panel-flux .fx-detail-close:hover {
+    color: var(--fx-t1);
+  }
+  #panel-flux #sh-detail-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px;
+    color: var(--fx-t1);
+    font-size: 0.85rem;
+  }
+  #panel-flux #sh-detail-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 299;
+  }
+
+  /* ══════════ RESPONSIVE ══════════ */
+
+  /* Tablet: 768px – 1023px */
+  @media (max-width: 1023px) {
+    #panel-flux .fx-header {
+      padding: 12px 16px 8px;
+    }
+    #panel-flux .sh-col {
+      width: 220px;
+    }
+    #panel-flux #sh-detail-panel {
+      width: 360px;
+    }
+  }
+
+  /* Mobile: <768px */
+  @media (max-width: 767px) {
+    #panel-flux .fx-header {
+      padding: 10px 14px 8px;
+      gap: 8px;
+    }
+    #panel-flux .fx-title {
+      font-size: 0.95rem;
+    }
+    #panel-flux .fx-header-actions {
+      width: 100%;
+      gap: 6px;
+    }
+    #panel-flux .sh-view-btn span.fx-label {
+      display: none;
+    }
+    #panel-flux .sh-view-btn {
+      padding: 7px 10px;
+    }
+    #panel-flux .sh-add-task-btn span.fx-label {
+      display: none;
+    }
+    #panel-flux .sh-add-task-btn {
+      padding: 8px 10px;
+      border-radius: 10px;
+    }
+    #panel-flux .fx-progress-wrap {
+      padding: 0.5rem 14px;
+    }
+
+    #panel-flux .sh-col {
+      width: 78vw;
+      max-width: 280px;
+    }
+    #panel-flux #sh-board-view {
+      padding: 0.85rem;
+      gap: 10px;
+    }
+
+    #panel-flux #sh-list-view {
+      padding: 0.85rem;
+    }
+
+    /* Modal → bottom sheet */
+    #panel-flux #sh-modal-bg {
+      align-items: flex-end;
+      padding: 0;
+    }
+    #panel-flux .fx-modal-card {
+      max-width: 100%;
+      width: 100%;
+      border-radius: 22px 22px 0 0;
+      max-height: 92vh;
+      padding: 1.25rem 1.25rem 1.5rem;
+    }
+    #panel-flux .fx-sheet-handle {
+      display: block;
+      width: 36px;
+      height: 4px;
+      background: var(--fx-line2);
+      border-radius: 4px;
+      margin: 0 auto 14px;
+    }
+
+    /* Detail panel → full-screen takeover on mobile */
+    #panel-flux #sh-detail-panel {
+      width: 100%;
+      max-width: 100%;
+      border-left: none;
+    }
+  }
+
+  @media (max-width: 380px) {
+    #panel-flux .fx-title {
+      font-size: 0.88rem;
+    }
+  }
+</style>
+
 <div class="panel" id="panel-flux">
   <!-- Header bar -->
-  <div
-    style="
-      padding: 0.75rem 1.25rem;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
-    "
-  >
+  <div class="fx-header">
     <div>
-      <div
-        style="
-          font-family: var(--font);
-          font-weight: 800;
-          font-size: 1rem;
-          letter-spacing: -0.02em;
-        "
-      >
-        🗂️ Flux
-      </div>
-      <div style="font-size: 0.72rem; color: var(--muted); margin-top: 1px">
+      <div class="fx-title"><i class="ti ti-folder-bolt"></i>Flux</div>
+      <div class="fx-sub">
         <span id="sh-total-count">0</span> tasks ·
         <span id="sh-done-count">0</span> completed
       </div>
     </div>
-    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap">
+    <div class="fx-header-actions">
       <div style="position: relative">
         <button
           class="sh-view-btn"
           id="sh-filter-btn"
           onclick="shToggleFilter(event)"
         >
-          ⊟ Filter
+          <i class="ti ti-filter"></i><span class="fx-label">Filter</span>
         </button>
-        <div
-          id="sh-filter-drop"
-          style="
-            display: none;
-            position: absolute;
-            top: calc(100% + 4px);
-            left: 0;
-            z-index: 200;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 12px 14px;
-            min-width: 200px;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-          "
-        >
-          <div
-            style="
-              font-size: 0.72rem;
-              font-weight: 700;
-              color: var(--muted);
-              margin-bottom: 6px;
-              text-transform: uppercase;
-            "
-          >
-            Status
-          </div>
+        <div id="sh-filter-drop" class="sh-dropdown">
+          <div class="sh-dropdown-label">Status</div>
           <label class="sh-filter-opt"
             ><input
               type="checkbox"
@@ -85,17 +840,7 @@
             ><input type="checkbox" value="done" onchange="shApplyFilters()" />
             Done</label
           >
-          <div
-            style="
-              font-size: 0.72rem;
-              font-weight: 700;
-              color: var(--muted);
-              margin: 8px 0 6px;
-              text-transform: uppercase;
-            "
-          >
-            Priority
-          </div>
+          <div class="sh-dropdown-label">Priority</div>
           <label class="sh-filter-opt"
             ><input
               type="checkbox"
@@ -124,17 +869,7 @@
             ><input type="checkbox" value="p_low" onchange="shApplyFilters()" />
             Low</label
           >
-          <div
-            style="
-              font-size: 0.72rem;
-              font-weight: 700;
-              color: var(--muted);
-              margin: 8px 0 6px;
-              text-transform: uppercase;
-            "
-          >
-            Due
-          </div>
+          <div class="sh-dropdown-label">Due</div>
           <label class="sh-filter-opt"
             ><input
               type="checkbox"
@@ -175,24 +910,9 @@
           id="sh-sort-btn"
           onclick="shToggleSort(event)"
         >
-          ↕ Sort
+          <i class="ti ti-arrows-sort"></i><span class="fx-label">Sort</span>
         </button>
-        <div
-          id="sh-sort-drop"
-          style="
-            display: none;
-            position: absolute;
-            top: calc(100% + 4px);
-            left: 0;
-            z-index: 200;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 12px 14px;
-            min-width: 210px;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-          "
-        >
+        <div id="sh-sort-drop" class="sh-dropdown">
           <label class="sh-filter-opt"
             ><input
               type="radio"
@@ -246,86 +966,39 @@
         id="sh-view-overview"
         onclick="setSHView('overview', this)"
       >
-        ★ Overview
+        <i class="ti ti-table"></i><span class="fx-label">Overview</span>
       </button>
       <button
         class="sh-view-btn"
         id="sh-view-board"
         onclick="setSHView('board', this)"
       >
-        ⊞ Board
+        <i class="ti ti-columns"></i><span class="fx-label">Board</span>
       </button>
       <button
         class="sh-view-btn"
         id="sh-view-list"
         onclick="setSHView('list', this)"
       >
-        ☰ List
+        <i class="ti ti-list-details"></i><span class="fx-label">List</span>
       </button>
       <button class="sh-add-task-btn" onclick="openAddTask()">
-        + New Task
+        <i class="ti ti-plus"></i><span class="fx-label">New Task</span>
       </button>
     </div>
   </div>
 
   <!-- Progress bar -->
-  <div
-    style="
-      padding: 0.4rem 1.25rem;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    "
-  >
-    <div
-      style="
-        flex: 1;
-        height: 4px;
-        background: var(--border);
-        border-radius: 99px;
-        overflow: hidden;
-      "
-    >
-      <div
-        id="sh-progress-bar"
-        style="
-          height: 100%;
-          width: 0%;
-          background: linear-gradient(90deg, #22c55e, #16a34a);
-          border-radius: 99px;
-          transition: width 0.5s ease;
-        "
-      ></div>
+  <div class="fx-progress-wrap">
+    <div class="fx-progress-track">
+      <div id="sh-progress-bar"></div>
     </div>
-    <span
-      style="font-size: 0.72rem; color: var(--muted); white-space: nowrap"
-      id="sh-pct"
-      >0%</span
-    >
+    <span id="sh-pct">0%</span>
   </div>
 
-  <!-- Overview view — Notion-style table -->
-  <div
-    id="sh-overview-view"
-    style="
-      flex: 1;
-      overflow: auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-    "
-  >
-    <table
-      id="sh-overview-table"
-      style="
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 1100px;
-        table-layout: fixed;
-      "
-    >
+  <!-- Overview view — table -->
+  <div id="sh-overview-view">
+    <table id="sh-overview-table">
       <colgroup>
         <col style="width: 32px" />
         <!-- Bulk checkbox -->
@@ -353,58 +1026,35 @@
         <!-- Done -->
       </colgroup>
       <thead>
-        <tr
-          style="
-            background: var(--surface);
-            position: sticky;
-            top: 0;
-            z-index: 2;
-          "
-        >
-          <th class="sh-th" style="text-align: center; padding: 6px 4px">
+        <tr>
+          <th class="sh-th" style="text-align: center">
             <input
               type="checkbox"
               id="sh-bulk-all"
               onchange="_shBulkSelectAll(this.checked)"
-              style="cursor: pointer; accent-color: var(--accent)"
             />
           </th>
-          <th class="sh-th" style="text-align: left">Aa Task name</th>
-          <th class="sh-th" style="text-align: left">⊙ Status</th>
-          <th class="sh-th" style="text-align: left">🏷 Task type</th>
-          <th class="sh-th" style="text-align: left">📝 Description</th>
-          <th class="sh-th" style="text-align: left">👤 Assignee</th>
-          <th class="sh-th" style="text-align: left">📅 Due date</th>
-          <th class="sh-th" style="text-align: left">⚡ Priority</th>
-          <th class="sh-th" style="text-align: left">📎 Attach</th>
-          <th class="sh-th" style="text-align: left">🕐 Last Updated</th>
-          <th class="sh-th" style="text-align: left">💡 Summary</th>
-          <th class="sh-th" style="text-align: center">✓</th>
+          <th class="sh-th">Task name</th>
+          <th class="sh-th">Status</th>
+          <th class="sh-th">Task type</th>
+          <th class="sh-th">Description</th>
+          <th class="sh-th">Assignee</th>
+          <th class="sh-th">Due date</th>
+          <th class="sh-th">Priority</th>
+          <th class="sh-th">Attach</th>
+          <th class="sh-th">Last Updated</th>
+          <th class="sh-th">Summary</th>
+          <th class="sh-th" style="text-align: center">
+            <i class="ti ti-check"></i>
+          </th>
         </tr>
       </thead>
       <tbody id="sh-overview-rows"></tbody>
       <tfoot>
         <tr>
-          <td
-            colspan="12"
-            style="padding: 0; border-top: 1px dashed var(--border)"
-          >
-            <button
-              onclick="openAddTask()"
-              style="
-                width: 100%;
-                background: none;
-                border: none;
-                padding: 9px 16px;
-                color: var(--muted);
-                font-size: 0.82rem;
-                cursor: pointer;
-                text-align: left;
-              "
-              onmouseover="this.style.background = 'var(--surface)'"
-              onmouseout="this.style.background = 'none'"
-            >
-              + New task
+          <td colspan="12">
+            <button onclick="openAddTask()">
+              <i class="ti ti-plus" style="margin-right: 6px"></i>New task
             </button>
           </td>
         </tr>
@@ -412,124 +1062,36 @@
     </table>
 
     <!-- Bulk action bar -->
-    <div
-      id="sh-bulk-bar"
-      style="
-        display: none;
-        position: sticky;
-        bottom: 0;
-        background: var(--bg);
-        border-top: 2px solid var(--accent);
-        padding: 10px 16px;
-        align-items: center;
-        gap: 8px;
-        z-index: 5;
-        box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
-        flex-shrink: 0;
-      "
-    >
-      <span
-        id="sh-bulk-count"
-        style="
-          font-size: 0.82rem;
-          font-weight: 700;
-          color: var(--accent);
-          min-width: 100px;
-        "
-      ></span>
-      <button
-        onclick="_shBulkComplete()"
-        style="
-          background: #22c55e12;
-          border: 1px solid #22c55e40;
-          color: #22c55e;
-          border-radius: 7px;
-          padding: 5px 13px;
-          font-family: var(--font-body);
-          font-size: 0.78rem;
-          font-weight: 600;
-          cursor: pointer;
-        "
-      >
-        ✓ Complete
+    <div id="sh-bulk-bar">
+      <span id="sh-bulk-count"></span>
+      <button class="fx-bulk-btn complete" onclick="_shBulkComplete()">
+        <i class="ti ti-check"></i> Complete
       </button>
-      <select
-        onchange="_shBulkPriority(this.value)"
-        style="
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 7px;
-          padding: 5px 10px;
-          color: var(--text);
-          font-family: var(--font-body);
-          font-size: 0.78rem;
-          cursor: pointer;
-          outline: none;
-        "
-      >
+      <select class="fx-bulk-select" onchange="_shBulkPriority(this.value)">
         <option value="">Priority…</option>
-        <option value="high">🔴 High</option>
-        <option value="medium">🟡 Medium</option>
-        <option value="low">🟢 Low</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
         <option value="normal">Normal</option>
       </select>
-      <button
-        onclick="_shBulkDelete()"
-        style="
-          background: #ef444412;
-          border: 1px solid #ef444430;
-          color: #ef4444;
-          border-radius: 7px;
-          padding: 5px 13px;
-          font-family: var(--font-body);
-          font-size: 0.78rem;
-          font-weight: 600;
-          cursor: pointer;
-        "
-      >
-        🗑 Delete
+      <button class="fx-bulk-btn delete" onclick="_shBulkDelete()">
+        <i class="ti ti-trash"></i> Delete
       </button>
       <div style="flex: 1"></div>
-      <button
-        onclick="_shBulkClear()"
-        style="
-          background: none;
-          border: 1px solid var(--border);
-          border-radius: 7px;
-          padding: 5px 10px;
-          color: var(--muted);
-          font-family: var(--font-body);
-          font-size: 0.78rem;
-          cursor: pointer;
-        "
-      >
-        ✕ Clear
+      <button class="fx-bulk-clear" onclick="_shBulkClear()">
+        <i class="ti ti-x"></i> Clear
       </button>
     </div>
   </div>
 
   <!-- Board view -->
-  <div
-    id="sh-board-view"
-    style="
-      flex: 1;
-      overflow-x: auto;
-      overflow-y: hidden;
-      padding: 1rem;
-      display: none;
-      gap: 12px;
-      align-items: flex-start;
-      min-height: 0;
-    "
-  >
+  <div id="sh-board-view">
     <!-- Column: Not Started -->
     <div class="sh-col">
       <div class="sh-col-header">
-        <div style="display: flex; align-items: center; gap: 7px">
-          <div class="sh-col-dot" style="background: #94a3b8"></div>
-          <span class="sh-col-title">Not Started</span>
-          <span class="sh-col-count" id="sh-col-count-todo">0</span>
-        </div>
+        <div class="sh-col-dot" style="background: var(--fx-t3)"></div>
+        <span class="sh-col-title">Not Started</span>
+        <span class="sh-col-count" id="sh-col-count-todo">0</span>
       </div>
       <div
         class="sh-col-body"
@@ -538,18 +1100,16 @@
         ondrop="shDrop(event, 'todo')"
       ></div>
       <button class="sh-col-add" onclick="openAddTask('todo')">
-        + Add task
+        <i class="ti ti-plus"></i> Add task
       </button>
     </div>
 
     <!-- Column: In Progress -->
     <div class="sh-col">
       <div class="sh-col-header">
-        <div style="display: flex; align-items: center; gap: 7px">
-          <div class="sh-col-dot" style="background: #f59e0b"></div>
-          <span class="sh-col-title">In Progress</span>
-          <span class="sh-col-count" id="sh-col-count-inprogress">0</span>
-        </div>
+        <div class="sh-col-dot" style="background: var(--fx-blue)"></div>
+        <span class="sh-col-title">In Progress</span>
+        <span class="sh-col-count" id="sh-col-count-inprogress">0</span>
       </div>
       <div
         class="sh-col-body"
@@ -558,18 +1118,16 @@
         ondrop="shDrop(event, 'inprogress')"
       ></div>
       <button class="sh-col-add" onclick="openAddTask('inprogress')">
-        + Add task
+        <i class="ti ti-plus"></i> Add task
       </button>
     </div>
 
     <!-- Column: Done -->
     <div class="sh-col">
       <div class="sh-col-header">
-        <div style="display: flex; align-items: center; gap: 7px">
-          <div class="sh-col-dot" style="background: #22c55e"></div>
-          <span class="sh-col-title">Done</span>
-          <span class="sh-col-count" id="sh-col-count-done">0</span>
-        </div>
+        <div class="sh-col-dot" style="background: var(--fx-green)"></div>
+        <span class="sh-col-title">Done</span>
+        <span class="sh-col-count" id="sh-col-count-done">0</span>
       </div>
       <div
         class="sh-col-body"
@@ -578,42 +1136,36 @@
         ondrop="shDrop(event, 'done')"
       ></div>
       <button class="sh-col-add" onclick="openAddTask('done')">
-        + Add task
+        <i class="ti ti-plus"></i> Add task
       </button>
     </div>
 
     <!-- Column: AI Tools -->
     <div class="sh-col" style="min-width: 220px">
       <div class="sh-col-header">
-        <div style="display: flex; align-items: center; gap: 7px">
-          <div class="sh-col-dot" style="background: #a855f7"></div>
-          <span class="sh-col-title">AI Tools</span>
-        </div>
+        <div class="sh-col-dot" style="background: var(--fx-accent)"></div>
+        <span class="sh-col-title">AI Tools</span>
       </div>
       <div
         style="
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
           padding: 4px 0;
           overflow-y: auto;
           max-height: calc(100vh - 260px);
         "
       >
         <div class="sh-ai-card">
-          <div class="sh-ai-title">🧠 Break Down a Task</div>
+          <div class="sh-ai-title">
+            <i class="ti ti-brain"></i> Break Down a Task
+          </div>
           <textarea
             id="sh-structure-input"
             class="sh-input"
             rows="2"
             placeholder="Describe your task..."
-            style="
-              resize: none;
-              width: 100%;
-              box-sizing: border-box;
-              font-size: 0.78rem;
-              margin-bottom: 6px;
-            "
+            style="resize: none; margin-bottom: 8px"
           ></textarea>
           <button
             class="sh-add-btn"
@@ -626,34 +1178,30 @@
             id="sh-structure-result"
             style="
               display: none;
-              margin-top: 6px;
+              margin-top: 8px;
               font-size: 0.75rem;
               line-height: 1.6;
-              color: var(--text);
+              color: var(--fx-t2);
             "
             class="lab-content"
           ></div>
         </div>
         <div class="sh-ai-card">
-          <div class="sh-ai-title">📄 Create PDF</div>
+          <div class="sh-ai-title">
+            <i class="ti ti-file-text"></i> Create PDF
+          </div>
           <input
             id="sh-pdf-title"
             class="sh-input"
             placeholder="PDF title..."
-            style="margin-bottom: 5px; font-size: 0.78rem"
+            style="margin-bottom: 6px"
           />
           <textarea
             id="sh-pdf-content"
             class="sh-input"
             rows="3"
             placeholder="Paste content here..."
-            style="
-              resize: none;
-              width: 100%;
-              box-sizing: border-box;
-              font-size: 0.78rem;
-              margin-bottom: 6px;
-            "
+            style="resize: none; margin-bottom: 8px"
           ></textarea>
           <button
             class="sh-add-btn"
@@ -668,63 +1216,18 @@
   </div>
 
   <!-- List view -->
-  <div
-    id="sh-list-view"
-    style="flex: 1; overflow: auto; padding: 1rem; display: none; min-height: 0"
-  >
+  <div id="sh-list-view">
     <div id="sh-list-container"></div>
   </div>
 
   <!-- Add / Edit task modal -->
-  <div
-    id="sh-modal-bg"
-    style="
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: #00000075;
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-    "
-  >
-    <div
-      style="
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 1.5rem;
-        width: 100%;
-        max-width: 520px;
-        max-height: 90vh;
-        overflow-y: auto;
-        box-shadow: 0 20px 60px #00000050;
-      "
-    >
-      <div
-        style="
-          font-family: var(--font);
-          font-weight: 700;
-          font-size: 1rem;
-          margin-bottom: 1.25rem;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        "
-      >
+  <div id="sh-modal-bg">
+    <div class="fx-modal-card">
+      <div class="fx-sheet-handle"></div>
+      <div class="fx-modal-heading">
         <span id="sh-modal-heading">New Task</span>
-        <button
-          onclick="closeSHModal()"
-          style="
-            background: none;
-            border: none;
-            color: var(--muted);
-            cursor: pointer;
-            font-size: 1.1rem;
-          "
-        >
-          ✕
+        <button class="fx-modal-close" onclick="closeSHModal()">
+          <i class="ti ti-x"></i>
         </button>
       </div>
 
@@ -781,12 +1284,7 @@
           class="sh-input"
           rows="2"
           placeholder="What needs to be done..."
-          style="
-            resize: none;
-            width: 100%;
-            box-sizing: border-box;
-            font-size: 0.84rem;
-          "
+          style="resize: none; font-size: 0.84rem"
         ></textarea>
       </div>
 
@@ -820,7 +1318,7 @@
       <div class="sh-field-group">
         <label class="sh-field-label"
           >Link to goal
-          <span style="color: var(--text4); font-weight: 400"
+          <span style="color: var(--fx-t4); font-weight: 400"
             >(optional)</span
           ></label
         >
@@ -872,12 +1370,7 @@
           class="sh-input"
           rows="2"
           placeholder="Brief summary or additional notes..."
-          style="
-            resize: none;
-            width: 100%;
-            box-sizing: border-box;
-            font-size: 0.84rem;
-          "
+          style="resize: none; font-size: 0.84rem"
         ></textarea>
       </div>
 
@@ -891,27 +1384,12 @@
             style="display: none"
             onchange="handleSHAttach(this)"
           />
-          <button
-            onclick="$('sh-modal-file').click()"
-            style="
-              background: var(--surface);
-              border: 1px solid var(--border);
-              border-radius: 8px;
-              padding: 7px 13px;
-              color: var(--muted);
-              font-size: 0.78rem;
-              cursor: pointer;
-              font-family: var(--font-body);
-              transition: all 0.15s;
-            "
-            onmouseover="this.style.borderColor = 'var(--accent)'"
-            onmouseout="this.style.borderColor = 'var(--border)'"
-          >
-            📎 Choose file
+          <button class="fx-attach-btn" onclick="$('sh-modal-file').click()">
+            <i class="ti ti-paperclip"></i> Choose file
           </button>
           <span
             id="sh-modal-file-name"
-            style="font-size: 0.75rem; color: var(--muted)"
+            style="font-size: 0.75rem; color: var(--fx-t3)"
             >No file chosen</span
           >
         </div>
@@ -919,106 +1397,23 @@
 
       <!-- Actions -->
       <div style="display: flex; gap: 8px; margin-top: 0.5rem">
-        <button
-          class="btn-start"
-          style="flex: 1; padding: 10px"
-          onclick="saveSHModal()"
-        >
+        <button class="fx-btn-primary" onclick="saveSHModal()">
           Save Task
         </button>
-        <button
-          onclick="closeSHModal()"
-          style="
-            flex: 1;
-            padding: 10px;
-            background: none;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--muted);
-            font-family: var(--font);
-            font-size: 0.85rem;
-            cursor: pointer;
-          "
-        >
-          Cancel
-        </button>
+        <button class="fx-btn-ghost" onclick="closeSHModal()">Cancel</button>
       </div>
     </div>
   </div>
 
   <!-- Task detail side panel -->
-  <div
-    id="sh-detail-panel"
-    style="
-      position: fixed;
-      top: 0;
-      right: 0;
-      width: 380px;
-      max-width: 95vw;
-      height: 100vh;
-      background: var(--bg);
-      border-left: 1px solid var(--border);
-      z-index: 300;
-      box-shadow: -4px 0 28px rgba(0, 0, 0, 0.14);
-      transform: translateX(100%);
-      transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    "
-  >
-    <div
-      style="
-        position: sticky;
-        top: 0;
-        background: var(--bg);
-        border-bottom: 1px solid var(--border);
-        padding: 13px 16px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-shrink: 0;
-      "
-    >
-      <span
-        style="
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: var(--muted);
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-        "
-        >Task Detail</span
-      >
-      <button
-        onclick="shCloseDetail()"
-        style="
-          background: none;
-          border: none;
-          color: var(--muted);
-          cursor: pointer;
-          font-size: 1rem;
-          line-height: 1;
-          padding: 2px 6px;
-        "
-      >
-        ✕
+  <div id="sh-detail-panel">
+    <div class="fx-detail-head">
+      <span>Task Detail</span>
+      <button class="fx-detail-close" onclick="shCloseDetail()">
+        <i class="ti ti-x"></i>
       </button>
     </div>
-    <div
-      id="sh-detail-body"
-      style="flex: 1; overflow-y: auto; padding: 16px"
-    ></div>
+    <div id="sh-detail-body"></div>
   </div>
-  <div
-    id="sh-detail-backdrop"
-    onclick="shCloseDetail()"
-    style="
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.25);
-      z-index: 299;
-    "
-  ></div>
+  <div id="sh-detail-backdrop" onclick="shCloseDetail()"></div>
 </div>
