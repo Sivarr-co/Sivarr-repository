@@ -193,6 +193,33 @@ def test_docs_round_trip(client, session_token):
     assert isinstance(back.json().get("docs"), list)
 
 
+def test_habits_and_docs_read_pre_migration_legacy_files():
+    """habits.py/docs_notes.py used to read/write DATA_DIR/f"{sid}_habits.json"
+    and f"{sid}_docs.json" directly, unconditionally — moved onto the same
+    _load_user_list/_save_user_list DB-backed pattern Tasks/Goals/Journal
+    already used (found scoping Pass 2). _load_user_list has a legacy-file
+    migration path keyed on that exact same filename, so real users' existing
+    on-disk data isn't orphaned by the switch. This locks in the one property
+    that migration depends on: the legacy path _load_user_list looks for must
+    still be exactly what the old code wrote to. No DB in this sandbox, so it
+    exercises the JSON-fallback branch — same file, same key, same result,
+    which is what the migration guarantees either way."""
+    sid = "legacy_migration_test_sid"
+    habits_file = REPO / "data" / f"{sid}_habits.json"
+    docs_file   = REPO / "data" / f"{sid}_docs.json"
+    try:
+        habits_file.write_text('[{"id": "h1", "title": "Pre-existing habit"}]')
+        docs_file.write_text('[{"id": "d1", "title": "Pre-existing doc"}]')
+
+        from routes.habits import load_habits
+        from routes.docs_notes import load_docs
+        assert load_habits(sid)[0]["title"] == "Pre-existing habit"
+        assert load_docs(sid)[0]["title"] == "Pre-existing doc"
+    finally:
+        habits_file.unlink(missing_ok=True)
+        docs_file.unlink(missing_ok=True)
+
+
 def test_journal_round_trip(client, session_token):
     r = client.post("/api/journal/sync", json={
         "token": session_token,
@@ -315,6 +342,41 @@ def test_search_excludes_deleted_goal(client, session_token):
 
     found_after = client.get(f"/api/search?q={unique}&token={session_token}").json()["results"]
     assert not any(r["title"] == unique for r in found_after)
+
+
+def test_auto_weekly_review_sid_discovery_finds_json_fallback_users():
+    """_auto_weekly_reviews (a scheduler closure in app.py, not importable)
+    used to discover which users to process by globbing DATA_DIR for
+    *_habits.json files — which silently finds nobody once a database is
+    configured, since _load_user_list/_save_user_list stop writing those
+    files entirely. Fixed to sweep db.get_sids_with_blob_key("habits") when a
+    DB is available, falling back to the same glob otherwise. This sandbox
+    has no DB, so it exercises the fallback path directly against a real
+    seeded user — the same path production would take if a database were
+    ever unconfigured, and the one that was already correct before the fix."""
+    from routes.habits import save_habits
+    sid = "weekly_review_discovery_test_sid"
+    habits_file = REPO / "data" / f"{sid}_habits.json"
+    try:
+        save_habits(sid, [{"id": "h1", "title": "Read", "completions": []}])
+        discovered = {
+            p.name.replace("_habits.json", "")
+            for p in (REPO / "data").glob("*_habits.json")
+        }
+        assert sid in discovered
+    finally:
+        habits_file.unlink(missing_ok=True)
+
+
+def test_auto_weekly_review_reads_journal_via_load_journal_not_raw_file():
+    """The mood lookup inside the same job used to read
+    DATA_DIR/f"{sid}_journal.json" directly — same DB-blind bug as the
+    sid-discovery glob above, just for one field. load_journal() handles
+    both backends already; this just confirms it doesn't error on a user
+    with no journal data, the common case the old code silently mishandled
+    by finding no file and always reporting an empty mood."""
+    empty = app_module.load_journal("sid_with_no_journal_at_all")
+    assert empty == []
 
 
 def test_purge_deleted_goals_respects_30_day_retention():

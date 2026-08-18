@@ -2080,8 +2080,15 @@ def _start_scheduler():
         week_start  = str(today - _dt.timedelta(days=today.weekday()))
         reviews_dir = DATA_DIR / "weekly_reviews"
         reviews_dir.mkdir(exist_ok=True)
-        for p in DATA_DIR.glob("*_habits.json"):
-            sid = p.name.replace("_habits.json", "")
+        # Was a JSON-only glob for *_habits.json — found zero users the moment
+        # a database is configured, since _load_user_list/_save_user_list stop
+        # writing per-user JSON files entirely once db.is_available() is true.
+        # This job has likely been silently processing nobody in production.
+        # Same dual-backend sweep as _purge_deleted_goals below.
+        sids = set(db.get_sids_with_blob_key("habits")) if db.is_available() else set(
+            p.name.replace("_habits.json", "") for p in DATA_DIR.glob("*_habits.json")
+        )
+        for sid in sids:
             review_path = reviews_dir / f"{sid}_{week_start}.json"
             if review_path.exists():
                 continue
@@ -2098,17 +2105,20 @@ def _start_scheduler():
                 done_logs  = sum(1 for h in habits for d in h.get("completions", []) if d in days_range)
                 habits_pct = round(done_logs / (len(habits) * 7) * 100)
             mood = ""
-            jnl_path = DATA_DIR / f"{sid}_journal.json"
-            if jnl_path.exists():
-                try:
-                    jnl   = json.loads(jnl_path.read_text(encoding="utf-8"))
-                    moods = [e.get("mood", "") for e in jnl
-                             if e.get("date", "") >= str(today - _dt.timedelta(days=7)) and e.get("mood")]
-                    if moods:
-                        from collections import Counter as _Counter
-                        mood = _Counter(moods).most_common(1)[0][0]
-                except Exception:
-                    pass
+            # Was a raw DATA_DIR / f"{sid}_journal.json" read — same DB-blind
+            # bug as the sid-discovery glob above: never populated once a
+            # database is configured, since journal entries live in the
+            # user_blobs table then, not a per-sid file. load_journal()
+            # already handles both backends correctly.
+            try:
+                jnl   = load_journal(sid)
+                moods = [e.get("mood", "") for e in jnl
+                         if e.get("date", "") >= str(today - _dt.timedelta(days=7)) and e.get("mood")]
+                if moods:
+                    from collections import Counter as _Counter
+                    mood = _Counter(moods).most_common(1)[0][0]
+            except Exception:
+                pass
             goals_txt  = "\n".join(f"  - {g.get('title','')}: {g.get('progress',0)}%" for g in goals[:5]) or "  - No active goals"
             week_range = f"{(today - _dt.timedelta(days=6)).strftime('%b %d')}–{today.strftime('%b %d')}"
             prompt = (f"Write a warm, insightful weekly review covering {week_range}.\n"
