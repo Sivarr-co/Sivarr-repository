@@ -79,6 +79,7 @@ _TASK_FIELD_SANITIZERS = {
     "assignee":           lambda v: _s(v, 100),
     "summary":            lambda v: _s(v, 4000),
     "attach_name":        lambda v: _s(v, 200),
+    "notes":              lambda v: _s(v, 4000),
     # Soft delete: an ISO timestamp string, or None if not deleted. The
     # client sets this instead of removing the task from the array so a
     # sync doesn't permanently destroy it — see js/features/tasks.js's
@@ -91,7 +92,18 @@ _TASK_DEFAULTS = {
     "priority": "normal", "type": "other", "goal_id": "", "parent_id": "",
     "recurrence": None, "recurrence_spawned": False,
     "description": "", "assignee": "", "summary": "", "attach_name": "",
-    "deleted_at": None,
+    "notes": "", "deleted_at": None,
+}
+
+# The client (js/features/tasks.js) uses its own field names for a few
+# columns — desc/goalId/attachName rather than description/goal_id/
+# attach_name. Accepted here so /api/tasks/sync (still fed raw localStorage
+# task objects for CSV import and full-resync) and the per-entity endpoints
+# both take either spelling without silently dropping the field.
+_CLIENT_FIELD_ALIASES = {
+    "desc": "description",
+    "goalId": "goal_id",
+    "attachName": "attach_name",
 }
 
 
@@ -100,7 +112,7 @@ def _clean_partial(fields: dict) -> dict:
     Unknown keys are silently dropped (whitelist, not blacklist)."""
     out = {}
     for k, v in fields.items():
-        key = "attach_name" if k == "attachName" else k
+        key = _CLIENT_FIELD_ALIASES.get(k, k)
         sanitizer = _TASK_FIELD_SANITIZERS.get(key)
         if sanitizer:
             out[key] = sanitizer(v)

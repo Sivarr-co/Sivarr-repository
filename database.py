@@ -710,6 +710,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     assignee            TEXT DEFAULT '',
     summary             TEXT DEFAULT '',
     attach_name         TEXT DEFAULT '',
+    -- Detail-panel "Notes" box — a distinct field from description in the
+    -- client UI (js/features/tasks.js shOpenDetail), not an alias for it.
+    notes               TEXT DEFAULT '',
     deleted_at          TIMESTAMPTZ,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW(),
@@ -2399,7 +2402,7 @@ def get_sids_with_blob_key(key: str) -> list[str]:
 _TASK_COLUMNS = {
     "title", "status", "done", "date", "time", "priority", "type",
     "goal_id", "parent_id", "recurrence", "recurrence_spawned",
-    "description", "assignee", "summary", "attach_name",
+    "description", "assignee", "summary", "attach_name", "notes",
     # deleted_at is writable through the generic whitelist too, not just via
     # soft_delete_task()/undelete_task() below — replace_all_tasks() (the
     # bulk /api/tasks/sync path, kept for CSV import and as a fallback) needs

@@ -1072,9 +1072,15 @@ async function _hydrateFromServer() {
     } catch (_) {
       sh = { tasks: [] };
     }
-    sh.tasks = tk.tasks;
+    // Server rows use DB column names (description/goal_id/attach_name);
+    // the render/edit code reads desc/goalId/attachName — translate here or
+    // this overwrite silently blanks those fields on every hydrate.
+    const localTasks = tk.tasks.map((t) =>
+      typeof _shServerTaskToLocal === "function" ? _shServerTaskToLocal(t) : t,
+    );
+    sh.tasks = localTasks;
     localStorage.setItem(SH_KEY(), JSON.stringify(sh));
-    localStorage.setItem(`sivarr_tasks_${S.sid}`, JSON.stringify(tk.tasks));
+    localStorage.setItem(`sivarr_tasks_${S.sid}`, JSON.stringify(localTasks));
     changed = true;
   }
   if (hb && Array.isArray(hb.habits) && hb.habits.length) {
