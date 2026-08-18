@@ -270,15 +270,16 @@ async def update_task_endpoint(data: dict):
         current = db.get_task(task_id, sid)
         if not current:
             raise HTTPException(404, "Task not found.")
-        ok = db.update_task(task_id, sid, cleaned)
-        if not ok:
-            raise HTTPException(500, "Failed to update task.")
         merged = {**current, **cleaned}
         spawned = _spawn_next_occurrence(merged)
         if spawned:
+            cleaned["recurrence_spawned"] = True  # fold into the one update below
+        ok = db.update_task(task_id, sid, cleaned)
+        if not ok:
+            raise HTTPException(500, "Failed to update task.")
+        if spawned:
             db.create_task(sid, spawned["id"], spawned["title"],
                             **{k: v for k, v in spawned.items() if k not in ("id", "title")})
-            db.update_task(task_id, sid, {"recurrence_spawned": True})
     else:
         tasks = _load_user_list(sid, "tasks")
         current = next((t for t in tasks if t.get("id") == task_id), None)

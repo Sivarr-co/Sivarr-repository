@@ -2216,16 +2216,52 @@ def _start_scheduler():
         if purged:
             log.info(f"Purged {purged} goals past the 30-day trash retention window")
 
+    async def _purge_deleted_tasks():
+        """Permanently remove tasks that have sat in Trash past the 30-day
+        retention window (soft delete lands in routes/tasks.py's delete_task).
+        Unlike _purge_deleted_goals, tasks is a real table when a database is
+        configured (see database.py's `tasks` DDL), so this is one DELETE
+        across every user at once — db.purge_expired_tasks() — rather than a
+        per-sid load/filter/save loop. Only the JSON-file fallback (no DB,
+        where tasks is still a single blob per user) needs that loop."""
+        import datetime as _dt
+        cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=30)
+        if db.is_available():
+            purged = db.purge_expired_tasks(cutoff.isoformat())
+            if purged:
+                log.info(f"Purged {purged} tasks past the 30-day trash retention window")
+            return
+        sids = set(p.name.replace("_tasks.json", "") for p in DATA_DIR.glob("*_tasks.json"))
+        purged = 0
+        for sid in sids:
+            tasks = load_tasks(sid)
+            kept = []
+            for t in tasks:
+                deleted_at = t.get("deleted_at")
+                if deleted_at:
+                    try:
+                        if _dt.datetime.fromisoformat(deleted_at) < cutoff:
+                            purged += 1
+                            continue
+                    except ValueError:
+                        pass
+                kept.append(t)
+            if len(kept) != len(tasks):
+                save_tasks(sid, kept)
+        if purged:
+            log.info(f"Purged {purged} tasks past the 30-day trash retention window (JSON fallback)")
+
     # ── Register jobs and start — wrapped so a failure never crashes the app ──
     try:
         import datetime as _tz_dt
         scheduler = AsyncIOScheduler(timezone=_tz_dt.timezone.utc)
         scheduler.add_job(_auto_weekly_reviews, CronTrigger(day_of_week="mon", hour=6, minute=0))
         scheduler.add_job(_purge_deleted_goals, CronTrigger(hour=4, minute=30))
+        scheduler.add_job(_purge_deleted_tasks, CronTrigger(hour=4, minute=45))
         scheduler.add_job(_streak_reminders,    CronTrigger(hour=19, minute=0))
         scheduler.add_job(_task_due_alerts,     IntervalTrigger(minutes=15))
         scheduler.start()
-        log.info("APScheduler started — weekly review (Mon 06:00 UTC) + push + goal-trash-purge (daily 04:30 UTC) jobs registered")
+        log.info("APScheduler started — weekly review (Mon 06:00 UTC) + push + trash-purge (goals 04:30, tasks 04:45 UTC) jobs registered")
     except Exception as exc:
         log.warning(f"APScheduler failed to start ({exc}) — scheduled jobs disabled, app continues normally")
 

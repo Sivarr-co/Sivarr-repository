@@ -2398,6 +2398,20 @@ _TASK_COLUMNS = {
 }
 
 
+def _row_to_task(row: dict) -> dict:
+    """psycopg2 hands back TIMESTAMPTZ columns as real datetime objects, but
+    every other storage path in this app (the JSON-fallback branch, the old
+    user_blobs JSONB blob, the client's own localStorage) has always dealt in
+    plain ISO strings — deleted_at in particular gets compared/parsed as a
+    string throughout routes/tasks.py and js/features/tasks.js. Normalize
+    here once so callers never have to care which backend served the row."""
+    d = dict(row)
+    for key in ("deleted_at", "created_at", "updated_at"):
+        if d.get(key) is not None and hasattr(d[key], "isoformat"):
+            d[key] = d[key].isoformat()
+    return d
+
+
 def get_tasks(sid: str, include_deleted: bool = False) -> list:
     conn = _get_conn()
     if not conn:
@@ -2408,7 +2422,7 @@ def get_tasks(sid: str, include_deleted: bool = False) -> list:
                 cur.execute("SELECT * FROM tasks WHERE sid=%s ORDER BY created_at", (sid,))
             else:
                 cur.execute("SELECT * FROM tasks WHERE sid=%s AND deleted_at IS NULL ORDER BY created_at", (sid,))
-            return [dict(r) for r in cur.fetchall()]
+            return [_row_to_task(r) for r in cur.fetchall()]
     except Exception as exc:
         log.error(f"get_tasks: {exc}")
         return []
@@ -2423,7 +2437,7 @@ def get_trashed_tasks(sid: str) -> list:
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute("SELECT * FROM tasks WHERE sid=%s AND deleted_at IS NOT NULL ORDER BY deleted_at DESC", (sid,))
-            return [dict(r) for r in cur.fetchall()]
+            return [_row_to_task(r) for r in cur.fetchall()]
     except Exception as exc:
         log.error(f"get_trashed_tasks: {exc}")
         return []
@@ -2439,7 +2453,7 @@ def get_task(task_id: str, sid: str) -> dict | None:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute("SELECT * FROM tasks WHERE id=%s AND sid=%s", (task_id, sid))
             row = cur.fetchone()
-            return dict(row) if row else None
+            return _row_to_task(row) if row else None
     except Exception as exc:
         log.error(f"get_task: {exc}")
         return None
