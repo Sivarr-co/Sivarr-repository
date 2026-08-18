@@ -193,6 +193,33 @@ def test_docs_round_trip(client, session_token):
     assert isinstance(back.json().get("docs"), list)
 
 
+def test_habits_and_docs_read_pre_migration_legacy_files():
+    """habits.py/docs_notes.py used to read/write DATA_DIR/f"{sid}_habits.json"
+    and f"{sid}_docs.json" directly, unconditionally — moved onto the same
+    _load_user_list/_save_user_list DB-backed pattern Tasks/Goals/Journal
+    already used (found scoping Pass 2). _load_user_list has a legacy-file
+    migration path keyed on that exact same filename, so real users' existing
+    on-disk data isn't orphaned by the switch. This locks in the one property
+    that migration depends on: the legacy path _load_user_list looks for must
+    still be exactly what the old code wrote to. No DB in this sandbox, so it
+    exercises the JSON-fallback branch — same file, same key, same result,
+    which is what the migration guarantees either way."""
+    sid = "legacy_migration_test_sid"
+    habits_file = REPO / "data" / f"{sid}_habits.json"
+    docs_file   = REPO / "data" / f"{sid}_docs.json"
+    try:
+        habits_file.write_text('[{"id": "h1", "title": "Pre-existing habit"}]')
+        docs_file.write_text('[{"id": "d1", "title": "Pre-existing doc"}]')
+
+        from routes.habits import load_habits
+        from routes.docs_notes import load_docs
+        assert load_habits(sid)[0]["title"] == "Pre-existing habit"
+        assert load_docs(sid)[0]["title"] == "Pre-existing doc"
+    finally:
+        habits_file.unlink(missing_ok=True)
+        docs_file.unlink(missing_ok=True)
+
+
 def test_journal_round_trip(client, session_token):
     r = client.post("/api/journal/sync", json={
         "token": session_token,

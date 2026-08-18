@@ -1,22 +1,28 @@
 import datetime
-import json
 import re as _re
 
 from fastapi import APIRouter, HTTPException
 
-from core import get_session_from_token, sanitize_text, save_json, DATA_DIR
+from core import get_session_from_token, sanitize_text, _load_user_list, _save_user_list
 
 router = APIRouter()
 
 
 # ── Personal docs — server-side mirror of localStorage ────────────────────────
+# Was DATA_DIR / f"{sid}_docs.json", unconditionally — a raw per-sid JSON file
+# on local disk regardless of whether a database is configured, unlike
+# Tasks/Goals/Journal which already went through _load_user_list/
+# _save_user_list (DB-backed when available, JSON-file fallback otherwise).
+# Found while scoping Pass 2 of the decomposition brief; a Railway persistent
+# volume is confirmed mounted so this was never silently losing data on
+# redeploy, but it's still a real single point of failure (no documented
+# backup story for the volume itself, unlike Supabase) and an inconsistency
+# with every other personal-space data type. Same storage swap as habits.py.
 def load_docs(sid: str) -> list:
-    p = DATA_DIR / f"{sid}_docs.json"
-    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
+    return _load_user_list(sid, "docs")
 
 def save_docs(sid: str, docs: list):
-    p = DATA_DIR / f"{sid}_docs.json"
-    save_json(p, docs)
+    _save_user_list(sid, "docs", docs)
 
 @router.post("/api/docs/sync")
 async def sync_docs(data: dict):
