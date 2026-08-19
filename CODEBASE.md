@@ -267,10 +267,10 @@ be here claimed otherwise. Ground truth, verified by reading every file:
 | `database.py` | ✅ Real — all DB queries live here, correctly imported by app.py |
 | `models.py` | ❌ Removed — was never imported anywhere; app.py has always defined its own inline Pydantic models instead |
 | `utils/*.py` | ❌ Removed — was never imported anywhere; app.py has its own separate implementations of session/auth, email, storage, and rate-limiting (some of them better, e.g. Redis-backed lockout that `utils/auth.py`'s in-memory copy didn't have) |
-| `routes/` | 🔲 Mostly not started, but `routes/tasks.py`, `routes/habits.py`, `routes/docs_notes.py` are real (2026-08-14) — see below. The other 250+ endpoints are still `@app.get`/`@app.post` directly in `app.py` |
-| `app.py` | Still the vast majority of the backend, but no longer 100% of it — Tasks/Habits/Docs routes were extracted into `routes/` (see below) |
+| `routes/` | 🔲 Mostly not started, but `routes/tasks.py`, `routes/habits.py`, `routes/docs_notes.py` (2026-08-14) and `routes/org.py` (2026-08-18, 52 routes, `/api/org/*`) are real — see below. The other 200+ endpoints are still `@app.get`/`@app.post` directly in `app.py` |
+| `app.py` | Still the majority of the backend, but no longer close to 100% — Tasks/Habits/Docs and now Org routes were extracted into `routes/` (see below) |
 | `js/core/*.js` | 🔲 Not started — only a README.md exists |
-| `js/features/*.js` | 🔲 Mostly not started, but `tasks.js`, `habits.js`, `docs_notes.js` are real (2026-08-14) — see below. `js/app.js` (~26,700 lines) is still the rest of the frontend |
+| `js/features/*.js` | 🔲 Mostly not started, but `tasks.js`, `habits.js`, `docs_notes.js` (2026-08-14) and `org.js` (2026-08-18, ~106 top-level items) are real — see below. `js/app.js` (~24,850 lines) is still the rest of the frontend |
 | `css/base/variables.css` | ❌ Removed — was dead code: not linked from any template, and its token values actively conflicted with the real tokens in `css/base.css` |
 | `css/components/` | 🔲 Mostly not started, but `css/features/tasks.css`, `habits.css`, `docs_notes.css` are real (2026-08-14) — see below. `css/panels.css` (~17,300 lines) holds the rest |
 
@@ -293,3 +293,34 @@ neither wired to any template. Org-space and Spaces-demo variants of these
 same feature names (`orgRenderDocs`, `psRenderHabits`, etc.) are a different,
 untouched feature area. See `js/features/README.md` for the exact function
 lists.
+
+### Org space split (2026-08-18)
+
+All 52 `/api/org/*` routes moved into `routes/org.py` (a `build_router(deps)`
+factory, same pattern as `routes/ai_chat.py`, since a handful of routes need
+`load_progress`/`send_email`/`send_push`/`_is_valid_admin_session`, which are
+genuinely app.py-resident). All 106 org-space top-level JS items (functions +
+state vars) moved into `js/features/org.js` the same way — org create/join/
+members, tasks/projects/docs, chat (a real, already-shipped Postgres-polling
+SSE stream, not WebSockets — moved as-is), presence, goals/OKRs, founder
+mode, billing, analytics, announcements, the Settings-panel org tab, and the
+"Enable in my Org" extension entry point. Both extractions used an AST-based
+script (Python's `ast` module for the backend, `acorn` for the frontend)
+rather than manual line edits, specifically to get exact function boundaries
+without transcription risk on a move this size — extracting via raw
+character offsets across languages turned out to have its own trap: acorn's
+offsets are UTF-16 code units, and this file's heavy emoji use (surrogate
+pairs) drifts those out of alignment with Python's codepoint-based string
+slicing, so the JS-side slicing has to happen entirely inside Node, not be
+passed as offsets into Python.
+
+**Not moved** despite living in the same stretch of `app.py` (checked
+individually): `switchSpace()` (dead code, zero call sites), a few unrelated
+functions that happened to sit nearby (`resendVerificationEmail`,
+`cmdRunNamed`), `extShowOnboarding` (generic marketplace-extension onboarding
+used by every space type, not org-specific), `_svTooltip` (unrelated generic
+sidebar tooltip), and the `autoNew`/`autoSave`/... "automations" block (pure
+localStorage, no `/api/org` calls). The org panel's UI is still embedded in
+`templates/_panels_spaces.html` (not yet split into its own
+`_panel_org.html`) — template split is the one piece of this extraction still
+open.
