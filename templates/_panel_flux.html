@@ -41,7 +41,12 @@
     font-family:
       -apple-system, BlinkMacSystemFont, "Segoe UI",
       var(--font-body, system-ui), sans-serif;
-    display: flex;
+    /* No `display` here on purpose — .panel{display:none}/.panel.active
+       {display:flex} in panels.css already control visibility, and an ID
+       selector here would outrank that class rule regardless of source
+       order, forcing this panel to always render on top of whichever panel
+       is actually .active. flex-direction below only takes effect once the
+       shared rule turns display on, so it's safe to keep scoped here. */
     flex-direction: column;
     position: relative;
     overflow: hidden;
