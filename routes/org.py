@@ -34,8 +34,26 @@ table (owner=org_id), not its own table.
 /api/org/chat/stream is a real, already-shipped Server-Sent-Events endpoint
 that polls Postgres every 2s (not WebSockets) — deliberately, so it survives
 a multi-worker deployment (every Gunicorn worker sees the same feed via the
-DB rather than an in-process pubsub). This is NOT the "later phase" realtime
-work the decomposition brief refers to; it's relocated here as-is.
+DB rather than an in-process pubsub). It predates and is unrelated to the
+WebSocket presence work below.
+
+WEBSOCKET PRESENCE (added after the extraction above, same file)
+------------------------------------------------------------------
+/api/org/presence/ws is a real WebSocket endpoint — the "later phase"
+realtime work the decomposition brief referred to, now built. Postgres
+(db.upsert_presence/get_presence, the same functions the polling
+GET/POST /api/org/presence endpoints already use) stays the single source
+of truth for "who's online" — a WS client's initial snapshot and every
+heartbeat still read/write there, so a client that falls back to polling
+(WebSocket unsupported, blocked by a proxy, etc.) sees a consistent picture.
+Redis is used ONLY as a pub/sub message bus so a join/leave on one Gunicorn
+worker reaches WebSocket clients connected to the other 3 instantly, instead
+of waiting for their next 30s poll — it holds no presence state of its own.
+Degrades gracefully exactly like rcache.py: if REDIS_URL isn't set, or the
+connection fails, WS presence still works for clients on the SAME worker
+(the common case for a small-team org) but cross-worker instant delivery is
+lost; the existing 30s poll (unaffected, still running) is what covers that
+gap either way, so there is no path where presence silently stops updating.
 """
 
 import asyncio
@@ -48,7 +66,7 @@ import os
 import secrets
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse, RedirectResponse
 
 import database as db
@@ -56,6 +74,123 @@ from ai_core import get_sessions, async_gemini_ask
 from core import get_session_from_token, sanitize_text, _resolve_token, get_client_key, check_rate_limit
 
 log = logging.getLogger("sivarr")
+
+# Optional async Redis client for presence pub/sub only — separate from
+# rcache.py's sync client (used for fast rate-limit/cache round-trips), since
+# a pub/sub listen() loop is long-lived and would block an event loop if it
+# weren't genuinely async. Same env var, same graceful-degrade posture: if
+# redis isn't importable or REDIS_URL isn't set, presence just runs without
+# cross-worker fan-out (see module docstring).
+try:
+    import redis.asyncio as _aioredis
+except ImportError:
+    _aioredis = None
+
+_REDIS_URL = os.environ.get("REDIS_URL", "").strip()
+
+# Per-worker state: which local WebSocket connections care about which org's
+# presence channel, and the lazily-started background task that fans Redis
+# pub/sub messages out to them. Module-level (not inside build_router) since
+# build_router() only runs once per worker process anyway, but this makes
+# the singleton-per-worker intent explicit regardless of where it's read from.
+_PRESENCE_LOCAL: dict[str, set] = {}
+_presence_redis = None
+_presence_redis_tried = False
+_presence_sub_task = None
+_presence_lock = asyncio.Lock()
+
+
+async def _get_presence_redis():
+    """Lazy singleton — one async Redis connection per worker, reused across
+    every WS connection. Returns None (permanently, for this worker's
+    lifetime) if Redis isn't configured or a first connection attempt fails."""
+    global _presence_redis, _presence_redis_tried
+    if _presence_redis is not None:
+        return _presence_redis
+    if _presence_redis_tried or not _REDIS_URL or not _aioredis:
+        return None
+    _presence_redis_tried = True
+    try:
+        client = _aioredis.from_url(
+            _REDIS_URL, decode_responses=True,
+            socket_connect_timeout=3, socket_timeout=3,
+        )
+        await client.ping()
+        _presence_redis = client
+        log.info("Org presence: Redis pub/sub ready")
+    except Exception as exc:
+        log.warning(f"Org presence: Redis unavailable, falling back to same-worker-only ({exc})")
+    return _presence_redis
+
+
+async def _fanout_presence_local(org_id: str, payload: str):
+    """Send a presence event to this worker's own locally-connected
+    WebSockets for one org — the one fan-out code path, used both by the
+    Redis subscriber loop (every worker, including the publisher, receives
+    its own message back through psubscribe) and directly by
+    _publish_presence when Redis isn't available at all."""
+    conns = _PRESENCE_LOCAL.get(org_id)
+    if not conns:
+        return
+    dead = []
+    for ws in conns:
+        try:
+            await ws.send_text(payload)
+        except Exception:
+            dead.append(ws)
+    for ws in dead:
+        conns.discard(ws)
+
+
+async def _presence_subscriber_loop(client):
+    """One long-lived task per worker: listens to every org's presence
+    channel and fans each message out via _fanout_presence_local. A single
+    psubscribe("presence:*") rather than per-org subscribe/unsubscribe
+    management — org presence traffic is tiny, and this avoids a whole class
+    of subscribe-lifecycle bugs for a cheap fan-out."""
+    try:
+        pubsub = client.pubsub()
+        await pubsub.psubscribe("presence:*")
+        async for message in pubsub.listen():
+            if message.get("type") != "pmessage":
+                continue
+            channel = message.get("channel", "")
+            org_id = channel.split(":", 1)[1] if ":" in channel else ""
+            await _fanout_presence_local(org_id, message["data"])
+    except Exception as exc:
+        log.warning(f"Org presence: subscriber loop ended ({exc})")
+
+
+async def _ensure_presence_subscriber():
+    """Starts the fan-out task at most once per worker."""
+    global _presence_sub_task
+    if _presence_sub_task is not None and not _presence_sub_task.done():
+        return
+    client = await _get_presence_redis()
+    if not client:
+        return
+    async with _presence_lock:
+        if _presence_sub_task is not None and not _presence_sub_task.done():
+            return
+        _presence_sub_task = asyncio.create_task(_presence_subscriber_loop(client))
+
+
+async def _publish_presence(org_id: str, event: dict):
+    """Broadcast a join/leave event for one org. Publishes to Redis when
+    available — every worker's subscriber loop (including this one) fans it
+    out to its own local connections from there. Without Redis (unset, or a
+    publish failure), falls straight back to a direct local-only fan-out, so
+    same-worker clients still see live updates even with no Redis at all —
+    only cross-worker delivery is lost, never presence updates outright."""
+    payload = json.dumps(event)
+    client = await _get_presence_redis()
+    if client:
+        try:
+            await client.publish(f"presence:{org_id}", payload)
+            return
+        except Exception:
+            pass
+    await _fanout_presence_local(org_id, payload)
 
 # These four are plain env-derived constants also defined in app.py (used by
 # 50+ non-org call sites there, so not worth relocating and re-importing —
@@ -342,7 +477,7 @@ def _ps_key_for_org(org_id: str) -> str:
     return row["secret_key"]
 
 
-def build_router(load_progress, send_email, send_push, _is_valid_admin_session) -> APIRouter:
+def build_router(load_progress, send_email, send_push, _is_valid_admin_session, session_cookie_key) -> APIRouter:
     router = APIRouter()
 
     @router.post("/api/org/get")
@@ -980,6 +1115,60 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session) 
         if not org: return {"online": []}
         online = await asyncio.to_thread(db.get_presence, org["id"])
         return {"online": online}
+
+
+    @router.websocket("/api/org/presence/ws")
+    async def org_presence_ws(websocket: WebSocket):
+        """Real-time presence — see module docstring. Auth mirrors the
+        request.cookies-or-query-token pattern used elsewhere in app.py for
+        non-body-token routes; the query-injecting _BearerTokenMiddleware only
+        runs on http-type ASGI scopes, not websocket ones, so this route reads
+        the cookie itself instead of relying on that middleware."""
+        token = websocket.cookies.get(session_cookie_key, "") or websocket.query_params.get("token", "")
+        token = sanitize_text(token, 100)
+        entry = get_session_from_token(token)
+        if not entry:
+            await websocket.close(code=4401)
+            return
+        if not db.is_available():
+            await websocket.close(code=4503)
+            return
+        sid = entry["sid"]
+        uname = entry.get("name", "")
+        org = await asyncio.to_thread(db.get_org_by_member, sid)
+        if not org:
+            await websocket.close(code=4404)
+            return
+        org_id = org["id"]
+
+        await websocket.accept()
+        _PRESENCE_LOCAL.setdefault(org_id, set()).add(websocket)
+        await _ensure_presence_subscriber()  # no-op if Redis isn't available
+
+        await asyncio.to_thread(db.upsert_presence, sid, org_id, uname)
+        online = await asyncio.to_thread(db.get_presence, org_id)
+        try:
+            await websocket.send_text(json.dumps({"type": "snapshot", "online": online}))
+        except Exception:
+            _PRESENCE_LOCAL.get(org_id, set()).discard(websocket)
+            return
+
+        await _publish_presence(org_id, {"type": "join", "sid": sid, "name": uname})
+
+        try:
+            while True:
+                # Client sends a small ping frame every ~20s purely to keep the
+                # Postgres presence row's staleness cutoff (get_presence's 90s
+                # window) fresh — the payload itself is never inspected.
+                await websocket.receive_text()
+                await asyncio.to_thread(db.upsert_presence, sid, org_id, uname)
+        except WebSocketDisconnect:
+            pass
+        except Exception as exc:
+            log.warning(f"org_presence_ws: {exc}")
+        finally:
+            _PRESENCE_LOCAL.get(org_id, set()).discard(websocket)
+            await _publish_presence(org_id, {"type": "leave", "sid": sid, "name": uname})
 
 
     @router.post("/api/org/goals")

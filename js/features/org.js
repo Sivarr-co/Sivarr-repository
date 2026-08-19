@@ -1521,11 +1521,22 @@ let _OC_SSE = null;
 
 let _OC_PRESENCE = null;
 
+// Real WebSocket presence connection + its heartbeat interval. _OC_PRESENCE
+// (the 30s polling interval above) is the fallback path — see
+// _ocConnectPresenceWS/_ocStartPresence below — kept running only when the
+// WS isn't connected, never both at once.
+let _OC_PRESENCE_WS = null;
+let _OC_PRESENCE_HB = null;
+
 let _OC_CHANNELS = [];
 
 let _OC_UNREAD = {};
 
 let _OC_ONLINE = new Set();
+// sid -> {sid, name} — only populated by the WS presence path (join/leave
+// deltas don't carry a full list, unlike the polling fallback's response),
+// used solely to re-render the presence-bar chips incrementally.
+let _OC_ONLINE_USERS = new Map();
 
 let _OC_LAST_ID = 0;
 
@@ -1557,7 +1568,14 @@ function orgChatInit() {
 function _ocEnsureLive() {
   if (!ORG) return;
   if (!_OC_SSE || _OC_SSE.readyState === 2) _ocConnectSSE(); // 2 = CLOSED
-  if (!_OC_PRESENCE) _ocStartPresence();
+  // Only (re)connect the WS if it isn't already open or opening — never
+  // start the 30s poll from here. Polling is purely a fallback triggered by
+  // _ocConnectPresenceWS's own onclose handler when the socket can't
+  // connect/stay connected at all; this function may run more than once
+  // per Chat-tab visit (e.g. once from orgInit(), again from
+  // orgChatInit()), and starting polling here too raced the WS's still-
+  // pending connect and left both running side by side.
+  if (!_OC_PRESENCE_WS || _OC_PRESENCE_WS.readyState > 1) _ocConnectPresenceWS();
 }
 
 async function _ocLoadChannels() {
@@ -1753,6 +1771,76 @@ function _ocDisconnectSSE() {
     clearInterval(_OC_PRESENCE);
     _OC_PRESENCE = null;
   }
+  if (_OC_PRESENCE_HB) {
+    clearInterval(_OC_PRESENCE_HB);
+    _OC_PRESENCE_HB = null;
+  }
+  if (_OC_PRESENCE_WS) {
+    const ws = _OC_PRESENCE_WS;
+    _OC_PRESENCE_WS = null; // clear first so the onclose fallback below is a no-op
+    ws.onclose = null;
+    ws.close();
+  }
+}
+
+// Real-time presence over WebSocket — instant join/leave instead of waiting
+// for the next poll. Falls back to _ocStartPresence()'s 30s polling if the
+// socket can't connect, errors, or closes (covers unsupported browsers,
+// proxies that block WS upgrades, and Redis being unavailable server-side —
+// see routes/org.py's module docstring for the degrade-gracefully design).
+function _ocConnectPresenceWS() {
+  if (!ORG || !S.sid) return;
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  let ws;
+  try {
+    ws = new WebSocket(`${proto}//${location.host}/api/org/presence/ws`);
+  } catch (_) {
+    _ocStartPresence();
+    return;
+  }
+  _OC_PRESENCE_WS = ws;
+
+  ws.onopen = () => {
+    if (_OC_PRESENCE) {
+      clearInterval(_OC_PRESENCE);
+      _OC_PRESENCE = null;
+    }
+    if (_OC_PRESENCE_HB) clearInterval(_OC_PRESENCE_HB);
+    _OC_PRESENCE_HB = setInterval(() => {
+      if (ws.readyState === 1) ws.send("ping");
+    }, 20000);
+  };
+
+  ws.onmessage = (e) => {
+    let d;
+    try {
+      d = JSON.parse(e.data);
+    } catch (_) {
+      return;
+    }
+    if (d.type === "snapshot") {
+      _OC_ONLINE_USERS = new Map((d.online || []).map((u) => [u.sid, u]));
+    } else if (d.type === "join") {
+      _OC_ONLINE_USERS.set(d.sid, { sid: d.sid, name: d.name || "" });
+    } else if (d.type === "leave") {
+      _OC_ONLINE_USERS.delete(d.sid);
+    } else {
+      return;
+    }
+    _OC_ONLINE = new Set(_OC_ONLINE_USERS.keys());
+    _ocRenderPresenceBar([..._OC_ONLINE_USERS.values()]);
+    _ocRenderSidebar();
+  };
+
+  ws.onclose = () => {
+    if (_OC_PRESENCE_HB) {
+      clearInterval(_OC_PRESENCE_HB);
+      _OC_PRESENCE_HB = null;
+    }
+    if (_OC_PRESENCE_WS === ws) _OC_PRESENCE_WS = null;
+    if (ORG && !_OC_PRESENCE) _ocStartPresence();
+  };
+  ws.onerror = () => {}; // onclose always follows; nothing extra to do here
 }
 
 function _ocStartPresence() {

@@ -9695,7 +9695,7 @@ def send_push(sid: str, title: str, body: str, url: str = "/app", tag: str = "si
 # (see that module's docstring) — wired here since send_push is the last of
 # the four to be defined, same ordering constraint as routes/ai_chat.py.
 from routes.org import build_router as _build_org_router
-app.include_router(_build_org_router(load_progress, send_email, send_push, _is_valid_admin_session))
+app.include_router(_build_org_router(load_progress, send_email, send_push, _is_valid_admin_session, _SESSION_COOKIE_KEY))
 
 
 @app.get("/api/push/vapid-public")
