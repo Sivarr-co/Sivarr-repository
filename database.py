@@ -732,6 +732,27 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_sid_deleted ON tasks(sid, deleted_at);
 
+-- Same migration as `tasks` above (user_blobs(key='habits') blob -> real
+-- table), same id-collision reasoning (client-generated ids, PRIMARY KEY on
+-- (sid, id) not a bare id). completions is a JSONB array of "YYYY-MM-DD"
+-- strings rather than a Postgres TEXT[] to match this schema's existing
+-- convention for per-row arrays (see tags/speciality/likes above).
+CREATE TABLE IF NOT EXISTS habits (
+    id                  TEXT NOT NULL,
+    sid                 TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    title               TEXT NOT NULL,
+    emoji               TEXT DEFAULT '',
+    frequency           TEXT DEFAULT 'daily',
+    streak              INTEGER DEFAULT 0,
+    best_streak         INTEGER DEFAULT 0,
+    completions         JSONB DEFAULT '[]',
+    deleted_at          TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (sid, id)
+);
+CREATE INDEX IF NOT EXISTS idx_habits_sid_deleted ON habits(sid, deleted_at);
+
 CREATE TABLE IF NOT EXISTS community_posts (
     id          TEXT PRIMARY KEY,
     author_name TEXT NOT NULL DEFAULT 'Sivarr User',
@@ -2622,6 +2643,225 @@ def purge_expired_tasks(cutoff_iso: str) -> int:
         return count
     except Exception as exc:
         log.error(f"purge_expired_tasks: {exc}")
+        conn.rollback()
+        return 0
+    finally:
+        _release(conn)
+
+
+# ── Personal habits (real table, per-entity ops) ──────────────
+# Same shape as the tasks block above — see that section's comments for the
+# full rationale (blob -> table migration, id-collision fix, whitelist
+# pattern). Only real difference: `completions` is JSONB, so writes need to
+# go through _json.dumps() while every other column is a plain scalar.
+
+_HABIT_COLUMNS = {
+    "title", "emoji", "frequency", "streak", "best_streak", "completions",
+    "deleted_at",
+}
+
+
+def _habit_param(key: str, value):
+    """completions is the one JSONB column here — everything else is a plain
+    scalar psycopg2 can bind directly."""
+    if key == "completions":
+        import json as _json
+        return _json.dumps(value if value is not None else [])
+    return value
+
+
+def _row_to_habit(row: dict) -> dict:
+    d = dict(row)
+    for key in ("deleted_at", "created_at", "updated_at"):
+        if d.get(key) is not None and hasattr(d[key], "isoformat"):
+            d[key] = d[key].isoformat()
+    return d
+
+
+def get_habits(sid: str, include_deleted: bool = False) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if include_deleted:
+                cur.execute("SELECT * FROM habits WHERE sid=%s ORDER BY created_at", (sid,))
+            else:
+                cur.execute("SELECT * FROM habits WHERE sid=%s AND deleted_at IS NULL ORDER BY created_at", (sid,))
+            return [_row_to_habit(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_habits: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def get_trashed_habits(sid: str) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM habits WHERE sid=%s AND deleted_at IS NOT NULL ORDER BY deleted_at DESC", (sid,))
+            return [_row_to_habit(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_trashed_habits: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def get_habit(habit_id: str, sid: str) -> dict | None:
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM habits WHERE id=%s AND sid=%s", (habit_id, sid))
+            row = cur.fetchone()
+            return _row_to_habit(row) if row else None
+    except Exception as exc:
+        log.error(f"get_habit: {exc}")
+        return None
+    finally:
+        _release(conn)
+
+
+def create_habit(sid: str, habit_id: str, title: str, **fields) -> bool:
+    cols = {k: v for k, v in fields.items() if k in _HABIT_COLUMNS and k not in ("id", "sid", "title")}
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            names = ["id", "sid", "title"] + list(cols.keys())
+            vals  = [habit_id, sid, title] + [_habit_param(k, v) for k, v in cols.items()]
+            placeholders = ", ".join(["%s"] * len(vals))
+            cur.execute(
+                f"INSERT INTO habits ({', '.join(names)}) VALUES ({placeholders})",
+                vals,
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_habit: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def update_habit(habit_id: str, sid: str, updates: dict) -> bool:
+    """Partial update — only columns in _HABIT_COLUMNS are ever touched."""
+    sets = {k: v for k, v in updates.items() if k in _HABIT_COLUMNS}
+    if not sets:
+        return True
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cols = ", ".join(f"{k}=%s" for k in sets)
+            vals = [_habit_param(k, v) for k, v in sets.items()]
+            cur.execute(
+                f"UPDATE habits SET {cols}, updated_at=NOW() WHERE id=%s AND sid=%s",
+                (*vals, habit_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"update_habit: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def soft_delete_habit(habit_id: str, sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE habits SET deleted_at=NOW(), updated_at=NOW() WHERE id=%s AND sid=%s",
+                (habit_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"soft_delete_habit: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def undelete_habit(habit_id: str, sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE habits SET deleted_at=NULL, updated_at=NOW() WHERE id=%s AND sid=%s",
+                (habit_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"undelete_habit: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def replace_all_habits(sid: str, habits: list) -> bool:
+    """Bulk replace — used only by /api/habits/sync (full-resync fallback);
+    per-entity functions above are what live single-habit edits use now."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM habits WHERE sid=%s", (sid,))
+            for h in habits:
+                cols = {k: v for k, v in h.items() if k in _HABIT_COLUMNS and k not in ("id", "sid", "title")}
+                names = ["id", "sid", "title"] + list(cols.keys())
+                vals  = [h["id"], sid, h.get("title", "")] + [_habit_param(k, v) for k, v in cols.items()]
+                placeholders = ", ".join(["%s"] * len(vals))
+                cur.execute(
+                    f"INSERT INTO habits ({', '.join(names)}) VALUES ({placeholders})",
+                    vals,
+                )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"replace_all_habits: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def purge_expired_habits(cutoff_iso: str) -> int:
+    """Permanently remove habits soft-deleted before `cutoff_iso` — for the
+    scheduled purge job. Returns the number of rows removed."""
+    conn = _get_conn()
+    if not conn:
+        return 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM habits WHERE deleted_at IS NOT NULL AND deleted_at < %s",
+                (cutoff_iso,),
+            )
+            count = cur.rowcount
+        conn.commit()
+        return count
+    except Exception as exc:
+        log.error(f"purge_expired_habits: {exc}")
         conn.rollback()
         return 0
     finally:

@@ -185,11 +185,10 @@ function _syncTasksToServer(tasks) {
 }
 
 // Permanently drops tombstones older than the 30-day Trash retention window.
-// There's no server-side purge for tasks the way there is for Goals (see
-// app.py's _purge_deleted_goals) — tasks only ever exist as whatever the
-// client's own array contains, so the client has to be the one to let old
-// deleted items go, or they'd sit in localStorage (and the server mirror)
-// forever. Runs once per Tasks-panel visit; cheap and idempotent.
+// app.py's _purge_deleted_tasks job purges the server side, but it never
+// touches this browser's own localStorage copy — the client has to prune
+// its own copy too, or old deleted items would sit here forever. Runs once
+// per Tasks-panel visit; cheap and idempotent.
 function _shPruneExpiredTrash() {
   const data = getSHData();
   const cutoff = Date.now() - 30 * 86400000;

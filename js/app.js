@@ -1084,7 +1084,14 @@ async function _hydrateFromServer() {
     changed = true;
   }
   if (hb && Array.isArray(hb.habits) && hb.habits.length) {
-    localStorage.setItem(HAB_KEY(), JSON.stringify(hb.habits));
+    // Server rows use "frequency"; the render/edit code reads "freq" — same
+    // translation need as tasks' desc/goalId, see _habServerHabitToLocal.
+    const localHabits = hb.habits.map((h) =>
+      typeof _habServerHabitToLocal === "function"
+        ? _habServerHabitToLocal(h)
+        : h,
+    );
+    localStorage.setItem(HAB_KEY(), JSON.stringify(localHabits));
     changed = true;
   }
   if (jn && Array.isArray(jn.entries) && jn.entries.length) {
@@ -7073,21 +7080,11 @@ function _setImportStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-// ── Habits + Journal sync wiring ─────────────────────────────
-
-function _syncHabitsToServer(habits) {
-  const token = getToken();
-  if (!token || !S.sid) return;
-  if (!navigator.onLine) {
-    _queueMutation("/api/habits/sync", { token, habits });
-    return;
-  }
-  fetch("/api/habits/sync", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, habits }),
-  }).catch(() => _queueMutation("/api/habits/sync", { token, habits }));
-}
+// ── Journal sync wiring ───────────────────────────────────────
+// _syncHabitsToServer moved to js/features/habits.js (per-entity diff sync,
+// same treatment as tasks — see that file's _syncTasksToServer). Still
+// callable from here since all scripts are loaded by the time any of these
+// functions actually run, regardless of file load order.
 
 function _syncJournalToServer(entries) {
   const token = getToken();
