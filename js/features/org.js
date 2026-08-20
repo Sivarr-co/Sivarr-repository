@@ -1824,6 +1824,9 @@ function _ocConnectPresenceWS() {
       _OC_ONLINE_USERS.set(d.sid, { sid: d.sid, name: d.name || "" });
     } else if (d.type === "leave") {
       _OC_ONLINE_USERS.delete(d.sid);
+    } else if (d.type === "task_created" || d.type === "task_updated" || d.type === "task_deleted") {
+      _orgApplyTaskEvent(d);
+      return; // own render path, doesn't touch presence state below
     } else {
       return;
     }
@@ -1841,6 +1844,30 @@ function _ocConnectPresenceWS() {
     if (ORG && !_OC_PRESENCE) _ocStartPresence();
   };
   ws.onerror = () => {}; // onclose always follows; nothing extra to do here
+}
+
+// Real-time collab Week 2 — live task sync, riding the same WebSocket as
+// presence (see routes/org.py's _presence_subscriber_loop docstring for
+// why). Applies the delta to ORG_TASKS and re-renders; the acting client
+// also gets its own event echoed back (same as presence join/leave), so
+// task_created dedupes by id — its own _orgRefresh() may already have
+// pulled the new row in first, depending on timing.
+function _orgApplyTaskEvent(d) {
+  if (d.type === "task_created") {
+    if (!d.task || ORG_TASKS.some((t) => String(t.id) === String(d.task.id))) return;
+    ORG_TASKS.push(d.task);
+  } else if (d.type === "task_updated") {
+    const t = ORG_TASKS.find((t) => String(t.id) === String(d.task_id));
+    if (!t) return;
+    Object.assign(t, d.updates);
+  } else if (d.type === "task_deleted") {
+    const idx = ORG_TASKS.findIndex((t) => String(t.id) === String(d.task_id));
+    if (idx === -1) return;
+    ORG_TASKS.splice(idx, 1);
+  } else {
+    return;
+  }
+  orgRenderTasks();
 }
 
 function _ocStartPresence() {

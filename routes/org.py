@@ -143,14 +143,18 @@ async def _fanout_presence_local(org_id: str, payload: str):
 
 
 async def _presence_subscriber_loop(client):
-    """One long-lived task per worker: listens to every org's presence
-    channel and fans each message out via _fanout_presence_local. A single
-    psubscribe("presence:*") rather than per-org subscribe/unsubscribe
-    management — org presence traffic is tiny, and this avoids a whole class
-    of subscribe-lifecycle bugs for a cheap fan-out."""
+    """One long-lived task per worker: listens to every org's live channels
+    (presence join/leave, and — since Week 2 of the real-time collab work —
+    task create/update/delete) and fans each message out via
+    _fanout_presence_local. A single psubscribe on both prefixes rather than
+    per-org/per-topic subscribe/unsubscribe management — org live traffic is
+    tiny, and this avoids a whole class of subscribe-lifecycle bugs for a
+    cheap fan-out. Both topics land in the same per-org connection registry
+    (_PRESENCE_LOCAL) since a client connected to org space wants both —
+    there's no separate "task sync" socket, this one carries everything."""
     try:
         pubsub = client.pubsub()
-        await pubsub.psubscribe("presence:*")
+        await pubsub.psubscribe("presence:*", "org_tasks:*")
         async for message in pubsub.listen():
             if message.get("type") != "pmessage":
                 continue
@@ -175,22 +179,33 @@ async def _ensure_presence_subscriber():
         _presence_sub_task = asyncio.create_task(_presence_subscriber_loop(client))
 
 
-async def _publish_presence(org_id: str, event: dict):
-    """Broadcast a join/leave event for one org. Publishes to Redis when
-    available — every worker's subscriber loop (including this one) fans it
-    out to its own local connections from there. Without Redis (unset, or a
-    publish failure), falls straight back to a direct local-only fan-out, so
-    same-worker clients still see live updates even with no Redis at all —
-    only cross-worker delivery is lost, never presence updates outright."""
+async def _publish_org_event(channel_prefix: str, org_id: str, event: dict):
+    """Broadcast an event on one org's `{channel_prefix}:{org_id}` channel —
+    shared by presence (join/leave) and live task sync (create/update/
+    delete), see _presence_subscriber_loop's docstring for why both ride the
+    same connection registry. Publishes to Redis when available — every
+    worker's subscriber loop (including this one) fans it out to its own
+    local connections from there. Without Redis (unset, or a publish
+    failure), falls straight back to a direct local-only fan-out, so same-
+    worker clients still see live updates even with no Redis at all — only
+    cross-worker delivery is lost, never live updates outright."""
     payload = json.dumps(event)
     client = await _get_presence_redis()
     if client:
         try:
-            await client.publish(f"presence:{org_id}", payload)
+            await client.publish(f"{channel_prefix}:{org_id}", payload)
             return
         except Exception:
             pass
     await _fanout_presence_local(org_id, payload)
+
+
+async def _publish_presence(org_id: str, event: dict):
+    await _publish_org_event("presence", org_id, event)
+
+
+async def _publish_org_task_event(org_id: str, event: dict):
+    await _publish_org_event("org_tasks", org_id, event)
 
 # These four are plain env-derived constants also defined in app.py (used by
 # 50+ non-org call sites there, so not worth relocating and re-importing —
@@ -860,6 +875,16 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
             bg.add_task(send_push, assignee,
                         f"📋 {org.get('name', 'Your team')}: new task assigned",
                         f"{uname} assigned you: {title}", "/app", f"orgtask_{task_id}")
+        # Real-time collab Week 2: live task sync — every org member connected
+        # to /api/org/presence/ws sees this appear without a refresh.
+        await _publish_org_task_event(org["id"], {
+            "type": "task_created",
+            "task": {
+                "id": task_id, "org_id": org["id"], "title": title, "description": desc,
+                "status": status, "priority": priority, "assignee_sid": assignee,
+                "created_by": sid, "project_id": project_id, "due_date": due_date,
+            },
+        })
         return {"ok": True, "task_id": task_id}
 
 
@@ -875,7 +900,14 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         # v can be None (clearing due_date/assignee_sid/project_id) — str(None) would send
         # the literal "None" to a `date`/uuid column and 500. Pass nulls through untouched.
         updates = {k: (v if v is None else sanitize_text(str(v), 2000)) for k, v in data.items() if k in allowed}
-        db.update_org_task(task_id, updates, org["id"])
+        ok = db.update_org_task(task_id, updates, org["id"])
+        # Only broadcast a write that actually landed — publishing on a
+        # silent DB failure would show other members a change that a refresh
+        # would then immediately revert.
+        if ok:
+            await _publish_org_task_event(org["id"], {
+                "type": "task_updated", "task_id": task_id, "updates": updates,
+            })
         return {"ok": True}
 
 
@@ -887,7 +919,9 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not org: raise HTTPException(404, "No organization found.")
         task_id = sanitize_text(str(data.get("task_id", "")), 40)
         if not task_id: raise HTTPException(400, "task_id required.")
-        db.delete_org_task(task_id, org["id"])
+        ok = db.delete_org_task(task_id, org["id"])
+        if ok:
+            await _publish_org_task_event(org["id"], {"type": "task_deleted", "task_id": task_id})
         return {"ok": True}
 
 
