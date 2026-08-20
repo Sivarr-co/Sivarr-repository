@@ -753,6 +753,39 @@ CREATE TABLE IF NOT EXISTS habits (
 );
 CREATE INDEX IF NOT EXISTS idx_habits_sid_deleted ON habits(sid, deleted_at);
 
+-- In-app notification history, real per-item rows (id/title/body/read state)
+-- rather than the ad-hoc push_subs JSON files send_push() previously wrote
+-- to directly (DATA_DIR / f"{sid}_push_subs.json" — still used for the
+-- web-push endpoint subscriptions themselves, unrelated data). A new table,
+-- not a migration of anything — nothing server-side listed notification
+-- history before this, the web app only ever synthesized a notification
+-- list client-side from tasks/goals/habits already in the browser.
+-- (init_db() splits this schema on bare semicolons, including ones inside
+-- comments, so punctuation in any DDL comment must avoid them — see the
+-- `tasks` table above for the same note, learned the same way twice now.)
+CREATE TABLE IF NOT EXISTS notifications (
+    id          TEXT NOT NULL,
+    sid         TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    title       TEXT NOT NULL,
+    body        TEXT DEFAULT '',
+    url         TEXT DEFAULT '/app',
+    read_at     TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (sid, id)
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_sid_created ON notifications(sid, created_at DESC);
+
+-- Expo push tokens (mobile) — separate from the web-push subscription JSON
+-- files since the delivery mechanism is entirely different (Expo's push
+-- relay vs. raw Web Push/VAPID). send_push() dispatches to both from one
+-- call site so nothing that already calls send_push() needs to change.
+CREATE TABLE IF NOT EXISTS expo_push_tokens (
+    sid         TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    token       TEXT NOT NULL,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (sid, token)
+);
+
 CREATE TABLE IF NOT EXISTS community_posts (
     id          TEXT PRIMARY KEY,
     author_name TEXT NOT NULL DEFAULT 'Sivarr User',
@@ -2864,6 +2897,158 @@ def purge_expired_habits(cutoff_iso: str) -> int:
         log.error(f"purge_expired_habits: {exc}")
         conn.rollback()
         return 0
+    finally:
+        _release(conn)
+
+
+# ── In-app notifications + Expo push tokens ───────────────────
+
+def create_notification(sid: str, nid: str, title: str, body: str = "", url: str = "/app") -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO notifications (id, sid, title, body, url) VALUES (%s, %s, %s, %s, %s)",
+                (nid, sid, title, body, url),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_notification: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def get_notifications(sid: str, limit: int = 50) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM notifications WHERE sid=%s ORDER BY created_at DESC LIMIT %s",
+                (sid, limit),
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+            for r in rows:
+                for key in ("read_at", "created_at"):
+                    if r.get(key) is not None and hasattr(r[key], "isoformat"):
+                        r[key] = r[key].isoformat()
+            return rows
+    except Exception as exc:
+        log.error(f"get_notifications: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def mark_notification_read(nid: str, sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE notifications SET read_at=NOW() WHERE id=%s AND sid=%s AND read_at IS NULL",
+                (nid, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"mark_notification_read: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def mark_all_notifications_read(sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE notifications SET read_at=NOW() WHERE sid=%s AND read_at IS NULL",
+                (sid,),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"mark_all_notifications_read: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def count_unread_notifications(sid: str) -> int:
+    conn = _get_conn()
+    if not conn:
+        return 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM notifications WHERE sid=%s AND read_at IS NULL", (sid,))
+            return cur.fetchone()[0]
+    except Exception as exc:
+        log.error(f"count_unread_notifications: {exc}")
+        return 0
+    finally:
+        _release(conn)
+
+
+def save_expo_push_token(sid: str, token: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO expo_push_tokens (sid, token) VALUES (%s, %s) ON CONFLICT (sid, token) DO NOTHING",
+                (sid, token),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"save_expo_push_token: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def get_expo_push_tokens(sid: str) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT token FROM expo_push_tokens WHERE sid=%s", (sid,))
+            return [r[0] for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_expo_push_tokens: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def delete_expo_push_token(token: str) -> None:
+    """Called when Expo reports a token as dead (DeviceNotRegistered) — no sid
+    needed, the token itself is unique enough to target the stale row."""
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM expo_push_tokens WHERE token=%s", (token,))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"delete_expo_push_token: {exc}")
+        conn.rollback()
     finally:
         _release(conn)
 

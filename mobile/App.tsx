@@ -22,14 +22,19 @@ import FocusScreen        from './src/screens/FocusScreen';
 import CommunityScreen    from './src/screens/CommunityScreen';
 import WeeklyReviewScreen from './src/screens/WeeklyReviewScreen';
 import SettingsScreen     from './src/screens/SettingsScreen';
+import CalendarScreen     from './src/screens/CalendarScreen';
+import OrgScreen          from './src/screens/OrgScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 
 import { useAuth } from './src/hooks/useAuth';
+import { api }     from './src/api/client';
 import { COLORS }  from './src/theme';
 import {
   configureNotificationHandler,
   requestNotificationPermission,
   scheduleDailyBrief,
   scheduleHabitReminder,
+  registerForPushNotifications,
 } from './src/services/notifications';
 
 // Prevent OS accessibility font-size from stretching/compressing all text.
@@ -134,9 +139,12 @@ const MORE_SCREENS: { name: string; component: React.ComponentType<any>; title: 
   { name: 'WeeklyReview', component: WeeklyReviewScreen, title: 'Weekly Review' },
   { name: 'Focus',        component: FocusScreen,        title: 'Focus' },
   { name: 'Goals',        component: GoalsScreen,         title: 'Goals' },
+  { name: 'Calendar',     component: CalendarScreen,      title: 'Calendar' },
   { name: 'Habits',       component: HabitsScreen,        title: 'Habits' },
   { name: 'Journal',      component: JournalScreen,       title: 'Journal' },
   { name: 'Community',    component: CommunityScreen,     title: 'Community' },
+  { name: 'Org',          component: OrgScreen,            title: 'Organisation' },
+  { name: 'Notifications', component: NotificationsScreen, title: 'Notifications' },
   { name: 'Settings',     component: SettingsScreen,      title: 'Settings' },
 ];
 
@@ -153,6 +161,10 @@ export default function App() {
           scheduleHabitReminder(20, 0);  // 8pm habit check
         }
       });
+      // Real server-driven push (org mentions, task assignments, etc.) —
+      // separate from the two local reminders above. No-ops until app.json's
+      // EAS project id is a real one, see services/notifications.ts.
+      registerForPushNotifications(api.pushExpoSubscribe);
     }
   }, [isLoggedIn]);
 

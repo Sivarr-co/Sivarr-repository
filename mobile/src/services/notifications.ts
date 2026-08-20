@@ -74,6 +74,27 @@ export async function scheduleHabitReminder(hour = 20, minute = 0): Promise<void
   } catch { /* fail silently */ }
 }
 
+// Registers this device for real server-driven push (org mentions, task
+// assignments, etc. — see app.py's send_push()/_send_expo_push()) — distinct
+// from the two local scheduled reminders above, which never leave the
+// device. Requires a real EAS project id in app.json (still a placeholder
+// as of this writing — getExpoPushTokenAsync() will reject until that's
+// set), so this fails silently like everything else in this file rather
+// than surfacing an error the user can't act on.
+export async function registerForPushNotifications(
+  subscribe: (expoToken: string) => Promise<any>,
+): Promise<void> {
+  if (!Notifications) return;
+  try {
+    const granted = await requestNotificationPermission();
+    if (!granted) return;
+    const projectId = require('expo-constants').default?.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) return;
+    const { data: expoToken } = await Notifications.getExpoPushTokenAsync({ projectId });
+    if (expoToken) await subscribe(expoToken);
+  } catch { /* fail silently — same posture as the rest of this file */ }
+}
+
 export async function cancelAllNotifications(): Promise<void> {
   if (!Notifications) return;
   try {

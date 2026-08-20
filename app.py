@@ -9667,8 +9667,59 @@ def save_push_subs(sid: str, subs: list):
     p = DATA_DIR / f"{sid}_push_subs.json"
     save_json(p, subs)
 
+_EXPO_PUSH_API = "https://exp.host/--/api/v2/push/send"
+
+async def _send_expo_push(sid: str, title: str, body: str, url: str) -> None:
+    """Dispatch to every Expo push token registered for sid (mobile app).
+    Separate delivery mechanism from browser Web Push above — Expo relays to
+    APNs/FCM itself, no VAPID keys involved, just a plain HTTPS POST. No-ops
+    if httpx or the DB isn't available, or the user has no mobile tokens."""
+    if not HTTPX_AVAILABLE or not db.is_available():
+        return
+    tokens = await asyncio.to_thread(db.get_expo_push_tokens, sid)
+    if not tokens:
+        return
+    messages = [
+        {"to": t, "title": title, "body": body, "data": {"url": url}, "sound": "default"}
+        for t in tokens
+    ]
+    try:
+        async with _httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(_EXPO_PUSH_API, json=messages, headers={"Content-Type": "application/json"})
+            results = (r.json() or {}).get("data", [])
+    except Exception as exc:
+        log.warning(f"Expo push dispatch failed for {sid[:8]}: {exc}")
+        return
+    # Expo returns one receipt per message, same order as sent — prune tokens
+    # it reports as permanently dead so we stop retrying them forever.
+    for token, result in zip(tokens, results if isinstance(results, list) else []):
+        if isinstance(result, dict) and result.get("details", {}).get("error") == "DeviceNotRegistered":
+            await asyncio.to_thread(db.delete_expo_push_token, token)
+
+
 def send_push(sid: str, title: str, body: str, url: str = "/app", tag: str = "sivarr") -> None:
-    """Fire-and-forget push to all of a user's subscriptions. Cleans dead endpoints."""
+    """Fire-and-forget push to all of a user's subscriptions (browser Web
+    Push + the Expo mobile app), and records the event in the in-app
+    notification history — every existing call site gets both automatically,
+    nothing else needed to change when the mobile app started listening."""
+    if db.is_available():
+        try:
+            db.create_notification(sid, uuid.uuid4().hex[:20], title, body, url)
+        except Exception as exc:
+            log.warning(f"create_notification failed for {sid[:8]}: {exc}")
+        # send_push is always invoked via bg.add_task(send_push, ...) today,
+        # which runs sync callables in a worker thread — no event loop is
+        # running in that thread, so asyncio.ensure_future()/create_task()
+        # would raise. asyncio.run() spins up a throwaway loop for exactly
+        # that case. Still handle the (currently unused, but not guaranteed
+        # to stay that way) direct-call-from-the-event-loop case too, so this
+        # doesn't quietly break if a future caller invokes send_push() inline
+        # from an async route instead of backgrounding it.
+        try:
+            asyncio.get_running_loop().create_task(_send_expo_push(sid, title, body, url))
+        except RuntimeError:
+            asyncio.run(_send_expo_push(sid, title, body, url))
+
     if not WEBPUSH_AVAILABLE or not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
         return
     subs    = load_push_subs(sid)
@@ -9729,6 +9780,60 @@ async def push_unsubscribe(data: dict):
     endpoint = data.get("endpoint", "")
     subs     = [s for s in load_push_subs(sid) if s.get("endpoint") != endpoint]
     save_push_subs(sid, subs)
+    return {"ok": True}
+
+
+@app.post("/api/push/expo/subscribe")
+async def push_expo_subscribe(data: dict):
+    """Register a mobile Expo push token — see send_push()'s module-area
+    comment for how this feeds into the existing web-push dispatch.
+    The Expo token arrives as `expo_token`, not `token` — the body's `token`
+    field is the SESSION token, consumed by _resolve_token above (same class
+    of field-name collision routes/org.py's org_join fixed for invite_token
+    vs. token, see that route's comment)."""
+    sid, _ = _resolve_token(data)
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    push_token = sanitize_text(str(data.get("expo_token", "")).strip(), 200)
+    if not push_token.startswith("ExponentPushToken[") and not push_token.startswith("ExpoPushToken["):
+        raise HTTPException(400, "Valid Expo push token required.")
+    await asyncio.to_thread(db.save_expo_push_token, sid, push_token)
+    return {"ok": True}
+
+
+@app.get("/api/notifications/list")
+async def notifications_list(token: str = ""):
+    sess = get_session_from_token(token)
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    if not db.is_available():
+        return {"notifications": [], "unread": 0}
+    sid = sess["sid"]
+    notifs, unread = await asyncio.gather(
+        asyncio.to_thread(db.get_notifications, sid),
+        asyncio.to_thread(db.count_unread_notifications, sid),
+    )
+    return {"notifications": notifs, "unread": unread}
+
+
+@app.post("/api/notifications/mark-read")
+async def notifications_mark_read(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    nid = sanitize_text(str(data.get("id", "")), 40)
+    if not nid:
+        raise HTTPException(400, "Notification id required.")
+    await asyncio.to_thread(db.mark_notification_read, nid, sid)
+    return {"ok": True}
+
+
+@app.post("/api/notifications/mark-all-read")
+async def notifications_mark_all_read(data: dict):
+    sid, _ = _resolve_token(data)
+    if not db.is_available():
+        raise HTTPException(503, "Database unavailable.")
+    await asyncio.to_thread(db.mark_all_notifications_read, sid)
     return {"ok": True}
 
 

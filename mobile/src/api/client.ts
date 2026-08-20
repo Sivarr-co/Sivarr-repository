@@ -68,4 +68,28 @@ export const api = {
   weeklyReview:   (ctx: object) => post('/api/ai/weekly-review', ctx),
   parseIntent:    (text: string) => post('/api/ai/parse-intent', { text }),
   voiceToTask:    (transcript: string) => post('/api/ai/voice-to-task', { transcript }),
+
+  // Org (v1: read/CRUD only — no chat/presence on mobile yet, see
+  // routes/org.py; the web client's real-time layer has no mobile
+  // equivalent, that's a separate, larger piece of work)
+  orgGet:          () => post('/api/org/get', {}),
+  orgCreate:       (name: string) => post('/api/org/create', { name }),
+  orgJoin:         (inviteToken: string) => post('/api/org/join', { invite_token: inviteToken }),
+  orgInvite:       (email: string, role = 'member') => post('/api/org/invite', { email, role }),
+  orgTaskCreate:   (data: { title: string; description?: string; priority?: string; due_date?: string }) =>
+    post('/api/org/tasks/create', data),
+  orgTaskUpdate:   (taskId: string, updates: object) => post('/api/org/tasks/update', { task_id: taskId, ...updates }),
+  orgTaskDelete:   (taskId: string) => post('/api/org/tasks/delete', { task_id: taskId }),
+  orgGoalCreate:   (data: { title: string; description?: string; due_date?: string }) =>
+    post('/api/org/goals/create', data),
+  orgDocsList:     () => post('/api/org/docs', {}),
+  orgDocGet:       (docId: string) => post('/api/org/docs/get', { doc_id: docId }),
+  orgDocSave:      (docId: string | null, title: string, content: string) =>
+    post('/api/org/docs/save', { doc_id: docId ?? '', title, content }),
+
+  // Notifications (server-driven — see app.py's send_push()/_send_expo_push())
+  pushExpoSubscribe:      (expoToken: string) => post('/api/push/expo/subscribe', { expo_token: expoToken }),
+  notifications:          () => get('/api/notifications/list'),
+  notificationMarkRead:   (id: string) => post('/api/notifications/mark-read', { id }),
+  notificationMarkAllRead: () => post('/api/notifications/mark-all-read', {}),
 };
