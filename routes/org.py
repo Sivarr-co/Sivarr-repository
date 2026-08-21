@@ -1060,6 +1060,13 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         doc_id  = sanitize_text(str(data.get("doc_id", "") or uuid.uuid4().hex[:20]), 40)
         title   = sanitize_text(str(data.get("title", "Untitled Doc")).strip(), 200)
         content = sanitize_text(str(data.get("content", "")), 50000)
+        # IDOR fix: save_org_doc() upserts by id alone (ON CONFLICT (id), no
+        # org_id filter in the UPDATE), so a caller supplying another org's
+        # doc_id could silently overwrite that org's title/content/yjs_state.
+        # Same bug class already fixed on org_doc_get below; mirrored here.
+        existing = db.get_org_doc(doc_id)
+        if existing and existing.get("org_id") != org["id"]:
+            raise HTTPException(404, "Doc not found.")
         # yjs_state: base64 Y.Doc snapshot (Y.encodeStateAsUpdate), opaque to
         # the server. Present whenever the save comes from the live collab
         # editor -- lets every future opener of this doc seed their Y.Doc via
@@ -1464,6 +1471,13 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        # Founder data (burn rate, cash balance, MRR/ARR, investor pipeline)
+        # is sensitive and the UI already hides this tab from non-owners
+        # (_founderTabVisibility() in org.js) -- but this endpoint had no
+        # role check at all, so any member/guest could read it directly.
+        # Matches the bar org_founder_save already enforces.
+        if org.get("member_role") not in ("owner", "admin"):
+            raise HTTPException(403, "Only owners and admins can view founder data.")
         founder = db.get_org_founder(org["id"])
         return {"founder": founder}
 

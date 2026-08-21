@@ -211,6 +211,7 @@ async function orgInit() {
   orgChatRender();
   founderRender();
   _founderTabVisibility();
+  _financialsTabVisibility();
   hostMountExtensions({ id: "org", type: "org" });
 }
 
@@ -1040,6 +1041,16 @@ function _founderTabVisibility() {
   const role = ORG.member_role || "";
   // Blueprint Stage 1: Founder tab is owner-only (not all members, not admins).
   tab.style.display = role === "owner" ? "" : "none";
+}
+
+function _financialsTabVisibility() {
+  const tab = $("os-tab-financials");
+  if (!tab || !ORG) return;
+  const role = ORG.member_role || "";
+  // Every /api/org/paystack/* route except `status` requires owner/admin
+  // (_org_admin_check in routes/org.py) -- without this, every member saw
+  // the tab and every sub-load 403'd, looking like a broken/blank pane.
+  tab.style.display = role === "owner" || role === "admin" ? "" : "none";
 }
 
 function founderRender() {
@@ -2583,9 +2594,9 @@ function orgAnalyticsRender(d) {
       Object.values(d.status_breakdown).reduce((a, b) => a + b, 0) || 1;
     const statuses = [
       { key: "todo", label: "To Do", cls: "todo" },
-      { key: "in_progress", label: "In Progress", cls: "inprog" },
+      { key: "inprogress", label: "In Progress", cls: "inprog" },
+      { key: "review", label: "In Review", cls: "review" },
       { key: "done", label: "Done", cls: "done" },
-      { key: "blocked", label: "Blocked", cls: "blocked" },
     ];
     statusGrid.innerHTML = statuses
       .map((s) => {
