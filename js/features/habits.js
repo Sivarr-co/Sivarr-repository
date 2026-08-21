@@ -272,9 +272,100 @@ function habitRestore(idx) {
   habitInit();
 }
 
-// Same reasoning as tasks' _shPruneExpiredTrash — no server-side purge exists
-// for habits, so the client has to let old tombstones go itself. Runs once
-// per Habits-panel visit.
+// ── Server sync — per-entity, not whole-array ───────────────────────────
+// Same diff-against-a-snapshot approach as js/features/tasks.js's
+// _syncTasksToServer — see that file for the full rationale. Habits are
+// addressed by array index in the UI functions above (habitToggle/Edit/
+// Delete/Restore all take `idx`), but every habit object still carries a
+// stable `id` (set in habitAdd), which is what this diff keys off of.
+const HAB_SYNCED_KEY = () => `sivarr_hab_synced_${S.sid || "guest"}`;
+
+function _habGetSyncedSnapshot() {
+  try {
+    return JSON.parse(localStorage.getItem(HAB_SYNCED_KEY()) || "{}");
+  } catch {
+    return {};
+  }
+}
+function _habSetSyncedSnapshot(snap) {
+  try {
+    localStorage.setItem(HAB_SYNCED_KEY(), JSON.stringify(snap));
+  } catch (_) {}
+}
+
+// The client has always used "freq"; the server column is "frequency" (see
+// routes/habits.py's _CLIENT_FIELD_ALIASES for the write-side mapping and
+// the bug this closes). This is the read-side mirror, for habit objects the
+// server hands back (a hydrate/restore pull).
+function _habServerHabitToLocal(h) {
+  const out = { ...h };
+  if ("frequency" in out) {
+    out.freq = out.frequency;
+    delete out.frequency;
+  }
+  return out;
+}
+
+function _habSendMutation(url, body) {
+  const token = getToken();
+  if (!token || !S.sid) return Promise.resolve(null);
+  body = { token, ...body };
+  if (!navigator.onLine) {
+    _queueMutation(url, body);
+    return Promise.resolve(null);
+  }
+  return fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => {
+      _queueMutation(url, body);
+      return null;
+    });
+}
+
+function _syncHabitsToServer(habits) {
+  const token = getToken();
+  if (!token || !S.sid) return;
+
+  const snap = _habGetSyncedSnapshot();
+  const nextSnap = {};
+
+  (habits || []).forEach((h) => {
+    const id = String(h.id);
+    const serial = JSON.stringify(h);
+    nextSnap[id] = serial;
+    if (snap[id] === serial) return; // unchanged since last sync
+
+    if (!(id in snap)) {
+      _habSendMutation("/api/habits/add", { ...h });
+      return;
+    }
+    let was;
+    try {
+      was = JSON.parse(snap[id]);
+    } catch {
+      was = {};
+    }
+    if (!was.deleted_at && h.deleted_at) {
+      _habSendMutation("/api/habits/delete", { id: h.id });
+    } else if (was.deleted_at && !h.deleted_at) {
+      _habSendMutation("/api/habits/undelete", { id: h.id });
+      _habSendMutation("/api/habits/update", { id: h.id, ...h });
+    } else {
+      _habSendMutation("/api/habits/update", { id: h.id, ...h });
+    }
+  });
+
+  _habSetSyncedSnapshot(nextSnap);
+}
+
+// Same reasoning as tasks' _shPruneExpiredTrash — app.py's
+// _purge_deleted_habits job purges the server side but never touches this
+// browser's own localStorage copy, so the client has to prune that itself.
+// Runs once per Habits-panel visit.
 function _habPruneExpiredTrash() {
   const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || "[]");
   const cutoff = Date.now() - 30 * 86400000;

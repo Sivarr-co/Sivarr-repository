@@ -63,49 +63,132 @@ function saveSHData(data) {
   _syncTasksToServer(data.tasks || []);
 }
 
-// ── Silently mirror tasks to the server for digest + search ──
+// ── Server sync — per-entity, not whole-array ───────────────────────────
+// Diffs the current list against a snapshot of what was last confirmed sent,
+// and calls the per-entity endpoints (add/update/delete/undelete) only for
+// what actually changed, instead of re-uploading every task on every save.
+// The old whole-array /api/tasks/sync meant two devices editing different
+// tasks around the same time would have the second save silently overwrite
+// the first device's change — see routes/tasks.py's module docstring for
+// the backend half of this. /api/tasks/sync itself is still used for CSV
+// import and as an explicit full-resync fallback, just not on every save.
+const SH_SYNCED_KEY = () => `sivarr_sh_synced_${S.sid || "guest"}`;
+
+function _shGetSyncedSnapshot() {
+  try {
+    return JSON.parse(localStorage.getItem(SH_SYNCED_KEY()) || "{}");
+  } catch {
+    return {};
+  }
+}
+function _shSetSyncedSnapshot(snap) {
+  try {
+    localStorage.setItem(SH_SYNCED_KEY(), JSON.stringify(snap));
+  } catch (_) {}
+}
+
+// Server rows use DB column names (description/goal_id/attach_name); the
+// render/edit code reads desc/goalId/attachName. routes/tasks.py's
+// _CLIENT_FIELD_ALIASES already accepts either spelling on the way in, so
+// outgoing payloads below just send the local shape as-is — this is only
+// the read-side translation, for task objects the server hands back
+// (a spawned recurring occurrence, or a full hydrate/restore pull).
+const _SH_SERVER_FIELD_ALIASES = {
+  description: "desc",
+  goal_id: "goalId",
+  attach_name: "attachName",
+};
+function _shServerTaskToLocal(t) {
+  const out = { ...t };
+  for (const [serverKey, localKey] of Object.entries(
+    _SH_SERVER_FIELD_ALIASES,
+  )) {
+    if (serverKey in out) {
+      out[localKey] = out[serverKey];
+      delete out[serverKey];
+    }
+  }
+  return out;
+}
+
+function _shSendMutation(url, body) {
+  const token = getToken();
+  if (!token || !S.sid) return Promise.resolve(null);
+  body = { token, ...body };
+  if (!navigator.onLine) {
+    _queueMutation(url, body);
+    return Promise.resolve(null);
+  }
+  return fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => {
+      _queueMutation(url, body);
+      return null;
+    });
+}
+
+function _shMergeSpawned(spawned) {
+  if (!spawned) return;
+  const local = _shServerTaskToLocal(spawned);
+  const data = getSHData();
+  if ((data.tasks || []).some((t) => String(t.id) === String(local.id)))
+    return;
+  data.tasks.push(local);
+  localStorage.setItem(SH_KEY(), JSON.stringify(data));
+  const snap = _shGetSyncedSnapshot();
+  snap[String(local.id)] = JSON.stringify(local);
+  _shSetSyncedSnapshot(snap);
+  renderSHBoard();
+  toast("New recurring task added ↻");
+}
+
 function _syncTasksToServer(tasks) {
   const token = getToken();
   if (!token || !S.sid) return;
-  if (!navigator.onLine) {
-    _queueMutation("/api/tasks/sync", { token, tasks });
-    return;
-  }
-  fetch("/api/tasks/sync", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, tasks }),
-  })
-    .then((r) => r.json())
-    .then((d) => {
-      // If the server spawned new recurring task occurrences, merge them into localStorage
-      if (d.spawned && d.spawned.length > 0) {
-        const data = getSHData();
-        const ids = new Set((data.tasks || []).map((t) => t.id));
-        // Reload all tasks from server to get the new occurrences
-        fetch(`/api/tasks/restore?token=${encodeURIComponent(token)}`)
-          .then((r2) => r2.json())
-          .then((d2) => {
-            if (d2.tasks && d2.tasks.length) {
-              data.tasks = d2.tasks;
-              localStorage.setItem(SH_KEY(), JSON.stringify(data));
-              renderSHOverview();
-              renderSHBoard();
-              toast("New recurring task added ↻");
-            }
-          })
-          .catch(() => {});
-      }
-    })
-    .catch(() => _queueMutation("/api/tasks/sync", { token, tasks }));
+
+  const snap = _shGetSyncedSnapshot();
+  const nextSnap = {};
+
+  (tasks || []).forEach((t) => {
+    const id = String(t.id);
+    const serial = JSON.stringify(t);
+    nextSnap[id] = serial;
+    if (snap[id] === serial) return; // unchanged since last sync
+
+    if (!(id in snap)) {
+      _shSendMutation("/api/tasks/add", { ...t });
+      return;
+    }
+    let was;
+    try {
+      was = JSON.parse(snap[id]);
+    } catch {
+      was = {};
+    }
+    if (!was.deleted_at && t.deleted_at) {
+      _shSendMutation("/api/tasks/delete", { id: t.id });
+    } else if (was.deleted_at && !t.deleted_at) {
+      _shSendMutation("/api/tasks/undelete", { id: t.id });
+      _shSendMutation("/api/tasks/update", { id: t.id, ...t });
+    } else {
+      _shSendMutation("/api/tasks/update", { id: t.id, ...t }).then((d) => {
+        if (d && d.spawned) _shMergeSpawned(d.spawned);
+      });
+    }
+  });
+
+  _shSetSyncedSnapshot(nextSnap);
 }
 
 // Permanently drops tombstones older than the 30-day Trash retention window.
-// There's no server-side purge for tasks the way there is for Goals (see
-// app.py's _purge_deleted_goals) — tasks only ever exist as whatever the
-// client's own array contains, so the client has to be the one to let old
-// deleted items go, or they'd sit in localStorage (and the server mirror)
-// forever. Runs once per Tasks-panel visit; cheap and idempotent.
+// app.py's _purge_deleted_tasks job purges the server side, but it never
+// touches this browser's own localStorage copy — the client has to prune
+// its own copy too, or old deleted items would sit here forever. Runs once
+// per Tasks-panel visit; cheap and idempotent.
 function _shPruneExpiredTrash() {
   const data = getSHData();
   const cutoff = Date.now() - 30 * 86400000;

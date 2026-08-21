@@ -490,15 +490,18 @@ def test_load_helpers_reexported_for_internal_callers():
     call sites for any of them and the unused imports were removed. save_goals
     came back for a real reason since then — the goal-trash-purge scheduler
     job in app.py needs it — so it's asserted present, not absent, unlike its
-    still-genuinely-unused siblings. Asserting the true state (not "all
-    save_* absent") keeps this test from masking either direction of drift."""
+    still-genuinely-unused siblings. save_habits came back the same way when
+    the habits-trash-purge job was added alongside tasks'. Asserting the true
+    state (not "all save_* absent") keeps this test from masking either
+    direction of drift."""
     assert callable(app_module.load_tasks)
     assert callable(app_module.load_habits)
     assert callable(app_module.load_docs)
     assert callable(app_module.load_goals)
     assert callable(app_module.load_journal)
     assert callable(app_module.save_goals)
-    for name in ("save_habits", "save_docs", "save_journal"):
+    assert callable(app_module.save_habits)
+    for name in ("save_docs", "save_journal"):
         assert not hasattr(app_module, name), (
             f"app_module.{name} exists but has no real caller in app.py — "
             f"either a genuine new use appeared (re-add the import, drop this "

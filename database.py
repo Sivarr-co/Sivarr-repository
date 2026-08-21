@@ -681,6 +681,111 @@ CREATE TABLE IF NOT EXISTS user_blobs (
     PRIMARY KEY (sid, key)
 );
 
+-- Personal tasks — a real table, one row per task, replacing the
+-- user_blobs(key='tasks') JSONB-blob-per-user pattern. Mirrors org_tasks'
+-- shape deliberately (same id/column/index conventions) since that table is
+-- this codebase's own proven precedent for "per-entity personal-space data as
+-- a real table." id is app-generated TEXT (uuid.uuid4().hex[:20] or the
+-- client's own id), not DB-generated, matching org_tasks and every other
+-- per-entity table in this schema.
+CREATE TABLE IF NOT EXISTS tasks (
+    id                  TEXT NOT NULL,
+    sid                 TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    title               TEXT NOT NULL,
+    status              TEXT DEFAULT 'todo',
+    done                BOOLEAN DEFAULT FALSE,
+    date                TEXT DEFAULT '',
+    time                TEXT DEFAULT '',
+    priority            TEXT DEFAULT 'normal',
+    type                TEXT DEFAULT 'other',
+    goal_id             TEXT DEFAULT '',
+    parent_id           TEXT DEFAULT '',
+    recurrence          TEXT,
+    recurrence_spawned  BOOLEAN DEFAULT FALSE,
+    -- Fields the old whole-array sync silently dropped on every save (its
+    -- per-item rebuild whitelist never included them, even though the client
+    -- modal/detail-panel UI has always written them onto the local task
+    -- object) — real columns now, closing that gap as part of this migration.
+    description         TEXT DEFAULT '',
+    assignee            TEXT DEFAULT '',
+    summary             TEXT DEFAULT '',
+    attach_name         TEXT DEFAULT '',
+    -- Detail-panel "Notes" box — a distinct field from description in the
+    -- client UI (js/features/tasks.js shOpenDetail), not an alias for it.
+    notes               TEXT DEFAULT '',
+    deleted_at          TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW(),
+    -- (sid, id), NOT a bare `id TEXT PRIMARY KEY` — client-generated ids are
+    -- Date.now() timestamps (see js/features/tasks.js), unique per browser
+    -- session but NOT globally unique. Two different users creating a task
+    -- in the same millisecond would collide under a global PK. The old
+    -- user_blobs-per-user JSONB blob never had this risk since each user's
+    -- array was independent storage. Caught by testing this schema against a
+    -- real Postgres instance before shipping, not by inspection: a same-id
+    -- INSERT across two different sids failed exactly this way.
+    -- (Note for future schema comments in this file: init_db() splits
+    -- _SCHEMA on bare semicolons, including ones inside comments, so a
+    -- semicolon used as punctuation here would silently truncate this
+    -- statement. Learned that the hard way writing this very comment.)
+    PRIMARY KEY (sid, id)
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_sid_deleted ON tasks(sid, deleted_at);
+
+-- Same migration as `tasks` above (user_blobs(key='habits') blob -> real
+-- table), same id-collision reasoning (client-generated ids, PRIMARY KEY on
+-- (sid, id) not a bare id). completions is a JSONB array of "YYYY-MM-DD"
+-- strings rather than a Postgres TEXT[] to match this schema's existing
+-- convention for per-row arrays (see tags/speciality/likes above).
+CREATE TABLE IF NOT EXISTS habits (
+    id                  TEXT NOT NULL,
+    sid                 TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    title               TEXT NOT NULL,
+    emoji               TEXT DEFAULT '',
+    frequency           TEXT DEFAULT 'daily',
+    streak              INTEGER DEFAULT 0,
+    best_streak         INTEGER DEFAULT 0,
+    completions         JSONB DEFAULT '[]',
+    deleted_at          TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (sid, id)
+);
+CREATE INDEX IF NOT EXISTS idx_habits_sid_deleted ON habits(sid, deleted_at);
+
+-- In-app notification history, real per-item rows (id/title/body/read state)
+-- rather than the ad-hoc push_subs JSON files send_push() previously wrote
+-- to directly (DATA_DIR / f"{sid}_push_subs.json" — still used for the
+-- web-push endpoint subscriptions themselves, unrelated data). A new table,
+-- not a migration of anything — nothing server-side listed notification
+-- history before this, the web app only ever synthesized a notification
+-- list client-side from tasks/goals/habits already in the browser.
+-- (init_db() splits this schema on bare semicolons, including ones inside
+-- comments, so punctuation in any DDL comment must avoid them — see the
+-- `tasks` table above for the same note, learned the same way twice now.)
+CREATE TABLE IF NOT EXISTS notifications (
+    id          TEXT NOT NULL,
+    sid         TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    title       TEXT NOT NULL,
+    body        TEXT DEFAULT '',
+    url         TEXT DEFAULT '/app',
+    read_at     TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (sid, id)
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_sid_created ON notifications(sid, created_at DESC);
+
+-- Expo push tokens (mobile) — separate from the web-push subscription JSON
+-- files since the delivery mechanism is entirely different (Expo's push
+-- relay vs. raw Web Push/VAPID). send_push() dispatches to both from one
+-- call site so nothing that already calls send_push() needs to change.
+CREATE TABLE IF NOT EXISTS expo_push_tokens (
+    sid         TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    token       TEXT NOT NULL,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (sid, token)
+);
+
 CREATE TABLE IF NOT EXISTS community_posts (
     id          TEXT PRIMARY KEY,
     author_name TEXT NOT NULL DEFAULT 'Sivarr User',
@@ -2336,6 +2441,614 @@ def get_sids_with_blob_key(key: str) -> list[str]:
         with conn.cursor() as cur:
             cur.execute("SELECT sid FROM user_blobs WHERE key = %s", (key,))
             return [r[0] for r in cur.fetchall()]
+    finally:
+        _release(conn)
+
+
+# ── Personal tasks (real table, per-entity ops) ───────────────
+# Same conventions as org_tasks (see that block above): app-generated TEXT id,
+# plain _get_conn()/_release() (no _with_conn — that helper is documented as
+# reads/idempotent-upserts only, and these writes aren't idempotent),
+# RealDictCursor for row reads, partial updates via an explicit column
+# whitelist, every write scoped by "AND sid=%s" as a defense-in-depth tenant
+# check even though sid is already the primary lookup key.
+
+_TASK_COLUMNS = {
+    "title", "status", "done", "date", "time", "priority", "type",
+    "goal_id", "parent_id", "recurrence", "recurrence_spawned",
+    "description", "assignee", "summary", "attach_name", "notes",
+    # deleted_at is writable through the generic whitelist too, not just via
+    # soft_delete_task()/undelete_task() below — replace_all_tasks() (the
+    # bulk /api/tasks/sync path, kept for CSV import and as a fallback) needs
+    # to persist a client-set tombstone the same way it persists every other
+    # field. Omitting it here would silently drop soft-deletes on every bulk
+    # sync — the exact bug the soft-delete feature was built to prevent.
+    "deleted_at",
+}
+
+
+def _row_to_task(row: dict) -> dict:
+    """psycopg2 hands back TIMESTAMPTZ columns as real datetime objects, but
+    every other storage path in this app (the JSON-fallback branch, the old
+    user_blobs JSONB blob, the client's own localStorage) has always dealt in
+    plain ISO strings — deleted_at in particular gets compared/parsed as a
+    string throughout routes/tasks.py and js/features/tasks.js. Normalize
+    here once so callers never have to care which backend served the row."""
+    d = dict(row)
+    for key in ("deleted_at", "created_at", "updated_at"):
+        if d.get(key) is not None and hasattr(d[key], "isoformat"):
+            d[key] = d[key].isoformat()
+    return d
+
+
+def get_tasks(sid: str, include_deleted: bool = False) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if include_deleted:
+                cur.execute("SELECT * FROM tasks WHERE sid=%s ORDER BY created_at", (sid,))
+            else:
+                cur.execute("SELECT * FROM tasks WHERE sid=%s AND deleted_at IS NULL ORDER BY created_at", (sid,))
+            return [_row_to_task(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_tasks: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def get_trashed_tasks(sid: str) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM tasks WHERE sid=%s AND deleted_at IS NOT NULL ORDER BY deleted_at DESC", (sid,))
+            return [_row_to_task(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_trashed_tasks: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def get_task(task_id: str, sid: str) -> dict | None:
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM tasks WHERE id=%s AND sid=%s", (task_id, sid))
+            row = cur.fetchone()
+            return _row_to_task(row) if row else None
+    except Exception as exc:
+        log.error(f"get_task: {exc}")
+        return None
+    finally:
+        _release(conn)
+
+
+def create_task(sid: str, task_id: str, title: str, **fields) -> bool:
+    """fields may include any of _TASK_COLUMNS; unknown keys are ignored. id/
+    sid/title always come from the positional args, never from **fields, even
+    if a caller's dict happens to still contain them — see replace_all_tasks'
+    identical guard for why this matters."""
+    cols = {k: v for k, v in fields.items() if k in _TASK_COLUMNS and k not in ("id", "sid", "title")}
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            names = ["id", "sid", "title"] + list(cols.keys())
+            vals  = [task_id, sid, title] + list(cols.values())
+            placeholders = ", ".join(["%s"] * len(vals))
+            cur.execute(
+                f"INSERT INTO tasks ({', '.join(names)}) VALUES ({placeholders})",
+                vals,
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_task: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def update_task(task_id: str, sid: str, updates: dict) -> bool:
+    """Partial update — only columns in _TASK_COLUMNS are ever touched."""
+    sets = {k: v for k, v in updates.items() if k in _TASK_COLUMNS}
+    if not sets:
+        return True
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cols = ", ".join(f"{k}=%s" for k in sets)
+            cur.execute(
+                f"UPDATE tasks SET {cols}, updated_at=NOW() WHERE id=%s AND sid=%s",
+                (*sets.values(), task_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"update_task: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def soft_delete_task(task_id: str, sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE tasks SET deleted_at=NOW(), updated_at=NOW() WHERE id=%s AND sid=%s",
+                (task_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"soft_delete_task: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def undelete_task(task_id: str, sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE tasks SET deleted_at=NULL, updated_at=NOW() WHERE id=%s AND sid=%s",
+                (task_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"undelete_task: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def replace_all_tasks(sid: str, tasks: list) -> bool:
+    """Bulk replace — delete every row for sid, reinsert the given list. Used
+    only by /api/tasks/sync (CSV import, and any full-resync path) — the
+    per-entity functions above are what live single-task edits use now. Keeps
+    the exact whole-array-overwrite semantics the old user_blobs blob had, so
+    existing bulk callers don't need to change shape."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM tasks WHERE sid=%s", (sid,))
+            for t in tasks:
+                # id/sid/title always go in the fixed prefix below — excluded
+                # here too (not just by callers) so this can't silently
+                # double-list "title" if a caller's dict happens to include
+                # it, the way a first version of this function did.
+                cols = {k: v for k, v in t.items() if k in _TASK_COLUMNS and k not in ("id", "sid", "title")}
+                names = ["id", "sid", "title"] + list(cols.keys())
+                vals  = [t["id"], sid, t.get("title", "")] + list(cols.values())
+                placeholders = ", ".join(["%s"] * len(vals))
+                cur.execute(
+                    f"INSERT INTO tasks ({', '.join(names)}) VALUES ({placeholders})",
+                    vals,
+                )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"replace_all_tasks: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def purge_expired_tasks(cutoff_iso: str) -> int:
+    """Permanently remove tasks soft-deleted before `cutoff_iso` (an ISO
+    timestamp string), across every user in one query — for the scheduled
+    purge job. Returns the number of rows removed."""
+    conn = _get_conn()
+    if not conn:
+        return 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < %s",
+                (cutoff_iso,),
+            )
+            count = cur.rowcount
+        conn.commit()
+        return count
+    except Exception as exc:
+        log.error(f"purge_expired_tasks: {exc}")
+        conn.rollback()
+        return 0
+    finally:
+        _release(conn)
+
+
+# ── Personal habits (real table, per-entity ops) ──────────────
+# Same shape as the tasks block above — see that section's comments for the
+# full rationale (blob -> table migration, id-collision fix, whitelist
+# pattern). Only real difference: `completions` is JSONB, so writes need to
+# go through _json.dumps() while every other column is a plain scalar.
+
+_HABIT_COLUMNS = {
+    "title", "emoji", "frequency", "streak", "best_streak", "completions",
+    "deleted_at",
+}
+
+
+def _habit_param(key: str, value):
+    """completions is the one JSONB column here — everything else is a plain
+    scalar psycopg2 can bind directly."""
+    if key == "completions":
+        import json as _json
+        return _json.dumps(value if value is not None else [])
+    return value
+
+
+def _row_to_habit(row: dict) -> dict:
+    d = dict(row)
+    for key in ("deleted_at", "created_at", "updated_at"):
+        if d.get(key) is not None and hasattr(d[key], "isoformat"):
+            d[key] = d[key].isoformat()
+    return d
+
+
+def get_habits(sid: str, include_deleted: bool = False) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if include_deleted:
+                cur.execute("SELECT * FROM habits WHERE sid=%s ORDER BY created_at", (sid,))
+            else:
+                cur.execute("SELECT * FROM habits WHERE sid=%s AND deleted_at IS NULL ORDER BY created_at", (sid,))
+            return [_row_to_habit(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_habits: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def get_trashed_habits(sid: str) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM habits WHERE sid=%s AND deleted_at IS NOT NULL ORDER BY deleted_at DESC", (sid,))
+            return [_row_to_habit(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_trashed_habits: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def get_habit(habit_id: str, sid: str) -> dict | None:
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM habits WHERE id=%s AND sid=%s", (habit_id, sid))
+            row = cur.fetchone()
+            return _row_to_habit(row) if row else None
+    except Exception as exc:
+        log.error(f"get_habit: {exc}")
+        return None
+    finally:
+        _release(conn)
+
+
+def create_habit(sid: str, habit_id: str, title: str, **fields) -> bool:
+    cols = {k: v for k, v in fields.items() if k in _HABIT_COLUMNS and k not in ("id", "sid", "title")}
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            names = ["id", "sid", "title"] + list(cols.keys())
+            vals  = [habit_id, sid, title] + [_habit_param(k, v) for k, v in cols.items()]
+            placeholders = ", ".join(["%s"] * len(vals))
+            cur.execute(
+                f"INSERT INTO habits ({', '.join(names)}) VALUES ({placeholders})",
+                vals,
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_habit: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def update_habit(habit_id: str, sid: str, updates: dict) -> bool:
+    """Partial update — only columns in _HABIT_COLUMNS are ever touched."""
+    sets = {k: v for k, v in updates.items() if k in _HABIT_COLUMNS}
+    if not sets:
+        return True
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cols = ", ".join(f"{k}=%s" for k in sets)
+            vals = [_habit_param(k, v) for k, v in sets.items()]
+            cur.execute(
+                f"UPDATE habits SET {cols}, updated_at=NOW() WHERE id=%s AND sid=%s",
+                (*vals, habit_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"update_habit: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def soft_delete_habit(habit_id: str, sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE habits SET deleted_at=NOW(), updated_at=NOW() WHERE id=%s AND sid=%s",
+                (habit_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"soft_delete_habit: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def undelete_habit(habit_id: str, sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE habits SET deleted_at=NULL, updated_at=NOW() WHERE id=%s AND sid=%s",
+                (habit_id, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"undelete_habit: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def replace_all_habits(sid: str, habits: list) -> bool:
+    """Bulk replace — used only by /api/habits/sync (full-resync fallback);
+    per-entity functions above are what live single-habit edits use now."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM habits WHERE sid=%s", (sid,))
+            for h in habits:
+                cols = {k: v for k, v in h.items() if k in _HABIT_COLUMNS and k not in ("id", "sid", "title")}
+                names = ["id", "sid", "title"] + list(cols.keys())
+                vals  = [h["id"], sid, h.get("title", "")] + [_habit_param(k, v) for k, v in cols.items()]
+                placeholders = ", ".join(["%s"] * len(vals))
+                cur.execute(
+                    f"INSERT INTO habits ({', '.join(names)}) VALUES ({placeholders})",
+                    vals,
+                )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"replace_all_habits: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def purge_expired_habits(cutoff_iso: str) -> int:
+    """Permanently remove habits soft-deleted before `cutoff_iso` — for the
+    scheduled purge job. Returns the number of rows removed."""
+    conn = _get_conn()
+    if not conn:
+        return 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM habits WHERE deleted_at IS NOT NULL AND deleted_at < %s",
+                (cutoff_iso,),
+            )
+            count = cur.rowcount
+        conn.commit()
+        return count
+    except Exception as exc:
+        log.error(f"purge_expired_habits: {exc}")
+        conn.rollback()
+        return 0
+    finally:
+        _release(conn)
+
+
+# ── In-app notifications + Expo push tokens ───────────────────
+
+def create_notification(sid: str, nid: str, title: str, body: str = "", url: str = "/app") -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO notifications (id, sid, title, body, url) VALUES (%s, %s, %s, %s, %s)",
+                (nid, sid, title, body, url),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"create_notification: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def get_notifications(sid: str, limit: int = 50) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM notifications WHERE sid=%s ORDER BY created_at DESC LIMIT %s",
+                (sid, limit),
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+            for r in rows:
+                for key in ("read_at", "created_at"):
+                    if r.get(key) is not None and hasattr(r[key], "isoformat"):
+                        r[key] = r[key].isoformat()
+            return rows
+    except Exception as exc:
+        log.error(f"get_notifications: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def mark_notification_read(nid: str, sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE notifications SET read_at=NOW() WHERE id=%s AND sid=%s AND read_at IS NULL",
+                (nid, sid),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"mark_notification_read: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def mark_all_notifications_read(sid: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE notifications SET read_at=NOW() WHERE sid=%s AND read_at IS NULL",
+                (sid,),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"mark_all_notifications_read: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def count_unread_notifications(sid: str) -> int:
+    conn = _get_conn()
+    if not conn:
+        return 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM notifications WHERE sid=%s AND read_at IS NULL", (sid,))
+            return cur.fetchone()[0]
+    except Exception as exc:
+        log.error(f"count_unread_notifications: {exc}")
+        return 0
+    finally:
+        _release(conn)
+
+
+def save_expo_push_token(sid: str, token: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO expo_push_tokens (sid, token) VALUES (%s, %s) ON CONFLICT (sid, token) DO NOTHING",
+                (sid, token),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"save_expo_push_token: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def get_expo_push_tokens(sid: str) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT token FROM expo_push_tokens WHERE sid=%s", (sid,))
+            return [r[0] for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_expo_push_tokens: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def delete_expo_push_token(token: str) -> None:
+    """Called when Expo reports a token as dead (DeviceNotRegistered) — no sid
+    needed, the token itself is unique enough to target the stale row."""
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM expo_push_tokens WHERE token=%s", (token,))
+        conn.commit()
+    except Exception as exc:
+        log.error(f"delete_expo_push_token: {exc}")
+        conn.rollback()
     finally:
         _release(conn)
 

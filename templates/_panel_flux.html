@@ -1,9 +1,14 @@
 {# ── FLUX / TASKS ── #}
-<!-- If not already loaded in your base <head>, add once:
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css"> -->
+<!-- Self-hosted: the CDN copy is blocked by this app's own CSP
+     (style-src 'self'), so this was a live console error on every visit
+     to the Tasks panel. index.html already loads this exact file once for
+     the whole app shell — this second load was pure redundancy even before
+     the CSP block. Found via a live browser check while verifying the
+     tasks-table migration; unrelated to that change, same class of bug as
+     the earlier landing.html/index.html icon-font fixes this session. -->
 <link
   rel="stylesheet"
-  href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css"
+  href="{{ asset('/static/vendor/tabler/tabler-icons.min.css') }}"
 />
 
 <style>
@@ -43,15 +48,15 @@
 
     background: var(--fx-bg);
     color: var(--fx-t1);
-    font-family: var(
-      --font-body,
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      system-ui,
-      sans-serif
-    );
-    display: flex;
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI",
+      var(--font-body, system-ui), sans-serif;
+    /* No `display` here on purpose — .panel{display:none}/.panel.active
+       {display:flex} in panels.css already control visibility, and an ID
+       selector here would outrank that class rule regardless of source
+       order, forcing this panel to always render on top of whichever panel
+       is actually .active. flex-direction below only takes effect once the
+       shared rule turns display on, so it's safe to keep scoped here. */
     flex-direction: column;
     position: relative;
     overflow: hidden;
