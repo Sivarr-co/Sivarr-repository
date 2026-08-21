@@ -7,35 +7,50 @@
 />
 
 <style>
-  /* ══ Flux design tokens (scoped, doesn't leak outside #panel-flux) ══ */
+  /* ══ Flux design tokens ══
+     These --fx-* names are kept so the rest of this file doesn't need to
+     change, but they now ALIAS the app's global design-system variables
+     (base.css / panels.css) instead of hardcoding a standalone black/purple
+     palette. That fixes two real problems the old tokens had:
+       1) Flux always rendered near-black regardless of the user's
+          Settings → Appearance → Theme choice (Light/Dark/System).
+       2) Flux ignored the user's custom accent colour (Settings has a full
+          colour wheel that sets --accent/--accent2) and used a hardcoded
+          #8a2be2 purple instead.
+     Scoped to #panel-flux so nothing here leaks to other panels. */
   #panel-flux {
-    --fx-bg: #000000;
-    --fx-bg2: #050505;
-    --fx-card: #0c0c0c;
-    --fx-card2: #111111;
-    --fx-line: #1c1c1c;
-    --fx-line2: #262626;
-    --fx-accent: #8a2be2;
-    --fx-accent-dim: #1c0e2e;
-    --fx-accent-soft: #c9a8f0;
-    --fx-green: #1d9e75;
-    --fx-green-dim: #0a2416;
-    --fx-red: #e24b4a;
-    --fx-red-dim: #2a0a0a;
-    --fx-blue: #378add;
-    --fx-blue-dim: #0a1a2a;
-    --fx-amber: #e0a040;
-    --fx-amber-dim: #2a1a04;
-    --fx-t1: #f5f4f2;
-    --fx-t2: #9b9891;
-    --fx-t3: #666660;
-    --fx-t4: #3d3c39;
+    --fx-bg: var(--bg);
+    --fx-bg2: var(--bg2);
+    --fx-card: var(--card, var(--bg2));
+    --fx-card2: var(--bg3);
+    --fx-line: var(--border);
+    --fx-line2: var(--border2);
+    --fx-accent: var(--accent);
+    --fx-accent-dim: var(--purple2, rgba(139, 92, 246, 0.14));
+    --fx-accent-soft: var(--accent2);
+    --fx-green: var(--green, #1d9e75);
+    --fx-green-dim: var(--green2, rgba(29, 158, 117, 0.14));
+    --fx-red: var(--red, #e24b4a);
+    --fx-red-dim: var(--red2, rgba(226, 75, 74, 0.14));
+    --fx-blue: var(--blue, #378add);
+    --fx-blue-dim: var(--blue2, rgba(55, 138, 221, 0.14));
+    --fx-amber: var(--amber, #e0a040);
+    --fx-amber-dim: var(--amber2, rgba(224, 160, 64, 0.14));
+    --fx-t1: var(--text1);
+    --fx-t2: var(--text2);
+    --fx-t3: var(--text3);
+    --fx-t4: var(--text4);
 
     background: var(--fx-bg);
     color: var(--fx-t1);
-    font-family:
-      -apple-system, BlinkMacSystemFont, "Segoe UI",
-      var(--font-body, system-ui), sans-serif;
+    font-family: var(
+      --font-body,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      system-ui,
+      sans-serif
+    );
     display: flex;
     flex-direction: column;
     position: relative;
@@ -65,12 +80,14 @@
     flex-wrap: wrap;
   }
   #panel-flux .fx-title {
+    font-family: var(--font-display);
     font-weight: 800;
     font-size: 1.05rem;
     letter-spacing: -0.02em;
     display: flex;
     align-items: center;
     gap: 7px;
+    color: var(--fx-t1);
   }
   #panel-flux .fx-title i {
     color: var(--fx-accent-soft);
@@ -102,6 +119,7 @@
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.15s;
+    font-family: var(--font);
   }
   #panel-flux .sh-view-btn i {
     font-size: 0.9rem;
@@ -113,7 +131,9 @@
   #panel-flux .sh-view-btn.active {
     background: var(--fx-t1);
     border-color: var(--fx-t1);
-    color: #000;
+    /* Use the panel bg (not a hardcoded #000) so the label stays readable
+       against --fx-t1 in both light and dark themes. */
+    color: var(--fx-bg);
     font-weight: 700;
   }
 
@@ -130,6 +150,7 @@
     font-weight: 700;
     cursor: pointer;
     transition: filter 0.15s;
+    font-family: var(--font);
   }
   #panel-flux .sh-add-task-btn:hover {
     filter: brightness(1.1);
@@ -164,7 +185,7 @@
     border-radius: 12px;
     padding: 12px 14px;
     min-width: 200px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--shadow3, 0 12px 32px rgba(0, 0, 0, 0.28));
   }
   #panel-flux .sh-dropdown-label {
     font-size: 0.68rem;
@@ -213,7 +234,7 @@
   #panel-flux #sh-progress-bar {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, var(--fx-accent), #a855f7);
+    background: linear-gradient(90deg, var(--fx-accent), var(--fx-accent-soft));
     border-radius: 99px;
     transition: width 0.5s ease;
   }
@@ -260,7 +281,7 @@
     transition: background 0.1s;
   }
   #panel-flux #sh-overview-rows tr:hover {
-    background: rgba(255, 255, 255, 0.025);
+    background: var(--fx-card2);
   }
   #panel-flux #sh-overview-rows td {
     padding: 10px 10px;
@@ -286,6 +307,7 @@
     cursor: pointer;
     text-align: left;
     transition: background 0.12s;
+    font-family: var(--font);
   }
   #panel-flux tfoot button:hover {
     background: var(--fx-card);
@@ -349,7 +371,7 @@
     align-items: center;
     gap: 8px;
     z-index: 5;
-    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--shadow2, 0 -4px 18px rgba(0, 0, 0, 0.18));
     flex-shrink: 0;
   }
   #panel-flux #sh-bulk-count {
@@ -361,7 +383,7 @@
   #panel-flux .fx-bulk-btn {
     border-radius: 8px;
     padding: 6px 13px;
-    font-family: inherit;
+    font-family: var(--font);
     font-size: 0.76rem;
     font-weight: 700;
     cursor: pointer;
@@ -369,13 +391,13 @@
   }
   #panel-flux .fx-bulk-btn.complete {
     background: var(--fx-green-dim);
-    border-color: #1d9e7550;
-    color: #3fcf9e;
+    border-color: var(--fx-green);
+    color: var(--fx-green);
   }
   #panel-flux .fx-bulk-btn.delete {
     background: var(--fx-red-dim);
-    border-color: #e24b4a50;
-    color: #f07271;
+    border-color: var(--fx-red);
+    color: var(--fx-red);
   }
   #panel-flux .fx-bulk-select {
     background: var(--fx-card);
@@ -383,7 +405,7 @@
     border-radius: 8px;
     padding: 6px 10px;
     color: var(--fx-t1);
-    font-family: inherit;
+    font-family: var(--font);
     font-size: 0.76rem;
     cursor: pointer;
     outline: none;
@@ -394,7 +416,7 @@
     border-radius: 8px;
     padding: 6px 10px;
     color: var(--fx-t3);
-    font-family: inherit;
+    font-family: var(--font);
     font-size: 0.76rem;
     cursor: pointer;
   }
@@ -467,6 +489,7 @@
     cursor: pointer;
     margin-top: 8px;
     transition: all 0.12s;
+    font-family: var(--font);
   }
   #panel-flux .sh-col-add:hover {
     border-color: var(--fx-accent);
@@ -486,6 +509,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    color: var(--fx-t1);
   }
   #panel-flux .sh-input {
     background: var(--fx-bg2);
@@ -493,7 +517,7 @@
     border-radius: 9px;
     padding: 9px 11px;
     color: var(--fx-t1);
-    font-family: inherit;
+    font-family: var(--font);
     outline: none;
     width: 100%;
   }
@@ -505,7 +529,7 @@
   }
   #panel-flux .sh-add-btn {
     background: var(--fx-accent-dim);
-    border: 1px solid #2a1a3e;
+    border: 1px solid var(--fx-line2);
     color: var(--fx-accent-soft);
     border-radius: 9px;
     padding: 9px;
@@ -513,6 +537,7 @@
     font-weight: 700;
     cursor: pointer;
     transition: filter 0.12s;
+    font-family: var(--font);
   }
   #panel-flux .sh-add-btn:hover {
     filter: brightness(1.2);
@@ -548,7 +573,7 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.72);
+    background: rgba(0, 0, 0, 0.55);
     z-index: 1000;
     align-items: center;
     justify-content: center;
@@ -563,15 +588,17 @@
     max-width: 520px;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+    box-shadow: var(--shadow3, 0 24px 70px rgba(0, 0, 0, 0.35));
   }
   #panel-flux .fx-modal-heading {
+    font-family: var(--font-display);
     font-weight: 700;
     font-size: 1rem;
     margin-bottom: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    color: var(--fx-t1);
   }
   #panel-flux .fx-modal-close {
     background: none;
@@ -602,7 +629,7 @@
     border: none;
     border-radius: 10px;
     padding: 11px;
-    font-family: inherit;
+    font-family: var(--font);
     font-size: 0.85rem;
     font-weight: 700;
     cursor: pointer;
@@ -618,7 +645,7 @@
     border-radius: 10px;
     padding: 11px;
     color: var(--fx-t2);
-    font-family: inherit;
+    font-family: var(--font);
     font-size: 0.85rem;
     cursor: pointer;
     flex: 1;
@@ -636,7 +663,7 @@
     color: var(--fx-t2);
     font-size: 0.76rem;
     cursor: pointer;
-    font-family: inherit;
+    font-family: var(--font);
     transition: border-color 0.15s;
   }
   #panel-flux .fx-attach-btn:hover {
@@ -654,7 +681,7 @@
     background: var(--fx-card);
     border-left: 1px solid var(--fx-line2);
     z-index: 300;
-    box-shadow: -8px 0 36px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--shadow3, -8px 0 36px rgba(0, 0, 0, 0.3));
     transform: translateX(100%);
     transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
@@ -701,7 +728,7 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.4);
     z-index: 299;
   }
 
