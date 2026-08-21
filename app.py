@@ -2273,6 +2273,25 @@ async def app_index():
     return _serve_app()
 
 
+# Deep-linkable sidebar panels/spaces — must mirror js/app.js's NAV_TABS keys
+# (plus "org") so a bookmarked/shared URL like /marketplace boots straight into
+# that panel. Each gets its own literal route (not a wildcard) so it can never
+# shadow an unrelated path like /admin or /health.
+PUBLIC_APP_SLUGS = [
+    "chat", "home", "announcements",
+    "flux", "goals", "calendar", "notes", "templates",
+    "skills", "finance", "habits", "journal", "stats", "review",
+    "community", "marketplace", "agents",
+    "quiz", "lab", "studyplan", "contenthub", "profile", "settings",
+    "org",
+]
+for _slug in PUBLIC_APP_SLUGS:
+    app.add_api_route(
+        f"/{_slug}", app_index, methods=["GET"],
+        response_class=HTMLResponse, include_in_schema=False,
+    )
+
+
 @app.get("/billing/callback")
 async def billing_callback(reference: str = "", trxref: str = "", plan: str = ""):
     """Paystack billing redirect — forward to SPA with billing params."""

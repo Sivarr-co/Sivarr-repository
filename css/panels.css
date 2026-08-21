@@ -8134,6 +8134,74 @@
   color: var(--muted);
 }
 
+/* Live doc co-editing modal — reuses .doc-toolbar/.doc-tb-btn/.doc-content
+   from css/features/docs_notes.css (not scoped to #panel-notes, safe to
+   share) for the toolbar and editor surface itself; just the modal chrome
+   is defined here. */
+.os-doc-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.os-doc-modal {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 860px;
+  height: 100%;
+  max-height: 780px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow2, 0 20px 60px rgba(0, 0, 0, 0.4));
+}
+.os-doc-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.os-doc-title-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--fg);
+  font-family: inherit;
+  min-width: 0;
+}
+.os-doc-save-status {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.os-doc-close-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+.os-doc-close-btn:hover {
+  color: var(--fg);
+}
+#org-doc-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
 .os-member-row {
   display: flex;
   align-items: center;

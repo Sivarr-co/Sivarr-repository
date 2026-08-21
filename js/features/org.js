@@ -1399,36 +1399,326 @@ async function orgNewDoc() {
   }
 }
 
+// ── Live doc co-editing (real-time collab Week 3-4) ─────────────────────
+// Yjs is a CRDT — two people typing in the same doc simultaneously never
+// lose either person's changes, unlike the old plain-textarea modal this
+// replaces (whoever saved last silently overwrote the other). The server
+// (routes/org.py's org_doc_ws) never understands Yjs updates, it's a pure
+// relay — the same Redis-pub/sub-with-local-fallback shape as presence and
+// live task sync, just carrying opaque base64 payloads instead of JSON
+// event objects. See that route's docstring for the full design.
+//
+// Scope for v1, deliberately: no live cursors/avatars (would need Yjs's
+// Awareness protocol on top of this, a separate piece of work — the save-
+// status text is the only presence signal for now) and a small, accepted
+// race (two people opening a never-before-live-edited doc within the same
+// instant could both seed its initial content, producing a one-time
+// duplicate a user can just delete) rather than building a full peer-
+// state-request handshake for an edge case this rare.
+
+let _ORG_DOC_YDOC = null;
+let _ORG_DOC_WS = null;
+let _ORG_DOC_EDITOR = null;
+let _ORG_DOC_ID = null;
+let _ORG_DOC_SAVE_TIMER = null;
+let _ORG_DOC_TITLE = "";
+let _ORG_DOC_READY = false;      // has this doc's Y.Doc been seeded from a canonical source yet
+let _ORG_DOC_SYNC_TIMER = null;  // pending "nobody answered our sync-request" fallback
+
 async function orgOpenDoc(docId) {
-  const doc = ORG_DOCS.find((d) => String(d.id) === String(docId));
-  if (!doc) return;
-  const content = await siModal.form(
-    "Edit Document",
-    [
-      {
-        id: "content",
-        label: "Content",
-        type: "textarea",
-        placeholder: "Write here…",
-        default: doc.content || "",
-      },
+  if (!ORG_DOCS.some((d) => String(d.id) === String(docId))) return;
+  if (!window._tiptap) {
+    toast("Editor still loading, try again in a moment");
+    return;
+  }
+
+  _ORG_DOC_ID = docId;
+  const modal = $("org-doc-modal");
+  if (modal) modal.style.display = "flex";
+  _orgDocSetSaveStatus("Loading…");
+
+  // ORG_DOCS (from GET /api/org/get, used for the doc grid) never carries
+  // `content` — that column is deliberately left out of the list query.
+  // Full content only comes from a dedicated fetch here.
+  let doc;
+  try {
+    const r = await API("/api/org/docs/get", { token: getToken() || "", doc_id: docId });
+    doc = r.doc || {};
+  } catch (e) {
+    toast(e.message || "Could not load document");
+    if (modal) modal.style.display = "none";
+    _ORG_DOC_ID = null;
+    return;
+  }
+  _ORG_DOC_TITLE = doc.title || "";
+  const titleInput = $("org-doc-title");
+  if (titleInput) titleInput.value = _ORG_DOC_TITLE;
+
+  const { Editor, StarterKit, Collaboration, Y } = window._tiptap;
+  _ORG_DOC_YDOC = new Y.Doc();
+  _ORG_DOC_READY = false;
+
+  const mount = $("org-doc-content");
+  if (mount) mount.innerHTML = "";
+  _ORG_DOC_EDITOR = new Editor({
+    element: mount,
+    extensions: [
+      // history:false — Yjs's own undo history (via the Y.Doc) is what
+      // needs to drive undo/redo once Collaboration owns the document;
+      // StarterKit's built-in history operates on plain ProseMirror steps
+      // and doesn't know about remote edits at all.
+      StarterKit.configure({ heading: { levels: [1, 2, 3] }, history: false }),
+      Collaboration.configure({ document: _ORG_DOC_YDOC }),
     ],
-    { confirmLabel: "Save" },
-  );
-  if (content === null) return;
+    onUpdate() {
+      _orgDocSetSaveStatus("Unsaved…");
+      _orgDocScheduleSave();
+    },
+  });
+
+  // Deliberately NOT seeding content here. Two Y.Docs independently seeded
+  // via setContent() from the same HTML are NOT merge-compatible with each
+  // other -- each setContent() run builds its own internal item/clock
+  // structure keyed to a random per-Y.Doc client id, so a peer's later Yjs
+  // update references anchor items that simply don't exist in an
+  // independently-seeded doc. Yjs stays silent about this (no exception --
+  // the update just sits permanently unintegrated) rather than erroring, so
+  // it looks like live sync is "working" right up until you check whether
+  // the content actually merged. _orgDocConnectWS runs a short join-sync
+  // handshake first: if anyone else already has this doc open, we adopt
+  // THEIR exact Y.Doc state instead of re-deriving our own.
+  _orgDocConnectWS(docId, doc);
+}
+
+function _orgDocConnectWS(docId, doc) {
+  if (_ORG_DOC_WS) {
+    _ORG_DOC_WS.onclose = null;
+    _ORG_DOC_WS.close();
+  }
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  let ws;
+  try {
+    ws = new WebSocket(`${proto}//${location.host}/api/org/docs/${docId}/ws`);
+  } catch (_) {
+    _orgDocSetSaveStatus("Live sync unavailable");
+    _orgDocSeedFallback(doc);
+    return;
+  }
+  _ORG_DOC_WS = ws;
+
+  // Relay every local Yjs update to the server the instant it happens —
+  // Y.Doc's own "update" event fires for edits from THIS editor instance
+  // only (not for updates applied via Y.applyUpdate below), so this can't
+  // create an echo loop.
+  const updateHandler = (update) => {
+    if (ws.readyState !== 1) return;
+    ws.send(JSON.stringify({ type: "update", update: _orgDocUint8ToB64(update) }));
+  };
+  _ORG_DOC_YDOC.on("update", updateHandler);
+  ws._updateHandler = updateHandler; // stashed for cleanup in orgCloseDocEditor
+
+  ws.onopen = () => {
+    if (_ORG_DOC_READY) {
+      // Reconnect after a drop -- our Y.Doc already has our own edits, no
+      // need to re-run the join handshake, just resume relaying.
+      _orgDocSetSaveStatus("Live");
+      return;
+    }
+    _orgDocSetSaveStatus("Syncing…");
+    ws.send(JSON.stringify({ type: "sync-request" }));
+    // Nobody answers within this window => we're the first live client for
+    // this doc; seed from what's persisted and become the new canonical
+    // source for anyone who joins after us.
+    _ORG_DOC_SYNC_TIMER = setTimeout(() => _orgDocSeedFallback(doc), 400);
+  };
+
+  ws.onmessage = (e) => {
+    let d;
+    try {
+      d = JSON.parse(e.data);
+    } catch (_) {
+      return;
+    }
+    if (d.from_sid === S.sid) return;
+    const { Y } = window._tiptap;
+
+    if (d.type === "sync-request") {
+      if (_ORG_DOC_READY && ws.readyState === 1) {
+        ws.send(JSON.stringify({
+          type: "sync-response",
+          state: _orgDocUint8ToB64(Y.encodeStateAsUpdate(_ORG_DOC_YDOC)),
+        }));
+      }
+      return;
+    }
+    if (d.type === "sync-response" && d.state) {
+      if (_ORG_DOC_SYNC_TIMER) {
+        clearTimeout(_ORG_DOC_SYNC_TIMER);
+        _ORG_DOC_SYNC_TIMER = null;
+      }
+      if (!_ORG_DOC_READY) {
+        try {
+          Y.applyUpdate(_ORG_DOC_YDOC, _orgDocB64ToUint8(d.state));
+        } catch (err) {
+          console.warn("org doc: failed to apply peer sync state", err);
+        }
+        _ORG_DOC_READY = true;
+        _orgDocSetSaveStatus("Live");
+      }
+      return;
+    }
+    if (d.type === "update" && d.update) {
+      try {
+        Y.applyUpdate(_ORG_DOC_YDOC, _orgDocB64ToUint8(d.update));
+      } catch (err) {
+        console.warn("org doc: failed to apply remote update", err);
+      }
+    }
+  };
+
+  ws.onclose = () => {
+    if (_ORG_DOC_SYNC_TIMER) {
+      clearTimeout(_ORG_DOC_SYNC_TIMER);
+      _ORG_DOC_SYNC_TIMER = null;
+    }
+    if (_ORG_DOC_WS === ws) _ORG_DOC_WS = null;
+    if (_ORG_DOC_ID === docId) _orgDocSetSaveStatus("Reconnecting…");
+    // Same-doc reconnect after a drop — mirrors _ocConnectSSE's retry.
+    setTimeout(() => {
+      if (_ORG_DOC_ID === docId) _orgDocConnectWS(docId, doc);
+    }, 3000);
+  };
+  ws.onerror = () => {};
+}
+
+// Seeds this client's Y.Doc from the last-persisted state when no live peer
+// answered our join-sync request (i.e. we're the first person with this doc
+// open right now). Prefers the actual Yjs snapshot (applyUpdate keeps every
+// client's CRDT history compatible); falls back to the derived HTML via
+// setContent() only for a doc that's never been through the collab editor
+// before -- this client's next save then becomes the seed for everyone
+// after it.
+function _orgDocSeedFallback(doc) {
+  if (_ORG_DOC_READY) return;
+  const { Y } = window._tiptap;
+  if (doc.yjs_state) {
+    try {
+      Y.applyUpdate(_ORG_DOC_YDOC, _orgDocB64ToUint8(doc.yjs_state));
+    } catch (err) {
+      console.warn("org doc: failed to apply persisted yjs_state, falling back to content", err);
+      if (doc.content) _ORG_DOC_EDITOR.commands.setContent(doc.content);
+    }
+  } else if (doc.content && _ORG_DOC_YDOC.getXmlFragment("default").length === 0) {
+    _ORG_DOC_EDITOR.commands.setContent(doc.content);
+  }
+  _ORG_DOC_READY = true;
+  _orgDocSetSaveStatus("Live");
+}
+
+function _orgDocUint8ToB64(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function _orgDocB64ToUint8(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function _orgDocFormat(cmd) {
+  if (!_ORG_DOC_EDITOR) return;
+  const c = _ORG_DOC_EDITOR.chain().focus();
+  (
+    ({
+      bold: c.toggleBold(),
+      italic: c.toggleItalic(),
+      underline: c.toggleUnderline(),
+      insertUnorderedList: c.toggleBulletList(),
+      insertOrderedList: c.toggleOrderedList(),
+    })[cmd] || c
+  ).run();
+}
+
+function _orgDocFormatBlock(tag) {
+  if (!_ORG_DOC_EDITOR) return;
+  const c = _ORG_DOC_EDITOR.chain().focus();
+  (
+    ({
+      h1: c.toggleHeading({ level: 1 }),
+      h2: c.toggleHeading({ level: 2 }),
+      blockquote: c.toggleBlockquote(),
+    })[tag] || c
+  ).run();
+}
+
+function _orgDocSetSaveStatus(text) {
+  const el = $("org-doc-save-status");
+  if (el) el.textContent = text;
+}
+
+function _orgDocTitleChanged() {
+  _ORG_DOC_TITLE = $("org-doc-title")?.value || "";
+  _orgDocSetSaveStatus("Unsaved…");
+  _orgDocScheduleSave();
+}
+
+function _orgDocScheduleSave() {
+  if (_ORG_DOC_SAVE_TIMER) clearTimeout(_ORG_DOC_SAVE_TIMER);
+  _ORG_DOC_SAVE_TIMER = setTimeout(_orgDocSaveNow, 1500);
+}
+
+async function _orgDocSaveNow() {
+  if (!_ORG_DOC_EDITOR || !_ORG_DOC_ID) return;
   const token = getToken() || "";
   try {
+    const { Y } = window._tiptap;
+    // Persist the actual Yjs CRDT snapshot alongside the derived HTML so the
+    // next person to open this doc can Y.applyUpdate from the same shared
+    // state instead of independently re-deriving an incompatible Y.Doc from
+    // the HTML (see orgOpenDoc for why that breaks live merging).
+    const yjsState = _ORG_DOC_YDOC ? _orgDocUint8ToB64(Y.encodeStateAsUpdate(_ORG_DOC_YDOC)) : undefined;
     await API("/api/org/docs/save", {
       token,
-      doc_id: docId,
-      title: doc.title,
-      content: content.content || "",
+      doc_id: _ORG_DOC_ID,
+      title: _ORG_DOC_TITLE || "Untitled",
+      content: _ORG_DOC_EDITOR.getHTML(),
+      yjs_state: yjsState,
     });
-    await _orgRefresh();
-    toast("Doc saved");
+    _orgDocSetSaveStatus("Saved");
   } catch (e) {
-    toast(e.message || "Could not save doc");
+    _orgDocSetSaveStatus("Save failed");
   }
+}
+
+async function orgCloseDocEditor() {
+  if (_ORG_DOC_SAVE_TIMER) {
+    clearTimeout(_ORG_DOC_SAVE_TIMER);
+    _ORG_DOC_SAVE_TIMER = null;
+  }
+  if (_ORG_DOC_SYNC_TIMER) {
+    clearTimeout(_ORG_DOC_SYNC_TIMER);
+    _ORG_DOC_SYNC_TIMER = null;
+  }
+  await _orgDocSaveNow(); // final flush so closing never drops the last edit
+  await _orgRefresh();
+
+  if (_ORG_DOC_WS) {
+    _ORG_DOC_WS.onclose = null; // don't auto-reconnect a deliberate close
+    _ORG_DOC_WS.close();
+    _ORG_DOC_WS = null;
+  }
+  if (_ORG_DOC_EDITOR) {
+    _ORG_DOC_EDITOR.destroy();
+    _ORG_DOC_EDITOR = null;
+  }
+  _ORG_DOC_YDOC = null;
+  _ORG_DOC_ID = null;
+  _ORG_DOC_READY = false;
+
+  const modal = $("org-doc-modal");
+  if (modal) modal.style.display = "none";
 }
 
 async function orgSendInvite() {

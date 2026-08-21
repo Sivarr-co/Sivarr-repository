@@ -457,6 +457,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_payouts_agent ON agent_payouts(agent_id);
 -- ── Migrations for existing installs ──────────────────────────
 ALTER TABLE agent_templates ADD COLUMN IF NOT EXISTS price_ngn NUMERIC(10,2);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE org_docs ADD COLUMN IF NOT EXISTS yjs_state TEXT DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     token      TEXT PRIMARY KEY,
@@ -564,6 +565,7 @@ CREATE TABLE IF NOT EXISTS org_docs (
     org_id       TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
     title        TEXT NOT NULL,
     content      TEXT DEFAULT '',
+    yjs_state    TEXT DEFAULT '',
     created_by   TEXT REFERENCES users(sid) ON DELETE SET NULL,
     updated_by   TEXT REFERENCES users(sid) ON DELETE SET NULL,
     created_at   TIMESTAMPTZ DEFAULT NOW(),
@@ -3883,16 +3885,26 @@ def get_org_docs(org_id: str, limit: int = 100) -> list:
         _release(conn)
 
 
-def save_org_doc(org_id: str, doc_id: str, title: str, content: str, user_sid: str) -> bool:
+def save_org_doc(org_id: str, doc_id: str, title: str, content: str, user_sid: str, yjs_state: str | None = None) -> bool:
     conn = _get_conn()
     if not conn: return False
     try:
         with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO org_docs (id, org_id, title, content, created_by, updated_by)
-                VALUES (%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (id) DO UPDATE SET title=%s, content=%s, updated_by=%s, updated_at=NOW()
-            """, (doc_id, org_id, title, content, user_sid, user_sid, title, content, user_sid))
+            if yjs_state is None:
+                # Plain non-collab save (e.g. title-only edit) -- leave any
+                # previously-persisted CRDT state untouched.
+                cur.execute("""
+                    INSERT INTO org_docs (id, org_id, title, content, created_by, updated_by)
+                    VALUES (%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT (id) DO UPDATE SET title=%s, content=%s, updated_by=%s, updated_at=NOW()
+                """, (doc_id, org_id, title, content, user_sid, user_sid, title, content, user_sid))
+            else:
+                cur.execute("""
+                    INSERT INTO org_docs (id, org_id, title, content, yjs_state, created_by, updated_by)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT (id) DO UPDATE SET title=%s, content=%s, yjs_state=%s, updated_by=%s, updated_at=NOW()
+                """, (doc_id, org_id, title, content, yjs_state, user_sid,
+                      user_sid, title, content, yjs_state, user_sid))
         conn.commit()
         return True
     except Exception as exc:

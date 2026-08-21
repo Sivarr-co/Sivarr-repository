@@ -94,6 +94,15 @@ _REDIS_URL = os.environ.get("REDIS_URL", "").strip()
 # build_router() only runs once per worker process anyway, but this makes
 # the singleton-per-worker intent explicit regardless of where it's read from.
 _PRESENCE_LOCAL: dict[str, set] = {}
+# Same shape, keyed by doc_id instead of org_id — one org-wide "live" socket
+# (_PRESENCE_LOCAL, presence + task sync) plus a separate per-document socket
+# opened only while that doc is actually being edited (live co-editing, see
+# org_doc_ws below). Kept as two registries rather than merging doc rooms
+# into _PRESENCE_LOCAL under a prefixed key: org_ids and doc_ids are both
+# opaque hex strings from the same uuid4().hex[:20] generator, so sharing one
+# dict without prefixing would risk an (astronomically unlikely, but free to
+# just avoid) key collision between an org and an unrelated document.
+_DOC_LOCAL: dict[str, set] = {}
 _presence_redis = None
 _presence_redis_tried = False
 _presence_sub_task = None
@@ -101,9 +110,11 @@ _presence_lock = asyncio.Lock()
 
 
 async def _get_presence_redis():
-    """Lazy singleton — one async Redis connection per worker, reused across
-    every WS connection. Returns None (permanently, for this worker's
-    lifetime) if Redis isn't configured or a first connection attempt fails."""
+    """Lazy singleton — one async Redis connection per worker, used for quick
+    request/response calls (publish, ping). A short socket_timeout is
+    correct here: a publish should never hang. Returns None (permanently,
+    for this worker's lifetime) if Redis isn't configured or a first
+    connection attempt fails."""
     global _presence_redis, _presence_redis_tried
     if _presence_redis is not None:
         return _presence_redis
@@ -123,13 +134,36 @@ async def _get_presence_redis():
     return _presence_redis
 
 
-async def _fanout_presence_local(org_id: str, payload: str):
-    """Send a presence event to this worker's own locally-connected
-    WebSockets for one org — the one fan-out code path, used both by the
-    Redis subscriber loop (every worker, including the publisher, receives
-    its own message back through psubscribe) and directly by
-    _publish_presence when Redis isn't available at all."""
-    conns = _PRESENCE_LOCAL.get(org_id)
+async def _get_presence_sub_redis():
+    """Separate connection, used only by the long-lived subscriber loop.
+    Deliberately no socket_timeout: pubsub.listen() blocks waiting for the
+    *next* message, which can legitimately be much longer than any short
+    request/response timeout — sharing _get_presence_redis()'s 3s timeout
+    here silently killed the listener on any quiet gap over 3 seconds (a
+    real bug, found via a live test with normal pauses between edits, not
+    by inspection — the earlier presence/task-sync tests happened to always
+    have back-to-back traffic dense enough to never hit it)."""
+    if not _REDIS_URL or not _aioredis:
+        return None
+    try:
+        client = _aioredis.from_url(
+            _REDIS_URL, decode_responses=True,
+            socket_connect_timeout=3, socket_timeout=None,
+        )
+        await client.ping()
+        return client
+    except Exception as exc:
+        log.warning(f"Org presence: subscriber Redis connection failed ({exc})")
+        return None
+
+
+async def _fanout_local(registry: dict, key: str, payload: str):
+    """Send a payload to this worker's own locally-connected WebSockets
+    registered under `key` in `registry` — the one fan-out code path, used
+    both by the Redis subscriber loop (every worker, including the
+    publisher, receives its own message back through psubscribe) and
+    directly by _publish_org_event when Redis isn't available at all."""
+    conns = registry.get(key)
     if not conns:
         return
     dead = []
@@ -142,66 +176,110 @@ async def _fanout_presence_local(org_id: str, payload: str):
         conns.discard(ws)
 
 
-async def _presence_subscriber_loop(client):
+async def _fanout_presence_local(org_id: str, payload: str):
+    await _fanout_local(_PRESENCE_LOCAL, org_id, payload)
+
+
+async def _fanout_doc_local(doc_id: str, payload: str):
+    await _fanout_local(_DOC_LOCAL, doc_id, payload)
+
+
+async def _presence_subscriber_loop():
     """One long-lived task per worker: listens to every org's live channels
-    (presence join/leave, and — since Week 2 of the real-time collab work —
-    task create/update/delete) and fans each message out via
-    _fanout_presence_local. A single psubscribe on both prefixes rather than
-    per-org/per-topic subscribe/unsubscribe management — org live traffic is
-    tiny, and this avoids a whole class of subscribe-lifecycle bugs for a
-    cheap fan-out. Both topics land in the same per-org connection registry
-    (_PRESENCE_LOCAL) since a client connected to org space wants both —
-    there's no separate "task sync" socket, this one carries everything."""
-    try:
-        pubsub = client.pubsub()
-        await pubsub.psubscribe("presence:*", "org_tasks:*")
-        async for message in pubsub.listen():
-            if message.get("type") != "pmessage":
-                continue
-            channel = message.get("channel", "")
-            org_id = channel.split(":", 1)[1] if ":" in channel else ""
-            await _fanout_presence_local(org_id, message["data"])
-    except Exception as exc:
-        log.warning(f"Org presence: subscriber loop ended ({exc})")
+    (presence join/leave, live task sync, and — Week 3-4 — live document
+    co-editing) and fans each message out to the matching local registry. A
+    single psubscribe across all three prefixes rather than per-room
+    subscribe/unsubscribe management — org live traffic is tiny, and this
+    avoids a whole class of subscribe-lifecycle bugs for a cheap fan-out.
+    presence/org_tasks share _PRESENCE_LOCAL (one org-wide socket carries
+    both); org_doc has its own _DOC_LOCAL, opened only while a document is
+    actually being edited.
+
+    Self-healing: any exception (a dropped Redis connection, a transient
+    timeout) reconnects and resubscribes after a short pause instead of
+    exiting for good — a WS route only re-triggers _ensure_presence_
+    subscriber() on a *new* connection, so a loop that just died on its own
+    would silently stop delivering live updates to every already-open
+    connection for the rest of the worker's life until someone happened to
+    open a new one. Found this the hard way: a real Redis client, reused
+    from _get_presence_redis(), has a socket_timeout meant for quick
+    publish/ping calls — sharing it here killed the listener on any gap
+    between messages longer than that timeout, which a live two-browser
+    test with normal pauses between edits hit immediately even though the
+    earlier presence/task-sync tests (denser traffic) never did. Fixed by
+    giving the listener its own connection with no read timeout, but kept
+    this retry loop regardless — a listener with no self-healing is a bug
+    waiting to resurface for some other transient reason."""
+    while True:
+        client = await _get_presence_sub_redis()
+        if not client:
+            await asyncio.sleep(5)
+            continue
+        try:
+            pubsub = client.pubsub()
+            await pubsub.psubscribe("presence:*", "org_tasks:*", "org_doc:*")
+            async for message in pubsub.listen():
+                if message.get("type") != "pmessage":
+                    continue
+                channel = message.get("channel", "")
+                if ":" not in channel:
+                    continue
+                prefix, key = channel.split(":", 1)
+                if prefix == "org_doc":
+                    await _fanout_doc_local(key, message["data"])
+                else:
+                    await _fanout_presence_local(key, message["data"])
+        except Exception as exc:
+            log.warning(f"Org presence: subscriber loop dropped, reconnecting ({exc})")
+            await asyncio.sleep(2)
 
 
 async def _ensure_presence_subscriber():
-    """Starts the fan-out task at most once per worker."""
+    """Starts the fan-out task at most once per worker. Cheap upfront check
+    via _get_presence_redis() (which caches "Redis unavailable" permanently
+    per worker) so a worker with no REDIS_URL configured doesn't spin up a
+    task that would just sleep-and-retry forever for nothing."""
     global _presence_sub_task
     if _presence_sub_task is not None and not _presence_sub_task.done():
         return
-    client = await _get_presence_redis()
-    if not client:
+    if not await _get_presence_redis():
         return
     async with _presence_lock:
         if _presence_sub_task is not None and not _presence_sub_task.done():
             return
-        _presence_sub_task = asyncio.create_task(_presence_subscriber_loop(client))
+        _presence_sub_task = asyncio.create_task(_presence_subscriber_loop())
 
 
-async def _publish_org_event(channel_prefix: str, org_id: str, event: dict):
-    """Broadcast an event on one org's `{channel_prefix}:{org_id}` channel —
-    shared by presence (join/leave) and live task sync (create/update/
-    delete), see _presence_subscriber_loop's docstring for why both ride the
-    same connection registry. Publishes to Redis when available — every
-    worker's subscriber loop (including this one) fans it out to its own
-    local connections from there. Without Redis (unset, or a publish
-    failure), falls straight back to a direct local-only fan-out, so same-
-    worker clients still see live updates even with no Redis at all — only
-    cross-worker delivery is lost, never live updates outright."""
+async def _publish_org_event(channel_prefix: str, key: str, event: dict):
+    """Broadcast an event on `{channel_prefix}:{key}` — shared by presence
+    (join/leave), live task sync (create/update/delete), and live doc
+    co-editing, see _presence_subscriber_loop's docstring for the registry
+    each rides. Publishes to Redis when available — every worker's
+    subscriber loop (including this one) fans it out to its own local
+    connections from there. Without Redis (unset, or a publish failure),
+    falls straight back to a direct local-only fan-out, so same-worker
+    clients still see live updates even with no Redis at all — only cross-
+    worker delivery is lost, never live updates outright."""
     payload = json.dumps(event)
     client = await _get_presence_redis()
     if client:
         try:
-            await client.publish(f"{channel_prefix}:{org_id}", payload)
+            await client.publish(f"{channel_prefix}:{key}", payload)
             return
         except Exception:
             pass
-    await _fanout_presence_local(org_id, payload)
+    if channel_prefix == "org_doc":
+        await _fanout_doc_local(key, payload)
+    else:
+        await _fanout_presence_local(key, payload)
 
 
 async def _publish_presence(org_id: str, event: dict):
     await _publish_org_event("presence", org_id, event)
+
+
+async def _publish_org_doc_event(doc_id: str, event: dict):
+    await _publish_org_event("org_doc", doc_id, event)
 
 
 async def _publish_org_task_event(org_id: str, event: dict):
@@ -982,7 +1060,17 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         doc_id  = sanitize_text(str(data.get("doc_id", "") or uuid.uuid4().hex[:20]), 40)
         title   = sanitize_text(str(data.get("title", "Untitled Doc")).strip(), 200)
         content = sanitize_text(str(data.get("content", "")), 50000)
-        ok = db.save_org_doc(org["id"], doc_id, title, content, sid)
+        # yjs_state: base64 Y.Doc snapshot (Y.encodeStateAsUpdate), opaque to
+        # the server. Present whenever the save comes from the live collab
+        # editor -- lets every future opener of this doc seed their Y.Doc via
+        # Y.applyUpdate from this exact CRDT state instead of independently
+        # re-deriving one from the HTML (see js/features/org.js orgOpenDoc:
+        # two separately-`setContent()`-seeded Y.Docs are NOT merge-compatible
+        # even when they render identical text, since each gets its own
+        # internal item/clock structure). Absent for older, non-collab saves.
+        yjs_state_raw = data.get("yjs_state")
+        yjs_state = sanitize_text(str(yjs_state_raw), 2_000_000) if yjs_state_raw else None
+        ok = db.save_org_doc(org["id"], doc_id, title, content, sid, yjs_state)
         if not ok: raise HTTPException(500, "Failed to save doc.")
         return {"ok": True, "doc_id": doc_id}
 
@@ -991,10 +1079,19 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
     async def org_doc_get(data: dict):
         sid, _ = _resolve_token(data)
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
+        org = db.get_org_by_member(sid)
+        if not org: raise HTTPException(404, "No organization found.")
         doc_id = sanitize_text(str(data.get("doc_id", "")), 40)
         if not doc_id: raise HTTPException(400, "doc_id required.")
         doc = db.get_org_doc(doc_id)
-        if not doc: raise HTTPException(404, "Doc not found.")
+        # IDOR fix: get_org_doc() looks up by id alone (no org filter — every
+        # other org_doc_* route already scopes its query by org_id, this one
+        # didn't), so any authenticated user who knew or guessed a doc_id
+        # could read another org's private document content. Found while
+        # adding live co-editing to this same endpoint family, fixed here
+        # rather than filed separately since it's the same few lines.
+        if not doc or doc.get("org_id") != org["id"]:
+            raise HTTPException(404, "Doc not found.")
         return {"doc": doc}
 
 
@@ -1008,6 +1105,67 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not doc_id: raise HTTPException(400, "doc_id required.")
         db.delete_org_doc(doc_id, org["id"])
         return {"ok": True}
+
+
+    @router.websocket("/api/org/docs/{doc_id}/ws")
+    async def org_doc_ws(websocket: WebSocket, doc_id: str):
+        """Real-time collab Week 3-4: live document co-editing transport.
+        Relays JSON envelopes (opaque to the server — see this module's
+        docstring and js/features/org.js's _orgDocConnectWS) between every
+        client that has this doc open, using the exact same Redis-pub/sub-
+        with-local-fallback shape as presence/task sync above. The server
+        never decodes the Yjs payload or inspects message `type` — Y.Doc's
+        CRDT merge logic and the join-sync handshake run entirely client-
+        side, this is purely a relay. Persisted content (org_docs.content,
+        org_docs.yjs_state) is saved separately via the existing
+        POST /api/org/docs/save, debounced client-side — this socket only
+        carries the live, in-session delta, never touches Postgres itself."""
+        token = websocket.cookies.get(session_cookie_key, "") or websocket.query_params.get("token", "")
+        token = sanitize_text(token, 100)
+        entry = get_session_from_token(token)
+        if not entry:
+            await websocket.close(code=4401)
+            return
+        if not db.is_available():
+            await websocket.close(code=4503)
+            return
+        sid = entry["sid"]
+        org = await asyncio.to_thread(db.get_org_by_member, sid)
+        if not org:
+            await websocket.close(code=4404)
+            return
+        doc = await asyncio.to_thread(db.get_org_doc, doc_id)
+        if not doc or doc.get("org_id") != org["id"]:
+            await websocket.close(code=4404)
+            return
+
+        await websocket.accept()
+        _DOC_LOCAL.setdefault(doc_id, set()).add(websocket)
+        await _ensure_presence_subscriber()  # no-op if Redis isn't available
+
+        try:
+            while True:
+                # Generic envelope relay -- the client drives the protocol
+                # (currently "update" for incremental Yjs updates, plus
+                # "sync-request"/"sync-response" for the join handshake, see
+                # js/features/org.js). The server only ever stamps from_sid
+                # and republishes; it never inspects `type` or the payload,
+                # so adding future message kinds needs no server change.
+                raw = await websocket.receive_text()
+                try:
+                    msg = json.loads(raw)
+                except Exception:
+                    continue
+                if not isinstance(msg, dict):
+                    continue
+                msg["from_sid"] = sid
+                await _publish_org_doc_event(doc_id, msg)
+        except WebSocketDisconnect:
+            pass
+        except Exception as exc:
+            log.warning(f"org_doc_ws: {exc}")
+        finally:
+            _DOC_LOCAL.get(doc_id, set()).discard(websocket)
 
 
     @router.post("/api/org/messages")

@@ -368,6 +368,95 @@
       </div>
     </div>
 
+    <!-- ── DOC EDITOR (live co-editing — real-time collab Week 3-4) ──
+         Reuses css/features/docs_notes.css's doc-toolbar/doc-tb-btn/
+         doc-content classes for visual consistency with Personal Docs &
+         Notes, rather than a second stylesheet for the same look. -->
+    <div class="os-doc-modal-overlay" id="org-doc-modal" style="display: none">
+      <div class="os-doc-modal">
+        <div class="os-doc-modal-header">
+          <input
+            class="os-doc-title-input"
+            id="org-doc-title"
+            placeholder="Untitled"
+            oninput="_orgDocTitleChanged()"
+          />
+          <span class="os-doc-save-status" id="org-doc-save-status"></span>
+          <button
+            class="os-doc-close-btn"
+            onclick="orgCloseDocEditor()"
+            title="Close"
+          >
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
+        <div class="doc-toolbar" id="org-doc-toolbar">
+          <div class="doc-tb-group">
+            <button
+              class="doc-tb-btn"
+              onmousedown="event.preventDefault();_orgDocFormat('bold');"
+              title="Bold"
+            >
+              <i class="ti ti-bold"></i>
+            </button>
+            <button
+              class="doc-tb-btn"
+              onmousedown="event.preventDefault();_orgDocFormat('italic');"
+              title="Italic"
+            >
+              <i class="ti ti-italic"></i>
+            </button>
+            <button
+              class="doc-tb-btn"
+              onmousedown="event.preventDefault();_orgDocFormat('underline');"
+              title="Underline"
+            >
+              <i class="ti ti-underline"></i>
+            </button>
+          </div>
+          <div class="doc-tb-sep"></div>
+          <div class="doc-tb-group">
+            <button
+              class="doc-tb-btn"
+              onmousedown="event.preventDefault();_orgDocFormatBlock('h1');"
+              title="Heading 1"
+            >
+              <b style="font-size: 0.8rem">H1</b>
+            </button>
+            <button
+              class="doc-tb-btn"
+              onmousedown="event.preventDefault();_orgDocFormatBlock('h2');"
+              title="Heading 2"
+            >
+              <b style="font-size: 0.78rem">H2</b>
+            </button>
+            <button
+              class="doc-tb-btn"
+              onmousedown="event.preventDefault();_orgDocFormat('insertUnorderedList');"
+              title="Bullet list"
+            >
+              <i class="ti ti-list"></i>
+            </button>
+            <button
+              class="doc-tb-btn"
+              onmousedown="event.preventDefault();_orgDocFormat('insertOrderedList');"
+              title="Numbered list"
+            >
+              <i class="ti ti-list-numbers"></i>
+            </button>
+            <button
+              class="doc-tb-btn"
+              onmousedown="event.preventDefault();_orgDocFormatBlock('blockquote');"
+              title="Quote"
+            >
+              <i class="ti ti-quote"></i>
+            </button>
+          </div>
+        </div>
+        <div class="doc-content" id="org-doc-content"></div>
+      </div>
+    </div>
+
     <!-- ── MEMBERS ── -->
     <div class="os-pane" id="os-pane-members">
       <div class="os-toolbar">

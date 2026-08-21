@@ -1227,7 +1227,7 @@ function _applyLoginData(r) {
       if (_ri) _ri.className = "ti ti-layout-sidebar-left-expand";
     }
     const _postCreate = sessionStorage.getItem("sivarr_post_create");
-    const _landingPanel = _postCreate || "home";
+    const _landingPanel = _postCreate || _panelFromUrl() || "home";
     if (_postCreate) sessionStorage.removeItem("sivarr_post_create");
     nav(_landingPanel, null);
 
@@ -4392,24 +4392,35 @@ function _glCheckinDue() {
 }
 
 async function glLoad() {
-  const cacheKey = `sivarr_goals_cache_${S.sid}`;
-  // Show skeleton immediately; glRender() will overwrite once data arrives
-  const cached = localStorage.getItem(cacheKey);
-  if (!cached) skShow("gl-list", _SK.goal, 3);
+  const cacheKey = `goals_${S.sid}`;
+  // Render the last-known list immediately (IndexedDB — see js/core/idb.js)
+  // while the network fetch runs in the background, instead of making the
+  // user stare at a skeleton on every load just to see the same goals they
+  // already had. Falls back to the skeleton only when there's truly no
+  // cache yet (first-ever load on this device).
+  const cached = await idbGet(cacheKey);
+  if (cached) {
+    GL_GOALS = cached;
+    glRender();
+  } else {
+    skShow("gl-list", _SK.goal, 3);
+  }
   try {
     const r = await fetch(
       `/api/goals?token=${encodeURIComponent(getToken() || "")}`,
     );
     const d = await r.json();
     GL_GOALS = d.goals || [];
-    localStorage.setItem(cacheKey, JSON.stringify(GL_GOALS));
+    idbSet(cacheKey, GL_GOALS);
     GL_GOALS.forEach((g) => _calSyncGoal(g)); // keep calendar in sync
     glRender();
   } catch (e) {
-    // Offline fallback — use cached goals
-    const cached = localStorage.getItem(cacheKey);
-    GL_GOALS = cached ? JSON.parse(cached) : [];
-    glRender();
+    // Offline and no cache at all (cache case already rendered above) —
+    // nothing to show but empty.
+    if (!cached) {
+      GL_GOALS = [];
+      glRender();
+    }
   }
 }
 
@@ -12203,10 +12214,53 @@ function mobHome() {
   _mobHomeVisual();
 }
 
+// ── Desktop URL routing ──────────────────────────────────────────────
+//   Deep-linkable panels/spaces get a clean path (/marketplace, /org, ...)
+//   mirroring the server's PUBLIC_APP_SLUGS allowlist (app.py). Mobile keeps
+//   its own sivStack-based history model above and is left untouched here.
+let _urlSyncBooted = false;
+function _isUrlRoutable(name) {
+  return name === "org" || !!NAV_TABS[name];
+}
+// Read the panel implied by the current URL at boot (used once, before login
+// data has painted anything) — returns null for unknown/root paths.
+function _panelFromUrl() {
+  const slug = location.pathname.slice(1);
+  return slug && _isUrlRoutable(slug) ? slug : null;
+}
+function _syncUrlForPanel(name) {
+  if (window.innerWidth <= 720) return; // mobile owns its own history model
+  if (!_isUrlRoutable(name)) return;
+  const path = "/" + name;
+  if (location.pathname === path) {
+    _urlSyncBooted = true;
+    return;
+  }
+  try {
+    if (_urlSyncBooted) history.pushState({ panel: name }, "", path);
+    else history.replaceState({ panel: name }, "", path);
+  } catch (_) {}
+  _urlSyncBooted = true;
+}
+
 // Hardware/browser back (and our own history.back/go) land here
 window.addEventListener("popstate", (e) => {
-  if (window.innerWidth > 720) return;
-  _mobApplyStack((e.state && e.state.sivStack) || []);
+  if (window.innerWidth > 720) {
+    const slug = location.pathname.slice(1);
+    if (_isUrlRoutable(slug)) nav(slug, null);
+    return;
+  }
+  const _stack = e.state && Array.isArray(e.state.sivStack) ? e.state.sivStack : null;
+  if (_stack) {
+    _mobApplyStack(_stack);
+  } else {
+    // Landed on a "foreign" entry with no app-owned sivStack payload — e.g. a
+    // fresh deep-link load or a pre-app entry (OAuth redirect, ...). Recover
+    // the panel from the URL instead of collapsing to the launcher, which
+    // would otherwise leave a stale panel showing behind an undrilled body.
+    const _slug = _panelFromUrl();
+    _mobApplyStack(_slug ? [_slug] : []);
+  }
 });
 
 // Keep the launcher usable if the viewport crosses into mobile mid-session
@@ -12760,6 +12814,8 @@ function nav(name, btn) {
     }
     _removePaywall(name);
   }
+
+  _syncUrlForPanel(name);
 
   if (name === "chat") {
     chatCounterInit();
