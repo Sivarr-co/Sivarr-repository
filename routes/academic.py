@@ -1,0 +1,795 @@
+"""
+Academic space — classes, attendance, announcements, assignments, exams,
+grading, live sessions and polls. The lecturer<->student class bridge behind
+"Create Space -> Academic" (js/features/academic.js's acadInit/lInit/sInit).
+
+Distinct from a legacy, parallel /api/lecturer + /api/class + /api/exam
+system still living in app.py (GET /lecturer serves templates/lecturer.html,
+a fully standalone page) -- that system was deliberately replaced, not
+migrated, by this one (see the ACADEMIC CLASSES comment this file was cut
+from for the historical note) and is confirmed unreachable from any current
+UI, but it shares live helpers (load_announcements/save_announcements,
+get_all_students) with the admin panel and the public announcements banner,
+so it stays in app.py untouched -- do not fold it in here.
+
+WHY build_router() IS A FACTORY, NOT A BARE ROUTER
+-----------------------------------------------------
+Same reasoning as routes/org.py (see that file's module docstring). Only one
+of these routes needs anything app.py-resident: send_push (used by the
+_acad_push_members background-task helper, itself only reachable from
+inside build_router so it can close over send_push directly rather than
+threading it through every call site). Everything else below build_router
+is a pure helper (only touches db, stdlib) and lives at module level.
+
+Class records, membership, attendance, announcements, assignments,
+submissions, exams, grades, live sessions and polls all ride on the
+generic `collections` table (database.py, PRIMARY KEY (collection,
+item_id)) via db.coll_get/coll_put/coll_list/coll_delete, in the
+"acad_*"-prefixed collection namespace -- no dedicated SQL tables, no
+JSON-file fallback (Postgres-only, unlike Tasks/Habits/Goals).
+"""
+
+import datetime
+import hashlib
+import logging
+import random
+import uuid
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+
+import database as db
+from core import sanitize_text, _resolve_token
+
+log = logging.getLogger("sivarr")
+
+# Mirrors app.py's own MAX_NAME_LEN (a plain int=80 module constant shared
+# across many unrelated domains) -- not worth injecting for the 2 call sites
+# below that need it.
+MAX_NAME_LEN = 80
+
+def _acad_gen_code() -> str:
+    import string
+    chars = string.ascii_uppercase + string.digits
+    for _ in range(50):
+        code = "".join(random.choices(chars, k=6))
+        if not db.coll_get("acad_classes", code):
+            return code
+    return "".join(random.choices(chars, k=8))
+
+
+def _acad_class_or_404(code: str) -> dict:
+    cls = db.coll_get("acad_classes", code)
+    if not cls:
+        raise HTTPException(404, "Class not found. Check the join code.")
+    return cls
+
+
+def _acad_is_member(code: str, sid: str) -> bool:
+    return db.coll_get("acad_members", f"{code}:{sid}") is not None
+
+
+def _acad_require_owner(code: str, sid: str) -> dict:
+    cls = _acad_class_or_404(code)
+    if cls.get("owner_sid") != sid:
+        raise HTTPException(403, "Only the class owner can do that.")
+    return cls
+
+
+# ── Live attendance (built on the class bridge) ──────────────────
+#  Sessions in `acad_att_sessions` (owner=code); check-in records in
+#  `acad_att_records` (owner=session_id). Attendance % counts ended
+#  sessions only, so an in-progress session never penalises a student.
+ACAD_ATT_WINDOW_MIN = 30   # how long a check-in code stays valid
+ACAD_ATT_LATE_MIN   = 10   # checking in after this many minutes = "late"
+
+
+def _acad_session_expired(s: dict) -> bool:
+    try:
+        return datetime.datetime.utcnow() >= datetime.datetime.fromisoformat(s.get("expires", ""))
+    except Exception:
+        return True
+
+
+def _acad_open_session(code: str) -> dict | None:
+    for s in db.coll_list("acad_att_sessions", owner=code):
+        if s.get("open") and not _acad_session_expired(s):
+            return s
+    return None
+
+
+# ── Acad exam student take-flow ────────────────────────────────
+#  acad_class_exams (owner=code) = the assignment; acad_exams (owner=lecturer
+#  sid) holds the question bank; acad_exam_results (owner="{code}:{exam_id}",
+#  id="{code}:{exam_id}:{sid}") = one student's answers. Each student gets a
+#  deterministic random subset of the bank (questions_per_student).
+
+def _parse_exam_q(raw: str):
+    """One bank line. Pipe syntax 'Question? | optA | *optB | optC' → an MCQ
+    question (the *-prefixed option is the correct one); any line without a pipe
+    stays a plain free-text question string (backward-compatible)."""
+    raw = str(raw).strip()
+    if "|" in raw:
+        parts = [p.strip() for p in raw.split("|")]
+        q = sanitize_text(parts[0], 500)
+        opts, correct = [], 0
+        for o in parts[1:]:
+            o = o.strip()
+            if not o:
+                continue
+            if o.startswith("*"):
+                correct = len(opts)
+                o = o[1:].strip()
+            if o:
+                opts.append(sanitize_text(o, 200))
+        opts = opts[:8]
+        if q and len(opts) >= 2:
+            return {"q": q, "type": "mcq", "options": opts, "correct": min(correct, len(opts) - 1)}
+    return sanitize_text(raw, 500)
+
+
+def _exam_q_public(q):
+    """Student-facing shape of a bank question — never includes the MCQ answer."""
+    if isinstance(q, dict):
+        return {"q": q.get("q", ""), "type": "mcq", "options": q.get("options", []) or []}
+    return {"q": str(q), "type": "text"}
+
+
+def _exam_questions_for(exam: dict, sid: str) -> list:
+    """Deterministic per-student subset of the exam's question bank (stable on reload).
+    MCQ questions are returned without their correct answer."""
+    qs = exam.get("questions", []) or []
+    if not qs:
+        return []
+    n = min(int(exam.get("questions_per_student", len(qs)) or len(qs)), len(qs))
+    seed = int(hashlib.sha256(f"{exam.get('id','')}:{sid}".encode()).hexdigest(), 16) % (2**32)
+    idxs = list(range(len(qs)))
+    random.Random(seed).shuffle(idxs)
+    return [{"i": i, **_exam_q_public(qs[i])} for i in sorted(idxs[:n])]
+
+
+def _acad_poll_tally(poll: dict) -> dict:
+    votes = db.coll_list("acad_poll_votes", owner=poll["id"])
+    counts = [0] * len(poll.get("options", []))
+    for v in votes:
+        i = v.get("option", -1)
+        if 0 <= i < len(counts):
+            counts[i] += 1
+    return {"id": poll["id"], "question": poll["question"], "options": poll["options"],
+            "counts": counts, "total": len(votes), "open": poll.get("open", True)}
+
+
+
+def build_router(send_push) -> APIRouter:
+    router = APIRouter()
+
+    # ── Announcements + web push + feed (built on the class bridge) ──
+    def _acad_push_members(code: str, title: str, body: str, url: str = "/app") -> None:
+        """Fire a web push to every member of a class (best-effort)."""
+        for m in db.coll_list("acad_members", owner=code):
+            try:
+                send_push(m.get("sid", ""), title, body, url, f"acad_{code}")
+            except Exception:
+                pass
+
+
+    @router.post("/api/acad/class/create")
+    async def acad_class_create(data: dict):
+        """Lecturer publishes a class from their academic space; returns a join code."""
+        sid, name = _resolve_token(data)
+        cname   = sanitize_text(str(data.get("name", "")), 100) or "My Class"
+        subject = sanitize_text(str(data.get("subject", "")), 100)
+        code = _acad_gen_code()
+        cls = {
+            "code": code, "owner_sid": sid, "owner_name": name,
+            "name": cname, "subject": subject,
+            "created": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "live": None,
+        }
+        db.coll_put("acad_classes", code, cls, owner=sid)
+        log.info(f"Acad class created: {cname} ({code}) by {sid[:12]}")
+        return {"ok": True, "code": code, "class": cls}
+
+
+    @router.post("/api/acad/class/join")
+    async def acad_class_join(data: dict):
+        """Student links their space to a class by code."""
+        sid, name = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_class_or_404(code)
+        if cls.get("owner_sid") == sid:
+            raise HTTPException(400, "You own this class. You're already in it.")
+        db.coll_put("acad_members", f"{code}:{sid}",
+                    {"code": code, "sid": sid, "name": name,
+                     "joined": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")},
+                    owner=code)
+        return {"ok": True, "class": {"code": code, "name": cls.get("name"),
+                                      "owner_name": cls.get("owner_name"), "subject": cls.get("subject")}}
+
+
+    @router.post("/api/acad/class/get")
+    async def acad_class_get(data: dict):
+        """Fetch a class + roster. Visible to the owner or any member."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_class_or_404(code)
+        is_owner = cls.get("owner_sid") == sid
+        if not is_owner and not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join this class to view it.")
+        roster = db.coll_list("acad_members", owner=code)
+        return {"ok": True, "class": cls, "is_owner": is_owner,
+                "members": roster, "member_count": len(roster)}
+
+
+    @router.post("/api/acad/class/mine")
+    async def acad_class_mine(data: dict):
+        """Classes owned by the caller (lecturer side)."""
+        sid, _ = _resolve_token(data)
+        return {"ok": True, "classes": db.coll_list("acad_classes", owner=sid)}
+
+
+    @router.post("/api/acad/class/roster")
+    async def acad_class_roster(data: dict):
+        """Owner-only roster of joined students."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        return {"ok": True, "members": db.coll_list("acad_members", owner=code)}
+
+
+    @router.post("/api/acad/class/leave")
+    async def acad_class_leave(data: dict):
+        """Student leaves a class; an owner may remove a member via member_sid."""
+        sid, _ = _resolve_token(data)
+        code   = sanitize_text(str(data.get("code", "")), 12).upper()
+        target = sanitize_text(str(data.get("member_sid", "")), 40) or sid
+        if target != sid:
+            _acad_require_owner(code, sid)   # only the owner can remove others
+        db.coll_delete("acad_members", f"{code}:{target}")
+        return {"ok": True}
+
+
+    @router.post("/api/acad/attendance/start")
+    async def acad_att_start(data: dict):
+        """Owner starts an attendance session → returns a check-in code."""
+        import string
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        # Close any sessions still open for this class.
+        for s in db.coll_list("acad_att_sessions", owner=code):
+            if s.get("open"):
+                s["open"] = False
+                db.coll_put("acad_att_sessions", s["session_id"], s, owner=code)
+        now = datetime.datetime.utcnow()
+        sess = {
+            "session_id":   uuid.uuid4().hex[:12],
+            "code":         code,
+            "checkin_code": "".join(random.choices(string.ascii_uppercase + string.digits, k=5)),
+            "started":      now.isoformat(),
+            "expires":      (now + datetime.timedelta(minutes=ACAD_ATT_WINDOW_MIN)).isoformat(),
+            "open":         True,
+        }
+        db.coll_put("acad_att_sessions", sess["session_id"], sess, owner=code)
+        return {"ok": True, "session_id": sess["session_id"], "checkin_code": sess["checkin_code"], "expires": sess["expires"]}
+
+
+    @router.post("/api/acad/attendance/checkin")
+    async def acad_att_checkin(data: dict):
+        """Member checks in with the live code → present (or late)."""
+        sid, name = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cc   = sanitize_text(str(data.get("checkin_code", "")), 12).upper()
+        cls = _acad_class_or_404(code)
+        # Owner can check in too (so a single account testing both roles, or a lecturer
+        # marking themselves present, isn't blocked). Otherwise must be a joined member.
+        if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join the class first.")
+        sess = _acad_open_session(code)
+        if not sess:
+            raise HTTPException(400, "No attendance session is open right now.")
+        if sess.get("checkin_code") != cc:
+            raise HTTPException(400, "Wrong check-in code.")
+        now = datetime.datetime.utcnow()
+        try:
+            late = (now - datetime.datetime.fromisoformat(sess["started"])).total_seconds() > ACAD_ATT_LATE_MIN * 60
+        except Exception:
+            late = False
+        status = "late" if late else "present"
+        db.coll_put("acad_att_records", f"{sess['session_id']}:{sid}",
+                    {"session_id": sess["session_id"], "code": code, "sid": sid, "name": name,
+                     "ts": now.isoformat(), "status": status},
+                    owner=sess["session_id"])
+        return {"ok": True, "status": status}
+
+
+    @router.post("/api/acad/attendance/session")
+    async def acad_att_session(data: dict):
+        """Owner polls the live roster for an active session."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        session_id = sanitize_text(str(data.get("session_id", "")), 20)
+        recs   = db.coll_list("acad_att_records", owner=session_id)
+        roster = db.coll_list("acad_members", owner=code)
+        return {"ok": True, "records": recs, "present_count": len(recs), "total": len(roster)}
+
+
+    @router.post("/api/acad/attendance/end")
+    async def acad_att_end(data: dict):
+        """Owner ends a session (records become part of the register)."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        session_id = sanitize_text(str(data.get("session_id", "")), 20)
+        sess = db.coll_get("acad_att_sessions", session_id)
+        if sess:
+            sess["open"] = False
+            sess["ended"] = datetime.datetime.utcnow().isoformat()
+            db.coll_put("acad_att_sessions", session_id, sess, owner=code)
+        return {"ok": True, "present_count": len(db.coll_list("acad_att_records", owner=session_id))}
+
+
+    @router.post("/api/acad/attendance/register")
+    async def acad_att_register(data: dict):
+        """Owner-only register: per-student attendance % across ended sessions."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        sessions = [s for s in db.coll_list("acad_att_sessions", owner=code) if not s.get("open")]
+        total = len(sessions)
+        present: dict = {}
+        for s in sessions:
+            for r in db.coll_list("acad_att_records", owner=s["session_id"]):
+                present[r["sid"]] = present.get(r["sid"], 0) + 1
+        rows = [{"sid": m["sid"], "name": m["name"], "present": present.get(m["sid"], 0),
+                 "total": total, "pct": round(present.get(m["sid"], 0) / total * 100) if total else 0}
+                for m in db.coll_list("acad_members", owner=code)]
+        return {"ok": True, "sessions": total, "rows": rows}
+
+
+    @router.post("/api/acad/attendance/mine")
+    async def acad_att_mine(data: dict):
+        """Member's own attendance % for a class + whether a session is open now."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        if not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join the class first.")
+        sessions = [s for s in db.coll_list("acad_att_sessions", owner=code) if not s.get("open")]
+        total = len(sessions)
+        present = sum(1 for s in sessions if db.coll_get("acad_att_records", f"{s['session_id']}:{sid}"))
+        return {"ok": True, "present": present, "total": total,
+                "pct": round(present / total * 100) if total else 0,
+                "open_session": _acad_open_session(code) is not None}
+
+
+    @router.post("/api/acad/announce")
+    async def acad_announce(data: dict, bg: BackgroundTasks):
+        """Owner posts an announcement; members get a web-push notification."""
+        sid, name = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_require_owner(code, sid)
+        text = sanitize_text(str(data.get("text", "")), 1000)
+        if not text:
+            raise HTTPException(400, "Announcement text is required.")
+        ann = {"id": uuid.uuid4().hex[:10], "code": code, "text": text,
+               "author": name, "ts": datetime.datetime.utcnow().isoformat()}
+        db.coll_put("acad_announcements", ann["id"], ann, owner=code)
+        bg.add_task(_acad_push_members, code, f"📢 {cls.get('name', 'Class')}", text, "/app")
+        return {"ok": True, "announcement": ann}
+
+
+    @router.post("/api/acad/announce/delete")
+    async def acad_announce_delete(data: dict):
+        """Owner removes an announcement."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        db.coll_delete("acad_announcements", sanitize_text(str(data.get("id", "")), 20))
+        return {"ok": True}
+
+
+    @router.post("/api/acad/feed")
+    async def acad_feed(data: dict):
+        """Announcements for a class — visible to the owner or any member."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_class_or_404(code)
+        if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join this class to view its feed.")
+        anns = sorted(db.coll_list("acad_announcements", owner=code),
+                      key=lambda a: a.get("ts", ""), reverse=True)
+        return {"ok": True, "class_name": cls.get("name"), "announcements": anns[:50]}
+
+
+    # ── Gradebook: shared assignments + submissions + grading ────────
+    #  acad_assignments (owner=code) · acad_submissions (owner=assignment_id,
+    #  item_id="{aid}:{sid}").
+    @router.post("/api/acad/assignment/create")
+    async def acad_assignment_create(data: dict, bg: BackgroundTasks):
+        """Owner posts a class assignment (members notified)."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_require_owner(code, sid)
+        title = sanitize_text(str(data.get("title", "")), 200)
+        if not title:
+            raise HTTPException(400, "Assignment title is required.")
+        a = {"id": uuid.uuid4().hex[:10], "code": code, "title": title,
+             "due": sanitize_text(str(data.get("due", "")), 40),
+             "points": sanitize_text(str(data.get("points", "")), 10),
+             "created": datetime.datetime.utcnow().isoformat()}
+        db.coll_put("acad_assignments", a["id"], a, owner=code)
+        bg.add_task(_acad_push_members, code, f"📝 {cls.get('name', 'Class')}: new assignment", title, "/app")
+        return {"ok": True, "assignment": a}
+
+
+    @router.post("/api/acad/assignment/list")
+    async def acad_assignment_list(data: dict):
+        """Class assignments — owner or member."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_class_or_404(code)
+        if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join this class first.")
+        items = sorted(db.coll_list("acad_assignments", owner=code), key=lambda a: a.get("created", ""), reverse=True)
+        return {"ok": True, "assignments": items}
+
+
+    @router.post("/api/acad/assignment/delete")
+    async def acad_assignment_delete(data: dict):
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        aid = sanitize_text(str(data.get("id", "")), 20)
+        db.coll_delete("acad_assignments", aid)
+        return {"ok": True}
+
+
+    # ── Acad exams (Stage 6 rebuild) ───────────────────────────────
+    # v3-native exam bank: per-lecturer (owner=sid), normal session token — fixes
+    # the verify_lecturer()/lec_-token 401 that blocked the v3 Exam Builder. The old
+    # /api/lecturer/exam* (global LECTURER_PASSWORD bank) is left intact for the
+    # legacy /lecturer dashboard. Owner-scoped + id-based (no index-delete race).
+    @router.post("/api/acad/exam/create")
+    async def acad_exam_create(data: dict):
+        """Lecturer creates an exam in their own bank (normal session token)."""
+        sid, name = _resolve_token(data)
+        title = sanitize_text(str(data.get("title", "")), 200)
+        if not title:
+            raise HTTPException(400, "Exam title is required.")
+        questions = [_parse_exam_q(str(q)) for q in data.get("questions", [])[:100] if str(q).strip()]
+        if not questions:
+            raise HTTPException(400, "Add at least one question to the bank.")
+        exam = {
+            "id":                   uuid.uuid4().hex[:10],
+            "owner_sid":            sid,
+            "title":                title,
+            "questions":            questions,
+            "questions_per_student": min(max(int(data.get("questions_per_student", 30)), 1), 100),
+            "duration":             min(max(int(data.get("duration", 60)), 1), 300),
+            "lecturer":             sanitize_text(str(data.get("lecturer", name)), MAX_NAME_LEN),
+            "created":              datetime.datetime.utcnow().isoformat(),
+        }
+        db.coll_put("acad_exams", exam["id"], exam, owner=sid)
+        return {"ok": True, "exam": exam}
+
+
+    @router.post("/api/acad/exam/list")
+    async def acad_exam_list(data: dict):
+        """The caller's own exam bank."""
+        sid, _ = _resolve_token(data)
+        exams = sorted(db.coll_list("acad_exams", owner=sid),
+                       key=lambda e: e.get("created", ""), reverse=True)
+        return {"ok": True, "exams": exams}
+
+
+    @router.post("/api/acad/exam/delete")
+    async def acad_exam_delete(data: dict):
+        """Delete one of your own exams by id (owner-scoped)."""
+        sid, _ = _resolve_token(data)
+        exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+        exam = db.coll_get("acad_exams", exam_id)
+        if not exam or exam.get("owner_sid") != sid:
+            raise HTTPException(404, "Exam not found.")
+        db.coll_delete("acad_exams", exam_id)
+        return {"ok": True}
+
+
+    @router.post("/api/acad/exam/assign")
+    async def acad_exam_assign(data: dict, bg: BackgroundTasks):
+        """Assign one of your exams to a class you own; members are notified."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_require_owner(code, sid)
+        exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+        exam = db.coll_get("acad_exams", exam_id)
+        if not exam or exam.get("owner_sid") != sid:
+            raise HTTPException(404, "Exam not found.")
+        rec = {
+            "id":                   f"{code}:{exam_id}",
+            "code":                 code,
+            "exam_id":              exam_id,
+            "title":                exam["title"],
+            "questions_per_student": exam.get("questions_per_student", 30),
+            "duration":             exam.get("duration", 60),
+            "assigned":             datetime.datetime.utcnow().isoformat(),
+        }
+        db.coll_put("acad_class_exams", rec["id"], rec, owner=code)
+        bg.add_task(_acad_push_members, code, f"📝 {cls.get('name', 'Class')}: new exam", exam["title"], "/app")
+        return {"ok": True, "assignment": rec}
+
+
+    @router.post("/api/acad/exam/assigned")
+    async def acad_exam_assigned(data: dict):
+        """Exams assigned to a class — owner or member; annotated with the caller's status."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_class_or_404(code)
+        if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join this class first.")
+        items = sorted(db.coll_list("acad_class_exams", owner=code),
+                       key=lambda e: e.get("assigned", ""), reverse=True)
+        out = []
+        for it in items:
+            res = db.coll_get("acad_exam_results", f"{code}:{it.get('exam_id','')}:{sid}")
+            out.append({**it, "submitted": bool(res),
+                        "graded": bool(res and res.get("graded")),
+                        "grade": (res or {}).get("grade", ""),
+                        "auto_pct": (res or {}).get("auto", {}).get("auto_pct")})
+        return {"ok": True, "exams": out}
+
+
+    @router.post("/api/acad/exam/take")
+    async def acad_exam_take(data: dict):
+        """Member fetches their question subset for an assigned exam (+ any prior submission)."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        if not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join the class first.")
+        exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+        if not db.coll_get("acad_class_exams", f"{code}:{exam_id}"):
+            raise HTTPException(404, "Exam not assigned to this class.")
+        exam = db.coll_get("acad_exams", exam_id)
+        if not exam:
+            raise HTTPException(404, "Exam not found.")
+        res = db.coll_get("acad_exam_results", f"{code}:{exam_id}:{sid}")
+        return {"ok": True, "exam": {
+            "id": exam_id, "title": exam.get("title", "Exam"),
+            "duration": exam.get("duration", 60),
+            "questions": _exam_questions_for(exam, sid),
+        }, "submission": res}
+
+
+    @router.post("/api/acad/exam/submit")
+    async def acad_exam_submit(data: dict):
+        """Member submits exam answers (overwrites a prior ungraded attempt)."""
+        sid, name = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        if not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join the class first.")
+        exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+        if not db.coll_get("acad_class_exams", f"{code}:{exam_id}"):
+            raise HTTPException(404, "Exam not assigned to this class.")
+        prev = db.coll_get("acad_exam_results", f"{code}:{exam_id}:{sid}")
+        if prev and prev.get("graded"):
+            raise HTTPException(409, "This exam has already been graded.")
+        answers = data.get("answers", []) or []
+        clean = [{"i": int(a.get("i", 0)),
+                  "q": sanitize_text(str(a.get("q", "")), 500),
+                  "a": sanitize_text(str(a.get("a", "")), 3000)} for a in answers[:100]]
+        # Auto-grade MCQ answers against the bank (free-text is left for manual grading).
+        bank = (db.coll_get("acad_exams", exam_id) or {}).get("questions", []) or []
+        mcq_total = mcq_correct = 0
+        for ans in clean:
+            i = ans["i"]
+            q = bank[i] if 0 <= i < len(bank) else None
+            if isinstance(q, dict) and q.get("type") == "mcq":
+                mcq_total += 1
+                opts = q.get("options", []) or []
+                cidx = q.get("correct", -1)
+                correct_text = opts[cidx] if isinstance(cidx, int) and 0 <= cidx < len(opts) else None
+                ans["correct"] = (correct_text is not None and ans["a"] == correct_text)
+                if ans["correct"]:
+                    mcq_correct += 1
+        auto = {"mcq_total": mcq_total, "mcq_correct": mcq_correct,
+                "auto_pct": round(100 * mcq_correct / mcq_total) if mcq_total else None}
+        db.coll_put("acad_exam_results", f"{code}:{exam_id}:{sid}",
+                    {"exam_id": exam_id, "code": code, "sid": sid, "name": name, "answers": clean,
+                     "auto": auto,
+                     "submitted_at": datetime.datetime.utcnow().isoformat(),
+                     "graded": False, "grade": "", "feedback": ""},
+                    owner=f"{code}:{exam_id}")
+        return {"ok": True, "auto": auto}
+
+
+    @router.post("/api/acad/exam/results")
+    async def acad_exam_results(data: dict):
+        """Owner: all student results for an assigned exam."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+        return {"ok": True, "results": db.coll_list("acad_exam_results", owner=f"{code}:{exam_id}")}
+
+
+    @router.post("/api/acad/exam/grade")
+    async def acad_exam_grade(data: dict, bg: BackgroundTasks):
+        """Owner grades an exam result; the student is notified."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_require_owner(code, sid)
+        exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
+        target = sanitize_text(str(data.get("sid", "")), 40)
+        res = db.coll_get("acad_exam_results", f"{code}:{exam_id}:{target}")
+        if not res:
+            raise HTTPException(404, "No submission found.")
+        res["grade"]    = sanitize_text(str(data.get("grade", "")), 20)
+        res["feedback"] = sanitize_text(str(data.get("feedback", "")), 2000)
+        res["graded"]   = True
+        db.coll_put("acad_exam_results", f"{code}:{exam_id}:{target}", res, owner=f"{code}:{exam_id}")
+        bg.add_task(send_push, target, f"✅ {cls.get('name', 'Class')}: exam graded",
+                    f"You scored {res['grade']}", "/app", f"acad_{code}")
+        return {"ok": True}
+
+
+    @router.post("/api/acad/submit")
+    async def acad_submit(data: dict):
+        """Member submits work for an assignment (re-submit overwrites)."""
+        sid, name = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        if not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join the class first.")
+        aid = sanitize_text(str(data.get("assignment_id", "")), 20)
+        if not db.coll_get("acad_assignments", aid):
+            raise HTTPException(404, "Assignment not found.")
+        db.coll_put("acad_submissions", f"{aid}:{sid}",
+                    {"assignment_id": aid, "code": code, "sid": sid, "name": name,
+                     "text": sanitize_text(str(data.get("text", "")), 5000),
+                     "ts": datetime.datetime.utcnow().isoformat(),
+                     "graded": False, "grade": "", "feedback": ""},
+                    owner=aid)
+        return {"ok": True}
+
+
+    @router.post("/api/acad/submissions")
+    async def acad_submissions(data: dict):
+        """Owner: all submissions for an assignment."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        aid = sanitize_text(str(data.get("assignment_id", "")), 20)
+        return {"ok": True, "submissions": db.coll_list("acad_submissions", owner=aid)}
+
+
+    @router.post("/api/acad/grade")
+    async def acad_grade(data: dict, bg: BackgroundTasks):
+        """Owner grades a submission; the student is notified."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_require_owner(code, sid)
+        aid = sanitize_text(str(data.get("assignment_id", "")), 20)
+        target = sanitize_text(str(data.get("sid", "")), 40)
+        sub = db.coll_get("acad_submissions", f"{aid}:{target}")
+        if not sub:
+            raise HTTPException(404, "Submission not found.")
+        sub["grade"]    = sanitize_text(str(data.get("grade", "")), 20)
+        sub["feedback"] = sanitize_text(str(data.get("feedback", "")), 2000)
+        sub["graded"]   = True
+        db.coll_put("acad_submissions", f"{aid}:{target}", sub, owner=aid)
+        bg.add_task(send_push, target, f"✅ {cls.get('name', 'Class')}: graded",
+                    f"You scored {sub['grade']}", "/app", f"acad_{code}")
+        return {"ok": True}
+
+
+    @router.post("/api/acad/grades/mine")
+    async def acad_grades_mine(data: dict):
+        """Member: their submission + grade for each class assignment."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        if not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join the class first.")
+        out = []
+        for a in db.coll_list("acad_assignments", owner=code):
+            sub = db.coll_get("acad_submissions", f"{a['id']}:{sid}")
+            out.append({"assignment_id": a["id"], "title": a.get("title"), "due": a.get("due"),
+                        "submitted": sub is not None, "graded": bool(sub and sub.get("graded")),
+                        "grade": (sub or {}).get("grade", ""), "feedback": (sub or {}).get("feedback", "")})
+        return {"ok": True, "items": out}
+
+
+    # ── Live session + in-class polls (built on the class bridge) ────
+    @router.post("/api/acad/live/set")
+    async def acad_live_set(data: dict, bg: BackgroundTasks):
+        """Owner marks the class live with a join link; members notified."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_require_owner(code, sid)
+        cls["live"] = {"link": sanitize_text(str(data.get("link", "")), 500),
+                       "title": sanitize_text(str(data.get("title", "")), 200) or "Live class",
+                       "started": datetime.datetime.utcnow().isoformat()}
+        db.coll_put("acad_classes", code, cls, owner=cls.get("owner_sid", sid))
+        bg.add_task(_acad_push_members, code, f"🔴 {cls.get('name', 'Class')} is live", cls["live"]["title"], cls["live"]["link"] or "/app")
+        return {"ok": True, "live": cls["live"]}
+
+
+    @router.post("/api/acad/live/clear")
+    async def acad_live_clear(data: dict):
+        """Owner ends the live session."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_require_owner(code, sid)
+        cls["live"] = None
+        db.coll_put("acad_classes", code, cls, owner=cls.get("owner_sid", sid))
+        return {"ok": True}
+
+
+    @router.post("/api/acad/poll/create")
+    async def acad_poll_create(data: dict, bg: BackgroundTasks):
+        """Owner opens a poll for the class."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_require_owner(code, sid)
+        q = sanitize_text(str(data.get("question", "")), 300)
+        opts = [sanitize_text(str(o), 120) for o in (data.get("options") or []) if str(o).strip()][:6]
+        if not q or len(opts) < 2:
+            raise HTTPException(400, "A question and at least 2 options are required.")
+        poll = {"id": uuid.uuid4().hex[:10], "code": code, "question": q, "options": opts,
+                "open": True, "created": datetime.datetime.utcnow().isoformat()}
+        db.coll_put("acad_polls", poll["id"], poll, owner=code)
+        bg.add_task(_acad_push_members, code, f"📊 {cls.get('name', 'Class')}: new poll", q, "/app")
+        return {"ok": True, "poll": poll}
+
+
+    @router.post("/api/acad/poll/list")
+    async def acad_poll_list(data: dict):
+        """Open polls for a class (with tallies) — owner or member."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_class_or_404(code)
+        if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join this class first.")
+        polls = [p for p in db.coll_list("acad_polls", owner=code) if p.get("open")]
+        polls.sort(key=lambda p: p.get("created", ""), reverse=True)
+        mine = {}
+        for p in polls:
+            v = db.coll_get("acad_poll_votes", f"{p['id']}:{sid}")
+            if v:
+                mine[p["id"]] = v.get("option")
+        return {"ok": True, "polls": [_acad_poll_tally(p) for p in polls], "my_votes": mine}
+
+
+    @router.post("/api/acad/poll/vote")
+    async def acad_poll_vote(data: dict):
+        """Member votes (one vote per poll; re-voting moves the vote)."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        if not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join the class first.")
+        pid = sanitize_text(str(data.get("poll_id", "")), 20)
+        poll = db.coll_get("acad_polls", pid)
+        if not poll or not poll.get("open"):
+            raise HTTPException(400, "Poll is closed.")
+        try:
+            idx = int(data.get("option_index", -1))
+        except Exception:
+            idx = -1
+        if not (0 <= idx < len(poll.get("options", []))):
+            raise HTTPException(400, "Invalid option.")
+        db.coll_put("acad_poll_votes", f"{pid}:{sid}", {"poll_id": pid, "sid": sid, "option": idx}, owner=pid)
+        return {"ok": True, "results": _acad_poll_tally(poll)}
+
+
+    @router.post("/api/acad/poll/close")
+    async def acad_poll_close(data: dict):
+        """Owner closes a poll."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        pid = sanitize_text(str(data.get("poll_id", "")), 20)
+        poll = db.coll_get("acad_polls", pid)
+        if poll:
+            poll["open"] = False
+            db.coll_put("acad_polls", pid, poll, owner=code)
+        return {"ok": True}
+
+
+    return router
