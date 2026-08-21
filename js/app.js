@@ -12090,7 +12090,6 @@ function updateDiff(level) {
 
 const SNAV_SECTION_HEIGHTS = {
   ai: 4,
-  academics: 3,
   planner: 6,
   assessments: 3,
   insights: 3,
@@ -12102,7 +12101,6 @@ const SNAV_SECTION_HEIGHTS = {
 
 const MOB_SNAV_HEIGHTS = {
   ai: 4,
-  academics: 2,
   planner: 4,
   assessments: 3,
   insights: 3,
@@ -12538,7 +12536,6 @@ function snavToggle(sectionId, btn) {
 function getSectionColor(sectionId, bg) {
   const map = {
     ai: "#818cf8",
-    academics: "#34d399",
     planner: "#fb923c",
     assessments: "#f472b6",
     insights: "#60a5fa",
@@ -12645,7 +12642,6 @@ function syncSnavFromPanel(name) {
 const SB_SECTIONS = [
   "core",
   "work",
-  "academic",
   "grow",
   "connect",
   "org",
@@ -12662,14 +12658,6 @@ const PANEL_SECTION_MAP = {
   calendar: "work",
   templates: "work",
   documenthub: "work",
-  courses: "academic",
-  quiz: "academic",
-  lab: "academic",
-  studyplan: "academic",
-  pomodoro: "academic",
-  contenthub: "academic",
-  learninghub: "academic",
-  studygroups: "academic",
   goals: "grow",
   habits: "grow",
   stats: "grow",
@@ -20196,7 +20184,7 @@ function acadInit(space) {
 }
 function acadOpenSettings() {
   if (typeof openSpaceSettings === "function")
-    openSpaceSettings(window.currentAcademicSpace);
+    openSpaceSettings(window.currentSpace || window.currentAcademicSpace);
   else acToast("Space settings coming soon");
 }
 
@@ -20227,7 +20215,7 @@ function lInit() {
     lLoadLive();
     lLoadPolls();
   }
-  hostMountExtensions(window.currentAcademicSpace);
+  hostMountExtensions(window.currentSpace || window.currentAcademicSpace);
 }
 function lRenderMetrics() {
   const set = (id, v) => {
@@ -20864,7 +20852,7 @@ function sInit() {
   sLoadAssignments();
   sLoadExams();
   sLoadLivePolls();
-  hostMountExtensions(window.currentAcademicSpace);
+  hostMountExtensions(window.currentSpace || window.currentAcademicSpace);
 }
 function sAllSprint() {
   return [].concat(
