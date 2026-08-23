@@ -4,21 +4,11 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { api } from '../api/client';
 import { COLORS } from '../theme';
 
-type Entry = { date: string; text: string; mood: string; ts: number };
-
-const JNL_KEY = 'sivarr_journal_mobile';
-
-async function loadEntries(): Promise<Entry[]> {
-  try { return JSON.parse((await AsyncStorage.getItem(JNL_KEY)) ?? '[]'); }
-  catch { return []; }
-}
-async function saveEntries(entries: Entry[]) {
-  await AsyncStorage.setItem(JNL_KEY, JSON.stringify(entries));
-}
+type Entry = { date: string; text: string; mood: string };
 
 const MOODS = ['😊','🙂','😐','😔','😤'];
 const today = () => new Date().toISOString().split('T')[0];
@@ -33,7 +23,11 @@ export default function JournalScreen() {
   const todayStr = today();
 
   const load = useCallback(async () => {
-    const all = await loadEntries();
+    let all: Entry[] = [];
+    try {
+      const d = await api.journalRestore();
+      all = d.entries ?? [];
+    } catch(_) {}
     setEntries(all);
     const existing = all.find(e => e.date === todayStr);
     if (existing) { setText(existing.text); setMood(existing.mood); setSaved(true); }
@@ -43,12 +37,14 @@ export default function JournalScreen() {
 
   async function save() {
     if (!text.trim()) return;
-    const entry: Entry = { date: todayStr, text: text.trim(), mood, ts: Date.now() };
+    const entry: Entry = { date: todayStr, text: text.trim(), mood };
     const updated = [entry, ...entries.filter(e => e.date !== todayStr)];
     setEntries(updated);
-    await saveEntries(updated);
-    setSaved(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      await api.journalSync(updated);
+      setSaved(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch(_) {}
   }
 
   const greeting = (() => {

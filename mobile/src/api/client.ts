@@ -60,6 +60,30 @@ export const api = {
     post('/api/goals/update', { id, progress, completed }),
   deleteGoal: (id: string) => post('/api/goals/delete', { id }),
 
+  // Tasks — per-entity endpoints (routes/tasks.py). `title`/`done`/`date`/
+  // `priority` map 1:1 to server field names, no alias layer needed (the
+  // desc/goalId/attachName aliases that layer exists for are web-only
+  // fields this app's UI never touches).
+  tasks:      () => get('/api/tasks'),
+  addTask:    (data: { title: string; date?: string; priority?: string }) =>
+    post('/api/tasks/add', { title: data.title, date: data.date ?? '', priority: data.priority ?? 'normal' }),
+  updateTask: (id: string, updates: object) => post('/api/tasks/update', { id, ...updates }),
+  deleteTask: (id: string) => post('/api/tasks/delete', { id }),
+
+  // Habits — per-entity endpoints (routes/habits.py).
+  habits:      () => get('/api/habits'),
+  addHabit:    (data: { title: string; emoji?: string }) =>
+    post('/api/habits/add', { title: data.title, emoji: data.emoji ?? '' }),
+  updateHabit: (id: string, updates: object) => post('/api/habits/update', { id, ...updates }),
+  deleteHabit: (id: string) => post('/api/habits/delete', { id }),
+
+  // Journal — routes/journal.py only exposes bulk sync/restore, no
+  // per-entity add/update/delete (unlike tasks/habits), so this is a
+  // full-array replace on every save, same shape the web client uses.
+  journalRestore: () => get('/api/journal/restore'),
+  journalSync:    (entries: { date: string; text: string; mood: string }[]) =>
+    post('/api/journal/sync', { entries }),
+
   // AI
   aiChat:         (message: string, session = 'main') => post('/api/chat', { message, session }),
   aiExtractTasks: (text: string) => post('/api/ai/extract-tasks', { text }),

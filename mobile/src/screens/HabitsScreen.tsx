@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Modal, TextInput, Alert,
+  StyleSheet, Modal, TextInput, Alert, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { api } from '../api/client';
 import { COLORS } from '../theme';
 
 type Habit = {
@@ -13,58 +13,54 @@ type Habit = {
   completions: string[]; streak: number;
 };
 
-const STORAGE_KEY = 'sivarr_habits_mobile';
 const today = () => new Date().toISOString().split('T')[0];
 
-async function loadHabits(): Promise<Habit[]> {
-  try { return JSON.parse((await AsyncStorage.getItem(STORAGE_KEY)) ?? '[]'); }
-  catch { return []; }
-}
-async function saveHabits(habits: Habit[]) {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
-}
-
 export default function HabitsScreen() {
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [modal,  setModal]  = useState(false);
-  const [title,  setTitle]  = useState('');
-  const [emoji,  setEmoji]  = useState('📚');
+  const [habits,     setHabits]  = useState<Habit[]>([]);
+  const [loading,    setLoad]    = useState(true);
+  const [refreshing, setRefresh] = useState(false);
+  const [modal,      setModal]   = useState(false);
+  const [title,      setTitle]   = useState('');
+  const [emoji,      setEmoji]   = useState('📚');
 
   const EMOJIS = ['📚','🏃','🧘','💧','🥗','✍️','🎯','🛌','🔔','💡','🎸','🏋️'];
 
   const load = useCallback(async () => {
-    setHabits(await loadHabits());
+    try {
+      const d = await api.habits();
+      setHabits(d.habits ?? []);
+    } catch(_) {}
+    finally { setLoad(false); setRefresh(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   async function toggleHabit(id: string) {
     const todayStr = today();
-    const updated  = habits.map(h => {
-      if (h.id !== id) return h;
-      const done = h.completions.includes(todayStr);
-      const completions = done
-        ? h.completions.filter(d => d !== todayStr)
-        : [...h.completions, todayStr];
-      const streak = done ? Math.max(0, h.streak - 1) : h.streak + 1;
-      return { ...h, completions, streak };
-    });
-    setHabits(updated);
-    await saveHabits(updated);
+    const target = habits.find(h => h.id === id);
+    if (!target) return;
+    const done = target.completions.includes(todayStr);
+    const completions = done
+      ? target.completions.filter(d => d !== todayStr)
+      : [...target.completions, todayStr];
+    const streak = done ? Math.max(0, target.streak - 1) : target.streak + 1;
+    setHabits(prev => prev.map(h => h.id === id ? { ...h, completions, streak } : h));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await api.updateHabit(id, { completions, streak });
+    } catch(_) {}
   }
 
   async function addHabit() {
     if (!title.trim()) { Alert.alert('Enter a habit name'); return; }
-    const habit: Habit = {
-      id: Date.now().toString(), title: title.trim(),
-      emoji, completions: [], streak: 0,
-    };
-    const updated = [habit, ...habits];
-    setHabits(updated);
-    await saveHabits(updated);
-    setModal(false); setTitle(''); setEmoji('📚');
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      const d = await api.addHabit({ title: title.trim(), emoji });
+      setHabits(prev => [d.habit, ...prev]);
+      setModal(false); setTitle(''); setEmoji('📚');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch(e: any) {
+      Alert.alert('Error', e.message);
+    }
   }
 
   async function deleteHabit(id: string) {
@@ -72,9 +68,8 @@ export default function HabitsScreen() {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
-          const updated = habits.filter(h => h.id !== id);
-          setHabits(updated);
-          await saveHabits(updated);
+          setHabits(prev => prev.filter(h => h.id !== id));
+          try { await api.deleteHabit(id); } catch(_) {}
         },
       },
     ]);
@@ -83,9 +78,18 @@ export default function HabitsScreen() {
   const todayStr   = today();
   const doneToday  = habits.filter(h => h.completions.includes(todayStr)).length;
 
+  if (loading) return (
+    <SafeAreaView style={s.root}>
+      <ActivityIndicator color={COLORS.accent} style={{ marginTop: 80 }} />
+    </SafeAreaView>
+  );
+
   return (
     <SafeAreaView style={s.root}>
-      <ScrollView contentContainerStyle={s.content}>
+      <ScrollView
+        contentContainerStyle={s.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefresh(true); load(); }} tintColor={COLORS.accent} />}
+      >
         <View style={s.header}>
           <Text style={s.title}>Habits</Text>
           <TouchableOpacity style={s.addBtn} onPress={() => setModal(true)}>

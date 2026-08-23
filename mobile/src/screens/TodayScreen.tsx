@@ -5,7 +5,6 @@ import {
   Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
@@ -16,15 +15,7 @@ type Task   = { id: string; title: string; done: boolean; date?: string; priorit
 type Habit  = { id: string; title: string; emoji: string; completions: string[]; streak: number };
 type Goal   = { id: string; title: string; progress: number; deadline?: string; completed: boolean };
 
-const TASKS_KEY  = 'sivarr_tasks_mobile';
-const HABITS_KEY = 'sivarr_habits_mobile';
-const today      = () => new Date().toISOString().split('T')[0];
-
-// ── Helpers ───────────────────────────────────────────────────
-async function loadTasks():  Promise<Task[]>  { try { return JSON.parse(await AsyncStorage.getItem(TASKS_KEY)  ?? '[]') } catch { return [] } }
-async function saveTasks(t:  Task[])  { await AsyncStorage.setItem(TASKS_KEY,  JSON.stringify(t)) }
-async function loadHabits(): Promise<Habit[]> { try { return JSON.parse(await AsyncStorage.getItem(HABITS_KEY) ?? '[]') } catch { return [] } }
-async function saveHabits(h: Habit[]) { await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(h)) }
+const today = () => new Date().toISOString().split('T')[0];
 
 // ── Task row ─────────────────────────────────────────────────
 function TaskRow({ task, onToggle }: { task: Task; onToggle: () => void }) {
@@ -108,8 +99,16 @@ export default function TodayScreen({ navigation }: { navigation: any }) {
   const greeting  = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const load = useCallback(async () => {
-    const [t, h] = await Promise.all([loadTasks(), loadHabits()]);
-    setTasks(t); setHabits(h);
+    let t: Task[] = [];
+    try {
+      const d = await api.tasks();
+      t = d.tasks ?? [];
+      setTasks(t);
+    } catch(_) {}
+    try {
+      const d = await api.habits();
+      setHabits(d.habits ?? []);
+    } catch(_) {}
     try {
       const d = await api.goals();
       setGoals((d.goals ?? []).filter((g: Goal) => !g.completed).slice(0, 2));
@@ -131,21 +130,23 @@ export default function TodayScreen({ navigation }: { navigation: any }) {
   const habitsDoneToday = habits.filter(h => h.completions.includes(todayStr)).length;
 
   async function toggleTask(id: string) {
-    const updated = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
-    setTasks(updated); await saveTasks(updated);
+    const target = tasks.find(t => t.id === id);
+    if (!target) return;
+    const done = !target.done;
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, done } : t));
+    try { await api.updateTask(id, { done }); } catch(_) {}
   }
 
   async function toggleHabit(id: string) {
-    const updated = habits.map(h => {
-      if (h.id !== id) return h;
-      const done = h.completions.includes(todayStr);
-      return {
-        ...h,
-        completions: done ? h.completions.filter(d => d !== todayStr) : [...h.completions, todayStr],
-        streak: done ? Math.max(0, h.streak - 1) : h.streak + 1,
-      };
-    });
-    setHabits(updated); await saveHabits(updated);
+    const target = habits.find(h => h.id === id);
+    if (!target) return;
+    const done = target.completions.includes(todayStr);
+    const completions = done
+      ? target.completions.filter(d => d !== todayStr)
+      : [...target.completions, todayStr];
+    const streak = done ? Math.max(0, target.streak - 1) : target.streak + 1;
+    setHabits(prev => prev.map(h => h.id === id ? { ...h, completions, streak } : h));
+    try { await api.updateHabit(id, { completions, streak }); } catch(_) {}
   }
 
   function openCapture() {
@@ -163,33 +164,29 @@ export default function TodayScreen({ navigation }: { navigation: any }) {
     const text = captureText.trim();
 
     if (captureType === 'task') {
-      const task: Task = { id: Date.now().toString(), title: text, done: false, date: todayStr, priority: 'normal' };
-      const updated = [task, ...tasks];
-      setTasks(updated); await saveTasks(updated);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       closeCapture();
+      try {
+        const d = await api.addTask({ title: text, date: todayStr, priority: 'normal' });
+        setTasks(prev => [d.task, ...prev]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch(_) {}
     } else {
       // Note mode — extract tasks via AI
       closeCapture();
       try {
         const res = await api.voiceToTask(text);
-        if (res.ok && res.tasks?.length) {
-          const newTasks: Task[] = res.tasks.map((t: any) => ({
-            id:       Date.now().toString() + Math.random(),
-            title:    t.title || text,
-            done:     false,
-            date:     t.due || todayStr,
-            priority: t.priority || 'normal',
-          }));
-          const updated = [...newTasks, ...tasks];
-          setTasks(updated); await saveTasks(updated);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+        const extracted = res.ok && res.tasks?.length ? res.tasks : [{ title: text }];
+        const added = await Promise.all(extracted.map((t: any) =>
+          api.addTask({ title: t.title || text, date: t.due || todayStr, priority: t.priority || 'normal' })
+        ));
+        setTasks(prev => [...added.map(d => d.task), ...prev]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch(_) {
         // Fallback — save as-is
-        const task: Task = { id: Date.now().toString(), title: text, done: false, date: todayStr, priority: 'normal' };
-        const updated = [task, ...tasks];
-        setTasks(updated); await saveTasks(updated);
+        try {
+          const d = await api.addTask({ title: text, date: todayStr, priority: 'normal' });
+          setTasks(prev => [d.task, ...prev]);
+        } catch(_) {}
       }
     }
   }
