@@ -25,7 +25,7 @@ Sivarr-repository/
 │
 ├── routes/                 ← FastAPI APIRouter modules — one file per domain
 │   ├── __init__.py         ← Documents which file owns which URL prefix
-│   ├── pages.py            ← HTML pages: /, /admin, /lecturer, /billing/callback
+│   ├── pages.py            ← HTML pages: /, /admin, /billing/callback
 │   ├── auth.py             ← /api/login, /api/logout, /api/session/restore, /api/auth/*
 │   ├── oauth.py            ← /auth/google/*, /auth/github/*
 │   ├── billing.py          ← /api/billing/*, /api/payments/*, /api/webhooks/*
@@ -34,8 +34,8 @@ Sivarr-repository/
 │   ├── ai.py               ← /api/ai/*, /api/home/brief, /api/org/ai/*
 │   ├── files.py            ← /api/upload, /api/share, /share/*
 │   ├── org.py              ← /api/org/* (30+ endpoints)
-│   ├── academic.py         ← /api/class/*, /api/exam/*, /api/study-*, /api/group/*
-│   ├── admin.py            ← /api/admin/*, /api/lecturer/*
+│   ├── academic.py         ← /api/acad/* (implemented)
+│   ├── admin.py            ← /api/admin/*
 │   ├── integrations.py     ← /api/integrations/gcal, /api/integrations/github, /api/integrations/mono
 │   └── notifications.py    ← /api/notify/*
 │
@@ -83,8 +83,7 @@ Sivarr-repository/
 │
 ├── templates/
 │   ├── index.html          ← Main SPA (the entire frontend HTML)
-│   ├── admin.html          ← Admin panel
-│   └── lecturer.html       ← Lecturer panel
+│   └── admin.html          ← Admin panel
 │
 ├── static/                 ← Static files: images, favicon, manifest
 ├── mobile/                 ← Expo React Native app

@@ -514,32 +514,8 @@ function loadProfilePic() {
   if (saved) applyProfilePic(saved);
 }
 
-let CURRENT_ROLE = "student";
 let AUTH_TAB = "login";
 
-function setRole(role) {
-  CURRENT_ROLE = role;
-  const isLec = role === "lecturer";
-
-  $("role-student").style.cssText =
-    `padding:10px;border-radius:10px;font-family:var(--font);font-weight:700;font-size:.88rem;cursor:pointer;transition:all .2s;border:${!isLec ? "2px solid var(--accent)" : "1px solid var(--border)"};background:${!isLec ? "#4f6ef715" : "none"};color:${!isLec ? "var(--accent)" : "var(--muted)"}`;
-  $("role-lecturer").style.cssText =
-    `padding:10px;border-radius:10px;font-family:var(--font);font-weight:700;font-size:.88rem;cursor:pointer;transition:all .2s;border:${isLec ? "2px solid var(--accent)" : "1px solid var(--border)"};background:${isLec ? "#4f6ef715" : "none"};color:${isLec ? "var(--accent)" : "var(--muted)"}`;
-  $("student-fields").style.display = isLec ? "none" : "block";
-  $("lecturer-fields").style.display = isLec ? "block" : "none";
-  $("auth-tabs").style.display = isLec ? "none" : "grid";
-  $("login-heading").textContent = isLec
-    ? "Lecturer Login"
-    : AUTH_TAB === "register"
-      ? "Create Account"
-      : "Welcome back";
-  $("login-btn").textContent = isLec
-    ? "Access Dashboard"
-    : AUTH_TAB === "register"
-      ? "Create Account"
-      : "Sign In";
-  $("login-err").textContent = "";
-}
 
 function setAuthTab(tab) {
   AUTH_TAB = tab;
@@ -597,39 +573,6 @@ async function doLogin(prefillEmail) {
   const err = $("login-err");
   const btn = $("login-btn");
   if (err) err.textContent = "";
-
-  // ── Lecturer path ─────────────────────────────────────────
-  if (CURRENT_ROLE === "lecturer") {
-    const name = $("lec-name-login")?.value.trim();
-    const pw = $("lec-pw-login")?.value.trim();
-    if (!name || !pw) {
-      if (err) err.textContent = "Enter your name and password.";
-      return;
-    }
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = "Checking...";
-    }
-    try {
-      const r = await fetch("/api/lecturer/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, password: pw }),
-      });
-      if (!r.ok) throw new Error("Invalid password");
-      const d = await r.json();
-      localStorage.setItem("sivarr_lec_token", d.token);
-      localStorage.setItem("sivarr_lec_name", name);
-      window.location.href = "/lecturer";
-    } catch (e) {
-      if (err) err.textContent = "Incorrect password. Try again.";
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "Access Dashboard";
-      }
-    }
-    return;
-  }
 
   // ── Student path ──────────────────────────────────────────
   const isReg = AUTH_TAB === "register";

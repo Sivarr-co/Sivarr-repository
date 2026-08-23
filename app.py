@@ -503,7 +503,7 @@ load_env()
 # API_KEY/_model_name/_chat_sessions now live in ai_core.py.
 # _session_tokens now lives in core.py (imported at the top of this file). It is
 # the same dict object — the ~20 mutation sites below continue to work unchanged.
-# Admin/lecturer sessions are now stateless HMAC tokens — no in-memory dicts needed
+# Admin sessions are now stateless HMAC tokens — no in-memory dicts needed
 _failed_logins:     dict = {}   # email → {count, locked_until}
 
 LOGIN_LOCK_ATTEMPTS = 10
@@ -603,7 +603,7 @@ def _is_valid_admin_session(token: str) -> bool:
 
 
 def _revoke_priv_session(token: str, issued_ts: int) -> None:
-    """Denylist an admin/lecturer token for whatever's left of its 2h lifetime."""
+    """Denylist an admin token for whatever's left of its 2h lifetime."""
     remaining = _PRIV_SESSION_TTL_S - (int(time.time()) - issued_ts)
     if remaining > 0:
         rcache.revoke_token(token, remaining)
@@ -1406,7 +1406,7 @@ class _SecurityHeadersMiddleware:
         # (no blob:) and Sentry session-replay's blob Worker is CSP-blocked. Allow
         # same-origin + blob workers only; connect-src still constrains their exfil.
         "worker-src 'self' blob:; "
-        # The app self-hosts its font, but landing/legal/admin/lecturer pages still
+        # The app self-hosts its font, but landing/legal/admin pages still
         # load Google Fonts and share this global CSP — keep these origins until those
         # pages are migrated too (then both can drop to 'self').
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "

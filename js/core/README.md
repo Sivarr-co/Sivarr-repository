@@ -17,7 +17,7 @@ They define global state, utilities, and auth that everything else depends on.
 All global variables — the single source of truth for app state.
 - `S` object: sid, name, email, plan, topics, stats
 - `_BILLING_STATUS`, `_PLAN_LEVELS`, `_PAYWALL_CFG`
-- `AUTH_TAB`, `CURRENT_ROLE`
+- `AUTH_TAB`
 - Feature-specific state: `_chatMsgCount`, `GL_GOALS`, `DH_ACTIVE`, etc.
 - Currently in app.js lines 1–560
 

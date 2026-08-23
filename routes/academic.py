@@ -3,14 +3,14 @@ Academic space — classes, attendance, announcements, assignments, exams,
 grading, live sessions and polls. The lecturer<->student class bridge behind
 "Create Space -> Academic" (js/features/academic.js's acadInit/lInit/sInit).
 
-Distinct from a legacy, parallel /api/lecturer + /api/class + /api/exam
-system still living in app.py (GET /lecturer serves templates/lecturer.html,
-a fully standalone page) -- that system was deliberately replaced, not
-migrated, by this one (see the ACADEMIC CLASSES comment this file was cut
-from for the historical note) and is confirmed unreachable from any current
-UI, but it shares live helpers (load_announcements/save_announcements,
-get_all_students) with the admin panel and the public announcements banner,
-so it stays in app.py untouched -- do not fold it in here.
+There used to be a legacy, parallel /api/lecturer + /api/class + /api/exam
+system in app.py (GET /lecturer served a standalone templates/lecturer.html
+page) that this one deliberately replaced rather than migrated from. It was
+confirmed unreachable from any current UI and deleted outright -- see the
+"Delete the legacy /api/lecturer..." commit for the full removal. A few of
+its helpers (load_announcements/save_announcements, get_all_students) were
+genuinely shared with the admin panel and the public announcements banner,
+so those stayed in app.py rather than being deleted or moved here.
 
 WHY build_router() IS A FACTORY, NOT A BARE ROUTER
 -----------------------------------------------------
@@ -446,9 +446,9 @@ def build_router(send_push) -> APIRouter:
 
     # ── Acad exams (Stage 6 rebuild) ───────────────────────────────
     # v3-native exam bank: per-lecturer (owner=sid), normal session token — fixes
-    # the verify_lecturer()/lec_-token 401 that blocked the v3 Exam Builder. The old
-    # /api/lecturer/exam* (global LECTURER_PASSWORD bank) is left intact for the
-    # legacy /lecturer dashboard. Owner-scoped + id-based (no index-delete race).
+    # the verify_lecturer()/lec_-token 401 that blocked the v3 Exam Builder (the old
+    # /api/lecturer/exam* global-LECTURER_PASSWORD bank this replaced has since
+    # been deleted entirely). Owner-scoped + id-based (no index-delete race).
     @router.post("/api/acad/exam/create")
     async def acad_exam_create(data: dict):
         """Lecturer creates an exam in their own bank (normal session token)."""

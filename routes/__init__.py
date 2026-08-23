@@ -7,7 +7,7 @@
 #
 # Route file  → Endpoints it owns
 # ─────────────────────────────────────────────────────────────────
-# pages.py        / (index), /admin, /lecturer, /sw.js, /billing/callback, /api/config, /api/health
+# pages.py        / (index), /admin, /sw.js, /billing/callback, /api/config, /api/health
 # auth.py         /api/login, /api/session/restore, /api/logout, /api/auth/*
 # oauth.py        /auth/google/*, /auth/github/*
 # billing.py      /api/billing/*, /api/payments/*
@@ -16,8 +16,8 @@
 # ai.py           /api/ai/*, /api/home/brief
 # files.py        /api/upload, /api/share, /share/*
 # org.py          /api/org/*
-# academic.py     /api/class/*, /api/study-deck, /api/exam/*, /api/study-plan, /api/group/*
-# admin.py        /api/admin/*, /api/lecturer/*
+# academic.py     /api/acad/*                                   (implemented)
+# admin.py        /api/admin/*
 # integrations.py /api/integrations/*, /api/integrations/mono/*
 # notifications.py /api/notify/*
 # tasks.py        / /api/tasks/*, /api/import/tasks   (implemented)
