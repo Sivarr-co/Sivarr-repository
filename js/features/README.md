@@ -3,12 +3,12 @@
 Each file is self-contained for its feature. They depend on js/core/ being loaded first.
 All functions remain global (no ES modules) — load as separate <script> tags in index.html.
 
-**Status**: `tasks.js`, `habits.js`, and `docs_notes.js` are implemented (see their
-entries below, marked DONE) — everything else in this file is still the original
-aspirational plan, not yet carried out. `js/core/` doesn't exist yet either; the
-three done files currently load directly before `app.js` in `templates/index.html`,
-depending on app.js's shared globals (`S`/`API`/`$`/`toast`/`_queueMutation`) rather
-than a `js/core/` module.
+**Status**: `tasks.js`, `habits.js`, `docs_notes.js`, `academic.js`, `org.js`,
+`agents.js`, and `marketplace.js` are implemented (see their entries below,
+marked DONE) — everything else in this file is still the original aspirational
+plan, not yet carried out (their line-range citations below are stale relics of
+that plan, not real locations). `js/core/` now exists (`dom.js`, `idb.js`) and
+loads before every feature file.
 
 ## Load order in index.html (after core/)
 ```html
@@ -114,10 +114,25 @@ Docs & Notes panel: Tiptap rich-text editor + slash-command menu.
 - Academic space: flashcards, timer, quiz, study groups
 - `acInit()`, `acLoadCards()`, `acStartQuiz()`
 
-### agents.js (app.js lines ~11547–13070)
-- Template marketplace: browse, install, build, publish
-- Paystack checkout for templates
-- Agent dashboard, earnings, reviews
+### agents.js — DONE (2026-08-21)
+The agent-template marketplace panel (`#panel-agents`): browse/install
+templates, agent creator profiles, creator dashboard (create/publish/
+earnings/payouts, template builder), reviews/follows, Stripe + Paystack
+checkout client flows. Backend in `routes/agents.py`. NOT the same system
+as `marketplace.js` below — zero cross-calls between them on any layer.
+`app.js`'s Home panel (`_homeRenderTrending`) reads this file's
+`AG_CAT_COLORS`/`AG_CAT_ICONS`/`AG_CAT_LABELS`/`agFormatPrice()` directly.
+
+### marketplace.js — DONE (2026-08-21)
+Installed extensions/integrations panel (`#panel-marketplace`): browse/
+install/uninstall, reviews, creator publish flow, per-space extension
+toggles, plus the generic cross-panel extension-host mechanism
+(`SPACE_HOSTS`/`EXT_REGISTRY`/`hostMountExtensions`/`openSpaceSettings`) and
+every mounted extension's own mini-app (Pomodoro, Flashcards, Citations,
+Calendar, Kanban-plus, Agency OS CRM, Trading Journal). Backend for the
+install/review/publish side in `routes/marketplace.py`. Must load before
+`academic.js` and `org.js`, both of which call `hostMountExtensions`/
+`openSpaceSettings` as globals.
 
 ### notifications.js (app.js lines ~13216–13450)
 - `_buildNotifs()`, `notifToggle()`
