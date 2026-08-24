@@ -3110,10 +3110,21 @@ def _goal_param(key: str, value):
 
 
 def _row_to_goal(row: dict) -> dict:
+    """psycopg2 hands back TIMESTAMPTZ columns as timezone-AWARE datetimes,
+    but this codebase's convention everywhere else (datetime.utcnow(),
+    tests/app.py comparisons against deleted_at strings) is naive UTC --
+    .replace(tzinfo=None) here rather than a bare .isoformat() so a caller
+    comparing this string via datetime.fromisoformat() against a naive
+    `datetime.utcnow()`-derived cutoff doesn't hit "can't compare
+    offset-naive and offset-aware datetimes" (caught by a real CI run
+    against real Postgres, not by reading the migration diff -- see
+    tests/test_smoke.py's test_purge_deleted_goals_respects_30_day_retention).
+    Postgres stores TIMESTAMPTZ in UTC regardless of session timezone, so
+    dropping tzinfo here doesn't shift the value, only its representation."""
     d = dict(row)
     for key in ("deleted_at", "created_at", "updated_at"):
         if d.get(key) is not None and hasattr(d[key], "isoformat"):
-            d[key] = d[key].isoformat()
+            d[key] = d[key].replace(tzinfo=None).isoformat()
     return d
 
 
@@ -3262,10 +3273,14 @@ def _doc_param(key: str, value):
 
 
 def _row_to_doc(row: dict) -> dict:
+    """Same naive-UTC normalization as _row_to_goal above, and for the same
+    reason -- kept consistent even though no current caller compares docs'
+    deleted_at in Python yet, to avoid the identical latent bug surfacing
+    later the same way it did for goals."""
     d = dict(row)
     for key in ("deleted_at", "created_at", "updated_at"):
         if d.get(key) is not None and hasattr(d[key], "isoformat"):
-            d[key] = d[key].isoformat()
+            d[key] = d[key].replace(tzinfo=None).isoformat()
     return d
 
 
