@@ -111,6 +111,12 @@ export const api = {
   orgDocSave:      (docId: string | null, title: string, content: string) =>
     post('/api/org/docs/save', { doc_id: docId ?? '', title, content }),
 
+  // Focus sessions (routes/focus.py — append-only log, add + list only,
+  // nothing about a logged session is ever edited after the fact).
+  focusSessions:    () => get('/api/focus'),
+  addFocusSession:  (data: { task: string; duration: number; date: string }) =>
+    post('/api/focus/add', data),
+
   // Notifications (server-driven — see app.py's send_push()/_send_expo_push())
   pushExpoSubscribe:      (expoToken: string) => post('/api/push/expo/subscribe', { expo_token: expoToken }),
   notifications:          () => get('/api/notifications/list'),

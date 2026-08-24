@@ -1248,6 +1248,7 @@ app.include_router(_marketplace_router)
 app.include_router(_search_router)
 from routes.import_notion import router as _import_notion_router; app.include_router(_import_notion_router)
 from routes.import_trello import router as _import_trello_router; app.include_router(_import_trello_router)
+from routes.focus import router as _focus_router; app.include_router(_focus_router)
 
 # routes/quiz.py's build_router() only needs load_progress/save_progress, which
 # are both already defined above this point (see just above "app = FastAPI(...)")

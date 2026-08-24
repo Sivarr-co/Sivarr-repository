@@ -4,13 +4,11 @@ import {
   TextInput, Alert, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { api } from '../api/client';
 import { COLORS } from '../theme';
-
-const FOCUS_LOG_KEY = 'sivarr_focus_log_mobile';
 
 type Mode = { label: string; mins: number; color: string };
 const MODES: Record<string, Mode> = {
@@ -36,11 +34,14 @@ export default function FocusScreen() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const progress    = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    AsyncStorage.getItem(FOCUS_LOG_KEY).then(raw => {
-      try { setLog(JSON.parse(raw ?? '[]')); } catch { setLog([]); }
-    });
+  const loadLog = useCallback(async () => {
+    try {
+      const d = await api.focusSessions();
+      setLog(d.sessions ?? []);
+    } catch (_) {}
   }, []);
+
+  useEffect(() => { loadLog(); }, [loadLog]);
 
   const stopTimer = useCallback(() => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
@@ -91,16 +92,18 @@ export default function FocusScreen() {
   async function onSessionComplete() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (mode === 'focus') {
-      const entry: LogEntry = {
-        task:     taskName.trim() || 'Focus Session',
-        duration: MODES.focus.mins,
-        date:     new Date().toISOString().split('T')[0],
-      };
-      const updated = [entry, ...log].slice(0, 50);
-      setLog(updated);
-      await AsyncStorage.setItem(FOCUS_LOG_KEY, JSON.stringify(updated));
       setDone(true);
       setSession(s => s + 1);
+      try {
+        const d = await api.addFocusSession({
+          task:     taskName.trim() || 'Focus Session',
+          duration: MODES.focus.mins,
+          date:     new Date().toISOString().split('T')[0],
+        });
+        setLog(prev => [d.session, ...prev].slice(0, 50));
+      } catch (e: any) {
+        Alert.alert('Session not saved', e.message ?? 'Could not reach the server.');
+      }
     } else {
       // Break over — switch back to focus
       applyMode('focus');
