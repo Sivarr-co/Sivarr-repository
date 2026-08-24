@@ -2,9 +2,8 @@
 Embeddings (Session 9): pgvector-backed storage for AI retrieval.
 
 Same split as tests/test_search.py's module docstring: some of this always
-runs against the no-DATABASE_URL sandbox this test suite executes in, some
-needs a real Postgres with the pgvector extension and is skipped here with
-an explicit reason rather than silently passing empty.
+runs, some needs a real Postgres with the pgvector extension and is skipped
+here with an explicit reason rather than silently passing empty.
 
 The "no-op rather than a crash when pgvector is unavailable" requirement
 *is* the always-runnable part — every database.py function under test here
@@ -12,7 +11,12 @@ is expected to degrade to an empty/False/None default, never raise, when
 there's no DATABASE_URL at all (a stronger condition than "pgvector missing
 on an otherwise-configured Postgres," but exercises the same code path:
 embeddings_available() returning False and every other function short-
-circuiting on it).
+circuiting on it). Session 14 added a real Postgres to CI, so "no
+DATABASE_URL" is no longer this suite's ambient default there -- these use
+the `no_db` fixture (tests/conftest.py) to force that state deliberately
+instead of relying on the environment, the same fix every other test in
+this repo that assumed the same thing needed once CI stopped being
+DB-less by default.
 """
 
 import pytest
@@ -20,28 +24,28 @@ import pytest
 import database as db
 
 
-def test_embeddings_available_false_without_database_url():
+def test_embeddings_available_false_without_database_url(no_db):
     assert db.is_available() is False, "this suite runs without DATABASE_URL — see test_search.py"
     assert db.embeddings_available() is False
 
 
-def test_get_embedding_chunk_noop_without_db():
+def test_get_embedding_chunk_noop_without_db(no_db):
     assert db.get_embedding_chunk("sid", "task", "1") is None
 
 
-def test_upsert_embedding_noop_without_db():
+def test_upsert_embedding_noop_without_db(no_db):
     assert db.upsert_embedding("sid", "task", "1", "some text", [0.1] * 768) is False
 
 
-def test_prune_embeddings_noop_without_db():
+def test_prune_embeddings_noop_without_db(no_db):
     assert db.prune_embeddings("sid", "task", []) == 0
 
 
-def test_search_embeddings_noop_without_db():
+def test_search_embeddings_noop_without_db(no_db):
     assert db.search_embeddings("sid", [0.1] * 768) == []
 
 
-def test_get_sids_with_tasks_noop_without_db():
+def test_get_sids_with_tasks_noop_without_db(no_db):
     assert db.get_sids_with_tasks() == []
 
 

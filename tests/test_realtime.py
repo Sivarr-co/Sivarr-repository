@@ -5,17 +5,21 @@ live document co-editing). Neither has any prior test coverage.
 Both endpoints hard-require db.is_available() (no JSON-file fallback, unlike
 the rest of the app) and, in production, use Redis pub/sub so a join/leave/
 doc-update on one Gunicorn worker reaches clients connected to another. CI has
-neither a real Postgres nor a reachable Redis, so every test here mocks
-database.py's specific calls each endpoint makes (is_available/
-get_org_by_member/get_org_doc/upsert_presence/get_presence) and forces
-routes.org._get_presence_redis() to return None. That second part isn't
-just convenience — it's the same "no Redis" path the module already falls
-back to in production when REDIS_URL is unset or unreachable (see
-_publish_org_event's docstring), so these tests exercise a real, supported
-code path, not a synthetic one. It also makes fan-out deterministic and fast:
-with no Redis, _publish_org_event calls the local fan-out directly, so two
-TestClient WebSocket connections in the same test process see each other's
-messages synchronously, no network or timing races involved.
+no reachable Redis (a real Postgres was added in Session 14, Redis was not),
+so every test here mocks database.py's specific calls each endpoint makes
+(is_available/get_org_by_member/get_org_doc/upsert_presence/get_presence)
+and forces routes.org._get_presence_redis() to return None. That second
+part isn't just convenience — it's the same "no Redis" path the module
+already falls back to in production when REDIS_URL is unset or unreachable
+(see _publish_org_event's docstring), so these tests exercise a real,
+supported code path, not a synthetic one. It also makes fan-out
+deterministic and fast: with no Redis, _publish_org_event calls the local
+fan-out directly, so two TestClient WebSocket connections in the same test
+process see each other's messages synchronously, no network or timing
+races involved. The two "rejects when db unavailable" tests use the
+no_db fixture (tests/conftest.py) to force that specific state, distinct
+from and in addition to the per-test is_available()/get_org_by_member/etc.
+mocks the rest of this file uses.
 
 One behavior worth calling out since it shapes several assertions below: the
 local fan-out sends to every socket registered for that org/doc, including
@@ -78,9 +82,9 @@ def test_presence_ws_rejects_garbage_token(client):
     assert exc.value.code == 4401
 
 
-def test_presence_ws_rejects_when_db_unavailable(client, monkeypatch):
-    # Default test environment: no DATABASE_URL, db.is_available() already
-    # False — this is the real "no DB configured" path, not a mock.
+def test_presence_ws_rejects_when_db_unavailable(client, no_db):
+    # Forced via the no_db fixture (tests/conftest.py) -- Session 14 added a
+    # real Postgres to CI, so "no DATABASE_URL" is no longer ambient there.
     token = _token("ws_rej_db")
     with pytest.raises(WebSocketDisconnect) as exc:
         with client.websocket_connect(f"/api/org/presence/ws?token={token}"):
@@ -175,7 +179,7 @@ def test_doc_ws_rejects_missing_token(client):
     assert exc.value.code == 4401
 
 
-def test_doc_ws_rejects_when_db_unavailable(client):
+def test_doc_ws_rejects_when_db_unavailable(client, no_db):
     token = _token("ws_doc_rej_db")
     with pytest.raises(WebSocketDisconnect) as exc:
         with client.websocket_connect(f"/api/org/docs/doc_x/ws?token={token}"):

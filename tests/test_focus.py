@@ -4,11 +4,13 @@ Session 2 deliberately left open (FocusScreen was AsyncStorage-only, no
 /api/focus endpoint existed).
 
 Rides the generic `collections` table, which has no JSON-file fallback --
-same as org.py/academic.py. This sandbox/CI has no DATABASE_URL, so
-db.is_available() is really False here, not simulated -- the 503 tests
-below exercise the real no-DB path. The persistence-round-trip tests mock
-database.py's collections calls (same pattern tests/test_realtime.py uses
-for org.py) since there's no real Postgres to hit.
+same as org.py/academic.py. Locally, and in CI before Session 14, there was
+never a DATABASE_URL at all, so the 503 tests below exercised the real
+no-DB path ambiently. Session 14 added a real Postgres to CI, so they now
+force it via the `no_db` fixture (tests/conftest.py) instead of relying on
+the environment. The persistence-round-trip tests mock database.py's
+collections calls (same pattern tests/test_realtime.py uses for org.py)
+since there's no real Postgres to hit locally.
 
 The 503 checks are a regression test for a real bug caught by actually
 running add-then-list locally, not by reading the code: coll_put/coll_list
@@ -46,16 +48,18 @@ def test_focus_list_requires_auth(client):
     assert r.status_code == 401
 
 
-# ── No DB configured -- the real path in this environment ──────────────
+# ── No DB configured -- forced via the no_db fixture (tests/conftest.py),
+# not ambient: Session 14 added a real Postgres to CI, so "no DATABASE_URL"
+# is no longer this suite's default environment there. ─────────────────
 
-def test_focus_add_503s_without_db_instead_of_lying(client):
+def test_focus_add_503s_without_db_instead_of_lying(client, no_db):
     token = _token("focus_no_db_add")
     r = client.post("/api/focus/add", json={"token": token, "task": "x", "date": "2026-08-24"})
     assert r.status_code == 503
     assert not db.is_available()  # confirms this is exercising the real no-DB path, not a fluke
 
 
-def test_focus_list_503s_without_db(client):
+def test_focus_list_503s_without_db(client, no_db):
     token = _token("focus_no_db_list")
     r = client.get(f"/api/focus?token={token}")
     assert r.status_code == 503
