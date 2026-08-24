@@ -1,0 +1,187 @@
+"""
+Unified search — extracted verbatim in spirit from app.py's old
+`unified_search`, but with tasks and community posts now backed by real
+Postgres full-text search (tasks.search_vector / community_posts.search_vector,
+both GENERATED tsvector columns with a GIN index, see database.py's _SCHEMA)
+instead of an in-memory substring scan.
+
+Goals, docs, skills and finance stay on the substring scan, unchanged. They
+are not per-record Postgres tables -- they're whole-list JSON blobs in
+user_blobs (core.py's _load_user_list/_save_user_list), one row per user
+holding an entire array, so there's no per-record column a tsvector could
+attach to without a real storage migration for each of them (comparable to
+the tasks/habits migration in an earlier pass). That's a bigger change than
+this file owns -- flagging it here for whoever picks that up next, rather
+than leaving it to be rediscovered.
+
+Every result gets a `score` float added on top of the original response
+shape ({type, icon, title, meta, id}) -- real ts_rank for tasks/posts, a
+small heuristic (exact title match > startswith > contains) for the
+substring-matched sources, so the combined list can be sorted by one field
+instead of just concatenated blocks by source type like the old version did.
+`score` is additive, not a replacement of any existing key, so the current
+frontend (which only reads type/icon/title/meta/id) keeps working unchanged.
+"""
+
+from fastapi import APIRouter, HTTPException
+
+import database as db
+from core import get_session_from_token, sanitize_text
+from routes.tasks import load_tasks
+from routes.goals import load_goals
+from routes.docs_notes import load_docs
+
+router = APIRouter()
+
+
+def _substring_score(q: str, title: str) -> float:
+    """Heuristic relevance for the sources that don't have a real Postgres
+    rank -- lets them interleave reasonably with ts_rank-scored hits instead
+    of always sorting below (or above) them as an undifferentiated block."""
+    title_l = title.lower()
+    if title_l == q:
+        return 1.0
+    if title_l.startswith(q):
+        return 0.5
+    return 0.1
+
+
+@router.get("/api/search")
+async def unified_search(q: str = "", token: str = ""):
+    sess = get_session_from_token(sanitize_text(token, 100)) if token else None
+    if not sess:
+        raise HTTPException(401, "Invalid session.")
+    sid = sess["sid"]
+    q   = q.strip().lower()
+    if len(q) < 2:
+        return {"results": []}
+
+    results = []
+
+    # ── Tasks — real Postgres full-text search when available ──────────
+    if db.is_available():
+        for t in db.search_tasks(sid, q):
+            results.append({
+                "type":  "task",
+                "icon":  "✅" if t.get("done") else "☐",
+                "title": t["title"],
+                "meta":  t.get("status", "todo"),
+                "id":    t.get("id", ""),
+                "score": float(t.get("rank") or 0),
+            })
+    else:
+        # JSON-fallback path -- exercised locally and in CI, where no
+        # DATABASE_URL means db.is_available() is always False. Same
+        # substring-scan logic the old unified_search used for tasks.
+        for t in load_tasks(sid):
+            if t.get("deleted_at"):
+                continue
+            title = t.get("title", "")
+            if q in title.lower():
+                results.append({
+                    "type":  "task",
+                    "icon":  "✅" if t.get("done") else "☐",
+                    "title": title,
+                    "meta":  t.get("status", "todo"),
+                    "id":    t.get("id", ""),
+                    "score": _substring_score(q, title),
+                })
+
+    # ── Goals ────────────────────────────────────────────────────────
+    for g in load_goals(sid):
+        if g.get("deleted_at"):
+            continue
+        title = g.get("title", "")
+        if q in title.lower() or q in g.get("subject", "").lower():
+            results.append({
+                "type":  "goal",
+                "icon":  "🎯",
+                "title": title,
+                "meta":  f'{g.get("progress", 0)}% complete',
+                "id":    g.get("id", ""),
+                "score": _substring_score(q, title),
+            })
+
+    # ── Docs ─────────────────────────────────────────────────────────
+    for d in load_docs(sid):
+        if d.get("deleted_at"):
+            continue
+        title   = d.get("title", "")
+        content = d.get("content", "").lower()
+        if q in title.lower() or q in content:
+            snippet = ""
+            idx = content.find(q)
+            if idx >= 0:
+                snippet = d["content"][max(0, idx - 30): idx + 70].strip()
+            results.append({
+                "type":  "doc",
+                "icon":  "📄",
+                "title": title or "Untitled",
+                "meta":  snippet or "",
+                "id":    str(d.get("id", "")),
+                "score": _substring_score(q, title),
+            })
+
+    # ── Community posts — real Postgres full-text search ───────────────
+    # search_community_posts previously did not exist (AttributeError,
+    # silently swallowed by the try/except this block used to have) --
+    # community posts have never actually appeared in search results in
+    # production. Implemented for real now; the try/except is no longer
+    # load-bearing for a missing function but stays as defense against any
+    # unexpected DB error not surfacing as a 500 for the rest of the search.
+    if db.is_available():
+        try:
+            for p in db.search_community_posts(q, limit=5):
+                title = (p.get("body") or "")[:80]
+                results.append({
+                    "type":  "post",
+                    "icon":  "💬",
+                    "title": title,
+                    "meta":  p.get("author_name", ""),
+                    "id":    str(p.get("id", "")),
+                    "score": float(p.get("rank") or 0),
+                })
+        except Exception:
+            pass
+
+    # ── Skills ───────────────────────────────────────────────────────
+    if db.is_available():
+        try:
+            sk_blob = db.get_user_blob(sid, "skills") or {}
+            for s in (sk_blob.get("skills") or []):
+                name = s.get("name", "")
+                cat  = s.get("category", "")
+                if q in name.lower() or q in cat.lower():
+                    results.append({
+                        "type":  "skill",
+                        "icon":  s.get("emoji", "🧠"),
+                        "title": name,
+                        "meta":  f'{s.get("level",0)}% · {cat}',
+                        "id":    s.get("id", ""),
+                        "score": _substring_score(q, name),
+                    })
+        except Exception:
+            pass
+
+    # ── Finance transactions ─────────────────────────────────────────
+    if db.is_available():
+        try:
+            fin_blob = db.get_user_blob(sid, "finance") or {}
+            for t in (fin_blob.get("transactions") or []):
+                note = t.get("note", "")
+                cat  = t.get("category", "")
+                if q in note.lower() or q in cat.lower():
+                    title = note or cat
+                    results.append({
+                        "type":  "transaction",
+                        "icon":  "💰" if t.get("type") == "income" else "💸",
+                        "title": title,
+                        "meta":  f'₦{t.get("amount",0):,.0f} · {t.get("date","")}',
+                        "id":    t.get("id", ""),
+                        "score": _substring_score(q, title),
+                    })
+        except Exception:
+            pass
+
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return {"results": results[:30]}

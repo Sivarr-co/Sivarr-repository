@@ -1229,6 +1229,7 @@ from routes.skills import router as _skills_router
 from routes.finance import router as _finance_router
 from routes.home_brief import router as _home_brief_router
 from routes.marketplace import router as _marketplace_router
+from routes.search import router as _search_router
 # _org_sub_active: routes.org's build_router() (needing load_progress/
 # send_email/send_push/_is_valid_admin_session) is wired further down, right
 # after send_push is defined — but this one pure helper is also needed here,
@@ -1244,6 +1245,7 @@ app.include_router(_skills_router)
 app.include_router(_finance_router)
 app.include_router(_home_brief_router)
 app.include_router(_marketplace_router)
+app.include_router(_search_router)
 from routes.import_notion import router as _import_notion_router; app.include_router(_import_notion_router)
 from routes.import_trello import router as _import_trello_router; app.include_router(_import_trello_router)
 
@@ -4400,121 +4402,6 @@ Make tasks specific and actionable. Each day must have 2-4 tasks. Never use em d
 # Skills (routes/skills.py) and Finance (routes/finance.py) sync/restore now
 # live in their own route modules, same pattern as tasks/habits/docs/goals/journal.
 
-
-# ═══════════════════════════════════════════════════════════════
-#  UNIFIED SEARCH  — GET /api/search?q=&token=
-# ═══════════════════════════════════════════════════════════════
-
-@app.get("/api/search")
-async def unified_search(q: str = "", token: str = ""):
-    sess = get_session_from_token(token)
-    if not sess:
-        raise HTTPException(401, "Invalid session.")
-    sid = sess["sid"]
-    q   = q.strip().lower()
-    if len(q) < 2:
-        return {"results": []}
-
-    import re as _re
-    results = []
-
-    # ── Tasks ──────────────────────────────────────────────────
-    for t in load_tasks(sid):
-        if t.get("deleted_at"):
-            continue
-        if q in t.get("title", "").lower():
-            results.append({
-                "type": "task",
-                "icon": "✅" if t.get("done") else "☐",
-                "title": t["title"],
-                "meta":  t.get("status", "todo"),
-                "id":    t.get("id", ""),
-            })
-
-    # ── Goals ──────────────────────────────────────────────────
-    for g in load_goals(sid):
-        if g.get("deleted_at"):
-            continue
-        if q in g.get("title", "").lower() or q in g.get("subject", "").lower():
-            results.append({
-                "type":  "goal",
-                "icon":  "🎯",
-                "title": g["title"],
-                "meta":  f'{g.get("progress", 0)}% complete',
-                "id":    g.get("id", ""),
-            })
-
-    # ── Docs ───────────────────────────────────────────────────
-    for d in load_docs(sid):
-        if d.get("deleted_at"):
-            continue
-        title   = d.get("title", "").lower()
-        content = d.get("content", "").lower()
-        if q in title or q in content:
-            snippet = ""
-            idx = content.find(q)
-            if idx >= 0:
-                snippet = d["content"][max(0, idx - 30): idx + 70].strip()
-            results.append({
-                "type":  "doc",
-                "icon":  "📄",
-                "title": d.get("title") or "Untitled",
-                "meta":  snippet or "",
-                "id":    str(d.get("id", "")),
-            })
-
-    # ── Community posts ────────────────────────────────────────
-    if db.is_available():
-        try:
-            posts = db.search_community_posts(q, limit=5)
-            for p in posts:
-                results.append({
-                    "type":  "post",
-                    "icon":  "💬",
-                    "title": (p.get("content") or "")[:80],
-                    "meta":  p.get("author_name", ""),
-                    "id":    str(p.get("id", "")),
-                })
-        except Exception:
-            pass
-
-    # ── Skills ─────────────────────────────────────────────────
-    if db.is_available():
-        try:
-            sk_blob = db.get_user_blob(sid, "skills") or {}
-            for s in (sk_blob.get("skills") or []):
-                name = s.get("name", "")
-                cat  = s.get("category", "")
-                if q in name.lower() or q in cat.lower():
-                    results.append({
-                        "type":  "skill",
-                        "icon":  s.get("emoji", "🧠"),
-                        "title": name,
-                        "meta":  f'{s.get("level",0)}% · {cat}',
-                        "id":    s.get("id", ""),
-                    })
-        except Exception:
-            pass
-
-    # ── Finance transactions ────────────────────────────────────
-    if db.is_available():
-        try:
-            fin_blob = db.get_user_blob(sid, "finance") or {}
-            for t in (fin_blob.get("transactions") or []):
-                note = t.get("note", "")
-                cat  = t.get("category", "")
-                if q in note.lower() or q in cat.lower():
-                    results.append({
-                        "type":  "transaction",
-                        "icon":  "💰" if t.get("type") == "income" else "💸",
-                        "title": note or cat,
-                        "meta":  f'₦{t.get("amount",0):,.0f} · {t.get("date","")}',
-                        "id":    t.get("id", ""),
-                    })
-        except Exception:
-            pass
-
-    return {"results": results[:30]}
 
 @app.post("/api/learning-hub/enroll")
 async def enroll_course(data: dict):

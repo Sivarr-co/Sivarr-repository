@@ -832,6 +832,25 @@ CREATE TABLE IF NOT EXISTS collections (
 );
 CREATE INDEX IF NOT EXISTS idx_collections_owner ON collections(collection, owner);
 CREATE INDEX IF NOT EXISTS idx_collections_seq   ON collections(collection, seq);
+
+-- ── Full-text search: tasks + community posts (Session 5) ──────
+-- Deliberately placed here, after every CREATE TABLE above, rather than
+-- right after tasks/community_posts' own blocks (the usual convention for
+-- a new index) or in the earlier "Migrations for existing installs"
+-- section near the top of this string. Both of those run before tasks and
+-- community_posts exist on a fresh install (init_db() executes every
+-- statement in this string top to bottom, each idempotent) -- an
+-- ALTER TABLE against a table that has not been created yet errors. Down
+-- here it always runs after both tables exist, on a fresh install or an
+-- existing one. GENERATED ALWAYS keeps the column in sync automatically on
+-- every INSERT/UPDATE, so routes/tasks.py's write paths need no changes.
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS search_vector TSVECTOR
+    GENERATED ALWAYS AS (to_tsvector('english', title || ' ' || coalesce(description, ''))) STORED;
+CREATE INDEX IF NOT EXISTS idx_tasks_search ON tasks USING GIN(search_vector);
+
+ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS search_vector TSVECTOR
+    GENERATED ALWAYS AS (to_tsvector('english', body)) STORED;
+CREATE INDEX IF NOT EXISTS idx_comm_posts_search ON community_posts USING GIN(search_vector);
 """
 
 
@@ -2516,6 +2535,35 @@ def get_trashed_tasks(sid: str) -> list:
         _release(conn)
 
 
+def search_tasks(sid: str, q: str, limit: int = 15) -> list:
+    """Full-text search over this user's tasks, ranked by relevance via the
+    tasks.search_vector generated column + its GIN index (see _SCHEMA).
+    Soft-deleted tasks are excluded in the WHERE clause here rather than by
+    the caller, unlike the JSON-fallback path routes/search.py falls back to
+    when no DB is configured, which still filters deleted_at in Python."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT id, title, status, done, description,
+                          ts_rank(search_vector, plainto_tsquery('english', %s)) AS rank
+                   FROM tasks
+                   WHERE sid=%s AND deleted_at IS NULL
+                     AND search_vector @@ plainto_tsquery('english', %s)
+                   ORDER BY rank DESC
+                   LIMIT %s""",
+                (q, sid, q, limit),
+            )
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"search_tasks: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
 def get_task(task_id: str, sid: str) -> dict | None:
     conn = _get_conn()
     if not conn:
@@ -3288,6 +3336,33 @@ def get_community_posts(category: str = "all", limit: int = 40) -> list:
              "created": r[8].strftime("%Y-%m-%dT%H:%M:%SZ") if r[8] else ""}
             for r in rows
         ]
+    finally:
+        _release(conn)
+
+
+def search_community_posts(q: str, limit: int = 5) -> list:
+    """Full-text search over the public community feed, ranked by relevance
+    via community_posts.search_vector + its GIN index (see _SCHEMA). Public
+    feed, so no sid scoping -- every post is visible to every member already
+    (see get_community_posts above, which has none either)."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT id, author_name, body,
+                          ts_rank(search_vector, plainto_tsquery('english', %s)) AS rank
+                   FROM community_posts
+                   WHERE search_vector @@ plainto_tsquery('english', %s)
+                   ORDER BY rank DESC
+                   LIMIT %s""",
+                (q, q, limit),
+            )
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"search_community_posts: {exc}")
+        return []
     finally:
         _release(conn)
 
