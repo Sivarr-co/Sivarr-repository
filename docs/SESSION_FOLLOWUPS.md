@@ -28,8 +28,12 @@ standard below is additional, and it is not optional.
 | 19 | CSP: remove `unsafe-inline` | Open — run alone |
 | 20 | User-facing two-factor auth | Open |
 
-**16, 17 and 18 own different files and can run in parallel.** 19 and 20 are
-sequential, and 19 needs a window with nothing else in flight.
+**Run 16 and 17 together. Then 18. Then 19 and 20 sequentially.**
+
+17 and 18 both edit `js/app.js` and **must not run at the same time**. 16 is
+isolated (`database.py`, `routes/search.py`, `tests/`) and is safe alongside
+either. 18 is small — a single function move — so it slots in cheaply after 17
+lands. 19 needs a window with nothing else in flight at all.
 
 Sessions marked Done are kept below for context. **Do not redo them.**
 
@@ -204,27 +208,34 @@ Postgres, with tests that run in CI (depends on Session 14).
 
 ---
 
-### Session 17 — Give the importers a UI
+### Session 17 — Extend the existing import UI to Notion and Trello/Asana
 
-**Owns:** `templates/_modals.html`, `js/features/docs_notes.js` or a new
-`js/features/import.js`, `css/features/` as needed
+**Owns:** `js/app.js` (the import-handlers block, ~line 6842), `templates/_panels_core.html`
+
+**Conflicts with Session 18 — do not run them concurrently.** Both edit `js/app.js`.
 
 `POST /api/import/notion` and `POST /api/import/trello` both work — verified end
-to end — and **no user can reach either one.** There is no upload UI anywhere.
+to end — and **no user can reach either one.**
 
-Build a single import entry point: pick a source (Notion / Trello / Asana), drop
-in the export files, show what was imported. Both endpoints take
-`{token, files: [{filename, content}]}` and return counts, so one screen serves
-both.
+Note this is *extending*, not building from scratch. An import UI already exists:
+`stImportTasks`, `stImportGoals` and `stImportNotes` live in `js/app.js` around
+line 6842, with `_parseCSV`/`_splitCSVLine` helpers beside them, and they are
+wired into `templates/_panels_core.html`. Follow that established pattern rather
+than inventing a parallel one, and reuse `_parseCSV` for the Asana CSV path.
 
-Respect the existing limits: 50 files per request, 500 task rows per import.
-Surface those to the user rather than silently truncating.
+The two new endpoints differ from the existing three: they take
+`{token, files: [{filename, content}]}` (a list of files, not one parsed payload)
+and return counts. So the handler needs to accept a multi-file selection and read
+each file's text before posting.
 
-**Do not** edit `js/app.js`, `templates/index.html` or `css/panels.css` beyond a
-single registration line each, and prefer a new feature file.
+Respect the existing limits — 50 files per request, 500 task rows per import — and
+surface them to the user rather than silently truncating.
 
-**Done when:** a user can import a real Notion export through the UI and see the
-resulting docs and tasks, confirmed in a browser.
+Reuse `_setImportStatus` for progress feedback, exactly as the current handlers do.
+
+**Done when:** a user can import a real Notion export and a real Trello JSON
+export through the existing Settings import UI and see the resulting docs and
+tasks, confirmed in a browser, not just by calling the endpoint.
 
 ---
 
