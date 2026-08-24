@@ -443,6 +443,28 @@ def _hash_file(fs_path: Path) -> str:
     return h.hexdigest()[:10]
 
 
+_ASSET_URL_OVERRIDES: dict[str, str] = {}
+
+
+def _dist_counterpart(url_path: str) -> Path | None:
+    """For "/js/<rest>" or "/css/<rest>", the minified build at
+    js/dist/<rest> or css/dist/<rest> (written by `npm run build`, see
+    build.js), if `npm run build` has actually been run and produced one.
+    None for anything outside js/ or css/ (static/, vendor bundles that are
+    already prebuilt, anything with no build step) or if no build ran.
+
+    Nothing needs to know this convention besides asset() and build.js —
+    app.py's existing `/js` and `/css` StaticFiles mounts already serve
+    js/dist/* and css/dist/* for free, since dist/ lives inside the
+    directories they already mount. No route or template change needed.
+    """
+    parts = url_path.lstrip("/").split("/", 1)
+    if len(parts) != 2 or parts[0] not in ("js", "css"):
+        return None
+    candidate = Path(parts[0]) / "dist" / parts[1]
+    return candidate if candidate.is_file() else None
+
+
 def asset(url_path: str) -> str:
     """Return `url_path` with a content-hash cache-buster appended.
 
@@ -450,11 +472,29 @@ def asset(url_path: str) -> str:
 
     Falls back to the bare path if the file is missing, so a typo in a template
     degrades to an un-busted (but still working) URL rather than a 500.
+
+    Outside dev mode, prefers a minified build counterpart over raw source
+    when `npm run build` has produced one (see _dist_counterpart) — both the
+    hash and the returned URL point at the built file in that case:
+
+        asset("/js/app.js")  ->  "/js/dist/app.js?v=<hash-of-built-file>"
+
+    Local dev never has js/dist//css/dist unless someone runs the build by
+    hand, so this is a no-op there — dev always sees raw, readable source,
+    without needing to check _ASSET_DEV_MODE explicitly for this part.
     """
     if not _ASSET_DEV_MODE and url_path in _ASSET_HASHES:
-        return f"{url_path}?v={_ASSET_HASHES[url_path]}"
+        resolved = _ASSET_URL_OVERRIDES.get(url_path, url_path)
+        return f"{resolved}?v={_ASSET_HASHES[url_path]}"
 
+    resolved_path = url_path
     fs_path = Path(url_path.lstrip("/"))
+    if not _ASSET_DEV_MODE:
+        dist = _dist_counterpart(url_path)
+        if dist is not None:
+            fs_path = dist
+            resolved_path = "/" + str(dist).replace("\\", "/")
+
     try:
         digest = _hash_file(fs_path)
     except OSError:
@@ -462,7 +502,8 @@ def asset(url_path: str) -> str:
         return url_path
 
     _ASSET_HASHES[url_path] = digest
-    return f"{url_path}?v={digest}"
+    _ASSET_URL_OVERRIDES[url_path] = resolved_path
+    return f"{resolved_path}?v={digest}"
 
 
 # The set of assets the service worker precaches. Kept here so sw_cache_version()

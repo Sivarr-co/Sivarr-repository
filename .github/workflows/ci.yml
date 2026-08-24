@@ -98,3 +98,29 @@ jobs:
             exit 1
           fi
           echo "No hand-written cache-busters."
+
+  build:
+    name: Asset build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install build tooling
+        run: npm ci
+
+      - name: Build minified JS + CSS
+        # Railway's nixpacks builder runs this same `npm run build` during
+        # its own build phase (it auto-detects a package.json "build"
+        # script) -- this job is what actually gates that path, since it's
+        # otherwise invisible until a real deploy. build.js fails on any
+        # esbuild warning, not just hard errors: a CSS comment containing a
+        # literal "*/" closes early and can silently swallow the rest of a
+        # file as an unterminated rule (a real bug this caught once, in
+        # css/features/agents.css/marketplace.css) -- a warning here means
+        # real content went missing, not a style nit.
+        run: npm run build

@@ -1,17 +1,17 @@
 /* Marketplace panel (#panel-marketplace) styling -- extracted from
    css/panels.css. Covers the installed-extensions/integrations hub, its
    detail/publish modals, per-space extension toggles (.sset-*), and the
-   mounted-extension mini-app shells (.ext-tab-*/.ext-pomo-*). NOT the same
+   mounted-extension mini-app shells (.ext-tab-*, .ext-pomo-*). NOT the same
    system as css/features/agents.css (the agent-template marketplace,
    #panel-agents) -- confirmed zero shared selectors between the two.
 
-   Includes .mkt-currency-*/.mkt-paystack-* ("Currency Toggle"/"Paystack
+   Includes .mkt-currency-*, .mkt-paystack-* ("Currency Toggle"/"Paystack
    Button" below) -- moved verbatim even though a grep found zero live
    references anywhere in js/ or templates/; the LIVE equivalent is
-   .ag-currency-*/.ag-paystack-* in css/features/agents.css. Not cleaned up
+   .ag-currency-*, .ag-paystack-* in css/features/agents.css. Not cleaned up
    as part of this extraction, flagging for a separate dead-code pass.
 
-   A handful of scattered .mkt-*/.ag-* fragments remain in mobile.css/
+   A handful of scattered .mkt-*, .ag-* fragments remain in mobile.css/
    base.css/layout.css (shared multi-selector utility rules, a 3-way
    reduced-motion rule shared with Template Library/.tpl-* and Org's
    .ps-spin, and a few isolated media-query overrides) -- deliberately left

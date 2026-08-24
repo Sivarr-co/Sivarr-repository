@@ -215,3 +215,7 @@ uploads/
 shares/
 logs/
 *.backup.json
+
+# Root-level Node tooling (build.js's esbuild dependency) — mobile/ has its
+# own separate node_modules, already covered by mobile/.gitignore.
+node_modules/

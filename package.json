@@ -1,0 +1,12 @@
+{
+  "name": "sivarr-build",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Build-time asset minification for SIVARR's vanilla JS/CSS frontend. No app dependencies live here -- this only exists to produce js/dist/ and css/dist/, which core.py's asset() prefers over raw source when present. See build.js.",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

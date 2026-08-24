@@ -2,7 +2,7 @@
    css/panels.css. Covers the agent-template marketplace: browse/directory,
    template cards, agent profiles, apply/onboarding wizard, creator
    dashboard (earnings/payouts/settings), template builder, and both
-   payment gateways' currency/checkout UI (.ag-currency-*/.ag-paystack-*).
+   payment gateways' currency/checkout UI (.ag-currency-*, .ag-paystack-*).
    NOT the same system as css/features/marketplace.css (installed
    extensions/integrations, #panel-marketplace) -- confirmed zero shared
    selectors between the two.
