@@ -15,6 +15,26 @@ standard below is additional, and it is not optional.
 
 ---
 
+## Status at a glance
+
+| # | Session | State |
+|---|---------|-------|
+| 13 | Wire AI retrieval into chat | **Done** — verified 2026-08-24 |
+| 14 | Get Postgres into CI | **Done** — verified 2026-08-24 |
+| 15 | Verify the production deploy | **Done** — verified 2026-08-24 |
+| 16 | Make search coverage uniform | Open — unblocked by 14 |
+| 17 | Give the importers a UI | Open |
+| 18 | Small cleanups left behind | Open |
+| 19 | CSP: remove `unsafe-inline` | Open — run alone |
+| 20 | User-facing two-factor auth | Open |
+
+**16, 17 and 18 own different files and can run in parallel.** 19 and 20 are
+sequential, and 19 needs a window with nothing else in flight.
+
+Sessions marked Done are kept below for context. **Do not redo them.**
+
+---
+
 ## Verification standard — read this before claiming anything is done
 
 Every miss found in the Session 1-12 review traces back to one of these. They are
@@ -58,9 +78,17 @@ as verified.
 
 ---
 
-## Priority 0 — blocking. These stop "all sessions complete" from being true.
+## Priority 0 — COMPLETE (2026-08-24). Kept for context; do not redo.
 
-### Session 13 — Wire AI retrieval into chat (Session 10 was never done)
+### Session 13 — Wire AI retrieval into chat — ✅ DONE
+
+> **Verified 2026-08-24.** `build_retrieval_context()` (`ai_core.py:335`) is wired
+> into both chat endpoints (`routes/ai_chat.py:126` and `:171`); retrieval is
+> sid-scoped at the DB layer via `search_embeddings()`. The isolation test is a
+> real IDOR test (valid token for user A, spoofed `sid` for B in the body,
+> asserts A's sid was used) and always runs without Postgres. Degradation
+> confirmed: `build_retrieval_context` returns `''` with no DB and the call site
+> falls through untouched. Commit `a1f66d4`.
 
 **Owns:** `routes/ai_chat.py`, `ai_core.py`, `tests/test_embeddings.py`
 
@@ -88,7 +116,14 @@ that actually runs (see Session 14); chat degrades cleanly with pgvector absent.
 
 ---
 
-### Session 14 — Get Postgres into CI
+### Session 14 — Get Postgres into CI — ✅ DONE
+
+> **Verified 2026-08-24.** CI on `main` reports **99 passed, zero skipped**
+> (local 95 + 4 previously-skipped = 99). The workflow greps for a skip count and
+> hard-fails the build if any test skips. The gate was proven, not asserted: the
+> `session14-postgres-ci` branch has a run where a deliberately inverted
+> `ts_rank` assertion genuinely failed CI (`1 failed, 96 passed`). Commits
+> `e4b73c0`, `d205e74`.
 
 **Owns:** `.github/workflows/ci.yml`, `tests/conftest.py` (or equivalent)
 
@@ -114,7 +149,15 @@ cannot fail is no better than a skip.
 
 ---
 
-### Session 15 — Verify the production deploy actually recovers
+### Session 15 — Verify the production deploy actually recovers — ✅ DONE
+
+> **Verified 2026-08-24 against live production.** `/health` returns 200 with
+> `db: true`, `ai: true`. `/app` references 20 dist assets.
+> `/js/dist/app.js?v=c2acd90c90` returns 200 with
+> `cache-control: public, max-age=31536000, immutable` and a genuinely minified
+> body. The Nixpacks provider fix held; `gunicorn: command not found` is
+> resolved and minified assets are live, not silently falling back to raw
+> source. No code artifact — verification task.
 
 **Owns:** `nixpacks.toml`, `railway.toml`, `build.js` — read-only unless something is broken
 
@@ -259,9 +302,9 @@ content for any of these.
 
 All of the following, simultaneously:
 
-- [ ] `pytest tests/ -q -rs` reports **zero skipped**, all passing
-- [ ] A real Railway deploy is green with minified assets confirmed live
-- [ ] AI chat answers from the user's own workspace, with a cross-user isolation test that runs in CI
+- [x] `pytest tests/ -q -rs` reports **zero skipped**, all passing — *CI: 99 passed, 0 skipped*
+- [x] A real Railway deploy is green with minified assets confirmed live — *verified 2026-08-24*
+- [x] AI chat answers from the user's own workspace, with a cross-user isolation test that runs in CI
 - [ ] Both importers are reachable by a real user in a browser
 - [ ] Search returns ranked results for goals and docs, not just tasks and posts
-- [ ] No session has reported "done" on work it only partly finished
+- [x] No session has reported "done" on work it only partly finished — *holds as of 2026-08-24*
