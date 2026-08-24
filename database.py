@@ -3960,6 +3960,33 @@ def get_org_docs(org_id: str, limit: int = 100) -> list:
         _release(conn)
 
 
+def search_org_docs(org_id: str, q: str, limit: int = 10) -> list:
+    """Substring search (ILIKE, not ts_rank) over one org's docs, scoped to
+    org_id -- there's no search_vector column on org_docs (that's a real
+    schema migration, out of scope here, same boundary routes/search.py's
+    module docstring draws for goals/skills/finance). get_org_docs()
+    deliberately omits `content` for its list view's payload size; this
+    fetches it since search needs to match against the body, not just the
+    title."""
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT id, org_id, title, content, updated_at
+                   FROM org_docs
+                   WHERE org_id=%s AND (title ILIKE %s OR content ILIKE %s)
+                   ORDER BY updated_at DESC
+                   LIMIT %s""",
+                (org_id, f"%{q}%", f"%{q}%", limit)
+            )
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"search_org_docs: {exc}"); return []
+    finally:
+        _release(conn)
+
+
 def save_org_doc(org_id: str, doc_id: str, title: str, content: str, user_sid: str, yjs_state: str | None = None) -> bool:
     conn = _get_conn()
     if not conn: return False
@@ -4031,6 +4058,30 @@ def get_org_messages(org_id: str, channel: str = "general", limit: int = 60) -> 
             log.error(f"get_org_messages: {exc}"); return []
         finally:
             _release(conn)
+
+
+def search_org_messages(org_id: str, q: str, limit: int = 10) -> list:
+    """Substring search (ILIKE) over one org's chat, scoped to org_id and
+    across every channel -- unlike get_org_messages(), which is scoped to
+    one channel at a time for the live chat view. No search_vector column
+    here either, same reasoning as search_org_docs above."""
+    conn = _get_conn()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT id, org_id, channel, content, author_name, created_at
+                   FROM org_messages
+                   WHERE org_id=%s AND content ILIKE %s
+                   ORDER BY created_at DESC
+                   LIMIT %s""",
+                (org_id, f"%{q}%", limit)
+            )
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"search_org_messages: {exc}"); return []
+    finally:
+        _release(conn)
 
 
 def send_org_message(org_id: str, channel: str, author_sid: str, author_name: str, content: str) -> dict | None:

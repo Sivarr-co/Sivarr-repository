@@ -8044,6 +8044,14 @@ function navRenderSidebar() {
 let CMD_OPEN = false;
 let CMD_IDX = -1;
 let CMD_VISIBLE = [];
+// Search pagination state -- /api/search returns {results, total, has_more}
+// scored+sorted server-side across every source; cmdSearchMore() appends
+// the next page rather than re-running the whole search.
+let _cmdSearchQuery = "";
+let _cmdSearchOffset = 0;
+let _cmdSearchHasMore = false;
+let _cmdSearchLoadingMore = false;
+const _CMD_SEARCH_PAGE_SIZE = 15;
 
 function cmdOpen() {
   if (!S.sid) return;
@@ -8129,49 +8137,97 @@ function cmdSearch() {
   cmdRenderResults(q);
 
   // ── Step 2: server search — debounced 300ms, merges into results ──
+  _cmdSearchQuery = q;
+  _cmdSearchOffset = 0;
+  _cmdSearchHasMore = false;
   clearTimeout(_cmdSearchTimer);
   if (q.length >= 2) {
     const token = getToken();
     if (token) {
-      _cmdSearchTimer = setTimeout(async () => {
-        try {
-          const r = await fetch(
-            `/api/search?q=${encodeURIComponent(q)}&token=${encodeURIComponent(token)}`,
-          );
-          if (!r.ok) return;
-          const data = await r.json();
-          const serverItems = (data.results || []).map((item) => {
-            const ACTION_MAP = {
-              task: () => nav("flux", null),
-              goal: () => nav("goals", null),
-              doc: () => {
-                nav("notes", null);
-                setTimeout(() => docOpen(parseInt(item.id) || item.id), 150);
-              },
-              post: () => nav("community", null),
-            };
-            return {
-              icon: item.icon,
-              label: (item.title || "").slice(0, 60),
-              tag: item.type.charAt(0).toUpperCase() + item.type.slice(1),
-              type: item.type,
-              meta: item.meta || "",
-              action: ACTION_MAP[item.type] || (() => {}),
-            };
-          });
-          // Merge: keep existing panels/notes/journal, replace content types with server data
-          const panels = CMD_VISIBLE.filter((i) => i.type === "panel");
-          const others = CMD_VISIBLE.filter(
-            (i) =>
-              i.type !== "panel" &&
-              !["task", "goal", "doc", "post"].includes(i.type),
-          );
-          CMD_VISIBLE = [...panels, ...serverItems, ...others];
-          cmdRenderResults(q);
-        } catch (_) {}
-      }, 300);
+      _cmdSearchTimer = setTimeout(() => _cmdRunServerSearch(q, token, false), 300);
     }
   }
+}
+
+// Source types the server ranks and returns via /api/search — these
+// replace (not append to) the equivalent instant local results above once
+// the debounced fetch lands, same as task/goal/doc/post always did; journal
+// joins that list since /api/search now covers it too (previously only the
+// local localStorage scan did).
+const _CMD_SERVER_TYPES = ["task", "goal", "doc", "post", "journal", "org_doc", "org_message"];
+
+function _cmdServerItemLabel(item) {
+  const LABELS = {
+    task: "Task", goal: "Goal", doc: "Doc", post: "Community",
+    journal: "Journal", org_doc: "Org Doc", org_message: "Org Message",
+  };
+  return LABELS[item.type] || item.type.charAt(0).toUpperCase() + item.type.slice(1);
+}
+
+function _cmdServerItemAction(item) {
+  const ACTION_MAP = {
+    task: () => nav("flux", null),
+    goal: () => nav("goals", null),
+    doc: () => {
+      nav("notes", null);
+      setTimeout(() => docOpen(parseInt(item.id) || item.id), 150);
+    },
+    post: () => nav("community", null),
+    journal: () => nav("journal", null),
+    org_doc: () => {
+      nav("org", null);
+      setTimeout(() => {
+        if (typeof orgTab === "function") orgTab("docs");
+        if (typeof orgOpenDoc === "function") orgOpenDoc(item.id);
+      }, 150);
+    },
+    org_message: () => {
+      nav("org", null);
+      setTimeout(() => { if (typeof orgTab === "function") orgTab("chat"); }, 150);
+    },
+  };
+  return ACTION_MAP[item.type] || (() => {});
+}
+
+async function _cmdRunServerSearch(q, token, appendMore) {
+  if (appendMore) _cmdSearchLoadingMore = true;
+  try {
+    const r = await fetch(
+      `/api/search?q=${encodeURIComponent(q)}&token=${encodeURIComponent(token)}&limit=${_CMD_SEARCH_PAGE_SIZE}&offset=${_cmdSearchOffset}`,
+    );
+    if (!r.ok) return;
+    const data = await r.json();
+    const serverItems = (data.results || []).map((item) => ({
+      icon: item.icon,
+      label: (item.title || "").slice(0, 60),
+      tag: _cmdServerItemLabel(item),
+      type: item.type,
+      meta: item.meta || "",
+      score: item.score || 0,
+      action: _cmdServerItemAction(item),
+    }));
+    _cmdSearchOffset += serverItems.length;
+    _cmdSearchHasMore = !!data.has_more;
+
+    const panels = CMD_VISIBLE.filter((i) => i.type === "panel");
+    const others = CMD_VISIBLE.filter(
+      (i) => i.type !== "panel" && !_CMD_SERVER_TYPES.includes(i.type),
+    );
+    const existingServer = appendMore
+      ? CMD_VISIBLE.filter((i) => _CMD_SERVER_TYPES.includes(i.type))
+      : [];
+    CMD_VISIBLE = [...panels, ...existingServer, ...serverItems, ...others];
+    cmdRenderResults(q);
+  } catch (_) {
+  } finally {
+    _cmdSearchLoadingMore = false;
+  }
+}
+
+function cmdSearchMore() {
+  const token = getToken();
+  if (!token || !_cmdSearchQuery || _cmdSearchLoadingMore || !_cmdSearchHasMore) return;
+  _cmdRunServerSearch(_cmdSearchQuery, token, true);
 }
 
 function cmdRenderResults(q) {
@@ -8185,35 +8241,25 @@ function cmdRenderResults(q) {
     return;
   }
 
-  const groups = {};
+  // Server-ranked hits (real `score` field) render as one flat list in the
+  // order /api/search already sorted them, so the ranking is visible
+  // instead of getting reshuffled by type into separate sections — each
+  // item still shows its type via the tag badge. Everything else (panels,
+  // local Notes, and journal's brief instant-render before the debounced
+  // server fetch lands) keeps the previous per-type grouping.
+  const serverItems = [];
+  const localGroups = {};
   CMD_VISIBLE.forEach((item, idx) => {
-    const g =
-      item.type === "doc"
-        ? "Docs"
-        : item.type === "note"
-          ? "Notes"
-          : item.type === "task"
-            ? "Tasks"
-            : item.type === "goal"
-              ? "Goals"
-              : item.type === "post"
-                ? "Community"
-                : item.type === "journal"
-                  ? "Journal"
-                  : item.tag || "Actions";
-    if (!groups[g]) groups[g] = [];
-    groups[g].push({ ...item, _idx: idx });
+    if (typeof item.score === "number") {
+      serverItems.push({ ...item, _idx: idx });
+      return;
+    }
+    const g = item.type === "note" ? "Notes" : item.tag || "Actions";
+    if (!localGroups[g]) localGroups[g] = [];
+    localGroups[g].push({ ...item, _idx: idx });
   });
 
-  res.innerHTML =
-    (!q ? cmdRecentHTML() : "") +
-    Object.entries(groups)
-      .map(
-        ([group, groupItems]) => `
-    <div class="cmd-section-label">${group}</div>
-    ${groupItems
-      .map(
-        (item) => `
+  const itemHTML = (item) => `
       <button class="cmd-item" data-idx="${item._idx}" onclick="cmdRun(${item._idx})">
         ${_cmdFavStar(item.panel)}
         <div class="cmd-item-icon">${item.icon}</div>
@@ -8222,12 +8268,26 @@ function cmdRenderResults(q) {
           ${item.meta ? `<div style="font-size:.72rem;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.meta)}</div>` : ""}
         </div>
         ${item.tag ? `<span class="cmd-item-tag">${esc(item.tag)}</span>` : ""}
-      </button>`,
-      )
-      .join("")}
-  `,
-      )
-      .join("");
+      </button>`;
+
+  const serverHTML = serverItems.length
+    ? `<div class="cmd-section-label">Results</div>${serverItems.map(itemHTML).join("")}` +
+      (_cmdSearchHasMore
+        ? `<button class="cmd-item cmd-item-more" onclick="cmdSearchMore()">
+             <div class="cmd-item-icon">⋯</div>
+             <div style="flex:1;min-width:0"><div class="cmd-item-label">Show more results</div></div>
+           </button>`
+        : "")
+    : "";
+
+  const localHTML = Object.entries(localGroups)
+    .map(([group, groupItems]) => `
+    <div class="cmd-section-label">${group}</div>
+    ${groupItems.map(itemHTML).join("")}
+  `)
+    .join("");
+
+  res.innerHTML = (!q ? cmdRecentHTML() : "") + serverHTML + localHTML;
 }
 
 function cmdRun(idx) {

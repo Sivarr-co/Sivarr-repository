@@ -5,22 +5,44 @@ Postgres full-text search (tasks.search_vector / community_posts.search_vector,
 both GENERATED tsvector columns with a GIN index, see database.py's _SCHEMA)
 instead of an in-memory substring scan.
 
-Goals, docs, skills and finance stay on the substring scan, unchanged. They
-are not per-record Postgres tables -- they're whole-list JSON blobs in
-user_blobs (core.py's _load_user_list/_save_user_list), one row per user
-holding an entire array, so there's no per-record column a tsvector could
-attach to without a real storage migration for each of them (comparable to
-the tasks/habits migration in an earlier pass). That's a bigger change than
-this file owns -- flagging it here for whoever picks that up next, rather
-than leaving it to be rediscovered.
+Goals, docs, skills, finance and journal stay on the substring scan,
+unchanged. They are not per-record Postgres tables -- they're whole-list
+JSON blobs in user_blobs (core.py's _load_user_list/_save_user_list), one
+row per user holding an entire array, so there's no per-record column a
+tsvector could attach to without a real storage migration for each of them
+(comparable to the tasks/habits migration in an earlier pass). That's a
+bigger change than this file owns -- flagging it here for whoever picks
+that up next, rather than leaving it to be rediscovered.
+
+Org docs and org messages ARE real per-record Postgres tables, but still
+use a plain ILIKE substring match (database.py's search_org_docs/
+search_org_messages) rather than a tsvector column -- adding one is a schema
+migration on tables this file doesn't own, same boundary as above, just for
+a different reason (real table, but out of scope to alter here).
+
+No dedicated "calendar events" source exists to search: there is no
+calendar_events table or similar (grepped for one -- none exists) and no
+cached copy of a connected Google Calendar's events either. The Calendar
+panel is entirely derived client-side from task due-dates and goal
+deadlines (js/app.js's calRender()), both of which are already covered by
+the Tasks and Goals blocks below -- adding a separate "calendar" result type
+here would mean either fabricating data that doesn't exist server-side, or
+silently duplicating Tasks/Goals hits under a second label. Instead, the
+Tasks block's `meta` now surfaces the task's date (it used to show only
+status), so a date-driven search actually shows the date without inventing
+a parallel source for data that's already searchable.
 
 Every result gets a `score` float added on top of the original response
 shape ({type, icon, title, meta, id}) -- real ts_rank for tasks/posts, a
 small heuristic (exact title match > startswith > contains) for the
 substring-matched sources, so the combined list can be sorted by one field
 instead of just concatenated blocks by source type like the old version did.
-`score` is additive, not a replacement of any existing key, so the current
-frontend (which only reads type/icon/title/meta/id) keeps working unchanged.
+`score` is additive, not a replacement of any existing key, so the existing
+frontend fields (type/icon/title/meta/id) keep working unchanged.
+
+Pagination: `limit`/`offset` apply to the final combined, score-sorted list
+across every source (not per-source), so page 2 continues where page 1 left
+off regardless of which type each hit was.
 """
 
 from fastapi import APIRouter, HTTPException
@@ -30,6 +52,7 @@ from core import get_session_from_token, sanitize_text
 from routes.tasks import load_tasks
 from routes.goals import load_goals
 from routes.docs_notes import load_docs
+from routes.journal import load_journal
 
 router = APIRouter()
 
@@ -46,15 +69,23 @@ def _substring_score(q: str, title: str) -> float:
     return 0.1
 
 
+def _task_meta(t: dict) -> str:
+    status = t.get("status", "todo")
+    date = t.get("date", "")
+    return f"{status} · {date}" if date else status
+
+
 @router.get("/api/search")
-async def unified_search(q: str = "", token: str = ""):
+async def unified_search(q: str = "", token: str = "", limit: int = 30, offset: int = 0):
     sess = get_session_from_token(sanitize_text(token, 100)) if token else None
     if not sess:
         raise HTTPException(401, "Invalid session.")
     sid = sess["sid"]
     q   = q.strip().lower()
     if len(q) < 2:
-        return {"results": []}
+        return {"results": [], "total": 0, "has_more": False}
+    limit  = max(1, min(limit, 50))
+    offset = max(0, offset)
 
     results = []
 
@@ -65,7 +96,7 @@ async def unified_search(q: str = "", token: str = ""):
                 "type":  "task",
                 "icon":  "✅" if t.get("done") else "☐",
                 "title": t["title"],
-                "meta":  t.get("status", "todo"),
+                "meta":  _task_meta(t),
                 "id":    t.get("id", ""),
                 "score": float(t.get("rank") or 0),
             })
@@ -82,7 +113,7 @@ async def unified_search(q: str = "", token: str = ""):
                     "type":  "task",
                     "icon":  "✅" if t.get("done") else "☐",
                     "title": title,
-                    "meta":  t.get("status", "todo"),
+                    "meta":  _task_meta(t),
                     "id":    t.get("id", ""),
                     "score": _substring_score(q, title),
                 })
@@ -121,6 +152,59 @@ async def unified_search(q: str = "", token: str = ""):
                 "id":    str(d.get("id", "")),
                 "score": _substring_score(q, title),
             })
+
+    # ── Journal entries ──────────────────────────────────────────────
+    for e in load_journal(sid):
+        text = e.get("text", "") or e.get("content", "") or e.get("entry", "")
+        if q in text.lower():
+            snippet = text.strip()
+            idx = text.lower().find(q)
+            if idx >= 0:
+                snippet = text[max(0, idx - 30): idx + 70].strip()
+            results.append({
+                "type":  "journal",
+                "icon":  "✍️",
+                "title": snippet[:80] or "Journal entry",
+                "meta":  e.get("date", ""),
+                "id":    e.get("date", ""),  # journal has no id -- entries are one-per-date
+                "score": _substring_score(q, text),
+            })
+
+    # ── Org docs / org messages — scoped to the user's own org only ────
+    # Reuses routes/org.py's exact membership check (db.get_org_by_member),
+    # not a new one, per this session's brief. get_org_by_member already
+    # returns None for a user in no org, so this block is a no-op for them
+    # -- no separate "is a member" branch needed. Postgres-only, same as
+    # every other org.py route (org has no JSON-fallback storage path).
+    if db.is_available():
+        org = db.get_org_by_member(sid)
+        if org:
+            org_id = org["id"]
+            for d in db.search_org_docs(org_id, q, limit=10):
+                title = d.get("title", "")
+                content = d.get("content", "") or ""
+                meta = ""
+                idx = content.lower().find(q)
+                if idx >= 0:
+                    meta = content[max(0, idx - 30): idx + 70].strip()
+                results.append({
+                    "type":  "org_doc",
+                    "icon":  "📄",
+                    "title": title or "Untitled",
+                    "meta":  meta,
+                    "id":    str(d.get("id", "")),
+                    "score": _substring_score(q, title),
+                })
+            for m in db.search_org_messages(org_id, q, limit=10):
+                content = m.get("content", "")
+                results.append({
+                    "type":  "org_message",
+                    "icon":  "💬",
+                    "title": content[:80],
+                    "meta":  m.get("author_name", ""),
+                    "id":    str(m.get("id", "")),
+                    "score": _substring_score(q, content),
+                })
 
     # ── Community posts — real Postgres full-text search ───────────────
     # search_community_posts previously did not exist (AttributeError,
@@ -184,4 +268,9 @@ async def unified_search(q: str = "", token: str = ""):
             pass
 
     results.sort(key=lambda r: r["score"], reverse=True)
-    return {"results": results[:30]}
+    page = results[offset: offset + limit]
+    return {
+        "results":  page,
+        "total":    len(results),
+        "has_more": offset + limit < len(results),
+    }
