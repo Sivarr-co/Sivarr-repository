@@ -148,10 +148,7 @@ def test_task_search_ranks_stronger_match_first(client, session_token):
     })
     found = client.get(f"/api/search?q={unique}&token={session_token}").json()["results"]
     task_titles = [r["title"] for r in found if r["type"] == "task"]
-    # DELIBERATE, TEMPORARY BREAK -- Session 14 verification only, reverted
-    # in the very next commit. Proves CI actually fails on a real ts_rank
-    # regression, not just that this test runs. See docs/SESSION_FOLLOWUPS.md.
-    assert task_titles[0] == f"Random notes mentioning {unique} only in passing", (
+    assert task_titles[0] == f"{unique} {unique}", (
         f"expected the higher-term-frequency title ranked first, got order: {task_titles}"
     )
 
