@@ -859,16 +859,29 @@ ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS search_vector TSVECTOR
 CREATE INDEX IF NOT EXISTS idx_comm_posts_search ON community_posts USING GIN(search_vector);
 
 -- ── AI retrieval: embeddings (Session 9) ────────────────────────
--- Supabase supports the pgvector extension; the JSON-file fallback storage
--- path (no DATABASE_URL) has no equivalent, so there is deliberately no
--- fallback here -- embeddings_available() below is how callers detect that
--- and skip retrieval entirely rather than crash. If CREATE EXTENSION fails
--- (privilege, or an unmanaged Postgres without pgvector installed), the
--- embedding column's type doesn't exist, so the CREATE TABLE right after it
--- fails too -- both are caught per-statement by init_db() and logged, never
--- fatal. One row per (sid, source_type, source_id); re-indexing an unchanged
--- item is a no-op the caller decides on by comparing chunk_text first (see
--- get_embedding_chunk), not something enforced here.
+-- Supabase supports the pgvector extension, but the JSON-file fallback
+-- storage path (no DATABASE_URL) has no equivalent, so there is deliberately
+-- no fallback here -- embeddings_available() below is how callers detect
+-- that and skip retrieval entirely rather than crash. If CREATE EXTENSION
+-- fails (privilege, or an unmanaged Postgres without pgvector installed),
+-- the embedding column's type doesn't exist, so the CREATE TABLE right
+-- after it fails too -- both are caught per-statement by init_db() and
+-- logged, never fatal. One row per (sid, source_type, source_id) --
+-- re-indexing an unchanged item is a no-op the caller decides on by
+-- comparing chunk_text first (see get_embedding_chunk), not something
+-- enforced here.
+--
+-- NOTE, found the hard way: init_db()'s statement splitter is a naive
+-- a plain split on the semicolon character -- it has no concept of "inside a comment" or
+-- "inside a string," so a literal semicolon anywhere in this comment block
+-- (prose punctuation included) silently truncates a real statement and
+-- turns the rest of a sentence into a bogus "statement" of its own. That
+-- exact bug shipped here once already, in an earlier draft of this same
+-- comment -- CREATE EXTENSION never actually ran, embeddings_available()
+-- was permanently False even against a real pgvector-capable Postgres, and
+-- it produced no exception anywhere, just quiet per-statement log lines
+-- easy to miss. Never use a semicolon in a _SCHEMA comment, anywhere in
+-- this file -- commas or double dashes only.
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS embeddings (
@@ -883,7 +896,7 @@ CREATE TABLE IF NOT EXISTS embeddings (
 );
 CREATE INDEX IF NOT EXISTS idx_embeddings_sid ON embeddings(sid);
 -- ivfflat over cosine distance -- fine to build now even though the table
--- starts empty; pgvector accepts this, it just clusters better once there's
+-- starts empty, pgvector accepts this, it just clusters better once there's
 -- real data to reindex against later.
 CREATE INDEX IF NOT EXISTS idx_embeddings_ann ON embeddings
     USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
@@ -4979,21 +4992,34 @@ def search_embeddings(sid: str, query_vector: list[float], limit: int = 5, sourc
         return []
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # register_vector(..., globally=True) (see embeddings_available())
+            # only teaches psycopg2 how to READ a vector column back as a
+            # Python list -- it does not make a bare list parameter adapt AS
+            # a vector on the way in. Without an explicit ::vector cast here,
+            # psycopg2's default list adapter sends query_vector as a plain
+            # Postgres array, and `embedding <=> numeric[]` has no such
+            # operator -- this raised on every call until caught by a live
+            # pgvector integration test, not by the schema/import checks
+            # (those can't see a parameter-typing issue at all). An INSERT
+            # into an `embedding VECTOR(768)` column doesn't need this
+            # because Postgres infers the parameter's type from the target
+            # column; a bare `<=>` expression has no such target to infer
+            # from, so the cast has to be explicit.
             if source_types:
                 cur.execute(
-                    """SELECT source_type, source_id, chunk_text, 1 - (embedding <=> %s) AS similarity
+                    """SELECT source_type, source_id, chunk_text, 1 - (embedding <=> %s::vector) AS similarity
                        FROM embeddings
                        WHERE sid=%s AND source_type = ANY(%s)
-                       ORDER BY embedding <=> %s
+                       ORDER BY embedding <=> %s::vector
                        LIMIT %s""",
                     (query_vector, sid, source_types, query_vector, limit),
                 )
             else:
                 cur.execute(
-                    """SELECT source_type, source_id, chunk_text, 1 - (embedding <=> %s) AS similarity
+                    """SELECT source_type, source_id, chunk_text, 1 - (embedding <=> %s::vector) AS similarity
                        FROM embeddings
                        WHERE sid=%s
-                       ORDER BY embedding <=> %s
+                       ORDER BY embedding <=> %s::vector
                        LIMIT %s""",
                     (query_vector, sid, query_vector, limit),
                 )

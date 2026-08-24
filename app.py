@@ -1212,7 +1212,7 @@ app = FastAPI(title="Sivarr AI", version=VERSION)
 # writing assistant, admin AI-health metrics) still call these directly.
 from ai_core import (
     GEMINI_AVAILABLE,
-    get_sessions, gemini_once, async_gemini_once,
+    get_sessions, gemini_once, async_gemini_once, async_embed_text,
     _chat_sessions, _AI_BREAKER, _AI_BREAK_THRESHOLD, _AI_BREAK_COOLDOWN, _ai_breaker_open,
 )
 
@@ -2095,6 +2095,100 @@ def _start_scheduler():
         if purged:
             log.info(f"Purged {purged} habits past the 30-day trash retention window (JSON fallback)")
 
+    async def _index_embeddings():
+        """AI retrieval indexing (Session 9 infra, Session 10 consumes it).
+        No-ops entirely if pgvector isn't available — see database.py's
+        embeddings_available(). Incremental: get_embedding_chunk() compares
+        each item's freshly-built chunk text against what's already indexed
+        and skips the embedding API call when nothing changed, so a full
+        sweep every run only costs API calls for genuinely new/edited
+        content, not everyone's entire history each time. Four independent
+        sections (tasks/goals/docs/journal) rather than one generic loop —
+        each source has a different id field, deleted-item convention, and
+        chunk shape; forcing them through one abstraction would obscure more
+        than it'd save for four cases this small."""
+        if not db.embeddings_available():
+            return
+        indexed = 0
+
+        # ── Tasks — real table, not user_blobs ──
+        for sid in db.get_sids_with_tasks():
+            keep_ids = []
+            for t in load_tasks(sid):
+                if t.get("deleted_at"):
+                    continue
+                tid = str(t.get("id", ""))
+                if not tid:
+                    continue
+                keep_ids.append(tid)
+                chunk = f"{t.get('title', '')}\n{t.get('description', '')}".strip()
+                if not chunk or db.get_embedding_chunk(sid, "task", tid) == chunk:
+                    continue
+                vec = await async_embed_text(chunk)
+                if vec and db.upsert_embedding(sid, "task", tid, chunk, vec):
+                    indexed += 1
+            db.prune_embeddings(sid, "task", keep_ids)
+
+        # ── Goals — user_blobs, soft-deleted via deleted_at ──
+        for sid in db.get_sids_with_blob_key("goals"):
+            keep_ids = []
+            for g in load_goals(sid):
+                if g.get("deleted_at"):
+                    continue
+                gid = str(g.get("id", ""))
+                if not gid:
+                    continue
+                keep_ids.append(gid)
+                chunk = f"{g.get('title', '')}\n{g.get('subject', '')}".strip()
+                if not chunk or db.get_embedding_chunk(sid, "goal", gid) == chunk:
+                    continue
+                vec = await async_embed_text(chunk)
+                if vec and db.upsert_embedding(sid, "goal", gid, chunk, vec):
+                    indexed += 1
+            db.prune_embeddings(sid, "goal", keep_ids)
+
+        # ── Docs — user_blobs, content already HTML-stripped at write time ──
+        for sid in db.get_sids_with_blob_key("docs"):
+            keep_ids = []
+            for d in load_docs(sid):
+                if d.get("deleted_at"):
+                    continue
+                did = str(d.get("id", ""))
+                if not did:
+                    continue
+                keep_ids.append(did)
+                chunk = f"{d.get('title', '')}\n{d.get('content', '')}".strip()
+                if not chunk or db.get_embedding_chunk(sid, "doc", did) == chunk:
+                    continue
+                vec = await async_embed_text(chunk)
+                if vec and db.upsert_embedding(sid, "doc", did, chunk, vec):
+                    indexed += 1
+            db.prune_embeddings(sid, "doc", keep_ids)
+
+        # ── Journal — user_blobs, no id or deleted_at field at all; the
+        #    entry's own date is the closest thing to a stable per-entry key
+        #    (routes/journal.py: one entry per date, no soft-delete concept —
+        #    an entry simply stops appearing in the synced list when removed,
+        #    which prune_embeddings' keep_ids sweep already handles correctly
+        #    without needing a deleted_at check here). ──
+        for sid in db.get_sids_with_blob_key("journal"):
+            keep_ids = []
+            for e in load_journal(sid):
+                jid = str(e.get("date", ""))
+                if not jid:
+                    continue
+                keep_ids.append(jid)
+                chunk = e.get("text", "").strip()
+                if not chunk or db.get_embedding_chunk(sid, "journal", jid) == chunk:
+                    continue
+                vec = await async_embed_text(chunk)
+                if vec and db.upsert_embedding(sid, "journal", jid, chunk, vec):
+                    indexed += 1
+            db.prune_embeddings(sid, "journal", keep_ids)
+
+        if indexed:
+            log.info(f"Embeddings index: {indexed} item(s) (re)indexed for AI retrieval")
+
     # ── Register jobs and start — wrapped so a failure never crashes the app ──
     try:
         import datetime as _tz_dt
@@ -2105,8 +2199,9 @@ def _start_scheduler():
         scheduler.add_job(_purge_deleted_habits, CronTrigger(hour=5, minute=0))
         scheduler.add_job(_streak_reminders,    CronTrigger(hour=19, minute=0))
         scheduler.add_job(_task_due_alerts,     IntervalTrigger(minutes=15))
+        scheduler.add_job(_index_embeddings,    IntervalTrigger(minutes=30))
         scheduler.start()
-        log.info("APScheduler started — weekly review (Mon 06:00 UTC) + push + trash-purge (goals 04:30, tasks 04:45, habits 05:00 UTC) jobs registered")
+        log.info("APScheduler started — weekly review (Mon 06:00 UTC) + push + trash-purge (goals 04:30, tasks 04:45, habits 05:00 UTC) + embeddings index (every 30min) jobs registered")
     except Exception as exc:
         log.warning(f"APScheduler failed to start ({exc}) — scheduled jobs disabled, app continues normally")
 
