@@ -9,7 +9,13 @@ busted). This file covers the parts of that surface a test can reach without a
 browser: the app boots, the pages render, every asset URL is content-hashed and
 resolves to a real file, and the extracted route modules round-trip real data.
 
-Runs against JSON-file fallback storage — no database required.
+Runs against JSON-file fallback storage locally, and against a real
+Postgres in CI since Session 14 — no database is *required* (nothing here
+skips without one), but session_token() creates a real users row when one
+is configured, since several routes exercised below (e.g. /api/tasks/sync)
+have a real FK constraint (tasks.sid REFERENCES users(sid)) that a bare
+session token alone doesn't satisfy -- same reasoning tests/test_search.py's
+own session_token fixture already documents.
 """
 
 import re
@@ -140,7 +146,19 @@ def test_service_worker_fully_renders(client):
 
 @pytest.fixture
 def session_token():
-    """A real session, minted directly — sidesteps the email-verification gate."""
+    """A real session, minted directly — sidesteps the email-verification gate.
+
+    Also creates a real users row when a DB is configured: tasks.sid
+    REFERENCES users(sid), so a session token alone (fine in JSON-fallback
+    mode, which has no FK constraints at all) would let e.g. /api/tasks/sync
+    fail its insert silently against a real Postgres, since save_tasks
+    swallows the DB exception rather than raising it, matching the tests
+    that exercise those routes but weren't written with a real FK in mind.
+    Same defensive pattern tests/test_search.py's session_token already
+    uses, added here once Session 14 made "there's a real DB" an actual CI
+    condition to worry about."""
+    if db.is_available():
+        db.create_user({"sid": CI_TEST_SID, "name": "CI", "email": "ci@example.com"})
     return core.create_session_token(CI_TEST_SID, "CI", "ci@example.com")
 
 
@@ -193,7 +211,7 @@ def test_docs_round_trip(client, session_token):
     assert isinstance(back.json().get("docs"), list)
 
 
-def test_habits_and_docs_read_pre_migration_legacy_files():
+def test_habits_and_docs_read_pre_migration_legacy_files(no_db):
     """habits.py/docs_notes.py used to read/write DATA_DIR/f"{sid}_habits.json"
     and f"{sid}_docs.json" directly, unconditionally — moved onto the same
     _load_user_list/_save_user_list DB-backed pattern Tasks/Goals/Journal
@@ -201,9 +219,12 @@ def test_habits_and_docs_read_pre_migration_legacy_files():
     migration path keyed on that exact same filename, so real users' existing
     on-disk data isn't orphaned by the switch. This locks in the one property
     that migration depends on: the legacy path _load_user_list looks for must
-    still be exactly what the old code wrote to. No DB in this sandbox, so it
-    exercises the JSON-fallback branch — same file, same key, same result,
-    which is what the migration guarantees either way."""
+    still be exactly what the old code wrote to. Forced onto the JSON-fallback
+    branch via the no_db fixture (tests/conftest.py) -- this test is
+    specifically about that branch's behavior, so it must run regardless of
+    whether a real DB happens to be configured in this environment (it
+    wasn't, anywhere, before Session 14 added one to CI) — same file, same
+    key, same result, which is what the migration guarantees either way."""
     sid = "legacy_migration_test_sid"
     habits_file = REPO / "data" / f"{sid}_habits.json"
     docs_file   = REPO / "data" / f"{sid}_docs.json"
@@ -344,15 +365,17 @@ def test_search_excludes_deleted_goal(client, session_token):
     assert not any(r["title"] == unique for r in found_after)
 
 
-def test_auto_weekly_review_sid_discovery_finds_json_fallback_users():
+def test_auto_weekly_review_sid_discovery_finds_json_fallback_users(no_db):
     """_auto_weekly_reviews (a scheduler closure in app.py, not importable)
     used to discover which users to process by globbing DATA_DIR for
     *_habits.json files — which silently finds nobody once a database is
     configured, since _load_user_list/_save_user_list stop writing those
     files entirely. Fixed to sweep db.get_sids_with_blob_key("habits") when a
-    DB is available, falling back to the same glob otherwise. This sandbox
-    has no DB, so it exercises the fallback path directly against a real
-    seeded user — the same path production would take if a database were
+    DB is available, falling back to the same glob otherwise. Forced onto the
+    fallback path via the no_db fixture (tests/conftest.py) -- this test is
+    specifically about that branch, so it must run regardless of whether a
+    real DB happens to be configured in this environment -- against a real
+    seeded user, the same path production would take if a database were
     ever unconfigured, and the one that was already correct before the fix."""
     from routes.habits import save_habits
     sid = "weekly_review_discovery_test_sid"
