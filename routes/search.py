@@ -1,18 +1,19 @@
 """
 Unified search — extracted verbatim in spirit from app.py's old
-`unified_search`, but with tasks and community posts now backed by real
-Postgres full-text search (tasks.search_vector / community_posts.search_vector,
-both GENERATED tsvector columns with a GIN index, see database.py's _SCHEMA)
+`unified_search`, but with tasks, community posts, and now (Session 16)
+goals and docs backed by real Postgres full-text search (search_vector
+GENERATED tsvector columns + GIN indexes, see database.py's _SCHEMA)
 instead of an in-memory substring scan.
 
-Goals, docs, skills, finance and journal stay on the substring scan,
-unchanged. They are not per-record Postgres tables -- they're whole-list
-JSON blobs in user_blobs (core.py's _load_user_list/_save_user_list), one
-row per user holding an entire array, so there's no per-record column a
-tsvector could attach to without a real storage migration for each of them
-(comparable to the tasks/habits migration in an earlier pass). That's a
-bigger change than this file owns -- flagging it here for whoever picks
-that up next, rather than leaving it to be rediscovered.
+Skills, finance and journal stay on the substring scan, unchanged. They
+are not per-record Postgres tables -- they're whole-list JSON blobs in
+user_blobs (core.py's _load_user_list/_save_user_list), one row per user
+holding an entire array, so there's no per-record column a tsvector could
+attach to without a real storage migration for each of them (the exact
+migration goals and docs both just went through, mirroring tasks/habits'
+own earlier one). Genuinely smaller/lower-volume sources than goals/docs
+per the brief that scoped this session -- left for whoever picks that up
+next, rather than doing it silently as a drive-by.
 
 Org docs and org messages ARE real per-record Postgres tables, but still
 use a plain ILIKE substring match (database.py's search_org_docs/
@@ -118,40 +119,72 @@ async def unified_search(q: str = "", token: str = "", limit: int = 30, offset: 
                     "score": _substring_score(q, title),
                 })
 
-    # ── Goals ────────────────────────────────────────────────────────
-    for g in load_goals(sid):
-        if g.get("deleted_at"):
-            continue
-        title = g.get("title", "")
-        if q in title.lower() or q in g.get("subject", "").lower():
+    # ── Goals — real Postgres full-text search when available ──────────
+    if db.is_available():
+        for g in db.search_goals(sid, q):
             results.append({
                 "type":  "goal",
                 "icon":  "🎯",
-                "title": title,
+                "title": g["title"],
                 "meta":  f'{g.get("progress", 0)}% complete',
                 "id":    g.get("id", ""),
-                "score": _substring_score(q, title),
+                "score": float(g.get("rank") or 0),
             })
+    else:
+        # JSON-fallback path -- same substring-scan logic as before this
+        # session's migration, unchanged.
+        for g in load_goals(sid):
+            if g.get("deleted_at"):
+                continue
+            title = g.get("title", "")
+            if q in title.lower() or q in g.get("subject", "").lower():
+                results.append({
+                    "type":  "goal",
+                    "icon":  "🎯",
+                    "title": title,
+                    "meta":  f'{g.get("progress", 0)}% complete',
+                    "id":    g.get("id", ""),
+                    "score": _substring_score(q, title),
+                })
 
-    # ── Docs ─────────────────────────────────────────────────────────
-    for d in load_docs(sid):
-        if d.get("deleted_at"):
-            continue
-        title   = d.get("title", "")
-        content = d.get("content", "").lower()
-        if q in title.lower() or q in content:
+    # ── Docs — real Postgres full-text search when available ───────────
+    if db.is_available():
+        for d in db.search_docs(sid, q):
+            title = d.get("title", "") or "Untitled"
+            content = d.get("content", "") or ""
             snippet = ""
-            idx = content.find(q)
+            idx = content.lower().find(q)
             if idx >= 0:
-                snippet = d["content"][max(0, idx - 30): idx + 70].strip()
+                snippet = content[max(0, idx - 30): idx + 70].strip()
             results.append({
                 "type":  "doc",
                 "icon":  "📄",
-                "title": title or "Untitled",
+                "title": title,
                 "meta":  snippet or "",
                 "id":    str(d.get("id", "")),
-                "score": _substring_score(q, title),
+                "score": float(d.get("rank") or 0),
             })
+    else:
+        # JSON-fallback path -- same substring-scan logic as before this
+        # session's migration, unchanged.
+        for d in load_docs(sid):
+            if d.get("deleted_at"):
+                continue
+            title   = d.get("title", "")
+            content = d.get("content", "").lower()
+            if q in title.lower() or q in content:
+                snippet = ""
+                idx = content.find(q)
+                if idx >= 0:
+                    snippet = d["content"][max(0, idx - 30): idx + 70].strip()
+                results.append({
+                    "type":  "doc",
+                    "icon":  "📄",
+                    "title": title or "Untitled",
+                    "meta":  snippet or "",
+                    "id":    str(d.get("id", "")),
+                    "score": _substring_score(q, title),
+                })
 
     # ── Journal entries ──────────────────────────────────────────────
     for e in load_journal(sid):
