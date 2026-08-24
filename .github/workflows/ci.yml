@@ -18,6 +18,37 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    # Session 14: before this, ts_rank ordering (tests/test_search.py) and the
+    # entire pgvector path (tests/test_embeddings.py) skipped unconditionally --
+    # Session 5's headline feature and 100% of Session 9's work had never once
+    # been executed by CI, only read. pgvector/pgvector:pg16 is the plain
+    # postgres image with the vector extension's shared library already
+    # installed, so `CREATE EXTENSION vector` in database.py's schema
+    # actually succeeds here (a bare `postgres:16` image would fail that
+    # statement -- caught per-statement by init_db(), not fatal, but silently
+    # leaves the embeddings table missing and every embeddings test failing
+    # for a completely different reason than the one being tested).
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: sivarr
+          POSTGRES_PASSWORD: sivarr_ci
+          POSTGRES_DB: sivarr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # Deliberately job-level, not per-step: mirrors production having
+      # DATABASE_URL set for the app's entire lifetime, not just its test
+      # invocation. tests/conftest.py's session-scoped fixture is what
+      # actually gets the schema onto this container before tests run --
+      # setting this alone is not sufficient, see that file's docstring.
+      DATABASE_URL: postgresql://sivarr:sivarr_ci@localhost:5432/sivarr_test
     steps:
       - uses: actions/checkout@v4
 
@@ -46,9 +77,24 @@ jobs:
             } || echo "No undefined names."
 
       - name: Tests
-        # Storage falls back to JSON files when DATABASE_URL is unset, so the
-        # suite runs with no external services.
-        run: python -m pytest tests/ -q
+        # -rs prints why anything skipped, straight into the CI log -- no
+        # more silently trusting a green summary (this is the exact failure
+        # mode Session 14 exists to close: `93 passed, 4 skipped` read as
+        # "passing" with no visibility into what those 4 were). The explicit
+        # zero-skip check below is the hard gate: a real DB is provisioned
+        # above specifically so nothing has a reason left to skip here, and
+        # if that ever regresses (a fixture breaks, a skip condition drifts)
+        # this fails loudly instead of quietly reverting to "green but
+        # unverified" the way it did before this session.
+        run: |
+          set -o pipefail
+          python -m pytest tests/ -q -rs 2>&1 | tee /tmp/pytest_output.txt
+          test_exit=$?
+          if grep -qE '^[0-9]+ skipped' /tmp/pytest_output.txt; then
+            echo "::error::Tests skipped in CI with a real Postgres provisioned -- every test should run here. See docs/SESSION_FOLLOWUPS.md Session 14."
+            exit 1
+          fi
+          exit $test_exit
 
   frontend:
     name: Frontend
