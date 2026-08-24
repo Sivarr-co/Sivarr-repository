@@ -1563,7 +1563,8 @@ content-loss issue found in the prior split.
             "
           >
             Export all your data as a ZIP (tasks, goals, habits, notes,
-            journal). Import tasks or goals from CSV, or notes from Markdown.
+            journal). Import tasks or goals from CSV, notes from Markdown, or
+            a full export from Notion, Trello, or Asana.
           </p>
           <button class="st-btn" onclick="stExportAll()" id="export-btn">
             <i class="ti ti-download" style="margin-right: 6px"></i>Export my
@@ -1639,7 +1640,7 @@ content-loss issue found in the prior split.
                 margin-bottom: 6px;
               "
             >
-              Import Notes (Markdown / Notion)
+              Import Notes (Markdown / Text)
             </div>
             <input
               type="file"
@@ -1656,6 +1657,82 @@ content-loss issue found in the prior split.
               <i class="ti ti-upload" style="margin-right: 6px"></i>Upload .md
               or .txt file
             </button>
+          </div>
+          <div
+            style="
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 8px;
+              margin-top: 4px;
+            "
+          >
+            <div>
+              <div
+                style="
+                  font-size: 0.72rem;
+                  font-weight: 700;
+                  color: var(--text3);
+                  text-transform: uppercase;
+                  letter-spacing: 0.06em;
+                  margin-bottom: 6px;
+                "
+              >
+                Import from Notion
+              </div>
+              <input
+                type="file"
+                id="import-notion-files"
+                accept=".md,.csv"
+                multiple
+                style="display: none"
+                onchange="stImportNotion(this)"
+              />
+              <button
+                class="st-btn"
+                onclick="$('import-notion-files').click()"
+              >
+                <i class="ti ti-upload" style="margin-right: 6px"></i>Upload
+                export (.md / .csv)
+              </button>
+            </div>
+            <div>
+              <div
+                style="
+                  font-size: 0.72rem;
+                  font-weight: 700;
+                  color: var(--text3);
+                  text-transform: uppercase;
+                  letter-spacing: 0.06em;
+                  margin-bottom: 6px;
+                "
+              >
+                Import from Trello / Asana
+              </div>
+              <input
+                type="file"
+                id="import-trello-files"
+                accept=".json,.csv"
+                multiple
+                style="display: none"
+                onchange="stImportTrello(this)"
+              />
+              <button
+                class="st-btn"
+                onclick="$('import-trello-files').click()"
+              >
+                <i class="ti ti-upload" style="margin-right: 6px"></i>Upload
+                export (.json / .csv)
+              </button>
+            </div>
+          </div>
+          <div
+            style="
+              font-size: 0.68rem;
+              color: var(--text4);
+              margin-top: 4px;
+            "
+          >
+            Up to 50 files per import, 500 task rows per file.
           </div>
           <div
             id="import-status"

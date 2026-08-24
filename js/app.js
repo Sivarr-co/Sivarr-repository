@@ -6952,6 +6952,80 @@ function _setImportStatus(msg) {
   if (el) el.textContent = msg;
 }
 
+// ── Multi-file importers (Notion / Trello / Asana) ─────────────
+// Both /api/import/notion and /api/import/trello take the same shape --
+// {token, files:[{filename, content}]} -- and cap at 50 files per request
+// server-side (routes/import_notion.py, routes/import_trello.py); a file
+// containing a task list is further capped at 500 rows inside
+// routes/tasks.py's import_tasks. Read every selected file's text up front
+// (capped to 50 client-side too, so a user who picks more isn't left
+// guessing which ones made it) rather than silently dropping the rest.
+async function _readFilesForImport(input) {
+  const all = Array.from(input.files || []);
+  input.value = "";
+  if (all.length > 50) {
+    toast(`Only the first 50 of ${all.length} selected files will be imported (50-file limit per import).`);
+  }
+  const files = all.slice(0, 50);
+  return Promise.all(
+    files.map(async (f) => ({ filename: f.name, content: await f.text() })),
+  );
+}
+
+async function stImportNotion(input) {
+  const files = await _readFilesForImport(input);
+  if (!files.length) return;
+  const token = getToken();
+  if (!token) {
+    toast("Sign in first.");
+    return;
+  }
+  _setImportStatus(`Importing ${files.length} file${files.length === 1 ? "" : "s"} from Notion…`);
+  try {
+    const r = await fetch("/api/import/notion", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, files }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Import failed");
+    _setImportStatus(
+      `✓ ${d.docs_imported} doc${d.docs_imported === 1 ? "" : "s"}, ${d.tasks_imported} task${d.tasks_imported === 1 ? "" : "s"} imported from Notion (500-row cap per task file)`,
+    );
+    toast(`Notion import: ${d.docs_imported} docs, ${d.tasks_imported} tasks ✓`);
+  } catch (e) {
+    _setImportStatus("Notion import failed. Check the exported files.");
+    toast("Notion import failed.");
+  }
+}
+
+async function stImportTrello(input) {
+  const files = await _readFilesForImport(input);
+  if (!files.length) return;
+  const token = getToken();
+  if (!token) {
+    toast("Sign in first.");
+    return;
+  }
+  _setImportStatus(`Importing ${files.length} file${files.length === 1 ? "" : "s"} from Trello/Asana…`);
+  try {
+    const r = await fetch("/api/import/trello", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, files }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Import failed");
+    _setImportStatus(
+      `✓ ${d.tasks_imported} task${d.tasks_imported === 1 ? "" : "s"} imported from Trello/Asana (500-row cap per file)`,
+    );
+    toast(`${d.tasks_imported} tasks imported ✓`);
+  } catch (e) {
+    _setImportStatus("Trello/Asana import failed. Check the exported files.");
+    toast("Trello/Asana import failed.");
+  }
+}
+
 // ── Journal sync wiring ───────────────────────────────────────
 // _syncHabitsToServer moved to js/features/habits.js (per-entity diff sync,
 // same treatment as tasks — see that file's _syncTasksToServer). Still
