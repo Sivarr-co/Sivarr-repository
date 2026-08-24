@@ -8,8 +8,10 @@ Everything here used to live inline in app.py, entangled with billing (which
 stays in app.py deliberately — see below) only by coincidence of file
 location, not by any real dependency. Splitting it out means an AI-domain
 router can be read and understood without loading the rest of app.py, the
-same reasoning core.py was built on. Depends only on core.py + stdlib + the
-Gemini SDK, never on app.py.
+same reasoning core.py was built on. Depends only on core.py + database.py +
+stdlib + the Gemini SDK, never on app.py. database.py was added in Session 13
+for build_retrieval_context() below — safe because database.py itself has no
+dependency back on ai_core.py or app.py, so this stays one-directional.
 
 WHAT DELIBERATELY STAYED IN app.py
 -----------------------------------
@@ -33,6 +35,7 @@ import re
 import time
 
 from core import DATA_DIR, VERSION
+import database as db
 
 try:
     import google.generativeai as genai
@@ -324,6 +327,46 @@ async def async_embed_text(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> 
     result = await asyncio.to_thread(embed_text, text, task_type)
     _ai_breaker_record(result is not None)
     return result
+
+
+RETRIEVAL_TOP_K = int(os.environ.get("RETRIEVAL_TOP_K", 5))
+
+
+async def build_retrieval_context(sid: str, query: str, k: int = RETRIEVAL_TOP_K) -> str:
+    """Embed `query` and retrieve up to k of THIS sid's own indexed workspace
+    items (tasks/goals/docs/journal — see app.py's _index_embeddings) to
+    ground the next Gemini call. Returns "" — never raises — when pgvector
+    isn't available, embedding fails, or nothing relevant turns up; routes/
+    ai_chat.py treats an empty string as "nothing to inject," so a chat
+    message must work identically with retrieval on or entirely absent.
+
+    Always scoped by sid, with no code path here that isn't: the caller
+    passes in whatever sid its own auth already resolved (chat_authorize()
+    in app.py) — this function has no way to see or use anything else, by
+    construction, not by a check it could get wrong.
+    """
+    try:
+        if not db.embeddings_available():
+            return ""
+        query_vec = await async_embed_text(query, task_type="RETRIEVAL_QUERY")
+        if not query_vec:
+            return ""
+        results = db.search_embeddings(sid, query_vec, limit=k)
+        if not results:
+            return ""
+        lines = [
+            f"[{r['source_type']}:{r['source_id']}] {r['chunk_text'][:300]}"
+            for r in results
+        ]
+        return (
+            "Relevant items from the user's own workspace — use them only if "
+            "actually relevant to the question below, and when you do, cite "
+            "the item inline with its bracketed tag exactly as shown (e.g. "
+            "[task:abc123]):\n" + "\n".join(lines)
+        )
+    except Exception as e:
+        log.warning(f"build_retrieval_context failed, continuing without it: {e}")
+        return ""
 
 
 # ═══════════════════════════════════════════════════════════════

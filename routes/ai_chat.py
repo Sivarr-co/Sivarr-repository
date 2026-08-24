@@ -36,6 +36,7 @@ from ai_core import (
     solve_local, is_math, is_uncertain, _is_ai_error,
     get_sessions, async_gemini_ask, async_gemini_once, friendly_gemini_error,
     load_json, lpath, strip_topic, get_cached, set_cached,
+    build_retrieval_context,
 )
 
 RATE_LIMIT_CHAT = int(os.environ.get("RATE_LIMIT_CHAT", 20))      # max chat msgs per window
@@ -113,7 +114,19 @@ def build_router(chat_authorize, load_progress, save_progress, add_history) -> A
             save_progress(sid, p)
             return {"reply": cached, "uncertain": False, "error": False}
 
-        ans       = await async_gemini_ask(sessions["chat"], msg)
+        # Retrieval-augmented context (Session 13): grounded in this sid's
+        # own indexed workspace only (see build_retrieval_context's own
+        # docstring for why that's structural, not just usually-true).
+        # Embeds req.message, not msg — msg may already carry req.context
+        # prepended, and diluting the retrieval query with that would hurt
+        # match quality for no benefit. Kept in a separate gemini_msg rather
+        # than folded into msg: msg is what add_history saves below, and a
+        # user re-opening this conversation should see what they typed, not
+        # a wall of [task:...]/[doc:...] tags prepended to it.
+        retrieval_ctx = await build_retrieval_context(sid, req.message)
+        gemini_msg = f"{retrieval_ctx}\n\n{msg}" if retrieval_ctx else msg
+
+        ans       = await async_gemini_ask(sessions["chat"], gemini_msg)
         uncertain = is_uncertain(ans)
         is_err    = _is_ai_error(ans)
 
@@ -154,12 +167,20 @@ def build_router(chat_authorize, load_progress, save_progress, add_history) -> A
                                      headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
         sessions = get_sessions(sid)
+
+        # Retrieval-augmented context (Session 13) — see /api/chat's own copy
+        # of this comment for why req.message (not msg) is what gets embedded,
+        # and why it's kept out of msg itself (add_history below logs req.message
+        # already, but _run_gemini's closure needs the augmented text separately).
+        retrieval_ctx = await build_retrieval_context(sid, req.message)
+        gemini_msg = f"{retrieval_ctx}\n\n{msg}" if retrieval_ctx else msg
+
         loop = asyncio.get_running_loop()
         q: asyncio.Queue = asyncio.Queue()
 
         def _run_gemini():
             try:
-                resp = sessions["chat"].send_message(msg, stream=True)
+                resp = sessions["chat"].send_message(gemini_msg, stream=True)
                 for chunk in resp:
                     txt = getattr(chunk, "text", None)
                     if txt:
