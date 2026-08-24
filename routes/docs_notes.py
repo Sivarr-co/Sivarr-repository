@@ -3,6 +3,7 @@ import re as _re
 
 from fastapi import APIRouter, HTTPException
 
+import database as db
 from core import get_session_from_token, sanitize_text, _load_user_list, _save_user_list
 
 router = APIRouter()
@@ -18,11 +19,28 @@ router = APIRouter()
 # redeploy, but it's still a real single point of failure (no documented
 # backup story for the volume itself, unlike Supabase) and an inconsistency
 # with every other personal-space data type. Same storage swap as habits.py.
+#
+# Session 16: moved one layer further, off the user_blobs JSONB blob onto a
+# real `docs` table (same migration tasks/habits/goals already went
+# through), so docs can get real tsvector full-text search instead of an
+# in-memory substring scan. sync_docs/restore_docs below are unchanged --
+# they still only ever call load_docs()/save_docs(), same as before.
 def load_docs(sid: str) -> list:
-    return _load_user_list(sid, "docs")
+    if not db.is_available():
+        return _load_user_list(sid, "docs")
+    existing = db.get_docs(sid, include_deleted=True)
+    if not existing:
+        legacy = _load_user_list(sid, "docs")
+        if legacy:
+            db.replace_all_docs(sid, legacy)
+            return db.get_docs(sid, include_deleted=True)
+    return existing
 
 def save_docs(sid: str, docs: list):
-    _save_user_list(sid, "docs", docs)
+    if not db.is_available():
+        _save_user_list(sid, "docs", docs)
+        return
+    db.replace_all_docs(sid, docs)
 
 @router.post("/api/docs/sync")
 async def sync_docs(data: dict):

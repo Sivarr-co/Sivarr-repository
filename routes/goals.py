@@ -3,17 +3,36 @@ import uuid
 
 from fastapi import APIRouter, HTTPException
 
+import database as db
 from core import get_session_from_token, sanitize_text, _load_user_list, _save_user_list, _resolve_token
 
 router = APIRouter()
 
 
 # ── Personal goals — server-side mirror ────────────────────────────────────
+# Session 16: goals moved from a user_blobs JSONB blob to a real `goals`
+# table (see database.py's _SCHEMA), same migration tasks/habits already
+# went through, so goals can get real tsvector full-text search
+# (routes/search.py) instead of an in-memory substring scan. Every
+# endpoint below still does its own whole-list read-modify-write via
+# load_goals()/save_goals() exactly as before -- only what's underneath
+# those two functions changed, so nothing else in this file needed to.
 def load_goals(sid: str) -> list:
-    return _load_user_list(sid, "goals")
+    if not db.is_available():
+        return _load_user_list(sid, "goals")
+    existing = db.get_goals(sid, include_deleted=True)
+    if not existing:
+        legacy = _load_user_list(sid, "goals")
+        if legacy:
+            db.replace_all_goals(sid, legacy)
+            return db.get_goals(sid, include_deleted=True)
+    return existing
 
 def save_goals(sid: str, goals: list):
-    _save_user_list(sid, "goals", goals)
+    if not db.is_available():
+        _save_user_list(sid, "goals", goals)
+        return
+    db.replace_all_goals(sid, goals)
 
 
 @router.get("/api/goals")

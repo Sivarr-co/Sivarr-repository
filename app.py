@@ -2001,16 +2001,20 @@ def _start_scheduler():
     async def _purge_deleted_goals():
         """Permanently remove goals that have sat in Trash past the 30-day
         retention window (soft delete lands in routes/goals.py's delete_goal).
-        Sweeps both storage backends explicitly — a JSON-file-only glob (like
-        the pre-existing pattern in _auto_weekly_reviews above) would silently
-        purge nothing for any user once a database is configured, since
-        _load_user_list/_save_user_list stop writing per-user JSON files the
-        moment db.is_available() is true."""
+        Session 16: goals is a real table now (database.py's `goals` DDL),
+        same as tasks -- see _purge_deleted_tasks' identical shape/comment
+        just below. Only the JSON-file fallback (no DB) still needs the
+        per-sid load/filter/save loop; get_sids_with_blob_key("goals") would
+        silently find nobody once a database is configured, since goals no
+        longer lives in user_blobs at all post-migration."""
         import datetime as _dt
         cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=30)
-        sids = set(db.get_sids_with_blob_key("goals")) if db.is_available() else set(
-            p.name.replace("_goals.json", "") for p in DATA_DIR.glob("*_goals.json")
-        )
+        if db.is_available():
+            purged = db.purge_expired_goals(cutoff.isoformat())
+            if purged:
+                log.info(f"Purged {purged} goals past the 30-day trash retention window")
+            return
+        sids = set(p.name.replace("_goals.json", "") for p in DATA_DIR.glob("*_goals.json"))
         purged = 0
         for sid in sids:
             goals = load_goals(sid)
@@ -2129,8 +2133,8 @@ def _start_scheduler():
                     indexed += 1
             db.prune_embeddings(sid, "task", keep_ids)
 
-        # ── Goals — user_blobs, soft-deleted via deleted_at ──
-        for sid in db.get_sids_with_blob_key("goals"):
+        # ── Goals — real table since Session 16, soft-deleted via deleted_at ──
+        for sid in db.get_sids_with_goals():
             keep_ids = []
             for g in load_goals(sid):
                 if g.get("deleted_at"):
@@ -2147,8 +2151,8 @@ def _start_scheduler():
                     indexed += 1
             db.prune_embeddings(sid, "goal", keep_ids)
 
-        # ── Docs — user_blobs, content already HTML-stripped at write time ──
-        for sid in db.get_sids_with_blob_key("docs"):
+        # ── Docs — real table since Session 16, content already HTML-stripped at write time ──
+        for sid in db.get_sids_with_docs():
             keep_ids = []
             for d in load_docs(sid):
                 if d.get("deleted_at"):

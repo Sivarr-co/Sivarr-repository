@@ -153,6 +153,72 @@ def test_task_search_ranks_stronger_match_first(client, session_token):
     )
 
 
+def test_goal_search_ranks_stronger_match_first(client, session_token):
+    """Session 16: goals moved off the substring scan onto goals.search_vector
+    + ts_rank, same migration tasks already had — exact same test shape as
+    test_task_search_ranks_stronger_match_first above, just via /api/goals/add."""
+    if not db.is_available():
+        pytest.skip("needs a real Postgres connection for ts_rank — see module docstring")
+    unique = "Zzyzx9GoalRanking"
+    client.post("/api/goals/add", json={
+        "token": session_token,
+        "title": f"Random notes mentioning {unique} only in passing",
+    })
+    client.post("/api/goals/add", json={
+        "token": session_token,
+        "title": f"{unique} {unique}",
+    })
+    found = client.get(f"/api/search?q={unique}&token={session_token}").json()["results"]
+    goal_titles = [r["title"] for r in found if r["type"] == "goal"]
+    assert goal_titles[0] == f"{unique} {unique}", (
+        f"expected the higher-term-frequency title ranked first, got order: {goal_titles}"
+    )
+
+
+def test_doc_search_ranks_stronger_match_first(client, session_token):
+    """Same shape again, via /api/docs/sync -- docs has no per-entity add
+    endpoint (see routes/docs_notes.py), so both docs go in one sync call."""
+    if not db.is_available():
+        pytest.skip("needs a real Postgres connection for ts_rank — see module docstring")
+    unique = "Zzyzx9DocRanking"
+    client.post("/api/docs/sync", json={
+        "token": session_token,
+        "docs": [
+            {"id": "rank_doc_weak", "title": "Weak match", "content": f"a note that mentions {unique} only in passing"},
+            {"id": "rank_doc_strong", "title": f"{unique} {unique}", "content": f"{unique} {unique}"},
+        ],
+    })
+    found = client.get(f"/api/search?q={unique}&token={session_token}").json()["results"]
+    doc_titles = [r["title"] for r in found if r["type"] == "doc"]
+    assert doc_titles[0] == f"{unique} {unique}", (
+        f"expected the higher-term-frequency title ranked first, got order: {doc_titles}"
+    )
+
+
+def test_search_excludes_deleted_doc(client, session_token):
+    """Same shape as test_search_excludes_deleted_task above -- unified_search's
+    doc branch (both the real-Postgres and JSON-fallback paths) must exclude
+    soft-deleted docs. No equivalent test existed anywhere for docs before
+    this session (goals has one in test_smoke.py; docs never got one)."""
+    unique = "Zzyzx9SearchDoc"
+    sync = client.post("/api/docs/sync", json={
+        "token": session_token,
+        "docs": [{"id": "search_excl_doc", "title": unique, "content": "some content"}],
+    })
+    assert sync.status_code == 200
+
+    found = client.get(f"/api/search?q={unique}&token={session_token}").json()["results"]
+    assert any(r["title"] == unique and r["type"] == "doc" for r in found)
+
+    client.post("/api/docs/sync", json={
+        "token": session_token,
+        "docs": [{"id": "search_excl_doc", "title": unique, "content": "some content", "deleted_at": "2026-01-01T00:00:00"}],
+    })
+
+    found_after = client.get(f"/api/search?q={unique}&token={session_token}").json()["results"]
+    assert not any(r["title"] == unique and r["type"] == "doc" for r in found_after)
+
+
 def test_search_org_content_never_leaks_to_another_org(client, session_token, monkeypatch):
     """The IDOR-shaped check for search, same pattern tests/test_realtime.py
     already uses for the doc-collab WebSocket (test_doc_ws_rejects_doc_from_

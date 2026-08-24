@@ -761,6 +761,62 @@ CREATE TABLE IF NOT EXISTS habits (
 );
 CREATE INDEX IF NOT EXISTS idx_habits_sid_deleted ON habits(sid, deleted_at);
 
+-- Personal goals (Session 16) -- same migration as tasks/habits above,
+-- user_blobs(key='goals') JSONB-blob-per-user -> a real table, same
+-- (sid, id) PRIMARY KEY reasoning. key_results stays a JSONB column
+-- rather than its own child table (unlike org_goals/org_key_results,
+-- which are separate tables): each key-result is small, always read and
+-- written as part of its parent goal (routes/goals.py's kr/add,
+-- kr/update, kr/delete endpoints all load the whole goal, mutate the
+-- list, save the whole goal back), and search only needs to index
+-- title/subject -- normalizing key_results into its own table would add
+-- a join for no caller that needs one. goal_type default matches
+-- add_goal's own default -- import_goals never sets it today (a
+-- pre-existing gap, unrelated to this migration) so the column default
+-- papers over that the same way tasks' column defaults already do for
+-- tasks.py's own equivalent gaps.
+CREATE TABLE IF NOT EXISTS goals (
+    id            TEXT NOT NULL,
+    sid           TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    title         TEXT NOT NULL,
+    subject       TEXT DEFAULT '',
+    target_score  INTEGER DEFAULT 70,
+    deadline      TEXT DEFAULT '',
+    created       TEXT DEFAULT '',
+    progress      INTEGER DEFAULT 0,
+    completed     BOOLEAN DEFAULT FALSE,
+    goal_type     TEXT DEFAULT 'okr',
+    key_results   JSONB DEFAULT '[]',
+    deleted_at    TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (sid, id)
+);
+CREATE INDEX IF NOT EXISTS idx_goals_sid_deleted ON goals(sid, deleted_at);
+
+-- Personal docs (Session 16) -- same migration, user_blobs(key='docs') ->
+-- a real table. Unlike tasks/goals/habits, docs has no per-entity
+-- add/update/delete endpoints -- every mutation goes through
+-- POST /api/docs/sync, which replaces the caller's entire doc list every
+-- time (routes/docs_notes.py). replace_all_docs below is therefore this
+-- table's primary write path, not a bulk-import fallback the way
+-- replace_all_tasks is for tasks. id is TEXT: the sync path already sends
+-- string ids, and import_notes' integer timestamp ids are coerced to str
+-- at the route layer (str(d.get("id", "")), same coercion routes/search.py
+-- already applies when reading doc ids for exactly this reason).
+CREATE TABLE IF NOT EXISTS docs (
+    id          TEXT NOT NULL,
+    sid         TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    title       TEXT DEFAULT '',
+    content     TEXT DEFAULT '',
+    updated     TEXT DEFAULT '',
+    deleted_at  TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (sid, id)
+);
+CREATE INDEX IF NOT EXISTS idx_docs_sid_deleted ON docs(sid, deleted_at);
+
 -- In-app notification history, real per-item rows (id/title/body/read state)
 -- rather than the ad-hoc push_subs JSON files send_push() previously wrote
 -- to directly (DATA_DIR / f"{sid}_push_subs.json" — still used for the
@@ -857,6 +913,18 @@ CREATE INDEX IF NOT EXISTS idx_tasks_search ON tasks USING GIN(search_vector);
 ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS search_vector TSVECTOR
     GENERATED ALWAYS AS (to_tsvector('english', body)) STORED;
 CREATE INDEX IF NOT EXISTS idx_comm_posts_search ON community_posts USING GIN(search_vector);
+
+-- ── Full-text search: goals + docs (Session 16) ─────────────────
+-- Same placement reasoning as the tasks/community_posts block above --
+-- after every CREATE TABLE, so the ALTER always finds its table already
+-- there on both a fresh install and an existing one.
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS search_vector TSVECTOR
+    GENERATED ALWAYS AS (to_tsvector('english', title || ' ' || coalesce(subject, ''))) STORED;
+CREATE INDEX IF NOT EXISTS idx_goals_search ON goals USING GIN(search_vector);
+
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS search_vector TSVECTOR
+    GENERATED ALWAYS AS (to_tsvector('english', title || ' ' || coalesce(content, ''))) STORED;
+CREATE INDEX IF NOT EXISTS idx_docs_search ON docs USING GIN(search_vector);
 
 -- ── AI retrieval: embeddings (Session 9) ────────────────────────
 -- Supabase supports the pgvector extension, but the JSON-file fallback
@@ -3012,6 +3080,285 @@ def purge_expired_habits(cutoff_iso: str) -> int:
         log.error(f"purge_expired_habits: {exc}")
         conn.rollback()
         return 0
+    finally:
+        _release(conn)
+
+
+# ── Personal goals (Session 16) ───────────────────────────────
+# Unlike tasks/habits, routes/goals.py has no per-entity create_goal/
+# update_goal DB calls to write — every one of its endpoints (add, update,
+# delete, restore, edit, kr/add, kr/update, kr/delete) does a whole-list
+# read-modify-write via load_goals()/save_goals(), exactly like the old
+# user_blobs blob did. So only the whole-list functions below are needed:
+# get_goals()+replace_all_goals() are what load_goals()/save_goals() call
+# underneath, matching the exact overwrite-the-whole-list semantics the
+# blob already had — this migration changes storage, not that contract.
+
+_GOAL_COLUMNS = {
+    "title", "subject", "target_score", "deadline", "created", "progress",
+    "completed", "goal_type", "key_results", "deleted_at",
+}
+
+
+def _goal_param(key: str, value):
+    """key_results is the one JSONB column here -- everything else is a
+    plain scalar psycopg2 can bind directly."""
+    if key == "key_results":
+        import json as _json
+        return _json.dumps(value if value is not None else [])
+    return value
+
+
+def _row_to_goal(row: dict) -> dict:
+    d = dict(row)
+    for key in ("deleted_at", "created_at", "updated_at"):
+        if d.get(key) is not None and hasattr(d[key], "isoformat"):
+            d[key] = d[key].isoformat()
+    return d
+
+
+def get_goals(sid: str, include_deleted: bool = False) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if include_deleted:
+                cur.execute("SELECT * FROM goals WHERE sid=%s ORDER BY created_at", (sid,))
+            else:
+                cur.execute("SELECT * FROM goals WHERE sid=%s AND deleted_at IS NULL ORDER BY created_at", (sid,))
+            return [_row_to_goal(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_goals: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def search_goals(sid: str, q: str, limit: int = 15) -> list:
+    """Full-text search over this user's goals, ranked via goals.search_vector
+    (title + subject) + its GIN index. Soft-deleted goals excluded in SQL,
+    same convention as search_tasks."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT id, title, subject, progress, completed,
+                          ts_rank(search_vector, plainto_tsquery('english', %s)) AS rank
+                   FROM goals
+                   WHERE sid=%s AND deleted_at IS NULL
+                     AND search_vector @@ plainto_tsquery('english', %s)
+                   ORDER BY rank DESC
+                   LIMIT %s""",
+                (q, sid, q, limit),
+            )
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"search_goals: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def replace_all_goals(sid: str, goals: list) -> bool:
+    """Bulk replace -- delete every row for sid, reinsert the given list.
+    The *only* write path for goals (see this section's header comment) --
+    keeps the exact whole-array-overwrite semantics the old user_blobs blob
+    had, so routes/goals.py needed zero changes to its own read-modify-
+    write logic for this migration."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM goals WHERE sid=%s", (sid,))
+            for g in goals:
+                cols = {k: v for k, v in g.items() if k in _GOAL_COLUMNS and k not in ("id", "sid", "title")}
+                names = ["id", "sid", "title"] + list(cols.keys())
+                vals  = [g["id"], sid, g.get("title", "")] + [_goal_param(k, v) for k, v in cols.items()]
+                placeholders = ", ".join(["%s"] * len(vals))
+                cur.execute(
+                    f"INSERT INTO goals ({', '.join(names)}) VALUES ({placeholders})",
+                    vals,
+                )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"replace_all_goals: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def purge_expired_goals(cutoff_iso: str) -> int:
+    """Permanently remove goals soft-deleted before `cutoff_iso` -- for the
+    scheduled purge job (app.py's _purge_deleted_goals). Returns the number
+    of rows removed."""
+    conn = _get_conn()
+    if not conn:
+        return 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM goals WHERE deleted_at IS NOT NULL AND deleted_at < %s",
+                (cutoff_iso,),
+            )
+            count = cur.rowcount
+        conn.commit()
+        return count
+    except Exception as exc:
+        log.error(f"purge_expired_goals: {exc}")
+        conn.rollback()
+        return 0
+    finally:
+        _release(conn)
+
+
+def get_sids_with_goals() -> list[str]:
+    """Every sid with at least one row in the real `goals` table -- goals no
+    longer go through user_blobs, so get_sids_with_blob_key("goals") can't
+    see them post-migration. Used by app.py's _purge_deleted_goals and
+    _index_embeddings jobs to enumerate whose goals need processing."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT DISTINCT sid FROM goals")
+            return [r[0] for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_sids_with_goals: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+# ── Personal docs (Session 16) ─────────────────────────────────
+# Same reasoning as goals above: routes/docs_notes.py has no per-entity
+# writes at all (only POST /api/docs/sync, which always replaces the
+# caller's entire doc list), so replace_all_docs is the only write path
+# needed, not per-entity create/update/delete functions.
+
+_DOC_COLUMNS = {"title", "content", "updated", "deleted_at"}
+
+
+def _doc_param(key: str, value):
+    """Every column here is TEXT (deleted_at aside, which expects an ISO
+    string or None same as tasks/goals) -- but routes/docs_notes.py's
+    import_notes() writes `id`/`updated` as raw ints
+    (int(datetime.now().timestamp()*1000)), not the strings sync_docs()
+    always sends. psycopg2 won't implicitly cast a Python int into a TEXT
+    column, so without this a doc created via note-import would 500 the
+    first time it went through replace_all_docs (i.e. the very next
+    /api/docs/sync). Coerce defensively here rather than fix it at
+    import_notes' call site, since any future write path has the same
+    trap otherwise."""
+    if value is None:
+        return None
+    return str(value)
+
+
+def _row_to_doc(row: dict) -> dict:
+    d = dict(row)
+    for key in ("deleted_at", "created_at", "updated_at"):
+        if d.get(key) is not None and hasattr(d[key], "isoformat"):
+            d[key] = d[key].isoformat()
+    return d
+
+
+def get_docs(sid: str, include_deleted: bool = False) -> list:
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if include_deleted:
+                cur.execute("SELECT * FROM docs WHERE sid=%s ORDER BY created_at", (sid,))
+            else:
+                cur.execute("SELECT * FROM docs WHERE sid=%s AND deleted_at IS NULL ORDER BY created_at", (sid,))
+            return [_row_to_doc(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_docs: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def search_docs(sid: str, q: str, limit: int = 15) -> list:
+    """Full-text search over this user's docs, ranked via docs.search_vector
+    (title + content) + its GIN index. Soft-deleted docs excluded in SQL,
+    same convention as search_tasks/search_goals. Returns content too (not
+    just a snippet) since routes/search.py builds its own excerpt around
+    the match position, same as the JSON-fallback substring path already
+    does."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT id, title, content,
+                          ts_rank(search_vector, plainto_tsquery('english', %s)) AS rank
+                   FROM docs
+                   WHERE sid=%s AND deleted_at IS NULL
+                     AND search_vector @@ plainto_tsquery('english', %s)
+                   ORDER BY rank DESC
+                   LIMIT %s""",
+                (q, sid, q, limit),
+            )
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"search_docs: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def replace_all_docs(sid: str, docs: list) -> bool:
+    """Bulk replace -- delete every row for sid, reinsert the given list.
+    The only write path for docs -- see this section's header comment."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM docs WHERE sid=%s", (sid,))
+            for d in docs:
+                cols = {k: v for k, v in d.items() if k in _DOC_COLUMNS and k not in ("id", "sid", "title")}
+                names = ["id", "sid", "title"] + list(cols.keys())
+                vals  = [str(d.get("id", "")), sid, str(d.get("title", ""))] + [_doc_param(k, v) for k, v in cols.items()]
+                placeholders = ", ".join(["%s"] * len(vals))
+                cur.execute(
+                    f"INSERT INTO docs ({', '.join(names)}) VALUES ({placeholders})",
+                    vals,
+                )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"replace_all_docs: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def get_sids_with_docs() -> list[str]:
+    """Every sid with at least one row in the real `docs` table -- see
+    get_sids_with_goals' identical reasoning. Used by app.py's
+    _index_embeddings job."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT DISTINCT sid FROM docs")
+            return [r[0] for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_sids_with_docs: {exc}")
+        return []
     finally:
         _release(conn)
 
