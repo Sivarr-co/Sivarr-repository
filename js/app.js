@@ -7361,169 +7361,6 @@ async function sgSend() {
   }
 }
 
-// ═══════════════════════ POMODORO ══════════════════════════
-
-const POM_MODES = {
-  focus: { label: "Focus", mins: 25 },
-  short: { label: "Short Break", mins: 5 },
-  long: { label: "Long Break", mins: 15 },
-};
-const POM_KEY = () => `sivarr_pom_${S.sid || "guest"}`;
-let POM_MODE = "focus";
-let POM_SECS = 25 * 60;
-let POM_TOTAL = 25 * 60;
-let POM_RUNNING = false;
-let POM_INTERVAL = null;
-let POM_SESSION = 0;
-
-function pomStats() {
-  try {
-    return JSON.parse(
-      localStorage.getItem(POM_KEY()) ||
-        '{"today":0,"total":0,"mins":0,"date":""}',
-    );
-  } catch {
-    return { today: 0, total: 0, mins: 0, date: "" };
-  }
-}
-function pomSaveStats(s) {
-  localStorage.setItem(POM_KEY(), JSON.stringify(s));
-}
-
-function pomSetMode(mode, btn) {
-  POM_MODE = mode;
-  POM_RUNNING = false;
-  clearInterval(POM_INTERVAL);
-  POM_SECS = POM_MODES[mode].mins * 60;
-  POM_TOTAL = POM_SECS;
-  pomRender();
-  document
-    .querySelectorAll(".pom-mode-btn")
-    .forEach((b) => b.classList.remove("active"));
-  if (btn) btn.classList.add("active");
-  const sl = $("pom-sublabel");
-  if (sl) sl.textContent = POM_MODES[mode].label;
-  const sb = $("pom-start-btn");
-  if (sb) sb.textContent = "▶ Start";
-}
-
-function pomToggle() {
-  if (POM_RUNNING) {
-    POM_RUNNING = false;
-    clearInterval(POM_INTERVAL);
-    const sb = $("pom-start-btn");
-    if (sb) sb.textContent = "▶ Resume";
-  } else {
-    POM_RUNNING = true;
-    const sb = $("pom-start-btn");
-    if (sb) sb.textContent = "⏸ Pause";
-    POM_INTERVAL = setInterval(() => {
-      POM_SECS--;
-      pomRender();
-      if (POM_SECS <= 0) {
-        clearInterval(POM_INTERVAL);
-        POM_RUNNING = false;
-        pomComplete();
-      }
-    }, 1000);
-  }
-}
-
-function pomComplete() {
-  const sb = $("pom-start-btn");
-  if (sb) sb.textContent = "▶ Start";
-  if (POM_MODE === "focus") {
-    POM_SESSION++;
-    for (let i = 0; i < 4; i++) {
-      const dot = $(`pd${i}`);
-      if (dot) dot.classList.toggle("done", i < POM_SESSION % 4);
-    }
-    const st = pomStats();
-    const today = new Date().toISOString().split("T")[0];
-    if (st.date !== today) {
-      st.today = 0;
-      st.date = today;
-    }
-    st.today++;
-    st.total++;
-    st.mins += POM_MODES.focus.mins;
-    pomSaveStats(st);
-    pomUpdateStatDisplay();
-    toast(
-      `Focus session complete! 🎉 ${POM_SESSION % 4 === 0 ? "Time for a long break." : "Great work!"}`,
-    );
-    _autoFire("focus_complete", {
-      mins: POM_MODES.focus.mins,
-      journalPrompt: `Just finished a ${POM_MODES.focus.mins}-minute focus session. What did I accomplish? `,
-      followUpTask: "Follow up from focus session",
-    });
-    if (POM_SESSION % 4 === 0) pomSetMode("long", null);
-    else pomSetMode("short", null);
-  } else {
-    toast("Break over, time to focus! 💪");
-    pomSetMode("focus", null);
-    document
-      .querySelectorAll(".pom-mode-btn")
-      .forEach((b, i) => b.classList.toggle("active", i === 0));
-  }
-}
-
-function pomReset() {
-  POM_RUNNING = false;
-  clearInterval(POM_INTERVAL);
-  POM_SECS = POM_TOTAL;
-  pomRender();
-  const sb = $("pom-start-btn");
-  if (sb) sb.textContent = "▶ Start";
-}
-
-function pomSkip() {
-  clearInterval(POM_INTERVAL);
-  POM_RUNNING = false;
-  pomComplete();
-}
-
-function pomRender() {
-  const mins = Math.floor(POM_SECS / 60)
-    .toString()
-    .padStart(2, "0");
-  const secs = (POM_SECS % 60).toString().padStart(2, "0");
-  const tm = $("pom-time");
-  if (tm) tm.textContent = `${mins}:${secs}`;
-  const circ = $("pom-ring-fill");
-  if (circ) {
-    const pct = POM_SECS / POM_TOTAL;
-    const circum = 2 * Math.PI * 88;
-    circ.style.strokeDashoffset = circum * (1 - pct);
-    circ.style.strokeDasharray = circum;
-    circ.style.stroke =
-      POM_MODE === "focus"
-        ? "url(#pomGrad)"
-        : POM_MODE === "short"
-          ? "#22c55e"
-          : "#f59e0b";
-  }
-}
-
-function pomUpdateStatDisplay() {
-  const st = pomStats();
-  const today = new Date().toISOString().split("T")[0];
-  const sd = $("pom-stat-today");
-  if (sd) sd.textContent = st.date === today ? st.today : 0;
-  const st2 = $("pom-stat-total");
-  if (st2) st2.textContent = st.total;
-  const sm = $("pom-stat-mins");
-  if (sm) sm.textContent = st.mins;
-}
-
-function pomInit() {
-  pomSetMode("focus", null);
-  document
-    .querySelectorAll(".pom-mode-btn")
-    .forEach((b, i) => b.classList.toggle("active", i === 0));
-  pomUpdateStatDisplay();
-}
-
 // ═══════════════════════════ DIFFICULTY ═════════════════════════
 
 // ═══════════════ CREATE NEW TAB SWITCHER ════════════════════
@@ -12984,15 +12821,12 @@ function switchLabTabP(tab, btn) {
     .querySelectorAll('[onclick*="switchLabTabP"]')
     .forEach((b) => b.classList.remove("active"));
   if (btn) btn.classList.add("active");
-  if (tab === "flashcards") _flashRender("p");
+  if (tab === "flashcards") sShowFlashcard();
 }
 
-// ── Flashcard mode ────────────────────────────────────────────
-let _flashCards = []; // [{q, a}]
-let _flashIdx = 0;
-let _flashKnown = new Set();
-let _flashSuffix = "p";
-
+// ── Flashcard parsing — turns Lab's AI-generated "questions" text into
+// {q, a} pairs. Rendering/interaction is the shared engine in academic.js
+// (sLoadFlashcards et al.) — see the isPanel branch in _processLabFile.
 function _parseFlashcards(questionsText) {
   if (!questionsText) return [];
   const cards = [];
@@ -13030,78 +12864,6 @@ function _parseFlashcards(questionsText) {
     });
   }
   return cards.slice(0, 30);
-}
-
-function _flashBuild(questionsText, suffix) {
-  _flashCards = _parseFlashcards(questionsText);
-  _flashIdx = 0;
-  _flashKnown = new Set();
-  _flashSuffix = suffix || "p";
-  // Show/hide the tab
-  const tabBtn = $(`lab-tab-flash-${_flashSuffix}`);
-  if (tabBtn) tabBtn.style.display = _flashCards.length ? "" : "none";
-}
-
-function _flashRender(suffix) {
-  const sfx = suffix || _flashSuffix;
-  const el = $(`lab-flashcards-${sfx}`);
-  if (!el || !_flashCards.length) return;
-
-  if (_flashIdx >= _flashCards.length) {
-    const total = _flashCards.length;
-    const known = _flashKnown.size;
-    el.innerHTML = `<div class="flash-done">
-      <div class="flash-done-emoji">${known === total ? "🏆" : "📚"}</div>
-      <div class="flash-done-title">${known === total ? "Perfect round!" : `${known} / ${total} cards known`}</div>
-      <div class="flash-done-sub">${known < total ? `${total - known} card${total - known > 1 ? "s" : ""} to review again.` : "You nailed every card!"}</div>
-      <button class="flash-restart-btn" onclick="_flashRestart('${sfx}')">↻ Go again</button>
-    </div>`;
-    return;
-  }
-
-  const card = _flashCards[_flashIdx];
-  const known = _flashKnown.size;
-  const total = _flashCards.length;
-  const pct = Math.round((known / total) * 100);
-
-  el.innerHTML = `<div class="flash-wrap">
-    <div class="flash-progress"><strong>${known}</strong> / ${total} known · card ${_flashIdx + 1} of ${total}</div>
-    <div class="flash-progress-bar"><div class="flash-progress-fill" style="width:${pct}%"></div></div>
-    <div class="flash-card-scene" id="flash-scene-${sfx}" onclick="flashFlip('${sfx}')">
-      <div class="flash-card-inner">
-        <div class="flash-card-face front">
-          <div class="flash-card-label">Question</div>
-          <div class="flash-card-text">${esc(card.q)}</div>
-          <div class="flash-hint">Tap to reveal answer</div>
-        </div>
-        <div class="flash-card-face back">
-          <div class="flash-card-label">Answer</div>
-          <div class="flash-card-text">${esc(card.a)}</div>
-        </div>
-      </div>
-    </div>
-    <div class="flash-btns">
-      <button class="flash-btn again" onclick="flashAnswer('again','${sfx}')">✗ Again</button>
-      <button class="flash-btn known" onclick="flashAnswer('known','${sfx}')">✓ Known</button>
-    </div>
-  </div>`;
-}
-
-function flashFlip(sfx) {
-  const scene = $(`flash-scene-${sfx}`);
-  if (scene) scene.classList.toggle("flipped");
-}
-
-function flashAnswer(verdict, sfx) {
-  if (verdict === "known") _flashKnown.add(_flashIdx);
-  _flashIdx++;
-  _flashRender(sfx);
-}
-
-function _flashRestart(sfx) {
-  _flashIdx = 0;
-  _flashKnown = new Set();
-  _flashRender(sfx);
 }
 
 function saveLabAsNoteP() {
@@ -13276,8 +13038,14 @@ async function _processLabFile(file, target) {
     if (qst) qst.innerHTML = renderMarkdown(sections.questions);
     if (fnameEl) fnameEl.textContent = `📄 ${file.name}`;
     if (resultDiv) resultDiv.style.display = "block";
-    // Build flashcards from questions section
-    if (isPanel) _flashBuild(sections.questions, "p");
+    // Build flashcards from questions section — rendered by the shared
+    // engine in academic.js (see sLoadFlashcards).
+    if (isPanel)
+      sLoadFlashcards(_parseFlashcards(sections.questions), {
+        displayId: "lab-flashcards-p",
+        tabId: "lab-tab-flash-p",
+        emptyMsg: "No flashcards could be generated from this file.",
+      });
 
     if (dropZone)
       dropZone.innerHTML = `

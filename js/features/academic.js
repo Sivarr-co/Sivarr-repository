@@ -778,10 +778,18 @@ let sPomoMinutes = 25,
   sPomoSeconds = 0,
   sPomoRunning = false,
   sPomoInterval = null,
-  sPomoSession = 1;
+  sPomoSession = 1,
+  sPomoModeMinutes = 25; // the selected mode's full length — what Reset returns to
+// Other mounted timer displays (e.g. the Marketplace "Pomodoro Pro" widget)
+// that mirror this one countdown rather than running their own — there is
+// only ever one Pomodoro running at a time. Registered lazily on first use;
+// see sPomoRegisterMirror.
+let sPomoMirrorIds = [];
 let sFlashcards = [],
   sFlashIdx = 0,
-  sFlashFlipped = false;
+  sFlashFlipped = false,
+  sFlashKnown = new Set(),
+  sFlashTarget = null; // active render target — see sLoadFlashcards
 let sTutorModuleCtx = "";
 
 function sInit() {
@@ -1363,6 +1371,7 @@ async function sAddDeadline() {
 // ── Pomodoro ──
 function sPomoSet(min, label) {
   sPomoReset();
+  sPomoModeMinutes = min;
   sPomoMinutes = min;
   sPomoSeconds = 0;
   document
@@ -1418,47 +1427,123 @@ function sPomoToggle() {
 function sPomoReset() {
   clearInterval(sPomoInterval);
   sPomoRunning = false;
+  sPomoMinutes = sPomoModeMinutes;
+  sPomoSeconds = 0;
   const b = document.getElementById("sPomoPlayBtn");
   if (b)
     b.innerHTML = '<i class="ti ti-player-play" aria-hidden="true"></i> Start';
   sPomoUpdate();
 }
 function sPomoUpdate() {
+  const txt = `${String(sPomoMinutes).padStart(2, "0")}:${String(sPomoSeconds).padStart(2, "0")}`;
   const el = document.getElementById("sPomoDisplay");
-  if (el)
-    el.textContent = `${String(sPomoMinutes).padStart(2, "0")}:${String(sPomoSeconds).padStart(2, "0")}`;
+  if (el) el.textContent = txt;
+  sPomoMirrorIds.forEach((id) => {
+    const m = document.getElementById(id);
+    if (m) m.textContent = txt;
+  });
 }
-// ── Flashcard sprint (from the Flashcard Drill column) ──
-function sLoadFlashcards() {
-  sFlashcards = sSprintCards.flashcard || [];
+// Register another element to mirror the live countdown, and paint it
+// immediately with whatever this timer is currently showing (it may already
+// be mid-session from another surface).
+function sPomoRegisterMirror(elId) {
+  if (!sPomoMirrorIds.includes(elId)) sPomoMirrorIds.push(elId);
+  sPomoUpdate();
+}
+// ── Flashcard engine — shared by Exam Sprint's Flashcard Drill and Study
+// Deck's Lab flashcard tab (see _processLabFile in app.js). One active deck
+// at a time; `target` says which DOM ids to render into and how to describe
+// an empty deck. Cards may be {title, answer} (Sprint) or {q, a} (Lab).
+const _SFLASH_DEFAULT_TARGET = {
+  displayId: "sFlashcardDisplay",
+  actionsId: "sFlashcardActions",
+  badgeId: "sSprintCardCount",
+  emptyMsg: "Add cards to the Flashcard Drill column in Exam Sprint.",
+};
+function _sFlashFront(card) {
+  return card.q ?? card.title ?? "";
+}
+function _sFlashBack(card) {
+  return card.a ?? card.answer ?? "Say it out loud, then rate yourself.";
+}
+function sLoadFlashcards(cards, target) {
+  sFlashcards = cards || sSprintCards.flashcard || [];
   sFlashIdx = 0;
   sFlashFlipped = false;
-  const cnt = document.getElementById("sSprintCardCount");
-  if (cnt) cnt.textContent = `${sFlashcards.length} cards`;
+  sFlashKnown = new Set();
+  sFlashTarget = target || _SFLASH_DEFAULT_TARGET;
+  if (sFlashTarget.tabId) {
+    const tab = document.getElementById(sFlashTarget.tabId);
+    if (tab) tab.style.display = sFlashcards.length ? "" : "none";
+  }
+  if (sFlashTarget.badgeId) {
+    const badge = document.getElementById(sFlashTarget.badgeId);
+    if (badge) badge.textContent = `${sFlashcards.length} cards`;
+  }
   sShowFlashcard();
 }
 function sShowFlashcard() {
-  const disp = document.getElementById("sFlashcardDisplay");
-  const acts = document.getElementById("sFlashcardActions");
+  if (!sFlashTarget) sFlashTarget = _SFLASH_DEFAULT_TARGET;
+  const disp = document.getElementById(sFlashTarget.displayId);
+  const acts = sFlashTarget.actionsId
+    ? document.getElementById(sFlashTarget.actionsId)
+    : null;
   if (!disp) return;
+
   if (!sFlashcards.length) {
-    disp.innerHTML = `<div class="acad-empty-state"><i class="ti ti-cards" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Add cards to the Flashcard Drill column in Exam Sprint.</div></div>`;
+    disp.innerHTML = `<div class="acad-empty-state"><i class="ti ti-cards" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>${sFlashTarget.emptyMsg}</div></div>`;
     if (acts) acts.style.display = "none";
     return;
   }
-  const card = sFlashcards[sFlashIdx % sFlashcards.length];
-  disp.innerHTML = `<div class="acad-flashcard" onclick="sFlipCard()"><div class="acad-flashcard-inner ${sFlashFlipped ? "acad-flashcard-inner--flipped" : ""}"><div class="acad-flashcard-front"><div class="acad-fc-label">Topic</div><div class="acad-fc-text">${acEsc(card.title)}</div><div class="acad-fc-hint">Tap to flip</div></div><div class="acad-flashcard-back"><div class="acad-fc-label">Recall</div><div class="acad-fc-text">${acEsc(card.answer || "Say it out loud, then rate yourself.")}</div></div></div></div>`;
-  if (acts) acts.style.display = sFlashFlipped ? "flex" : "none";
+
+  if (sFlashIdx >= sFlashcards.length) {
+    const total = sFlashcards.length;
+    const known = sFlashKnown.size;
+    disp.innerHTML = `<div class="acad-flashcard-done">
+      <div class="acad-fc-done-emoji">${known === total ? "🏆" : "📚"}</div>
+      <div class="acad-fc-done-title">${known === total ? "Perfect round!" : `${known} / ${total} cards known`}</div>
+      <div class="acad-fc-done-sub">${known < total ? `${total - known} card${total - known > 1 ? "s" : ""} to review again.` : "You nailed every card!"}</div>
+      <button class="acad-action-btn" onclick="sRestartFlashcards()">↻ Go again</button>
+    </div>`;
+    if (acts) acts.style.display = "none";
+    return;
+  }
+
+  const card = sFlashcards[sFlashIdx];
+  const known = sFlashKnown.size;
+  const total = sFlashcards.length;
+  const cardHtml = `<div class="acad-fc-progress"><strong>${known}</strong> / ${total} known · card ${sFlashIdx + 1} of ${total}</div><div class="acad-flashcard" onclick="sFlipCard()"><div class="acad-flashcard-inner ${sFlashFlipped ? "acad-flashcard-inner--flipped" : ""}"><div class="acad-flashcard-front"><div class="acad-fc-label">Question</div><div class="acad-fc-text">${acEsc(_sFlashFront(card))}</div><div class="acad-fc-hint">Tap to flip</div></div><div class="acad-flashcard-back"><div class="acad-fc-label">Answer</div><div class="acad-fc-text">${acEsc(_sFlashBack(card))}</div></div></div></div>`;
+
+  if (acts) {
+    // Split layout (Exam Sprint): actions live in a separate, pre-existing div.
+    disp.innerHTML = cardHtml;
+    acts.style.display = sFlashFlipped ? "flex" : "none";
+  } else {
+    // Single-container layout (Study Deck's Lab tab): no separate actions
+    // div exists in that template, so render them inline once flipped.
+    const inlineActs = sFlashFlipped
+      ? `<div class="acad-fc-inline-actions"><button class="acad-action-btn acad-action-btn--red" onclick="sFlashcardRespond('again')">✗ Again</button><button class="acad-action-btn acad-action-btn--teal" onclick="sFlashcardRespond('known')">✓ Known</button></div>`
+      : "";
+    disp.innerHTML = cardHtml + inlineActs;
+  }
 }
 function sFlipCard() {
   sFlashFlipped = !sFlashFlipped;
   sShowFlashcard();
 }
 function sFlashcardRespond(rating) {
+  if (rating === "easy" || rating === "good" || rating === "known")
+    sFlashKnown.add(sFlashIdx);
   sFlashIdx++;
   sFlashFlipped = false;
   sShowFlashcard();
   if (rating === "easy" || rating === "good") acToast("Nice, keep going!");
+}
+function sRestartFlashcards() {
+  sFlashIdx = 0;
+  sFlashFlipped = false;
+  sFlashKnown = new Set();
+  sShowFlashcard();
 }
 
 // ── Create-space modal: academic role selector ──

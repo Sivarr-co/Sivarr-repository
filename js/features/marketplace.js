@@ -1351,37 +1351,17 @@ function extGetTabHTML(item) {
   );
 }
 
-let extPomoTimers = {};
+// This widget doesn't run its own timer — it mirrors the single shared
+// Pomodoro engine in academic.js (sPomo*). There is only ever one Pomodoro
+// running at a time, so a second independent countdown here would just
+// drift out of sync with it.
 function extPomoStart(extId) {
-  if (extPomoTimers[extId]) {
-    clearInterval(extPomoTimers[extId]);
-    delete extPomoTimers[extId];
-  }
-  let mins = 24,
-    secs = 59;
-  const el = document.getElementById(`extPomo-${extId}`);
-  extPomoTimers[extId] = setInterval(() => {
-    if (secs === 0) {
-      if (mins === 0) {
-        clearInterval(extPomoTimers[extId]);
-        delete extPomoTimers[extId];
-        mktToast("Pomodoro complete!");
-        return;
-      }
-      mins--;
-      secs = 59;
-    } else secs--;
-    if (el)
-      el.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  }, 1000);
+  sPomoRegisterMirror(`extPomo-${extId}`);
+  if (!sPomoRunning) sPomoToggle();
 }
 function extPomoReset(extId) {
-  if (extPomoTimers[extId]) {
-    clearInterval(extPomoTimers[extId]);
-    delete extPomoTimers[extId];
-  }
-  const el = document.getElementById(`extPomo-${extId}`);
-  if (el) el.textContent = "25:00";
+  sPomoReset();
+  sPomoRegisterMirror(`extPomo-${extId}`);
 }
 
 /* ── Real extensions: per-space storage + Flashcards + Citations ─────
