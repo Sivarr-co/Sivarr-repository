@@ -3,7 +3,7 @@
   <!-- Doc sidebar -->
   <div class="doc-sidebar">
     <div class="doc-sb-top">
-      <button class="doc-new-btn" onclick="docNew()">
+      <button class="doc-new-btn" data-onclick="docNew">
         <i class="ti ti-plus"></i> New Doc
       </button>
       <div class="doc-search-wrap">
@@ -28,7 +28,7 @@
       <div class="doc-es-icon">📄</div>
       <div class="doc-es-title">No document open</div>
       <div class="doc-es-sub">Select a doc or create a new one</div>
-      <button class="doc-es-btn" onclick="docNew()">
+      <button class="doc-es-btn" data-onclick="docNew">
         + Create your first doc
       </button>
     </div>
@@ -182,7 +182,7 @@
           </button>
         </div>
         <div class="doc-tb-sep"></div>
-        <button class="doc-siva-btn" onclick="docInlineAI()">
+        <button class="doc-siva-btn" data-onclick="docInlineAI">
           <i class="ti ti-sparkles"></i> AI Write
         </button>
       </div>
@@ -245,7 +245,7 @@
             "
           >
             <button
-              onclick="docAIGenerate()"
+              data-onclick="docAIGenerate"
               style="
                 background: var(--accent);
                 color: #fff;
@@ -263,7 +263,7 @@
             </button>
             <button
               id="doc-ai-insert"
-              onclick="docAIInsert()"
+              data-onclick="docAIInsert"
               style="
                 display: none;
                 background: var(--bg);
@@ -281,7 +281,7 @@
             </button>
             <button
               id="doc-ai-replace"
-              onclick="docAIReplace()"
+              data-onclick="docAIReplace"
               style="
                 display: none;
                 background: var(--bg);
@@ -298,7 +298,7 @@
               Replace ↺
             </button>
             <button
-              onclick="docAIPanelClose()"
+              data-onclick="docAIPanelClose"
               style="
                 background: none;
                 border: 1px solid var(--border);

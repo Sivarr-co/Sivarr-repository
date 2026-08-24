@@ -86,6 +86,11 @@
         color: inherit;
         text-decoration: none;
       }
+      a.btn-primary,
+      a.btn-hero,
+      a.price-btn {
+        display: inline-block;
+      }
       img {
         max-width: 100%;
       }
@@ -1167,9 +1172,9 @@
         <a href="#community">Community</a>
       </div>
       <div class="nav-cta">
-        <button class="btn-primary" onclick="window.location = '/app?auth=register'">
+        <a class="btn-primary" href="/app?auth=register">
           Get Started Free
-        </button>
+        </a>
       </div>
     </nav>
 
@@ -1194,9 +1199,9 @@
       </p>
 
       <div class="hero-actions fade-up delay-3">
-        <button class="btn-hero" onclick="window.location = '/app?auth=register'">
+        <a class="btn-hero" href="/app?auth=register">
           Start for free, no card needed
-        </button>
+        </a>
         <button class="btn-hero-ghost">
           <i class="ti ti-player-play-filled" style="color: var(--teal)"></i>
           Watch 2-min demo
@@ -1847,9 +1852,9 @@
                 <i class="ti ti-x"></i>AI Writing tools
               </div>
             </div>
-            <button class="price-btn" onclick="window.location = '/app?auth=register'">
+            <a class="price-btn" href="/app?auth=register">
               Get started free
-            </button>
+            </a>
           </div>
 
           <div class="price-card featured">
@@ -1899,12 +1904,12 @@
                 <i class="ti ti-check"></i>Priority AI speed
               </div>
             </div>
-            <button
+            <a
               class="price-btn primary"
-              onclick="window.location = '/app?auth=register'"
+              href="/app?auth=register"
             >
               Upgrade to Pro
-            </button>
+            </a>
           </div>
 
           <div class="price-card">
@@ -1949,9 +1954,9 @@
                 <i class="ti ti-check"></i>Early access to new features
               </div>
             </div>
-            <button class="price-btn" onclick="window.location = '/app?auth=register'">
+            <a class="price-btn" href="/app?auth=register">
               Upgrade to Creator
-            </button>
+            </a>
           </div>
         </div>
       </section>
@@ -1971,13 +1976,13 @@
             type="email"
             placeholder="Enter your email"
           />
-          <button
+          <a
             class="btn-hero"
             style="white-space: nowrap; padding: 13px 24px"
-            onclick="window.location = '/app?auth=register'"
+            href="/app?auth=register"
           >
             Get started →
-          </button>
+          </a>
         </div>
         <p class="cta-note">
           Free forever on the Free plan. No credit card required.

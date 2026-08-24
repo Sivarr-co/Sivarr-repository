@@ -81,7 +81,7 @@ h1{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
     maxlength="6" placeholder="2FA code (if enabled)" onkeydown="if(event.key==='Enter')doLogin()"
     style="margin-top:8px">
   <div id="login-err"></div>
-  <button onclick="doLogin()">Sign in</button>
+  <button data-onclick="doLogin">Sign in</button>
 </div>
 
 <!-- Dashboard (hidden until authed) -->
@@ -91,9 +91,9 @@ h1{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
     <p class="subtitle">Signups · Active users · Feature usage · Retention</p>
 
     <div class="period-row">
-      <button class="period-btn active" onclick="load(7,this)">7 days</button>
-      <button class="period-btn" onclick="load(14,this)">14 days</button>
-      <button class="period-btn" onclick="load(30,this)">30 days</button>
+      <button class="period-btn active" data-onclick="load" data-onclick-arg0="7" data-onclick-this>7 days</button>
+      <button class="period-btn" data-onclick="load" data-onclick-arg0="14" data-onclick-this>14 days</button>
+      <button class="period-btn" data-onclick="load" data-onclick-arg0="30" data-onclick-this>30 days</button>
     </div>
 
     <!-- KPI row -->
@@ -159,6 +159,24 @@ h1{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
     return _origFetch(input, init);
   };
 })();
+
+// Delegated click handling for [data-onclick] — this standalone page doesn't
+// load js/core/delegate.js, so it gets its own copy of the same convention
+// (see that file for why this dispatches to named globals instead of
+// eval()/new Function() on the attribute string).
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-onclick]');
+  if (!el) return;
+  const fnName = el.dataset.onclick;
+  const fn = window[fnName];
+  if (typeof fn !== 'function') return;
+  const args = [];
+  for (let i = 0; el.dataset[`onclickArg${i}`] !== undefined; i++) {
+    args.push(el.dataset[`onclickArg${i}`]);
+  }
+  if (el.dataset.onclickThis !== undefined) args.push(el);
+  fn(...args);
+});
 
 let _token = '';
 
