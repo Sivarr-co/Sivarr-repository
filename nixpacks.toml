@@ -1,0 +1,21 @@
+# Explicit provider list for Railway's Nixpacks builder.
+#
+# Every deploy since package.json/build.js landed (esbuild asset
+# minification, see build.js's own docstring) has failed its healthcheck
+# with the container's start command reporting `gunicorn: command not found`
+# -- the Python toolchain (and gunicorn, which IS in requirements.txt) never
+# made it onto the final image's PATH. Root cause: Nixpacks auto-detects a
+# provider from the files present, and adding package.json at the repo root
+# changed what it inferred -- without an explicit list, having both
+# requirements.txt and package.json is exactly the ambiguous case Nixpacks'
+# own docs call out as needing this file. This is a known, common failure
+# mode for mixed Python + Node.js repos, not specific to this app's code.
+#
+# The "..." keeps whatever Nixpacks would already auto-detect; python/node
+# make both toolchains unconditionally present regardless of that detection,
+# so requirements.txt's pip install (and therefore gunicorn) is guaranteed to
+# run and land on PATH no matter which provider Nixpacks would otherwise have
+# picked as primary. railway.toml's explicit startCommand (gunicorn app:app
+# ...) is unchanged -- this only fixes what's available on PATH by the time
+# that command runs.
+providers = ["...", "python", "node"]
