@@ -12958,48 +12958,6 @@ function switchLabTabP(tab, btn) {
   if (tab === "flashcards") sShowFlashcard();
 }
 
-// ── Flashcard parsing — turns Lab's AI-generated "questions" text into
-// {q, a} pairs. Rendering/interaction is the shared engine in academic.js
-// (sLoadFlashcards et al.) — see the isPanel branch in _processLabFile.
-function _parseFlashcards(questionsText) {
-  if (!questionsText) return [];
-  const cards = [];
-  // Try numbered Q&A pairs: "1. Question\nAnswer: ..." or "1. Q: ...\nA: ..."
-  const blocks = questionsText.split(/\n\s*\n/).filter(Boolean);
-  for (const block of blocks) {
-    const lines = block
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    if (lines.length < 2) continue;
-    // Strip leading "1." or "**1.**" numbering
-    let q = lines[0]
-      .replace(/^\*?\*?\d+[\.\)]\*?\*?\s*/, "")
-      .replace(/^\*\*Q:?\s*/i, "")
-      .replace(/\*\*$/, "")
-      .trim();
-    let a = lines
-      .slice(1)
-      .join(" ")
-      .replace(/^A:?\s*/i, "")
-      .replace(/^Answer:?\s*/i, "")
-      .trim();
-    if (q && a) cards.push({ q, a });
-  }
-  // Fallback: look for Q:/A: pattern anywhere
-  if (!cards.length) {
-    const qMatches = [
-      ...questionsText.matchAll(
-        /(?:^|\n)\s*(?:\d+[\.\)]?\s*)?(?:Q:|Question:?)\s*(.+?)(?:\n\s*(?:A:|Answer:?)\s*(.+?))?(?=\n\s*(?:\d+[\.\)]|\n|$))/gis,
-      ),
-    ];
-    qMatches.forEach((m) => {
-      if (m[1] && m[2]) cards.push({ q: m[1].trim(), a: m[2].trim() });
-    });
-  }
-  return cards.slice(0, 30);
-}
-
 function saveLabAsNoteP() {
   _saveLabNote();
 }

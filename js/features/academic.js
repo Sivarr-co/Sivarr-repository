@@ -1450,10 +1450,55 @@ function sPomoRegisterMirror(elId) {
   if (!sPomoMirrorIds.includes(elId)) sPomoMirrorIds.push(elId);
   sPomoUpdate();
 }
+// Flashcard parsing — turns Lecture Lab's AI-generated "questions" text
+// into {q, a} pairs for the engine below. Moved here from app.js (Session
+// 18) since its only caller, _processLabFile's isPanel branch, exists
+// purely to feed sLoadFlashcards -- the parser belongs next to the engine
+// it feeds, not in the file that happens to call both.
+function _parseFlashcards(questionsText) {
+  if (!questionsText) return [];
+  const cards = [];
+  // Try numbered Q&A pairs: "1. Question\nAnswer: ..." or "1. Q: ...\nA: ..."
+  const blocks = questionsText.split(/\n\s*\n/).filter(Boolean);
+  for (const block of blocks) {
+    const lines = block
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length < 2) continue;
+    // Strip leading "1." or "**1.**" numbering
+    let q = lines[0]
+      .replace(/^\*?\*?\d+[\.\)]\*?\*?\s*/, "")
+      .replace(/^\*\*Q:?\s*/i, "")
+      .replace(/\*\*$/, "")
+      .trim();
+    let a = lines
+      .slice(1)
+      .join(" ")
+      .replace(/^A:?\s*/i, "")
+      .replace(/^Answer:?\s*/i, "")
+      .trim();
+    if (q && a) cards.push({ q, a });
+  }
+  // Fallback: look for Q:/A: pattern anywhere
+  if (!cards.length) {
+    const qMatches = [
+      ...questionsText.matchAll(
+        /(?:^|\n)\s*(?:\d+[\.\)]?\s*)?(?:Q:|Question:?)\s*(.+?)(?:\n\s*(?:A:|Answer:?)\s*(.+?))?(?=\n\s*(?:\d+[\.\)]|\n|$))/gis,
+      ),
+    ];
+    qMatches.forEach((m) => {
+      if (m[1] && m[2]) cards.push({ q: m[1].trim(), a: m[2].trim() });
+    });
+  }
+  return cards.slice(0, 30);
+}
+
 // ── Flashcard engine — shared by Exam Sprint's Flashcard Drill and Study
-// Deck's Lab flashcard tab (see _processLabFile in app.js). One active deck
-// at a time; `target` says which DOM ids to render into and how to describe
-// an empty deck. Cards may be {title, answer} (Sprint) or {q, a} (Lab).
+// Deck's Lab flashcard tab (see _processLabFile in app.js, which calls
+// _parseFlashcards above then sLoadFlashcards below). One active deck at a
+// time; `target` says which DOM ids to render into and how to describe an
+// empty deck. Cards may be {title, answer} (Sprint) or {q, a} (Lab).
 const _SFLASH_DEFAULT_TARGET = {
   displayId: "sFlashcardDisplay",
   actionsId: "sFlashcardActions",
