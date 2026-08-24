@@ -102,4 +102,24 @@ function main() {
   }
 }
 
-main();
+// core.py's asset() already falls back to raw, unminified source whenever
+// js/dist//css/dist don't exist (see its docstring) -- minification was
+// designed as a pure optimization, never something the app depends on to
+// run. main() still exits 1 on a genuine content warning above (a real bug
+// class -- a truncated CSS comment silently dropping rules), and that path
+// is untouched: process.exit() terminates immediately, before it would
+// ever reach this catch. What's caught here is main() *throwing* --
+// esbuild's native binary failing to load, a registry/network hiccup
+// installing it, anything unexpected -- which used to hard-fail Railway's
+// nixpacks build (and therefore the whole deployment) for a step the app
+// was always designed to run without. Same distinction CI draws: its
+// dedicated "Asset build" job (.github/workflows/ci.yml) still runs this
+// exact command on its own reliable network and stays a hard gate for
+// real content warnings; only the infra-flakiness class degrades here.
+try {
+  main();
+} catch (err) {
+  console.error("build.js: minification failed unexpectedly -- falling back to raw (unminified) source.");
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(0);
+}
