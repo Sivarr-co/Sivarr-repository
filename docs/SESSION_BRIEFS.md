@@ -1,5 +1,7 @@
 # Session Briefs — parallel work queue
 
+> **Sessions 1-12 are complete. Follow-up work from cross-checking them lives in [SESSION_FOLLOWUPS.md](SESSION_FOLLOWUPS.md) — Sessions 13 onward.**
+
 **How to use this file:** Hunter assigns a session by number. Start by reading this
 file, find your numbered brief, and do only that brief.
 
