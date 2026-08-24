@@ -411,10 +411,18 @@ def test_purge_deleted_goals_respects_30_day_retention():
     Uses its own sid rather than CI_TEST_SID (that fixture's other tests don't
     expect goals with fabricated deleted_at timestamps mixed in), so it cleans
     up its own JSON-fallback file directly rather than relying on the
-    session-scoped _clean_ci_test_sid_data_files fixture."""
+    session-scoped _clean_ci_test_sid_data_files fixture.
+
+    Session 16: goals.sid now has a real FK to users(sid) (see database.py's
+    `goals` DDL), so a bare sid with no real user row would 500 the insert
+    against a real Postgres -- caught by watching this exact test fail on a
+    real CI run, not by reading the migration diff. Same db.create_user()
+    guard tests/test_search.py's own session_token fixture already uses."""
     import datetime as _dt
     sid = "purge_test_sid"
     goals_file = REPO / "data" / f"{sid}_goals.json"
+    if db.is_available():
+        db.create_user({"sid": sid, "name": "Purge Test", "email": "purgetest@example.invalid"})
     try:
         now = _dt.datetime.utcnow()
         fresh_id, old_id = "g_fresh", "g_old"
@@ -435,6 +443,8 @@ def test_purge_deleted_goals_respects_30_day_retention():
         assert "g_keep" in kept_ids
     finally:
         goals_file.unlink(missing_ok=True)
+        if db.is_available():
+            db.replace_all_goals(sid, [])
 
 
 # ── core.py contracts ─────────────────────────────────────────────────────────
