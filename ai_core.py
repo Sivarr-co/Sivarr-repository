@@ -55,6 +55,16 @@ GEMINI_MODELS = [
     "gemini-2.5-flash-lite",
 ]
 
+# Embedding model for AI retrieval (Session 9/10). The older embedding-001 /
+# text-embedding-004 models this key's project would default to aren't
+# available for embedContent on this account (checked live via
+# genai.list_models()) -- gemini-embedding-001 is. It natively returns 3072
+# dims; output_dimensionality truncates it (Matryoshka-style, verified live)
+# to EMBED_DIM, which must match the `embedding VECTOR(768)` column in
+# database.py's schema -- changing one without the other breaks every insert.
+EMBED_MODEL = "models/gemini-embedding-001"
+EMBED_DIM = 768
+
 
 MATH_TRIGGERS = [
     "solve", "calculate", "differentiate", "integrate", "expand",
@@ -273,6 +283,47 @@ async def async_gemini_ask(session, question):
     answer = await asyncio.to_thread(gemini_ask, session, question)
     _ai_breaker_record(not _is_ai_error(answer))
     return answer
+
+
+# ═══════════════════════════════════════════════════════════════
+#  EMBEDDINGS — AI retrieval (Session 9: indexing; Session 10: query side)
+# ═══════════════════════════════════════════════════════════════
+
+def embed_text(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list | None:
+    """Returns an EMBED_DIM-length float vector, or None on any failure
+    (no key, SDK missing, empty text, quota, outage) — every caller treats
+    None as "skip this item," never as an exception to handle. Use
+    task_type="RETRIEVAL_DOCUMENT" when indexing content and
+    "RETRIEVAL_QUERY" when embedding a user's chat message to search
+    against it — Gemini's retrieval models are asymmetric, trained
+    differently for the two sides of that pair."""
+    if not API_KEY or not GEMINI_AVAILABLE or not text or not text.strip():
+        return None
+    try:
+        genai.configure(api_key=API_KEY)
+        r = genai.embed_content(
+            model=EMBED_MODEL,
+            content=text[:8000],  # embedContent has a request size limit; chunk_text is already short
+            task_type=task_type,
+            output_dimensionality=EMBED_DIM,
+        )
+        return r["embedding"]
+    except Exception as e:
+        msg = str(e).lower()
+        if "quota" in msg or "429" in msg or "resource_exhausted" in msg:
+            log.warning(f"Gemini embed error: {e}")
+        else:
+            log.error(f"Gemini embed error: {e}")
+        return None
+
+
+async def async_embed_text(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list | None:
+    """Non-blocking wrapper — same breaker-gated shape as async_gemini_once."""
+    if _ai_breaker_open():
+        return None
+    result = await asyncio.to_thread(embed_text, text, task_type)
+    _ai_breaker_record(result is not None)
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════

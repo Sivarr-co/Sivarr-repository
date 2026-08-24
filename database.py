@@ -17,6 +17,12 @@ import psycopg2
 import psycopg2.extras
 from psycopg2 import pool as pgpool
 
+try:
+    from pgvector.psycopg2 import register_vector
+    PGVECTOR_PY_AVAILABLE = True
+except ImportError:
+    PGVECTOR_PY_AVAILABLE = False
+
 log = logging.getLogger("sivarr")
 
 SLOW_QUERY_MS = 200  # log any DB function that takes longer than this
@@ -851,6 +857,36 @@ CREATE INDEX IF NOT EXISTS idx_tasks_search ON tasks USING GIN(search_vector);
 ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS search_vector TSVECTOR
     GENERATED ALWAYS AS (to_tsvector('english', body)) STORED;
 CREATE INDEX IF NOT EXISTS idx_comm_posts_search ON community_posts USING GIN(search_vector);
+
+-- ── AI retrieval: embeddings (Session 9) ────────────────────────
+-- Supabase supports the pgvector extension; the JSON-file fallback storage
+-- path (no DATABASE_URL) has no equivalent, so there is deliberately no
+-- fallback here -- embeddings_available() below is how callers detect that
+-- and skip retrieval entirely rather than crash. If CREATE EXTENSION fails
+-- (privilege, or an unmanaged Postgres without pgvector installed), the
+-- embedding column's type doesn't exist, so the CREATE TABLE right after it
+-- fails too -- both are caught per-statement by init_db() and logged, never
+-- fatal. One row per (sid, source_type, source_id); re-indexing an unchanged
+-- item is a no-op the caller decides on by comparing chunk_text first (see
+-- get_embedding_chunk), not something enforced here.
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS embeddings (
+    id          BIGSERIAL PRIMARY KEY,
+    sid         TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_id   TEXT NOT NULL,
+    chunk_text  TEXT NOT NULL,
+    embedding   VECTOR(768),
+    updated_at  TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (sid, source_type, source_id)
+);
+CREATE INDEX IF NOT EXISTS idx_embeddings_sid ON embeddings(sid);
+-- ivfflat over cosine distance -- fine to build now even though the table
+-- starts empty; pgvector accepts this, it just clusters better once there's
+-- real data to reindex against later.
+CREATE INDEX IF NOT EXISTS idx_embeddings_ann ON embeddings
+    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 """
 
 
@@ -2728,6 +2764,22 @@ def purge_expired_tasks(cutoff_iso: str) -> int:
         log.error(f"purge_expired_tasks: {exc}")
         conn.rollback()
         return 0
+    finally:
+        _release(conn)
+
+
+def get_sids_with_tasks() -> list[str]:
+    """Every sid with at least one row in the real `tasks` table -- tasks
+    don't go through user_blobs (see this file's top-of-section note), so
+    get_sids_with_blob_key() can't see them. Used by the embeddings indexing
+    job to enumerate whose tasks need (re)indexing."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT DISTINCT sid FROM tasks")
+            return [r[0] for r in cur.fetchall()]
     finally:
         _release(conn)
 
@@ -4788,5 +4840,166 @@ def seed_marketplace_templates() -> None:
     except Exception as exc:
         log.error(f"seed_marketplace_templates: {exc}")
         conn.rollback()
+
+
+# ── AI retrieval: embeddings (Session 9) ────────────────────────────────
+# See the schema comment above the `embeddings` table for why there is no
+# JSON-file fallback for any of this -- every function here is a plain no-op
+# (empty list / False / None) when the table isn't there, exactly like every
+# `is_available()`-gated table elsewhere in this file. Callers (the indexing
+# job, and Session 10's retrieval) are expected to check
+# embeddings_available() once up front rather than let every call fail
+# individually, but nothing below actually requires that -- an unavailable
+# table just makes each function return its empty default via the except
+# clause.
+
+_embeddings_available: bool | None = None  # cached; None = not yet checked
+
+
+def embeddings_available() -> bool:
+    """Whether the embeddings table (and the pgvector extension it needs)
+    actually exist and are queryable -- not just whether DATABASE_URL is
+    set. Checked once per process and cached, same reasoning as
+    init_db()'s _schema_ready: this gets called on every retrieval attempt
+    and every indexing pass, so it must be cheap after the first call."""
+    global _embeddings_available
+    if _embeddings_available is not None:
+        return _embeddings_available
+    if not is_available():
+        _embeddings_available = False
+        return False
+    conn = _get_conn()
+    if not conn:
+        return False  # transient -- don't cache a connection failure as "unavailable forever"
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.embeddings')")
+            _embeddings_available = cur.fetchone()[0] is not None
+        # Teach psycopg2 how to (de)serialize the `vector` column -- without
+        # this every embeddings query would round-trip floats as opaque
+        # strings. Registered globally (once) rather than per-connection:
+        # this process only ever talks to one Postgres, so the type OID is
+        # the same on every pooled connection.
+        if _embeddings_available and PGVECTOR_PY_AVAILABLE:
+            try:
+                register_vector(conn, globally=True)
+            except Exception as exc:
+                log.warning(f"pgvector type registration failed: {exc}")
+                _embeddings_available = False
+    except Exception as exc:
+        log.warning(f"embeddings_available check failed: {exc}")
+        _embeddings_available = False
+    finally:
+        _release(conn)
+    return _embeddings_available
+
+
+def get_embedding_chunk(sid: str, source_type: str, source_id: str) -> str | None:
+    """The chunk_text currently stored for this item, or None if it isn't
+    indexed yet. The indexing job compares its freshly-built chunk_text
+    against this before calling the embedding API -- an unchanged item is
+    skipped, which is what makes indexing incremental rather than a full
+    re-embed on every run."""
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT chunk_text FROM embeddings WHERE sid=%s AND source_type=%s AND source_id=%s",
+                (sid, source_type, source_id),
+            )
+            row = cur.fetchone()
+            return row[0] if row else None
+    except Exception as exc:
+        log.error(f"get_embedding_chunk: {exc}")
+        return None
+    finally:
+        _release(conn)
+
+
+def upsert_embedding(sid: str, source_type: str, source_id: str, chunk_text: str, vector: list[float]) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO embeddings (sid, source_type, source_id, chunk_text, embedding, updated_at)
+                   VALUES (%s,%s,%s,%s,%s,NOW())
+                   ON CONFLICT (sid, source_type, source_id)
+                   DO UPDATE SET chunk_text=EXCLUDED.chunk_text, embedding=EXCLUDED.embedding, updated_at=NOW()""",
+                (sid, source_type, source_id, chunk_text, vector),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"upsert_embedding: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def prune_embeddings(sid: str, source_type: str, keep_ids: list[str]) -> int:
+    """Delete indexed rows for (sid, source_type) whose source_id is no
+    longer among the caller's current live items -- covers both a real
+    delete and a soft-delete (the indexing job excludes deleted_at items
+    from keep_ids), so retrieval never surfaces something the user removed.
+    An empty keep_ids is a legitimate "user has none of this type left",
+    not "caller forgot to pass anything" -- it still deletes everything
+    under that (sid, source_type)."""
+    conn = _get_conn()
+    if not conn:
+        return 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM embeddings WHERE sid=%s AND source_type=%s AND NOT (source_id = ANY(%s))",
+                (sid, source_type, keep_ids),
+            )
+            count = cur.rowcount
+        conn.commit()
+        return count
+    except Exception as exc:
+        log.error(f"prune_embeddings: {exc}")
+        conn.rollback()
+        return 0
+    finally:
+        _release(conn)
+
+
+def search_embeddings(sid: str, query_vector: list[float], limit: int = 5, source_types: list[str] | None = None) -> list[dict]:
+    """Top-`limit` chunks for one user by cosine distance (`<=>`), nearest
+    first -- for Session 10's retrieval. Always scoped by sid; there is no
+    variant of this function that isn't, on purpose (cross-user retrieval
+    must be structurally impossible, not just usually-correct)."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if source_types:
+                cur.execute(
+                    """SELECT source_type, source_id, chunk_text, 1 - (embedding <=> %s) AS similarity
+                       FROM embeddings
+                       WHERE sid=%s AND source_type = ANY(%s)
+                       ORDER BY embedding <=> %s
+                       LIMIT %s""",
+                    (query_vector, sid, source_types, query_vector, limit),
+                )
+            else:
+                cur.execute(
+                    """SELECT source_type, source_id, chunk_text, 1 - (embedding <=> %s) AS similarity
+                       FROM embeddings
+                       WHERE sid=%s
+                       ORDER BY embedding <=> %s
+                       LIMIT %s""",
+                    (query_vector, sid, query_vector, limit),
+                )
+            return [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"search_embeddings: {exc}")
+        return []
     finally:
         _release(conn)
