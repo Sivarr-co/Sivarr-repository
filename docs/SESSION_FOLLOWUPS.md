@@ -25,8 +25,8 @@ standard below is additional, and it is not optional.
 | 16 | Make search coverage uniform | Open — unblocked by 14 |
 | 17 | Give the importers a UI | Open |
 | 18 | Small cleanups left behind | Open |
-| 19 | CSP: remove `unsafe-inline` | Open — run alone |
-| 20 | User-facing two-factor auth | Open |
+| 19 | CSP: remove `unsafe-inline` | Partial — first group (26/~565 handlers) done 2026-08-24, rest deferred |
+| 20 | User-facing two-factor auth | **Done** — verified 2026-08-24 |
 
 **Run 16 and 17 together. Then 18. Then 19 and 20 sequentially.**
 
@@ -278,7 +278,53 @@ session total — scope it to a group and report honestly on what remains.
 
 ---
 
-### Session 20 — User-facing two-factor authentication
+### Session 20 — User-facing two-factor authentication — ✅ DONE
+
+> **Verified 2026-08-24.** Implemented directly in `app.py` (not a new routes
+> file — login/change-password/reset-password already live there, and 2FA is
+> tightly coupled to that same login flow). New endpoints
+> `/api/auth/2fa/{status,setup,confirm,disable}`; `LoginRequest.totp` and a
+> `totp_required`/recovery-code branch inside `/api/login` itself. Reuses
+> `_totp_verify` (RFC 6238) — no second implementation. `database.py` gained
+> `totp_secret`/`totp_enabled`/`totp_recovery_codes` columns (migration run
+> for real against an embedded Postgres, not just read) plus
+> `get_user_totp`/`set_user_totp_pending`/`enable_user_totp`/
+> `disable_user_totp`/`remove_user_recovery_code`; JSON-file fallback carries
+> the same fields directly on the user dict. QR via `qrcode` (pure Python,
+> SVG output, no Pillow/system libs) added to `requirements.txt`, degrades to
+> manual secret entry if generation fails — **not yet verified against a real
+> Railway deploy** per this file's own verification standard #5. Settings UI
+> in `_panels_core.html`'s Security section (`js/app.js`'s `st2fa*`
+> functions); login form in `_login.html` reveals a code field on
+> `totp_required`. 15 new tests (`tests/test_auth_2fa.py`) cover enrol,
+> wrong/correct code, recovery-code use-once, disable requiring password, and
+> login gating — run against the JSON-storage path. The DB-backed path was
+> separately verified end-to-end (setup → confirm → login-with-code →
+> login-with-recovery-code → burned-code rejected → disable) against a real
+> embedded Postgres, and the whole flow was also click-through tested in a
+> real browser (Playwright) against a running dev server, including the QR
+> SVG actually rendering and the login page's totp field genuinely
+> appearing/disappearing.
+>
+> Found and fixed one real bug along the way: the initial rate-limit on the
+> three new endpoints was IP-keyed, which both broke this file's own test
+> suite (shared IP bucket exhausted across enrolments) and would have let
+> one NAT/shared IP's legitimate users lock each other out — moved to
+> per-account (post-auth, keyed by sid) instead.
+>
+> **Discovered, not fixed (out of scope for this session):** `change_password`
+> (`app.py`, pre-existing) resolves the user via
+> `db.get_user(sid) if db.is_available() else None` with no JSON-file
+> fallback, so it 404s unconditionally whenever `DATABASE_URL` is unset —
+> broken today in local/no-DB dev, unrelated to 2FA. The new
+> `_resolve_authed_user` helper this session added does the fallback
+> correctly and could replace that line directly.
+>
+> Also fixed in passing: a stray semicolon inside a SQL comment in the new
+> `_SCHEMA` migration block (the `--` comments here are plain text to
+> `_SCHEMA.split(";")`, so a semicolon inside comment prose truncates the
+> next statement) — caught by actually running `init_db()` against a real
+> Postgres, not by reading the diff.
 
 **Owns:** `app.py` or a new `routes/auth_2fa.py`, `database.py`, settings UI
 

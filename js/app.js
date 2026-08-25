@@ -533,6 +533,13 @@ function setAuthTab(tab) {
   const fl = $("forgot-pw-link");
   if (fl) fl.style.display = isReg ? "none" : "block";
 
+  // 2FA field only ever appears mid-flow after a totp_required response —
+  // never pre-shown, and cleared when switching tabs.
+  const tf = $("l-totp-field");
+  if (tf) tf.style.display = "none";
+  const tv = $("l-totp");
+  if (tv) tv.value = "";
+
   // Update password placeholder
   const pw = $("l-pw");
   if (pw) pw.placeholder = isReg ? "Min. 8 characters" : "Your password";
@@ -597,6 +604,8 @@ async function doLogin(prefillEmail) {
   }
 
   let body = { email, password: pw, action: AUTH_TAB };
+  const totpVal = ($("l-totp")?.value || "").trim();
+  if (totpVal) body.totp = totpVal;
 
   if (isReg) {
     const name = ($("ln")?.value || "").trim();
@@ -668,6 +677,31 @@ async function doLogin(prefillEmail) {
         btn.textContent = "Sign in";
       }
       clearSession();
+      return;
+    }
+    if (status === 401 && detail === "totp_required") {
+      const field = $("l-totp-field");
+      if (field) field.style.display = "";
+      if (err)
+        err.textContent = "Enter the 6-digit code from your authenticator app.";
+      $("l-totp")?.focus();
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+      }
+      return;
+    }
+    if (status === 401 && detail === "Invalid 2FA code.") {
+      if (err) err.textContent = "Invalid 2FA code. Try again.";
+      const t = $("l-totp");
+      if (t) {
+        t.value = "";
+        t.focus();
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+      }
       return;
     }
     if (status === 409 && detail === "account_is_passwordless") {
@@ -5926,6 +5960,7 @@ function stInit() {
   // Usage bars + plan details
   stUpdateUsage();
   stLoadBillingHistory();
+  st2faInit();
 
   // Org settings (Blueprint Stage 3) — shown only when the user is in an org
   if (typeof orgSettingsInit === "function") orgSettingsInit();
@@ -6743,6 +6778,187 @@ async function stLogoutAll() {
     return;
   clearSession();
   location.reload();
+}
+
+// ── 2FA (Session 20) ──────────────────────────────────────────────
+// Four states, one visible at a time: st-2fa-off / st-2fa-setup /
+// st-2fa-recovery / st-2fa-on. st-2fa-disable-confirm layers on top of
+// st-2fa-on. _2faShow() is the only thing that toggles visibility so the
+// states can't end up double-shown.
+function _2faShow(id) {
+  [
+    "st-2fa-off",
+    "st-2fa-setup",
+    "st-2fa-recovery",
+    "st-2fa-on",
+    "st-2fa-disable-confirm",
+  ].forEach((sid) => {
+    const el = $(sid);
+    if (el) el.style.display = sid === id ? "" : "none";
+  });
+}
+
+async function st2faInit() {
+  const statusEl = $("st-2fa-status");
+  const token = getToken();
+  if (!token) return;
+  try {
+    const r = await fetch("/api/auth/2fa/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      if (statusEl) statusEl.textContent = "";
+      return;
+    }
+    if (d.enabled) {
+      if (statusEl) statusEl.textContent = "Enabled ✓";
+      _2faShow("st-2fa-on");
+    } else {
+      if (statusEl) statusEl.textContent = "Off";
+      _2faShow("st-2fa-off");
+    }
+  } catch {
+    if (statusEl) statusEl.textContent = "";
+  }
+}
+
+let _2faPending = null; // { secret, otpauth_url, qr_svg }
+
+async function st2faStart() {
+  const token = getToken();
+  if (!token) {
+    toast("Session expired. Please sign in again.");
+    return;
+  }
+  const btn = $("st-2fa-start-btn");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Generating…";
+  }
+  try {
+    const r = await fetch("/api/auth/2fa/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      toast(d.detail || "Could not start 2FA setup.");
+      return;
+    }
+    _2faPending = d;
+    const qr = $("st-2fa-qr");
+    if (qr) qr.innerHTML = d.qr_svg || "";
+    const secretEl = $("st-2fa-secret");
+    if (secretEl) secretEl.textContent = d.secret || "";
+    const codeInput = $("st-2fa-confirm-code");
+    if (codeInput) codeInput.value = "";
+    _2faShow("st-2fa-setup");
+  } catch {
+    toast("Network error. Try again.");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "🔐 Enable 2FA";
+    }
+  }
+}
+
+function st2faCancelSetup() {
+  _2faPending = null;
+  _2faShow("st-2fa-off");
+}
+
+async function st2faConfirm() {
+  const code = ($("st-2fa-confirm-code")?.value || "").trim();
+  if (!code) {
+    toast("Enter the 6-digit code from your authenticator app.");
+    return;
+  }
+  const token = getToken();
+  if (!token) {
+    toast("Session expired. Please sign in again.");
+    return;
+  }
+  const btn = $("st-2fa-confirm-btn");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Verifying…";
+  }
+  try {
+    const r = await fetch("/api/auth/2fa/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, code }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      toast(d.detail || "Invalid code. Try again.");
+      return;
+    }
+    _2faPending = null;
+    const codesEl = $("st-2fa-codes");
+    if (codesEl) codesEl.textContent = (d.recovery_codes || []).join("\n");
+    _2faShow("st-2fa-recovery");
+  } catch {
+    toast("Network error. Try again.");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Confirm & Enable";
+    }
+  }
+}
+
+function st2faAckRecovery() {
+  const statusEl = $("st-2fa-status");
+  if (statusEl) statusEl.textContent = "Enabled ✓";
+  toast("Two-factor authentication enabled ✓");
+  _2faShow("st-2fa-on");
+}
+
+function st2faDisableStart() {
+  const pwInput = $("st-2fa-disable-pw");
+  if (pwInput) pwInput.value = "";
+  _2faShow("st-2fa-disable-confirm");
+}
+
+function st2faDisableCancel() {
+  _2faShow("st-2fa-on");
+}
+
+async function st2faDisableConfirm() {
+  const password = $("st-2fa-disable-pw")?.value || "";
+  if (!password) {
+    toast("Enter your password to confirm.");
+    return;
+  }
+  const token = getToken();
+  if (!token) {
+    toast("Session expired. Please sign in again.");
+    return;
+  }
+  try {
+    const r = await fetch("/api/auth/2fa/disable", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      toast(d.detail || "Incorrect password.");
+      return;
+    }
+    toast("Two-factor authentication disabled");
+    const statusEl = $("st-2fa-status");
+    if (statusEl) statusEl.textContent = "Off";
+    _2faShow("st-2fa-off");
+  } catch {
+    toast("Network error. Try again.");
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════

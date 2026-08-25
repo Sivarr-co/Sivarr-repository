@@ -122,6 +122,23 @@
           </div>
         </div>
 
+        <!-- 2FA code — hidden until the server responds totp_required for
+             this account (doLogin() in app.js reveals it and resubmits) -->
+        <div id="l-totp-field" class="field" style="display: none">
+          <label>2FA code</label>
+          <div class="field-ic">
+            <i class="ti ti-shield-lock"></i>
+            <input
+              id="l-totp"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              placeholder="6-digit code or recovery code"
+              onkeydown="if (event.key === 'Enter') doLogin();"
+            />
+          </div>
+        </div>
+
         <!-- Forgot password link (sign-in only) -->
         <div
           id="forgot-pw-link"

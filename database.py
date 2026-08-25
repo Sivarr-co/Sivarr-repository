@@ -465,6 +465,14 @@ ALTER TABLE agent_templates ADD COLUMN IF NOT EXISTS price_ngn NUMERIC(10,2);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
 ALTER TABLE org_docs ADD COLUMN IF NOT EXISTS yjs_state TEXT DEFAULT '';
 
+-- Session 20: user-facing TOTP 2FA. totp_secret holds a pending (unconfirmed)
+-- or active base32 secret. totp_enabled only flips true once the user proves
+-- possession of it via /api/auth/2fa/confirm. totp_recovery_codes is a JSONB
+-- array of bcrypt hashes (never plaintext), same convention as password_hash.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_recovery_codes JSONB DEFAULT '[]';
+
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     token      TEXT PRIMARY KEY,
     sid        TEXT NOT NULL,
@@ -1472,6 +1480,104 @@ def update_user_password(sid: str, hashed_pw: str) -> None:
         conn.commit()
     except Exception as exc:
         log.error(f"update_user_password failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
+# ── 2FA (TOTP) ───────────────────────────────────────────────────
+
+def get_user_totp(sid: str) -> dict | None:
+    """Return {'secret', 'enabled', 'recovery_codes'} for sid, or None if the
+    user doesn't exist. recovery_codes is a list of bcrypt hashes."""
+    def _q(conn):
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT totp_secret, totp_enabled, totp_recovery_codes FROM users WHERE sid = %s",
+                (sid,)
+            )
+            row = cur.fetchone()
+        if not row:
+            return None
+        codes = row[2] if isinstance(row[2], list) else (json.loads(row[2]) if row[2] else [])
+        return {"secret": row[0] or "", "enabled": bool(row[1]), "recovery_codes": codes}
+    return _with_conn(f"get_user_totp[{sid}]", _q, None)
+
+
+def set_user_totp_pending(sid: str, secret: str) -> None:
+    """Enrolment step 1: store an unconfirmed secret. Does not enable 2FA --
+    that only happens once the user proves possession via a correct code."""
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET totp_secret = %s, totp_enabled = FALSE WHERE sid = %s",
+                (secret, sid)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"set_user_totp_pending failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
+def enable_user_totp(sid: str, recovery_code_hashes: list) -> None:
+    """Enrolment step 2 (after a correct code confirms the pending secret):
+    flips totp_enabled and stores the one-time recovery code hashes."""
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET totp_enabled = TRUE, totp_recovery_codes = %s::jsonb WHERE sid = %s",
+                (json.dumps(recovery_code_hashes), sid)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"enable_user_totp failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
+def disable_user_totp(sid: str) -> None:
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET totp_enabled = FALSE, totp_secret = '', totp_recovery_codes = '[]'::jsonb WHERE sid = %s",
+                (sid,)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"disable_user_totp failed: {exc}")
+        conn.rollback()
+    finally:
+        _release(conn)
+
+
+def remove_user_recovery_code(sid: str, code_hash: str) -> None:
+    """Burn one recovery code after use. Uses jsonb's `-` (remove matching
+    array element) operator so this is a single atomic statement -- no
+    read-modify-write race against a concurrent login from another device."""
+    conn = _get_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET totp_recovery_codes = totp_recovery_codes - %s WHERE sid = %s",
+                (code_hash, sid)
+            )
+        conn.commit()
+    except Exception as exc:
+        log.error(f"remove_user_recovery_code failed: {exc}")
         conn.rollback()
     finally:
         _release(conn)

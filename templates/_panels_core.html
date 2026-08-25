@@ -1402,6 +1402,140 @@ content-loss issue found in the prior split.
           <button onclick="stLogoutAll()" class="st-btn danger">
             🚪 Sign Out Everywhere
           </button>
+
+          <div
+            style="
+              margin: 14px 0;
+              border-top: 1px solid var(--border, #2a2a2a);
+            "
+          ></div>
+
+          <div class="st-row" style="align-items: center">
+            <span class="st-label">Two-factor authentication</span>
+            <span
+              id="st-2fa-status"
+              style="font-size: 0.78rem; font-weight: 600; color: var(--muted)"
+              >Loading…</span
+            >
+          </div>
+
+          <!-- Not enabled -->
+          <div id="st-2fa-off" style="display: none">
+            <p style="font-size: 0.8rem; color: var(--muted); margin: 6px 0 10px">
+              Add a second step at login using an authenticator app (Google
+              Authenticator, Authy, 1Password, etc.).
+            </p>
+            <button onclick="st2faStart()" class="st-btn" id="st-2fa-start-btn">
+              🔐 Enable 2FA
+            </button>
+          </div>
+
+          <!-- Setup in progress: scan QR / enter code -->
+          <div id="st-2fa-setup" style="display: none">
+            <p style="font-size: 0.8rem; color: var(--muted); margin: 6px 0 10px">
+              Scan this QR code with your authenticator app, or enter the code
+              manually.
+            </p>
+            <div id="st-2fa-qr" style="text-align: center; margin-bottom: 10px"></div>
+            <div
+              style="
+                font-size: 0.75rem;
+                color: var(--muted);
+                margin-bottom: 10px;
+                text-align: center;
+                word-break: break-all;
+              "
+            >
+              <code id="st-2fa-secret" style="user-select: all"></code>
+            </div>
+            <div class="st-label" style="margin-bottom: 4px">
+              Enter the 6-digit code
+            </div>
+            <input
+              class="st-input"
+              id="st-2fa-confirm-code"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              placeholder="123456"
+            />
+            <button
+              onclick="st2faConfirm()"
+              class="st-btn"
+              id="st-2fa-confirm-btn"
+              style="margin-top: 8px"
+            >
+              Confirm &amp; Enable
+            </button>
+            <button
+              onclick="st2faCancelSetup()"
+              class="st-btn"
+              style="margin-top: 8px"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <!-- Recovery codes — shown once, right after confirm -->
+          <div id="st-2fa-recovery" style="display: none">
+            <p style="font-size: 0.8rem; color: var(--muted); margin: 6px 0 10px">
+              Save these recovery codes somewhere safe. Each one works once, if
+              you ever lose access to your authenticator app.
+            </p>
+            <div
+              id="st-2fa-codes"
+              style="
+                font-family: monospace;
+                font-size: 0.85rem;
+                background: var(--bg2, #1a1a1a);
+                border-radius: 8px;
+                padding: 10px;
+                margin-bottom: 10px;
+                white-space: pre-line;
+                user-select: all;
+              "
+            ></div>
+            <button onclick="st2faAckRecovery()" class="st-btn">
+              ✓ I've saved these codes
+            </button>
+          </div>
+
+          <!-- Enabled -->
+          <div id="st-2fa-on" style="display: none">
+            <p style="font-size: 0.8rem; color: var(--muted); margin: 6px 0 10px">
+              Two-factor authentication is enabled on your account.
+            </p>
+            <button onclick="st2faDisableStart()" class="st-btn danger">
+              Disable 2FA
+            </button>
+          </div>
+
+          <!-- Disable confirm -->
+          <div id="st-2fa-disable-confirm" style="display: none">
+            <div class="st-label" style="margin-bottom: 4px">
+              Confirm your password to disable 2FA
+            </div>
+            <input
+              class="st-input"
+              id="st-2fa-disable-pw"
+              type="password"
+              placeholder="Your current password"
+            />
+            <button
+              onclick="st2faDisableConfirm()"
+              class="st-btn danger"
+              style="margin-top: 8px"
+            >
+              Disable 2FA
+            </button>
+            <button
+              onclick="st2faDisableCancel()"
+              class="st-btn"
+              style="margin-top: 8px"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
 

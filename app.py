@@ -685,6 +685,136 @@ def _persist_password(sid: str, hashed: str) -> None:
         log.error(f"_persist_password file sync failed for {sid}: {exc}")
 
 
+# ── User-facing 2FA (TOTP) — Session 20 ─────────────────────────────
+# Reuses _totp_verify (RFC 6238, stdlib-only) rather than a second
+# implementation. Same dual-store pattern as _persist_password: login()
+# reads the JSON user file first, so a DB-only write would leave the old
+# state working until the next file/DB sync.
+
+def _totp_gen_secret() -> str:
+    """Random base32 secret (20 bytes = 160 bits, the RFC 4226 recommendation)."""
+    import base64
+    return base64.b32encode(secrets.token_bytes(20)).decode().rstrip("=")
+
+
+def _totp_provisioning_uri(secret: str, email: str) -> str:
+    import urllib.parse
+    label = urllib.parse.quote(f"Sivarr:{email}")
+    params = urllib.parse.urlencode({"secret": secret, "issuer": "Sivarr"})
+    return f"otpauth://totp/{label}?{params}"
+
+
+def _totp_qr_svg(uri: str) -> str:
+    """Inline QR SVG for the setup screen. qrcode is pure-Python (no Pillow,
+    no system libs) and its SVG image factory needs neither — degrades to no
+    QR (manual secret entry still works) if the package is ever unavailable,
+    same graceful-degradation shape as core.py's asset()."""
+    try:
+        import qrcode
+        import qrcode.image.svg
+        img = qrcode.make(uri, image_factory=qrcode.image.svg.SvgPathImage)
+        import io
+        buf = io.BytesIO()
+        img.save(buf)
+        return buf.getvalue().decode("utf-8")
+    except Exception as exc:
+        log.warning(f"TOTP QR generation failed (falling back to manual entry): {exc}")
+        return ""
+
+
+def _gen_recovery_codes(n: int = 8) -> list[str]:
+    """Human-typeable one-time recovery codes, e.g. 'a1b2-c3d4'."""
+    return [f"{secrets.token_hex(2)}-{secrets.token_hex(2)}" for _ in range(n)]
+
+
+def _persist_totp_pending(sid: str, secret: str) -> None:
+    if db.is_available():
+        db.set_user_totp_pending(sid, secret)
+    try:
+        users = load_users()
+        if sid in users:
+            users[sid]["totp_secret"] = secret
+            users[sid]["totp_enabled"] = False
+            save_users(users)
+    except Exception as exc:
+        log.error(f"_persist_totp_pending file sync failed for {sid}: {exc}")
+
+
+def _persist_totp_enable(sid: str, secret: str, recovery_hashes: list[str]) -> None:
+    if db.is_available():
+        db.enable_user_totp(sid, recovery_hashes)
+    try:
+        users = load_users()
+        if sid in users:
+            users[sid]["totp_secret"] = secret
+            users[sid]["totp_enabled"] = True
+            users[sid]["totp_recovery_codes"] = recovery_hashes
+            save_users(users)
+    except Exception as exc:
+        log.error(f"_persist_totp_enable file sync failed for {sid}: {exc}")
+
+
+def _persist_totp_disable(sid: str) -> None:
+    if db.is_available():
+        db.disable_user_totp(sid)
+    try:
+        users = load_users()
+        if sid in users:
+            users[sid]["totp_secret"] = ""
+            users[sid]["totp_enabled"] = False
+            users[sid]["totp_recovery_codes"] = []
+            save_users(users)
+    except Exception as exc:
+        log.error(f"_persist_totp_disable file sync failed for {sid}: {exc}")
+
+
+def _totp_rec_for(sid: str, user: dict) -> dict:
+    """{'secret', 'enabled', 'recovery_codes'} for sid. DB is authoritative
+    when reachable -- db.get_user()/get_user_by_email() don't select the totp_*
+    columns, so this is never read off `user` in that path. JSON fallback reads
+    straight off the user dict, which does carry them directly."""
+    if db.is_available():
+        return db.get_user_totp(sid) or {"secret": "", "enabled": False, "recovery_codes": []}
+    return {
+        "secret": user.get("totp_secret", ""),
+        "enabled": bool(user.get("totp_enabled")),
+        "recovery_codes": user.get("totp_recovery_codes", []),
+    }
+
+
+def _resolve_authed_user(token: str) -> tuple[str, dict]:
+    """sid + user dict for a session token, checking DB then the JSON file --
+    unlike change_password's `db.get_user(sid) if db.is_available() else None`
+    (which 404s for every user whenever DB is unreachable), this actually
+    falls back to load_users() so 2FA endpoints work in local/no-DB dev too."""
+    entry = get_session_from_token(token)
+    if not entry:
+        raise HTTPException(401, "Session expired. Please sign in again.")
+    sid = entry["sid"]
+    user = db.get_user(sid) if db.is_available() else None
+    if not user:
+        user = load_users().get(sid)
+    if not user:
+        raise HTTPException(404, "User not found.")
+    return sid, user
+
+
+def _persist_totp_burn_recovery_code(sid: str, used_hash: str, remaining: list[str]) -> None:
+    """Remove one consumed recovery code from both stores. `remaining` is the
+    JSON-fallback's full replacement list (already filtered by the caller);
+    the DB path removes just the one hash atomically (see
+    database.py's remove_user_recovery_code)."""
+    if db.is_available():
+        db.remove_user_recovery_code(sid, used_hash)
+    try:
+        users = load_users()
+        if sid in users:
+            users[sid]["totp_recovery_codes"] = remaining
+            save_users(users)
+    except Exception as exc:
+        log.error(f"_persist_totp_burn_recovery_code file sync failed for {sid}: {exc}")
+
+
 def _gmail_configured() -> bool:
     return bool(GMAIL_USER and GMAIL_APP_PASSWORD)
 
@@ -2242,6 +2372,8 @@ class LoginRequest(BaseModel):
     confirm_password: str = ""  # register only
     phone: str    = ""
     action: str   = "login"     # "login" | "register"
+    totp: str     = ""          # 6-digit TOTP code or a recovery code; only
+                                 # checked when the account has 2FA enabled
 
     @validator("email")
     def email_normalize(cls, v):
@@ -2555,7 +2687,6 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks, respon
             _record_failed_login(email)
             raise HTTPException(401, "Invalid email or password.")
 
-        _clear_failed_login(email)   # reset counter on correct password
         sid = user["sid"]
 
         # Block login until email is confirmed (only enforced when DB is reachable).
@@ -2566,6 +2697,36 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks, respon
             bg.add_task(send_email, email, "Verify your Sivarr email",
                         _email_verify_html(verify_url, user.get("name", "")))
             raise HTTPException(403, "email_not_verified")
+
+        # ── 2FA (Session 20) ─────────────────────────────────────
+        totp_rec = _totp_rec_for(sid, user)
+        if totp_rec.get("enabled"):
+            code = (req.totp or "").strip()
+            if not code:
+                # Distinct from a wrong password — the client shows a code
+                # field and resubmits, same shape as email_not_verified/
+                # google_only_account above.
+                raise HTTPException(401, "totp_required")
+            ok = _totp_verify(totp_rec.get("secret", ""), code)
+            recovery_hash_used = None
+            if not ok:
+                for h in totp_rec.get("recovery_codes", []):
+                    try:
+                        if bcrypt.checkpw(code.encode(), h.encode()):
+                            ok = True
+                            recovery_hash_used = h
+                            break
+                    except Exception:
+                        continue
+            if not ok:
+                _record_failed_login(email)
+                raise HTTPException(401, "Invalid 2FA code.")
+            if recovery_hash_used:
+                remaining = [h for h in totp_rec.get("recovery_codes", []) if h != recovery_hash_used]
+                _persist_totp_burn_recovery_code(sid, recovery_hash_used, remaining)
+                log.info(f"2FA recovery code used for {email} — {len(remaining)} left")
+
+        _clear_failed_login(email)   # reset counter on fully successful auth
 
     p = load_progress(sid)
     p["sessions"] = p.get("sessions", 0) + 1
@@ -2784,6 +2945,92 @@ async def reset_password(data: dict):
     # attacker holding a stolen token is locked out the moment the owner resets.
     delete_all_sessions(rec["sid"])
     return {"ok": True, "message": "Password updated. You can now sign in."}
+
+
+@app.post("/api/auth/2fa/status")
+async def totp_status(data: dict):
+    """Read-only enabled/disabled check for the settings panel — separate
+    from /2fa/setup so checking status doesn't generate (and persist) a
+    fresh pending secret as a side effect."""
+    token = sanitize_text(str(data.get("token", "")), 200)
+    if not token:
+        raise HTTPException(401, "Authentication required.")
+    sid, user = _resolve_authed_user(token)
+    return {"enabled": bool(_totp_rec_for(sid, user).get("enabled"))}
+
+
+@app.post("/api/auth/2fa/setup")
+async def totp_setup(data: dict, request: Request):
+    """Enrolment step 1: generate a new pending secret and return the QR +
+    manual-entry code. Not enabled yet -- /api/auth/2fa/confirm proves
+    possession before login starts requiring it."""
+    token = sanitize_text(str(data.get("token", "")), 200)
+    if not token:
+        raise HTTPException(401, "Authentication required.")
+    sid, user = _resolve_authed_user(token)
+    # Rate-limited per account (not per IP) -- this is an authenticated
+    # action, so the thing worth bounding is repeated attempts against one
+    # account, the same way a shared-IP/NAT full of legitimate users
+    # shouldn't share a single bucket with each other.
+    check_rate_limit(get_client_key(request, sid), RATE_LIMIT_LOGIN, "2fa_setup")
+    if _totp_rec_for(sid, user).get("enabled"):
+        raise HTTPException(400, "Two-factor authentication is already enabled. Disable it first to reconfigure.")
+
+    secret = _totp_gen_secret()
+    _persist_totp_pending(sid, secret)
+    uri = _totp_provisioning_uri(secret, user.get("email", ""))
+    return {"ok": True, "secret": secret, "otpauth_url": uri, "qr_svg": _totp_qr_svg(uri)}
+
+
+@app.post("/api/auth/2fa/confirm")
+async def totp_confirm(data: dict, request: Request):
+    """Enrolment step 2: verify a code against the pending secret, flip
+    totp_enabled, and hand back one-time recovery codes (shown once,
+    plaintext -- only bcrypt hashes are ever stored)."""
+    token = sanitize_text(str(data.get("token", "")), 200)
+    code  = sanitize_text(str(data.get("code", "")), 10).strip()
+    if not token:
+        raise HTTPException(401, "Authentication required.")
+    if not code:
+        raise HTTPException(400, "Enter the 6-digit code from your authenticator app.")
+    sid, user = _resolve_authed_user(token)
+    check_rate_limit(get_client_key(request, sid), RATE_LIMIT_LOGIN, "2fa_confirm")
+    totp_rec = _totp_rec_for(sid, user)
+    if totp_rec.get("enabled"):
+        raise HTTPException(400, "Two-factor authentication is already enabled.")
+    secret = totp_rec.get("secret", "")
+    if not secret:
+        raise HTTPException(400, "No pending setup found. Start setup again.")
+    if not _totp_verify(secret, code):
+        raise HTTPException(400, "Invalid code. Check your authenticator app and try again.")
+
+    recovery_codes = _gen_recovery_codes()
+    recovery_hashes = [bcrypt.hashpw(c.encode(), bcrypt.gensalt()).decode() for c in recovery_codes]
+    _persist_totp_enable(sid, secret, recovery_hashes)
+    log.info(f"2FA enabled for {user.get('email', sid)}")
+    return {"ok": True, "recovery_codes": recovery_codes}
+
+
+@app.post("/api/auth/2fa/disable")
+async def totp_disable(data: dict, request: Request):
+    """Disabling lowers account security, so it re-checks the password the
+    same way change_password does, rather than trusting the session alone."""
+    token    = sanitize_text(str(data.get("token", "")), 200)
+    password = str(data.get("password", ""))
+    if not token:
+        raise HTTPException(401, "Authentication required.")
+    if not password:
+        raise HTTPException(400, "Enter your password to confirm.")
+    sid, user = _resolve_authed_user(token)
+    check_rate_limit(get_client_key(request, sid), RATE_LIMIT_LOGIN, "2fa_disable")
+    stored = user.get("password", "")
+    if not stored or not bcrypt.checkpw(password.encode(), stored.encode()):
+        raise HTTPException(400, "Incorrect password.")
+    if not _totp_rec_for(sid, user).get("enabled"):
+        raise HTTPException(400, "Two-factor authentication is not enabled.")
+    _persist_totp_disable(sid)
+    log.info(f"2FA disabled for {user.get('email', sid)}")
+    return {"ok": True}
 
 
 @app.get("/api/auth/verify-email/{token}")
