@@ -663,6 +663,15 @@
   color: var(--text2);
   font-weight: 400;
 }
+.siva-brief.msg-collapsed .siva-brief-msg {
+  display: none;
+}
+.siva-brief-msg-chevron {
+  transition: transform 0.2s;
+}
+.siva-brief.msg-collapsed .siva-brief-msg-chevron {
+  transform: rotate(180deg);
+}
 
 /* ── Brief decor popover ────────────────────────────────────── */
 .brief-decor-pop {

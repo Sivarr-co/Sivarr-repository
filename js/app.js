@@ -8874,6 +8874,31 @@ function briefDecorPick(key) {
   document.querySelector(".brief-decor-pop")?.remove();
 }
 
+// Collapse/expand the AI brief's message body — a UI preference (like theme),
+// not per-user data, so it's stored globally rather than under S.sid.
+function briefMsgToggle() {
+  const card = document.querySelector(".siva-brief");
+  if (!card) return;
+  const collapsed = card.classList.toggle("msg-collapsed");
+  try {
+    localStorage.setItem("sivarr_brief_collapsed", collapsed ? "1" : "0");
+  } catch (_) {}
+  const btn = $("brief-collapse-btn");
+  if (btn) btn.title = collapsed ? "Expand insight" : "Collapse insight";
+}
+
+function _briefMsgRestore() {
+  const card = document.querySelector(".siva-brief");
+  if (!card) return;
+  let collapsed = false;
+  try {
+    collapsed = localStorage.getItem("sivarr_brief_collapsed") === "1";
+  } catch (_) {}
+  card.classList.toggle("msg-collapsed", collapsed);
+  const btn = $("brief-collapse-btn");
+  if (btn) btn.title = collapsed ? "Expand insight" : "Collapse insight";
+}
+
 // The header name-line is the single greeting (local time). Strip any leading
 // "Good morning/afternoon/evening[, Name]" (or the bare "Morning[, Name]" form
 // the AI brief sometimes opens with, skipping "Good") the brief text may carry
@@ -8911,6 +8936,7 @@ async function loadHome() {
       month: "long",
     });
   renderBriefDecor();
+  _briefMsgRestore();
 
   // Pull all live data
   const tasks = JSON.parse(
