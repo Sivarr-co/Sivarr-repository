@@ -27,7 +27,7 @@ standard below is additional, and it is not optional.
 | 18 | Small cleanups left behind | **Done** — verified 2026-08-25 |
 | 19 | CSP: remove `unsafe-inline` | **In progress** — 26 done, ~561 left |
 | 20 | User-facing two-factor auth | **Done** — verified 2026-08-25 |
-| 21 | Make the two chat tests hermetic | **OPEN — new, see below** |
+| 21 | Make the two chat tests hermetic | **Done** — verified 2026-08-25 |
 
 **13-18 and 20 are complete. Two remain: Session 21 and continuing Session 19.**
 
@@ -357,7 +357,34 @@ code, all covered by tests.
 
 ## Priority 0 (new) — found while verifying Sessions 16-20
 
-### Session 21 — Make the two chat tests hermetic
+### Session 21 — Make the two chat tests hermetic — ✅ DONE
+
+> **Verified 2026-08-25.** Reproduced first: both tests genuinely 429'd
+> locally (`data/chat_isolation_sid_a_progress.json` and
+> `data/chat_inject_sid_progress.json` both sitting at
+> `questions: 15, chat_daily.count: 15`). Added a `clean_progress` fixture
+> (`tests/conftest.py`) that calls the real `app.save_progress(sid, defaults)`
+> before each test (resets the actual DB row when available, always the JSON
+> file — not a second/parallel reset mechanism) and deletes both the
+> `_progress.json` and `_progress.backup.json` files afterward. Both tests
+> now call it for their own sid before posting to `/api/chat`.
+> `chat_authorize`'s real sid-resolution path is untouched — the fixture
+> only pre-clears state, never mocks the authorization itself.
+>
+> `pytest tests/test_embeddings.py` run 5x consecutively: 8 passed / 2
+> skipped every time, zero leftover files under `data/` after each run.
+> Deliberately broke the sid assertion (`chat_isolation_sid_a` →
+> `WRONG_SID_ON_PURPOSE`) and confirmed it fails for the right reason, then
+> reverted. Also verified against a real embedded Postgres (not just the
+> JSON-fallback path) — 3 consecutive runs, all 10 tests passing (the 2
+> pgvector-only tests un-skip with a real DB), no leftover files there
+> either.
+>
+> Hit the same pre-existing `org_docs` migration-ordering bug found while
+> verifying Session 20 (`ALTER TABLE org_docs ADD COLUMN ... yjs_state`
+> fails because `org_docs` doesn't exist yet on a fresh schema) — confirms
+> it's real and reproducible, still out of scope here (this session owns
+> only `tests/test_embeddings.py` and `tests/conftest.py`).
 
 **Owns:** `tests/test_embeddings.py`, `tests/conftest.py`
 

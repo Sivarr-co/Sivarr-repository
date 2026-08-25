@@ -37,6 +37,52 @@ def _init_db_schema():
 
 
 @pytest.fixture
+def clean_progress():
+    """Reset a sid's persisted progress before use, and delete it afterward.
+
+    Session 21: tests/test_embeddings.py's two chat tests POST to /api/chat
+    as a fixed sid, and app.py's real save_progress() (DB row when available,
+    always also a data/{sid}_progress.json file) persists the free-plan daily
+    chat quota (chat_daily, checked at app.py:3307's _chat_authorize) across
+    runs. After 15 real runs in one day both tests permanently 429 until the
+    date rolls over -- reproduced locally as data/chat_isolation_sid_a_progress.json
+    and data/chat_inject_sid_progress.json both sitting at questions=15,
+    chat_daily.count=15. CI only looked hermetic because every run started on
+    a clean checkout.
+
+    Calls the real save_progress()/DATA_DIR -- not a second reset mechanism --
+    so this clears the actual state _chat_authorize reads, in both the DB
+    path (when DATABASE_URL is set, e.g. CI) and the JSON-file path (local),
+    rather than a test-local double that could drift from what production
+    actually persists. Deliberately does NOT touch chat_authorize's sid
+    resolution itself, since that's the thing the isolation test exists to
+    exercise for real.
+    """
+    import app as app_module
+
+    touched = set()
+
+    def _reset(sid: str) -> str:
+        app_module.save_progress(sid, dict(app_module._PROGRESS_DEFAULTS))
+        touched.add(sid)
+        return sid
+
+    yield _reset
+
+    for sid in touched:
+        # save_progress() itself just wrote defaults (above, or inside the
+        # test) -- delete outright afterward so no file is left behind at
+        # all, not merely reset to zero. save_progress() also copies
+        # whatever was there into a .backup.json before overwriting, so
+        # that needs clearing too.
+        for suffix in ("_progress.json", "_progress.backup.json"):
+            try:
+                (app_module.DATA_DIR / f"{sid}{suffix}").unlink()
+            except FileNotFoundError:
+                pass
+
+
+@pytest.fixture
 def no_db(monkeypatch):
     """Force the genuine 'no database configured' code path for one test,
     regardless of whether DATABASE_URL is actually set in this environment.

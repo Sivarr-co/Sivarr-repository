@@ -62,17 +62,24 @@ def test_get_sids_with_tasks_noop_without_db(no_db):
 
 # ── Session 13: retrieval-augmented chat never crosses sids ────────────────
 
-def test_chat_retrieval_never_leaks_across_sids(monkeypatch):
+def test_chat_retrieval_never_leaks_across_sids(monkeypatch, clean_progress):
     """Always runs (no real Postgres needed) — this checks Python-level
     wiring in routes/ai_chat.py, not pgvector itself. async_gemini_ask is
     also mocked so this exercises real chat_authorize -> sid resolution
     without a real (unconfigured in this sandbox, network-dependent)
-    Gemini call."""
+    Gemini call.
+
+    clean_progress (Session 21, tests/conftest.py) resets this fixed sid's
+    persisted daily chat quota before the request and removes the file
+    after -- without it, 15 real runs in one day leave chat_isolation_sid_a
+    permanently 429'd until the date rolls over, never reaching the sid
+    assertion below at all."""
     from fastapi.testclient import TestClient
     import app as app_module
     import routes.ai_chat as ai_chat_module
 
     client = TestClient(app_module.app)
+    clean_progress("chat_isolation_sid_a")
 
     seen_sids = []
 
@@ -102,13 +109,17 @@ def test_chat_retrieval_never_leaks_across_sids(monkeypatch):
     assert seen_sids == ["chat_isolation_sid_a"]
 
 
-def test_chat_actually_injects_retrieved_context_into_the_prompt(monkeypatch):
+def test_chat_actually_injects_retrieved_context_into_the_prompt(monkeypatch, clean_progress):
     """The isolation test above proves scoping; this proves the other half
     of the brief -- retrieved context must actually reach the Gemini call,
     not just be correctly scoped and then dropped. Captures the literal
     prompt text async_gemini_ask receives and asserts the retrieval block
     is in it, and that the persisted chat history stays clean (msg, not
-    gemini_msg -- see the comment on that split in routes/ai_chat.py)."""
+    gemini_msg -- see the comment on that split in routes/ai_chat.py).
+
+    clean_progress (Session 21) resets this sid's daily chat quota the same
+    way the isolation test above does -- this sid hits the same 429-after-15
+    real runs failure independently."""
     from fastapi.testclient import TestClient
     import app as app_module
     import routes.ai_chat as ai_chat_module
@@ -129,6 +140,7 @@ def test_chat_actually_injects_retrieved_context_into_the_prompt(monkeypatch):
     monkeypatch.setattr(ai_chat_module, "async_gemini_ask", fake_async_gemini_ask)
 
     sid = "chat_inject_sid"
+    clean_progress(sid)
     token = core.create_session_token(sid, "I", "chatinject@example.invalid")
     user_message = "What should I focus on this week?"
     r = client.post("/api/chat", json={"sid": sid, "token": token, "message": user_message})
