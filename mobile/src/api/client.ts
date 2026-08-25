@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
-const BASE = Constants.expoConfig?.extra?.apiUrl ?? 'https://sivarr-repository-production.up.railway.app';
+const BASE = Constants.expoConfig?.extra?.apiUrl ?? 'https://sivarr.com';
 
 async function getToken(): Promise<string> {
   return (await SecureStore.getItemAsync('sivarr_token')) ?? '';

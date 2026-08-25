@@ -26,3 +26,9 @@ yarn-error.*
 
 # Local env files
 .env*.local
+
+# Play Store service account key — grants upload rights to the live listing.
+# Never commit. See RELEASE.md step 2.
+google-service-account.json
+*.keystore
+*.jks

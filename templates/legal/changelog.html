@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Changelog: Sivarr</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --purple: #41076B;
+  --teal:   var(--purple);
+  --teal2:  #2d0454;
+  --bg:     #080808;
+  --bg2:    #0f0f0f;
+  --bg3:    #161616;
+  --card:   #111111;
+  --border: #1e1e1e;
+  --border2:#2a2a2a;
+  --text1:  #f0f0f0;
+  --text2:  #a0a0a0;
+  --muted:  #555;
+  --font:   'Plus Jakarta Sans', system-ui, sans-serif;
+  --r:      12px;
+}
+
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text1); font-family: var(--font); font-size: 16px; line-height: 1.7; overflow-x: hidden; }
+a { color: var(--teal); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── NAVBAR ── */
+nav {
+  position: sticky; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px; height: 64px;
+  background: rgba(8,8,8,.92); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font); font-size: 1.15rem; font-weight: 800;
+  letter-spacing: -.03em; color: var(--text1); text-decoration: none;
+}
+.nav-logo-dot {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--teal), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; color: #fff; font-weight: 900;
+}
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.nav-link { font-size: .85rem; color: var(--text2); font-weight: 500; transition: color .2s; }
+.nav-link:hover { color: var(--text1); text-decoration: none; }
+.btn-nav {
+  padding: 8px 18px; border-radius: 9px; border: none;
+  background: linear-gradient(135deg, var(--teal), var(--teal2));
+  color: #fff; font-family: var(--font); font-size: .83rem;
+  font-weight: 700; cursor: pointer; text-decoration: none;
+}
+
+/* ── LEGAL LAYOUT ── */
+.legal-wrap {
+  max-width: 740px; margin: 0 auto; padding: 72px 24px 100px;
+}
+.legal-label {
+  display: inline-block; background: rgba(13,122,95,.12);
+  border: 1px solid rgba(13,122,95,.25); color: var(--teal);
+  padding: 5px 12px; border-radius: 20px; font-size: .73rem;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.legal-title {
+  font-size: clamp(2rem, 5vw, 3rem); font-weight: 900;
+  letter-spacing: -.04em; line-height: 1.1; margin-bottom: 12px;
+}
+.legal-meta { font-size: .83rem; color: var(--muted); margin-bottom: 56px; }
+.legal-meta span { color: var(--text2); }
+
+/* Table of contents */
+.toc {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 24px 28px; margin-bottom: 60px;
+}
+.toc h3 { font-size: .82rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; margin-bottom: 16px; }
+.toc ol { padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.toc li a { font-size: .88rem; color: var(--text2); transition: color .2s; }
+.toc li a:hover { color: var(--teal); text-decoration: none; }
+
+/* Sections */
+.legal-section { margin-bottom: 52px; scroll-margin-top: 88px; }
+.legal-section h2 {
+  font-size: 1.2rem; font-weight: 800; letter-spacing: -.02em;
+  margin-bottom: 14px; color: var(--text1);
+  display: flex; align-items: center; gap: 10px;
+}
+.legal-section h2 .sec-num {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  background: rgba(13,122,95,.12); border: 1px solid rgba(13,122,95,.2);
+  color: var(--teal); font-size: .72rem; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+}
+.legal-section p { color: var(--text2); font-size: .93rem; margin-bottom: 12px; }
+.legal-section ul { padding-left: 20px; display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.legal-section li { color: var(--text2); font-size: .93rem; }
+.legal-section li::marker { color: var(--teal); }
+hr.section-div { border: none; border-top: 1px solid var(--border); margin-bottom: 52px; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border); background: var(--bg);
+  padding: 32px 40px;
+}
+.footer-inner {
+  max-width: 740px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+  font-size: .78rem; color: var(--muted);
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a { color: var(--muted); transition: color .2s; }
+.footer-links a:hover { color: var(--text1); text-decoration: none; }
+
+@media (max-width: 600px) {
+  nav { padding: 0 20px; }
+  .legal-wrap { padding: 48px 20px 80px; }
+  footer { padding: 24px 20px; }
+  .footer-inner { flex-direction: column; gap: 12px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-dot">S</div>
+    Sivarr
+  </a>
+  <div class="nav-right">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/security" class="nav-link">Security</a>
+    <a href="/privacy" class="nav-link">Privacy</a>
+    <a href="/app" class="btn-nav">Open app</a>
+  </div>
+</nav>
+
+<div class="legal-wrap">
+  <div class="legal-label">Product</div>
+  <h1 class="legal-title">Changelog</h1>
+  <p class="legal-meta">What is new in Sivarr. Newest first.</p>
+
+  <div class="legal-section">
+    <h2 style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+      <span>Sivarr AI now knows your workspace</span>
+      <span style="font-size:13px; font-weight:500; color:var(--muted); letter-spacing:.04em;">August 2026</span>
+    </h2>
+    <ul style="margin:10px 0 0 20px;">
+      <li>Ask Sivarr AI about your own tasks, notes, and goals and it answers from your actual workspace instead of guessing.</li>
+      <li>Your data is only ever searched for you. Nobody else's workspace is ever visible to your assistant.</li>
+    </ul>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section">
+    <h2 style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+      <span>Two-factor authentication</span>
+      <span style="font-size:13px; font-weight:500; color:var(--muted); letter-spacing:.04em;">August 2026</span>
+    </h2>
+    <ul style="margin:10px 0 0 20px;">
+      <li>Turn on 2FA in Settings using any authenticator app.</li>
+      <li>One-time recovery codes so you are not locked out if you lose your phone.</li>
+    </ul>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section">
+    <h2 style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+      <span>Bring your work with you</span>
+      <span style="font-size:13px; font-weight:500; color:var(--muted); letter-spacing:.04em;">August 2026</span>
+    </h2>
+    <ul style="margin:10px 0 0 20px;">
+      <li>Import a Notion export and your pages become notes, your databases become tasks.</li>
+      <li>Import from Trello or Asana. Lists and sections carry over as task statuses, due dates come with them.</li>
+      <li>Find it under Settings, next to the existing CSV import.</li>
+    </ul>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section">
+    <h2 style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+      <span>Search that actually finds things</span>
+      <span style="font-size:13px; font-weight:500; color:var(--muted); letter-spacing:.04em;">August 2026</span>
+    </h2>
+    <ul style="margin:10px 0 0 20px;">
+      <li>Search now covers tasks, goals, notes, documents, journal entries, org documents and messages, community posts, skills, and finance records.</li>
+      <li>Results are ranked by relevance rather than listed in whatever order they were found.</li>
+      <li>Deleted items no longer show up in results.</li>
+    </ul>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section">
+    <h2 style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+      <span>A faster app</span>
+      <span style="font-size:13px; font-weight:500; color:var(--muted); letter-spacing:.04em;">August 2026</span>
+    </h2>
+    <ul style="margin:10px 0 0 20px;">
+      <li>The app now ships a compressed build, cutting roughly a third off what your browser has to download.</li>
+      <li>Goals load instantly from a local cache instead of waiting for the network.</li>
+    </ul>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section">
+    <h2 style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+      <span>Trash and restore</span>
+      <span style="font-size:13px; font-weight:500; color:var(--muted); letter-spacing:.04em;">August 2026</span>
+    </h2>
+    <ul style="margin:10px 0 0 20px;">
+      <li>Deleting a task, habit, goal, note, or document now moves it to Trash instead of destroying it.</li>
+      <li>Restore anything from the Trash panel. Items are permanently removed after 30 days.</li>
+    </ul>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section">
+    <h2 style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+      <span>Focus sessions sync</span>
+      <span style="font-size:13px; font-weight:500; color:var(--muted); letter-spacing:.04em;">August 2026</span>
+    </h2>
+    <ul style="margin:10px 0 0 20px;">
+      <li>Focus sessions recorded on mobile now sync to your account, so your history follows you between devices.</li>
+    </ul>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section">
+    <h2 style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+      <span>Real-time collaboration</span>
+      <span style="font-size:13px; font-weight:500; color:var(--muted); letter-spacing:.04em;">August 2026</span>
+    </h2>
+    <ul style="margin:10px 0 0 20px;">
+      <li>See who else is online in your organisation, live.</li>
+      <li>Edit an organisation document at the same time as a teammate without overwriting each other.</li>
+      <li>Task changes appear for everyone in the space as they happen, no refresh needed.</li>
+    </ul>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section">
+    <h2 style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+      <span>Organisation and Academic spaces</span>
+      <span style="font-size:13px; font-weight:500; color:var(--muted); letter-spacing:.04em;">August 2026</span>
+    </h2>
+    <ul style="margin:10px 0 0 20px;">
+      <li>A rebuilt Organisation space with projects, team goals, announcements, and analytics.</li>
+      <li>A rebuilt Academic space for classes, quizzes, flashcards, and study planning.</li>
+    </ul>
+  </div>
+
+  <hr class="section-div">
+
+  <p style="color:var(--text2); font-size:14px;">Have a suggestion? Email <a href="mailto:support@sivarr.com">support@sivarr.com</a>.</p>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <span>© 2026 Sivarr. Built in Lagos, Nigeria.</span>
+    <div class="footer-links">
+      <a href="/">Home</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="mailto:support@sivarr.com">Support</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

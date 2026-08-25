@@ -51,7 +51,7 @@
       ]
     ],
     "extra": {
-      "apiUrl": "https://sivarr-repository-production.up.railway.app",
+      "apiUrl": "https://sivarr.com",
       "eas": {
         "projectId": "replace-with-your-eas-project-id"
       }

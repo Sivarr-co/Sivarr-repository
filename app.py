@@ -2470,6 +2470,30 @@ async def privacy():
     raise HTTPException(404, "Privacy page not found")
 
 
+@app.get("/security", response_class=HTMLResponse)
+async def security_page():
+    p = Path("templates/legal/security.html")
+    if p.exists():
+        return p.read_text(encoding="utf-8")
+    raise HTTPException(404, "Security page not found")
+
+
+@app.get("/cookies", response_class=HTMLResponse)
+async def cookies_page():
+    p = Path("templates/legal/cookies.html")
+    if p.exists():
+        return p.read_text(encoding="utf-8")
+    raise HTTPException(404, "Cookie policy not found")
+
+
+@app.get("/changelog", response_class=HTMLResponse)
+async def changelog_page():
+    p = Path("templates/legal/changelog.html")
+    if p.exists():
+        return p.read_text(encoding="utf-8")
+    raise HTTPException(404, "Changelog not found")
+
+
 def _serve_app() -> HTMLResponse:
     """Return the main SPA HTML rendered via Jinja2 (cached in production)."""
     global _APP_HTML_CACHE
