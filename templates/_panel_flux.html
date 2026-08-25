@@ -1,1451 +1,2103 @@
-{# ── FLUX / TASKS ── #}
-<!-- Self-hosted: the CDN copy is blocked by this app's own CSP
-     (style-src 'self'), so this was a live console error on every visit
-     to the Tasks panel. index.html already loads this exact file once for
-     the whole app shell — this second load was pure redundancy even before
-     the CSP block. Found via a live browser check while verifying the
-     tasks-table migration; unrelated to that change, same class of bug as
-     the earlier landing.html/index.html icon-font fixes this session. -->
-<link
-  rel="stylesheet"
-  href="{{ asset('/static/vendor/tabler/tabler-icons.min.css') }}"
-/>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sivarr — Tasks (V1)</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css"
+    />
+    <style>
+      :root {
+        --bg: #000000;
+        --accent: #8a2be2;
+        --accent-dim: #1c0e2e;
+        --green: #1d9e75;
+        --green-dim: #0a2416;
+        --red: #e24b4a;
+        --red-dim: #2a0a0a;
+        --blue: #378add;
+        --blue-dim: #0a1a2a;
+        --amber: #e0a040;
+        --amber-dim: #2a1a04;
+        --line: #1c1c1c;
+        --line2: #262626;
+        --t1: #f5f4f2;
+        --t2: #9b9891;
+        --t3: #666660;
+        --t4: #3d3c39;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        background: #050505;
+        color: var(--t1);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        font-size: 14px;
+      }
+      ::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+      }
 
-<style>
-  /* ══ Flux design tokens ══
-     These --fx-* names are kept so the rest of this file doesn't need to
-     change, but they now ALIAS the app's global design-system variables
-     (base.css / panels.css) instead of hardcoding a standalone black/purple
-     palette. That fixes two real problems the old tokens had:
-       1) Flux always rendered near-black regardless of the user's
-          Settings → Appearance → Theme choice (Light/Dark/System).
-       2) Flux ignored the user's custom accent colour (Settings has a full
-          colour wheel that sets --accent/--accent2) and used a hardcoded
-          #8a2be2 purple instead.
-     Scoped to #panel-flux so nothing here leaks to other panels. */
-  #panel-flux {
-    --fx-bg: var(--bg);
-    --fx-bg2: var(--bg2);
-    --fx-card: var(--card, var(--bg2));
-    --fx-card2: var(--bg3);
-    --fx-line: var(--border);
-    --fx-line2: var(--border2);
-    --fx-accent: var(--accent);
-    --fx-accent-dim: var(--purple2, rgba(139, 92, 246, 0.14));
-    --fx-accent-soft: var(--accent2);
-    --fx-green: var(--green, #1d9e75);
-    --fx-green-dim: var(--green2, rgba(29, 158, 117, 0.14));
-    --fx-red: var(--red, #e24b4a);
-    --fx-red-dim: var(--red2, rgba(226, 75, 74, 0.14));
-    --fx-blue: var(--blue, #378add);
-    --fx-blue-dim: var(--blue2, rgba(55, 138, 221, 0.14));
-    --fx-amber: var(--amber, #e0a040);
-    --fx-amber-dim: var(--amber2, rgba(224, 160, 64, 0.14));
-    --fx-t1: var(--text1);
-    --fx-t2: var(--text2);
-    --fx-t3: var(--text3);
-    --fx-t4: var(--text4);
+      .frame {
+        max-width: 460px;
+        margin: 0 auto;
+        height: 100vh;
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+        border-left: 1px solid var(--line);
+        border-right: 1px solid var(--line);
+      }
 
-    background: var(--fx-bg);
-    color: var(--fx-t1);
-    font-family:
-      -apple-system, BlinkMacSystemFont, "Segoe UI",
-      var(--font-body, system-ui), sans-serif;
-    /* No `display` here on purpose — .panel{display:none}/.panel.active
-       {display:flex} in panels.css already control visibility, and an ID
-       selector here would outrank that class rule regardless of source
-       order, forcing this panel to always render on top of whichever panel
-       is actually .active. flex-direction below only takes effect once the
-       shared rule turns display on, so it's safe to keep scoped here. */
-    flex-direction: column;
-    position: relative;
-    overflow: hidden;
-  }
-  #panel-flux * {
-    box-sizing: border-box;
-  }
-  #panel-flux ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  #panel-flux ::-webkit-scrollbar-thumb {
-    background: var(--fx-line2);
-    border-radius: 99px;
-  }
+      /* ══ HEADER ══ */
+      .app-header {
+        padding: 12px 18px 6px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+      }
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .back-arrow {
+        color: var(--t2);
+        font-size: 19px;
+        cursor: pointer;
+      }
+      .header-title {
+        font-size: 19px;
+        font-weight: 700;
+      }
+      .header-sub {
+        font-size: 10.5px;
+        color: var(--t3);
+        margin-top: 1px;
+      }
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: var(--t2);
+        font-size: 18px;
+      }
+      .header-right i {
+        cursor: pointer;
+      }
+      .add-task-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        background: var(--accent);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 16px;
+        flex-shrink: 0;
+      }
 
-  /* ── Header ── */
-  #panel-flux .fx-header {
-    padding: 14px 20px 10px;
-    border-bottom: 1px solid var(--fx-line);
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  #panel-flux .fx-title {
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 1.05rem;
-    letter-spacing: -0.02em;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--fx-t1);
-  }
-  #panel-flux .fx-title i {
-    color: var(--fx-accent-soft);
-    font-size: 1.05rem;
-  }
-  #panel-flux .fx-sub {
-    font-size: 0.72rem;
-    color: var(--fx-t3);
-    margin-top: 2px;
-  }
-  #panel-flux .fx-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
+      /* ══ VIEW SWITCHER ══ */
+      .view-switcher {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 18px 12px;
+        overflow-x: auto;
+      }
+      .view-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--t3);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 7px 13px;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .view-btn i {
+        font-size: 14px;
+      }
+      .view-btn.on {
+        background: var(--t1);
+        border-color: var(--t1);
+        color: #000;
+        font-weight: 600;
+      }
 
-  #panel-flux .sh-view-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--fx-t2);
-    background: transparent;
-    border: 1px solid var(--fx-line);
-    border-radius: 20px;
-    padding: 7px 13px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.15s;
-    font-family: var(--font);
-  }
-  #panel-flux .sh-view-btn i {
-    font-size: 0.9rem;
-  }
-  #panel-flux .sh-view-btn:hover {
-    border-color: var(--fx-line2);
-    color: var(--fx-t1);
-  }
-  #panel-flux .sh-view-btn.active {
-    background: var(--fx-t1);
-    border-color: var(--fx-t1);
-    /* Use the panel bg (not a hardcoded #000) so the label stays readable
-       against --fx-t1 in both light and dark themes. */
-    color: var(--fx-bg);
-    font-weight: 700;
-  }
+      .content {
+        flex: 1;
+        overflow-y: auto;
+        padding-bottom: 14px;
+      }
 
-  #panel-flux .sh-add-task-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--fx-accent);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    padding: 8px 15px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: filter 0.15s;
-    font-family: var(--font);
-  }
-  #panel-flux .sh-add-task-btn:hover {
-    filter: brightness(1.1);
-  }
-  #panel-flux .sh-add-task-btn i {
-    font-size: 0.95rem;
-  }
+      /* ══ SIVA SUGGESTION BANNER ══ */
+      .siva-banner {
+        margin: 0 18px 16px;
+        border: 1px solid #241a30;
+        background: linear-gradient(135deg, #120a1a, #050505);
+        border-radius: 14px;
+        padding: 14px;
+        display: flex;
+        gap: 11px;
+        align-items: flex-start;
+      }
+      .siva-banner-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        background: var(--accent-dim);
+        color: #c9a8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .siva-banner-text {
+        font-size: 11.5px;
+        color: var(--t2);
+        line-height: 1.55;
+      }
+      .siva-banner-text b {
+        color: var(--t1);
+      }
+      .siva-banner-link {
+        font-size: 10.5px;
+        color: #c9a8f0;
+        margin-top: 6px;
+        cursor: pointer;
+        font-weight: 600;
+      }
 
-  #panel-flux .fx-icon-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    border: 1px solid var(--fx-line);
-    background: transparent;
-    color: var(--fx-t2);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 1rem;
-  }
+      /* ══ LIST VIEW ══ */
+      .list-wrap {
+        padding: 0 18px;
+      }
+      .list-group {
+        margin-bottom: 22px;
+      }
+      .list-group-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 0 10px;
+      }
+      .list-group-title {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--t1);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .list-group-count {
+        font-size: 11px;
+        color: var(--t4);
+      }
 
-  /* ── Filter / Sort dropdowns ── */
-  #panel-flux .sh-dropdown {
-    display: none;
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    z-index: 200;
-    background: var(--fx-card);
-    border: 1px solid var(--fx-line2);
-    border-radius: 12px;
-    padding: 12px 14px;
-    min-width: 200px;
-    box-shadow: var(--shadow3, 0 12px 32px rgba(0, 0, 0, 0.28));
-  }
-  #panel-flux .sh-dropdown-label {
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: var(--fx-t3);
-    margin: 8px 0 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  #panel-flux .sh-dropdown-label:first-child {
-    margin-top: 0;
-  }
-  #panel-flux .sh-filter-opt {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.8rem;
-    color: var(--fx-t2);
-    padding: 4px 0;
-    cursor: pointer;
-  }
-  #panel-flux .sh-filter-opt input {
-    accent-color: var(--fx-accent);
-    cursor: pointer;
-  }
-  #panel-flux .sh-filter-opt:hover {
-    color: var(--fx-t1);
-  }
+      .task-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
+        cursor: pointer;
+      }
+      .task-row:last-child {
+        border-bottom: none;
+      }
+      .task-check {
+        width: 19px;
+        height: 19px;
+        border-radius: 6px;
+        border: 1.5px solid var(--t4);
+        flex-shrink: 0;
+        margin-top: 1px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.12s;
+      }
+      .task-check:hover {
+        border-color: var(--t2);
+      }
+      .task-check.done {
+        background: var(--t1);
+        border-color: var(--t1);
+      }
+      .task-check.done i {
+        color: #000;
+        font-size: 12px;
+      }
+      .task-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .task-title-row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .task-title {
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .task-title.done {
+        color: var(--t4);
+        text-decoration: line-through;
+      }
+      .priority-flag {
+        font-size: 11px;
+      }
+      .priority-flag.high {
+        color: var(--red);
+      }
+      .priority-flag.med {
+        color: var(--amber);
+      }
+      .space-link-tag {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 9.5px;
+        color: var(--t3);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 2px 8px;
+      }
+      .space-link-tag.academic {
+        color: #6ba8c4;
+        border-color: #1a2a30;
+      }
+      .space-link-tag.trading {
+        color: var(--t2);
+      }
+      .task-meta-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+      }
+      .task-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10.5px;
+        color: var(--t3);
+      }
+      .task-meta-item i {
+        font-size: 12px;
+      }
+      .task-meta-item.overdue {
+        color: var(--red);
+      }
+      .collab-stack {
+        display: flex;
+        align-items: center;
+      }
+      .collab-av {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #1a1a1a;
+        border: 2px solid var(--bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 8px;
+        font-weight: 700;
+        color: var(--t2);
+        margin-left: -6px;
+      }
+      .collab-av:first-child {
+        margin-left: 0;
+      }
+      .subtask-progress {
+        font-size: 10px;
+        color: var(--t3);
+      }
 
-  /* ── Progress bar ── */
-  #panel-flux .fx-progress-wrap {
-    padding: 0.55rem 1.25rem;
-    border-bottom: 1px solid var(--fx-line);
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  #panel-flux .fx-progress-track {
-    flex: 1;
-    height: 4px;
-    background: var(--fx-line);
-    border-radius: 99px;
-    overflow: hidden;
-  }
-  #panel-flux #sh-progress-bar {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, var(--fx-accent), var(--fx-accent-soft));
-    border-radius: 99px;
-    transition: width 0.5s ease;
-  }
-  #panel-flux #sh-pct {
-    font-size: 0.72rem;
-    color: var(--fx-t3);
-    white-space: nowrap;
-  }
+      /* ══ KANBAN VIEW ══ */
+      .kanban-wrap {
+        display: flex;
+        gap: 14px;
+        padding: 0 18px;
+        overflow-x: auto;
+        height: 100%;
+        align-items: flex-start;
+      }
+      .kanban-col {
+        width: 230px;
+        flex-shrink: 0;
+      }
+      .kanban-col-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 2px 2px 12px;
+      }
+      .kanban-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+      }
+      .kanban-dot.todo {
+        background: var(--t3);
+      }
+      .kanban-dot.progress {
+        background: var(--blue);
+      }
+      .kanban-dot.blocked {
+        background: var(--red);
+      }
+      .kanban-dot.done {
+        background: var(--green);
+      }
+      .kanban-col-title {
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .kanban-col-count {
+        font-size: 10.5px;
+        color: var(--t4);
+        margin-left: auto;
+      }
+      .kanban-card {
+        background: #0c0c0c;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+      }
+      .kanban-card-title {
+        font-size: 12px;
+        font-weight: 500;
+        margin-bottom: 8px;
+        line-height: 1.4;
+      }
+      .kanban-card-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
 
-  /* ── Overview table ── */
-  #panel-flux #sh-overview-view {
-    flex: 1;
-    overflow: auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  #panel-flux #sh-overview-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 1100px;
-    table-layout: fixed;
-  }
-  #panel-flux .sh-th {
-    background: var(--fx-bg2);
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    text-align: left;
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: var(--fx-t3);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 10px 10px;
-    border-bottom: 1px solid var(--fx-line);
-  }
-  #panel-flux #sh-bulk-all {
-    accent-color: var(--fx-accent);
-    cursor: pointer;
-  }
-  #panel-flux #sh-overview-rows tr {
-    border-bottom: 1px solid var(--fx-line);
-    transition: background 0.1s;
-  }
-  #panel-flux #sh-overview-rows tr:hover {
-    background: var(--fx-card2);
-  }
-  #panel-flux #sh-overview-rows td {
-    padding: 10px 10px;
-    font-size: 0.8rem;
-    color: var(--fx-t2);
-    vertical-align: middle;
-  }
-  #panel-flux #sh-overview-rows input[type="checkbox"] {
-    accent-color: var(--fx-accent);
-    cursor: pointer;
-  }
-  #panel-flux tfoot td {
-    padding: 0;
-    border-top: 1px dashed var(--fx-line);
-  }
-  #panel-flux tfoot button {
-    width: 100%;
-    background: none;
-    border: none;
-    padding: 10px 16px;
-    color: var(--fx-t3);
-    font-size: 0.8rem;
-    cursor: pointer;
-    text-align: left;
-    transition: background 0.12s;
-    font-family: var(--font);
-  }
-  #panel-flux tfoot button:hover {
-    background: var(--fx-card);
-    color: var(--fx-t1);
-  }
+      /* ══ CALENDAR VIEW ══ */
+      /* ══ CALENDAR VIEW — hybrid Timeline/Kanban ══ */
+      .tl-wrap {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        padding-top: 2px;
+      }
+      .cal-week-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        flex-shrink: 0;
+      }
+      .cal-week-title {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .cal-week-nav {
+        display: flex;
+        gap: 6px;
+      }
+      .cal-nav-btn {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        border: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--t3);
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .tl-legend {
+        display: flex;
+        gap: 14px;
+        padding: 12px 18px 10px;
+        overflow-x: auto;
+        flex-shrink: 0;
+      }
+      .tl-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 10px;
+        color: var(--t3);
+        white-space: nowrap;
+      }
+      .tl-legend-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .tl-scroll {
+        flex: 1;
+        overflow: auto;
+        display: flex;
+        padding: 0 0 20px 18px;
+      }
+      .tl-hour-rail {
+        position: sticky;
+        left: 0;
+        width: 36px;
+        flex-shrink: 0;
+        position: relative;
+        height: 716px;
+        background: var(--bg);
+        z-index: 2;
+      }
+      .tl-hour-lbl {
+        position: absolute;
+        font-size: 9px;
+        color: var(--t4);
+        transform: translateY(-5px);
+      }
+      .tl-days {
+        display: flex;
+        gap: 8px;
+      }
+      .tl-day-col {
+        width: 118px;
+        flex-shrink: 0;
+      }
+      .tl-day-head {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--t2);
+        padding: 0 0 8px 4px;
+        display: flex;
+        align-items: baseline;
+        gap: 5px;
+      }
+      .tl-day-head span {
+        font-size: 9.5px;
+        color: var(--t4);
+        font-weight: 400;
+      }
+      .tl-day-head.today {
+        color: var(--t1);
+      }
+      .tl-unscheduled {
+        min-height: 22px;
+        padding-bottom: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .tl-chip {
+        font-size: 9.5px;
+        padding: 4px 7px;
+        border-radius: 6px;
+        cursor: grab;
+      }
+      .tl-grid {
+        position: relative;
+        height: 716px;
+        border-left: 1px solid var(--line);
+        border-radius: 0;
+        background: #070707;
+      }
+      .tl-hourline {
+        position: absolute;
+        left: 0;
+        right: 0;
+        border-top: 1px solid var(--line);
+      }
+      .tl-block {
+        position: absolute;
+        left: 3px;
+        right: 3px;
+        border-radius: 7px;
+        border-left: 3px solid var(--t3);
+        padding: 6px 8px;
+        cursor: grab;
+        overflow: hidden;
+      }
+      .tl-block-time {
+        font-size: 8px;
+        opacity: 0.75;
+        margin-bottom: 2px;
+      }
+      .tl-block-title {
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1.3;
+      }
 
-  /* Status pill (dot + label) — use inside injected status cells if desired */
-  #panel-flux .fx-status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.76rem;
-    font-weight: 600;
-  }
-  #panel-flux .fx-status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  #panel-flux .fx-status-dot.todo {
-    background: var(--fx-t3);
-  }
-  #panel-flux .fx-status-dot.inprogress {
-    background: var(--fx-blue);
-  }
-  #panel-flux .fx-status-dot.done {
-    background: var(--fx-green);
-  }
+      /* ══ FOCUS VIEW ══ */
+      .focus-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        padding: 0 26px;
+        text-align: center;
+      }
+      .focus-lbl {
+        font-size: 10.5px;
+        color: var(--t3);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 14px;
+      }
+      .focus-task-title {
+        font-size: 20px;
+        font-weight: 700;
+        line-height: 1.4;
+        margin-bottom: 10px;
+      }
+      .focus-task-sub {
+        font-size: 12px;
+        color: var(--t3);
+        margin-bottom: 26px;
+      }
+      .focus-ring {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        border: 3px solid var(--line2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 26px;
+        position: relative;
+      }
+      .focus-ring::before {
+        content: "";
+        position: absolute;
+        inset: -3px;
+        border-radius: 50%;
+        border: 3px solid var(--t1);
+        clip-path: polygon(
+          50% 50%,
+          50% 0,
+          100% 0,
+          100% 100%,
+          0 100%,
+          0 0,
+          30% 0
+        );
+      }
+      .focus-ring-time {
+        font-size: 24px;
+        font-weight: 700;
+      }
+      .focus-actions {
+        display: flex;
+        gap: 10px;
+      }
+      .focus-next-lbl {
+        font-size: 10.5px;
+        color: var(--t4);
+        margin-top: 22px;
+      }
 
-  /* Priority flag */
-  #panel-flux .fx-priority {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.76rem;
-    font-weight: 600;
-  }
-  #panel-flux .fx-priority i {
-    font-size: 0.85rem;
-  }
-  #panel-flux .fx-priority.high {
-    color: var(--fx-red);
-  }
-  #panel-flux .fx-priority.medium {
-    color: var(--fx-amber);
-  }
-  #panel-flux .fx-priority.low,
-  #panel-flux .fx-priority.normal {
-    color: var(--fx-t3);
-  }
+      /* ══ INSIGHTS VIEW ══ */
+      .insight-stat-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        margin-top: 4px;
+      }
+      .insight-stat-cell {
+        padding: 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .insight-stat-cell:nth-child(odd) {
+        border-right: 1px solid var(--line);
+      }
+      .insight-stat-cell:nth-last-child(-n + 2) {
+        border-bottom: none;
+      }
+      .insight-stat-val {
+        font-size: 19px;
+        font-weight: 700;
+      }
+      .insight-stat-lbl {
+        font-size: 10px;
+        color: var(--t3);
+        margin-top: 4px;
+        line-height: 1.4;
+      }
+      .insight-row {
+        display: flex;
+        gap: 11px;
+        align-items: flex-start;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .insight-row:last-child {
+        border-bottom: none;
+      }
+      .insight-row i {
+        font-size: 16px;
+        margin-top: 1px;
+        flex-shrink: 0;
+      }
+      .insight-row-text {
+        font-size: 12px;
+        color: var(--t2);
+        line-height: 1.6;
+      }
+      .insight-row-text b {
+        color: var(--t1);
+      }
 
-  /* ── Bulk action bar ── */
-  #panel-flux #sh-bulk-bar {
-    display: none;
-    position: sticky;
-    bottom: 0;
-    background: var(--fx-bg2);
-    border-top: 2px solid var(--fx-accent);
-    padding: 10px 16px;
-    align-items: center;
-    gap: 8px;
-    z-index: 5;
-    box-shadow: var(--shadow2, 0 -4px 18px rgba(0, 0, 0, 0.18));
-    flex-shrink: 0;
-  }
-  #panel-flux #sh-bulk-count {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: var(--fx-accent-soft);
-    min-width: 100px;
-  }
-  #panel-flux .fx-bulk-btn {
-    border-radius: 8px;
-    padding: 6px 13px;
-    font-family: var(--font);
-    font-size: 0.76rem;
-    font-weight: 700;
-    cursor: pointer;
-    border: 1px solid;
-  }
-  #panel-flux .fx-bulk-btn.complete {
-    background: var(--fx-green-dim);
-    border-color: var(--fx-green);
-    color: var(--fx-green);
-  }
-  #panel-flux .fx-bulk-btn.delete {
-    background: var(--fx-red-dim);
-    border-color: var(--fx-red);
-    color: var(--fx-red);
-  }
-  #panel-flux .fx-bulk-select {
-    background: var(--fx-card);
-    border: 1px solid var(--fx-line2);
-    border-radius: 8px;
-    padding: 6px 10px;
-    color: var(--fx-t1);
-    font-family: var(--font);
-    font-size: 0.76rem;
-    cursor: pointer;
-    outline: none;
-  }
-  #panel-flux .fx-bulk-clear {
-    background: none;
-    border: 1px solid var(--fx-line2);
-    border-radius: 8px;
-    padding: 6px 10px;
-    color: var(--fx-t3);
-    font-family: var(--font);
-    font-size: 0.76rem;
-    cursor: pointer;
-  }
+      /* ══ SHARED BUTTONS ══ */
+      .cta-purple {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        padding: 12px 18px;
+        font-size: 12.5px;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .cta-purple.block {
+        width: 100%;
+        justify-content: center;
+      }
+      .cta-ghost {
+        background: transparent;
+        color: var(--t1);
+        border: 1px solid var(--line2);
+        border-radius: 12px;
+        padding: 12px 18px;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .cta-ghost.block {
+        width: 100%;
+        justify-content: center;
+      }
 
-  /* ── Board / Kanban ── */
-  #panel-flux #sh-board-view {
-    flex: 1;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 1rem;
-    display: none;
-    gap: 14px;
-    align-items: flex-start;
-    min-height: 0;
-  }
-  #panel-flux .sh-col {
-    width: 260px;
-    flex-shrink: 0;
-  }
-  #panel-flux .sh-col-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 2px 4px 12px;
-  }
-  #panel-flux .sh-col-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  #panel-flux .sh-col-title {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: var(--fx-t1);
-  }
-  #panel-flux .sh-col-count {
-    font-size: 0.72rem;
-    color: var(--fx-t4);
-    margin-left: auto;
-  }
-  #panel-flux .sh-col-body {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-height: 20px;
-  }
-  /* Fallback card styling for whatever markup JS injects as direct children */
-  #panel-flux .sh-col-body > * {
-    background: var(--fx-card) !important;
-    border: 1px solid var(--fx-line) !important;
-    border-radius: 12px !important;
-    padding: 12px !important;
-    cursor: pointer;
-    font-size: 0.78rem;
-    color: var(--fx-t1);
-    transition: border-color 0.12s;
-  }
-  #panel-flux .sh-col-body > *:hover {
-    border-color: var(--fx-line2) !important;
-  }
-  #panel-flux .sh-col-add {
-    width: 100%;
-    background: none;
-    border: 1px dashed var(--fx-line2);
-    border-radius: 10px;
-    padding: 9px;
-    color: var(--fx-t3);
-    font-size: 0.76rem;
-    cursor: pointer;
-    margin-top: 8px;
-    transition: all 0.12s;
-    font-family: var(--font);
-  }
-  #panel-flux .sh-col-add:hover {
-    border-color: var(--fx-accent);
-    color: var(--fx-accent-soft);
-  }
+      /* ══ TASK DETAIL SHEET ══ */
+      .sheet-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 60;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+      }
+      .sheet-overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .sheet {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #0a0a0a;
+        border-top: 1px solid var(--line);
+        border-radius: 22px 22px 0 0;
+        z-index: 70;
+        transform: translateY(100%);
+        transition: transform 0.25s ease;
+        max-height: 92%;
+        display: flex;
+        flex-direction: column;
+      }
+      .sheet.open {
+        transform: translateY(0);
+      }
+      .sheet-handle {
+        width: 36px;
+        height: 4px;
+        background: var(--line2);
+        border-radius: 4px;
+        margin: 10px auto 4px;
+        flex-shrink: 0;
+      }
+      .sheet-close {
+        position: absolute;
+        top: 16px;
+        right: 18px;
+        color: var(--t3);
+        font-size: 18px;
+        cursor: pointer;
+        z-index: 2;
+      }
+      .sheet-scroll {
+        overflow-y: auto;
+        padding: 8px 20px 26px;
+      }
 
-  #panel-flux .sh-ai-card {
-    background: var(--fx-card);
-    border: 1px solid var(--fx-line);
-    border-radius: 12px;
-    padding: 12px;
-  }
-  #panel-flux .sh-ai-title {
-    font-size: 0.78rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--fx-t1);
-  }
-  #panel-flux .sh-input {
-    background: var(--fx-bg2);
-    border: 1px solid var(--fx-line2);
-    border-radius: 9px;
-    padding: 9px 11px;
-    color: var(--fx-t1);
-    font-family: var(--font);
-    outline: none;
-    width: 100%;
-  }
-  #panel-flux .sh-input:focus {
-    border-color: var(--fx-accent);
-  }
-  #panel-flux .sh-input::placeholder {
-    color: var(--fx-t4);
-  }
-  #panel-flux .sh-add-btn {
-    background: var(--fx-accent-dim);
-    border: 1px solid var(--fx-line2);
-    color: var(--fx-accent-soft);
-    border-radius: 9px;
-    padding: 9px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: filter 0.12s;
-    font-family: var(--font);
-  }
-  #panel-flux .sh-add-btn:hover {
-    filter: brightness(1.2);
-  }
+      .detail-title-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin: 10px 0 6px;
+        padding-right: 24px;
+      }
+      .detail-check {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        border: 1.5px solid var(--t4);
+        flex-shrink: 0;
+        margin-top: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+      .detail-title {
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.35;
+      }
+      .detail-tags-row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin: 10px 0 20px;
+        flex-wrap: wrap;
+      }
+      .detail-tag {
+        font-size: 10.5px;
+        color: var(--t2);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 4px 10px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
 
-  /* ── List view (task rows) ── */
-  #panel-flux #sh-list-view {
-    flex: 1;
-    overflow: auto;
-    padding: 1rem 1.25rem;
-    display: none;
-    min-height: 0;
-  }
-  #panel-flux #sh-list-container > * {
-    display: flex !important;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 12px 0 !important;
-    border-bottom: 1px solid var(--fx-line) !important;
-    cursor: pointer;
-    background: transparent !important;
-  }
-  #panel-flux #sh-list-container > *:last-child {
-    border-bottom: none !important;
-  }
-  #panel-flux #sh-list-container {
-    color: var(--fx-t1);
-    font-size: 0.82rem;
-  }
+      .detail-section {
+        margin-bottom: 22px;
+      }
+      .detail-section-lbl {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--t3);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 10px;
+      }
+      .detail-desc {
+        font-size: 12.5px;
+        color: var(--t2);
+        line-height: 1.65;
+      }
 
-  /* ── Add / Edit task modal ── */
-  #panel-flux #sh-modal-bg {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-  }
-  #panel-flux .fx-modal-card {
-    background: var(--fx-card);
-    border: 1px solid var(--fx-line2);
-    border-radius: 18px;
-    padding: 1.5rem;
-    width: 100%;
-    max-width: 520px;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: var(--shadow3, 0 24px 70px rgba(0, 0, 0, 0.35));
-  }
-  #panel-flux .fx-modal-heading {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 1rem;
-    margin-bottom: 1.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    color: var(--fx-t1);
-  }
-  #panel-flux .fx-modal-close {
-    background: none;
-    border: none;
-    color: var(--fx-t3);
-    cursor: pointer;
-    font-size: 1.15rem;
-  }
-  #panel-flux .fx-modal-close:hover {
-    color: var(--fx-t1);
-  }
-  #panel-flux .sh-field-group {
-    margin-bottom: 12px;
-  }
-  #panel-flux .sh-field-label {
-    font-size: 0.72rem;
-    color: var(--fx-t3);
-    margin-bottom: 6px;
-    display: block;
-  }
-  #panel-flux .fx-sheet-handle {
-    display: none;
-  }
+      .subtask-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .subtask-row:last-child {
+        border-bottom: none;
+      }
+      .subtask-check {
+        width: 17px;
+        height: 17px;
+        border-radius: 5px;
+        border: 1.5px solid var(--t4);
+        flex-shrink: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .subtask-check.done {
+        background: var(--t1);
+        border-color: var(--t1);
+      }
+      .subtask-check.done i {
+        color: #000;
+        font-size: 10px;
+      }
+      .subtask-name {
+        font-size: 12.5px;
+        flex: 1;
+      }
+      .subtask-name.done {
+        color: var(--t4);
+        text-decoration: line-through;
+      }
+      .add-subtask-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 0;
+        color: var(--t4);
+        font-size: 12px;
+        cursor: pointer;
+      }
 
-  #panel-flux .fx-btn-primary {
-    background: var(--fx-accent);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    padding: 11px;
-    font-family: var(--font);
-    font-size: 0.85rem;
-    font-weight: 700;
-    cursor: pointer;
-    flex: 1;
-    transition: filter 0.12s;
-  }
-  #panel-flux .fx-btn-primary:hover {
-    filter: brightness(1.1);
-  }
-  #panel-flux .fx-btn-ghost {
-    background: none;
-    border: 1px solid var(--fx-line2);
-    border-radius: 10px;
-    padding: 11px;
-    color: var(--fx-t2);
-    font-family: var(--font);
-    font-size: 0.85rem;
-    cursor: pointer;
-    flex: 1;
-    transition: all 0.12s;
-  }
-  #panel-flux .fx-btn-ghost:hover {
-    border-color: var(--fx-t3);
-    color: var(--fx-t1);
-  }
-  #panel-flux .fx-attach-btn {
-    background: var(--fx-bg2);
-    border: 1px solid var(--fx-line2);
-    border-radius: 9px;
-    padding: 8px 13px;
-    color: var(--fx-t2);
-    font-size: 0.76rem;
-    cursor: pointer;
-    font-family: var(--font);
-    transition: border-color 0.15s;
-  }
-  #panel-flux .fx-attach-btn:hover {
-    border-color: var(--fx-accent);
-  }
+      .detail-meta-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .detail-meta-cell {
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        padding: 11px 13px;
+      }
+      .detail-meta-lbl {
+        font-size: 9.5px;
+        color: var(--t3);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 5px;
+      }
+      .detail-meta-val {
+        font-size: 12.5px;
+        font-weight: 600;
+      }
 
-  /* ── Task detail panel ── */
-  #panel-flux #sh-detail-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 400px;
-    max-width: 95vw;
-    height: 100vh;
-    background: var(--fx-card);
-    border-left: 1px solid var(--fx-line2);
-    z-index: 300;
-    box-shadow: var(--shadow3, -8px 0 36px rgba(0, 0, 0, 0.3));
-    transform: translateX(100%);
-    transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  #panel-flux .fx-detail-head {
-    position: sticky;
-    top: 0;
-    background: var(--fx-card);
-    border-bottom: 1px solid var(--fx-line);
-    padding: 14px 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
-  #panel-flux .fx-detail-head span {
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--fx-t3);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  #panel-flux .fx-detail-close {
-    background: none;
-    border: none;
-    color: var(--fx-t3);
-    cursor: pointer;
-    font-size: 1rem;
-    padding: 2px 6px;
-  }
-  #panel-flux .fx-detail-close:hover {
-    color: var(--fx-t1);
-  }
-  #panel-flux #sh-detail-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 18px;
-    color: var(--fx-t1);
-    font-size: 0.85rem;
-  }
-  #panel-flux #sh-detail-backdrop {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 299;
-  }
+      .attachment-row {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+      }
+      .attachment-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #111;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        color: var(--t2);
+        flex-shrink: 0;
+      }
+      .attachment-name {
+        font-size: 11.5px;
+        font-weight: 500;
+      }
+      .attachment-sub {
+        font-size: 9.5px;
+        color: var(--t3);
+        margin-top: 1px;
+      }
+      .add-attachment-row {
+        border: 1.5px dashed var(--line2);
+        border-radius: 11px;
+        padding: 12px;
+        text-align: center;
+        cursor: pointer;
+        color: var(--t3);
+        font-size: 11.5px;
+      }
 
-  /* ══════════ RESPONSIVE ══════════ */
+      .collab-row {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 9px 0;
+      }
+      .collab-full-av {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #1a1a1a;
+        color: var(--t2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .collab-full-info {
+        flex: 1;
+      }
+      .collab-full-name {
+        font-size: 12.5px;
+        font-weight: 500;
+      }
+      .collab-full-role {
+        font-size: 10px;
+        color: var(--t3);
+        margin-top: 1px;
+      }
+      .role-tag {
+        font-size: 9.5px;
+        color: var(--t3);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 3px 9px;
+      }
+      .role-tag.owner {
+        color: #c9a8f0;
+        border-color: #2a1a3e;
+      }
+      .invite-row {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 9px 0;
+        color: var(--t2);
+        cursor: pointer;
+      }
+      .invite-row .collab-full-av {
+        background: transparent;
+        border: 1.5px dashed var(--line2);
+        color: var(--t3);
+      }
 
-  /* Tablet: 768px – 1023px */
-  @media (max-width: 1023px) {
-    #panel-flux .fx-header {
-      padding: 12px 16px 8px;
-    }
-    #panel-flux .sh-col {
-      width: 220px;
-    }
-    #panel-flux #sh-detail-panel {
-      width: 360px;
-    }
-  }
+      .activity-log-row {
+        font-size: 11.5px;
+        color: var(--t3);
+        padding: 8px 0;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .activity-log-row:last-child {
+        border-bottom: none;
+      }
+      .activity-log-who {
+        color: var(--t1);
+        font-weight: 600;
+      }
+      .activity-log-what {
+        color: var(--t2);
+      }
+      .activity-log-time {
+        color: var(--t4);
+        margin-left: auto;
+        font-size: 10px;
+      }
 
-  /* Mobile: <768px */
-  @media (max-width: 767px) {
-    #panel-flux .fx-header {
-      padding: 10px 14px 8px;
-      gap: 8px;
-    }
-    #panel-flux .fx-title {
-      font-size: 0.95rem;
-    }
-    #panel-flux .fx-header-actions {
-      width: 100%;
-      gap: 6px;
-    }
-    #panel-flux .sh-view-btn span.fx-label {
-      display: none;
-    }
-    #panel-flux .sh-view-btn {
-      padding: 7px 10px;
-    }
-    #panel-flux .sh-add-task-btn span.fx-label {
-      display: none;
-    }
-    #panel-flux .sh-add-task-btn {
-      padding: 8px 10px;
-      border-radius: 10px;
-    }
-    #panel-flux .fx-progress-wrap {
-      padding: 0.5rem 14px;
-    }
+      /* ══ NEW TASK SHEET (AI breakdown) ══ */
+      .ai-input-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid var(--line2);
+        border-radius: 14px;
+        padding: 12px 14px;
+        margin: 10px 0 6px;
+      }
+      .ai-input-row input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: var(--t1);
+        font-size: 13px;
+      }
+      .ai-input-row i {
+        color: #c9a8f0;
+        font-size: 16px;
+      }
+      .ai-breakdown-btn {
+        width: 100%;
+        background: var(--accent-dim);
+        border: 1px solid #2a1a3e;
+        color: #c9a8f0;
+        border-radius: 12px;
+        padding: 11px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        margin-bottom: 22px;
+      }
+      .ai-generated-list {
+        margin-bottom: 22px;
+      }
+      .ai-generated-head {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        color: #c9a8f0;
+        margin-bottom: 10px;
+      }
+      .field-lbl {
+        font-size: 10.5px;
+        color: var(--t3);
+        margin-bottom: 6px;
+        display: block;
+      }
+      .field-row {
+        margin-bottom: 14px;
+      }
+      .field-input,
+      .field-select,
+      .field-textarea {
+        width: 100%;
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 13px;
+        color: var(--t1);
+        font-size: 12.5px;
+        outline: none;
+        font-family: inherit;
+      }
+      .field-textarea {
+        min-height: 64px;
+        resize: vertical;
+      }
+      .field-grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .priority-pill-row {
+        display: flex;
+        gap: 8px;
+      }
+      .priority-pill {
+        flex: 1;
+        text-align: center;
+        font-size: 11.5px;
+        padding: 9px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--t2);
+        cursor: pointer;
+      }
+      .priority-pill.sel {
+        border-color: var(--t1);
+        color: var(--t1);
+        font-weight: 600;
+      }
+      .wa-toggle {
+        width: 34px;
+        height: 19px;
+        border-radius: 10px;
+        background: var(--line2);
+        position: relative;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .wa-toggle::after {
+        content: "";
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        background: var(--t2);
+        border-radius: 50%;
+        top: 2px;
+        left: 2px;
+        transition: all 0.15s;
+      }
+      .wa-toggle.on {
+        background: #123320;
+      }
+      .wa-toggle.on::after {
+        left: 17px;
+        background: #3ba55c;
+      }
 
-    #panel-flux .sh-col {
-      width: 78vw;
-      max-width: 280px;
-    }
-    #panel-flux #sh-board-view {
-      padding: 0.85rem;
-      gap: 10px;
-    }
-
-    #panel-flux #sh-list-view {
-      padding: 0.85rem;
-    }
-
-    /* Modal → bottom sheet */
-    #panel-flux #sh-modal-bg {
-      align-items: flex-end;
-      padding: 0;
-    }
-    #panel-flux .fx-modal-card {
-      max-width: 100%;
-      width: 100%;
-      border-radius: 22px 22px 0 0;
-      max-height: 92vh;
-      padding: 1.25rem 1.25rem 1.5rem;
-    }
-    #panel-flux .fx-sheet-handle {
-      display: block;
-      width: 36px;
-      height: 4px;
-      background: var(--fx-line2);
-      border-radius: 4px;
-      margin: 0 auto 14px;
-    }
-
-    /* Detail panel → full-screen takeover on mobile */
-    #panel-flux #sh-detail-panel {
-      width: 100%;
-      max-width: 100%;
-      border-left: none;
-    }
-  }
-
-  @media (max-width: 380px) {
-    #panel-flux .fx-title {
-      font-size: 0.88rem;
-    }
-  }
-</style>
-
-<div class="panel" id="panel-flux">
-  <!-- Header bar -->
-  <div class="fx-header">
-    <div>
-      <div class="fx-title"><i class="ti ti-folder-bolt"></i>Flux</div>
-      <div class="fx-sub">
-        <span id="sh-total-count">0</span> tasks ·
-        <span id="sh-done-count">0</span> completed
-      </div>
-    </div>
-    <div class="fx-header-actions">
-      <div style="position: relative">
-        <button
-          class="sh-view-btn"
-          id="sh-filter-btn"
-          onclick="shToggleFilter(event)"
-        >
-          <i class="ti ti-filter"></i><span class="fx-label">Filter</span>
-        </button>
-        <div id="sh-filter-drop" class="sh-dropdown">
-          <div class="sh-dropdown-label">Status</div>
-          <label class="sh-filter-opt"
-            ><input
-              type="checkbox"
-              value="not_started"
-              onchange="shApplyFilters()"
-            />
-            Not started</label
-          >
-          <label class="sh-filter-opt"
-            ><input
-              type="checkbox"
-              value="in_progress"
-              onchange="shApplyFilters()"
-            />
-            In progress</label
-          >
-          <label class="sh-filter-opt"
-            ><input type="checkbox" value="done" onchange="shApplyFilters()" />
-            Done</label
-          >
-          <div class="sh-dropdown-label">Priority</div>
-          <label class="sh-filter-opt"
-            ><input
-              type="checkbox"
-              value="p_high"
-              onchange="shApplyFilters()"
-            />
-            High</label
-          >
-          <label class="sh-filter-opt"
-            ><input
-              type="checkbox"
-              value="p_medium"
-              onchange="shApplyFilters()"
-            />
-            Medium</label
-          >
-          <label class="sh-filter-opt"
-            ><input
-              type="checkbox"
-              value="p_normal"
-              onchange="shApplyFilters()"
-            />
-            Normal</label
-          >
-          <label class="sh-filter-opt"
-            ><input type="checkbox" value="p_low" onchange="shApplyFilters()" />
-            Low</label
-          >
-          <div class="sh-dropdown-label">Due</div>
-          <label class="sh-filter-opt"
-            ><input
-              type="checkbox"
-              value="due_overdue"
-              onchange="shApplyFilters()"
-            />
-            Overdue</label
-          >
-          <label class="sh-filter-opt"
-            ><input
-              type="checkbox"
-              value="due_today"
-              onchange="shApplyFilters()"
-            />
-            Today</label
-          >
-          <label class="sh-filter-opt"
-            ><input
-              type="checkbox"
-              value="due_week"
-              onchange="shApplyFilters()"
-            />
-            This week</label
-          >
-          <label class="sh-filter-opt"
-            ><input
-              type="checkbox"
-              value="due_none"
-              onchange="shApplyFilters()"
-            />
-            No date</label
-          >
-        </div>
-      </div>
-      <div style="position: relative">
-        <button
-          class="sh-view-btn"
-          id="sh-sort-btn"
-          onclick="shToggleSort(event)"
-        >
-          <i class="ti ti-arrows-sort"></i><span class="fx-label">Sort</span>
-        </button>
-        <div id="sh-sort-drop" class="sh-dropdown">
-          <label class="sh-filter-opt"
-            ><input
-              type="radio"
-              name="sh-sort"
-              value="due_asc"
-              checked
-              onchange="shApplySort()"
-            />
-            Due date (earliest first)</label
-          >
-          <label class="sh-filter-opt"
-            ><input
-              type="radio"
-              name="sh-sort"
-              value="due_desc"
-              onchange="shApplySort()"
-            />
-            Due date (latest first)</label
-          >
-          <label class="sh-filter-opt"
-            ><input
-              type="radio"
-              name="sh-sort"
-              value="priority"
-              onchange="shApplySort()"
-            />
-            Priority (high to low)</label
-          >
-          <label class="sh-filter-opt"
-            ><input
-              type="radio"
-              name="sh-sort"
-              value="created"
-              onchange="shApplySort()"
-            />
-            Created (newest first)</label
-          >
-          <label class="sh-filter-opt"
-            ><input
-              type="radio"
-              name="sh-sort"
-              value="alpha"
-              onchange="shApplySort()"
-            />
-            Alphabetical</label
-          >
-        </div>
-      </div>
-      <button
-        class="sh-view-btn active"
-        id="sh-view-overview"
-        onclick="setSHView('overview', this)"
-      >
-        <i class="ti ti-table"></i><span class="fx-label">Overview</span>
-      </button>
-      <button
-        class="sh-view-btn"
-        id="sh-view-board"
-        onclick="setSHView('board', this)"
-      >
-        <i class="ti ti-columns"></i><span class="fx-label">Board</span>
-      </button>
-      <button
-        class="sh-view-btn"
-        id="sh-view-list"
-        onclick="setSHView('list', this)"
-      >
-        <i class="ti ti-list-details"></i><span class="fx-label">List</span>
-      </button>
-      <button class="sh-add-task-btn" onclick="openAddTask()">
-        <i class="ti ti-plus"></i><span class="fx-label">New Task</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- Progress bar -->
-  <div class="fx-progress-wrap">
-    <div class="fx-progress-track">
-      <div id="sh-progress-bar"></div>
-    </div>
-    <span id="sh-pct">0%</span>
-  </div>
-
-  <!-- Overview view — table -->
-  <div id="sh-overview-view">
-    <table id="sh-overview-table">
-      <colgroup>
-        <col style="width: 32px" />
-        <!-- Bulk checkbox -->
-        <col style="width: 220px" />
-        <!-- Task name -->
-        <col style="width: 110px" />
-        <!-- Status -->
-        <col style="width: 100px" />
-        <!-- Task type -->
-        <col style="width: 160px" />
-        <!-- Description -->
-        <col style="width: 110px" />
-        <!-- Assignee -->
-        <col style="width: 110px" />
-        <!-- Due date -->
-        <col style="width: 95px" />
-        <!-- Priority -->
-        <col style="width: 90px" />
-        <!-- Attach file -->
-        <col style="width: 110px" />
-        <!-- Last Updated -->
-        <col style="width: 160px" />
-        <!-- Summary -->
-        <col style="width: 70px" />
-        <!-- Done -->
-      </colgroup>
-      <thead>
-        <tr>
-          <th class="sh-th" style="text-align: center">
-            <input
-              type="checkbox"
-              id="sh-bulk-all"
-              onchange="_shBulkSelectAll(this.checked)"
-            />
-          </th>
-          <th class="sh-th">Task name</th>
-          <th class="sh-th">Status</th>
-          <th class="sh-th">Task type</th>
-          <th class="sh-th">Description</th>
-          <th class="sh-th">Assignee</th>
-          <th class="sh-th">Due date</th>
-          <th class="sh-th">Priority</th>
-          <th class="sh-th">Attach</th>
-          <th class="sh-th">Last Updated</th>
-          <th class="sh-th">Summary</th>
-          <th class="sh-th" style="text-align: center">
-            <i class="ti ti-check"></i>
-          </th>
-        </tr>
-      </thead>
-      <tbody id="sh-overview-rows"></tbody>
-      <tfoot>
-        <tr>
-          <td colspan="12">
-            <button onclick="openAddTask()">
-              <i class="ti ti-plus" style="margin-right: 6px"></i>New task
-            </button>
-          </td>
-        </tr>
-      </tfoot>
-    </table>
-
-    <!-- Bulk action bar -->
-    <div id="sh-bulk-bar">
-      <span id="sh-bulk-count"></span>
-      <button class="fx-bulk-btn complete" onclick="_shBulkComplete()">
-        <i class="ti ti-check"></i> Complete
-      </button>
-      <select class="fx-bulk-select" onchange="_shBulkPriority(this.value)">
-        <option value="">Priority…</option>
-        <option value="high">High</option>
-        <option value="medium">Medium</option>
-        <option value="low">Low</option>
-        <option value="normal">Normal</option>
-      </select>
-      <button class="fx-bulk-btn delete" onclick="_shBulkDelete()">
-        <i class="ti ti-trash"></i> Delete
-      </button>
-      <div style="flex: 1"></div>
-      <button class="fx-bulk-clear" onclick="_shBulkClear()">
-        <i class="ti ti-x"></i> Clear
-      </button>
-    </div>
-  </div>
-
-  <!-- Board view -->
-  <div id="sh-board-view">
-    <!-- Column: Not Started -->
-    <div class="sh-col">
-      <div class="sh-col-header">
-        <div class="sh-col-dot" style="background: var(--fx-t3)"></div>
-        <span class="sh-col-title">Not Started</span>
-        <span class="sh-col-count" id="sh-col-count-todo">0</span>
-      </div>
-      <div
-        class="sh-col-body"
-        id="sh-col-todo"
-        ondragover="shDragOver(event)"
-        ondrop="shDrop(event, 'todo')"
-      ></div>
-      <button class="sh-col-add" onclick="openAddTask('todo')">
-        <i class="ti ti-plus"></i> Add task
-      </button>
-    </div>
-
-    <!-- Column: In Progress -->
-    <div class="sh-col">
-      <div class="sh-col-header">
-        <div class="sh-col-dot" style="background: var(--fx-blue)"></div>
-        <span class="sh-col-title">In Progress</span>
-        <span class="sh-col-count" id="sh-col-count-inprogress">0</span>
-      </div>
-      <div
-        class="sh-col-body"
-        id="sh-col-inprogress"
-        ondragover="shDragOver(event)"
-        ondrop="shDrop(event, 'inprogress')"
-      ></div>
-      <button class="sh-col-add" onclick="openAddTask('inprogress')">
-        <i class="ti ti-plus"></i> Add task
-      </button>
-    </div>
-
-    <!-- Column: Done -->
-    <div class="sh-col">
-      <div class="sh-col-header">
-        <div class="sh-col-dot" style="background: var(--fx-green)"></div>
-        <span class="sh-col-title">Done</span>
-        <span class="sh-col-count" id="sh-col-count-done">0</span>
-      </div>
-      <div
-        class="sh-col-body"
-        id="sh-col-done"
-        ondragover="shDragOver(event)"
-        ondrop="shDrop(event, 'done')"
-      ></div>
-      <button class="sh-col-add" onclick="openAddTask('done')">
-        <i class="ti ti-plus"></i> Add task
-      </button>
-    </div>
-
-    <!-- Column: AI Tools -->
-    <div class="sh-col" style="min-width: 220px">
-      <div class="sh-col-header">
-        <div class="sh-col-dot" style="background: var(--fx-accent)"></div>
-        <span class="sh-col-title">AI Tools</span>
-      </div>
-      <div
-        style="
+      @media (max-width: 380px) {
+        .app-header {
+          padding: 10px 14px 6px;
+        }
+        .view-switcher {
+          padding: 8px 14px 12px;
+        }
+        .list-wrap,
+        .cal-wrap {
+          padding: 0 14px;
+        }
+        .siva-banner {
+          margin: 0 14px 16px;
+        }
+        .kanban-wrap {
+          padding: 0 14px;
+        }
+        .kanban-col {
+          width: 210px;
+        }
+        .header-title {
+          font-size: 17px;
+        }
+        .focus-task-title {
+          font-size: 17px;
+        }
+        .focus-ring {
+          width: 130px;
+          height: 130px;
+        }
+      }
+      @media (min-width: 600px) {
+        body {
+          background: #050505;
           display: flex;
-          flex-direction: column;
-          gap: 10px;
-          padding: 4px 0;
-          overflow-y: auto;
-          max-height: calc(100vh - 260px);
-        "
-      >
-        <div class="sh-ai-card">
-          <div class="sh-ai-title">
-            <i class="ti ti-brain"></i> Break Down a Task
+          align-items: center;
+          justify-content: center;
+        }
+        .frame {
+          height: 90vh;
+          max-height: 920px;
+          border-radius: 28px;
+          overflow: hidden;
+          box-shadow:
+            0 0 0 1px var(--line),
+            0 30px 80px rgba(0, 0, 0, 0.6);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame" id="frame">
+      <!-- ═══ HEADER ═══ -->
+      <div class="app-header">
+        <div class="header-left">
+          <div class="back-arrow"><i class="ti ti-arrow-left"></i></div>
+          <div>
+            <div class="header-title">Tasks</div>
+            <div class="header-sub">Personal Space</div>
           </div>
-          <textarea
-            id="sh-structure-input"
-            class="sh-input"
-            rows="2"
-            placeholder="Describe your task..."
-            style="resize: none; margin-bottom: 8px"
-          ></textarea>
-          <button
-            class="sh-add-btn"
-            style="width: 100%"
-            onclick="generateTaskStructure()"
-          >
-            Generate Steps
-          </button>
-          <div
-            id="sh-structure-result"
-            style="
-              display: none;
-              margin-top: 8px;
-              font-size: 0.75rem;
-              line-height: 1.6;
-              color: var(--fx-t2);
-            "
-            class="lab-content"
-          ></div>
         </div>
-        <div class="sh-ai-card">
-          <div class="sh-ai-title">
-            <i class="ti ti-file-text"></i> Create PDF
+        <div class="header-right">
+          <i class="ti ti-search" onclick="promptSearch()"></i>
+          <i
+            class="ti ti-brand-whatsapp"
+            onclick="openWhatsApp()"
+            style="color: #3ba55c"
+          ></i>
+          <div class="add-task-btn" onclick="openNewTask()">
+            <i class="ti ti-plus"></i>
           </div>
-          <input
-            id="sh-pdf-title"
-            class="sh-input"
-            placeholder="PDF title..."
-            style="margin-bottom: 6px"
-          />
-          <textarea
-            id="sh-pdf-content"
-            class="sh-input"
-            rows="3"
-            placeholder="Paste content here..."
-            style="resize: none; margin-bottom: 8px"
-          ></textarea>
-          <button
-            class="sh-add-btn"
-            style="width: 100%"
-            onclick="createStudyPDF()"
-          >
-            Download PDF
-          </button>
+        </div>
+      </div>
+
+      <!-- ═══ VIEW SWITCHER ═══ -->
+      <div class="view-switcher" id="viewSwitcher">
+        <div class="view-btn on" data-view="list">
+          <i class="ti ti-list-details"></i>List
+        </div>
+        <div class="view-btn" data-view="kanban">
+          <i class="ti ti-columns"></i>Kanban
+        </div>
+        <div class="view-btn" data-view="calendar">
+          <i class="ti ti-calendar"></i>Calendar
+        </div>
+        <div class="view-btn" data-view="focus">
+          <i class="ti ti-target-arrow"></i>Focus
+        </div>
+        <div class="view-btn" data-view="insights">
+          <i class="ti ti-chart-histogram"></i>Insights
+        </div>
+      </div>
+
+      <div class="content" id="scrollArea">
+        <!-- ═══ LIST VIEW ═══ -->
+        <div id="view-list">
+          <div class="siva-banner" id="listSivaBanner" style="display: none">
+            <div class="siva-banner-icon"><i class="ti ti-sparkles"></i></div>
+            <div>
+              <div class="siva-banner-text" id="listSivaBannerText"></div>
+              <div class="siva-banner-link">Ask SIVA to reschedule</div>
+            </div>
+          </div>
+
+          <div class="list-wrap" id="listWrap">
+            <!-- rendered by tasks.js -->
+          </div>
+        </div>
+
+        <!-- ═══ KANBAN VIEW ═══ -->
+        <div id="view-kanban" style="display: none; height: 100%">
+          <div class="kanban-wrap" id="kanbanWrap">
+            <div class="kanban-col" data-status="todo">
+              <div class="kanban-col-head">
+                <div class="kanban-dot todo"></div>
+                <div class="kanban-col-title">To Do</div>
+                <div class="kanban-col-count" id="kanbanCount-todo">0</div>
+              </div>
+              <div class="kanban-col-body" id="kanbanBody-todo"></div>
+            </div>
+            <div class="kanban-col" data-status="inprogress">
+              <div class="kanban-col-head">
+                <div class="kanban-dot progress"></div>
+                <div class="kanban-col-title">In Progress</div>
+                <div class="kanban-col-count" id="kanbanCount-inprogress">
+                  0
+                </div>
+              </div>
+              <div class="kanban-col-body" id="kanbanBody-inprogress"></div>
+            </div>
+            <div class="kanban-col" data-status="blocked">
+              <div class="kanban-col-head">
+                <div class="kanban-dot blocked"></div>
+                <div class="kanban-col-title">Blocked</div>
+                <div class="kanban-col-count" id="kanbanCount-blocked">0</div>
+              </div>
+              <div class="kanban-col-body" id="kanbanBody-blocked"></div>
+            </div>
+            <div class="kanban-col" data-status="done">
+              <div class="kanban-col-head">
+                <div class="kanban-dot done"></div>
+                <div class="kanban-col-title">Done</div>
+                <div class="kanban-col-count" id="kanbanCount-done">0</div>
+              </div>
+              <div class="kanban-col-body" id="kanbanBody-done"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ CALENDAR VIEW — hybrid Timeline/Kanban ═══ -->
+        <div id="view-calendar" style="display: none; height: 100%">
+          <div class="tl-wrap">
+            <div class="cal-week-head" style="padding: 0 18px">
+              <div class="cal-week-title">Aug 10 – 16</div>
+              <div class="cal-week-nav">
+                <div class="cal-nav-btn">
+                  <i class="ti ti-chevron-left"></i>
+                </div>
+                <div class="cal-nav-btn">
+                  <i class="ti ti-chevron-right"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="tl-legend">
+              <div class="tl-legend-item">
+                <div class="tl-legend-dot" style="background: var(--t3)"></div>
+                Personal
+              </div>
+              <div class="tl-legend-item">
+                <div class="tl-legend-dot" style="background: #6ba8c4"></div>
+                Academic
+              </div>
+              <div class="tl-legend-item">
+                <div class="tl-legend-dot" style="background: #7fbf8f"></div>
+                Trading
+              </div>
+              <div class="tl-legend-item">
+                <div class="tl-legend-dot" style="background: var(--red)"></div>
+                High priority
+              </div>
+            </div>
+
+            <div class="tl-scroll">
+              <div class="tl-hour-rail">
+                <div class="tl-hour-lbl" style="top: 0px">7am</div>
+                <div class="tl-hour-lbl" style="top: 100px">9am</div>
+                <div class="tl-hour-lbl" style="top: 200px">11am</div>
+                <div class="tl-hour-lbl" style="top: 300px">1pm</div>
+                <div class="tl-hour-lbl" style="top: 400px">3pm</div>
+                <div class="tl-hour-lbl" style="top: 500px">5pm</div>
+                <div class="tl-hour-lbl" style="top: 600px">7pm</div>
+                <div class="tl-hour-lbl" style="top: 700px">9pm</div>
+              </div>
+
+              <div class="tl-days" id="tlDays">
+                <div class="tl-day-col" data-day="Mon">
+                  <div class="tl-day-head today">Mon <span>10</span></div>
+                  <div class="tl-unscheduled"></div>
+                  <div class="tl-grid">
+                    <div class="tl-hourline" style="top: 0px"></div>
+                    <div class="tl-hourline" style="top: 50px"></div>
+                    <div class="tl-hourline" style="top: 100px"></div>
+                    <div class="tl-hourline" style="top: 150px"></div>
+                    <div class="tl-hourline" style="top: 200px"></div>
+                    <div class="tl-hourline" style="top: 250px"></div>
+                    <div class="tl-hourline" style="top: 300px"></div>
+                    <div class="tl-hourline" style="top: 350px"></div>
+                    <div class="tl-hourline" style="top: 400px"></div>
+                    <div class="tl-hourline" style="top: 450px"></div>
+                    <div class="tl-hourline" style="top: 500px"></div>
+                    <div class="tl-hourline" style="top: 550px"></div>
+                    <div class="tl-hourline" style="top: 600px"></div>
+                    <div class="tl-hourline" style="top: 650px"></div>
+                    <div class="tl-hourline" style="top: 700px"></div>
+
+                    <div
+                      class="tl-block"
+                      draggable="true"
+                      style="
+                        top: 150px;
+                        height: 100px;
+                        background: var(--blue-dim);
+                        color: #6ba8c4;
+                        border-left-color: var(--red);
+                      "
+                      onclick="openDetail()"
+                    >
+                      <div class="tl-block-time">10:00–12:00</div>
+                      <div class="tl-block-title">
+                        Research paper: Balanced tree structures
+                      </div>
+                    </div>
+                    <div
+                      class="tl-block"
+                      draggable="true"
+                      style="
+                        top: 300px;
+                        height: 150px;
+                        background: #141414;
+                        color: var(--t1);
+                        border-left-color: var(--red);
+                      "
+                      onclick="openDetail()"
+                    >
+                      <div class="tl-block-time">1:00–3:30</div>
+                      <div class="tl-block-title">
+                        Finish Q3 launch review deck
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="tl-day-col" data-day="Tue">
+                  <div class="tl-day-head">Tue <span>11</span></div>
+                  <div class="tl-unscheduled"></div>
+                  <div class="tl-grid">
+                    <div class="tl-hourline" style="top: 0px"></div>
+                    <div class="tl-hourline" style="top: 50px"></div>
+                    <div class="tl-hourline" style="top: 100px"></div>
+                    <div class="tl-hourline" style="top: 150px"></div>
+                    <div class="tl-hourline" style="top: 200px"></div>
+                    <div class="tl-hourline" style="top: 250px"></div>
+                    <div class="tl-hourline" style="top: 300px"></div>
+                    <div class="tl-hourline" style="top: 350px"></div>
+                    <div class="tl-hourline" style="top: 400px"></div>
+                    <div class="tl-hourline" style="top: 450px"></div>
+                    <div class="tl-hourline" style="top: 500px"></div>
+                    <div class="tl-hourline" style="top: 550px"></div>
+                    <div class="tl-hourline" style="top: 600px"></div>
+                    <div class="tl-hourline" style="top: 650px"></div>
+                    <div class="tl-hourline" style="top: 700px"></div>
+                  </div>
+                </div>
+
+                <div class="tl-day-col" data-day="Wed">
+                  <div class="tl-day-head">Wed <span>12</span></div>
+                  <div class="tl-unscheduled">
+                    <div
+                      class="tl-chip"
+                      style="background: var(--line2); color: var(--t2)"
+                      draggable="true"
+                    >
+                      GIA proposal
+                    </div>
+                  </div>
+                  <div class="tl-grid">
+                    <div class="tl-hourline" style="top: 0px"></div>
+                    <div class="tl-hourline" style="top: 50px"></div>
+                    <div class="tl-hourline" style="top: 100px"></div>
+                    <div class="tl-hourline" style="top: 150px"></div>
+                    <div class="tl-hourline" style="top: 200px"></div>
+                    <div class="tl-hourline" style="top: 250px"></div>
+                    <div class="tl-hourline" style="top: 300px"></div>
+                    <div class="tl-hourline" style="top: 350px"></div>
+                    <div class="tl-hourline" style="top: 400px"></div>
+                    <div class="tl-hourline" style="top: 450px"></div>
+                    <div class="tl-hourline" style="top: 500px"></div>
+                    <div class="tl-hourline" style="top: 550px"></div>
+                    <div class="tl-hourline" style="top: 600px"></div>
+                    <div class="tl-hourline" style="top: 650px"></div>
+                    <div class="tl-hourline" style="top: 700px"></div>
+                  </div>
+                </div>
+
+                <div class="tl-day-col" data-day="Thu">
+                  <div class="tl-day-head">Thu <span>13</span></div>
+                  <div class="tl-unscheduled"></div>
+                  <div class="tl-grid">
+                    <div class="tl-hourline" style="top: 0px"></div>
+                    <div class="tl-hourline" style="top: 50px"></div>
+                    <div class="tl-hourline" style="top: 100px"></div>
+                    <div class="tl-hourline" style="top: 150px"></div>
+                    <div class="tl-hourline" style="top: 200px"></div>
+                    <div class="tl-hourline" style="top: 250px"></div>
+                    <div class="tl-hourline" style="top: 300px"></div>
+                    <div class="tl-hourline" style="top: 350px"></div>
+                    <div class="tl-hourline" style="top: 400px"></div>
+                    <div class="tl-hourline" style="top: 450px"></div>
+                    <div class="tl-hourline" style="top: 500px"></div>
+                    <div class="tl-hourline" style="top: 550px"></div>
+                    <div class="tl-hourline" style="top: 600px"></div>
+                    <div class="tl-hourline" style="top: 650px"></div>
+                    <div class="tl-hourline" style="top: 700px"></div>
+                  </div>
+                </div>
+
+                <div class="tl-day-col" data-day="Fri">
+                  <div class="tl-day-head">Fri <span>14</span></div>
+                  <div class="tl-unscheduled">
+                    <div
+                      class="tl-chip"
+                      style="background: var(--line2); color: var(--t2)"
+                      draggable="true"
+                    >
+                      Book flight
+                    </div>
+                  </div>
+                  <div class="tl-grid">
+                    <div class="tl-hourline" style="top: 0px"></div>
+                    <div class="tl-hourline" style="top: 50px"></div>
+                    <div class="tl-hourline" style="top: 100px"></div>
+                    <div class="tl-hourline" style="top: 150px"></div>
+                    <div class="tl-hourline" style="top: 200px"></div>
+                    <div class="tl-hourline" style="top: 250px"></div>
+                    <div class="tl-hourline" style="top: 300px"></div>
+                    <div class="tl-hourline" style="top: 350px"></div>
+                    <div class="tl-hourline" style="top: 400px"></div>
+                    <div class="tl-hourline" style="top: 450px"></div>
+                    <div class="tl-hourline" style="top: 500px"></div>
+                    <div class="tl-hourline" style="top: 550px"></div>
+                    <div class="tl-hourline" style="top: 600px"></div>
+                    <div class="tl-hourline" style="top: 650px"></div>
+                    <div class="tl-hourline" style="top: 700px"></div>
+                  </div>
+                </div>
+
+                <div class="tl-day-col" data-day="Sat">
+                  <div class="tl-day-head">Sat <span>15</span></div>
+                  <div class="tl-unscheduled"></div>
+                  <div class="tl-grid">
+                    <div class="tl-hourline" style="top: 0px"></div>
+                    <div class="tl-hourline" style="top: 50px"></div>
+                    <div class="tl-hourline" style="top: 100px"></div>
+                    <div class="tl-hourline" style="top: 150px"></div>
+                    <div class="tl-hourline" style="top: 200px"></div>
+                    <div class="tl-hourline" style="top: 250px"></div>
+                    <div class="tl-hourline" style="top: 300px"></div>
+                    <div class="tl-hourline" style="top: 350px"></div>
+                    <div class="tl-hourline" style="top: 400px"></div>
+                    <div class="tl-hourline" style="top: 450px"></div>
+                    <div class="tl-hourline" style="top: 500px"></div>
+                    <div class="tl-hourline" style="top: 550px"></div>
+                    <div class="tl-hourline" style="top: 600px"></div>
+                    <div class="tl-hourline" style="top: 650px"></div>
+                    <div class="tl-hourline" style="top: 700px"></div>
+                  </div>
+                </div>
+
+                <div class="tl-day-col" data-day="Sun">
+                  <div class="tl-day-head">Sun <span>16</span></div>
+                  <div class="tl-unscheduled"></div>
+                  <div class="tl-grid">
+                    <div class="tl-hourline" style="top: 0px"></div>
+                    <div class="tl-hourline" style="top: 50px"></div>
+                    <div class="tl-hourline" style="top: 100px"></div>
+                    <div class="tl-hourline" style="top: 150px"></div>
+                    <div class="tl-hourline" style="top: 200px"></div>
+                    <div class="tl-hourline" style="top: 250px"></div>
+                    <div class="tl-hourline" style="top: 300px"></div>
+                    <div class="tl-hourline" style="top: 350px"></div>
+                    <div class="tl-hourline" style="top: 400px"></div>
+                    <div class="tl-hourline" style="top: 450px"></div>
+                    <div class="tl-hourline" style="top: 500px"></div>
+                    <div class="tl-hourline" style="top: 550px"></div>
+                    <div class="tl-hourline" style="top: 600px"></div>
+                    <div class="tl-hourline" style="top: 650px"></div>
+                    <div class="tl-hourline" style="top: 700px"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ FOCUS VIEW ═══ -->
+        <div id="view-focus" style="display: none; height: 100%">
+          <div class="focus-wrap" id="focusWrap">
+            <div class="focus-lbl">Up next</div>
+            <div class="focus-task-title" id="focusTaskTitle">
+              You're all caught up
+            </div>
+            <div class="focus-task-sub" id="focusTaskSub">
+              No tasks in progress
+            </div>
+            <div class="focus-ring">
+              <div class="focus-ring-time">18:24</div>
+            </div>
+            <div class="focus-actions">
+              <button
+                class="cta-ghost"
+                id="focusPauseBtn"
+                onclick="toggleFocusTimer()"
+              >
+                <i class="ti ti-player-pause" style="font-size: 13px"></i>Pause
+              </button>
+              <button class="cta-purple" id="focusOpenBtn">
+                <i class="ti ti-check" style="font-size: 13px"></i>Open task
+              </button>
+            </div>
+            <div class="focus-next-lbl" id="focusNextLbl"></div>
+          </div>
+        </div>
+
+        <!-- ═══ INSIGHTS VIEW ═══ -->
+        <div id="view-insights" style="display: none">
+          <div class="list-wrap">
+            <div class="siva-banner" style="margin-left: 0; margin-right: 0">
+              <div class="siva-banner-icon"><i class="ti ti-sparkles"></i></div>
+              <div class="siva-banner-text">
+                SIVA looked at your last 6 weeks of tasks. A few patterns worth
+                knowing about.
+              </div>
+            </div>
+
+            <div class="insight-stat-grid" id="insightStatGrid">
+              <div class="insight-stat-cell">
+                <div class="insight-stat-val" id="statCompletionRate">–</div>
+                <div class="insight-stat-lbl">Tasks completed</div>
+              </div>
+              <div class="insight-stat-cell">
+                <div class="insight-stat-val" id="statOpenCount">–</div>
+                <div class="insight-stat-lbl">Open tasks</div>
+              </div>
+              <div class="insight-stat-cell">
+                <div
+                  class="insight-stat-val"
+                  id="statOverdueCount"
+                  style="color: var(--red)"
+                >
+                  –
+                </div>
+                <div class="insight-stat-lbl">Overdue right now</div>
+              </div>
+              <div class="insight-stat-cell">
+                <div class="insight-stat-val" id="statAvgSubtasks">–</div>
+                <div class="insight-stat-lbl">Avg. subtasks per task</div>
+              </div>
+            </div>
+
+            <div class="list-group-head" style="margin-top: 22px">
+              <div class="list-group-title">Patterns</div>
+            </div>
+            <div id="insightPatterns">
+              <div
+                class="insight-row"
+                style="color: var(--t4); font-size: 12px"
+              >
+                Complete a few tasks and SIVA will start surfacing patterns
+                here.
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- List view -->
-  <div id="sh-list-view">
-    <div id="sh-list-container"></div>
-  </div>
-
-  <!-- Add / Edit task modal -->
-  <div id="sh-modal-bg">
-    <div class="fx-modal-card">
-      <div class="fx-sheet-handle"></div>
-      <div class="fx-modal-heading">
-        <span id="sh-modal-heading">New Task</span>
-        <button class="fx-modal-close" onclick="closeSHModal()">
-          <i class="ti ti-x"></i>
-        </button>
-      </div>
-
-      <!-- Task name -->
-      <div class="sh-field-group">
-        <label class="sh-field-label">Task name *</label>
-        <input
-          id="sh-modal-title"
-          class="sh-input"
-          placeholder="e.g. Write introduction chapter"
-          style="font-size: 0.9rem"
-          onkeydown="
-            if (event.key === 'Enter' && !event.shiftKey) saveSHModal();
-          "
-        />
-      </div>
-
-      <!-- Status + Task type -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
-        <div class="sh-field-group">
-          <label class="sh-field-label">Status</label>
-          <select
-            id="sh-modal-status"
-            class="sh-input"
-            style="font-size: 0.82rem"
-          >
-            <option value="todo">Not Started</option>
-            <option value="inprogress">In Progress</option>
-            <option value="done">Done</option>
-          </select>
-        </div>
-        <div class="sh-field-group">
-          <label class="sh-field-label">Task type</label>
-          <select
-            id="sh-modal-type"
-            class="sh-input"
-            style="font-size: 0.82rem"
-          >
-            <option value="work">📋 Work Item</option>
-            <option value="research">🔬 Research</option>
-            <option value="reading">📖 Reading</option>
-            <option value="project">🗂 Project</option>
-            <option value="review">🔄 Review</option>
-            <option value="other">⚙️ Other</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Description -->
-      <div class="sh-field-group">
-        <label class="sh-field-label">Description</label>
-        <textarea
-          id="sh-modal-desc"
-          class="sh-input"
-          rows="2"
-          placeholder="What needs to be done..."
-          style="resize: none; font-size: 0.84rem"
-        ></textarea>
-      </div>
-
-      <!-- Assignee + Priority -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
-        <div class="sh-field-group">
-          <label class="sh-field-label">Assignee</label>
-          <input
-            id="sh-modal-assignee"
-            class="sh-input"
-            placeholder="Name or @username"
-            style="font-size: 0.82rem"
-          />
-        </div>
-        <div class="sh-field-group">
-          <label class="sh-field-label">Priority</label>
-          <select
-            id="sh-modal-priority"
-            class="sh-input"
-            style="font-size: 0.82rem"
-          >
-            <option value="normal">Normal</option>
-            <option value="high">🔴 High</option>
-            <option value="medium">🟡 Medium</option>
-            <option value="low">🟢 Low</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Link to goal -->
-      <div class="sh-field-group">
-        <label class="sh-field-label"
-          >Link to goal
-          <span style="color: var(--fx-t4); font-weight: 400"
-            >(optional)</span
-          ></label
-        >
-        <select id="sh-modal-goal" class="sh-input" style="font-size: 0.82rem">
-          <option value="">No goal</option>
-        </select>
-      </div>
-
-      <!-- Due date + Time -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px">
-        <div class="sh-field-group">
-          <label class="sh-field-label">Due date</label>
-          <input
-            id="sh-modal-date"
-            type="date"
-            class="sh-input"
-            style="font-size: 0.82rem"
-          />
-        </div>
-        <div class="sh-field-group">
-          <label class="sh-field-label">Due time</label>
-          <input
-            id="sh-modal-time"
-            type="time"
-            class="sh-input"
-            style="font-size: 0.82rem"
-          />
-        </div>
-        <div class="sh-field-group">
-          <label class="sh-field-label">Repeat</label>
-          <select
-            id="sh-modal-recur"
-            class="sh-input"
-            style="font-size: 0.82rem"
-          >
-            <option value="">One time</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Summary -->
-      <div class="sh-field-group">
-        <label class="sh-field-label">Summary / Notes</label>
-        <textarea
-          id="sh-modal-summary"
-          class="sh-input"
-          rows="2"
-          placeholder="Brief summary or additional notes..."
-          style="resize: none; font-size: 0.84rem"
-        ></textarea>
-      </div>
-
-      <!-- Attach file -->
-      <div class="sh-field-group">
-        <label class="sh-field-label">Attach file</label>
-        <div style="display: flex; gap: 8px; align-items: center">
-          <input
-            type="file"
-            id="sh-modal-file"
-            style="display: none"
-            onchange="handleSHAttach(this)"
-          />
-          <button class="fx-attach-btn" onclick="$('sh-modal-file').click()">
-            <i class="ti ti-paperclip"></i> Choose file
-          </button>
-          <span
-            id="sh-modal-file-name"
-            style="font-size: 0.75rem; color: var(--fx-t3)"
-            >No file chosen</span
-          >
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div style="display: flex; gap: 8px; margin-top: 0.5rem">
-        <button class="fx-btn-primary" onclick="saveSHModal()">
-          Save Task
-        </button>
-        <button class="fx-btn-ghost" onclick="closeSHModal()">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Task detail side panel -->
-  <div id="sh-detail-panel">
-    <div class="fx-detail-head">
-      <span>Task Detail</span>
-      <button class="fx-detail-close" onclick="shCloseDetail()">
+    <!-- ═══ TASK DETAIL SHEET ═══ -->
+    <div class="sheet-overlay" id="detailOverlay" onclick="closeDetail()"></div>
+    <div class="sheet" id="detailSheet">
+      <div class="sheet-close" onclick="closeDetail()">
         <i class="ti ti-x"></i>
-      </button>
+      </div>
+      <div class="sheet-handle"></div>
+      <div class="sheet-scroll" id="detailScroll">
+        <!-- rendered by tasks.js -->
+      </div>
     </div>
-    <div id="sh-detail-body"></div>
-  </div>
-  <div id="sh-detail-backdrop" onclick="shCloseDetail()"></div>
-</div>
+
+    <!-- ═══ NEW TASK SHEET — AI-assisted breakdown ═══ -->
+    <div
+      class="sheet-overlay"
+      id="newTaskOverlay"
+      onclick="closeNewTask()"
+    ></div>
+    <div class="sheet" id="newTaskSheet">
+      <div class="sheet-close" onclick="closeNewTask()">
+        <i class="ti ti-x"></i>
+      </div>
+      <div class="sheet-handle"></div>
+      <div class="sheet-scroll">
+        <div style="font-size: 16px; font-weight: 700; margin: 8px 0 2px">
+          New task
+        </div>
+        <div style="font-size: 11.5px; color: var(--t3); margin-bottom: 6px">
+          Tell SIVA what you're trying to get done — it'll suggest a breakdown
+        </div>
+
+        <div class="ai-input-row">
+          <i class="ti ti-sparkles"></i
+          ><input
+            type="text"
+            id="newTaskAiPrompt"
+            placeholder="e.g. Plan the Q3 launch"
+          />
+        </div>
+        <button class="ai-breakdown-btn" onclick="showAiBreakdown()">
+          <i class="ti ti-wand" style="font-size: 14px"></i>Break it down with
+          SIVA
+        </button>
+
+        <div
+          class="ai-generated-list"
+          id="aiGeneratedList"
+          style="display: none"
+        >
+          <div class="ai-generated-head">
+            <i class="ti ti-sparkles" style="font-size: 13px"></i>SIVA breakdown
+            isn't hooked up yet — for now, add subtasks from the task's detail
+            view after creating it.
+          </div>
+        </div>
+
+        <div class="field-row">
+          <label class="field-lbl">Title</label
+          ><input
+            class="field-input"
+            type="text"
+            id="newTaskTitle"
+            placeholder="Task name"
+          />
+        </div>
+        <div class="field-row">
+          <label class="field-lbl">Description</label
+          ><textarea
+            class="field-textarea"
+            id="newTaskDesc"
+            placeholder="Optional details..."
+          ></textarea>
+        </div>
+        <div class="field-grid2">
+          <div class="field-row">
+            <label class="field-lbl">Due date</label
+            ><input class="field-input" type="date" id="newTaskDate" />
+          </div>
+          <div class="field-row">
+            <label class="field-lbl">Estimated effort</label
+            ><input
+              class="field-input"
+              type="text"
+              id="newTaskEffort"
+              placeholder="e.g. 2 hours"
+            />
+          </div>
+        </div>
+        <div class="field-row">
+          <label class="field-lbl">Priority</label>
+          <div class="priority-pill-row" id="newTaskPriorityRow">
+            <div class="priority-pill" data-priority="low">Low</div>
+            <div class="priority-pill sel" data-priority="medium">Medium</div>
+            <div class="priority-pill" data-priority="high">High</div>
+          </div>
+        </div>
+        <div class="field-grid2">
+          <div class="field-row">
+            <label class="field-lbl">Repeats</label>
+            <select class="field-select" id="newTaskRepeat">
+              <option value="none">Doesn't repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <label class="field-lbl">Status</label>
+            <select class="field-select" id="newTaskStatus">
+              <option value="todo">To Do</option>
+              <option value="inprogress">In Progress</option>
+              <option value="blocked">Blocked</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+        </div>
+        <div
+          class="field-row"
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 11px 13px;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              font-size: 12px;
+              color: var(--t2);
+            "
+          >
+            <i
+              class="ti ti-brand-whatsapp"
+              style="color: #3ba55c; font-size: 15px"
+            ></i
+            >Also remind me on WhatsApp
+          </div>
+          <div class="wa-toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+
+        <button
+          class="cta-purple block"
+          id="newTaskSaveBtn"
+          onclick="saveNewTaskFromSheet()"
+        >
+          <i class="ti ti-check" style="font-size: 13px"></i>Create task
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══ INVITE SHEET ═══ -->
+    <div class="sheet-overlay" id="inviteOverlay" onclick="closeInvite()"></div>
+    <div class="sheet" id="inviteSheet">
+      <div class="sheet-close" onclick="closeInvite()">
+        <i class="ti ti-x"></i>
+      </div>
+      <div class="sheet-handle"></div>
+      <div class="sheet-scroll">
+        <div style="font-size: 16px; font-weight: 700; margin: 8px 0 2px">
+          Invite to this task
+        </div>
+        <div style="font-size: 11.5px; color: var(--t3); margin-bottom: 18px">
+          They'll join as a contributor — you stay the owner
+        </div>
+        <div class="field-row">
+          <label class="field-lbl">Name or email</label
+          ><input
+            class="field-input"
+            type="text"
+            placeholder="Search Sivarr contacts or enter email"
+          />
+        </div>
+        <div class="field-row">
+          <label class="field-lbl">Permission</label>
+          <select class="field-select">
+            <option>Can check off subtasks &amp; comment</option>
+            <option>Can view only</option>
+          </select>
+        </div>
+        <button class="cta-purple block" onclick="closeInvite()">
+          <i class="ti ti-send" style="font-size: 13px"></i>Send invite
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══ WHATSAPP CONNECTOR SHEET ═══ -->
+    <div class="sheet-overlay" id="waOverlay" onclick="closeWhatsApp()"></div>
+    <div class="sheet" id="waSheet">
+      <div class="sheet-close" onclick="closeWhatsApp()">
+        <i class="ti ti-x"></i>
+      </div>
+      <div class="sheet-handle"></div>
+      <div class="sheet-scroll">
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            margin: 8px 0 4px;
+          "
+        >
+          <div
+            style="
+              width: 38px;
+              height: 38px;
+              border-radius: 11px;
+              background: #123320;
+              color: #3ba55c;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 18px;
+            "
+          >
+            <i class="ti ti-brand-whatsapp"></i>
+          </div>
+          <div style="font-size: 16px; font-weight: 700">
+            WhatsApp for Tasks
+          </div>
+        </div>
+        <div
+          style="
+            font-size: 11.5px;
+            color: var(--t3);
+            margin: 8px 0 20px;
+            line-height: 1.6;
+          "
+        >
+          Connect a number and you can create a task by just messaging it —
+          forward a message, voice note, or just type what needs doing. SIVA
+          turns it into a task automatically.
+        </div>
+
+        <div class="detail-meta-cell" style="margin-bottom: 20px">
+          <div class="detail-meta-lbl">
+            <i class="ti ti-phone"></i>Connected number
+          </div>
+          <div class="detail-meta-val">+234 801 •••• 21</div>
+        </div>
+
+        <div
+          class="field-row"
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 11px 13px;
+          "
+        >
+          <div style="font-size: 12px; color: var(--t2)">
+            Create tasks from forwarded messages
+          </div>
+          <div class="wa-toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div
+          class="field-row"
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 11px 13px;
+          "
+        >
+          <div style="font-size: 12px; color: var(--t2)">
+            Send due-date reminders
+          </div>
+          <div class="wa-toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div
+          class="field-row"
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 11px 13px;
+            margin-bottom: 22px;
+          "
+        >
+          <div style="font-size: 12px; color: var(--t2)">
+            Daily "what's due today" digest
+          </div>
+          <div class="wa-toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+
+        <button class="cta-ghost block" onclick="closeWhatsApp()">Done</button>
+      </div>
+    </div>
+
+    <script>
+      /* ── View switcher ── */
+      document.querySelectorAll(".view-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll(".view-btn")
+            .forEach((b) => b.classList.remove("on"));
+          btn.classList.add("on");
+          ["list", "kanban", "calendar", "focus", "insights"].forEach(
+            (name) => {
+              document.getElementById("view-" + name).style.display =
+                name === btn.dataset.view ? "block" : "none";
+            },
+          );
+          if (
+            btn.dataset.view === "kanban" ||
+            btn.dataset.view === "focus" ||
+            btn.dataset.view === "calendar"
+          ) {
+            document.getElementById("view-" + btn.dataset.view).style.display =
+              "flex";
+            document.getElementById(
+              "view-" + btn.dataset.view,
+            ).style.flexDirection = "column";
+            document.getElementById("view-" + btn.dataset.view).style.height =
+              "100%";
+          }
+          document.getElementById("scrollArea").scrollTop = 0;
+          if (btn.dataset.view === "focus") startFocusTimer();
+          else stopFocusTimer();
+          if (btn.dataset.view === "insights" && window.renderInsightsView)
+            renderInsightsView();
+        });
+      });
+
+      /* ── Sheet open/close helpers (tasks.js calls these) ── */
+      function openSheet(id, overlayId) {
+        document.getElementById(id).classList.add("open");
+        document.getElementById(overlayId).classList.add("show");
+      }
+      function closeSheetEls(id, overlayId) {
+        document.getElementById(id).classList.remove("open");
+        document.getElementById(overlayId).classList.remove("show");
+      }
+      function openWhatsApp() {
+        openSheet("waSheet", "waOverlay");
+      }
+      function closeWhatsApp() {
+        closeSheetEls("waSheet", "waOverlay");
+      }
+      function openInvite() {
+        openSheet("inviteSheet", "inviteOverlay");
+      }
+      function closeInvite() {
+        closeSheetEls("inviteSheet", "inviteOverlay");
+      }
+      function showAiBreakdown() {
+        document.getElementById("aiGeneratedList").style.display = "block";
+      }
+
+      /* ── Focus timer (cosmetic countdown ring; task content comes from tasks.js) ── */
+      let focusSeconds = 18 * 60 + 24,
+        focusInterval = null;
+      function renderFocusTime() {
+        const m = String(Math.floor(focusSeconds / 60)).padStart(2, "0");
+        const s = String(focusSeconds % 60).padStart(2, "0");
+        const el = document.querySelector(".focus-ring-time");
+        if (el) el.textContent = m + ":" + s;
+      }
+      function startFocusTimer() {
+        if (focusInterval) return;
+        focusInterval = setInterval(() => {
+          if (focusSeconds <= 0) {
+            stopFocusTimer();
+            return;
+          }
+          focusSeconds--;
+          renderFocusTime();
+        }, 1000);
+      }
+      function stopFocusTimer() {
+        clearInterval(focusInterval);
+        focusInterval = null;
+      }
+      function toggleFocusTimer() {
+        const btn = document.getElementById("focusPauseBtn");
+        if (focusInterval) {
+          stopFocusTimer();
+          if (btn)
+            btn.innerHTML =
+              '<i class="ti ti-player-play" style="font-size: 13px"></i>Resume';
+        } else {
+          startFocusTimer();
+          if (btn)
+            btn.innerHTML =
+              '<i class="ti ti-player-pause" style="font-size: 13px"></i>Pause';
+        }
+      }
+
+      /* ── Timeline (Calendar view) — visual drag/reschedule only, not yet wired to saved tasks ── */
+      function pxToTimeLabel(px, durationPx) {
+        const totalMin = Math.round(((px / 50) * 60) / 30) * 30; // snap to 30-min
+        const startMin = 7 * 60 + totalMin;
+        const endMin = startMin + Math.round((durationPx / 50) * 60);
+        const fmt = (m) => {
+          let h = Math.floor(m / 60),
+            mm = m % 60;
+          const ap = h >= 12 ? "pm" : "am";
+          let h12 = h % 12;
+          if (h12 === 0) h12 = 12;
+          return h12 + (mm ? ":" + String(mm).padStart(2, "0") : "") + ap;
+        };
+        return fmt(startMin) + "–" + fmt(endMin);
+      }
+      let dragCard = null;
+      document.querySelectorAll(".tl-block, .tl-chip").forEach((el) => {
+        el.addEventListener("dragstart", () => {
+          dragCard = el;
+          el.style.opacity = ".4";
+        });
+        el.addEventListener("dragend", () => {
+          el.style.opacity = "1";
+          dragCard = null;
+        });
+      });
+      document.querySelectorAll(".tl-grid").forEach((grid) => {
+        grid.addEventListener("dragover", (e) => e.preventDefault());
+        grid.addEventListener("drop", (e) => {
+          e.preventDefault();
+          if (!dragCard) return;
+          const rect = grid.getBoundingClientRect();
+          let dropY = e.clientY - rect.top;
+          dropY = Math.max(0, Math.min(690, Math.round(dropY / 25) * 25));
+
+          if (dragCard.classList.contains("tl-chip")) {
+            const block = document.createElement("div");
+            block.className = "tl-block";
+            block.style.cssText =
+              "top:" +
+              dropY +
+              "px;height:75px;background:" +
+              getComputedStyle(dragCard).backgroundColor +
+              ";color:" +
+              getComputedStyle(dragCard).color +
+              ";border-left-color:var(--t3);";
+            block.innerHTML =
+              '<div class="tl-block-time">' +
+              pxToTimeLabel(dropY, 75) +
+              '</div><div class="tl-block-title">' +
+              dragCard.textContent +
+              "</div>";
+            block.setAttribute("draggable", "true");
+            block.addEventListener("dragstart", () => {
+              dragCard = block;
+            });
+            grid.appendChild(block);
+            dragCard.remove();
+          } else {
+            const height = parseInt(dragCard.style.height);
+            dragCard.style.top = dropY + "px";
+            const timeEl = dragCard.querySelector(".tl-block-time");
+            if (timeEl) timeEl.textContent = pxToTimeLabel(dropY, height);
+            grid.appendChild(dragCard);
+          }
+        });
+      });
+
+      /* Task data, rendering, and all sheet content (list/kanban/focus/insights/detail/new-task) live in tasks.js */
+    </script>
+    <script src="tasks.js"></script>
+  </body>
+</html>
