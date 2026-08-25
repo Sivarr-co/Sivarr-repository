@@ -220,7 +220,11 @@ SIVARR_PLANS = {
     "creator_monthly":      {"name": "Creator",      "label": "Monthly",  "amount_usd": 22,   "period": "monthly", "space": "personal"},
     "creator_yearly":       {"name": "Creator",      "label": "Yearly",   "amount_usd": 198,  "period": "yearly",  "space": "personal"},
     # Founding-100 ($6/mo for life) — opens fresh at launch, hidden from the public catalog until then.
-    "founding_monthly":     {"name": "Pro",          "label": "Founding", "amount_usd": 6,    "period": "monthly", "space": "personal", "cohort": "founding_100", "hidden": True},
+    # "cap" is enforced atomically at verify (db.claim_capped_slot) -- "hidden" alone
+    # only ever kept this out of the public /api/billing/plans listing, never out of
+    # checkout, so before this cap existed it was subscribable an unlimited number of
+    # times by anyone who found the plan id.
+    "founding_monthly":     {"name": "Pro",          "label": "Founding", "amount_usd": 6,    "period": "monthly", "space": "personal", "cohort": "founding_100", "cap": 100, "hidden": True},
     # ── Academic Space ──
     "student_pro_monthly":  {"name": "Student Pro",  "label": "Monthly",  "amount_usd": 4.99, "period": "monthly", "space": "academic"},
     "student_pro_yearly":   {"name": "Student Pro",  "label": "Yearly",   "amount_usd": 35,   "period": "yearly",  "space": "academic"},
@@ -281,6 +285,25 @@ def plan_charge_ngn(plan: dict, seats: int = 1) -> int:
         return 0
     usd = plan.get("amount_usd", 0) * (seats if plan.get("per_seat") else 1)
     return int(round(usd * get_naira_rate()))
+
+def _claim_cohort_slot_if_needed(plan: dict) -> bool:
+    """For a plan with a capped `cohort` (currently only founding_monthly),
+    atomically claim one of its limited slots. Returns True if the plan has
+    no cohort/cap (nothing to claim, always fine) or a slot was actually
+    claimed; False means the cap is reached and the caller must refuse to
+    activate the subscription. Call this from verify, once, right before
+    writing the subscription -- not from subscribe/init (see
+    db.claim_capped_slot's docstring for why)."""
+    cohort = plan.get("cohort")
+    cap    = plan.get("cap")
+    if not cohort or not cap:
+        return True
+    claimed = db.claim_capped_slot(f"cohort_{cohort}_count", cap)
+    if claimed is None:
+        log.warning(f"Cohort '{cohort}' is full (cap {cap}) — refusing a new founding activation.")
+        return False
+    log.info(f"Cohort '{cohort}': slot {claimed}/{cap} claimed.")
+    return True
 
 # ── Organisation per-seat pricing (Phase 2b) ───────────────────────
 ORG_SEAT_USD_MONTHLY = int(os.environ.get("ORG_SEAT_USD_MONTHLY", 10))
@@ -3250,8 +3273,26 @@ _PLAN_CAPS = {
     "Educator Pro": {"spaces": 3,    "templates": None, "integrations": 5,    "analytics_days": None, "ai_chat_daily": PRO_DAILY_CHAT,      "ai_actions_daily": PRO_DAILY_AI},
     "Pro":          {"spaces": 3,    "templates": None, "integrations": 5,    "analytics_days": None, "ai_chat_daily": PRO_DAILY_CHAT,      "ai_actions_daily": PRO_DAILY_AI},
     "Creator":      {"spaces": None, "templates": None, "integrations": None, "analytics_days": None, "ai_chat_daily": CREATOR_DAILY_CHAT,  "ai_actions_daily": CREATOR_DAILY_AI},
-    "Team":         {"spaces": None, "templates": None, "integrations": None, "analytics_days": None, "ai_chat_daily": CREATOR_DAILY_CHAT,  "ai_actions_daily": CREATOR_DAILY_AI},
+    # Was CREATOR_DAILY_CHAT/AI (600/800) -- a $10/seat Team plan was silently
+    # given the same AI ceiling as the $22/mo Creator plan. Team now sits at
+    # Pro's caps (250/400), the closer match for its price point.
+    "Team":         {"spaces": None, "templates": None, "integrations": None, "analytics_days": None, "ai_chat_daily": PRO_DAILY_CHAT,      "ai_actions_daily": PRO_DAILY_AI},
 }
+
+# Tier ordering for "does this plan unlock a feature gated at tier X" checks —
+# mirrors js/app.js's _PLAN_LEVELS/_hasPlan exactly (Creator and Team are both
+# tier 2; a feature gated at "Team" is unlocked by either). Used server-side
+# so a gate the client already enforces (e.g. Founder Mode) can't be reached
+# by calling the API directly -- see routes/org.py's founder endpoints, which
+# had no plan check at all before this, only an org-role check.
+_PLAN_LEVELS = {
+    "Free": 0,
+    "Pro": 1, "Student Pro": 1, "Educator Pro": 1,
+    "Creator": 2, "Team": 2,
+}
+
+def _has_plan(p: dict, required: str) -> bool:
+    return _PLAN_LEVELS.get(_plan_name(p), 0) >= _PLAN_LEVELS.get(required, 0)
 
 def _plan_name(p: dict) -> str:
     """The user's effective plan name ('Free' if no active paid sub)."""
@@ -5846,6 +5887,14 @@ async def billing_verify(reference: str, token: str = ""):
                 "name": sub.get("name", plan["name"]),
                 "expires": sub.get("expires", ""), "idempotent": True}
 
+    # Capped-cohort plans (currently only founding_monthly): claim a slot only
+    # on first activation of THIS plan, not on a renewal re-verify of a plan
+    # the user already holds -- otherwise a founding member simply renewing
+    # monthly would consume 12 of the 100 lifetime slots in a year.
+    if p.get("subscription", {}).get("plan") != plan_id and not _claim_cohort_slot_if_needed(plan):
+        raise HTTPException(409, "This plan's founding cohort is full. Payment was made but no slots "
+                                  "remain — contact support for a refund or an alternate plan.")
+
     now     = datetime.datetime.utcnow()
     expires = (now + datetime.timedelta(days=365 if plan.get("period")=="yearly" else 30)).strftime("%Y-%m-%d")
     p["subscription"] = {
@@ -6567,6 +6616,13 @@ async def flutterwave_verify(reference: str, token: str = "", plan_id: str = "")
     if any(h.get("reference") == reference for h in p.get("billing_history", [])):
         return {"ok": True, "plan": p.get("subscription", {}), "idempotent": True}
 
+    # Capped-cohort plans (currently only founding_monthly): claim a slot only
+    # on first activation of THIS plan, not on a renewal re-verify of a plan
+    # the user already holds -- same reasoning as the Paystack path above.
+    if p.get("subscription", {}).get("plan") != plan_id and not _claim_cohort_slot_if_needed(plan):
+        raise HTTPException(409, "This plan's founding cohort is full. Payment was made but no slots "
+                                  "remain — contact support for a refund or an alternate plan.")
+
     expires = (datetime.datetime.utcnow() + datetime.timedelta(
         days=365 if plan.get("period") == "yearly" else 32
     )).strftime("%Y-%m-%d")
@@ -6584,7 +6640,10 @@ async def flutterwave_verify(reference: str, token: str = "", plan_id: str = "")
     history.insert(0, {
         "date": now_str,
         "plan": plan["name"],
-        "amount": f"₦{plan['amount_ngn']:,}",
+        # plan has no "amount_ngn" key (only "amount_usd") -- this crashed
+        # with a KeyError on every successful Flutterwave verification.
+        # expected_ngn above is the correct, already-computed NGN charge.
+        "amount": f"₦{expected_ngn:,}",
         "reference": reference,
         "gateway": "flutterwave",
         "status": "paid",
@@ -6596,7 +6655,7 @@ async def flutterwave_verify(reference: str, token: str = "", plan_id: str = "")
     if email:
         send_email(email, f"Sivarr {plan['name']} · Payment Confirmed",
                    _email_billing_receipt_html(name, plan["name"],
-                       f"₦{plan['amount_ngn']:,}", reference))
+                       f"₦{expected_ngn:,}", reference))
     return {"ok": True, "plan": p["subscription"]}
 
 
@@ -7149,7 +7208,7 @@ def send_push(sid: str, title: str, body: str, url: str = "/app", tag: str = "si
 # (see that module's docstring) — wired here since send_push is the last of
 # the four to be defined, same ordering constraint as routes/ai_chat.py.
 from routes.org import build_router as _build_org_router
-app.include_router(_build_org_router(load_progress, send_email, send_push, _is_valid_admin_session, _SESSION_COOKIE_KEY))
+app.include_router(_build_org_router(load_progress, send_email, send_push, _is_valid_admin_session, _SESSION_COOKIE_KEY, _has_plan))
 
 # routes/academic.py needs only send_push (see that module's docstring) —
 # wired here for the same reason as routes/org.py just above.

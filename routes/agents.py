@@ -84,6 +84,28 @@ PAYSTACK_PUBLIC_KEY    = os.environ.get("PAYSTACK_PUBLIC_KEY", "")
 PAYSTACK_AVAILABLE     = bool(PAYSTACK_SECRET_KEY)
 PAYSTACK_API           = "https://api.paystack.co"
 
+# Below this, Sivarr's own 10% cut doesn't even cover Stripe's per-transaction
+# fee (2.9% + $0.30), let alone the Connect payout fee on top of that -- e.g.
+# a $5 sale nets Sivarr $0.50 gross, of which ~$0.445 goes straight to Stripe.
+# $8 is comfortably past the ~$4.23 break-even where the platform's cut alone
+# covers the card fee. $0 (free) is exempt -- those never touch Stripe at all
+# (see the free-install branch above).
+TEMPLATE_MIN_PRICE_USD = 8.0
+
+def _validate_price_ngn_floor(price_ngn, get_naira_rate) -> None:
+    """price_ngn is an independent manual override -- paystack_initialize
+    (below) charges it directly instead of converting `price` at all when
+    it's set, so validating only `price`'s USD floor left this wide open:
+    list at price=$10 (passes) but price_ngn=50 (~$0.03) and every NGN buyer
+    pays next to nothing. Same floor, converted at the live rate."""
+    if price_ngn is None:
+        return
+    floor_ngn = TEMPLATE_MIN_PRICE_USD * get_naira_rate()
+    if 0 < price_ngn < floor_ngn:
+        raise HTTPException(400, f"Paid templates must be at least ₦{floor_ngn:,.0f} "
+                                  f"(≈ ${TEMPLATE_MIN_PRICE_USD:g}) — below that, card processing "
+                                  f"fees eat the entire sale. Set it to 0 to publish for free instead.")
+
 
 def build_router(load_progress, _plan_caps, _is_valid_admin_session, get_naira_rate, _rc_get, _rc_set, _rc_bust) -> APIRouter:
     router = APIRouter()
@@ -330,6 +352,13 @@ def build_router(load_progress, _plan_caps, _is_valid_admin_session, get_naira_r
         agent = db.get_agent_by_user(sid)
         if not agent or agent.get("status") != "active":
             raise HTTPException(403, "Active agent account required.")
+        price = max(0.0, float(data.get("price", 0)))
+        if 0 < price < TEMPLATE_MIN_PRICE_USD:
+            raise HTTPException(400, f"Paid templates must be at least ${TEMPLATE_MIN_PRICE_USD:g} "
+                                      f"— below that, card processing fees eat the entire sale. "
+                                      f"Set it to $0 to publish for free instead.")
+        price_ngn = float(data["price_ngn"]) if data.get("price_ngn") is not None else None
+        _validate_price_ngn_floor(price_ngn, get_naira_rate)
         tpl_id = uuid.uuid4().hex[:20]
         tpl = {
             "id":                tpl_id,
@@ -340,8 +369,8 @@ def build_router(load_progress, _plan_caps, _is_valid_admin_session, get_naira_r
             "category":          sanitize_text(str(data.get("category","workspace")),50),
             "tags":              [sanitize_text(str(t),50) for t in (data.get("tags") or [])[:5]],
             "thumbnail_color":   sanitize_text(str(data.get("thumbnail_color","#4f6ef7")),20),
-            "price":             max(0.0, float(data.get("price",0))),
-            "price_ngn":         float(data["price_ngn"]) if data.get("price_ngn") is not None else None,
+            "price":             price,
+            "price_ngn":         price_ngn,
             "contents":          data.get("contents") or {},
             "included_items":    data.get("included_items") or [],
             "status":            "draft",
@@ -366,8 +395,13 @@ def build_router(load_progress, _plan_caps, _is_valid_admin_session, get_naira_r
                 fields[k] = data[k]
         if "price" in fields:
             fields["price"] = max(0.0, float(fields["price"]))
+            if 0 < fields["price"] < TEMPLATE_MIN_PRICE_USD:
+                raise HTTPException(400, f"Paid templates must be at least ${TEMPLATE_MIN_PRICE_USD:g} "
+                                          f"— below that, card processing fees eat the entire sale. "
+                                          f"Set it to $0 to publish for free instead.")
         if "price_ngn" in fields:
             fields["price_ngn"] = float(fields["price_ngn"]) if fields["price_ngn"] is not None else None
+            _validate_price_ngn_floor(fields["price_ngn"], get_naira_rate)
         db.update_template(template_id, agent["id"], fields)
         return {"ok": True}
 

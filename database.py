@@ -1417,6 +1417,46 @@ def set_config(key: str, value: str) -> bool:
         _release(conn)
 
 
+def claim_capped_slot(key: str, cap: int) -> int | None:
+    """Atomically claim one slot out of a hard cap stored under `key` in
+    app_config (e.g. 'founding_100_count') -- for cohorts that must never
+    exceed a fixed size (the Founding-100 plan had none of this: any caller
+    could subscribe unlimited times, forever, since `hidden` was only ever
+    checked in the public catalog listing, never at checkout).
+
+    Single atomic statement, not read-then-write: the INSERT/ON CONFLICT
+    happens under Postgres's own row lock, so two concurrent payments both
+    landing on the last open slot can't both succeed -- one of them loses
+    the race honestly instead of both incrementing past the cap. Returns the
+    new count (the slot claimed) on success, or None if the cap was already
+    reached and the caller must not grant the offer.
+
+    Call this from the payment *verify* step, not subscribe/init -- a slot
+    claimed at init and never paid for would strand real seats for nobody."""
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO app_config (key, value, updated_at) VALUES (%s, '1', NOW())
+                   ON CONFLICT (key) DO UPDATE
+                       SET value = (app_config.value::int + 1)::text, updated_at = NOW()
+                       WHERE app_config.value::int < %s
+                   RETURNING value::int""",
+                (key, cap),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row[0] if row else None
+    except Exception as exc:
+        log.error(f"claim_capped_slot[{key}] failed: {exc}")
+        conn.rollback()
+        return None
+    finally:
+        _release(conn)
+
+
 # ── Google OAuth exchange codes (multi-worker safe) ────────────────
 
 def create_google_xcode(code: str, token: str) -> None:

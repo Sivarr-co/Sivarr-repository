@@ -43,6 +43,12 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
 
+try:
+    import sentry_sdk
+    SENTRY_SDK_AVAILABLE = True
+except ImportError:
+    SENTRY_SDK_AVAILABLE = False
+
 log = logging.getLogger("sivarr")
 
 
@@ -141,6 +147,23 @@ def _evict_stale_chat_sessions():
     if stale:
         log.info(f"Evicted {len(stale)} stale AI chat sessions")
 
+def _alert_model_fallback(chosen: str, reason: str) -> None:
+    """Every margin figure anywhere in this codebase assumes GEMINI_MODELS[0]
+    (flash) is what's actually running. Landing on anything else is silently
+    ~4x the per-token cost of flash, and get_model() caches its result for
+    the rest of the process's life -- a transient blip at boot (e.g. flash
+    briefly missing from list_models()) would otherwise pin the expensive
+    model for the whole process with nothing surfacing it anywhere. This is
+    the alert that was missing."""
+    msg = f"Gemini model fallback: using {chosen!r} instead of {GEMINI_MODELS[0]!r} ({reason})"
+    log.error(msg)
+    if SENTRY_SDK_AVAILABLE:
+        try:
+            sentry_sdk.capture_message(msg, level="error")
+        except Exception:
+            pass  # never let alerting itself take down model selection
+
+
 def get_model():
     global _model_name
     if _model_name:
@@ -156,9 +179,13 @@ def get_model():
         for m in GEMINI_MODELS:
             if m in available:
                 _model_name = m
-                log.info(f"Gemini model selected: {m}")
+                if m == GEMINI_MODELS[0]:
+                    log.info(f"Gemini model selected: {m}")
+                else:
+                    _alert_model_fallback(m, f"{GEMINI_MODELS[0]!r} unavailable on this key")
                 return m
         _model_name = available[0] if available else GEMINI_MODELS[0]
+        _alert_model_fallback(_model_name, "none of GEMINI_MODELS are available")
     except Exception as e:
         log.error(f"Gemini model selection failed: {e}")
         _model_name = GEMINI_MODELS[0]

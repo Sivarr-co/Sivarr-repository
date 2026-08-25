@@ -148,13 +148,6 @@ GEMINI_MODELS = [
     "gemini-2.5-flash-lite",
 ]
 
-# ── Sivarr subscription plans ────────────────────────────────────
-SIVARR_PLANS = {
-    "pro_monthly":  {"name": "Pro",  "label": "Monthly", "amount_ngn": 2500,  "period": "monthly"},
-    "pro_yearly":   {"name": "Pro",  "label": "Yearly",  "amount_ngn": 25000, "period": "yearly"},
-    "team_monthly": {"name": "Team", "label": "Monthly", "amount_ngn": 8000,  "period": "monthly"},
-}
-
 # ── Sentry error tracking ─────────────────────────────────────────
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 

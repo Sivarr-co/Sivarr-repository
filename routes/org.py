@@ -570,7 +570,7 @@ def _ps_key_for_org(org_id: str) -> str:
     return row["secret_key"]
 
 
-def build_router(load_progress, send_email, send_push, _is_valid_admin_session, session_cookie_key) -> APIRouter:
+def build_router(load_progress, send_email, send_push, _is_valid_admin_session, session_cookie_key, has_plan) -> APIRouter:
     router = APIRouter()
 
     @router.post("/api/org/get")
@@ -1478,6 +1478,14 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         # Matches the bar org_founder_save already enforces.
         if org.get("member_role") not in ("owner", "admin"):
             raise HTTPException(403, "Only owners and admins can view founder data.")
+        # Founder Mode is a paid feature (js/app.js's _GUARDED gate requires a
+        # Team or Creator plan) -- but that gate was client-side only. Nothing
+        # server-side ever checked payment, so the feature was free to any
+        # owner/admin regardless of subscription. Matches the client's own
+        # requirement exactly (has_plan uses the same tier ordering as
+        # _hasPlan/_PLAN_LEVELS in js/app.js).
+        if not has_plan(load_progress(sid), "Team"):
+            raise HTTPException(402, "Founder Mode requires a Team or Creator plan.")
         founder = db.get_org_founder(org["id"])
         return {"founder": founder}
 
@@ -1490,6 +1498,8 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not org: raise HTTPException(404, "No organization found.")
         if org.get("member_role") not in ("owner", "admin"):
             raise HTTPException(403, "Only owners and admins can edit founder data.")
+        if not has_plan(load_progress(sid), "Team"):
+            raise HTTPException(402, "Founder Mode requires a Team or Creator plan.")
         db.save_org_founder(
             org_id=org["id"],
             burn_rate=float(data.get("burn_rate", 0)),
