@@ -22,12 +22,27 @@ standard below is additional, and it is not optional.
 | 13 | Wire AI retrieval into chat | **Done** — verified 2026-08-24 |
 | 14 | Get Postgres into CI | **Done** — verified 2026-08-24 |
 | 15 | Verify the production deploy | **Done** — verified 2026-08-24 |
-| 16 | Make search coverage uniform | Open — unblocked by 14 |
-| 17 | Give the importers a UI | Open |
-| 18 | Small cleanups left behind | Open |
-| 19 | CSP: remove `unsafe-inline` | Partial — first group (26/~565 handlers) done 2026-08-24, rest deferred |
-| 20 | User-facing two-factor auth | **Done** — verified 2026-08-24 |
+| 16 | Make search coverage uniform | **Done** — verified 2026-08-25 |
+| 17 | Extend the import UI | **Done** — verified 2026-08-25 |
+| 18 | Small cleanups left behind | **Done** — verified 2026-08-25 |
+| 19 | CSP: remove `unsafe-inline` | **In progress** — 26 done, ~561 left |
+| 20 | User-facing two-factor auth | **Done** — verified 2026-08-25 |
+| 21 | Make the two chat tests hermetic | **OPEN — new, see below** |
 
+**13-18 and 20 are complete. Two remain: Session 21 and continuing Session 19.**
+
+**They can run in parallel.** 21 owns only `tests/`; 19 owns templates, `js/` and
+the CSP lines in `app.py`. No overlap. 19's "run alone" rule applies to other
+*template*-touching sessions, not to 21. Start 21 first either way — it is small,
+and until it lands one security test is in a state where the tempting fix removes
+the check.
+
+**Session 19 is not one session.** The first group did 26 handlers and built the
+`js/core/delegate.js` helper; roughly 561 remain. Expect **10-20 more sessions**,
+each reporting its remaining count. `unsafe-inline` only comes out of the CSP when
+that count reaches zero.
+
+Superseded sequencing, kept for reference:
 **Run 16 and 17 together. Then 18. Then 19 and 20 sequentially.**
 
 17 and 18 both edit `js/app.js` and **must not run at the same time**. 16 is
@@ -340,6 +355,67 @@ code, all covered by tests.
 
 ---
 
+## Priority 0 (new) — found while verifying Sessions 16-20
+
+### Session 21 — Make the two chat tests hermetic
+
+**Owns:** `tests/test_embeddings.py`, `tests/conftest.py`
+
+`test_chat_retrieval_never_leaks_across_sids` and
+`test_chat_actually_injects_retrieved_context_into_the_prompt` **fail locally**
+while passing in CI. Reproduce with `pytest tests/test_embeddings.py` — each fails
+alone, in a fresh process, on a single request:
+
+```
+assert 429 == 200
+{"detail":"You've reached today's free limit of 15 messages. Upgrade to Pro for more."}
+```
+
+**Root cause, and it is not the rate limiter.** It is the free-plan daily chat
+quota (`FREE_DAILY_CHAT = 15`, `app.py:362`, enforced at `app.py:3322`). Both
+tests POST to `/api/chat` as a *fixed* sid (`chat_isolation_sid_a`) and leave
+persistent progress behind in `data/chat_isolation_sid_a_progress.json` — that
+file currently reads `"questions": 15`. Every run increments it, so after 15 runs
+in one day the tests 429 permanently until the date rolls over. CI passes only
+because every run starts on a clean filesystem.
+
+**Why this matters more than an ordinary flake.** The isolation test is the IDOR
+guard for AI retrieval. When it 429s, execution never reaches the assertion that
+the caller's own sid was used. It fails loudly today, which is fine — but the
+obvious "fix" of accepting 429 as a pass would silently delete a security check
+and leave a green tick behind.
+
+Fix by making the tests hermetic. Any of:
+
+- a fixture that clears the sid's progress file (and DB row) before and after
+- a unique per-run sid so state is never reused
+- monkeypatching the quota check, the way these tests already monkeypatch
+  `async_gemini_ask` and `build_retrieval_context`
+
+Prefer whichever keeps the real `chat_authorize` → sid resolution path exercised,
+since that is the thing actually under test.
+
+**Done when:** `pytest tests/test_embeddings.py` passes five times in a row — run
+it five times and confirm — with no leftover files under `data/`, and the sid
+assertion still genuinely reached (break it deliberately and watch it fail).
+
+---
+
+### Session 19 (continued) — CSP, remaining handler groups
+
+The first group landed: a delegation helper (`js/core/delegate.js`) plus
+migrations in `_panel_habits.html`, `_panel_notes.html`, `admin_metrics.html`,
+`landing.html` and `landing_demo.html` — 26 handlers, correctly reported as
+partial.
+
+`script-src 'self' 'unsafe-inline'` remains at `app.py:1540` with roughly 561
+inline handlers left across the templates. Continue group by group, one session
+each, reporting the remaining count every time. Only drop `unsafe-inline` once
+the count reaches zero — and note `style-src` at `app.py:1549` carries its own
+`unsafe-inline` needing separate treatment.
+
+---
+
 ## Not for a session — needs Hunter
 
 Unchanged from SESSION_BRIEFS.md, none resolved. Do not guess and do not fabricate
@@ -362,6 +438,6 @@ All of the following, simultaneously:
 - [x] `pytest tests/ -q -rs` reports **zero skipped**, all passing — *CI: 99 passed, 0 skipped*
 - [x] A real Railway deploy is green with minified assets confirmed live — *verified 2026-08-24*
 - [x] AI chat answers from the user's own workspace, with a cross-user isolation test that runs in CI
-- [ ] Both importers are reachable by a real user in a browser
-- [ ] Search returns ranked results for goals and docs, not just tasks and posts
-- [x] No session has reported "done" on work it only partly finished — *holds as of 2026-08-24*
+- [x] Both importers are reachable by a real user in a browser — *Settings import UI, Session 17*
+- [x] Search returns ranked results for goals and docs, not just tasks and posts — *4 tsvector columns, Session 16*
+- [ ] No session has reported "done" on work it only partly finished — *broken: Session 13's tests pass in CI but fail locally, see Session 21*
