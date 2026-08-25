@@ -25,7 +25,7 @@ standard below is additional, and it is not optional.
 | 16 | Make search coverage uniform | **Done** — verified 2026-08-25 |
 | 17 | Extend the import UI | **Done** — verified 2026-08-25 |
 | 18 | Small cleanups left behind | **Done** — verified 2026-08-25 |
-| 19 | CSP: remove `unsafe-inline` | **In progress** — 26 done, ~561 left |
+| 19 | CSP: remove `unsafe-inline` | **In progress** — 2 groups done, 536 onclick left |
 | 20 | User-facing two-factor auth | **Done** — verified 2026-08-25 |
 | 21 | Make the two chat tests hermetic | **Done** — verified 2026-08-25 |
 
@@ -430,16 +430,57 @@ assertion still genuinely reached (break it deliberately and watch it fail).
 
 ### Session 19 (continued) — CSP, remaining handler groups
 
-The first group landed: a delegation helper (`js/core/delegate.js`) plus
-migrations in `_panel_habits.html`, `_panel_notes.html`, `admin_metrics.html`,
-`landing.html` and `landing_demo.html` — 26 handlers, correctly reported as
-partial.
+**Group 2 landed 2026-08-25: `templates/_login.html`, 12 handlers.** All 12 were
+simple named-global calls (`setAuthTab`, `togglePwVis`, `doLogin`,
+`showForgotPassword`, `showLoginView`, `submitForgotPassword`,
+`submitResetPassword`). Browser-verified with real clicks: register tab switches,
+password toggle flips `password` -> `text`, forgot-password view renders, zero
+console errors. `_login.html` now has 1 inline `onclick` left
+(`googleSignInStart(event)`) plus 7 `onkeydown` expressions.
 
-`script-src 'self' 'unsafe-inline'` remains at `app.py:1540` with roughly 561
-inline handlers left across the templates. Continue group by group, one session
-each, reporting the remaining count every time. Only drop `unsafe-inline` once
-the count reaches zero — and note `style-src` at `app.py:1549` carries its own
-`unsafe-inline` needing separate treatment.
+**Remaining: 536 real inline `onclick` attributes** across `templates/*.html`.
+Plus 46 `onchange`, 24 `onkeydown`, 21 `oninput`, 6 `onblur`, 6 `onfocus` — none
+of which `delegate.js` handles at all today (it listens for `click` only).
+
+#### Counting them correctly
+
+`grep -c 'onclick='` **overcounts**, because `data-onclick="..."` contains the
+substring `onclick="..."`. Use a negative lookbehind:
+
+```
+grep -rhoP '(?<![-\w])onclick="' templates/*.html | wc -l
+```
+
+#### Three categories that are NOT safe to migrate as-is
+
+Audited across all templates. Do not bulk-convert without handling these:
+
+1. **30 handlers pass a `null` literal** — e.g. `onclick="nav('settings', null)"`.
+   `delegate.js` passes every arg as a **string**, so `null` becomes `"null"`,
+   which is truthy. That is a silent behaviour change of exactly the kind this
+   codebase has already been bitten by (`1002 === '1002'` in the Home redesign).
+   Either extend the helper to coerce a literal `"null"` sentinel, or migrate
+   these by hand.
+2. **17 handlers use `event`** — e.g. `googleSignInStart(event)`,
+   `toggleMobileSidebar(event)`. The helper never passes the event object.
+   Extend it (pass `e` when `data-onclick-event` is present) before migrating.
+3. **13 handlers are expressions, not calls** — e.g.
+   `onclick="$('pfp-input').click()"`. The helper's own docstring rules these out
+   deliberately. They need a real named function first.
+
+Safe to migrate today: **199 zero-arg** and **83 single-string-arg** handlers,
+minus any that also fall into the three categories above.
+
+#### Ordering suggestion
+
+Largest remaining templates: `_panels_core.html` (123), `_panels_extra.html` (79),
+`_panel_academic.html` (78), `_modals.html` (72), `_panel_org.html` (59),
+`_panel_marketplace.html` (52), `admin.html` (41), `_panel_flux.html` (41).
+
+Take one template per session, report the remaining count each time, and
+browser-verify the migrated controls actually still fire. Only drop
+`unsafe-inline` from `app.py:1540` once the count reaches zero — and `style-src`
+at `app.py:1549` carries its own `unsafe-inline` needing separate treatment.
 
 ---
 

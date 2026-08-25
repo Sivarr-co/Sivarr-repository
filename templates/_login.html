@@ -51,14 +51,14 @@
         <button
           class="auth-tab active"
           id="auth-tab-login"
-          onclick="setAuthTab('login')"
+          data-onclick="setAuthTab" data-onclick-arg0="login"
         >
           Sign In
         </button>
         <button
           class="auth-tab"
           id="auth-tab-register"
-          onclick="setAuthTab('register')"
+          data-onclick="setAuthTab" data-onclick-arg0="register"
         >
           Sign Up
         </button>
@@ -114,7 +114,7 @@
             <button
               type="button"
               class="field-eye"
-              onclick="togglePwVis('l-pw', 'l-pw-eye')"
+              data-onclick="togglePwVis" data-onclick-arg0="l-pw" data-onclick-arg1="l-pw-eye"
               id="l-pw-eye"
             >
               <i class="ti ti-eye"></i>
@@ -148,7 +148,7 @@
             type="button"
             class="auth-back-btn"
             style="font-size: 0.82rem; padding: 0"
-            onclick="showForgotPassword()"
+            data-onclick="showForgotPassword"
           >
             Forgot password?
           </button>
@@ -169,7 +169,7 @@
               <button
                 type="button"
                 class="field-eye"
-                onclick="togglePwVis('l-cpw', 'l-cpw-eye')"
+                data-onclick="togglePwVis" data-onclick-arg0="l-cpw" data-onclick-arg1="l-cpw-eye"
                 id="l-cpw-eye"
               >
                 <i class="ti ti-eye"></i>
@@ -193,7 +193,7 @@
 
       <div id="login-err" class="login-err"></div>
 
-      <button class="btn-login" id="login-btn" onclick="doLogin()">
+      <button class="btn-login" id="login-btn" data-onclick="doLogin">
         Sign In
       </button>
 
@@ -237,7 +237,7 @@
 
       <!-- ── Forgot password form ── -->
       <div id="forgot-pw-form" style="display: none">
-        <button type="button" class="auth-back-btn" onclick="showLoginView()">
+        <button type="button" class="auth-back-btn" data-onclick="showLoginView">
           <i class="ti ti-arrow-left"></i> Back to sign in
         </button>
         <h2 style="margin: 16px 0 6px; font-size: 1.25rem">
@@ -259,7 +259,7 @@
           </div>
         </div>
         <div id="forgot-err" class="login-err"></div>
-        <button class="btn-login" id="fp-btn" onclick="submitForgotPassword()">
+        <button class="btn-login" id="fp-btn" data-onclick="submitForgotPassword">
           Send reset link
         </button>
       </div>
@@ -282,7 +282,7 @@
           type="button"
           class="auth-back-btn"
           style="margin-top: 20px; font-size: 0.88rem"
-          onclick="showLoginView()"
+          data-onclick="showLoginView"
         >
           Back to sign in
         </button>
@@ -307,7 +307,7 @@
             <button
               type="button"
               class="field-eye"
-              onclick="togglePwVis('rp-pw', 'rp-pw-eye')"
+              data-onclick="togglePwVis" data-onclick-arg0="rp-pw" data-onclick-arg1="rp-pw-eye"
               id="rp-pw-eye"
             >
               <i class="ti ti-eye"></i>
@@ -327,7 +327,7 @@
             <button
               type="button"
               class="field-eye"
-              onclick="togglePwVis('rp-cpw', 'rp-cpw-eye')"
+              data-onclick="togglePwVis" data-onclick-arg0="rp-cpw" data-onclick-arg1="rp-cpw-eye"
               id="rp-cpw-eye"
             >
               <i class="ti ti-eye"></i>
@@ -335,7 +335,7 @@
           </div>
         </div>
         <div id="reset-err" class="login-err"></div>
-        <button class="btn-login" id="rp-btn" onclick="submitResetPassword()">
+        <button class="btn-login" id="rp-btn" data-onclick="submitResetPassword">
           Update password
         </button>
       </div>
