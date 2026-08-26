@@ -34,8 +34,13 @@ async function get(path: string, params: Record<string, string> = {}): Promise<a
 
 export const api = {
   // Auth
-  login:    (email: string, password: string) => post('/api/login', { email, password }),
-  register: (name: string, email: string, password: string) => post('/api/register', { name, email, password }),
+  // There is no POST /api/register on the server -- registration is the same
+  // endpoint with action:"register" (see app.py's LoginRequest.action). The old
+  // '/api/register' path 404'd, so mobile sign-up had never worked.
+  login:    (email: string, password: string, totp = '') =>
+    post('/api/login', { email, password, action: 'login', totp }),
+  register: (name: string, email: string, password: string) =>
+    post('/api/login', { name, email, password, confirm_password: password, action: 'register' }),
   me:       () => get('/api/me'),
 
   // Billing

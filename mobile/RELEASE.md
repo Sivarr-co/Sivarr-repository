@@ -96,3 +96,49 @@ eas submit --profile production --platform android
 Tasks, habits, journal and focus now sync to the server. Some remaining screens
 still read only from on-device storage. That is a completeness gap, not a
 release blocker, and it does not affect sign-in or the core flows.
+
+---
+
+## PARKED — 2026-08-26
+
+Mobile is deprioritised until the rest of launch is done. Picking it back up:
+
+### Done already
+
+- EAS project created and linked: `@sivarrs-team/sivarr`,
+  id `9440e362-1050-4a4e-aa71-a7ad5b17419b`. `owner` is pinned to
+  `sivarrs-team` in `app.json` so a future `eas init` cannot silently create a
+  second project under a personal account.
+- Icons regenerated from the real brand mark; API base URL corrected to
+  `https://sivarr.com`; the Play service-account key is gitignored.
+
+### Two real bugs found and fixed, not yet verified on a device
+
+Both were found while debugging a failed sign-in. Both are fixed in the working
+tree and confirmed against a running server (register and login each return
+HTTP 200 with a token), but **no device build has been made since**, so neither
+is confirmed on a real handset.
+
+1. **Sign-in failed for any account with 2FA enabled.** `app.py:2750-2756`
+   returns `401 "totp_required"` when the account has 2FA on and no code is
+   sent. The mobile client sent no `totp` and had no field for one, so the app
+   showed a dialog reading literally `totp_required`. `LoginScreen.tsx` now
+   catches that, reveals a code field, and resubmits. Recovery codes work too.
+2. **Registration had never worked.** `client.ts` posted to `/api/register`,
+   which does not exist and returns 404 in production. The server registers via
+   `/api/login` with `action: "register"` plus `confirm_password`. Fixed.
+
+### Next step when this resumes
+
+```bash
+cd mobile
+eas build --profile preview --platform android
+```
+
+Install on a real device and confirm: sign-in with 2FA on, sign-in with 2FA off,
+and registration. The previously installed APK predates every fix above, so
+testing it proves nothing.
+
+### Still blocked on Hunter
+
+Play Store service account JSON (step 2 above). Nothing else.

@@ -2,6 +2,7 @@
   "expo": {
     "name": "SIVARR",
     "slug": "sivarr",
+    "owner": "sivarrs-team",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -11,7 +12,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0a0a0a"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.sivarr.mobile",
@@ -39,7 +42,9 @@
       "expo-secure-store",
       [
         "expo-font",
-        { "fonts": [] }
+        {
+          "fonts": []
+        }
       ],
       [
         "expo-notifications",
@@ -53,7 +58,7 @@
     "extra": {
       "apiUrl": "https://sivarr.com",
       "eas": {
-        "projectId": "replace-with-your-eas-project-id"
+        "projectId": "9440e362-1050-4a4e-aa71-a7ad5b17419b"
       }
     }
   }

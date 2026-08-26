@@ -5,7 +5,6 @@ node_modules/
 .expo/
 dist/
 web-build/
-expo-env.d.ts
 
 # Native build artifacts (only present after a local prebuild)
 .gradle/
