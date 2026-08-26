@@ -1,1246 +1,1012 @@
-// Tasks panel (internal name "flux"/SH_ prefix) — extracted from js/app.js.
-// Depends on app.js's shared globals (S, API, $, toast, _queueMutation) which
-// load before this file. See templates/index.html for script load order.
+// Tasks panel — rewritten to drive sivarr_tasks_v1.html (List / Kanban /
+// Calendar / Focus / Insights views + Detail sheet + New Task sheet + Invite + WhatsApp).
 
-const SH_KEY = () => `sivarr_sh_${S.sid || "guest"}`;
-let SH_DRAG = null;
-let SH_VIEW = "board";
-let SH_ADD_COL = "todo";
-let SH_SELECTED = null;
-const SH_BULK_SEL = new Set();
+(function () {
+  "use strict";
 
-function _fmtDueDate(date, time) {
-  if (!date) return { label: "–", color: "var(--muted)", overdue: false };
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const due = new Date(date + "T00:00:00");
-  due.setHours(0, 0, 0, 0);
-  const diff = Math.round((due - today) / 86400000);
-  const t = time ? `, ${time}` : "";
-  if (diff < 0) return { label: "Overdue", color: "#ef4444", overdue: true };
-  if (diff === 0)
-    return { label: `Today${t}`, color: "#f59e0b", overdue: false };
-  if (diff === 1)
-    return { label: `Tomorrow${t}`, color: "var(--accent)", overdue: false };
-  return { label: `${date}${t}`, color: "var(--text2)", overdue: false };
-}
-
-function _shSelectTask(id) {
-  SH_SELECTED = id;
-  document.querySelectorAll(".sh-overview-row").forEach((r) => {
-    r.style.background =
-      Number(r.dataset.id) === id ? "var(--teal2,rgba(13,122,95,.08))" : "";
-  });
-}
-
-const SH_COLS = {
-  todo: { label: "Not Started", color: "#94a3b8" },
-  inprogress: { label: "In Progress", color: "#f59e0b" },
-  done: { label: "Done", color: "#22c55e" },
-};
-
-function getSHData() {
-  try {
-    return JSON.parse(localStorage.getItem(SH_KEY()) || '{"tasks":[]}');
-  } catch {
-    return { tasks: [] };
+  // ── Shims ─────────────────────────────────────────────────────────────
+  if (typeof window.$ === "undefined") {
+    window.$ = (id) => document.getElementById(id);
   }
-}
-
-// Soft-deleted tasks (deleted_at set) stay in getSHData()'s full array forever
-// — deleteSHTask() never removes them, only marks them — so any read-modify-
-// write cycle through saveSHData() keeps preserving them. Every render/count/
-// search/calendar site must filter through this instead of reading
-// `.tasks` raw, or a trashed task would silently reappear in the UI. Mutation
-// sites (edit/move/add-subtask) that look a task up by id don't need this:
-// a deleted task has no rendered element to click in the first place.
-function shActiveTasks(tasks) {
-  return (tasks || []).filter((t) => !t.deleted_at);
-}
-
-function saveSHData(data) {
-  localStorage.setItem(SH_KEY(), JSON.stringify(data));
-  _syncTasksToServer(data.tasks || []);
-}
-
-// ── Server sync — per-entity, not whole-array ───────────────────────────
-// Diffs the current list against a snapshot of what was last confirmed sent,
-// and calls the per-entity endpoints (add/update/delete/undelete) only for
-// what actually changed, instead of re-uploading every task on every save.
-// The old whole-array /api/tasks/sync meant two devices editing different
-// tasks around the same time would have the second save silently overwrite
-// the first device's change — see routes/tasks.py's module docstring for
-// the backend half of this. /api/tasks/sync itself is still used for CSV
-// import and as an explicit full-resync fallback, just not on every save.
-const SH_SYNCED_KEY = () => `sivarr_sh_synced_${S.sid || "guest"}`;
-
-function _shGetSyncedSnapshot() {
-  try {
-    return JSON.parse(localStorage.getItem(SH_SYNCED_KEY()) || "{}");
-  } catch {
-    return {};
+  if (typeof window.esc === "undefined") {
+    const MAP = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    window.esc = (s) =>
+      String(s == null ? "" : s).replace(/[&<>"']/g, (c) => MAP[c]);
   }
-}
-function _shSetSyncedSnapshot(snap) {
-  try {
-    localStorage.setItem(SH_SYNCED_KEY(), JSON.stringify(snap));
-  } catch (_) {}
-}
-
-// Server rows use DB column names (description/goal_id/attach_name); the
-// render/edit code reads desc/goalId/attachName. routes/tasks.py's
-// _CLIENT_FIELD_ALIASES already accepts either spelling on the way in, so
-// outgoing payloads below just send the local shape as-is — this is only
-// the read-side translation, for task objects the server hands back
-// (a spawned recurring occurrence, or a full hydrate/restore pull).
-const _SH_SERVER_FIELD_ALIASES = {
-  description: "desc",
-  goal_id: "goalId",
-  attach_name: "attachName",
-};
-function _shServerTaskToLocal(t) {
-  const out = { ...t };
-  for (const [serverKey, localKey] of Object.entries(
-    _SH_SERVER_FIELD_ALIASES,
-  )) {
-    if (serverKey in out) {
-      out[localKey] = out[serverKey];
-      delete out[serverKey];
-    }
+  if (typeof window.toast === "undefined") {
+    window.toast = (msg) => {
+      let el = document.getElementById("_tasksToast");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "_tasksToast";
+        el.style.cssText =
+          "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);" +
+          "background:#111;color:#f5f4f2;border:1px solid #262626;border-radius:10px;" +
+          "padding:9px 16px;font-size:12.5px;z-index:999;opacity:0;transition:opacity .2s;" +
+          "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;";
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.opacity = "1";
+      clearTimeout(el._t);
+      el._t = setTimeout(() => (el.style.opacity = "0"), 1800);
+    };
   }
-  return out;
-}
-
-function _shSendMutation(url, body) {
-  const token = getToken();
-  if (!token || !S.sid) return Promise.resolve(null);
-  body = { token, ...body };
-  if (!navigator.onLine) {
-    _queueMutation(url, body);
-    return Promise.resolve(null);
+  if (typeof window.S === "undefined") window.S = { sid: "guest" };
+  if (typeof window.getToken === "undefined") window.getToken = () => null;
+  if (typeof window.API === "undefined") {
+    window.API = async () => {
+      throw new Error("API not available in standalone mode");
+    };
   }
-  return fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  })
-    .then((r) => (r.ok ? r.json() : null))
-    .catch(() => {
-      _queueMutation(url, body);
-      return null;
-    });
-}
+  if (typeof window._queueMutation === "undefined") {
+    window._queueMutation = () => {};
+  }
 
-function _shMergeSpawned(spawned) {
-  if (!spawned) return;
-  const local = _shServerTaskToLocal(spawned);
-  const data = getSHData();
-  if ((data.tasks || []).some((t) => String(t.id) === String(local.id)))
-    return;
-  data.tasks.push(local);
-  localStorage.setItem(SH_KEY(), JSON.stringify(data));
-  const snap = _shGetSyncedSnapshot();
-  snap[String(local.id)] = JSON.stringify(local);
-  _shSetSyncedSnapshot(snap);
-  renderSHBoard();
-  toast("New recurring task added ↻");
-}
+  // ── Global Search State ──────────────────────────────────────────────
+  let SEARCH_QUERY = "";
 
-function _syncTasksToServer(tasks) {
-  const token = getToken();
-  if (!token || !S.sid) return;
+  // ── Storage ───────────────────────────────────────────────────────────
+  const TASKS_KEY = () => `sivarr_sh_${S.sid || "guest"}`;
 
-  const snap = _shGetSyncedSnapshot();
-  const nextSnap = {};
-
-  (tasks || []).forEach((t) => {
-    const id = String(t.id);
-    const serial = JSON.stringify(t);
-    nextSnap[id] = serial;
-    if (snap[id] === serial) return; // unchanged since last sync
-
-    if (!(id in snap)) {
-      _shSendMutation("/api/tasks/add", { ...t });
-      return;
-    }
-    let was;
+  function getTasksData() {
     try {
-      was = JSON.parse(snap[id]);
+      return JSON.parse(localStorage.getItem(TASKS_KEY()) || '{"tasks":[]}');
     } catch {
-      was = {};
+      return { tasks: [] };
     }
-    if (!was.deleted_at && t.deleted_at) {
-      _shSendMutation("/api/tasks/delete", { id: t.id });
-    } else if (was.deleted_at && !t.deleted_at) {
-      _shSendMutation("/api/tasks/undelete", { id: t.id });
-      _shSendMutation("/api/tasks/update", { id: t.id, ...t });
-    } else {
-      _shSendMutation("/api/tasks/update", { id: t.id, ...t }).then((d) => {
-        if (d && d.spawned) _shMergeSpawned(d.spawned);
-      });
+  }
+
+  function activeTasks(tasks) {
+    return (tasks || []).filter((t) => !t.deleted_at);
+  }
+
+  function saveTasksData(data) {
+    localStorage.setItem(TASKS_KEY(), JSON.stringify(data));
+    syncTasksToServer(data.tasks || []);
+  }
+
+  // ── Server Sync ──────────────────────────────────────────────────────
+  const SYNCED_KEY = () => `sivarr_sh_synced_${S.sid || "guest"}`;
+
+  function getSyncedSnapshot() {
+    try {
+      return JSON.parse(localStorage.getItem(SYNCED_KEY()) || "{}");
+    } catch {
+      return {};
     }
-  });
-
-  _shSetSyncedSnapshot(nextSnap);
-}
-
-// Permanently drops tombstones older than the 30-day Trash retention window.
-// app.py's _purge_deleted_tasks job purges the server side, but it never
-// touches this browser's own localStorage copy — the client has to prune
-// its own copy too, or old deleted items would sit here forever. Runs once
-// per Tasks-panel visit; cheap and idempotent.
-function _shPruneExpiredTrash() {
-  const data = getSHData();
-  const cutoff = Date.now() - 30 * 86400000;
-  const kept = (data.tasks || []).filter((t) => {
-    if (!t.deleted_at) return true;
-    const ts = Date.parse(t.deleted_at);
-    return Number.isNaN(ts) || ts >= cutoff; // malformed timestamp: keep, don't guess
-  });
-  if (kept.length !== (data.tasks || []).length) {
-    data.tasks = kept;
-    saveSHData(data);
   }
-}
-
-function loadStudyHelp() {
-  _shPruneExpiredTrash();
-  SH_BULK_SEL.clear();
-  _shBulkUpdateBar();
-  const overviewBtn = $("sh-view-overview");
-  setSHView("overview", overviewBtn);
-  renderSHBoard();
-}
-
-// ── Filter / Sort state ───────────────────────────────────────
-let _SH_FILTERS = {};
-let _SH_SORT = "due_asc";
-
-function shToggleFilter(e) {
-  e.stopPropagation();
-  const d = $("sh-filter-drop"),
-    s = $("sh-sort-drop");
-  if (s) s.style.display = "none";
-  if (d) d.style.display = d.style.display === "none" ? "block" : "none";
-}
-function shToggleSort(e) {
-  e.stopPropagation();
-  const d = $("sh-filter-drop"),
-    s = $("sh-sort-drop");
-  if (d) d.style.display = "none";
-  if (s) s.style.display = s.style.display === "none" ? "block" : "none";
-}
-document.addEventListener("click", () => {
-  const fd = $("sh-filter-drop");
-  if (fd) fd.style.display = "none";
-  const sd = $("sh-sort-drop");
-  if (sd) sd.style.display = "none";
-});
-
-function shApplyFilters() {
-  const checked = [
-    ...document.querySelectorAll("#sh-filter-drop input:checked"),
-  ].map((el) => el.value);
-  _SH_FILTERS = {};
-  checked.forEach((v) => (_SH_FILTERS[v] = true));
-  if (SH_VIEW === "overview") renderSHOverview();
-  if (SH_VIEW === "list") renderSHListView();
-}
-function shApplySort() {
-  const sel = document.querySelector("#sh-sort-drop input:checked");
-  if (sel) _SH_SORT = sel.value;
-  if (SH_VIEW === "overview") renderSHOverview();
-  if (SH_VIEW === "list") renderSHListView();
-}
-
-function _shFilterAndSort(tasks) {
-  const today = new Date().toISOString().split("T")[0];
-  const weekEnd = new Date(Date.now() + 6 * 86400000)
-    .toISOString()
-    .split("T")[0];
-  const PRI = { high: 4, medium: 3, normal: 2, low: 1 };
-  const hasF = Object.keys(_SH_FILTERS).length > 0;
-
-  let out = hasF
-    ? tasks.filter((t) => {
-        const s = t.status || (t.done ? "done" : "not_started");
-        const p = t.priority || "normal";
-        const d = t.date || t.due_date || "";
-        if (
-          _SH_FILTERS["not_started"] ||
-          _SH_FILTERS["in_progress"] ||
-          _SH_FILTERS["done"]
-        ) {
-          if (!_SH_FILTERS[s]) return false;
-        }
-        if (
-          _SH_FILTERS["p_high"] ||
-          _SH_FILTERS["p_medium"] ||
-          _SH_FILTERS["p_normal"] ||
-          _SH_FILTERS["p_low"]
-        ) {
-          if (!_SH_FILTERS[`p_${p}`]) return false;
-        }
-        if (
-          _SH_FILTERS["due_overdue"] ||
-          _SH_FILTERS["due_today"] ||
-          _SH_FILTERS["due_week"] ||
-          _SH_FILTERS["due_none"]
-        ) {
-          if (_SH_FILTERS["due_none"] && !d) return true;
-          if (_SH_FILTERS["due_overdue"] && d && d < today) return true;
-          if (_SH_FILTERS["due_today"] && d === today) return true;
-          if (_SH_FILTERS["due_week"] && d > today && d <= weekEnd) return true;
-          return false;
-        }
-        return true;
-      })
-    : [...tasks];
-
-  out.sort((a, b) => {
-    const da = a.date || a.due_date || "";
-    const db = b.date || b.due_date || "";
-    const pa = PRI[a.priority || "normal"] || 2;
-    const pb = PRI[b.priority || "normal"] || 2;
-    if (_SH_SORT === "due_asc") return (da || "9") < (db || "9") ? -1 : 1;
-    if (_SH_SORT === "due_desc") return (da || "") > (db || "") ? -1 : 1;
-    if (_SH_SORT === "priority") return pb - pa;
-    if (_SH_SORT === "created") return (b.id || "") > (a.id || "") ? 1 : -1;
-    if (_SH_SORT === "alpha")
-      return (a.title || "").localeCompare(b.title || "");
-    return 0;
-  });
-  return out;
-}
-
-function setSHView(view, btn) {
-  SH_VIEW = view;
-  document
-    .querySelectorAll(".sh-view-btn")
-    .forEach((b) => b.classList.remove("active"));
-  if (btn) btn.classList.add("active");
-  $("sh-overview-view").style.display = view === "overview" ? "flex" : "none";
-  $("sh-board-view").style.display = view === "board" ? "flex" : "none";
-  $("sh-list-view").style.display = view === "list" ? "block" : "none";
-  if (view === "overview") renderSHOverview();
-  if (view === "list") renderSHListView();
-}
-
-function renderSHOverview() {
-  const data = getSHData();
-  const tasks = _shFilterAndSort(shActiveTasks(data.tasks));
-  const tbody = $("sh-overview-rows");
-  if (!tbody) return;
-
-  const STATUS = {
-    todo: { label: "Not started", color: "#94a3b8", bg: "#94a3b815" },
-    inprogress: { label: "In progress", color: "#4f6ef7", bg: "#4f6ef715" },
-    done: { label: "Done", color: "#22c55e", bg: "#22c55e15" },
-  };
-  const PRIORITY = {
-    high: { label: "🔴 High", color: "#ef4444" },
-    medium: { label: "🟡 Medium", color: "#f59e0b" },
-    low: { label: "🟢 Low", color: "#22c55e" },
-    normal: { label: "Normal", color: "var(--muted)" },
-  };
-  const TYPE_ICONS = {
-    assignment: "📋",
-    exam: "📝",
-    reading: "📖",
-    project: "🗂",
-    revision: "🔄",
-    other: "⚙️",
-  };
-
-  if (!tasks.length) {
-    tbody.innerHTML = `<tr><td colspan="12"><div style="display:flex;flex-direction:column;align-items:center;padding:3rem 1rem;gap:10px">
-      <div style="font-size:2.2rem">✅</div>
-      <div style="font-weight:700;font-size:.95rem;color:var(--text)">No tasks yet</div>
-      <div style="font-size:.82rem;color:var(--muted);text-align:center;max-width:340px;line-height:1.5">
-        Capture everything you need to do. Press <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:.73rem;font-family:monospace">N</kbd> or click the button below to add your first task.
-      </div>
-      <button onclick="openAddTask('todo')" style="margin-top:6px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-family:var(--font-body);font-size:.83rem;font-weight:600;cursor:pointer">+ New task</button>
-    </div></td></tr>`;
-    return;
+  function setSyncedSnapshot(snap) {
+    try {
+      localStorage.setItem(SYNCED_KEY(), JSON.stringify(snap));
+    } catch (_) {}
   }
 
-  // Group: top-level tasks first, subtasks indented beneath their parent
-  const topLevel = tasks.filter((t) => !t.parent_id);
-  const childMap = {};
-  tasks
-    .filter((t) => t.parent_id)
-    .forEach((t) => {
-      (childMap[String(t.parent_id)] =
-        childMap[String(t.parent_id)] || []).push(t);
-    });
-  const ordered = [];
-  topLevel.forEach((t) => {
-    ordered.push({ task: t, indent: false });
-    (childMap[String(t.id)] || []).forEach((c) =>
-      ordered.push({ task: c, indent: true }),
-    );
-  });
-  tasks
-    .filter(
-      (t) =>
-        t.parent_id &&
-        !topLevel.find((p) => String(p.id) === String(t.parent_id)),
-    )
-    .forEach((t) => ordered.push({ task: t, indent: false }));
-
-  tbody.innerHTML = ordered
-    .map(({ task: t, indent }) => {
-      const st = STATUS[t.status] || STATUS.todo;
-      const pr = PRIORITY[t.priority] || PRIORITY.normal;
-      const ico = TYPE_ICONS[t.type] || "⚙️";
-      const dueFmt = _fmtDueDate(t.date, t.time);
-      const updated = t.updated || t.created || "–";
-      const isDone = t.status === "done";
-      const isSel = SH_SELECTED === t.id;
-
-      return `<tr class="sh-overview-row" data-id="${t.id}"
-      style="transition:background .1s;background:${isSel ? "var(--teal2,rgba(13,122,95,.08))" : ""};cursor:pointer"
-      onclick="_shSelectTask(${t.id})"
-      onmouseover="if(SH_SELECTED!==${t.id})this.style.background='var(--surface)'"
-      onmouseout="this.style.background=SH_SELECTED===${t.id}?'var(--teal2,rgba(13,122,95,.08))':''">
-      <td style="text-align:center;padding:4px;vertical-align:middle">
-        <input type="checkbox" ${SH_BULK_SEL.has(t.id) ? "checked" : ""}
-          onclick="event.stopPropagation();_shToggleBulk(${t.id},this.checked)"
-          style="cursor:pointer;accent-color:var(--accent)">
-      </td>
-      <td><div class="sh-cell" style="display:flex;align-items:center;gap:5px;${indent ? "padding-left:12px" : ""}">
-            ${indent ? '<span style="color:var(--border);font-size:.75rem;flex-shrink:0;margin-right:1px">↳</span>' : ""}
-            <div class="sh-cell-title" style="flex:1;${isDone ? "text-decoration:line-through;opacity:.6" : ""};cursor:pointer"
-                onclick="event.stopPropagation();shOpenDetail(${t.id})">${esc(t.title)}${t.recurrence ? ' <span title="Recurring" style="color:var(--teal);font-size:.8em">↻</span>' : ""}</div>
-            <button class="task-focus-btn" onclick="event.stopPropagation();focusStart(${JSON.stringify(t.title)},25)" title="Focus on this task"><i class="ti ti-player-play" style="font-size:10px"></i></button>
-            <button class="task-focus-btn" onclick="event.stopPropagation();inlineEdit(${t.id},'title',this.parentElement.querySelector('.sh-cell-title'))" title="Rename task"><i class="ti ti-pencil" style="font-size:10px"></i></button>
-          </div></td>
-      <td><div class="sh-cell" onclick="inlineEditSelect(${t.id},'status',this)">
-            <span class="sh-status-pill" style="background:${st.bg};color:${st.color}">
-              <span style="width:7px;height:7px;border-radius:50%;background:${st.color};flex-shrink:0"></span>
-              ${st.label}
-            </span></div></td>
-      <td><div class="sh-cell editable" onclick="inlineEditSelect(${t.id},'type',this)">${ico} ${esc(t.type || "other")}</div></td>
-      <td><div class="sh-cell editable" style="font-size:.75rem;color:var(--muted)"
-            onclick="inlineEdit(${t.id},'desc',this)">${esc(t.desc || "–")}</div></td>
-      <td><div class="sh-cell editable" onclick="inlineEdit(${t.id},'assignee',this)">${esc(t.assignee || "–")}</div></td>
-      <td><div class="sh-cell editable" style="color:${isDone ? "var(--muted)" : dueFmt.color};font-size:.78rem;font-weight:${dueFmt.overdue ? "700" : "400"}"
-            onclick="inlineEditDate(${t.id},this)">${dueFmt.label}</div></td>
-      <td><div class="sh-cell" onclick="inlineEditSelect(${t.id},'priority',this)"
-            style="color:${pr.color};font-weight:600;font-size:.78rem">${pr.label}</div></td>
-      <td><div class="sh-cell" style="justify-content:center">
-            ${
-              t.attachName
-                ? `<span style="font-size:.7rem;color:var(--accent)">📎 ${esc(t.attachName)}</span>`
-                : `<button onclick="triggerSHAttach(${t.id})"
-                  style="background:none;border:1px solid var(--border);border-radius:6px;
-                         padding:2px 8px;color:var(--muted);font-size:.7rem;cursor:pointer">+ Attach</button>`
-            }
-          </div></td>
-      <td><div class="sh-cell" style="font-size:.72rem;color:var(--muted)">${esc(updated)}</div></td>
-      <td><div class="sh-cell editable" style="font-size:.75rem;color:var(--muted)"
-            onclick="inlineEdit(${t.id},'summary',this)">${esc(t.summary || "–")}</div></td>
-      <td style="text-align:center">
-        <div class="sh-cell" style="justify-content:center">
-          <button onclick="moveSHTask(${t.id}, '${isDone ? "todo" : "done"}')"
-            style="width:22px;height:22px;border-radius:5px;cursor:pointer;font-size:.75rem;
-                   background:${isDone ? "#22c55e" : "none"};
-                   border:2px solid ${isDone ? "#22c55e" : "var(--border)"};
-                   color:${isDone ? "#fff" : "transparent"}">${isDone ? "✓" : ""}</button>
-        </div>
-      </td>
-    </tr>`;
-    })
-    .join("");
-}
-
-// ── Inline editing ────────────────────────────────────────────────────────
-
-function inlineEdit(id, field, cell) {
-  const data = getSHData();
-  const task = (data.tasks || []).find((t) => t.id === id);
-  if (!task) return;
-
-  const cur = task[field] || "";
-  const isMultiline = field === "desc" || field === "summary";
-
-  if (isMultiline) {
-    cell.innerHTML = `<textarea style="width:100%;background:var(--card);border:1px solid var(--accent);
-      border-radius:5px;padding:4px 7px;color:var(--text);font-family:var(--font-body);font-size:.82rem;
-      resize:none;outline:none;min-height:52px" onblur="saveInline(${id},'${field}',this.value)"
-      onkeydown="if(event.key==='Escape')renderSHOverview()">${esc(cur)}</textarea>`;
-    cell.querySelector("textarea").focus();
-  } else {
-    cell.innerHTML = `<input value="${esc(cur)}" style="width:100%;background:var(--card);border:1px solid var(--accent);
-      border-radius:5px;padding:4px 7px;color:var(--text);font-family:var(--font-body);font-size:.82rem;outline:none"
-      onblur="saveInline(${id},'${field}',this.value)"
-      onkeydown="if(event.key==='Enter'||event.key==='Escape')this.blur()">`;
-    cell.querySelector("input").focus();
-    cell.querySelector("input").select();
-  }
-}
-
-function inlineEditSelect(id, field, cell) {
-  const data = getSHData();
-  const task = (data.tasks || []).find((t) => t.id === id);
-  if (!task) return;
-
-  const options = {
-    status: [
-      ["todo", "Not started"],
-      ["inprogress", "In progress"],
-      ["done", "Done"],
-    ],
-    priority: [
-      ["normal", "Normal"],
-      ["high", "🔴 High"],
-      ["medium", "🟡 Medium"],
-      ["low", "🟢 Low"],
-    ],
-    type: [
-      ["assignment", "📋 Assignment"],
-      ["exam", "📝 Exam prep"],
-      ["reading", "📖 Reading"],
-      ["project", "🗂 Project"],
-      ["revision", "🔄 Revision"],
-      ["other", "⚙️ Other"],
-    ],
+  const SERVER_FIELD_ALIASES = {
+    description: "desc",
+    goal_id: "goalId",
+    attach_name: "attachName",
   };
-  const opts = options[field] || [];
-
-  cell.innerHTML = `<select style="width:100%;background:var(--card);border:1px solid var(--accent);
-    border-radius:5px;padding:4px 7px;color:var(--text);font-family:var(--font-body);font-size:.82rem;outline:none"
-    onblur="saveInline(${id},'${field}',this.value)"
-    onchange="saveInline(${id},'${field}',this.value)">
-    ${opts.map(([v, l]) => `<option value="${v}" ${task[field] === v ? "selected" : ""}>${l}</option>`).join("")}
-  </select>`;
-  cell.querySelector("select").focus();
-}
-
-function inlineEditDate(id, cell) {
-  const data = getSHData();
-  const task = (data.tasks || []).find((t) => t.id === id);
-  if (!task) return;
-  cell.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:3px;padding:4px">
-      <input type="date" value="${task.date || ""}" style="background:var(--card);border:1px solid var(--accent);
-        border-radius:5px;padding:3px 6px;color:var(--text);font-size:.78rem;outline:none"
-        onblur="saveDateInline(${id},'date',this.value)"
-        onchange="saveDateInline(${id},'date',this.value)">
-      <input type="time" value="${task.time || ""}" style="background:var(--card);border:1px solid var(--accent);
-        border-radius:5px;padding:3px 6px;color:var(--text);font-size:.78rem;outline:none"
-        onblur="saveDateInline(${id},'time',this.value)"
-        onchange="saveDateInline(${id},'time',this.value)">
-    </div>`;
-  cell.querySelector("input").focus();
-}
-
-function saveInline(id, field, value) {
-  const data = getSHData();
-  const task = (data.tasks || []).find((t) => t.id === id);
-  if (!task) return;
-  task[field] = value.trim();
-  task.updated = new Date().toLocaleDateString();
-  saveSHData(data);
-  renderSHOverview();
-  renderSHBoard();
-}
-
-function saveDateInline(id, field, value) {
-  const data = getSHData();
-  const task = (data.tasks || []).find((t) => t.id === id);
-  if (!task) return;
-  task[field] = value;
-  task.updated = new Date().toLocaleDateString();
-  saveSHData(data);
-  // Don't re-render yet — user may still editing time field
-}
-
-function triggerSHAttach(id) {
-  const inp = document.createElement("input");
-  inp.type = "file";
-  inp.style.display = "none";
-  inp.onchange = () => {
-    const file = inp.files[0];
-    if (!file) return;
-    const data = getSHData();
-    const task = (data.tasks || []).find((t) => t.id === id);
-    if (task) {
-      task.attachName = file.name;
-      task.updated = new Date().toLocaleDateString();
-    }
-    saveSHData(data);
-    renderSHOverview();
-    toast(`Attached: ${file.name}`);
-  };
-  document.body.appendChild(inp);
-  inp.click();
-  document.body.removeChild(inp);
-}
-
-function handleSHAttach(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const fn = $("sh-modal-file-name");
-  if (fn) fn.textContent = file.name;
-  input._filename = file.name;
-}
-
-function openEditTask(id) {
-  const data = getSHData();
-  const task = (data.tasks || []).find((t) => t.id === id);
-  if (!task) return;
-  const modal = $("sh-modal-bg");
-  modal._editId = id;
-  const h = $("sh-modal-heading");
-  if (h) h.textContent = "Edit Task";
-  $("sh-modal-title").value = task.title || "";
-  $("sh-modal-status").value = task.status || "todo";
-  $("sh-modal-type").value = task.type || "other";
-  $("sh-modal-desc").value = task.desc || "";
-  $("sh-modal-assignee").value = task.assignee || "";
-  $("sh-modal-date").value = task.date || "";
-  $("sh-modal-time").value = task.time || "";
-  $("sh-modal-priority").value = task.priority || "normal";
-  $("sh-modal-summary").value = task.summary || "";
-  if ($("sh-modal-recur")) $("sh-modal-recur").value = task.recurrence || "";
-  _populateGoalPicker(task.goalId || "");
-  const fn = $("sh-modal-file-name");
-  if (fn) fn.textContent = task.attachName || "No file chosen";
-  modal.style.display = "flex";
-  setTimeout(() => $("sh-modal-title")?.focus(), 100);
-}
-
-function _populateGoalPicker(selectedId = "") {
-  const sel = $("sh-modal-goal");
-  if (!sel) return;
-  const goals = JSON.parse(
-    localStorage.getItem(`sivarr_goals_${S.sid}`) || "[]",
-  ).filter((g) => !g.completed);
-  sel.innerHTML =
-    '<option value="">No goal</option>' +
-    goals
-      .map(
-        (g) =>
-          `<option value="${g.id}" ${String(g.id) === String(selectedId) ? "selected" : ""}>${esc(g.title)}</option>`,
-      )
-      .join("");
-}
-
-function openAddTask(col) {
-  SH_ADD_COL = col || "todo";
-  const modal = $("sh-modal-bg");
-  if (!modal) return;
-  modal._editId = null;
-  const h = $("sh-modal-heading");
-  if (h) h.textContent = "New Task";
-  $("sh-modal-title").value = "";
-  $("sh-modal-status").value = SH_ADD_COL;
-  $("sh-modal-type").value = "other";
-  $("sh-modal-desc").value = "";
-  $("sh-modal-assignee").value = "";
-  $("sh-modal-date").value = "";
-  $("sh-modal-time").value = "";
-  $("sh-modal-priority").value = "normal";
-  $("sh-modal-summary").value = "";
-  _populateGoalPicker("");
-  const fn = $("sh-modal-file-name");
-  if (fn) fn.textContent = "No file chosen";
-  const fi = $("sh-modal-file");
-  if (fi) {
-    fi.value = "";
-    fi._filename = "";
-  }
-  modal.style.display = "flex";
-  setTimeout(() => $("sh-modal-title")?.focus(), 100);
-}
-
-function closeSHModal() {
-  const modal = $("sh-modal-bg");
-  if (modal) modal.style.display = "none";
-}
-
-function saveSHModal() {
-  const title = $("sh-modal-title")?.value.trim();
-  if (!title) {
-    toast("Enter a task name.");
-    return;
-  }
-
-  const now = new Date().toLocaleDateString();
-  const data = getSHData();
-  data.tasks = data.tasks || [];
-  const editId = $("sh-modal-bg")._editId;
-
-  const goalId = $("sh-modal-goal")?.value || "";
-  const fields = {
-    title,
-    status: $("sh-modal-status")?.value || "todo",
-    type: $("sh-modal-type")?.value || "other",
-    desc: $("sh-modal-desc")?.value.trim() || "",
-    assignee: $("sh-modal-assignee")?.value.trim() || "",
-    date: $("sh-modal-date")?.value || "",
-    time: $("sh-modal-time")?.value || "",
-    priority: $("sh-modal-priority")?.value || "normal",
-    summary: $("sh-modal-summary")?.value.trim() || "",
-    recurrence: $("sh-modal-recur")?.value || null,
-    attachName: $("sh-modal-file")?._filename || "",
-    goalId: goalId,
-    updated: now,
-  };
-
-  if (editId) {
-    const task = data.tasks.find((t) => t.id === editId);
-    if (task) Object.assign(task, fields);
-    $("sh-modal-bg")._editId = null;
-    toast("Task updated ✓");
-  } else {
-    data.tasks.push({ id: Date.now(), created: now, ...fields });
-    toast("Task added ✓");
-  }
-
-  saveSHData(data);
-  closeSHModal();
-  renderSHBoard();
-}
-
-function deleteSHTask(id) {
-  const data = getSHData();
-  const task = (data.tasks || []).find((t) => t.id === id);
-  if (!task) return;
-  task.deleted_at = new Date().toISOString();
-  saveSHData(data);
-  renderSHBoard();
-  if (SH_VIEW === "list") renderSHListView();
-  toast("Task moved to Trash");
-}
-
-function restoreSHTask(id) {
-  // String comparison, not ===: task ids aren't uniformly numeric (recurring
-  // spawns get "rec_<id>_<ts>", CSV imports get a uuid slice) — id also
-  // arrives here from the Trash panel's onclick attribute, a string
-  // regardless of the original type, so a strict-equals check against a
-  // numeric id would silently never match. Same class of bug documented
-  // elsewhere in this codebase for exactly this reason.
-  const data = getSHData();
-  const task = (data.tasks || []).find((t) => String(t.id) === String(id));
-  if (!task) return;
-  delete task.deleted_at;
-  saveSHData(data);
-  renderSHBoard();
-  if (SH_VIEW === "list") renderSHListView();
-}
-
-function moveSHTask(id, newStatus) {
-  const data = getSHData();
-  const task = (data.tasks || []).find((t) => t.id === id);
-  if (task) {
-    task.status = newStatus;
-    task.done = newStatus === "done";
-    saveSHData(data);
-    if (newStatus === "done") {
-      _recordActivity();
-      _autoFire("task_done", {
-        taskTitle: task.title,
-        journalPrompt: `Just completed: "${task.title}". Thoughts? `,
-        followUpTask: `Review: ${task.title}`,
-      });
-      // Auto-bump linked goal progress
-      if (task.goalId && S.sid) {
-        try {
-          const goals = JSON.parse(
-            localStorage.getItem(`sivarr_goals_${S.sid}`) || "[]",
-          );
-          const g = goals.find((g) => String(g.id) === String(task.goalId));
-          if (g && !g.completed) {
-            g.progress = Math.min(100, (g.progress || 0) + 10);
-            if (g.progress >= 100) g.completed = true;
-            localStorage.setItem(
-              `sivarr_goals_${S.sid}`,
-              JSON.stringify(goals),
-            );
-            toast(`🎯 ${g.title}: ${g.progress}%`);
-          }
-        } catch (_) {}
+  function serverTaskToLocal(t) {
+    const out = { ...t };
+    for (const [serverKey, localKey] of Object.entries(SERVER_FIELD_ALIASES)) {
+      if (serverKey in out) {
+        out[localKey] = out[serverKey];
+        delete out[serverKey];
       }
     }
+    return out;
   }
-  renderSHBoard();
-  if (SH_VIEW === "list") renderSHListView();
-}
 
-// Drag and drop
-function shDragOver(e) {
-  e.preventDefault();
-  e.currentTarget.classList.add("drag-over");
-}
-
-function shDrop(e, col) {
-  e.preventDefault();
-  e.currentTarget.classList.remove("drag-over");
-  if (SH_DRAG !== null) {
-    moveSHTask(SH_DRAG, col);
-    SH_DRAG = null;
-  }
-}
-
-document.addEventListener("keydown", function _shKeys(e) {
-  if (!$("panel-flux")?.classList.contains("active")) return;
-  const tag = document.activeElement?.tagName;
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-  if ($("sh-modal-bg")?.style.display === "flex") return;
-
-  if (e.key === "Escape") {
-    shCloseDetail();
-    return;
-  }
-  if (e.key === "n" || e.key === "N") {
-    e.preventDefault();
-    openAddTask("todo");
-    return;
-  }
-  if (!SH_SELECTED) return;
-  if (e.key === "e" || e.key === "E") {
-    e.preventDefault();
-    shOpenDetail(SH_SELECTED);
-  }
-  if (e.key === " ") {
-    e.preventDefault();
-    const task = (getSHData().tasks || []).find((t) => t.id === SH_SELECTED);
-    if (task) moveSHTask(SH_SELECTED, task.status === "done" ? "todo" : "done");
-  }
-  if (e.key === "Delete") {
-    e.preventDefault();
-    if (confirm("Delete this task?")) {
-      deleteSHTask(SH_SELECTED);
-      SH_SELECTED = null;
-      shCloseDetail();
+  function sendMutation(url, body) {
+    const token = getToken();
+    if (!token || !S.sid) return Promise.resolve(null);
+    body = { token, ...body };
+    if (!navigator.onLine) {
+      _queueMutation(url, body);
+      return Promise.resolve(null);
     }
-  }
-});
-
-// ── Bulk actions ──────────────────────────────────────────────────────────────
-
-function _shBulkUpdateBar() {
-  const bar = $("sh-bulk-bar");
-  const count = $("sh-bulk-count");
-  const size = SH_BULK_SEL.size;
-  if (bar) bar.style.display = size > 0 ? "flex" : "none";
-  if (count)
-    count.textContent = `${size} task${size !== 1 ? "s" : ""} selected`;
-  const allCb = $("sh-bulk-all");
-  if (allCb) {
-    const total = shActiveTasks(getSHData().tasks).length;
-    allCb.checked = size > 0 && size === total;
-    allCb.indeterminate = size > 0 && size < total;
-  }
-}
-
-function _shToggleBulk(id, checked) {
-  if (checked) SH_BULK_SEL.add(id);
-  else SH_BULK_SEL.delete(id);
-  _shBulkUpdateBar();
-}
-
-function _shBulkSelectAll(checked) {
-  // Active tasks only — selecting all must never sweep up an already-trashed
-  // task (it has no checkbox to have been individually selected, so "all"
-  // silently including it would let bulk-complete resurrect a deleted task).
-  const tasks = shActiveTasks(getSHData().tasks);
-  if (checked) tasks.forEach((t) => SH_BULK_SEL.add(t.id));
-  else SH_BULK_SEL.clear();
-  _shBulkUpdateBar();
-  renderSHOverview();
-}
-
-function _shBulkComplete() {
-  if (!SH_BULK_SEL.size) return;
-  const n = SH_BULK_SEL.size;
-  const data = getSHData();
-  (data.tasks || []).forEach((t) => {
-    if (SH_BULK_SEL.has(t.id)) {
-      t.status = "done";
-      t.done = true;
-      t.updated = new Date().toLocaleDateString();
-    }
-  });
-  saveSHData(data);
-  SH_BULK_SEL.clear();
-  _shBulkUpdateBar();
-  renderSHBoard();
-  toast(`✓ ${n} task${n !== 1 ? "s" : ""} completed`);
-}
-
-function _shBulkDelete() {
-  if (!SH_BULK_SEL.size) return;
-  const n = SH_BULK_SEL.size;
-  if (!confirm(`Delete ${n} task${n !== 1 ? "s" : ""}?`)) return;
-  const data = getSHData();
-  const now = new Date().toISOString();
-  (data.tasks || []).forEach((t) => {
-    if (SH_BULK_SEL.has(t.id)) t.deleted_at = now;
-  });
-  saveSHData(data);
-  SH_BULK_SEL.clear();
-  _shBulkUpdateBar();
-  renderSHBoard();
-  toast(`🗑 ${n} task${n !== 1 ? "s" : ""} moved to Trash`);
-}
-
-function _shBulkPriority(p) {
-  if (!p || !SH_BULK_SEL.size) return;
-  const data = getSHData();
-  (data.tasks || []).forEach((t) => {
-    if (SH_BULK_SEL.has(t.id)) {
-      t.priority = p;
-      t.updated = new Date().toLocaleDateString();
-    }
-  });
-  saveSHData(data);
-  renderSHOverview();
-  const sel = document.querySelector("#sh-bulk-bar select");
-  if (sel) sel.value = "";
-  toast(`Priority → ${p}`);
-}
-
-function _shBulkClear() {
-  SH_BULK_SEL.clear();
-  _shBulkUpdateBar();
-  renderSHOverview();
-}
-
-// ── Task detail side panel ────────────────────────────────────────────────────
-
-function shOpenDetail(id) {
-  const data = getSHData();
-  const task = (data.tasks || []).find((t) => t.id === id);
-  if (!task) return;
-
-  const ST = {
-    todo: { label: "Not started", color: "#94a3b8" },
-    inprogress: { label: "In progress", color: "#4f6ef7" },
-    done: { label: "Done", color: "#22c55e" },
-  };
-  const PR = {
-    high: "🔴 High",
-    medium: "🟡 Medium",
-    low: "🟢 Low",
-    normal: "Normal",
-  };
-  const dueFmt = _fmtDueDate(task.date, task.time);
-  const st = ST[task.status] || ST.todo;
-
-  $("sh-detail-body").innerHTML = `
-    <div contenteditable="true" spellcheck="false"
-      style="font-size:1.05rem;font-weight:700;color:var(--text);line-height:1.45;margin-bottom:16px;
-             outline:none;border-radius:6px;padding:4px 6px;margin:-4px -6px"
-      onblur="saveInline(${task.id},'title',this.innerText.trim())"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
-      >${esc(task.title)}</div>
-
-    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">
-      <span style="background:${st.color}15;color:${st.color};border:1px solid ${st.color}30;
-                   border-radius:6px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer"
-        onclick="inlineEditSelect(${task.id},'status',this)">${st.label}</span>
-      <span style="background:var(--surface);border:1px solid var(--border);
-                   border-radius:6px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;color:var(--text2)"
-        onclick="inlineEditSelect(${task.id},'priority',this)">${PR[task.priority] || "Normal"}</span>
-      <span style="background:var(--surface);border:1px solid var(--border);
-                   border-radius:6px;padding:3px 10px;font-size:.75rem;color:${dueFmt.color};font-weight:${dueFmt.overdue ? "700" : "500"};cursor:pointer"
-        onclick="inlineEditDate(${task.id},this)">📅 ${dueFmt.label}</span>
-    </div>
-
-    <div style="margin-bottom:16px">
-      <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Description</div>
-      <div contenteditable="true" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;
-           padding:10px 12px;font-size:.84rem;color:var(--text);min-height:72px;line-height:1.6;outline:none"
-        onblur="saveInline(${task.id},'desc',this.innerText.trim())">${esc(task.desc || "")}<br></div>
-    </div>
-
-    <div style="margin-bottom:16px">
-      <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Notes</div>
-      <div contenteditable="true" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;
-           padding:10px 12px;font-size:.84rem;color:var(--text);min-height:72px;line-height:1.6;outline:none"
-        onblur="saveInline(${task.id},'notes',this.innerText.trim())">${esc(task.notes || "")}<br></div>
-    </div>
-
-    <div style="margin-bottom:20px;display:flex;flex-direction:column;gap:5px">
-      <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Activity</div>
-      ${task.created ? `<div style="font-size:.76rem;color:var(--muted)">📌 Created: ${task.created}</div>` : ""}
-      ${task.updated ? `<div style="font-size:.76rem;color:var(--muted)">✏️ Updated: ${task.updated}</div>` : ""}
-    </div>
-
-    ${(() => {
-      const allTasks = shActiveTasks(getSHData().tasks);
-      const subs = allTasks.filter(
-        (c) => String(c.parent_id) === String(task.id),
-      );
-      const subsHTML = subs.length
-        ? subs
-            .map(
-              (s) => `
-          <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:7px;background:var(--surface);margin-bottom:4px">
-            <input type="checkbox" ${s.status === "done" ? "checked" : ""}
-              onchange="moveSHTask(${s.id},this.checked?'done':'todo');shOpenDetail(${task.id})"
-              style="cursor:pointer;accent-color:var(--accent);flex-shrink:0">
-            <span style="flex:1;font-size:.82rem;${s.status === "done" ? "text-decoration:line-through;opacity:.5;" : ""}">${esc(s.title)}</span>
-            <button onclick="if(confirm('Delete subtask?')){deleteSHTask(${s.id});shOpenDetail(${task.id})}"
-              style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.75rem;padding:2px 4px">✕</button>
-          </div>`,
-            )
-            .join("")
-        : `<div style="font-size:.78rem;color:var(--muted);padding:4px 0">No subtasks yet</div>`;
-      return `
-    <div style="margin-bottom:16px">
-      <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
-        <span>Subtasks ${subs.length ? `(${subs.filter((s) => s.done).length}/${subs.length})` : ""}</span>
-        <button onclick="addSubtask(${task.id})"
-          style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;
-                 font-size:.72rem;color:var(--accent);cursor:pointer;font-weight:600">+ Add</button>
-      </div>
-      ${subsHTML}
-    </div>`;
-    })()}
-
-    <div style="display:flex;gap:8px">
-      <button onclick="moveSHTask(${task.id},'${task.status === "done" ? "todo" : "done"}');shOpenDetail(${task.id})"
-        style="flex:1;background:${task.status === "done" ? "var(--surface)" : "#22c55e"};
-               border:1px solid ${task.status === "done" ? "var(--border)" : "#22c55e"};
-               color:${task.status === "done" ? "var(--text2)" : "#fff"};
-               border-radius:8px;padding:9px;font-family:var(--font-body);font-size:.83rem;font-weight:600;cursor:pointer">
-        ${task.status === "done" ? "↩ Reopen" : "✓ Mark Done"}
-      </button>
-      <button onclick="openEditTask(${task.id})"
-        style="background:var(--surface);border:1px solid var(--border);border-radius:8px;
-               padding:9px 14px;color:var(--text2);font-size:.83rem;cursor:pointer" title="Edit in modal">✎</button>
-      <button onclick="if(confirm('Delete task?')){deleteSHTask(${task.id});shCloseDetail()}"
-        style="background:none;border:1px solid var(--border);border-radius:8px;
-               padding:9px 12px;color:var(--muted);font-size:.83rem;cursor:pointer">🗑</button>
-    </div>`;
-
-  const panel = $("sh-detail-panel");
-  const backdrop = $("sh-detail-backdrop");
-  if (panel) panel.style.transform = "translateX(0)";
-  if (backdrop) backdrop.style.display = "block";
-  _shSelectTask(id);
-}
-
-function shCloseDetail() {
-  const panel = $("sh-detail-panel");
-  const backdrop = $("sh-detail-backdrop");
-  if (panel) panel.style.transform = "translateX(100%)";
-  if (backdrop) backdrop.style.display = "none";
-}
-
-async function addSubtask(parentId) {
-  const title = await siModal.input("New Subtask", "Subtask name:", "", {
-    confirmLabel: "Add",
-  });
-  if (!title?.trim()) return;
-  const data = getSHData();
-  const parent = (data.tasks || []).find((t) => t.id === parentId);
-  const now = new Date().toLocaleDateString();
-  data.tasks.push({
-    id: Date.now(),
-    title: title.trim(),
-    status: "todo",
-    done: false,
-    parent_id: parentId,
-    priority: parent?.priority || "normal",
-    created: now,
-    updated: now,
-  });
-  saveSHData(data);
-  renderSHBoard();
-  shOpenDetail(parentId);
-  toast("Subtask added ✓");
-}
-
-function renderSHBoard() {
-  const data = getSHData();
-  const tasks = shActiveTasks(data.tasks);
-  const done = tasks.filter((t) => t.status === "done").length;
-  const total = tasks.length;
-  const pct = total ? Math.round((done / total) * 100) : 0;
-
-  const tc = $("sh-total-count");
-  if (tc) tc.textContent = total;
-  const dc = $("sh-done-count");
-  if (dc) dc.textContent = done;
-  const pb = $("sh-progress-bar");
-  if (pb) pb.style.width = pct + "%";
-  const pp = $("sh-pct");
-  if (pp) pp.textContent = pct + "%";
-
-  Object.keys(SH_COLS).forEach((col) => {
-    const colTasks = tasks.filter((t) => t.status === col);
-    const body = $(`sh-col-${col}`);
-    const count = $(`sh-col-count-${col}`);
-    if (!body) return;
-    if (count) count.textContent = colTasks.length;
-
-    const allTasksForBoard = tasks;
-    body.innerHTML = colTasks.length
-      ? colTasks
-          .filter((t) => !t.parent_id)
-          .map((t) => {
-            const dFmt = _fmtDueDate(t.date, t.time);
-            const subs = allTasksForBoard.filter(
-              (c) => String(c.parent_id) === String(t.id),
-            );
-            const subDone = subs.filter((c) => c.done).length;
-            return `
-      <div class="sh-card" draggable="true"
-        ondragstart="SH_DRAG=${t.id}"
-        ondragend="document.querySelectorAll('.sh-col-body').forEach(b=>b.classList.remove('drag-over'))">
-        <div class="sh-card-title">${esc(t.title)}</div>
-        ${t.notes ? `<div class="sh-card-notes">${esc(t.notes)}</div>` : ""}
-        <div class="sh-card-footer">
-          ${t.date ? `<span class="sh-card-date" style="color:${dFmt.color};font-weight:${dFmt.overdue ? "700" : "400"}">${dFmt.overdue ? "⚠️" : "📅"} ${dFmt.label}</span>` : ""}
-          ${subs.length ? `<span style="font-size:.67rem;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px">${subDone}/${subs.length} ○</span>` : ""}
-          <span class="sh-priority ${t.priority}">${
-            t.priority === "high"
-              ? "🔴 High"
-              : t.priority === "medium"
-                ? "🟡 Med"
-                : t.priority === "low"
-                  ? "🟢 Low"
-                  : ""
-          }</span>
-          <div style="margin-left:auto;display:flex;gap:4px">
-            ${
-              col !== "done"
-                ? `<button onclick="moveSHTask(${t.id},'done')"
-              style="background:#22c55e20;border:1px solid #22c55e40;border-radius:5px;
-                     color:#22c55e;font-size:.65rem;padding:1px 6px;cursor:pointer">✓</button>`
-                : ""
-            }
-            <button onclick="deleteSHTask(${t.id})" class="sh-card-del"
-              style="opacity:1;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.75rem">✕</button>
-          </div>
-        </div>
-      </div>`;
-          })
-          .join("")
-      : `<div style="font-size:.75rem;color:var(--muted);padding:8px 4px;text-align:center">No tasks</div>`;
-  });
-
-  // Refresh overview if visible
-  if (SH_VIEW === "overview") renderSHOverview();
-  if (SH_VIEW === "list") renderSHListView();
-}
-
-function renderSHListView() {
-  const data = getSHData();
-  const tasks = shActiveTasks(data.tasks);
-  const container = $("sh-list-container");
-  if (!container) return;
-
-  if (!tasks.length) {
-    container.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;padding:3rem 1rem;gap:10px">
-      <div style="font-size:2.2rem">✅</div>
-      <div style="font-weight:700;font-size:.95rem;color:var(--text)">No tasks yet</div>
-      <div style="font-size:.82rem;color:var(--muted);text-align:center;max-width:340px;line-height:1.5">
-        Press <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:.73rem;font-family:monospace">N</kbd> to create your first task.
-      </div>
-      <button onclick="openAddTask('todo')" style="margin-top:6px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-family:var(--font-body);font-size:.83rem;font-weight:600;cursor:pointer">+ New task</button>
-    </div>`;
-    return;
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => {
+        _queueMutation(url, body);
+        return null;
+      });
   }
 
-  container.innerHTML = `
-    <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;
-                letter-spacing:.06em;padding:6px 12px;display:grid;
-                grid-template-columns:12px 1fr 80px 80px 70px 40px;gap:8px;
-                border-bottom:1px solid var(--border)">
-      <span></span><span>Task</span><span>Status</span><span>Priority</span><span>Due</span><span></span>
-    </div>
-    ${tasks
-      .map(
-        (t) => `
-    <div class="sh-list-item" style="display:grid;grid-template-columns:12px 1fr 80px 80px 70px 40px;gap:8px;align-items:center">
-      <div class="sh-list-status" style="background:${SH_COLS[t.status]?.color || "#94a3b8"}"></div>
-      <div>
-        <div style="font-weight:600;font-size:.84rem">${esc(t.title)}</div>
-        ${t.notes ? `<div style="font-size:.72rem;color:var(--muted)">${esc(t.notes)}</div>` : ""}
-      </div>
-      <div style="font-size:.72rem;color:${SH_COLS[t.status]?.color || "var(--muted)"};font-weight:600">${SH_COLS[t.status]?.label || ""}</div>
-      <div><span class="sh-priority ${t.priority}">${
-        t.priority === "high"
-          ? "🔴 High"
-          : t.priority === "medium"
-            ? "🟡 Med"
-            : t.priority === "low"
-              ? "🟢 Low"
-              : "–"
-      }</span></div>
-      ${(() => {
-        const d = _fmtDueDate(t.date, t.time);
-        return `<div style="font-size:.72rem;color:${d.color};font-weight:${d.overdue ? "700" : "400"}">${d.label}</div>`;
-      })()}
-      <button onclick="deleteSHTask(${t.id})"
-        style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem">✕</button>
-    </div>`,
-      )
-      .join("")}`;
-}
+  function mergeSpawned(spawned) {
+    if (!spawned) return;
+    const local = serverTaskToLocal(spawned);
+    const data = getTasksData();
+    if ((data.tasks || []).some((t) => String(t.id) === String(local.id)))
+      return;
+    data.tasks.push(local);
+    localStorage.setItem(TASKS_KEY(), JSON.stringify(data));
+    const snap = getSyncedSnapshot();
+    snap[String(local.id)] = JSON.stringify(local);
+    setSyncedSnapshot(snap);
+    renderAll();
+    toast("New recurring task added ↻");
+  }
 
-async function generateTaskStructure() {
-  const inp = $("sh-structure-input");
-  const res = $("sh-structure-result");
-  const btn = document.querySelector('[onclick="generateTaskStructure()"]');
-  const text = inp?.value.trim();
-  if (!text) {
-    toast("Describe your task first.");
-    return;
-  }
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "⏳ Thinking...";
-  }
-  if (res) res.style.display = "none";
-  try {
-    const r = await API("/api/chat", {
-      sid: S.sid,
-      token: getToken() || "",
-      message: `Break down this task into clear numbered steps a student can follow. Be concise. Task: "${text}"`,
+  function syncTasksToServer(tasks) {
+    const token = getToken();
+    if (!token || !S.sid) return;
+
+    const snap = getSyncedSnapshot();
+    const nextSnap = {};
+
+    (tasks || []).forEach((t) => {
+      const id = String(t.id);
+      const serial = JSON.stringify(t);
+      nextSnap[id] = serial;
+      if (snap[id] === serial) return;
+
+      if (!(id in snap)) {
+        sendMutation("/api/tasks/add", { ...t });
+        return;
+      }
+      let was;
+      try {
+        was = JSON.parse(snap[id]);
+      } catch {
+        was = {};
+      }
+      if (!was.deleted_at && t.deleted_at) {
+        sendMutation("/api/tasks/delete", { id: t.id });
+      } else if (was.deleted_at && !t.deleted_at) {
+        sendMutation("/api/tasks/undelete", { id: t.id });
+        sendMutation("/api/tasks/update", { id: t.id, ...t });
+      } else {
+        sendMutation("/api/tasks/update", { id: t.id, ...t }).then((d) => {
+          if (d && d.spawned) mergeSpawned(d.spawned);
+        });
+      }
     });
-    if (res) {
-      res.innerHTML = renderMarkdown(r.response || r.reply || r.message || "");
-      res.style.display = "block";
+
+    setSyncedSnapshot(nextSnap);
+  }
+
+  function pruneExpiredTrash() {
+    const data = getTasksData();
+    const cutoff = Date.now() - 30 * 86400000;
+    const kept = (data.tasks || []).filter((t) => {
+      if (!t.deleted_at) return true;
+      const ts = Date.parse(t.deleted_at);
+      return Number.isNaN(ts) || ts >= cutoff;
+    });
+    if (kept.length !== (data.tasks || []).length) {
+      data.tasks = kept;
+      saveTasksData(data);
     }
-  } catch {
-    toast("Could not generate. Try again.");
   }
-  if (btn) {
-    btn.disabled = false;
-    btn.textContent = "Generate Steps";
+
+  // ── Formatting ───────────────────────────────────────────────────────
+  const STATUS = {
+    todo: { label: "To Do", color: "var(--t3)" },
+    inprogress: { label: "In Progress", color: "var(--blue)" },
+    blocked: { label: "Blocked", color: "var(--red)" },
+    done: { label: "Done", color: "var(--green)" },
+  };
+  const PRIORITY = {
+    low: { label: "Low", color: "var(--green)" },
+    medium: { label: "Medium", color: "var(--amber)" },
+    high: { label: "High", color: "var(--red)" },
+    normal: { label: "Medium", color: "var(--amber)" },
+  };
+  const REPEATS = {
+    none: "Doesn't repeat",
+    daily: "Daily",
+    weekly: "Weekly",
+    custom: "Custom",
+  };
+
+  function todayStr() {
+    return new Date().toISOString().split("T")[0];
   }
-}
-
-function createStudyPDF() {
-  const title = $("sh-pdf-title")?.value.trim() || "Study Plan";
-  const body = $("sh-pdf-content")?.value.trim();
-  if (!body) {
-    toast("Add some content first.");
-    return;
+  function weekEndStr() {
+    return new Date(Date.now() + 6 * 86400000).toISOString().split("T")[0];
   }
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
-<style>body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#1a1a2e;line-height:1.7}
-h1{font-size:1.6rem;color:#4f6ef7;border-bottom:2px solid #4f6ef7;padding-bottom:8px}
-pre{white-space:pre-wrap;font-family:inherit;font-size:.95rem}
-.meta{font-size:.8rem;color:#888;margin-bottom:2rem}</style></head>
-<body><h1>${title}</h1><div class="meta">Generated by Sivarr AI · ${new Date().toLocaleDateString()}</div>
-<pre>${body}</pre></body></html>`;
-  const w = window.open("", "_blank");
-  w.document.write(html);
-  w.document.close();
-  setTimeout(() => w.print(), 300);
-}
 
-// Close modal on background click
-document.addEventListener("click", (e) => {
-  const modal = $("sh-modal-bg");
-  if (modal && e.target === modal) closeSHModal();
-});
+  function dueMeta(date) {
+    if (!date) return { label: "", overdue: false, has: false };
+    const t = todayStr();
+    if (date < t) return { label: "Overdue", overdue: true, has: true };
+    if (date === t)
+      return { label: "Due today", overdue: false, has: true, today: true };
+    const d = new Date(date + "T00:00:00");
+    const dayLbl = d.toLocaleDateString(undefined, { weekday: "short" });
+    return {
+      label:
+        date <= weekEndStr()
+          ? dayLbl
+          : d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      overdue: false,
+      has: true,
+    };
+  }
 
+  function priorityFlagHtml(p) {
+    if (p === "high")
+      return `<i class="ti ti-flag-filled priority-flag high"></i>`;
+    if (p === "medium" || p === "normal")
+      return `<i class="ti ti-flag-filled priority-flag med"></i>`;
+    return "";
+  }
+
+  function subtasksOf(allTasks, parentId) {
+    return allTasks.filter((t) => String(t.parent_id) === String(parentId));
+  }
+
+  // ── Search & Filter Helpers ──────────────────────────────────────────
+  function filterBySearch(tasks) {
+    if (!SEARCH_QUERY) return tasks;
+    const q = SEARCH_QUERY.toLowerCase();
+    return tasks.filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) ||
+        (t.desc && t.desc.toLowerCase().includes(q)),
+    );
+  }
+
+  window.promptSearch = function () {
+    const val = prompt("Search tasks by keyword:", SEARCH_QUERY);
+    if (val === null) return;
+    SEARCH_QUERY = val.trim();
+    renderAll();
+    if (SEARCH_QUERY) toast(`Filtering by: "${SEARCH_QUERY}"`);
+  };
+
+  // ── CRUD Operations ─────────────────────────────────────────────────
+  function addTask(fields) {
+    const now = new Date().toISOString();
+    const data = getTasksData();
+    data.tasks = data.tasks || [];
+    const task = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      title: "",
+      status: "todo",
+      priority: "medium",
+      date: "",
+      effort: "",
+      repeat: "none",
+      desc: "",
+      done: false,
+      created: now,
+      updated: now,
+      ...fields,
+    };
+    task.done = task.status === "done";
+    data.tasks.push(task);
+    saveTasksData(data);
+    return task;
+  }
+
+  function updateTaskFields(id, fields) {
+    const data = getTasksData();
+    const task = (data.tasks || []).find((t) => String(t.id) === String(id));
+    if (!task) return;
+    Object.assign(task, fields);
+    if ("status" in fields) task.done = fields.status === "done";
+    task.updated = new Date().toISOString();
+    saveTasksData(data);
+  }
+
+  function deleteTask(id) {
+    const data = getTasksData();
+    const task = (data.tasks || []).find((t) => String(t.id) === String(id));
+    if (!task) return;
+    task.deleted_at = new Date().toISOString();
+    saveTasksData(data);
+    renderAll();
+    toast("Task deleted");
+  }
+
+  window.toggleTaskDone = function (id) {
+    const data = getTasksData();
+    const task = (data.tasks || []).find((t) => String(t.id) === String(id));
+    if (!task) return;
+    const newStatus = task.status === "done" ? "todo" : "done";
+    updateTaskFields(id, { status: newStatus });
+    renderAll();
+    if (DETAIL_OPEN_ID === id) renderDetailSheet(id);
+  };
+
+  window.setTaskStatus = function (id, status) {
+    updateTaskFields(id, { status });
+    renderAll();
+    if (DETAIL_OPEN_ID === id) renderDetailSheet(id);
+  };
+
+  window.cycleStatus = function (id) {
+    const data = getTasksData();
+    const task = (data.tasks || []).find((t) => String(t.id) === String(id));
+    if (!task) return;
+    const order = ["todo", "inprogress", "blocked", "done"];
+    const next = order[(order.indexOf(task.status) + 1) % order.length];
+    updateTaskFields(id, { status: next });
+    renderAll();
+    if (DETAIL_OPEN_ID === id) renderDetailSheet(id);
+  };
+
+  window.cyclePriority = function (id) {
+    const data = getTasksData();
+    const task = (data.tasks || []).find((t) => String(t.id) === String(id));
+    if (!task) return;
+    const order = ["low", "medium", "high"];
+    const cur = task.priority === "normal" ? "medium" : task.priority;
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    updateTaskFields(id, { priority: next });
+    renderAll();
+    if (DETAIL_OPEN_ID === id) renderDetailSheet(id);
+  };
+
+  window.cycleRepeat = function (id) {
+    const data = getTasksData();
+    const task = (data.tasks || []).find((t) => String(t.id) === String(id));
+    if (!task) return;
+    const order = ["none", "daily", "weekly", "custom"];
+    const next =
+      order[(order.indexOf(task.repeat || "none") + 1) % order.length];
+    updateTaskFields(id, { repeat: next });
+    renderAll();
+    if (DETAIL_OPEN_ID === id) renderDetailSheet(id);
+  };
+
+  window.editDueDate = function (id) {
+    const data = getTasksData();
+    const task = (data.tasks || []).find((t) => String(t.id) === String(id));
+    if (!task) return;
+    const val = prompt(
+      "Due date (YYYY-MM-DD), leave blank for none:",
+      task.date || "",
+    );
+    if (val === null) return;
+    const clean = val.trim();
+    if (clean && !/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+      toast("Use YYYY-MM-DD format.");
+      return;
+    }
+    updateTaskFields(id, { date: clean });
+    renderAll();
+    if (DETAIL_OPEN_ID === id) renderDetailSheet(id);
+  };
+
+  window.editEffort = function (id) {
+    const data = getTasksData();
+    const task = (data.tasks || []).find((t) => String(t.id) === String(id));
+    if (!task) return;
+    const val = prompt("Estimated effort (e.g. 2 hours):", task.effort || "");
+    if (val === null) return;
+    updateTaskFields(id, { effort: val.trim() });
+    renderAll();
+    if (DETAIL_OPEN_ID === id) renderDetailSheet(id);
+  };
+
+  window.saveDetailField = function (id, field, value) {
+    updateTaskFields(id, { [field]: (value || "").trim() });
+    renderAll();
+  };
+
+  window.addSubtaskPrompt = function (parentId) {
+    const title = prompt("Subtask name:", "");
+    if (!title || !title.trim()) return;
+    const data = getTasksData();
+    const parent = (data.tasks || []).find(
+      (t) => String(t.id) === String(parentId),
+    );
+    addTask({
+      title: title.trim(),
+      status: "todo",
+      priority: parent?.priority || "medium",
+      parent_id: parentId,
+    });
+    renderAll();
+    if (DETAIL_OPEN_ID === parentId) renderDetailSheet(parentId);
+    toast("Subtask added ✓");
+  };
+
+  window.toggleSubtaskDone = function (id, parentId) {
+    toggleTaskDone(id);
+    if (DETAIL_OPEN_ID === parentId) renderDetailSheet(parentId);
+  };
+
+  window.deleteSubtask = function (id, parentId) {
+    if (!confirm("Delete this subtask?")) return;
+    deleteTask(id);
+    if (DETAIL_OPEN_ID === parentId) renderDetailSheet(parentId);
+  };
+
+  window.deleteTask = deleteTask;
+
+  // ── List View ────────────────────────────────────────────────────────
+  function renderListView() {
+    const wrap = $("listWrap");
+    if (!wrap) return;
+    const all = activeTasks(getTasksData().tasks);
+    const filtered = filterBySearch(all);
+    const topLevel = filtered.filter((t) => !t.parent_id);
+
+    const t = todayStr();
+    const wk = weekEndStr();
+    const groups = { Today: [], "This week": [], Later: [], Done: [] };
+    topLevel.forEach((task) => {
+      if (task.status === "done") groups.Done.push(task);
+      else if (task.date && task.date < t) groups.Today.push(task);
+      else if (task.date === t) groups.Today.push(task);
+      else if (task.date && task.date > t && task.date <= wk)
+        groups["This week"].push(task);
+      else groups.Later.push(task);
+    });
+
+    if (!topLevel.length) {
+      wrap.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;padding:3rem 1rem;gap:10px;">
+        <div style="font-size:2.2rem;">✅</div>
+        <div style="font-weight:700;font-size:.95rem;">${SEARCH_QUERY ? "No matching tasks" : "No tasks yet"}</div>
+        <div style="font-size:.82rem;color:var(--t3);text-align:center;max-width:300px;line-height:1.5;">${
+          SEARCH_QUERY
+            ? "Try searching for a different term."
+            : "Tap the + button above, or press N, to add your first task."
+        }</div>
+      </div>`;
+      return;
+    }
+
+    wrap.innerHTML = Object.entries(groups)
+      .filter(([, list]) => list.length)
+      .map(([label, list]) => {
+        list.sort((a, b) => ((a.date || "9999") < (b.date || "9999") ? -1 : 1));
+        return `
+      <div class="list-group">
+        <div class="list-group-head"><div class="list-group-title">${esc(label)}</div><div class="list-group-count">${list.length}</div></div>
+        ${list.map((task) => renderListRow(task, all)).join("")}
+      </div>`;
+      })
+      .join("");
+  }
+
+  function renderListRow(task, allTasks) {
+    const done = task.status === "done";
+    const dm = dueMeta(task.date);
+    const subs = subtasksOf(allTasks, task.id);
+    const subDone = subs.filter((s) => s.status === "done").length;
+    return `
+    <div class="task-row" data-id="${task.id}" onclick="openDetail(${task.id})">
+      <div class="task-check ${done ? "done" : ""}" onclick="event.stopPropagation();toggleTaskDone(${task.id})">${done ? '<i class="ti ti-check"></i>' : ""}</div>
+      <div class="task-body">
+        <div class="task-title-row">
+          <div class="task-title ${done ? "done" : ""}">${esc(task.title)}</div>
+          ${priorityFlagHtml(task.priority)}
+        </div>
+        <div class="task-meta-row">
+          ${dm.has ? `<div class="task-meta-item ${dm.overdue ? "overdue" : ""}"><i class="ti ti-clock"></i>${esc(dm.label)}</div>` : ""}
+          ${task.effort ? `<div class="task-meta-item"><i class="ti ti-hourglass"></i>${esc(task.effort)}</div>` : ""}
+          ${task.repeat && task.repeat !== "none" ? `<div class="task-meta-item"><i class="ti ti-repeat"></i>${esc(REPEATS[task.repeat] || task.repeat)}</div>` : ""}
+          ${subs.length ? `<div class="subtask-progress">${subDone}/${subs.length} subtasks</div>` : ""}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── Kanban View ──────────────────────────────────────────────────────
+  let KANBAN_DRAG_ID = null;
+
+  function renderKanbanView() {
+    const all = activeTasks(getTasksData().tasks);
+    const filtered = filterBySearch(all);
+    const topLevel = filtered.filter((t) => !t.parent_id);
+    Object.keys(STATUS).forEach((status) => {
+      const body = $(`kanbanBody-${status}`);
+      const count = $(`kanbanCount-${status}`);
+      if (!body) return;
+      const list = topLevel.filter((t) => (t.status || "todo") === status);
+      if (count) count.textContent = list.length;
+      body.innerHTML = list.length
+        ? list.map((task) => renderKanbanCard(task, all)).join("")
+        : `<div style="font-size:.72rem;color:var(--t4);padding:8px 2px;">No tasks</div>`;
+    });
+  }
+
+  function renderKanbanCard(task, allTasks) {
+    const dm = dueMeta(task.date);
+    const subs = subtasksOf(allTasks, task.id);
+    const subDone = subs.filter((s) => s.status === "done").length;
+    const done = task.status === "done";
+    return `
+    <div class="kanban-card" data-id="${task.id}" draggable="true" ${done ? 'style="opacity:.6;"' : ""}
+      onclick="openDetail(${task.id})">
+      <div class="kanban-card-title" ${done ? 'style="text-decoration:line-through;"' : ""}>${esc(task.title)}</div>
+      <div class="kanban-card-meta">
+        ${priorityFlagHtml(task.priority)}
+        ${dm.has ? `<div class="task-meta-item ${dm.overdue ? "overdue" : ""}"><i class="ti ti-clock"></i>${esc(dm.label)}</div>` : ""}
+        ${subs.length ? `<div class="subtask-progress">${subDone}/${subs.length}</div>` : ""}
+      </div>
+    </div>`;
+  }
+
+  function attachKanbanDropZones() {
+    document.addEventListener("dragstart", (e) => {
+      const card = e.target.closest(".kanban-card");
+      if (!card) return;
+      KANBAN_DRAG_ID = Number(card.dataset.id);
+      card.style.opacity = ".4";
+    });
+    document.addEventListener("dragend", (e) => {
+      const card = e.target.closest(".kanban-card");
+      if (card) card.style.opacity = "";
+    });
+    document.querySelectorAll(".kanban-col").forEach((col) => {
+      const status = col.dataset.status;
+      if (!status) return;
+      col.addEventListener("dragover", (e) => e.preventDefault());
+      col.addEventListener("drop", (e) => {
+        e.preventDefault();
+        if (KANBAN_DRAG_ID === null) return;
+        setTaskStatus(KANBAN_DRAG_ID, status);
+        KANBAN_DRAG_ID = null;
+      });
+    });
+  }
+
+  // ── Calendar View Integration ────────────────────────────────────────
+  function pxToTimeLabel(px, durationPx) {
+    const totalMin = Math.round(((px / 50) * 60) / 30) * 30;
+    const startMin = 7 * 60 + totalMin;
+    const endMin = startMin + Math.round((durationPx / 50) * 60);
+    const fmt = (m) => {
+      let h = Math.floor(m / 60),
+        mm = m % 60;
+      const ap = h >= 12 ? "pm" : "am";
+      let h12 = h % 12;
+      if (h12 === 0) h12 = 12;
+      return h12 + (mm ? ":" + String(mm).padStart(2, "0") : "") + ap;
+    };
+    return fmt(startMin) + "–" + fmt(endMin);
+  }
+
+  function renderCalendarView() {
+    const tlDays = $("tlDays");
+    if (!tlDays) return;
+    const all = activeTasks(getTasksData().tasks).filter((t) => !t.parent_id);
+
+    // Group tasks by scheduled date or bucket
+    const unscheduled = all.filter((t) => !t.date && t.status !== "done");
+
+    // Clear out existing dynamic chips
+    document
+      .querySelectorAll(".tl-unscheduled")
+      .forEach((u) => (u.innerHTML = ""));
+
+    // Populate unscheduled container on Monday column for quick scheduling
+    const firstUnscheduledContainer = document.querySelector(
+      '.tl-day-col[data-day="Wed"] .tl-unscheduled',
+    );
+    if (firstUnscheduledContainer) {
+      unscheduled.forEach((t) => {
+        const chip = document.createElement("div");
+        chip.className = "tl-chip";
+        chip.style.cssText =
+          "background: var(--line2); color: var(--t2); margin-bottom: 4px;";
+        chip.setAttribute("draggable", "true");
+        chip.setAttribute("data-id", t.id);
+        chip.textContent = t.title;
+        chip.onclick = () => openDetail(t.id);
+        chip.addEventListener("dragstart", (e) => {
+          window.CALENDAR_DRAG_TASK = t;
+        });
+        firstUnscheduledContainer.appendChild(chip);
+      });
+    }
+  }
+
+  // ── Focus View ───────────────────────────────────────────────────────
+  function pickFocusTask() {
+    const all = activeTasks(getTasksData().tasks).filter(
+      (t) => !t.parent_id && t.status !== "done",
+    );
+    if (!all.length) return null;
+    const t = todayStr();
+    const prScore = { high: 3, medium: 2, normal: 2, low: 1 };
+    all.sort((a, b) => {
+      const aOver = a.date && a.date < t ? 1 : 0;
+      const bOver = b.date && b.date < t ? 1 : 0;
+      if (aOver !== bOver) return bOver - aOver;
+      const ad = a.date || "9999-99-99";
+      const bd = b.date || "9999-99-99";
+      if (ad !== bd) return ad < bd ? -1 : 1;
+      return (prScore[b.priority] || 2) - (prScore[a.priority] || 2);
+    });
+    return all;
+  }
+
+  function renderFocusView() {
+    const queue = pickFocusTask();
+    const titleEl = $("focusTaskTitle");
+    const subEl = $("focusTaskSub");
+    const nextEl = $("focusNextLbl");
+    const openBtn = $("focusOpenBtn");
+    if (!titleEl) return;
+
+    if (!queue) {
+      titleEl.textContent = "You're all caught up";
+      if (subEl) subEl.textContent = "No open tasks right now";
+      if (nextEl) nextEl.textContent = "";
+      if (openBtn) openBtn.onclick = () => openNewTask();
+      return;
+    }
+    const task = queue[0];
+    const all = activeTasks(getTasksData().tasks);
+    const subs = subtasksOf(all, task.id);
+    const subDone = subs.filter((s) => s.status === "done").length;
+    const dm = dueMeta(task.date);
+    titleEl.textContent = task.title;
+    if (subEl) {
+      const bits = [];
+      if (subs.length) bits.push(`${subDone} of ${subs.length} subtasks done`);
+      if (dm.has) bits.push(dm.label);
+      subEl.textContent = bits.join(" · ") || "No due date";
+    }
+    if (nextEl) {
+      nextEl.textContent = queue[1] ? `Next up: ${queue[1].title}` : "";
+    }
+    if (openBtn) openBtn.onclick = () => openDetail(task.id);
+  }
+
+  // ── Insights View ────────────────────────────────────────────────────
+  window.renderInsightsView = function renderInsightsView() {
+    const all = activeTasks(getTasksData().tasks).filter((t) => !t.parent_id);
+    const total = all.length;
+    const done = all.filter((t) => t.status === "done").length;
+    const open = total - done;
+    const t = todayStr();
+    const overdue = all.filter(
+      (t2) => t2.status !== "done" && t2.date && t2.date < t,
+    ).length;
+    const allWithSubs = activeTasks(getTasksData().tasks);
+    const parents = all.filter(
+      (task) => subtasksOf(allWithSubs, task.id).length,
+    );
+    const avgSubs = parents.length
+      ? (
+          parents.reduce(
+            (sum, p) => sum + subtasksOf(allWithSubs, p.id).length,
+            0,
+          ) / parents.length
+        ).toFixed(1)
+      : "0";
+
+    const set = (id, val) => {
+      const el = $(id);
+      if (el) el.textContent = val;
+    };
+    set(
+      "statCompletionRate",
+      total ? `${Math.round((done / total) * 100)}%` : "–",
+    );
+    set("statOpenCount", String(open));
+    set("statOverdueCount", String(overdue));
+    set("statAvgSubtasks", avgSubs);
+
+    const patterns = $("insightPatterns");
+    if (!patterns) return;
+    const rows = [];
+    if (overdue > 0) {
+      rows.push(
+        `<div class="insight-row"><i class="ti ti-alert-triangle" style="color:var(--amber);"></i><div class="insight-row-text">You have <b>${overdue} overdue task${overdue !== 1 ? "s" : ""}</b>. Reschedule or tackle them first!</div></div>`,
+      );
+    }
+    if (done > 0 && total > 0) {
+      rows.push(
+        `<div class="insight-row"><i class="ti ti-trending-up" style="color:var(--green);"></i><div class="insight-row-text">You've completed <b>${done} of ${total}</b> tasks. Great job keeping momemtum.</div></div>`,
+      );
+    }
+    if (parents.length) {
+      rows.push(
+        `<div class="insight-row"><i class="ti ti-list-check" style="color:var(--blue);"></i><div class="insight-row-text">Tasks with subtasks average <b>${avgSubs} subtasks</b> each.</div></div>`,
+      );
+    }
+    patterns.innerHTML = rows.length
+      ? rows.join("")
+      : `<div class="insight-row" style="color:var(--t4);font-size:12px;">Complete a few tasks and SIVA will start surfacing patterns here.</div>`;
+  };
+
+  // ── Detail Sheet ─────────────────────────────────────────────────────
+  let DETAIL_OPEN_ID = null;
+
+  window.openDetail = function (id) {
+    if (id === undefined || id === null) return;
+    DETAIL_OPEN_ID = id;
+    renderDetailSheet(id);
+    openSheet("detailSheet", "detailOverlay");
+  };
+
+  window.closeDetail = function () {
+    DETAIL_OPEN_ID = null;
+    closeSheetEls("detailSheet", "detailOverlay");
+  };
+
+  function renderDetailSheet(id) {
+    const scroll = $("detailScroll");
+    if (!scroll) return;
+    const data = getTasksData();
+    const task = (data.tasks || []).find((t) => String(t.id) === String(id));
+    if (!task) {
+      scroll.innerHTML = `<div style="padding:20px;color:var(--t3);">Task not found.</div>`;
+      return;
+    }
+    const done = task.status === "done";
+    const prKey =
+      task.priority === "normal" ? "medium" : task.priority || "medium";
+    const pr = PRIORITY[prKey] || PRIORITY.medium;
+    const st = STATUS[task.status] || STATUS.todo;
+    const dm = dueMeta(task.date);
+    const all = activeTasks(data.tasks);
+    const subs = subtasksOf(all, task.id);
+    const subDone = subs.filter((s) => s.status === "done").length;
+
+    const subsHtml = subs.length
+      ? subs
+          .map(
+            (s) => `
+      <div class="subtask-row">
+        <div class="subtask-check ${s.status === "done" ? "done" : ""}" onclick="toggleSubtaskDone(${s.id},${task.id})">${s.status === "done" ? '<i class="ti ti-check"></i>' : ""}</div>
+        <div class="subtask-name ${s.status === "done" ? "done" : ""}">${esc(s.title)}</div>
+        <button onclick="deleteSubtask(${s.id},${task.id})" style="background:none;border:none;color:var(--t4);cursor:pointer;font-size:12px;padding:2px 4px;">✕</button>
+      </div>`,
+          )
+          .join("")
+      : "";
+
+    scroll.innerHTML = `
+      <div class="detail-title-row">
+        <div class="detail-check ${done ? "done" : ""}" onclick="toggleTaskDone(${task.id})">${done ? '<i class="ti ti-check"></i>' : ""}</div>
+        <div class="detail-title" contenteditable="true" spellcheck="false"
+          onblur="saveDetailField(${task.id},'title',this.innerText)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(task.title)}</div>
+      </div>
+      <div class="detail-tags-row">
+        <div class="detail-tag" onclick="cyclePriority(${task.id})" title="Tap to change"><i class="ti ti-flag-filled" style="color:${pr.color};font-size:11px;"></i>${pr.label} priority</div>
+        <div class="detail-tag" onclick="editDueDate(${task.id})" title="Tap to change"><i class="ti ti-calendar" style="font-size:11px;"></i>${dm.has ? esc(dm.label) : "Add due date"}</div>
+        <div class="detail-tag" onclick="editEffort(${task.id})" title="Tap to change"><i class="ti ti-hourglass" style="font-size:11px;"></i>${task.effort ? esc(task.effort) : "Add effort"}</div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-lbl">Description</div>
+        <div class="detail-desc" contenteditable="true"
+          onblur="saveDetailField(${task.id},'desc',this.innerText)"
+          style="min-height:1.6em;">${esc(task.desc || "")}</div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-lbl" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Subtasks${subs.length ? ` · ${subDone} of ${subs.length}` : ""}</span>
+        </div>
+        ${subsHtml}
+        <div class="add-subtask-row" onclick="addSubtaskPrompt(${task.id})"><i class="ti ti-plus" style="font-size:13px;"></i>Add subtask</div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-lbl">Collaborators</div>
+        <div class="invite-row" onclick="openInvite()">
+          <div class="collab-full-av"><i class="ti ti-user-plus"></i></div>
+          <div class="collab-full-info"><div class="collab-full-name" style="color:var(--accent);">Invite contributor</div></div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-lbl">Details</div>
+        <div class="detail-meta-grid">
+          <div class="detail-meta-cell" onclick="editDueDate(${task.id})" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-calendar"></i>Due</div><div class="detail-meta-val">${dm.has ? esc(dm.label) : "None"}</div></div>
+          <div class="detail-meta-cell" onclick="editEffort(${task.id})" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-hourglass"></i>Effort</div><div class="detail-meta-val">${task.effort ? esc(task.effort) : "–"}</div></div>
+          <div class="detail-meta-cell" onclick="cyclePriority(${task.id})" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-flag"></i>Priority</div><div class="detail-meta-val">${pr.label}</div></div>
+          <div class="detail-meta-cell" onclick="cycleStatus(${task.id})" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-progress"></i>Status</div><div class="detail-meta-val">${st.label}</div></div>
+          <div class="detail-meta-cell" onclick="cycleRepeat(${task.id})" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-repeat"></i>Repeats</div><div class="detail-meta-val">${REPEATS[task.repeat || "none"]}</div></div>
+          <div class="detail-meta-cell"><div class="detail-meta-lbl"><i class="ti ti-clock"></i>Updated</div><div class="detail-meta-val" style="color:var(--t3);font-weight:500;">${task.updated ? new Date(task.updated).toLocaleDateString() : "–"}</div></div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <button class="cta-ghost block" style="color:var(--red);border-color:#2a0a0a;"
+          onclick="if(confirm('Delete this task?')){deleteTask(${task.id});closeDetail();}">
+          <i class="ti ti-trash" style="font-size:13px;"></i>Delete task
+        </button>
+      </div>
+    `;
+  }
+
+  // ── New Task & AI Breakdown ─────────────────────────────────────────
+  let NEW_TASK_PARENT = null;
+  let GENERATED_SUBTASKS = [];
+
+  window.openNewTask = function (parentId) {
+    NEW_TASK_PARENT = parentId || null;
+    GENERATED_SUBTASKS = [];
+    if ($("newTaskAiPrompt")) $("newTaskAiPrompt").value = "";
+    if ($("newTaskTitle")) $("newTaskTitle").value = "";
+    if ($("newTaskDesc")) $("newTaskDesc").value = "";
+    if ($("newTaskDate")) $("newTaskDate").value = "";
+    if ($("newTaskEffort")) $("newTaskEffort").value = "";
+    if ($("newTaskRepeat")) $("newTaskRepeat").value = "none";
+    if ($("newTaskStatus")) $("newTaskStatus").value = "todo";
+    const list = $("aiGeneratedList");
+    if (list) {
+      list.style.display = "none";
+      list.innerHTML = "";
+    }
+    document
+      .querySelectorAll("#newTaskPriorityRow .priority-pill")
+      .forEach((p) => {
+        p.classList.toggle("sel", p.dataset.priority === "medium");
+      });
+    openSheet("newTaskSheet", "newTaskOverlay");
+    setTimeout(() => $("newTaskAiPrompt")?.focus(), 100);
+  };
+
+  window.closeNewTask = function () {
+    closeSheetEls("newTaskSheet", "newTaskOverlay");
+    const list = $("aiGeneratedList");
+    if (list) list.style.display = "none";
+  };
+
+  window.showAiBreakdown = function () {
+    const promptEl = $("newTaskAiPrompt");
+    const titleEl = $("newTaskTitle");
+    const val = promptEl ? promptEl.value.trim() : "";
+
+    if (!val) {
+      toast("Enter what you want to do in the AI field!");
+      promptEl?.focus();
+      return;
+    }
+
+    if (titleEl && !titleEl.value.trim()) {
+      titleEl.value = val;
+    }
+
+    // Dynamic SIVA AI breakdown suggestions simulation
+    GENERATED_SUBTASKS = [
+      `Initial planning & research for ${val}`,
+      `Draft outline & requirements`,
+      `Execute primary implementation steps`,
+      `Final review & verification`,
+    ];
+
+    const list = $("aiGeneratedList");
+    if (list) {
+      list.style.display = "block";
+      list.innerHTML = `
+        <div class="ai-generated-head">
+          <i class="ti ti-sparkles" style="font-size: 13px"></i>SIVA suggested breakdown:
+        </div>
+        ${GENERATED_SUBTASKS.map(
+          (s) => `
+          <div class="subtask-row" style="border:none;padding:4px 0;">
+            <i class="ti ti-check" style="color:var(--accent);font-size:12px;"></i>
+            <div style="font-size:12px;color:var(--t2);">${esc(s)}</div>
+          </div>
+        `,
+        ).join("")}
+      `;
+    }
+    toast("SIVA breakdown created ✨");
+  };
+
+  window.saveNewTaskFromSheet = function () {
+    const title = $("newTaskTitle")?.value.trim();
+    if (!title) {
+      toast("Enter a task name.");
+      $("newTaskTitle")?.focus();
+      return;
+    }
+    const selPill = document.querySelector(
+      "#newTaskPriorityRow .priority-pill.sel",
+    );
+    const parentTask = addTask({
+      title,
+      desc: $("newTaskDesc")?.value.trim() || "",
+      date: $("newTaskDate")?.value || "",
+      effort: $("newTaskEffort")?.value.trim() || "",
+      priority: selPill?.dataset.priority || "medium",
+      repeat: $("newTaskRepeat")?.value || "none",
+      status: $("newTaskStatus")?.value || "todo",
+      parent_id: NEW_TASK_PARENT,
+    });
+
+    // Add generated AI subtasks if present
+    if (GENERATED_SUBTASKS.length) {
+      GENERATED_SUBTASKS.forEach((subTitle) => {
+        addTask({
+          title: subTitle,
+          status: "todo",
+          priority: parentTask.priority,
+          parent_id: parentTask.id,
+        });
+      });
+    }
+
+    NEW_TASK_PARENT = null;
+    GENERATED_SUBTASKS = [];
+    closeNewTask();
+    renderAll();
+    toast("Task added ✓");
+    return parentTask.id;
+  };
+
+  // ── Render Orchestration ─────────────────────────────────────────────
+  function renderAll() {
+    renderListView();
+    renderKanbanView();
+    renderFocusView();
+    renderInsightsView();
+    renderCalendarView();
+  }
+  window.renderAll = renderAll;
+
+  // ── Keyboard Shortcuts ────────────────────────────────────────────────
+  document.addEventListener("keydown", (e) => {
+    const tag = document.activeElement?.tagName;
+    if (
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      document.activeElement?.isContentEditable
+    )
+      return;
+    if (document.querySelector(".sheet.open")) {
+      if (e.key === "Escape") {
+        document.querySelectorAll(".sheet.open").forEach((s) => {
+          const overlay = document.getElementById(
+            s.id.replace("Sheet", "Overlay"),
+          );
+          s.classList.remove("open");
+          if (overlay) overlay.classList.remove("show");
+        });
+      }
+      return;
+    }
+    if (e.key === "n" || e.key === "N") {
+      e.preventDefault();
+      openNewTask();
+    }
+  });
+
+  // ── Initialization ────────────────────────────────────────────────────
+  function initTasksApp() {
+    pruneExpiredTrash();
+    attachKanbanDropZones();
+    document
+      .querySelectorAll("#newTaskPriorityRow .priority-pill")
+      .forEach((p) => {
+        p.addEventListener("click", () => {
+          document
+            .querySelectorAll("#newTaskPriorityRow .priority-pill")
+            .forEach((x) => x.classList.remove("sel"));
+          p.classList.add("sel");
+        });
+      });
+
+    // Bind global header search icon button
+    const searchIcon = document.querySelector(".app-header .ti-search");
+    if (searchIcon) {
+      searchIcon.style.cursor = "pointer";
+      searchIcon.onclick = window.promptSearch;
+    }
+
+    renderAll();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initTasksApp);
+  } else {
+    initTasksApp();
+  }
+})();
