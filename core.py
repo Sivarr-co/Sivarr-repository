@@ -211,6 +211,39 @@ def sanitize_text(text: str, max_len: int = MAX_MESSAGE_LEN) -> str:
     return text
 
 
+# ── Password policy ──────────────────────────────────────────────
+# Enforced on account creation and password reset only -- NEVER on sign-in.
+# Existing accounts predate this policy and must still be able to log in; the
+# place to upgrade them is a reset, not a lockout.
+#
+# bcrypt only hashes the first 72 bytes, so the max exists to bound input size
+# rather than for strength. Keep MIN/MAX and the rule list in sync with the
+# client-side checklist in js/app.js (_pwRules) -- the client is a courtesy,
+# this function is the authority.
+MIN_PASSWORD_LEN = 8
+MAX_PASSWORD_LEN = 200
+
+
+def password_policy_error(pw: str) -> str | None:
+    """Return a human-readable reason the password is unacceptable, or None if
+    it passes. The caller decides whether to surface the reason or a generic
+    message (registration uses a generic one to avoid leaking which field
+    failed; reset surfaces it, since the user is already authenticated by a
+    single-use token)."""
+    pw = pw or ""
+    if len(pw) < MIN_PASSWORD_LEN:
+        return f"Password must be at least {MIN_PASSWORD_LEN} characters."
+    if len(pw) > MAX_PASSWORD_LEN:
+        return f"Password must be {MAX_PASSWORD_LEN} characters or fewer."
+    if not any(c.isupper() for c in pw):
+        return "Password must include an uppercase letter."
+    if not any(c.islower() for c in pw):
+        return "Password must include a lowercase letter."
+    if not any(c.isdigit() for c in pw):
+        return "Password must include a number."
+    return None
+
+
 def validate_sid(sid: str) -> str:
     """
     Validate and sanitize student session ID.

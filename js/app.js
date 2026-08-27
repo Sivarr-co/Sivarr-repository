@@ -558,6 +558,42 @@ function loadProfilePic() {
 let AUTH_TAB = "login";
 
 
+// ── Password policy (register only) ───────────────────────────
+// Mirrors core.py's password_policy_error(). The SERVER is the authority --
+// this exists so people see the rules while typing instead of being rejected
+// after submitting. Keep the two in sync if either changes.
+function _pwRules(pw) {
+  pw = pw || "";
+  return {
+    len:   pw.length >= 8,
+    upper: /[A-Z]/.test(pw),
+    lower: /[a-z]/.test(pw),
+    digit: /[0-9]/.test(pw),
+  };
+}
+
+function _pwRulesOk(pw) {
+  return Object.values(_pwRules(pw)).every(Boolean);
+}
+
+function _pwRulesRender() {
+  const box = $("pw-rules");
+  if (!box || box.style.display === "none") return;
+  const rules = _pwRules($("l-pw")?.value || "");
+  box.querySelectorAll("li[data-rule]").forEach((li) => {
+    const ok = !!rules[li.dataset.rule];
+    li.classList.toggle("ok", ok);
+    const ic = li.querySelector("i");
+    if (ic) ic.className = ok ? "ti ti-circle-check" : "ti ti-circle";
+  });
+}
+
+// Bound once, not inline -- inline handlers are what Session 19 is removing.
+document.addEventListener("DOMContentLoaded", () => {
+  const pw = $("l-pw");
+  if (pw) pw.addEventListener("input", _pwRulesRender);
+});
+
 function setAuthTab(tab) {
   AUTH_TAB = tab;
   const isReg = tab === "register";
@@ -573,6 +609,13 @@ function setAuthTab(tab) {
   if (rf) rf.style.display = isReg ? "block" : "none";
   const fl = $("forgot-pw-link");
   if (fl) fl.style.display = isReg ? "none" : "block";
+
+  // Requirements only apply to new accounts -- never gate an existing user out.
+  const pr = $("pw-rules");
+  if (pr) {
+    pr.style.display = isReg ? "block" : "none";
+    if (isReg) _pwRulesRender();
+  }
 
   // 2FA field only ever appears mid-flow after a totp_required response —
   // never pre-shown, and cleared when switching tabs.
@@ -642,6 +685,20 @@ async function doLogin(prefillEmail) {
     if (err) err.textContent = "Password is required.";
     $("l-pw")?.focus();
     return;
+  }
+  if (isReg && !_pwRulesOk(pw)) {
+    if (err) err.textContent = "Please meet all four password requirements below.";
+    _pwRulesRender();
+    $("l-pw")?.focus();
+    return;
+  }
+  if (isReg) {
+    const cpw = $("l-cpw")?.value || "";
+    if (cpw && cpw !== pw) {
+      if (err) err.textContent = "Passwords do not match.";
+      $("l-cpw")?.focus();
+      return;
+    }
   }
 
   let body = { email, password: pw, action: AUTH_TAB };

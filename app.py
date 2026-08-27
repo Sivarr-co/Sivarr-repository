@@ -135,6 +135,7 @@ from core import (
     _req_token, _resolve_token,
     RATE_LIMIT_WINDOW, limiter, get_client_key, check_rate_limit,
     asset, sw_cache_version,
+    password_policy_error,
 )
 
 for d in [DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR]:
@@ -2637,8 +2638,10 @@ def _validate_auth_input(req: "LoginRequest", client_key: str) -> tuple[str, str
     # Password — length policy (min on register, max always to bound bcrypt input)
     pw = req.password or ""
     if is_register:
-        if not (8 <= len(pw) <= MAX_PASSWORD_LEN):
-            reject("password length policy")
+        pw_problem = password_policy_error(pw)
+        if pw_problem:
+            # Generic outward message (reject()), specific reason logged.
+            reject(f"password policy: {pw_problem}")
         if req.confirm_password and req.confirm_password != pw:
             reject("password confirmation mismatch")
     else:
@@ -2980,8 +2983,9 @@ async def reset_password(data: dict):
     password = str(data.get("password", ""))
     if not token or not password:
         raise HTTPException(400, "Token and new password required.")
-    if len(password) < 8:
-        raise HTTPException(400, "Password must be at least 8 characters.")
+    pw_problem = password_policy_error(password)
+    if pw_problem:
+        raise HTTPException(400, pw_problem)
     rec = db.get_reset_token(token)
     if not rec:
         raise HTTPException(400, "Reset link is invalid or has expired.")

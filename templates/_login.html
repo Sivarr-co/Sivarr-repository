@@ -122,6 +122,17 @@
           </div>
         </div>
 
+          <!-- Register-only password requirements. Hidden on the Sign In tab:
+               existing accounts predate this policy and must still be able to
+               log in. Server-side is the real gate (core.password_policy_error);
+               this is live feedback so people are not guessing. -->
+          <ul id="pw-rules" class="pw-rules" style="display: none" aria-live="polite">
+            <li data-rule="len"><i class="ti ti-circle"></i>At least 8 characters</li>
+            <li data-rule="upper"><i class="ti ti-circle"></i>One uppercase letter</li>
+            <li data-rule="lower"><i class="ti ti-circle"></i>One lowercase letter</li>
+            <li data-rule="digit"><i class="ti ti-circle"></i>One number</li>
+          </ul>
+
         <!-- 2FA code — hidden until the server responds totp_required for
              this account (doLogin() in app.js reveals it and resubmits) -->
         <div id="l-totp-field" class="field" style="display: none">

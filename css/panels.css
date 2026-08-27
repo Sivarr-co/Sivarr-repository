@@ -13377,3 +13377,36 @@ html {
     grid-template-columns: 1fr;
   }
 }
+/* ── Sign-up password requirements ──────────────────────────────
+   Shown only on the Register tab (setAuthTab in app.js). Server-side
+   core.password_policy_error() is the real gate; this is live feedback. */
+.pw-rules {
+  list-style: none;
+  margin: 8px 0 2px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+.pw-rules li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text3, #888);
+  transition: color 0.15s ease;
+}
+.pw-rules li i {
+  font-size: 14px;
+  flex: none;
+}
+.pw-rules li.ok {
+  color: var(--green, #1d9e75);
+}
+@media (max-width: 420px) {
+  .pw-rules { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pw-rules li { transition: none; }
+}

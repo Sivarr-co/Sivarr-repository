@@ -27,6 +27,8 @@ this suite already assumes.
 
 import pytest
 
+import core
+
 import database as db
 
 
@@ -108,3 +110,26 @@ def no_db(monkeypatch):
     direct _get_conn()/_get_pool() callers) sees the same "no DB" state."""
     monkeypatch.setattr(db, "_DATABASE_URL", "")
     monkeypatch.setattr(db, "_pool", None)
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Clear the in-memory rate limiter before every test.
+
+    core.limiter keys on client IP, and every TestClient request presents the
+    same one ("testclient"). Without this, tests that hit a rate-limited
+    endpoint (/api/login, /api/chat, ...) accumulate against a shared counter,
+    so a test passes alone and 429s once the suite grows past the limit. That
+    is a false failure that looks like a product bug and moves depending on
+    test ordering -- the same non-hermetic pattern Session 21 fixed for the
+    chat quota. Autouse because no test ever wants inherited limiter state.
+    """
+    try:
+        core.limiter._counts.clear()
+    except Exception:
+        pass
+    yield
+    try:
+        core.limiter._counts.clear()
+    except Exception:
+        pass
