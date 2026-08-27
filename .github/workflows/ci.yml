@@ -129,6 +129,60 @@ jobs:
           done
           exit $fail
 
+      - name: Panel templates must stay fragments
+        # A refactor once replaced templates/_panel_flux.html with a full
+        # standalone HTML document. Because it is included into the app shell,
+        # the browser hoisted its <style> into the real <head> (leaking
+        # `* { margin:0 }` and a 14px font app-wide) and the content escaped
+        # the .panel wrapper, so the tasks dashboard rendered on every screen.
+        # Nothing caught it: it renders, tests pass, JS parses. This does.
+        #
+        # Jinja and HTML comments are stripped first -- these files legitimately
+        # describe the forbidden tags in prose explaining the rule.
+        run: |
+          node -e '
+            const fs = require("fs");
+            const files = fs.readdirSync("templates")
+              .filter(f => /^_panels?_?.*\.html$/.test(f) || /^_panel.*\.html$/.test(f));
+            let fail = 0;
+            for (const f of files) {
+              let src = fs.readFileSync("templates/" + f, "utf8");
+              src = src.replace(/\{#[\s\S]*?#\}/g, "").replace(/<!--[\s\S]*?-->/g, "");
+              const m = src.match(/<!doctype|<html[ >]|<body[ >]/i);
+              if (m) {
+                console.log(`::error file=templates/${f}::panel templates must be fragments -- found ${m[0]}`);
+                fail = 1;
+              }
+            }
+            process.exit(fail);
+          '
+
+      - name: data-*-args must be valid JSON
+        # js/core/delegate.js parses these to give handlers REAL types (null,
+        # numbers, booleans) instead of strings. Malformed JSON makes the
+        # handler silently not fire -- no throw, no console error in the
+        # attribute itself. Catch it at build time instead.
+        run: |
+          node -e '
+            const fs = require("fs");
+            const files = fs.readdirSync("templates").filter(f => f.endsWith(".html"));
+            let fail = 0;
+            for (const f of files) {
+              const src = fs.readFileSync("templates/" + f, "utf8");
+              const re = /data-on[a-z]+-args=(\x27([^\x27]*)\x27|"([^"]*)")/g;
+              let m;
+              while ((m = re.exec(src))) {
+                const raw = m[2] !== undefined ? m[2] : m[3];
+                try { JSON.parse(raw); }
+                catch (e) {
+                  console.log(`::error file=templates/${f}::invalid data-*-args JSON: ${raw}`);
+                  fail = 1;
+                }
+              }
+            }
+            process.exit(fail);
+          '
+
   assets:
     name: Asset versioning
     runs-on: ubuntu-latest
