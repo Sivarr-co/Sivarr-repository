@@ -23,10 +23,10 @@ found in the prior split.
       </div>
     </div>
     <div class="sp-hero-actions">
-      <button class="sp-btn-ghost" onclick="spRenameByType('personal')">
+      <button class="sp-btn-ghost" data-onclick="spRenameByType" data-onclick-arg0="personal">
         <i class="ti ti-pencil"></i><span class="btn-lbl"> Rename</span>
       </button>
-      <button class="sp-btn-primary sp-btn-blue" onclick="psNewTask()">
+      <button class="sp-btn-primary sp-btn-blue" data-onclick="psNewTask">
         <i class="ti ti-plus"></i><span class="btn-lbl"> New task</span>
       </button>
     </div>
@@ -36,49 +36,49 @@ found in the prior split.
     <button
       class="sp-tab on"
       id="ps-tab-overview"
-      onclick="spTab('ps', 'overview', this)"
+      data-onclick="spTab" data-onclick-arg0="ps" data-onclick-arg1="overview" data-onclick-this
     >
       <i class="ti ti-layout-dashboard"></i>Overview
     </button>
     <button
       class="sp-tab"
       id="ps-tab-tasks"
-      onclick="spTab('ps', 'tasks', this)"
+      data-onclick="spTab" data-onclick-arg0="ps" data-onclick-arg1="tasks" data-onclick-this
     >
       <i class="ti ti-checkbox"></i>Tasks
     </button>
     <button
       class="sp-tab"
       id="ps-tab-goals"
-      onclick="spTab('ps', 'goals', this)"
+      data-onclick="spTab" data-onclick-arg0="ps" data-onclick-arg1="goals" data-onclick-this
     >
       <i class="ti ti-target"></i>Goals
     </button>
     <button
       class="sp-tab"
       id="ps-tab-habits"
-      onclick="spTab('ps', 'habits', this)"
+      data-onclick="spTab" data-onclick-arg0="ps" data-onclick-arg1="habits" data-onclick-this
     >
       <i class="ti ti-repeat"></i>Habits
     </button>
     <button
       class="sp-tab"
       id="ps-tab-journal"
-      onclick="spTab('ps', 'journal', this)"
+      data-onclick="spTab" data-onclick-arg0="ps" data-onclick-arg1="journal" data-onclick-this
     >
       <i class="ti ti-writing"></i>Journal
     </button>
     <button
       class="sp-tab"
       id="ps-tab-notes"
-      onclick="spTab('ps', 'notes', this)"
+      data-onclick="spTab" data-onclick-arg0="ps" data-onclick-arg1="notes" data-onclick-this
     >
       <i class="ti ti-file-text"></i>Notes
     </button>
     <button
       class="sp-tab"
       id="ps-tab-analytics"
-      onclick="spTab('ps', 'analytics', this)"
+      data-onclick="spTab" data-onclick-arg0="ps" data-onclick-arg1="analytics" data-onclick-this
     >
       <i class="ti ti-chart-bar"></i>Analytics
     </button>
@@ -110,7 +110,7 @@ found in the prior split.
           <div class="sp-card-head">
             <span class="sp-card-title"
               ><i class="ti ti-checkbox"></i>Priority tasks</span
-            ><span class="sp-card-link" onclick="spTab('ps', 'tasks', null)"
+            ><span class="sp-card-link" data-onclick="spTab" data-onclick-args='["ps", "tasks", null]'
               >Board →</span
             >
           </div>
@@ -122,7 +122,7 @@ found in the prior split.
           <div class="sp-card-head">
             <span class="sp-card-title"
               ><i class="ti ti-target"></i>Active goals</span
-            ><span class="sp-card-link" onclick="spTab('ps', 'goals', null)"
+            ><span class="sp-card-link" data-onclick="spTab" data-onclick-args='["ps", "goals", null]'
               >All →</span
             >
           </div>
@@ -136,7 +136,7 @@ found in the prior split.
           <div class="sp-card-head">
             <span class="sp-card-title"
               ><i class="ti ti-repeat"></i>Today's habits</span
-            ><span class="sp-card-link" onclick="spTab('ps', 'habits', null)"
+            ><span class="sp-card-link" data-onclick="spTab" data-onclick-args='["ps", "habits", null]'
               >All →</span
             >
           </div>
@@ -148,7 +148,7 @@ found in the prior split.
           <div class="sp-card-head">
             <span class="sp-card-title"
               ><i class="ti ti-writing"></i>Journal</span
-            ><span class="sp-card-link" onclick="spTab('ps', 'journal', null)"
+            ><span class="sp-card-link" data-onclick="spTab" data-onclick-args='["ps", "journal", null]'
               >Write →</span
             >
           </div>
@@ -168,7 +168,7 @@ found in the prior split.
       </button>
       <button class="sp-tool-btn"><i class="ti ti-list"></i>List</button>
       <div style="flex: 1"></div>
-      <button class="sp-btn-primary sp-btn-blue" onclick="psNewTask()">
+      <button class="sp-btn-primary sp-btn-blue" data-onclick="psNewTask">
         <i class="ti ti-plus"></i>New task
       </button>
     </div>
@@ -180,7 +180,7 @@ found in the prior split.
   <!-- GOALS -->
   <div class="sp-pane" id="ps-pane-goals">
     <div class="sp-toolbar">
-      <button class="sp-btn-primary sp-btn-blue" onclick="psNewGoal()">
+      <button class="sp-btn-primary sp-btn-blue" data-onclick="psNewGoal">
         <i class="ti ti-plus"></i>New goal
       </button>
     </div>
@@ -207,7 +207,7 @@ found in the prior split.
         </div>
       </div>
       <div style="flex: 1"></div>
-      <button class="sp-btn-primary sp-btn-blue" onclick="psNewHabit()">
+      <button class="sp-btn-primary sp-btn-blue" data-onclick="psNewHabit">
         <i class="ti ti-plus"></i>Add habit
       </button>
     </div>
@@ -223,11 +223,11 @@ found in the prior split.
             What are you grateful for today?
           </div>
           <div class="sp-mood-row">
-            <button class="sp-mood-btn" onclick="psMood('😄', this)">😄</button>
-            <button class="sp-mood-btn" onclick="psMood('🙂', this)">🙂</button>
-            <button class="sp-mood-btn" onclick="psMood('😐', this)">😐</button>
-            <button class="sp-mood-btn" onclick="psMood('😔', this)">😔</button>
-            <button class="sp-mood-btn" onclick="psMood('🤯', this)">🤯</button>
+            <button class="sp-mood-btn" data-onclick="psMood" data-onclick-arg0="😄" data-onclick-this>😄</button>
+            <button class="sp-mood-btn" data-onclick="psMood" data-onclick-arg0="🙂" data-onclick-this>🙂</button>
+            <button class="sp-mood-btn" data-onclick="psMood" data-onclick-arg0="😐" data-onclick-this>😐</button>
+            <button class="sp-mood-btn" data-onclick="psMood" data-onclick-arg0="😔" data-onclick-this>😔</button>
+            <button class="sp-mood-btn" data-onclick="psMood" data-onclick-arg0="🤯" data-onclick-this>🤯</button>
           </div>
           <textarea
             class="sp-journal-input"
@@ -237,7 +237,7 @@ found in the prior split.
           <button
             class="sp-btn-primary sp-btn-blue"
             style="width: 100%; margin-top: 10px"
-            onclick="psSaveJournal()"
+            data-onclick="psSaveJournal"
           >
             <i class="ti ti-device-floppy"></i> Save entry
           </button>
@@ -265,7 +265,7 @@ found in the prior split.
   <!-- NOTES -->
   <div class="sp-pane" id="ps-pane-notes">
     <div class="sp-toolbar">
-      <button class="sp-btn-primary sp-btn-blue" onclick="psNewNote()">
+      <button class="sp-btn-primary sp-btn-blue" data-onclick="psNewNote">
         <i class="ti ti-plus"></i>New note
       </button>
     </div>

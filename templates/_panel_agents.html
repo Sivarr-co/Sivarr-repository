@@ -11,7 +11,7 @@
       <button
         class="ag-back-btn"
         id="ag-back-btn"
-        onclick="agBack()"
+        data-onclick="agBack"
         style="display: none"
       >
         <i class="ti ti-arrow-left"></i>
@@ -19,13 +19,13 @@
       <span class="ag-topbar-title" id="ag-topbar-title">Sivarr Agents</span>
     </div>
     <div class="ag-topbar-right">
-      <button class="ag-tb-btn" onclick="agNav('directory')" id="ag-btn-browse">
+      <button class="ag-tb-btn" data-onclick="agNav" data-onclick-arg0="directory" id="ag-btn-browse">
         <i class="ti ti-users"></i> Browse Agents
       </button>
       <button
         class="ag-tb-btn ag-tb-btn--primary"
         id="ag-btn-dashboard-or-apply"
-        onclick="agNavDashboardOrApply()"
+        data-onclick="agNavDashboardOrApply"
       >
         <i class="ti ti-layout-dashboard"></i>
         <span id="ag-btn-label">Become an Agent</span>
@@ -66,7 +66,7 @@
   <div class="view-head">
     <i class="ti ti-user vh-icon"></i>
     <span class="vh-title">My Profile</span>
-    <button class="btn" onclick="profileEditBio()" style="margin-left: auto">
+    <button class="btn" data-onclick="profileEditBio" style="margin-left: auto">
       <i class="ti ti-pencil"></i> Edit bio
     </button>
   </div>
@@ -80,7 +80,7 @@
           <div
             class="profile-bio-disp"
             id="profile-bio-disp"
-            onclick="profileEditBio()"
+            data-onclick="profileEditBio"
           >
             Click to add a bio…
           </div>
@@ -123,7 +123,7 @@
       >
         <span>Skills</span>
         <button
-          onclick="nav('skills', null)"
+          data-onclick="nav" data-onclick-args='["skills", null]'
           style="
             background: none;
             border: none;
@@ -141,7 +141,7 @@
         <div style="font-size: 0.82rem; color: var(--text4); padding: 6px 0">
           No skills tracked yet,
           <button
-            onclick="nav('skills', null)"
+            data-onclick="nav" data-onclick-args='["skills", null]'
             style="
               background: none;
               border: none;
@@ -168,7 +168,7 @@
       >
         <span>My Posts</span>
         <button
-          onclick="nav('community', null)"
+          data-onclick="nav" data-onclick-args='["community", null]'
           style="
             background: none;
             border: none;
@@ -219,7 +219,7 @@
     <button
       class="btn primary"
       id="review-gen-btn"
-      onclick="reviewGenerate()"
+      data-onclick="reviewGenerate"
       style="margin-left: auto"
     >
       <i class="ti ti-sparkles"></i> Generate Review
@@ -270,7 +270,7 @@
         writes a personalised review to close out your week and sharpen your
         focus for the next.
       </p>
-      <button class="es-cta" onclick="reviewGenerate()">
+      <button class="es-cta" data-onclick="reviewGenerate">
         <i class="ti ti-sparkles"></i> Generate my review
       </button>
     </div>
@@ -286,7 +286,7 @@
     <button
       class="btn primary"
       id="ch-add-btn"
-      onclick="chShowConnect()"
+      data-onclick="chShowConnect"
       style="margin-left: auto"
     >
       + Connect
@@ -340,7 +340,7 @@
           Link your social accounts to start tracking analytics.
         </p>
 
-        <button class="ch-platform-btn" onclick="chConnect('instagram')">
+        <button class="ch-platform-btn" data-onclick="chConnect" data-onclick-arg0="instagram">
           <div
             class="ch-platform-icon"
             style="
@@ -365,7 +365,7 @@
           <span class="ch-connect-badge" id="ch-badge-instagram">Connect</span>
         </button>
 
-        <button class="ch-platform-btn" onclick="chConnect('tiktok')">
+        <button class="ch-platform-btn" data-onclick="chConnect" data-onclick-arg0="tiktok">
           <div
             class="ch-platform-icon"
             style="background: #010101; border: 1px solid var(--border2)"
@@ -381,7 +381,7 @@
           <span class="ch-connect-badge" id="ch-badge-tiktok">Connect</span>
         </button>
 
-        <button class="ch-platform-btn" onclick="chConnect('youtube')">
+        <button class="ch-platform-btn" data-onclick="chConnect" data-onclick-arg0="youtube">
           <div class="ch-platform-icon" style="background: #ff0000">▶️</div>
           <div>
             <div style="font-weight: 600; font-size: 0.85rem">YouTube</div>
@@ -392,7 +392,7 @@
           <span class="ch-connect-badge" id="ch-badge-youtube">Connect</span>
         </button>
 
-        <button class="ch-platform-btn" onclick="chConnect('twitter')">
+        <button class="ch-platform-btn" data-onclick="chConnect" data-onclick-arg0="twitter">
           <div
             class="ch-platform-icon"
             style="
@@ -414,7 +414,7 @@
           <span class="ch-connect-badge" id="ch-badge-twitter">Connect</span>
         </button>
 
-        <button class="ch-platform-btn" onclick="chConnect('linkedin')">
+        <button class="ch-platform-btn" data-onclick="chConnect" data-onclick-arg0="linkedin">
           <div class="ch-platform-icon" style="background: #0077b5">💼</div>
           <div>
             <div style="font-weight: 600; font-size: 0.85rem">LinkedIn</div>
@@ -447,11 +447,11 @@
         style="display: flex; gap: 6px; margin-bottom: 1.1rem; flex-wrap: wrap"
         id="ch-period-tabs"
       >
-        <button class="ch-tab active" onclick="chSetPeriod(7, this)">
+        <button class="ch-tab active" data-onclick="chSetPeriod" data-onclick-args='[7]' data-onclick-this>
           7 days
         </button>
-        <button class="ch-tab" onclick="chSetPeriod(14, this)">14 days</button>
-        <button class="ch-tab" onclick="chSetPeriod(30, this)">30 days</button>
+        <button class="ch-tab" data-onclick="chSetPeriod" data-onclick-args='[14]' data-onclick-this>14 days</button>
+        <button class="ch-tab" data-onclick="chSetPeriod" data-onclick-args='[30]' data-onclick-this>30 days</button>
       </div>
 
       <!-- Metrics grid -->
@@ -588,7 +588,7 @@
 
       <!-- Disconnect -->
       <button
-        onclick="chDisconnect()"
+        data-onclick="chDisconnect"
         style="
           width: 100%;
           background: none;

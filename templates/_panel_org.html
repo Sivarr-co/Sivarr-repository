@@ -27,7 +27,7 @@
     <div
       style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center"
     >
-      <button class="os-btn-primary" onclick="orgCreateSpace()">
+      <button class="os-btn-primary" data-onclick="orgCreateSpace">
         <i class="ti ti-plus"></i> Create Organization
       </button>
     </div>
@@ -44,7 +44,7 @@
       <div
         class="os-hero-icon"
         id="os-hero-icon"
-        onclick="orgLogoEdit()"
+        data-onclick="orgLogoEdit"
         title="Change organization logo"
       >
         <i class="ti ti-building" id="os-hero-icon-placeholder"></i>
@@ -56,7 +56,7 @@
         <div
           class="os-hero-name"
           id="os-space-name"
-          onclick="spRename('org')"
+          data-onclick="spRename" data-onclick-arg0="org"
           title="Click to rename"
         >
           Organisation Hub
@@ -76,16 +76,16 @@
         </div>
       </div>
       <div class="os-hero-actions">
-        <button class="os-btn-ghost" onclick="orgAddExtension()">
+        <button class="os-btn-ghost" data-onclick="orgAddExtension">
           <i class="ti ti-puzzle"></i><span class="btn-lbl"> Extensions</span>
         </button>
-        <button class="os-btn-ghost" onclick="teamInvite()">
+        <button class="os-btn-ghost" data-onclick="teamInvite">
           <i class="ti ti-user-plus"></i><span class="btn-lbl"> Invite</span>
         </button>
-        <button class="os-btn-primary" onclick="orgNewTask()">
+        <button class="os-btn-primary" data-onclick="orgNewTask">
           <i class="ti ti-plus"></i><span class="btn-lbl"> New task</span>
         </button>
-        <button class="os-btn-icon" onclick="orgMoreMenu()">
+        <button class="os-btn-icon" data-onclick="orgMoreMenu">
           <i class="ti ti-dots"></i>
         </button>
       </div>
@@ -96,7 +96,7 @@
       <button
         class="os-tab on"
         id="os-tab-overview"
-        onclick="orgTab('overview', this)"
+        data-onclick="orgTab" data-onclick-arg0="overview" data-onclick-this
         role="tab"
       >
         <i class="ti ti-layout-dashboard"></i>Overview
@@ -104,7 +104,7 @@
       <button
         class="os-tab"
         id="os-tab-tasks"
-        onclick="orgTab('tasks', this)"
+        data-onclick="orgTab" data-onclick-arg0="tasks" data-onclick-this
         role="tab"
       >
         <i class="ti ti-checkbox"></i>Tasks
@@ -112,7 +112,7 @@
       <button
         class="os-tab"
         id="os-tab-goals"
-        onclick="orgTab('goals', this)"
+        data-onclick="orgTab" data-onclick-arg0="goals" data-onclick-this
         role="tab"
       >
         <i class="ti ti-target"></i>Goals
@@ -120,7 +120,7 @@
       <button
         class="os-tab"
         id="os-tab-projects"
-        onclick="orgTab('projects', this)"
+        data-onclick="orgTab" data-onclick-arg0="projects" data-onclick-this
         role="tab"
       >
         <i class="ti ti-folders"></i>Projects
@@ -128,7 +128,7 @@
       <button
         class="os-tab"
         id="os-tab-docs"
-        onclick="orgTab('docs', this)"
+        data-onclick="orgTab" data-onclick-arg0="docs" data-onclick-this
         role="tab"
       >
         <i class="ti ti-file-text"></i>Docs
@@ -136,7 +136,7 @@
       <button
         class="os-tab"
         id="os-tab-members"
-        onclick="orgTab('members', this)"
+        data-onclick="orgTab" data-onclick-arg0="members" data-onclick-this
         role="tab"
       >
         <i class="ti ti-users"></i>Members
@@ -144,7 +144,7 @@
       <button
         class="os-tab"
         id="os-tab-insights"
-        onclick="orgTab('insights', this)"
+        data-onclick="orgTab" data-onclick-arg0="insights" data-onclick-this
         role="tab"
       >
         <i class="ti ti-chart-bar"></i>Insights
@@ -152,7 +152,7 @@
       <button
         class="os-tab"
         id="os-tab-chat"
-        onclick="orgTab('chat', this)"
+        data-onclick="orgTab" data-onclick-arg0="chat" data-onclick-this
         role="tab"
       >
         <i class="ti ti-message-circle"></i>Chat
@@ -160,7 +160,7 @@
       <button
         class="os-tab"
         id="os-tab-announce"
-        onclick="orgTab('announce', this)"
+        data-onclick="orgTab" data-onclick-arg0="announce" data-onclick-this
         role="tab"
       >
         <i class="ti ti-speakerphone"></i>Announce
@@ -168,7 +168,7 @@
       <button
         class="os-tab"
         id="os-tab-analytics"
-        onclick="orgTab('analytics', this)"
+        data-onclick="orgTab" data-onclick-arg0="analytics" data-onclick-this
         role="tab"
       >
         <i class="ti ti-chart-pie"></i>Analytics
@@ -176,7 +176,7 @@
       <button
         class="os-tab os-tab-founder"
         id="os-tab-founder"
-        onclick="orgTab('founder', this)"
+        data-onclick="orgTab" data-onclick-arg0="founder" data-onclick-this
         role="tab"
       >
         <i class="ti ti-rocket"></i>Founder
@@ -184,7 +184,7 @@
       <button
         class="os-tab"
         id="os-tab-financials"
-        onclick="orgTab('financials', this)"
+        data-onclick="orgTab" data-onclick-arg0="financials" data-onclick-this
         role="tab"
       >
         <i class="ti ti-chart-bar"></i>Financials
@@ -203,7 +203,7 @@
             >
             <button
               class="os-card-link"
-              onclick="orgGetBriefing()"
+              data-onclick="orgGetBriefing"
               id="os-briefing-btn"
             >
               Generate →
@@ -247,7 +247,7 @@
               <span class="os-card-title"
                 ><i class="ti ti-alert-triangle" style="color: var(--coral)"></i
                 >Priority tasks</span
-              ><span class="os-card-link" onclick="orgTab('tasks', null)"
+              ><span class="os-card-link" data-onclick="orgTab" data-onclick-args='["tasks", null]'
                 >Board →</span
               >
             </div>
@@ -259,7 +259,7 @@
             <div class="os-card-head">
               <span class="os-card-title"
                 ><i class="ti ti-target"></i>Top Goals</span
-              ><span class="os-card-link" onclick="orgTab('goals', null)"
+              ><span class="os-card-link" data-onclick="orgTab" data-onclick-args='["goals", null]'
                 >All →</span
               >
             </div>
@@ -272,7 +272,7 @@
           <div class="os-card">
             <div class="os-card-head">
               <span class="os-card-title"><i class="ti ti-users"></i>Team</span
-              ><span class="os-card-link" onclick="orgTab('members', null)"
+              ><span class="os-card-link" data-onclick="orgTab" data-onclick-args='["members", null]'
                 >Manage →</span
               >
             </div>
@@ -284,7 +284,7 @@
             <div class="os-card-head">
               <span class="os-card-title"
                 ><i class="ti ti-folders"></i>Projects</span
-              ><span class="os-card-link" onclick="orgTab('projects', null)"
+              ><span class="os-card-link" data-onclick="orgTab" data-onclick-args='["projects", null]'
                 >All →</span
               >
             </div>
@@ -303,7 +303,7 @@
           ><i class="ti ti-target"></i>Goals & OKRs</span
         >
         <div style="flex: 1"></div>
-        <button class="os-tool-btn os-tool-action" onclick="orgNewGoal()">
+        <button class="os-tool-btn os-tool-action" data-onclick="orgNewGoal">
           <i class="ti ti-plus"></i>New Goal
         </button>
       </div>
@@ -322,19 +322,19 @@
         <button
           class="os-tool-btn os-tool-active"
           id="os-task-view-board"
-          onclick="orgSetTaskView('board', this)"
+          data-onclick="orgSetTaskView" data-onclick-arg0="board" data-onclick-this
         >
           <i class="ti ti-layout-kanban"></i>Board
         </button>
         <button
           class="os-tool-btn"
           id="os-task-view-list"
-          onclick="orgSetTaskView('list', this)"
+          data-onclick="orgSetTaskView" data-onclick-arg0="list" data-onclick-this
         >
           <i class="ti ti-list"></i>List
         </button>
         <div style="flex: 1"></div>
-        <button class="os-tool-btn os-tool-action" onclick="orgNewTask()">
+        <button class="os-tool-btn os-tool-action" data-onclick="orgNewTask">
           <i class="ti ti-plus"></i>Add task
         </button>
       </div>
@@ -347,7 +347,7 @@
     <!-- ── PROJECTS ── -->
     <div class="os-pane" id="os-pane-projects">
       <div class="os-toolbar">
-        <button class="os-btn-primary" onclick="projectNew()">
+        <button class="os-btn-primary" data-onclick="projectNew">
           <i class="ti ti-plus"></i>New project
         </button>
       </div>
@@ -359,7 +359,7 @@
     <!-- ── DOCS ── -->
     <div class="os-pane" id="os-pane-docs">
       <div class="os-toolbar">
-        <button class="os-btn-primary" onclick="orgNewDoc()">
+        <button class="os-btn-primary" data-onclick="orgNewDoc">
           <i class="ti ti-plus"></i>New doc
         </button>
       </div>
@@ -379,12 +379,12 @@
             class="os-doc-title-input"
             id="org-doc-title"
             placeholder="Untitled"
-            oninput="_orgDocTitleChanged()"
+            data-oninput="_orgDocTitleChanged"
           />
           <span class="os-doc-save-status" id="org-doc-save-status"></span>
           <button
             class="os-doc-close-btn"
-            onclick="orgCloseDocEditor()"
+            data-onclick="orgCloseDocEditor"
             title="Close"
           >
             <i class="ti ti-x"></i>
@@ -460,7 +460,7 @@
     <!-- ── MEMBERS ── -->
     <div class="os-pane" id="os-pane-members">
       <div class="os-toolbar">
-        <button class="os-btn-primary" onclick="teamInvite()">
+        <button class="os-btn-primary" data-onclick="teamInvite">
           <i class="ti ti-user-plus"></i>Invite member
         </button>
         <div style="flex: 1"></div>
@@ -482,7 +482,7 @@
               id="os-invite-email"
               placeholder="email@example.com"
             />
-            <button class="os-btn-primary" onclick="orgSendInvite()">
+            <button class="os-btn-primary" data-onclick="orgSendInvite">
               Send invite
             </button>
           </div>
@@ -559,7 +559,7 @@
       <div
         class="oc-drawer-overlay"
         id="oc-drawer-overlay"
-        onclick="ocToggleChannels(false)"
+        data-onclick="ocToggleChannels" data-onclick-args='[false]'
       ></div>
       <!-- Main chat -->
       <div class="oc-main">
@@ -569,7 +569,7 @@
           >
             <button
               class="oc-chan-toggle oc-bar-icon"
-              onclick="ocToggleChannels()"
+              data-onclick="ocToggleChannels"
               title="Channels"
               aria-label="Show channels"
             >
@@ -617,12 +617,12 @@
           <button
             class="oc-bar-icon"
             id="oc-emoji-btn"
-            onclick="ocEmojiToggle()"
+            data-onclick="ocEmojiToggle"
             title="Emoji"
           >
             <i class="ti ti-mood-smile"></i>
           </button>
-          <button class="oc-send-btn" onclick="orgChatSend()">
+          <button class="oc-send-btn" data-onclick="orgChatSend">
             <i class="ti ti-send"></i>
           </button>
         </div>
@@ -657,7 +657,7 @@
             maxlength="2000"
           ></textarea>
           <div class="ann-compose-footer">
-            <button class="ann-post-btn" onclick="annPost()">
+            <button class="ann-post-btn" data-onclick="annPost">
               <i class="ti ti-send"></i> Post
             </button>
             <label class="ann-pin-toggle">
@@ -726,7 +726,7 @@
           <div class="an-status-grid" id="an-status-grid"></div>
         </div>
         <div style="text-align: center; margin-top: 10px">
-          <button class="os-tool-btn" onclick="orgAnalyticsLoad()">
+          <button class="os-tool-btn" data-onclick="orgAnalyticsLoad">
             <i class="ti ti-refresh"></i> Refresh
           </button>
         </div>
@@ -740,7 +740,7 @@
           ><i class="ti ti-rocket"></i>Founder Mode</span
         >
         <div style="flex: 1"></div>
-        <button class="os-tool-btn os-tool-action" onclick="founderSave()">
+        <button class="os-tool-btn os-tool-action" data-onclick="founderSave">
           <i class="ti ti-device-floppy"></i>Save
         </button>
       </div>
@@ -825,7 +825,7 @@
             <div class="os-card-head">
               <span class="os-card-title"
                 ><i class="ti ti-flag"></i>Launch Milestones</span
-              ><button class="os-card-link" onclick="founderAddMilestone()">
+              ><button class="os-card-link" data-onclick="founderAddMilestone">
                 + Add
               </button>
             </div>
@@ -839,7 +839,7 @@
           <div class="os-card-head">
             <span class="os-card-title"
               ><i class="ti ti-briefcase"></i>Investor Pipeline</span
-            ><button class="os-card-link" onclick="founderAddInvestor()">
+            ><button class="os-card-link" data-onclick="founderAddInvestor">
               + Add
             </button>
           </div>
@@ -861,56 +861,56 @@
         <button
           class="ps-tab on"
           id="pstk-tab-overview"
-          onclick="psGoTab('overview', this)"
+          data-onclick="psGoTab" data-onclick-arg0="overview" data-onclick-this
         >
           <i class="ti ti-layout-dashboard"></i>Overview
         </button>
         <button
           class="ps-tab"
           id="pstk-tab-transactions"
-          onclick="psGoTab('transactions', this)"
+          data-onclick="psGoTab" data-onclick-arg0="transactions" data-onclick-this
         >
           <i class="ti ti-arrows-right-left"></i>Transactions
         </button>
         <button
           class="ps-tab"
           id="pstk-tab-balance"
-          onclick="psGoTab('balance', this)"
+          data-onclick="psGoTab" data-onclick-arg0="balance" data-onclick-this
         >
           <i class="ti ti-wallet"></i>Balance
         </button>
         <button
           class="ps-tab"
           id="pstk-tab-settlements"
-          onclick="psGoTab('settlements', this)"
+          data-onclick="psGoTab" data-onclick-arg0="settlements" data-onclick-this
         >
           <i class="ti ti-building-bank"></i>Settlements
         </button>
         <button
           class="ps-tab"
           id="pstk-tab-customers"
-          onclick="psGoTab('customers', this)"
+          data-onclick="psGoTab" data-onclick-arg0="customers" data-onclick-this
         >
           <i class="ti ti-users"></i>Customers
         </button>
         <button
           class="ps-tab"
           id="pstk-tab-refunds"
-          onclick="psGoTab('refunds', this)"
+          data-onclick="psGoTab" data-onclick-arg0="refunds" data-onclick-this
         >
           <i class="ti ti-refresh"></i>Refunds & Disputes
         </button>
         <button
           class="ps-tab"
           id="pstk-tab-analytics"
-          onclick="psGoTab('analytics', this)"
+          data-onclick="psGoTab" data-onclick-arg0="analytics" data-onclick-this
         >
           <i class="ti ti-chart-line"></i>Analytics
         </button>
         <button
           class="ps-tab"
           id="pstk-tab-connect"
-          onclick="psGoTab('connect', this)"
+          data-onclick="psGoTab" data-onclick-arg0="connect" data-onclick-this
         >
           <i class="ti ti-plug"></i>Connect
         </button>
@@ -971,7 +971,7 @@
                   transactions</span
                 ><button
                   class="os-card-link"
-                  onclick="psGoTab('transactions', null)"
+                  data-onclick="psGoTab" data-onclick-args='["transactions", null]'
                 >
                   View all →
                 </button>
@@ -994,7 +994,7 @@
           <select
             class="ps-select"
             id="ps-txn-status"
-            onchange="psLoadTransactions()"
+            data-onchange="psLoadTransactions"
           >
             <option value="">All statuses</option>
             <option value="success">Success</option>
@@ -1004,7 +1004,7 @@
           <select
             class="ps-select"
             id="ps-txn-channel"
-            onchange="psLoadTransactions()"
+            data-onchange="psLoadTransactions"
           >
             <option value="">All channels</option>
             <option value="card">Card</option>
@@ -1012,7 +1012,7 @@
             <option value="ussd">USSD</option>
             <option value="mobile_money">Mobile money</option>
           </select>
-          <button class="os-btn-ghost" onclick="psLoadTransactions()">
+          <button class="os-btn-ghost" data-onclick="psLoadTransactions">
             <i class="ti ti-refresh"></i>
           </button>
         </div>
@@ -1035,7 +1035,7 @@
             <button
               class="os-btn-ghost"
               style="margin-left: 8px; font-size: 0.75rem"
-              onclick="psLoadMoreTxns()"
+              data-onclick="psLoadMoreTxns"
             >
               Load more
             </button>
@@ -1217,7 +1217,7 @@
             <button
               class="os-btn-ghost"
               style="margin-left: auto; font-size: 0.75rem; color: var(--red3)"
-              onclick="psDisconnect()"
+              data-onclick="psDisconnect"
             >
               <i class="ti ti-unlink"></i> Disconnect
             </button>
@@ -1280,7 +1280,7 @@
             <button
               class="os-btn-primary"
               style="width: 100%; justify-content: center; padding: 10px"
-              onclick="psConnect()"
+              data-onclick="psConnect"
             >
               <i class="ti ti-plug"></i> Connect Paystack →
             </button>

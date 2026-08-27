@@ -1206,13 +1206,13 @@
           </div>
         </div>
         <div class="header-right">
-          <i class="ti ti-search" onclick="promptSearch()"></i>
+          <i class="ti ti-search" data-onclick="promptSearch"></i>
           <i
             class="ti ti-brand-whatsapp"
-            onclick="openWhatsApp()"
+            data-onclick="openWhatsApp"
             style="color: #3ba55c"
           ></i>
-          <div class="add-task-btn" onclick="openNewTask()">
+          <div class="add-task-btn" data-onclick="openNewTask">
             <i class="ti ti-plus"></i>
           </div>
         </div>
@@ -1370,7 +1370,7 @@
                         color: #6ba8c4;
                         border-left-color: var(--red);
                       "
-                      onclick="openDetail()"
+                      data-onclick="openDetail"
                     >
                       <div class="tl-block-time">10:00–12:00</div>
                       <div class="tl-block-title">
@@ -1387,7 +1387,7 @@
                         color: var(--t1);
                         border-left-color: var(--red);
                       "
-                      onclick="openDetail()"
+                      data-onclick="openDetail"
                     >
                       <div class="tl-block-time">1:00–3:30</div>
                       <div class="tl-block-title">
@@ -1566,7 +1566,7 @@
               <button
                 class="cta-ghost"
                 id="focusPauseBtn"
-                onclick="toggleFocusTimer()"
+                data-onclick="toggleFocusTimer"
               >
                 <i class="ti ti-player-pause" style="font-size: 13px"></i>Pause
               </button>
@@ -1632,9 +1632,9 @@
     </div>
 
     <!-- ═══ TASK DETAIL SHEET ═══ -->
-    <div class="sheet-overlay" id="detailOverlay" onclick="closeDetail()"></div>
+    <div class="sheet-overlay" id="detailOverlay" data-onclick="closeDetail"></div>
     <div class="sheet" id="detailSheet">
-      <div class="sheet-close" onclick="closeDetail()">
+      <div class="sheet-close" data-onclick="closeDetail">
         <i class="ti ti-x"></i>
       </div>
       <div class="sheet-handle"></div>
@@ -1647,10 +1647,10 @@
     <div
       class="sheet-overlay"
       id="newTaskOverlay"
-      onclick="closeNewTask()"
+      data-onclick="closeNewTask"
     ></div>
     <div class="sheet" id="newTaskSheet">
-      <div class="sheet-close" onclick="closeNewTask()">
+      <div class="sheet-close" data-onclick="closeNewTask">
         <i class="ti ti-x"></i>
       </div>
       <div class="sheet-handle"></div>
@@ -1670,7 +1670,7 @@
             placeholder="e.g. Plan the Q3 launch"
           />
         </div>
-        <button class="ai-breakdown-btn" onclick="showAiBreakdown()">
+        <button class="ai-breakdown-btn" data-onclick="showAiBreakdown">
           <i class="ti ti-wand" style="font-size: 14px"></i>Break it down with
           SIVA
         </button>
@@ -1779,7 +1779,7 @@
         <button
           class="cta-purple block"
           id="newTaskSaveBtn"
-          onclick="saveNewTaskFromSheet()"
+          data-onclick="saveNewTaskFromSheet"
         >
           <i class="ti ti-check" style="font-size: 13px"></i>Create task
         </button>
@@ -1787,9 +1787,9 @@
     </div>
 
     <!-- ═══ INVITE SHEET ═══ -->
-    <div class="sheet-overlay" id="inviteOverlay" onclick="closeInvite()"></div>
+    <div class="sheet-overlay" id="inviteOverlay" data-onclick="closeInvite"></div>
     <div class="sheet" id="inviteSheet">
-      <div class="sheet-close" onclick="closeInvite()">
+      <div class="sheet-close" data-onclick="closeInvite">
         <i class="ti ti-x"></i>
       </div>
       <div class="sheet-handle"></div>
@@ -1815,16 +1815,16 @@
             <option>Can view only</option>
           </select>
         </div>
-        <button class="cta-purple block" onclick="closeInvite()">
+        <button class="cta-purple block" data-onclick="closeInvite">
           <i class="ti ti-send" style="font-size: 13px"></i>Send invite
         </button>
       </div>
     </div>
 
     <!-- ═══ WHATSAPP CONNECTOR SHEET ═══ -->
-    <div class="sheet-overlay" id="waOverlay" onclick="closeWhatsApp()"></div>
+    <div class="sheet-overlay" id="waOverlay" data-onclick="closeWhatsApp"></div>
     <div class="sheet" id="waSheet">
-      <div class="sheet-close" onclick="closeWhatsApp()">
+      <div class="sheet-close" data-onclick="closeWhatsApp">
         <i class="ti ti-x"></i>
       </div>
       <div class="sheet-handle"></div>
@@ -1926,7 +1926,7 @@
           <div class="wa-toggle" onclick="this.classList.toggle('on')"></div>
         </div>
 
-        <button class="cta-ghost block" onclick="closeWhatsApp()">Done</button>
+        <button class="cta-ghost block" data-onclick="closeWhatsApp">Done</button>
       </div>
     </div>
 

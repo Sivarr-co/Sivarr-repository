@@ -16,7 +16,7 @@
         Power up your spaces. Built by the community, 90% to creators.
       </div>
     </div>
-    <button class="mkt-publish-btn" onclick="mktOpenPublish()">
+    <button class="mkt-publish-btn" data-onclick="mktOpenPublish">
       <i class="ti ti-upload" aria-hidden="true"></i> Publish
     </button>
   </div>
@@ -33,28 +33,28 @@
       <button
         class="mkt-type-tab active"
         data-type="all"
-        onclick="mktSetType('all', this)"
+        data-onclick="mktSetType" data-onclick-arg0="all" data-onclick-this
       >
         All
       </button>
       <button
         class="mkt-type-tab"
         data-type="extension"
-        onclick="mktSetType('extension', this)"
+        data-onclick="mktSetType" data-onclick-arg0="extension" data-onclick-this
       >
         Extensions
       </button>
       <button
         class="mkt-type-tab"
         data-type="integration"
-        onclick="mktSetType('integration', this)"
+        data-onclick="mktSetType" data-onclick-arg0="integration" data-onclick-this
       >
         Integrations
       </button>
       <button
         class="mkt-type-tab"
         data-type="template"
-        onclick="mktSetType('template', this)"
+        data-onclick="mktSetType" data-onclick-arg0="template" data-onclick-this
       >
         Templates
       </button>
@@ -66,21 +66,21 @@
     </select>
   </div>
   <div class="mkt-subnav">
-    <button class="mkt-subnav-btn active" onclick="mktSetView('browse', this)">
+    <button class="mkt-subnav-btn active" data-onclick="mktSetView" data-onclick-arg0="browse" data-onclick-this>
       Browse
     </button>
     <button
       class="mkt-subnav-btn"
       id="mkt-subnav-integrations-btn"
-      onclick="mktSetView('integrations', this)"
+      data-onclick="mktSetView" data-onclick-arg0="integrations" data-onclick-this
     >
       Integrations &amp; Library
     </button>
-    <button class="mkt-subnav-btn" onclick="mktSetView('installed', this)">
+    <button class="mkt-subnav-btn" data-onclick="mktSetView" data-onclick-arg0="installed" data-onclick-this>
       Installed
       <span class="mkt-count-badge" id="mktInstalledCount">0</span>
     </button>
-    <button class="mkt-subnav-btn" onclick="mktSetView('published', this)">
+    <button class="mkt-subnav-btn" data-onclick="mktSetView" data-onclick-arg0="published" data-onclick-this>
       My Listings
     </button>
   </div>
@@ -90,49 +90,49 @@
       <button
         class="mkt-cat-pill active"
         data-cat=""
-        onclick="mktSetCategory('', this)"
+        data-onclick="mktSetCategory" data-onclick-arg0="" data-onclick-this
       >
         All categories
       </button>
       <button
         class="mkt-cat-pill"
         data-cat="productivity"
-        onclick="mktSetCategory('productivity', this)"
+        data-onclick="mktSetCategory" data-onclick-arg0="productivity" data-onclick-this
       >
         Productivity
       </button>
       <button
         class="mkt-cat-pill"
         data-cat="academic"
-        onclick="mktSetCategory('academic', this)"
+        data-onclick="mktSetCategory" data-onclick-arg0="academic" data-onclick-this
       >
         Academic
       </button>
       <button
         class="mkt-cat-pill"
         data-cat="finance"
-        onclick="mktSetCategory('finance', this)"
+        data-onclick="mktSetCategory" data-onclick-arg0="finance" data-onclick-this
       >
         Finance
       </button>
       <button
         class="mkt-cat-pill"
         data-cat="work"
-        onclick="mktSetCategory('work', this)"
+        data-onclick="mktSetCategory" data-onclick-arg0="work" data-onclick-this
       >
         Work
       </button>
       <button
         class="mkt-cat-pill"
         data-cat="communication"
-        onclick="mktSetCategory('communication', this)"
+        data-onclick="mktSetCategory" data-onclick-arg0="communication" data-onclick-this
       >
         Communication
       </button>
       <button
         class="mkt-cat-pill"
         data-cat="developer"
-        onclick="mktSetCategory('developer', this)"
+        data-onclick="mktSetCategory" data-onclick-arg0="developer" data-onclick-this
       >
         Developer
       </button>
@@ -221,35 +221,35 @@
         <button
           class="siva-pill sp-add"
           id="lib-tab-all"
-          onclick="libFilter('all', this)"
+          data-onclick="libFilter" data-onclick-arg0="all" data-onclick-this
         >
           All
         </button>
         <button
           class="siva-pill"
           id="lib-tab-study"
-          onclick="libFilter('study', this)"
+          data-onclick="libFilter" data-onclick-arg0="study" data-onclick-this
         >
           📚 Study
         </button>
         <button
           class="siva-pill"
           id="lib-tab-tools"
-          onclick="libFilter('tools', this)"
+          data-onclick="libFilter" data-onclick-arg0="tools" data-onclick-this
         >
           🛠 Tools
         </button>
         <button
           class="siva-pill"
           id="lib-tab-career"
-          onclick="libFilter('career', this)"
+          data-onclick="libFilter" data-onclick-arg0="career" data-onclick-this
         >
           🎯 Career
         </button>
         <button
           class="siva-pill"
           id="lib-tab-health"
-          onclick="libFilter('health', this)"
+          data-onclick="libFilter" data-onclick-arg0="health" data-onclick-this
         >
           🧠 Wellbeing
         </button>
@@ -313,7 +313,7 @@
           <div class="lib-desc">
             Thousands of free educational video lectures.
           </div>
-          <button class="lib-btn" onclick="nav('contenthub', null)">
+          <button class="lib-btn" data-onclick="nav" data-onclick-args='["contenthub", null]'>
             Open →
           </button>
         </div>
@@ -376,7 +376,7 @@
       "
     >
       <div class="mkt-section-title">My listings</div>
-      <button class="mkt-btn-teal" onclick="mktOpenPublish()">
+      <button class="mkt-btn-teal" data-onclick="mktOpenPublish">
         <i class="ti ti-plus" aria-hidden="true"></i> New listing
       </button>
     </div>
@@ -394,7 +394,7 @@
         <button
           class="mkt-btn-teal"
           style="margin-top: 12px"
-          onclick="mktOpenPublish()"
+          data-onclick="mktOpenPublish"
         >
           <i class="ti ti-upload" aria-hidden="true"></i> Publish something
         </button>
@@ -408,12 +408,12 @@
   id="spaceSettingsModal"
   class="mkt-modal-overlay"
   style="display: none"
-  onclick="closeSpaceSettings(event)"
+  data-onclick="closeSpaceSettings" data-onclick-event
 >
   <div class="mkt-modal" style="max-width: 520px">
     <button
       class="mkt-modal-close"
-      onclick="closeSpaceSettings()"
+      data-onclick="closeSpaceSettings"
       aria-label="Close"
     >
       <i class="ti ti-x" aria-hidden="true"></i>
@@ -427,17 +427,17 @@
     <div class="mkt-modal-tabs">
       <button
         class="mkt-modal-tab active"
-        onclick="spaceSettingsTab('extensions', this)"
+        data-onclick="spaceSettingsTab" data-onclick-arg0="extensions" data-onclick-this
       >
         <i class="ti ti-puzzle" aria-hidden="true"></i> Extensions
       </button>
       <button
         class="mkt-modal-tab"
-        onclick="spaceSettingsTab('integrations', this)"
+        data-onclick="spaceSettingsTab" data-onclick-arg0="integrations" data-onclick-this
       >
         <i class="ti ti-plug" aria-hidden="true"></i> Integrations
       </button>
-      <button class="mkt-modal-tab" onclick="spaceSettingsTab('danger', this)">
+      <button class="mkt-modal-tab" data-onclick="spaceSettingsTab" data-onclick-arg0="danger" data-onclick-this>
         <i class="ti ti-settings" aria-hidden="true"></i> Space
       </button>
     </div>
@@ -491,7 +491,7 @@
       <button
         class="mkt-btn-teal"
         style="margin-bottom: 20px"
-        onclick="spaceRename()"
+        data-onclick="spaceRename"
       >
         Save name
       </button>
@@ -502,7 +502,7 @@
         >
           Danger zone
         </div>
-        <button class="mkt-btn-ghost mkt-btn-danger" onclick="spaceDelete()">
+        <button class="mkt-btn-ghost mkt-btn-danger" data-onclick="spaceDelete">
           <i class="ti ti-trash" aria-hidden="true"></i> Delete this Space
         </button>
       </div>
@@ -515,12 +515,12 @@
   id="mktDetailModal"
   class="mkt-modal-overlay"
   style="display: none"
-  onclick="mktCloseDetail(event)"
+  data-onclick="mktCloseDetail" data-onclick-event
 >
   <div class="mkt-modal">
     <button
       class="mkt-modal-close"
-      onclick="mktCloseDetail()"
+      data-onclick="mktCloseDetail"
       aria-label="Close"
     >
       <i class="ti ti-x" aria-hidden="true"></i>
@@ -537,14 +537,14 @@
     <div class="mkt-modal-tabs">
       <button
         class="mkt-modal-tab active"
-        onclick="mktDetailTab('overview', this)"
+        data-onclick="mktDetailTab" data-onclick-arg0="overview" data-onclick-this
       >
         Overview
       </button>
-      <button class="mkt-modal-tab" onclick="mktDetailTab('reviews', this)">
+      <button class="mkt-modal-tab" data-onclick="mktDetailTab" data-onclick-arg0="reviews" data-onclick-this>
         Reviews
       </button>
-      <button class="mkt-modal-tab" onclick="mktDetailTab('changelog', this)">
+      <button class="mkt-modal-tab" data-onclick="mktDetailTab" data-onclick-arg0="changelog" data-onclick-this>
         Changelog
       </button>
     </div>
@@ -557,12 +557,12 @@
   id="mktPublishModal"
   class="mkt-modal-overlay"
   style="display: none"
-  onclick="mktClosePublish(event)"
+  data-onclick="mktClosePublish" data-onclick-event
 >
   <div class="mkt-modal">
     <button
       class="mkt-modal-close"
-      onclick="mktClosePublish()"
+      data-onclick="mktClosePublish"
       aria-label="Close"
     >
       <i class="ti ti-x" aria-hidden="true"></i>
@@ -577,7 +577,7 @@
       >
         <div
           class="mkt-publish-type-card"
-          onclick="mktSelectPublishType('extension', this)"
+          data-onclick="mktSelectPublishType" data-onclick-arg0="extension" data-onclick-this
         >
           <i
             class="ti ti-puzzle"
@@ -590,7 +590,7 @@
         </div>
         <div
           class="mkt-publish-type-card"
-          onclick="mktSelectPublishType('integration', this)"
+          data-onclick="mktSelectPublishType" data-onclick-arg0="integration" data-onclick-this
         >
           <i class="ti ti-plug" style="font-size: 20px" aria-hidden="true"></i>
           <div style="font-size: 12px; font-weight: 700; margin-top: 6px">
@@ -599,7 +599,7 @@
         </div>
         <div
           class="mkt-publish-type-card"
-          onclick="mktSelectPublishType('template', this)"
+          data-onclick="mktSelectPublishType" data-onclick-arg0="template" data-onclick-this
         >
           <i
             class="ti ti-layout-grid"
@@ -668,7 +668,7 @@
     <button
       class="mkt-generate-btn"
       style="margin-top: 8px"
-      onclick="mktSubmitPublish()"
+      data-onclick="mktSubmitPublish"
     >
       <i class="ti ti-upload" aria-hidden="true"></i> Submit for Review
     </button>
