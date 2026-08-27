@@ -9,7 +9,7 @@
   <button
     class="tb-brand"
     id="hamburger"
-    onclick="toggleMobileSidebar(event)"
+    data-onclick="toggleMobileSidebar" data-onclick-event
     title="Menu"
     type="button"
   >
@@ -18,7 +18,7 @@
     </div>
     <span class="tb-name">Sivarr</span>
   </button>
-  <button class="tb-search" onclick="cmdOpen()" aria-label="Search or jump to">
+  <button class="tb-search" data-onclick="cmdOpen" aria-label="Search or jump to">
     <i class="ti ti-search"></i>
     <span>Search…</span>
   </button>
@@ -36,7 +36,7 @@
       <button
         class="tb-icon-btn"
         id="notif-btn"
-        onclick="notifToggle()"
+        data-onclick="notifToggle"
         title="Notifications"
         data-tip="Notifications"
         data-tip-pos="bottom"
@@ -86,7 +86,7 @@
             >Notifications</span
           >
           <button
-            onclick="notifMarkAllRead()"
+            data-onclick="notifMarkAllRead"
             style="
               background: none;
               border: none;
@@ -107,7 +107,7 @@
       <button
         class="profile-trigger"
         id="profile-trigger"
-        onclick="toggleProfile()"
+        data-onclick="toggleProfile"
         data-tip="Account"
         data-tip-pos="bottom"
       >
@@ -183,7 +183,7 @@
             id="pfp-input"
             accept="image/*"
             style="display: none"
-            onchange="uploadProfilePic(this)"
+            data-onchange="uploadProfilePic" data-onchange-this
           />
           <div class="pd-name" id="pd-name">Your Name</div>
           <div class="pd-matric" id="pd-matric">Account</div>
@@ -253,7 +253,7 @@
 
         <div class="pd-divider"></div>
 
-        <div class="pd-toggle" onclick="toggleThemeFromMenu()">
+        <div class="pd-toggle" data-onclick="toggleThemeFromMenu">
           <div class="pd-toggle-left">
             <i class="ti ti-moon pd-icon" id="pd-theme-icon"></i>
             <span id="pd-theme-label">Dark Mode</span>
@@ -261,7 +261,7 @@
           <div class="toggle-sw" id="pd-toggle-sw"></div>
         </div>
 
-        <button class="pd-item" onclick="toggleFullscreen()">
+        <button class="pd-item" data-onclick="toggleFullscreen">
           <i class="ti ti-maximize pd-icon" id="pd-fullscreen-icon"></i>
           <span id="pd-fullscreen-label">Fullscreen</span>
         </button>
@@ -294,7 +294,7 @@
 
         <div class="pd-divider"></div>
 
-        <button class="pd-item danger" onclick="logout()">
+        <button class="pd-item danger" data-onclick="logout">
           <i class="ti ti-logout pd-icon"></i> Sign out
         </button>
       </div>
@@ -328,7 +328,7 @@
          search bar gets the space back (was cramped on narrow phones). -->
     <button
       class="sb-brand-btn"
-      onclick="sbToggleRail()"
+      data-onclick="sbToggleRail"
       title="Collapse sidebar"
       data-tip="Collapse sidebar"
       data-tip-pos="bottom"
@@ -343,7 +343,7 @@
     </button>
     <button
       class="sb-top-search"
-      onclick="cmdOpen()"
+      data-onclick="cmdOpen"
       aria-label="Search or jump to"
     >
       <i class="ti ti-search"></i>
@@ -358,7 +358,7 @@
     <div
       class="sb-section-row sb-sec-head"
       id="sb-favs-head"
-      onclick="sbTogglePinned()"
+      data-onclick="sbTogglePinned"
       title="Show/hide Pinned"
     >
       <span
@@ -400,7 +400,7 @@
     <div
       class="sb-section-row sb-spaces-head"
       id="sb-spaces-head"
-      onclick="spacesToggle()"
+      data-onclick="spacesToggle"
       title="Show/hide spaces"
     >
       <span
@@ -435,18 +435,18 @@
 
     <!-- Continuation: Settings / Plans / Help & Support — flat, sits directly under Spaces, no divider, no footer -->
     <div class="sb-nav-group" style="margin-top: 2px">
-      <button class="si" onclick="nav('settings', null)">
+      <button class="si" data-onclick="nav" data-onclick-args='["settings", null]'>
         <div class="si-icon"><i class="ti ti-settings"></i></div>
         <span class="si-lb">Settings</span>
       </button>
-      <button class="si" onclick="showPricing()">
+      <button class="si" data-onclick="showPricing">
         <div class="si-icon"><i class="ti ti-bolt"></i></div>
         <span class="si-lb">Plans</span>
         <span class="si-stat" id="sb-plan-label">Free Plan</span>
       </button>
       <button
         class="si"
-        onclick="nav('help', null)"
+        data-onclick="nav" data-onclick-args='["help", null]'
         aria-label="Help and Support"
       >
         <div class="si-icon"><i class="ti ti-lifebuoy"></i></div>
