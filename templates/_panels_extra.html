@@ -10,13 +10,13 @@ SUPPORT ── #}
       <div class="help-hero-icon"><i class="ti ti-lifebuoy"></i></div>
       <h1>How can we help?</h1>
       <p>Answers, guides, and a direct line to the Sivarr team.</p>
-      <button class="help-search" onclick="cmdOpen()">
+      <button class="help-search" data-onclick="cmdOpen">
         <i class="ti ti-search"></i> Search Sivarr… <kbd>⌘K</kbd>
       </button>
     </div>
 
     <div class="help-grid">
-      <button class="help-card" onclick="nav('home', null)">
+      <button class="help-card" data-onclick="nav" data-onclick-args='["home", null]'>
         <div class="help-card-ic" style="background: var(--teal2)">
           <i class="ti ti-rocket"></i>
         </div>
@@ -25,7 +25,7 @@ SUPPORT ── #}
           Set up your workspace and take your first action.
         </div>
       </button>
-      <button class="help-card" onclick="nav('flux', null)">
+      <button class="help-card" data-onclick="nav" data-onclick-args='["flux", null]'>
         <div class="help-card-ic" style="background: var(--purple2)">
           <i class="ti ti-checkbox"></i>
         </div>
@@ -34,7 +34,7 @@ SUPPORT ── #}
           Create tasks, set priorities, track progress.
         </div>
       </button>
-      <button class="help-card" onclick="nav('org', null)">
+      <button class="help-card" data-onclick="nav" data-onclick-args='["org", null]'>
         <div class="help-card-ic" style="background: var(--amber2)">
           <i class="ti ti-users-group"></i>
         </div>
@@ -43,21 +43,21 @@ SUPPORT ── #}
           Invite members, assign roles, manage seats.
         </div>
       </button>
-      <button class="help-card" onclick="showPricing()">
+      <button class="help-card" data-onclick="showPricing">
         <div class="help-card-ic" style="background: var(--green2)">
           <i class="ti ti-credit-card"></i>
         </div>
         <div class="help-card-t">Billing &amp; plans</div>
         <div class="help-card-d">Upgrade, seats, invoices, and payments.</div>
       </button>
-      <button class="help-card" onclick="nav('settings', null)">
+      <button class="help-card" data-onclick="nav" data-onclick-args='["settings", null]'>
         <div class="help-card-ic" style="background: var(--teal2)">
           <i class="ti ti-shield-lock"></i>
         </div>
         <div class="help-card-t">Account &amp; security</div>
         <div class="help-card-d">Profile, password, 2FA, and privacy.</div>
       </button>
-      <button class="help-card" onclick="nav('chat', null)">
+      <button class="help-card" data-onclick="nav" data-onclick-args='["chat", null]'>
         <div class="help-card-ic" style="background: var(--purple2)">
           <i class="ti ti-sparkles"></i>
         </div>
@@ -120,7 +120,7 @@ SUPPORT ── #}
           href="mailto:support@sivarr.com?subject=Sivarr%20Support"
           ><i class="ti ti-mail"></i> Email support</a
         >
-        <button class="help-btn-ghost" onclick="openFeedback()">
+        <button class="help-btn-ghost" data-onclick="openFeedback">
           <i class="ti ti-message-2"></i> Send feedback
         </button>
       </div>
@@ -175,7 +175,7 @@ SUPPORT ── #}
           Leave blank to quiz from your studied topics
         </p>
       </div>
-      <button class="btn-start" onclick="startQuiz()">Start Quiz</button>
+      <button class="btn-start" data-onclick="startQuiz">Start Quiz</button>
     </div>
   </div>
 </div>
@@ -197,7 +197,7 @@ SUPPORT ── #}
     <i class="ti ti-target vh-icon"></i>
     <span class="vh-title">Goals</span>
     <button
-      onclick="glToggleForm()"
+      data-onclick="glToggleForm"
       class="btn primary"
       style="margin-left: auto"
     >
@@ -275,7 +275,7 @@ SUPPORT ── #}
       </div>
       <div style="display: flex; gap: 8px; margin-top: 0.75rem">
         <button
-          onclick="glSaveGoal()"
+          data-onclick="glSaveGoal"
           style="
             flex: 1;
             background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -292,7 +292,7 @@ SUPPORT ── #}
           Save Goal
         </button>
         <button
-          onclick="glToggleForm()"
+          data-onclick="glToggleForm"
           style="
             flex: 1;
             background: none;
@@ -375,7 +375,7 @@ SUPPORT ── #}
             <option value="😤">😤 Stressed</option>
           </select>
           <button
-            onclick="journalSave()"
+            data-onclick="journalSave"
             style="
               background: var(--teal);
               color: #fff;
@@ -435,7 +435,7 @@ SUPPORT ── #}
       <button
         class="fin-add-btn"
         id="fin-mono-btn"
-        onclick="finSyncMono()"
+        data-onclick="finSyncMono"
         style="
           display: none;
           background: var(--accent2) 18;
@@ -445,10 +445,10 @@ SUPPORT ── #}
       >
         <i class="ti ti-building-bank"></i> Sync Mono
       </button>
-      <button class="fin-add-btn income" onclick="finAdd('income')">
+      <button class="fin-add-btn income" data-onclick="finAdd" data-onclick-arg0="income">
         <i class="ti ti-plus"></i> Income
       </button>
-      <button class="fin-add-btn expense" onclick="finAdd('expense')">
+      <button class="fin-add-btn expense" data-onclick="finAdd" data-onclick-arg0="expense">
         <i class="ti ti-minus"></i> Expense
       </button>
     </div>
@@ -459,21 +459,21 @@ SUPPORT ── #}
       <button
         class="fin-tab active"
         id="fin-tab-overview"
-        onclick="finTab('overview', this)"
+        data-onclick="finTab" data-onclick-arg0="overview" data-onclick-this
       >
         Overview
       </button>
       <button
         class="fin-tab"
         id="fin-tab-transactions"
-        onclick="finTab('transactions', this)"
+        data-onclick="finTab" data-onclick-arg0="transactions" data-onclick-this
       >
         Transactions
       </button>
       <button
         class="fin-tab"
         id="fin-tab-budget"
-        onclick="finTab('budget', this)"
+        data-onclick="finTab" data-onclick-arg0="budget" data-onclick-this
       >
         Budget
       </button>
@@ -499,7 +499,7 @@ SUPPORT ── #}
   <div class="view-head">
     <i class="ti ti-atom vh-icon"></i>
     <span class="vh-title">Skills</span>
-    <button class="btn primary" onclick="skillAdd()" style="margin-left: auto">
+    <button class="btn primary" data-onclick="skillAdd" style="margin-left: auto">
       + Add Skill
     </button>
   </div>
@@ -516,20 +516,20 @@ SUPPORT ── #}
         <i class="ti ti-users"></i>
         <span>Community</span>
       </div>
-      <button class="comm-head-btn" id="comm-post-quick-btn" onclick="commFocusComposer()">
+      <button class="comm-head-btn" id="comm-post-quick-btn" data-onclick="commFocusComposer">
         <i class="ti ti-plus"></i> New post
       </button>
-      <button class="comm-head-btn" id="comm-opp-btn" onclick="oppSubmit()" style="display: none">
+      <button class="comm-head-btn" id="comm-opp-btn" data-onclick="oppSubmit" style="display: none">
         <i class="ti ti-plus"></i> Add Opportunity
       </button>
     </div>
     <div class="comm-head-sub" id="comm-head-sub"></div>
     <!-- Top-level tabs: Feed / Opportunities -->
     <div class="comm-tabs">
-      <button class="comm-tab active" id="comm-mode-feed" onclick="commSetMode('feed', this)">
+      <button class="comm-tab active" id="comm-mode-feed" data-onclick="commSetMode" data-onclick-arg0="feed" data-onclick-this>
         Feed
       </button>
-      <button class="comm-tab" id="comm-mode-opp" onclick="commSetMode('opp', this)">
+      <button class="comm-tab" id="comm-mode-opp" data-onclick="commSetMode" data-onclick-arg0="opp" data-onclick-this>
         <i class="ti ti-target"></i> Opportunities
       </button>
     </div>
@@ -546,7 +546,7 @@ SUPPORT ── #}
             class="comm-composer-input"
             id="comm-post-text"
             placeholder="Share an update, ask a question, or post a resource…"
-            oninput="commCharCount(this)"
+            data-oninput="commCharCount" data-oninput-this
           ></textarea>
           <div class="comm-composer-footer">
             <select class="comm-composer-cat" id="comm-post-cat">
@@ -560,7 +560,7 @@ SUPPORT ── #}
             <button
               class="comm-post-btn"
               id="comm-post-btn"
-              onclick="communityPost()"
+              data-onclick="communityPost"
             >
               Post →
             </button>
@@ -569,12 +569,12 @@ SUPPORT ── #}
       </div>
       <!-- Category filters (live counts filled in by _commApplyFilters()) -->
       <div class="comm-chip-row" id="comm-chip-row">
-        <button class="comm-chip active" data-filter="all" id="comm-tab-all" onclick="commFilter('all', this)">All<span class="chip-count"></span></button>
-        <button class="comm-chip" data-filter="win" id="comm-tab-win" onclick="commFilter('win', this)"><i class="ti ti-trophy"></i> Wins<span class="chip-count"></span></button>
-        <button class="comm-chip" data-filter="question" id="comm-tab-question" onclick="commFilter('question', this)"><i class="ti ti-help-circle"></i> Questions<span class="chip-count"></span></button>
-        <button class="comm-chip" data-filter="resource" id="comm-tab-resource" onclick="commFilter('resource', this)"><i class="ti ti-bulb"></i> Resources<span class="chip-count"></span></button>
-        <button class="comm-chip" data-filter="announcement" id="comm-tab-announcement" onclick="commFilter('announcement', this)"><i class="ti ti-speakerphone"></i> Announcements<span class="chip-count"></span></button>
-        <button class="comm-chip" data-filter="saved" id="comm-tab-saved" onclick="commFilter('saved', this)"><i class="ti ti-bookmark"></i> Saved<span class="chip-count"></span></button>
+        <button class="comm-chip active" data-filter="all" id="comm-tab-all" data-onclick="commFilter" data-onclick-arg0="all" data-onclick-this>All<span class="chip-count"></span></button>
+        <button class="comm-chip" data-filter="win" id="comm-tab-win" data-onclick="commFilter" data-onclick-arg0="win" data-onclick-this><i class="ti ti-trophy"></i> Wins<span class="chip-count"></span></button>
+        <button class="comm-chip" data-filter="question" id="comm-tab-question" data-onclick="commFilter" data-onclick-arg0="question" data-onclick-this><i class="ti ti-help-circle"></i> Questions<span class="chip-count"></span></button>
+        <button class="comm-chip" data-filter="resource" id="comm-tab-resource" data-onclick="commFilter" data-onclick-arg0="resource" data-onclick-this><i class="ti ti-bulb"></i> Resources<span class="chip-count"></span></button>
+        <button class="comm-chip" data-filter="announcement" id="comm-tab-announcement" data-onclick="commFilter" data-onclick-arg0="announcement" data-onclick-this><i class="ti ti-speakerphone"></i> Announcements<span class="chip-count"></span></button>
+        <button class="comm-chip" data-filter="saved" id="comm-tab-saved" data-onclick="commFilter" data-onclick-arg0="saved" data-onclick-this><i class="ti ti-bookmark"></i> Saved<span class="chip-count"></span></button>
       </div>
       <div id="community-feed">
         <div
@@ -595,21 +595,21 @@ SUPPORT ── #}
             id="opp-search"
             type="text"
             placeholder="Search opportunities…"
-            oninput="_oppApplyFilters()"
+            data-oninput="_oppApplyFilters"
           />
         </div>
-        <select id="opp-sort" class="opp-sort" onchange="_oppApplyFilters()">
+        <select id="opp-sort" class="opp-sort" data-onchange="_oppApplyFilters">
           <option value="newest">Newest</option>
           <option value="deadline">Deadline soon</option>
         </select>
       </div>
       <div class="comm-chip-row" id="opp-chip-row">
-        <button class="comm-chip active" data-filter="all" id="opp-tab-all" onclick="oppFilter('all', this)">All<span class="chip-count"></span></button>
-        <button class="comm-chip" data-filter="job" id="opp-tab-job" onclick="oppFilter('job', this)"><i class="ti ti-briefcase"></i> Jobs<span class="chip-count"></span></button>
-        <button class="comm-chip" data-filter="internship" id="opp-tab-internship" onclick="oppFilter('internship', this)"><i class="ti ti-school"></i> Internships<span class="chip-count"></span></button>
-        <button class="comm-chip" data-filter="scholarship" id="opp-tab-scholarship" onclick="oppFilter('scholarship', this)"><i class="ti ti-certificate"></i> Scholarships<span class="chip-count"></span></button>
-        <button class="comm-chip" data-filter="grant" id="opp-tab-grant" onclick="oppFilter('grant', this)"><i class="ti ti-gift"></i> Grants<span class="chip-count"></span></button>
-        <button class="comm-chip" data-filter="saved" id="opp-tab-saved" onclick="oppFilter('saved', this)"><i class="ti ti-bookmark"></i> Saved<span class="chip-count"></span></button>
+        <button class="comm-chip active" data-filter="all" id="opp-tab-all" data-onclick="oppFilter" data-onclick-arg0="all" data-onclick-this>All<span class="chip-count"></span></button>
+        <button class="comm-chip" data-filter="job" id="opp-tab-job" data-onclick="oppFilter" data-onclick-arg0="job" data-onclick-this><i class="ti ti-briefcase"></i> Jobs<span class="chip-count"></span></button>
+        <button class="comm-chip" data-filter="internship" id="opp-tab-internship" data-onclick="oppFilter" data-onclick-arg0="internship" data-onclick-this><i class="ti ti-school"></i> Internships<span class="chip-count"></span></button>
+        <button class="comm-chip" data-filter="scholarship" id="opp-tab-scholarship" data-onclick="oppFilter" data-onclick-arg0="scholarship" data-onclick-this><i class="ti ti-certificate"></i> Scholarships<span class="chip-count"></span></button>
+        <button class="comm-chip" data-filter="grant" id="opp-tab-grant" data-onclick="oppFilter" data-onclick-arg0="grant" data-onclick-this><i class="ti ti-gift"></i> Grants<span class="chip-count"></span></button>
+        <button class="comm-chip" data-filter="saved" id="opp-tab-saved" data-onclick="oppFilter" data-onclick-arg0="saved" data-onclick-this><i class="ti ti-bookmark"></i> Saved<span class="chip-count"></span></button>
       </div>
       <div id="opp-feed">
         <div
@@ -642,7 +642,7 @@ SUPPORT ── #}
         type="text"
         id="templateSearch"
         placeholder="Search templates…"
-        oninput="filterTemplates()"
+        data-oninput="filterTemplates"
       />
     </div>
   </div>
@@ -653,19 +653,19 @@ SUPPORT ── #}
 
     <!-- Filter chips -->
     <div class="tpl-filters">
-      <button class="tpl-chip active" onclick="setTemplateFilter('all', this)">
+      <button class="tpl-chip active" data-onclick="setTemplateFilter" data-onclick-arg0="all" data-onclick-this>
         All
       </button>
       <button
         class="tpl-chip"
-        onclick="setTemplateFilter('productivity', this)"
+        data-onclick="setTemplateFilter" data-onclick-arg0="productivity" data-onclick-this
       >
         Productivity
       </button>
-      <button class="tpl-chip" onclick="setTemplateFilter('finance', this)">
+      <button class="tpl-chip" data-onclick="setTemplateFilter" data-onclick-arg0="finance" data-onclick-this>
         Finance
       </button>
-      <button class="tpl-chip" onclick="setTemplateFilter('habits', this)">
+      <button class="tpl-chip" data-onclick="setTemplateFilter" data-onclick-arg0="habits" data-onclick-this>
         Habits
       </button>
     </div>
@@ -902,7 +902,7 @@ SUPPORT ── #}
         this.style.borderColor = 'var(--border2)';
         this.style.background = 'linear-gradient(135deg,#7c3aed08,transparent)';
       "
-      ondrop="handleLabDropP(event)"
+      data-ondrop="handleLabDropP" data-ondrop-event
     >
       <div style="font-size: 2.5rem; margin-bottom: 0.5rem">📄</div>
       <div
@@ -924,7 +924,7 @@ SUPPORT ── #}
       id="lab-file-input-p"
       style="display: none"
       accept=".txt,.pdf,.md"
-      onchange="runStudyHavenP(this)"
+      data-onchange="runStudyHavenP" data-onchange-this
     />
 
     <!-- Result -->
@@ -944,26 +944,26 @@ SUPPORT ── #}
           id="lab-filename-p"
         ></span>
         <div style="display: flex; gap: 6px">
-          <button onclick="saveLabAsNoteP()" class="action-btn">📓 Save</button>
-          <button onclick="downloadLabResultP()" class="action-btn">
+          <button data-onclick="saveLabAsNoteP" class="action-btn">📓 Save</button>
+          <button data-onclick="downloadLabResultP" class="action-btn">
             ⬇ Download
           </button>
         </div>
       </div>
       <div style="display: flex; gap: 6px; margin-bottom: 0.75rem">
-        <button class="lab-tab active" onclick="switchLabTabP('summary', this)">
+        <button class="lab-tab active" data-onclick="switchLabTabP" data-onclick-arg0="summary" data-onclick-this>
           📋 Summary
         </button>
-        <button class="lab-tab" onclick="switchLabTabP('notes', this)">
+        <button class="lab-tab" data-onclick="switchLabTabP" data-onclick-arg0="notes" data-onclick-this>
           📚 Notes
         </button>
-        <button class="lab-tab" onclick="switchLabTabP('questions', this)">
+        <button class="lab-tab" data-onclick="switchLabTabP" data-onclick-arg0="questions" data-onclick-this>
           ❓ Questions
         </button>
         <button
           class="lab-tab"
           id="lab-tab-flash-p"
-          onclick="switchLabTabP('flashcards', this)"
+          data-onclick="switchLabTabP" data-onclick-arg0="flashcards" data-onclick-this
           style="display: none"
         >
           🃏 Flashcards
@@ -1083,16 +1083,16 @@ SUPPORT ── #}
           >
           <div style="display: flex; gap: 8px">
             <button
-              onclick="setSPHours(1, this)"
+              data-onclick="setSPHours" data-onclick-args='[1]' data-onclick-this
               class="sp-hrs-btn sp-hrs-active"
             >
               1h
             </button>
-            <button onclick="setSPHours(2, this)" class="sp-hrs-btn">2h</button>
-            <button onclick="setSPHours(3, this)" class="sp-hrs-btn">3h</button>
-            <button onclick="setSPHours(4, this)" class="sp-hrs-btn">4h</button>
-            <button onclick="setSPHours(5, this)" class="sp-hrs-btn">5h</button>
-            <button onclick="setSPHours(6, this)" class="sp-hrs-btn">6h</button>
+            <button data-onclick="setSPHours" data-onclick-args='[2]' data-onclick-this class="sp-hrs-btn">2h</button>
+            <button data-onclick="setSPHours" data-onclick-args='[3]' data-onclick-this class="sp-hrs-btn">3h</button>
+            <button data-onclick="setSPHours" data-onclick-args='[4]' data-onclick-this class="sp-hrs-btn">4h</button>
+            <button data-onclick="setSPHours" data-onclick-args='[5]' data-onclick-this class="sp-hrs-btn">5h</button>
+            <button data-onclick="setSPHours" data-onclick-args='[6]' data-onclick-this class="sp-hrs-btn">6h</button>
           </div>
         </div>
       </div>
@@ -1106,7 +1106,7 @@ SUPPORT ── #}
         "
       ></div>
       <button
-        onclick="generateStudyPlan()"
+        data-onclick="generateStudyPlan"
         style="
           width: 100%;
           margin-top: 1rem;
@@ -1207,7 +1207,7 @@ SUPPORT ── #}
           this.style.borderColor = 'var(--accent2)';
         "
         ondragleave="this.style.borderColor = 'var(--border2)'"
-        ondrop="handleLabDrop(event)"
+        data-ondrop="handleLabDrop" data-ondrop-event
       >
         <div style="font-size: 1.75rem; margin-bottom: 0.4rem">📄</div>
         <div style="font-size: 0.82rem; color: var(--muted)">
@@ -1222,7 +1222,7 @@ SUPPORT ── #}
         id="lab-file-input"
         style="display: none"
         accept=".txt,.pdf,.md"
-        onchange="runStudyHaven(this)"
+        data-onchange="runStudyHaven" data-onchange-this
       />
 
       <!-- Result area -->
@@ -1240,10 +1240,10 @@ SUPPORT ── #}
             id="lab-filename"
           ></span>
           <div style="display: flex; gap: 6px">
-            <button onclick="saveLabAsNote()" class="action-btn">
+            <button data-onclick="saveLabAsNote" class="action-btn">
               📓 Save as Note
             </button>
-            <button onclick="downloadLabResult()" class="action-btn">
+            <button data-onclick="downloadLabResult" class="action-btn">
               ⬇ Download
             </button>
           </div>
@@ -1261,14 +1261,14 @@ SUPPORT ── #}
         >
           <button
             class="lab-tab active"
-            onclick="switchLabTab('summary', this)"
+            data-onclick="switchLabTab" data-onclick-arg0="summary" data-onclick-this
           >
             📋 Summary
           </button>
-          <button class="lab-tab" onclick="switchLabTab('notes', this)">
+          <button class="lab-tab" data-onclick="switchLabTab" data-onclick-arg0="notes" data-onclick-this>
             📚 Notes
           </button>
-          <button class="lab-tab" onclick="switchLabTab('questions', this)">
+          <button class="lab-tab" data-onclick="switchLabTab" data-onclick-arg0="questions" data-onclick-this>
             ❓ Questions
           </button>
         </div>
@@ -1303,7 +1303,7 @@ SUPPORT ── #}
       <div class="suggest-txt" id="sug-txt-m">
         Click below for personalised recommendations.
       </div>
-      <button class="btn-suggest" onclick="getSuggestionsMobile()">
+      <button class="btn-suggest" data-onclick="getSuggestionsMobile">
         Get Suggestions
       </button>
     </div>

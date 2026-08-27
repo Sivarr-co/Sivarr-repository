@@ -84,42 +84,42 @@
         <button
           class="acad-tab active"
           data-tab="l-overview"
-          onclick="lSwitchTab('l-overview')"
+          data-onclick="lSwitchTab" data-onclick-arg0="l-overview"
         >
           Overview
         </button>
         <button
           class="acad-tab"
           data-tab="l-courses"
-          onclick="lSwitchTab('l-courses')"
+          data-onclick="lSwitchTab" data-onclick-arg0="l-courses"
         >
           Courses
         </button>
         <button
           class="acad-tab"
           data-tab="l-students"
-          onclick="lSwitchTab('l-students')"
+          data-onclick="lSwitchTab" data-onclick-arg0="l-students"
         >
           Students
         </button>
         <button
           class="acad-tab"
           data-tab="l-assessments"
-          onclick="lSwitchTab('l-assessments')"
+          data-onclick="lSwitchTab" data-onclick-arg0="l-assessments"
         >
           Assessments
         </button>
         <button
           class="acad-tab"
           data-tab="l-analytics"
-          onclick="lSwitchTab('l-analytics')"
+          data-onclick="lSwitchTab" data-onclick-arg0="l-analytics"
         >
           Analytics
         </button>
         <button
           class="acad-tab"
           data-tab="l-aitools"
-          onclick="lSwitchTab('l-aitools')"
+          data-onclick="lSwitchTab" data-onclick-arg0="l-aitools"
         >
           <i class="ti ti-bolt" aria-hidden="true" style="font-size: 12px"></i>
           AI Tools
@@ -132,7 +132,7 @@
           <div class="acad-card acad-col-span-1">
             <div class="acad-card-header">
               <span class="acad-card-title">Today's Schedule</span>
-              <button class="acad-btn-ghost acad-btn-sm" onclick="lAddClass()">
+              <button class="acad-btn-ghost acad-btn-sm" data-onclick="lAddClass">
                 + Add
               </button>
             </div>
@@ -172,7 +172,7 @@
             <button
               class="acad-btn-teal acad-btn-sm"
               id="lClassPublishBtn"
-              onclick="lPublishClass()"
+              data-onclick="lPublishClass"
             >
               Publish class
             </button>
@@ -195,7 +195,7 @@
               placeholder="Post an announcement, students get a notification."
               style="min-height: 60px"
             ></textarea>
-            <button class="acad-btn-teal" onclick="lPostAnnounce()">
+            <button class="acad-btn-teal" data-onclick="lPostAnnounce">
               Post announcement
             </button>
             <div id="lAnnounceList" style="margin-top: 12px"></div>
@@ -205,11 +205,11 @@
           <div class="acad-card-header">
             <span class="acad-card-title">Live Session &amp; Polls</span>
             <div style="display: flex; gap: 6px">
-              <button class="acad-btn-teal acad-btn-sm" onclick="lGoLive()">
+              <button class="acad-btn-teal acad-btn-sm" data-onclick="lGoLive">
                 Go live</button
               ><button
                 class="acad-btn-ghost acad-btn-sm"
-                onclick="lCreatePoll()"
+                data-onclick="lCreatePoll"
               >
                 + Poll
               </button>
@@ -252,14 +252,14 @@
             placeholder="Search courses…"
             oninput="lFilterCourses(this.value)"
           />
-          <button class="acad-btn-teal" onclick="lCreateCourse()">
+          <button class="acad-btn-teal" data-onclick="lCreateCourse">
             + New Course
           </button>
         </div>
         <div class="acad-course-grid" id="lCourseGrid">
           <div
             class="acad-course-card acad-course-card--add"
-            onclick="lCreateCourse()"
+            data-onclick="lCreateCourse"
           >
             <i
               class="ti ti-plus"
@@ -288,14 +288,14 @@
             >
               <option value="">All courses</option>
             </select>
-            <button class="acad-btn-ghost" onclick="lExportRoster()">
+            <button class="acad-btn-ghost" data-onclick="lExportRoster">
               <i class="ti ti-download" aria-hidden="true"></i> Export
             </button>
-            <button class="acad-btn-ghost" onclick="lTakeAttendance()">
+            <button class="acad-btn-ghost" data-onclick="lTakeAttendance">
               <i class="ti ti-user-check" aria-hidden="true"></i> Take
               Attendance
             </button>
-            <button class="acad-btn-teal" onclick="lInviteStudent()">
+            <button class="acad-btn-teal" data-onclick="lInviteStudent">
               + Invite Student
             </button>
           </div>
@@ -340,28 +340,28 @@
             <button
               class="acad-seg active"
               data-seg="quizzes"
-              onclick="lAssessSegment('quizzes')"
+              data-onclick="lAssessSegment" data-onclick-arg0="quizzes"
             >
               Quizzes
             </button>
             <button
               class="acad-seg"
               data-seg="assignments"
-              onclick="lAssessSegment('assignments')"
+              data-onclick="lAssessSegment" data-onclick-arg0="assignments"
             >
               Assignments
             </button>
             <button
               class="acad-seg"
               data-seg="exams"
-              onclick="lAssessSegment('exams')"
+              data-onclick="lAssessSegment" data-onclick-arg0="exams"
             >
               Exams
             </button>
             <button
               class="acad-seg"
               data-seg="grading"
-              onclick="lAssessSegment('grading')"
+              data-onclick="lAssessSegment" data-onclick-arg0="grading"
             >
               Grading
             </button>
@@ -369,7 +369,7 @@
           <button
             class="acad-btn-teal"
             id="lAssessCreateBtn"
-            onclick="lCreateAssessment()"
+            data-onclick="lCreateAssessment"
           >
             + New Quiz
           </button>
@@ -465,7 +465,7 @@
                   Upload a submission batch and SIVARR AI will grade against
                   your rubric, flagging edge cases for your review.
                 </p>
-                <button class="acad-generate-btn" onclick="lAutoMark()">
+                <button class="acad-generate-btn" data-onclick="lAutoMark">
                   <i class="ti ti-bolt" aria-hidden="true"></i> Run Auto-Mark
                 </button>
                 <div id="lAutoMarkResult" style="display: none"></div>
@@ -554,7 +554,7 @@
                 id="lLessonTopic"
                 placeholder="Enter topic, learning objectives, duration…&#10;e.g. 'Introduction to Bayesian Networks, 90 mins, undergraduate level'"
               ></textarea>
-              <button class="acad-generate-btn" onclick="lGenerateLessonPlan()">
+              <button class="acad-generate-btn" data-onclick="lGenerateLessonPlan">
                 <i class="ti ti-bolt" aria-hidden="true"></i> Generate Lesson
                 Plan
               </button>
@@ -578,7 +578,7 @@
               ></textarea>
               <button
                 class="acad-generate-btn"
-                onclick="lGenerateQuizQuestions()"
+                data-onclick="lGenerateQuizQuestions"
               >
                 <i class="ti ti-bolt" aria-hidden="true"></i> Generate Questions
               </button>
@@ -617,7 +617,7 @@
               <button
                 class="acad-generate-btn"
                 style="grid-column: 1/-1"
-                onclick="lGenerateFeedback()"
+                data-onclick="lGenerateFeedback"
               >
                 <i class="ti ti-bolt" aria-hidden="true"></i> Generate
                 Personalised Feedback
@@ -673,42 +673,42 @@
         <button
           class="acad-tab active"
           data-tab="s-overview"
-          onclick="sSwitchTab('s-overview')"
+          data-onclick="sSwitchTab" data-onclick-arg0="s-overview"
         >
           Overview
         </button>
         <button
           class="acad-tab"
           data-tab="s-vault"
-          onclick="sSwitchTab('s-vault')"
+          data-onclick="sSwitchTab" data-onclick-arg0="s-vault"
         >
           Lecture Vault
         </button>
         <button
           class="acad-tab"
           data-tab="s-sprint"
-          onclick="sSwitchTab('s-sprint')"
+          data-onclick="sSwitchTab" data-onclick-arg0="s-sprint"
         >
           Exam Sprint
         </button>
         <button
           class="acad-tab"
           data-tab="s-research"
-          onclick="sSwitchTab('s-research')"
+          data-onclick="sSwitchTab" data-onclick-arg0="s-research"
         >
           Research
         </button>
         <button
           class="acad-tab"
           data-tab="s-groups"
-          onclick="sSwitchTab('s-groups')"
+          data-onclick="sSwitchTab" data-onclick-arg0="s-groups"
         >
           Study Groups
         </button>
         <button
           class="acad-tab"
           data-tab="s-tutor"
-          onclick="sSwitchTab('s-tutor')"
+          data-onclick="sSwitchTab" data-onclick-arg0="s-tutor"
         >
           <i class="ti ti-bolt" aria-hidden="true" style="font-size: 12px"></i>
           AI Tutor
@@ -747,7 +747,7 @@
               <button
                 class="acad-generate-btn"
                 id="sGenerateBtn"
-                onclick="sGenerateBriefing()"
+                data-onclick="sGenerateBriefing"
               >
                 <i class="ti ti-bolt" aria-hidden="true"></i> Generate Today's
                 Briefing
@@ -767,7 +767,7 @@
         <div class="acad-card" style="margin-top: 14px">
           <div class="acad-card-header">
             <span class="acad-card-title">My Classes</span>
-            <button class="acad-btn-teal acad-btn-sm" onclick="sJoinClass()">
+            <button class="acad-btn-teal acad-btn-sm" data-onclick="sJoinClass">
               + Join class
             </button>
           </div>
@@ -789,7 +789,7 @@
             <span class="acad-card-title">Class Feed</span
             ><button
               class="acad-btn-ghost acad-btn-sm"
-              onclick="sEnableNotifs()"
+              data-onclick="sEnableNotifs"
             >
               <i class="ti ti-bell" aria-hidden="true"></i>
               Notifications
@@ -858,7 +858,7 @@
             <span class="acad-card-title">Upcoming Deadlines</span
             ><button
               class="acad-btn-ghost acad-btn-sm"
-              onclick="sAddDeadline()"
+              data-onclick="sAddDeadline"
             >
               + Add
             </button>
@@ -885,7 +885,7 @@
             placeholder="Search modules…"
             oninput="sFilterModules(this.value)"
           />
-          <button class="acad-btn-teal" onclick="sAddModule()">
+          <button class="acad-btn-teal" data-onclick="sAddModule">
             + Add Module
           </button>
         </div>
@@ -917,7 +917,7 @@
             <span class="acad-card-title">Lecture Notes Archive</span
             ><button
               class="acad-btn-ghost acad-btn-sm"
-              onclick="sUploadNotes()"
+              data-onclick="sUploadNotes"
             >
               <i class="ti ti-upload" aria-hidden="true"></i> Upload Notes
             </button>
@@ -958,10 +958,10 @@
             >
               <option value="">All modules</option>
             </select>
-            <button class="acad-btn-ghost" onclick="sGenAIFlashcards()">
+            <button class="acad-btn-ghost" data-onclick="sGenAIFlashcards">
               <i class="ti ti-bolt" aria-hidden="true"></i> AI cards
             </button>
-            <button class="acad-btn-teal" onclick="sAddSprintCard()">
+            <button class="acad-btn-teal" data-onclick="sAddSprintCard">
               + Add Card
             </button>
           </div>
@@ -977,7 +977,7 @@
             <div class="acad-col-add">
               <button
                 class="acad-add-card-btn"
-                onclick="sAddSprintCard('to_review')"
+                data-onclick="sAddSprintCard" data-onclick-arg0="to_review"
               >
                 + Add card
               </button>
@@ -994,7 +994,7 @@
             <div class="acad-col-add">
               <button
                 class="acad-add-card-btn"
-                onclick="sAddSprintCard('spaced_rep')"
+                data-onclick="sAddSprintCard" data-onclick-arg0="spaced_rep"
               >
                 + Add card
               </button>
@@ -1011,7 +1011,7 @@
             <div class="acad-col-add">
               <button
                 class="acad-add-card-btn"
-                onclick="sAddSprintCard('flashcard')"
+                data-onclick="sAddSprintCard" data-onclick-arg0="flashcard"
               >
                 + Add card
               </button>
@@ -1031,7 +1031,7 @@
             <div class="acad-col-add">
               <button
                 class="acad-add-card-btn"
-                onclick="sAddSprintCard('mastered')"
+                data-onclick="sAddSprintCard" data-onclick-arg0="mastered"
               >
                 + Add card
               </button>
@@ -1073,7 +1073,7 @@
                   />
                   <button
                     class="acad-research-btn"
-                    onclick="sGenerateCitation()"
+                    data-onclick="sGenerateCitation"
                   >
                     <i class="ti ti-bolt" aria-hidden="true"></i>
                     Generate
@@ -1135,7 +1135,7 @@
                 />
                 <button
                   class="acad-btn-ghost acad-btn-sm"
-                  onclick="sExportBib()"
+                  data-onclick="sExportBib"
                 >
                   <i class="ti ti-download" aria-hidden="true"></i>
                   .bib
@@ -1211,7 +1211,7 @@
                   </div>
                   <button
                     class="acad-btn-ghost acad-btn-sm"
-                    onclick="sConnectIndex('jstor')"
+                    data-onclick="sConnectIndex" data-onclick-arg0="jstor"
                   >
                     Connect
                   </button>
@@ -1227,7 +1227,7 @@
                   </div>
                   <button
                     class="acad-btn-ghost acad-btn-sm"
-                    onclick="sConnectIndex('pubmed')"
+                    data-onclick="sConnectIndex" data-onclick-arg0="pubmed"
                   >
                     Connect
                   </button>
@@ -1247,7 +1247,7 @@
             placeholder="Search groups…"
             oninput="sFilterGroups(this.value)"
           />
-          <button class="acad-btn-teal" onclick="sCreateGroup()">
+          <button class="acad-btn-teal" data-onclick="sCreateGroup">
             + Create Group
           </button>
         </div>
@@ -1302,32 +1302,32 @@
                 placeholder="Ask a question, or say 'quiz me on…'"
                 onkeydown="if (event.key === 'Enter') sSendTutorMessage();"
               />
-              <button class="acad-research-btn" onclick="sSendTutorMessage()">
+              <button class="acad-research-btn" data-onclick="sSendTutorMessage">
                 <i class="ti ti-send" aria-hidden="true"></i>
               </button>
             </div>
             <div class="acad-tutor-quick-prompts">
               <button
                 class="acad-format-btn"
-                onclick="sTutorQuick('Explain this concept simply: ')"
+                data-onclick="sTutorQuick" data-onclick-arg0="Explain this concept simply: "
               >
                 Explain a concept
               </button>
               <button
                 class="acad-format-btn"
-                onclick="sTutorQuick('Quiz me on ')"
+                data-onclick="sTutorQuick" data-onclick-arg0="Quiz me on "
               >
                 Quiz me
               </button>
               <button
                 class="acad-format-btn"
-                onclick="sTutorQuick('Summarise the key points from ')"
+                data-onclick="sTutorQuick" data-onclick-arg0="Summarise the key points from "
               >
                 Summarise notes
               </button>
               <button
                 class="acad-format-btn"
-                onclick="sTutorQuick('Create a mind map for ')"
+                data-onclick="sTutorQuick" data-onclick-arg0="Create a mind map for "
               >
                 Mind map
               </button>
@@ -1343,21 +1343,21 @@
                   <button
                     class="acad-seg active"
                     id="pomoFocus"
-                    onclick="sPomoSet(25, 'Focus')"
+                    data-onclick="sPomoSet" data-onclick-args='[25, "Focus"]'
                   >
                     Focus
                   </button>
                   <button
                     class="acad-seg"
                     id="pomoShort"
-                    onclick="sPomoSet(5, 'Short break')"
+                    data-onclick="sPomoSet" data-onclick-args='[5, "Short break"]'
                   >
                     Short break
                   </button>
                   <button
                     class="acad-seg"
                     id="pomoLong"
-                    onclick="sPomoSet(15, 'Long break')"
+                    data-onclick="sPomoSet" data-onclick-args='[15, "Long break"]'
                   >
                     Long break
                   </button>
@@ -1376,7 +1376,7 @@
                     class="acad-btn-teal"
                     style="padding: 8px 24px"
                     id="sPomoPlayBtn"
-                    onclick="sPomoToggle()"
+                    data-onclick="sPomoToggle"
                   >
                     <i class="ti ti-player-play" aria-hidden="true"></i>
                     Start
@@ -1384,7 +1384,7 @@
                   <button
                     class="acad-btn-ghost"
                     style="padding: 8px 16px"
-                    onclick="sPomoReset()"
+                    data-onclick="sPomoReset"
                   >
                     <i class="ti ti-refresh" aria-hidden="true"></i>
                   </button>
@@ -1431,25 +1431,25 @@
                 >
                   <button
                     class="acad-action-btn acad-action-btn--red"
-                    onclick="sFlashcardRespond('again')"
+                    data-onclick="sFlashcardRespond" data-onclick-arg0="again"
                   >
                     Again
                   </button>
                   <button
                     class="acad-action-btn acad-action-btn--orange"
-                    onclick="sFlashcardRespond('hard')"
+                    data-onclick="sFlashcardRespond" data-onclick-arg0="hard"
                   >
                     Hard
                   </button>
                   <button
                     class="acad-action-btn acad-action-btn--teal"
-                    onclick="sFlashcardRespond('good')"
+                    data-onclick="sFlashcardRespond" data-onclick-arg0="good"
                   >
                     Good
                   </button>
                   <button
                     class="acad-action-btn"
-                    onclick="sFlashcardRespond('easy')"
+                    data-onclick="sFlashcardRespond" data-onclick-arg0="easy"
                   >
                     Easy
                   </button>
