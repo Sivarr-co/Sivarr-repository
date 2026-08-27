@@ -107,11 +107,24 @@ def test_existing_weak_password_can_still_sign_in(client, monkeypatch):
     assert reg.status_code == 200, "setup failed: could not create the legacy account"
     monkeypatch.undo()
 
+    # With a real database (CI), a freshly registered account is unverified and
+    # login answers 403 "email_not_verified". That gate is checked AFTER the
+    # password (app.py:2736 vs :2744), so it is a separate concern from this
+    # test -- mark the address verified so the assertion below isolates the one
+    # thing it claims to check. Without a database this is a no-op and the
+    # verification gate never runs at all.
+    import database as db
+    if db.is_available():
+        db.mark_email_verified(reg.json()["sid"])
+
     # Policy is live again -- a new account with this password would be refused.
     assert password_policy_error(weak) is not None
 
     login = client.post("/api/login", json={
         "action": "login", "email": email, "password": weak,
     })
-    assert login.status_code == 200, "policy is wrongly gating sign-in for existing accounts"
+    assert login.status_code == 200, (
+        "policy is wrongly gating sign-in for existing accounts "
+        f"(got {login.status_code}: {login.text[:120]})"
+    )
     assert login.json().get("token")
