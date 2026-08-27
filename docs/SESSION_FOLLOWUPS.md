@@ -451,25 +451,31 @@ substring `onclick="..."`. Use a negative lookbehind:
 grep -rhoP '(?<![-\w])onclick="' templates/*.html | wc -l
 ```
 
-#### Three categories that are NOT safe to migrate as-is
+#### delegate.js now handles every pattern in this codebase
 
-Audited across all templates. Do not bulk-convert without handling these:
+`js/core/delegate.js` was extended on 2026-08-27 and browser-verified. Use these
+rather than skipping handlers:
 
-1. **30 handlers pass a `null` literal** — e.g. `onclick="nav('settings', null)"`.
-   `delegate.js` passes every arg as a **string**, so `null` becomes `"null"`,
-   which is truthy. That is a silent behaviour change of exactly the kind this
-   codebase has already been bitten by (`1002 === '1002'` in the Home redesign).
-   Either extend the helper to coerce a literal `"null"` sentinel, or migrate
-   these by hand.
-2. **17 handlers use `event`** — e.g. `googleSignInStart(event)`,
-   `toggleMobileSidebar(event)`. The helper never passes the event object.
-   Extend it (pass `e` when `data-onclick-event` is present) before migrating.
-3. **13 handlers are expressions, not calls** — e.g.
-   `onclick="$('pfp-input').click()"`. The helper's own docstring rules these out
-   deliberately. They need a real named function first.
+| Pattern | Attribute |
+|---|---|
+| `fn()` | `data-onclick="fn"` |
+| `fn('a','b')` | `data-onclick-arg0="a" data-onclick-arg1="b"` (strings) |
+| `fn('tasks', null)` | `data-onclick-args='["tasks", null]'` (**real types**) |
+| `fn(event)` | `data-onclick-event` (Event passed first) |
+| `fn(x, this)` | `data-onclick-this` (element passed last) |
+| `if (event.target === this) fn()` | `data-onclick-self` |
+| `onchange` / `oninput` / `onkeydown` / `onkeyup` / `onblur` / `onfocus` / `onsubmit` | `data-onchange="fn"` etc., same grammar |
 
-Safe to migrate today: **199 zero-arg** and **83 single-string-arg** handlers,
-minus any that also fall into the three categories above.
+**The one rule that matters:** if an argument is not a string, it MUST go through
+`data-*-args` as JSON. About 30 call sites look like
+`onclick="nav('skills', null)"`. With the positional `arg0`/`arg1` form that
+`null` becomes the **string** `"null"`, which is truthy, so `if (btn)` inside
+`nav()` takes the wrong branch and nothing throws. Same class of silent bug as
+`1002 === '1002'` in the Home redesign.
+
+Still not supported, deliberately: arbitrary expressions such as
+`onclick="$('pfp-input').click()"`. Those need a real named function first.
+Adding expression support would recreate the hole this file exists to close.
 
 #### Ordering suggestion
 
