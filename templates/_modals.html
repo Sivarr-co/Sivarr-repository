@@ -1,7 +1,7 @@
 <!-- ── Mobile FAB (quick capture) — real one, defined again lower in body
          since app.js re-binds cnOpen() to this instance; kept here to travel
          with the rest of the mobile shell chrome -->
-<button class="mob-fab" id="mob-fab" onclick="cnOpen()" title="Quick capture">
+<button class="mob-fab" id="mob-fab" data-onclick="cnOpen" title="Quick capture">
   <i class="ti ti-plus"></i>
 </button>
 
@@ -41,7 +41,7 @@ BANNER ── #}
   >
   <button
     type="button"
-    onclick="resendVerificationEmail()"
+    data-onclick="resendVerificationEmail"
     style="
       color: var(--teal);
       background: none;
@@ -79,7 +79,7 @@ BANNER ── #}
 ></div>
 
 {# ── COMMAND PALETTE (⌘K) ── #}
-<div class="cmd-bg" id="cmd-bg" onclick="cmdClose(event)">
+<div class="cmd-bg" id="cmd-bg" data-onclick="cmdClose" data-onclick-event>
   <div class="cmd-box">
     <div class="cmd-input-wrap">
       <span class="cmd-icon">⌘</span>
@@ -87,8 +87,8 @@ BANNER ── #}
         class="cmd-input"
         id="cmd-input"
         placeholder="Search panels, notes, actions..."
-        oninput="cmdSearch()"
-        onkeydown="cmdKey(event)"
+        data-oninput="cmdSearch"
+        data-onkeydown="cmdKey" data-onkeydown-event
         autocomplete="off"
         spellcheck="false"
       />
@@ -152,7 +152,7 @@ BANNER ── #}
 </div>
 
 {# ── QUICK CAPTURE MODAL ── #}
-<div class="cn-modal-bg" id="cn-modal-bg" onclick="cnClose(event)">
+<div class="cn-modal-bg" id="cn-modal-bg" data-onclick="cnClose" data-onclick-event>
   <div class="cn-modal">
     <div class="cn-handle"></div>
 
@@ -169,7 +169,7 @@ BANNER ── #}
     >
       <button
         id="cntab-create"
-        onclick="cnTab('create')"
+        data-onclick="cnTab" data-onclick-arg0="create"
         style="
           flex: 1;
           padding: 7px;
@@ -210,7 +210,7 @@ BANNER ── #}
       </button>
       <button
         id="cntab-framework"
-        onclick="cnTab('framework')"
+        data-onclick="cnTab" data-onclick-arg0="framework"
         style="
           flex: 1;
           padding: 7px;
@@ -236,7 +236,7 @@ BANNER ── #}
         <button
           class="cn-item"
           style="--cn-color: #4f6ef7"
-          onclick="cnAction('note')"
+          data-onclick="cnAction" data-onclick-arg0="note"
         >
           <div class="cn-item-icon">📝</div>
           <div>
@@ -247,7 +247,7 @@ BANNER ── #}
         <button
           class="cn-item"
           style="--cn-color: #22c55e"
-          onclick="cnAction('task')"
+          data-onclick="cnAction" data-onclick-arg0="task"
         >
           <div class="cn-item-icon">✅</div>
           <div>
@@ -258,7 +258,7 @@ BANNER ── #}
         <button
           class="cn-item"
           style="--cn-color: #f59e0b"
-          onclick="cnAction('studyplan')"
+          data-onclick="cnAction" data-onclick-arg0="studyplan"
         >
           <div class="cn-item-icon">🗺️</div>
           <div>
@@ -269,7 +269,7 @@ BANNER ── #}
         <button
           class="cn-item"
           style="--cn-color: #f472b6"
-          onclick="cnAction('quiz')"
+          data-onclick="cnAction" data-onclick-arg0="quiz"
         >
           <div class="cn-item-icon">📝</div>
           <div>
@@ -280,7 +280,7 @@ BANNER ── #}
         <button
           class="cn-item"
           style="--cn-color: #a78bfa"
-          onclick="cnAction('studydeck')"
+          data-onclick="cnAction" data-onclick-arg0="studydeck"
         >
           <div class="cn-item-icon">🧪</div>
           <div>
@@ -291,7 +291,7 @@ BANNER ── #}
         <button
           class="cn-item"
           style="--cn-color: #34d399"
-          onclick="cnAction('ask')"
+          data-onclick="cnAction" data-onclick-arg0="ask"
         >
           <div class="cn-item-icon">💬</div>
           <div>
@@ -323,7 +323,7 @@ BANNER ── #}
         <button
           class="sp-type-btn"
           id="sp-type-personal"
-          onclick="spPickType('personal')"
+          data-onclick="spPickType" data-onclick-arg0="personal"
         >
           <div class="sp-type-icon" style="background: #4f6ef720">👤</div>
           <div>
@@ -337,7 +337,7 @@ BANNER ── #}
         <button
           class="sp-type-btn"
           id="sp-type-org"
-          onclick="spPickType('org')"
+          data-onclick="spPickType" data-onclick-arg0="org"
         >
           <div class="sp-type-icon" style="background: #7c3aed20">🏢</div>
           <div>
@@ -367,7 +367,7 @@ BANNER ── #}
             Cancel
           </button>
           <button
-            onclick="spNext()"
+            data-onclick="spNext"
             style="
               flex: 1;
               padding: 9px;
@@ -465,7 +465,7 @@ BANNER ── #}
 
         <div style="display: flex; gap: 8px">
           <button
-            onclick="spBack()"
+            data-onclick="spBack"
             style="
               flex: 1;
               padding: 9px;
@@ -482,7 +482,7 @@ BANNER ── #}
             ← Back
           </button>
           <button
-            onclick="spCreate()"
+            data-onclick="spCreate"
             style="
               flex: 1;
               padding: 9px;
@@ -526,7 +526,7 @@ BANNER ── #}
         <button
           class="cn-item"
           style="--cn-color: #f59e0b"
-          onclick="cnFramework('study-routine')"
+          data-onclick="cnFramework" data-onclick-arg0="study-routine"
         >
           <div class="cn-item-icon">📅</div>
           <div>
@@ -537,7 +537,7 @@ BANNER ── #}
         <button
           class="cn-item"
           style="--cn-color: #4f6ef7"
-          onclick="cnFramework('project-pipeline')"
+          data-onclick="cnFramework" data-onclick-arg0="project-pipeline"
         >
           <div class="cn-item-icon">📊</div>
           <div>
@@ -548,7 +548,7 @@ BANNER ── #}
         <button
           class="cn-item"
           style="--cn-color: #34d399"
-          onclick="cnFramework('exam-prep')"
+          data-onclick="cnFramework" data-onclick-arg0="exam-prep"
         >
           <div class="cn-item-icon">🎯</div>
           <div>
@@ -559,7 +559,7 @@ BANNER ── #}
         <button
           class="cn-item"
           style="--cn-color: #7c3aed"
-          onclick="cnFramework('team-sprint')"
+          data-onclick="cnFramework" data-onclick-arg0="team-sprint"
         >
           <div class="cn-item-icon">⚡</div>
           <div>
@@ -576,12 +576,12 @@ BANNER ── #}
 <div
   class="nl-overlay"
   id="nl-overlay"
-  onclick="if (event.target === this) nlClose();"
+  data-onclick="nlClose" data-onclick-self
 >
   <div class="nl-box" id="nl-box">
     <div class="nl-header">
       <div class="nl-hint">Type anything, Sivarr will figure it out</div>
-      <button class="nl-close" onclick="nlClose()">
+      <button class="nl-close" data-onclick="nlClose">
         <i class="ti ti-x"></i>
       </button>
     </div>
@@ -607,23 +607,23 @@ BANNER ── #}
         <span class="nl-prev-meta" id="nl-prev-meta"></span>
       </div>
       <div class="nl-prev-actions">
-        <button class="nl-btn-sec" onclick="nlClose()">Cancel</button>
-        <button class="nl-btn-pri" id="nl-confirm-btn" onclick="nlConfirm()">
+        <button class="nl-btn-sec" data-onclick="nlClose">Cancel</button>
+        <button class="nl-btn-pri" id="nl-confirm-btn" data-onclick="nlConfirm">
           Add
         </button>
       </div>
     </div>
     <div class="nl-examples">
-      <span onclick="nlExample(this)" class="nl-ex-chip"
+      <span data-onclick="nlExample" data-onclick-this class="nl-ex-chip"
         >📋 Draft email to team</span
       >
-      <span onclick="nlExample(this)" class="nl-ex-chip"
+      <span data-onclick="nlExample" data-onclick-this class="nl-ex-chip"
         >🎯 Read 2 books this month</span
       >
-      <span onclick="nlExample(this)" class="nl-ex-chip"
+      <span data-onclick="nlExample" data-onclick-this class="nl-ex-chip"
         >📅 Submit report by Friday</span
       >
-      <span onclick="nlExample(this)" class="nl-ex-chip"
+      <span data-onclick="nlExample" data-onclick-this class="nl-ex-chip"
         >📓 Write a quick note</span
       >
     </div>
@@ -634,7 +634,7 @@ BANNER ── #}
 <div class="focus-overlay" id="focus-overlay">
   <!-- Active timer screen -->
   <div class="focus-screen" id="focus-screen">
-    <button class="focus-close-x" onclick="focusEnd()">
+    <button class="focus-close-x" data-onclick="focusEnd">
       <i class="ti ti-x"></i>
     </button>
     <div class="focus-task-name" id="focus-task-name">Focus Session</div>
@@ -682,7 +682,7 @@ BANNER ── #}
     <div class="focus-controls">
       <button
         class="focus-ctrl-btn focus-ctrl-sec"
-        onclick="focusReset()"
+        data-onclick="focusReset"
         title="Reset"
       >
         <i class="ti ti-refresh"></i>
@@ -690,13 +690,13 @@ BANNER ── #}
       <button
         class="focus-ctrl-btn focus-ctrl-pri"
         id="focus-play-btn"
-        onclick="focusToggle()"
+        data-onclick="focusToggle"
       >
         <i class="ti ti-player-play" id="focus-play-icon"></i>
       </button>
       <button
         class="focus-ctrl-btn focus-ctrl-sec"
-        onclick="focusEnd()"
+        data-onclick="focusEnd"
         title="End"
       >
         <i class="ti ti-player-stop"></i>
@@ -724,10 +724,10 @@ BANNER ── #}
       placeholder="What did you complete? (optional)"
     ></textarea>
     <div class="focus-done-actions">
-      <button class="fda-sec" onclick="focusContinue()">
+      <button class="fda-sec" data-onclick="focusContinue">
         <i class="ti ti-refresh"></i> Another session
       </button>
-      <button class="fda-pri" onclick="focusFinish()">Done for now</button>
+      <button class="fda-pri" data-onclick="focusFinish">Done for now</button>
     </div>
   </div>
 </div>
@@ -745,8 +745,8 @@ BANNER ── #}
     <div class="brief-date-line" id="brief-date-line">Saturday, 10 May</div>
     <div class="brief-msg" id="brief-msg">Ready to make today count?</div>
     <div class="brief-chips" id="brief-chips"></div>
-    <button class="brief-go-btn" onclick="briefDismiss()">Let's go →</button>
-    <button class="brief-skip-btn" onclick="briefDismiss()">
+    <button class="brief-go-btn" data-onclick="briefDismiss">Let's go →</button>
+    <button class="brief-skip-btn" data-onclick="briefDismiss">
       Skip for now
     </button>
   </div>
@@ -754,7 +754,7 @@ BANNER ── #}
 
 {# ── ONBOARDING FLOW ── #}
 <div id="si-onboard" class="si-onboard-overlay" style="display: none">
-  <button class="si-ob-skip" onclick="siObFinish()">Skip →</button>
+  <button class="si-ob-skip" data-onclick="siObFinish">Skip →</button>
   <div class="si-onboard-box" id="si-onboard-box"></div>
 </div>
 
@@ -763,10 +763,10 @@ BANNER ── #}
   class="si-modal-bg"
   id="pricing-modal"
   style="display: none"
-  onclick="if (event.target === this) closePricing();"
+  data-onclick="closePricing" data-onclick-self
 >
   <div class="si-modal" style="max-width: 560px; padding: 32px">
-    <button class="si-modal-close" onclick="closePricing()">
+    <button class="si-modal-close" data-onclick="closePricing">
       <i class="ti ti-x"></i>
     </button>
     <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 4px">
@@ -799,12 +799,12 @@ BANNER ── #}
   class="csp-overlay"
   id="create-space-modal"
   style="display: none"
-  onclick="if (event.target === this) closeCreateSpaceModal();"
+  data-onclick="closeCreateSpaceModal" data-onclick-self
 >
   <div class="csp-modal">
     <div class="csp-head">
       <h2>Create a space</h2>
-      <button class="csp-close" onclick="closeCreateSpaceModal()">
+      <button class="csp-close" data-onclick="closeCreateSpaceModal">
         <i class="ti ti-x"></i>
       </button>
     </div>
@@ -815,7 +815,7 @@ BANNER ── #}
       <div
         class="csp-type"
         data-type="personal"
-        onclick="cspSelectType('personal', this)"
+        data-onclick="cspSelectType" data-onclick-arg0="personal" data-onclick-this
       >
         <div class="csp-type-icon" style="background: var(--blue2)">
           <i class="ti ti-user" style="color: var(--blue)"></i>
@@ -826,7 +826,7 @@ BANNER ── #}
       <div
         class="csp-type"
         data-type="org"
-        onclick="cspSelectType('org', this)"
+        data-onclick="cspSelectType" data-onclick-arg0="org" data-onclick-this
       >
         <div class="csp-type-icon" style="background: var(--teal2)">
           <i class="ti ti-building" style="color: var(--teal)"></i>
@@ -837,7 +837,7 @@ BANNER ── #}
       <div
         class="csp-type"
         data-type="academic"
-        onclick="cspSelectType('academic', this)"
+        data-onclick="cspSelectType" data-onclick-arg0="academic" data-onclick-this
       >
         <div class="csp-type-icon" style="background: var(--amber2)">
           <i class="ti ti-school" style="color: var(--amber3)"></i>
@@ -854,7 +854,7 @@ BANNER ── #}
         <div
           class="acad-role-card acad-role-card--active"
           data-role="student"
-          onclick="acadSelectRole('student')"
+          data-onclick="acadSelectRole" data-onclick-arg0="student"
         >
           <div class="acad-role-icon">🎓</div>
           <div class="acad-role-name">Student</div>
@@ -865,7 +865,7 @@ BANNER ── #}
         <div
           class="acad-role-card"
           data-role="lecturer"
-          onclick="acadSelectRole('lecturer')"
+          data-onclick="acadSelectRole" data-onclick-arg0="lecturer"
         >
           <div class="acad-role-icon">📋</div>
           <div class="acad-role-name">Lecturer</div>
@@ -887,10 +887,10 @@ BANNER ── #}
       />
     </div>
     <div class="csp-footer" id="csp-footer" style="display: none">
-      <button class="sp-btn-ghost" onclick="closeCreateSpaceModal()">
+      <button class="sp-btn-ghost" data-onclick="closeCreateSpaceModal">
         Cancel
       </button>
-      <button class="sp-btn-primary sp-btn-teal" onclick="cspCreate()">
+      <button class="sp-btn-primary sp-btn-teal" data-onclick="cspCreate">
         Create space →
       </button>
     </div>
@@ -907,10 +907,10 @@ BANNER ── #}
         <div class="tpl-modal-desc" id="tplModalDesc"></div>
       </div>
       <div class="tpl-modal-actions">
-        <button class="tpl-modal-use-btn" onclick="useTemplateFromModal()">
+        <button class="tpl-modal-use-btn" data-onclick="useTemplateFromModal">
           <i class="ti ti-plus"></i> Duplicate to Workspace
         </button>
-        <button class="tpl-modal-close" onclick="closeTemplatePreview()">
+        <button class="tpl-modal-close" data-onclick="closeTemplatePreview">
           <i class="ti ti-x"></i>
         </button>
       </div>
@@ -926,24 +926,24 @@ BANNER ── #}
 </div>
 
 {# ── DIFFICULTY MODAL ── #}
-<div class="modal-bg" id="diff-modal" onclick="closeDiff(event)">
+<div class="modal-bg" id="diff-modal" data-onclick="closeDiff" data-onclick-event>
   <div class="modal">
     <h3>🎯 Set Difficulty</h3>
-    <div class="diff-opt" onclick="setDiff('easy')">
+    <div class="diff-opt" data-onclick="setDiff" data-onclick-arg0="easy">
       <span class="di">🌱</span>
       <div>
         <div class="dl">Easy</div>
         <div class="dd">Basic recall & definitions</div>
       </div>
     </div>
-    <div class="diff-opt sel" onclick="setDiff('medium')">
+    <div class="diff-opt sel" data-onclick="setDiff" data-onclick-arg0="medium">
       <span class="di">🔥</span>
       <div>
         <div class="dl">Medium</div>
         <div class="dd">Apply concepts & reasoning</div>
       </div>
     </div>
-    <div class="diff-opt" onclick="setDiff('hard')">
+    <div class="diff-opt" data-onclick="setDiff" data-onclick-arg0="hard">
       <span class="di">⚡</span>
       <div>
         <div class="dl">Hard</div>
@@ -958,14 +958,14 @@ BANNER ── #}
   id="feedback-modal"
   class="modal-overlay"
   style="display: none"
-  onclick="if (event.target === this) closeFeedback();"
+  data-onclick="closeFeedback" data-onclick-self
 >
   <div class="modal-box" style="max-width: 420px">
     <div class="modal-header">
       <h3 style="margin: 0; font-size: 1rem; font-weight: 700">
         Share feedback
       </h3>
-      <button class="tb-icon-btn" onclick="closeFeedback()">
+      <button class="tb-icon-btn" data-onclick="closeFeedback">
         <i class="ti ti-x"></i>
       </button>
     </div>
@@ -974,11 +974,11 @@ BANNER ── #}
         How's Sivarr treating you? We read every message.
       </p>
       <div style="display: flex; gap: 8px; margin-bottom: 16px" id="fb-stars">
-        <button class="fb-star" data-v="1" onclick="fbSetRating(1)">★</button>
-        <button class="fb-star" data-v="2" onclick="fbSetRating(2)">★</button>
-        <button class="fb-star" data-v="3" onclick="fbSetRating(3)">★</button>
-        <button class="fb-star" data-v="4" onclick="fbSetRating(4)">★</button>
-        <button class="fb-star" data-v="5" onclick="fbSetRating(5)">★</button>
+        <button class="fb-star" data-v="1" data-onclick="fbSetRating" data-onclick-args='[1]'>★</button>
+        <button class="fb-star" data-v="2" data-onclick="fbSetRating" data-onclick-args='[2]'>★</button>
+        <button class="fb-star" data-v="3" data-onclick="fbSetRating" data-onclick-args='[3]'>★</button>
+        <button class="fb-star" data-v="4" data-onclick="fbSetRating" data-onclick-args='[4]'>★</button>
+        <button class="fb-star" data-v="5" data-onclick="fbSetRating" data-onclick-args='[5]'>★</button>
       </div>
       <textarea
         id="fb-text"
@@ -1004,7 +1004,7 @@ BANNER ── #}
       <button
         class="cta-btn"
         style="margin-top: 14px; width: 100%"
-        onclick="submitFeedback()"
+        data-onclick="submitFeedback"
       >
         Send feedback
       </button>
