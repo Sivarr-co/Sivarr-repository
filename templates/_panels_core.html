@@ -33,21 +33,21 @@ content-loss issue found in the prior split.
           "
         >
           <button
-            onclick="briefDecorToggle(this)"
+            data-onclick="briefDecorToggle" data-onclick-this
             title="Personalize header"
             class="siva-brief-action"
           >
             <i class="ti ti-palette"></i>
           </button>
           <button
-            onclick="refreshHomeBrief()"
+            data-onclick="refreshHomeBrief"
             title="Refresh brief"
             class="siva-brief-action"
           >
             <i class="ti ti-refresh"></i>
           </button>
           <button
-            onclick="briefMsgToggle()"
+            data-onclick="briefMsgToggle"
             title="Collapse insight"
             class="siva-brief-action"
             id="brief-collapse-btn"
@@ -90,7 +90,7 @@ content-loss issue found in the prior split.
           </div>
           <button
             class="gs-dismiss"
-            onclick="gsDismiss()"
+            data-onclick="gsDismiss"
             title="Dismiss getting started"
           >
             <i class="ti ti-x"></i>
@@ -101,7 +101,7 @@ content-loss issue found in the prior split.
       <!-- Video cards row -->
       <div class="gs-videos-wrap">
         <div class="gs-videos" id="gs-videos">
-          <div class="gs-vid-card" id="gsvid-0" onclick="gsOpenVideo(0, this)">
+          <div class="gs-vid-card" id="gsvid-0" data-onclick="gsOpenVideo" data-onclick-args='[0]' data-onclick-this>
             <div class="gs-vid-thumb">
               <div class="gs-vid-play">
                 <i class="ti ti-player-play-filled"></i>
@@ -124,7 +124,7 @@ content-loss issue found in the prior split.
             </div>
           </div>
 
-          <div class="gs-vid-card" id="gsvid-1" onclick="gsOpenVideo(1, this)">
+          <div class="gs-vid-card" id="gsvid-1" data-onclick="gsOpenVideo" data-onclick-args='[1]' data-onclick-this>
             <div class="gs-vid-thumb">
               <div class="gs-vid-play">
                 <i class="ti ti-player-play-filled"></i>
@@ -147,7 +147,7 @@ content-loss issue found in the prior split.
             </div>
           </div>
 
-          <div class="gs-vid-card" id="gsvid-2" onclick="gsOpenVideo(2, this)">
+          <div class="gs-vid-card" id="gsvid-2" data-onclick="gsOpenVideo" data-onclick-args='[2]' data-onclick-this>
             <div class="gs-vid-thumb">
               <div class="gs-vid-play">
                 <i class="ti ti-player-play-filled"></i>
@@ -170,7 +170,7 @@ content-loss issue found in the prior split.
             </div>
           </div>
 
-          <div class="gs-vid-card" id="gsvid-3" onclick="gsOpenVideo(3, this)">
+          <div class="gs-vid-card" id="gsvid-3" data-onclick="gsOpenVideo" data-onclick-args='[3]' data-onclick-this>
             <div class="gs-vid-thumb">
               <div class="gs-vid-play">
                 <i class="ti ti-player-play-filled"></i>
@@ -193,7 +193,7 @@ content-loss issue found in the prior split.
             </div>
           </div>
 
-          <div class="gs-vid-card" id="gsvid-4" onclick="gsOpenVideo(4, this)">
+          <div class="gs-vid-card" id="gsvid-4" data-onclick="gsOpenVideo" data-onclick-args='[4]' data-onclick-this>
             <div class="gs-vid-thumb">
               <div class="gs-vid-play">
                 <i class="ti ti-player-play-filled"></i>
@@ -216,7 +216,7 @@ content-loss issue found in the prior split.
             </div>
           </div>
 
-          <div class="gs-vid-card" id="gsvid-5" onclick="gsOpenVideo(5, this)">
+          <div class="gs-vid-card" id="gsvid-5" data-onclick="gsOpenVideo" data-onclick-args='[5]' data-onclick-this>
             <div class="gs-vid-thumb">
               <div class="gs-vid-play">
                 <i class="ti ti-player-play-filled"></i>
@@ -304,16 +304,16 @@ content-loss issue found in the prior split.
 
     <!-- Sivarr AI shortcut pills -->
     <div class="siva-pills">
-      <button class="siva-pill sp-add" onclick="nav('chat', null)">
+      <button class="siva-pill sp-add" data-onclick="nav" data-onclick-args='["chat", null]'>
         <i class="ti ti-sparkles"></i> Ask Sivarr
       </button>
-      <button class="siva-pill" onclick="nav('flux', null)">
+      <button class="siva-pill" data-onclick="nav" data-onclick-args='["flux", null]'>
         <i class="ti ti-checkbox"></i> Tasks
       </button>
-      <button class="siva-pill" onclick="nav('goals', null)">
+      <button class="siva-pill" data-onclick="nav" data-onclick-args='["goals", null]'>
         <i class="ti ti-target"></i> Goals
       </button>
-      <button class="siva-pill" onclick="nav('journal', null)">
+      <button class="siva-pill" data-onclick="nav" data-onclick-args='["journal", null]'>
         <i class="ti ti-notebook"></i> Journal
       </button>
       <span id="siva-recent-pills"></span>
@@ -333,7 +333,7 @@ content-loss issue found in the prior split.
       <div class="h2col-card">
         <div class="h-card-hd">
           <span class="h-card-title">Today</span>
-          <button class="h-card-link" onclick="nav('flux', null)">
+          <button class="h-card-link" data-onclick="nav" data-onclick-args='["flux", null]'>
             View all →
           </button>
         </div>
@@ -344,7 +344,7 @@ content-loss issue found in the prior split.
       <div class="h2col-card">
         <div class="h-card-hd">
           <span class="h-card-title">Today's Schedule</span>
-          <button class="h-card-link" onclick="nav('calendar', null)">
+          <button class="h-card-link" data-onclick="nav" data-onclick-args='["calendar", null]'>
             Calendar →
           </button>
         </div>
@@ -366,7 +366,7 @@ content-loss issue found in the prior split.
       <div class="h2col-card">
         <div class="h-card-hd">
           <span class="h-card-title">💰 Finance · This Month</span>
-          <button class="h-card-link" onclick="nav('finance', null)">
+          <button class="h-card-link" data-onclick="nav" data-onclick-args='["finance", null]'>
             Open →
           </button>
         </div>
@@ -379,7 +379,7 @@ content-loss issue found in the prior split.
       <div class="h2col-card">
         <div class="h-card-hd">
           <span class="h-card-title">🧠 Skills</span>
-          <button class="h-card-link" onclick="nav('skills', null)">
+          <button class="h-card-link" data-onclick="nav" data-onclick-args='["skills", null]'>
             All skills →
           </button>
         </div>
@@ -407,7 +407,7 @@ content-loss issue found in the prior split.
     <div class="h2col-card" style="margin-bottom: 14px">
       <div class="h-card-hd">
         <span class="h-card-title">Trending in Marketplace</span>
-        <button class="h-card-link" onclick="nav('agents', null)">
+        <button class="h-card-link" data-onclick="nav" data-onclick-args='["agents", null]'>
           See all →
         </button>
       </div>
@@ -433,7 +433,7 @@ content-loss issue found in the prior split.
     <div class="chat-header-actions">
       <button
         class="chat-hdr-btn"
-        onclick="chatClearConfirm()"
+        data-onclick="chatClearConfirm"
         title="Clear chat"
         data-tip="Clear chat"
         data-tip-pos="bottom"
@@ -442,7 +442,7 @@ content-loss issue found in the prior split.
       </button>
       <button
         class="chat-hdr-btn"
-        onclick="chatExport()"
+        data-onclick="chatExport"
         title="Export chat"
         data-tip="Export chat"
         data-tip-pos="bottom"
@@ -473,9 +473,7 @@ content-loss issue found in the prior split.
       <div class="chat-prompt-grid">
         <button
           class="chat-prompt-card"
-          onclick="
-            quickPrompt('Help me brainstorm ideas for a new project or topic')
-          "
+          data-onclick="quickPrompt" data-onclick-arg0="Help me brainstorm ideas for a new project or topic"
         >
           <i class="ti ti-bulb cpc-icon"></i>
           <div class="cpc-title">Brainstorm ideas</div>
@@ -530,7 +528,7 @@ content-loss issue found in the prior split.
         <button
           class="cam-model cam-active"
           id="cam-siva"
-          onclick="agentSelectCam('siva', this)"
+          data-onclick="agentSelectCam" data-onclick-arg0="siva" data-onclick-this
         >
           <i class="ti ti-sparkles"></i>
           <span>SIVA</span>
@@ -538,7 +536,7 @@ content-loss issue found in the prior split.
         </button>
         <button
           class="cam-model cam-locked"
-          onclick="agentSelectLocked('claude')"
+          data-onclick="agentSelectLocked" data-onclick-arg0="claude"
         >
           <i class="ti ti-robot"></i>
           <span>Claude</span>
@@ -546,7 +544,7 @@ content-loss issue found in the prior split.
         </button>
         <button
           class="cam-model cam-locked"
-          onclick="agentSelectLocked('gpt4')"
+          data-onclick="agentSelectLocked" data-onclick-arg0="gpt4"
         >
           <i class="ti ti-brain"></i>
           <span>GPT-4</span>
@@ -554,7 +552,7 @@ content-loss issue found in the prior split.
         </button>
         <button
           class="cam-model cam-locked"
-          onclick="agentSelectLocked('perplexity')"
+          data-onclick="agentSelectLocked" data-onclick-arg0="perplexity"
         >
           <i class="ti ti-search"></i>
           <span>Perplexity</span>
@@ -644,7 +642,7 @@ content-loss issue found in the prior split.
       <button
         class="chat-add-btn"
         id="chat-add-btn"
-        onclick="toggleChatMenu(event)"
+        data-onclick="toggleChatMenu" data-onclick-event
         title="AI model / attach file"
         data-tip="AI model / attach"
         data-tip-pos="top"
@@ -656,7 +654,7 @@ content-loss issue found in the prior split.
         id="ci"
         placeholder="Ask Sivarr anything..."
         rows="1"
-        onkeydown="ckd(event)"
+        data-onkeydown="ckd" data-onkeydown-event
         oninput="
           this.style.height = 'auto';
           this.style.height = Math.min(this.scrollHeight, 120) + 'px';
@@ -666,7 +664,7 @@ content-loss issue found in the prior split.
       <button
         id="voice-btn"
         class="chat-icon-btn"
-        onclick="toggleVoice()"
+        data-onclick="toggleVoice"
         title="Voice input"
         data-tip="Voice input"
         data-tip-pos="top"
@@ -676,7 +674,7 @@ content-loss issue found in the prior split.
       <button
         class="chat-send-btn"
         id="sb"
-        onclick="send()"
+        data-onclick="send"
         data-tip="Send message"
         data-tip-pos="top"
       >
@@ -699,7 +697,7 @@ content-loss issue found in the prior split.
       <button
         id="gcal-connect-btn"
         class="btn"
-        onclick="gcalConnect()"
+        data-onclick="gcalConnect"
         style="gap: 6px"
       >
         <svg width="13" height="13" viewBox="0 0 48 48">
@@ -726,12 +724,12 @@ content-loss issue found in the prior split.
         id="gcal-disconnect-btn"
         class="btn"
         style="display: none"
-        onclick="gcalDisconnect()"
+        data-onclick="gcalDisconnect"
         title="Disconnect Google Calendar"
       >
         <i class="ti ti-unlink"></i>
       </button>
-      <button class="btn primary" onclick="calAddEvent()">+ Event</button>
+      <button class="btn primary" data-onclick="calAddEvent">+ Event</button>
     </div>
   </div>
   <div class="cal-layout">
@@ -741,7 +739,7 @@ content-loss issue found in the prior split.
         <div class="cal-mini-hd">
           <button
             class="cal-mini-nav"
-            onclick="calMiniNav(-1)"
+            data-onclick="calMiniNav" data-onclick-args='[-1]'
             aria-label="Previous month"
           >
             <i class="ti ti-chevron-left"></i>
@@ -749,7 +747,7 @@ content-loss issue found in the prior split.
           <span class="cal-mini-label" id="cal-mini-label">June 2026</span>
           <button
             class="cal-mini-nav"
-            onclick="calMiniNav(1)"
+            data-onclick="calMiniNav" data-onclick-args='[1]'
             aria-label="Next month"
           >
             <i class="ti ti-chevron-right"></i>
@@ -772,22 +770,22 @@ content-loss issue found in the prior split.
         <div class="cal-main-nav">
           <button
             class="cal-nav-btn"
-            onclick="calNav(-1)"
+            data-onclick="calNav" data-onclick-args='[-1]'
             aria-label="Previous"
           >
             <i class="ti ti-chevron-left"></i>
           </button>
           <div class="cal-range" id="cal-range-label">June 2026</div>
-          <button class="cal-nav-btn" onclick="calNav(1)" aria-label="Next">
+          <button class="cal-nav-btn" data-onclick="calNav" data-onclick-args='[1]' aria-label="Next">
             <i class="ti ti-chevron-right"></i>
           </button>
         </div>
         <div class="cal-seg" id="cal-view-seg">
-          <button data-v="day" onclick="calSetView('day')">Daily</button>
-          <button data-v="week" class="active" onclick="calSetView('week')">
+          <button data-v="day" data-onclick="calSetView" data-onclick-arg0="day">Daily</button>
+          <button data-v="week" class="active" data-onclick="calSetView" data-onclick-arg0="week">
             Weekly
           </button>
-          <button data-v="month" onclick="calSetView('month')">Monthly</button>
+          <button data-v="month" data-onclick="calSetView" data-onclick-arg0="month">Monthly</button>
         </div>
       </div>
       <div class="cal-main-body" id="cal-main-body"></div>
@@ -808,49 +806,49 @@ content-loss issue found in the prior split.
       <button
         class="st-subnav-item active"
         data-sec="profile"
-        onclick="stGoSection('profile', this)"
+        data-onclick="stGoSection" data-onclick-arg0="profile" data-onclick-this
       >
         <i class="ti ti-user"></i> Profile
       </button>
       <button
         class="st-subnav-item"
         data-sec="appearance"
-        onclick="stGoSection('appearance', this)"
+        data-onclick="stGoSection" data-onclick-arg0="appearance" data-onclick-this
       >
         <i class="ti ti-palette"></i> Appearance
       </button>
       <button
         class="st-subnav-item"
         data-sec="notifications"
-        onclick="stGoSection('notifications', this)"
+        data-onclick="stGoSection" data-onclick-arg0="notifications" data-onclick-this
       >
         <i class="ti ti-bell"></i> Notifications
       </button>
       <button
         class="st-subnav-item"
         data-sec="security"
-        onclick="stGoSection('security', this)"
+        data-onclick="stGoSection" data-onclick-arg0="security" data-onclick-this
       >
         <i class="ti ti-lock"></i> Security
       </button>
       <button
         class="st-subnav-item"
         data-sec="plan"
-        onclick="stGoSection('plan', this)"
+        data-onclick="stGoSection" data-onclick-arg0="plan" data-onclick-this
       >
         <i class="ti ti-bolt"></i> My Plan
       </button>
       <button
         class="st-subnav-item"
         data-sec="export"
-        onclick="stGoSection('export', this)"
+        data-onclick="stGoSection" data-onclick-arg0="export" data-onclick-this
       >
         <i class="ti ti-package"></i> Import &amp; Export
       </button>
       <button
         class="st-subnav-item"
         data-sec="data"
-        onclick="stGoSection('data', this)"
+        data-onclick="stGoSection" data-onclick-arg0="data" data-onclick-this
       >
         <i class="ti ti-shield-lock"></i> Data &amp; Privacy
       </button>
@@ -858,7 +856,7 @@ content-loss issue found in the prior split.
         class="st-subnav-item"
         id="st-subnav-org"
         data-sec="org"
-        onclick="stGoSection('org', this)"
+        data-onclick="stGoSection" data-onclick-arg0="org" data-onclick-this
         style="display: none"
       >
         <i class="ti ti-building"></i> Organisation
@@ -929,7 +927,7 @@ content-loss issue found in the prior split.
               id="pfp-input-st"
               style="display: none"
               accept="image/*"
-              onchange="uploadProfilePic(this)"
+              data-onchange="uploadProfilePic" data-onchange-this
             />
             <div>
               <div
@@ -991,7 +989,7 @@ content-loss issue found in the prior split.
             </select>
           </div>
           <button
-            onclick="stSaveProfile()"
+            data-onclick="stSaveProfile"
             style="
               background: linear-gradient(
                 135deg,
@@ -1031,21 +1029,21 @@ content-loss issue found in the prior split.
               <button
                 class="st-seg-btn"
                 data-mode="light"
-                onclick="stSetThemeMode('light')"
+                data-onclick="stSetThemeMode" data-onclick-arg0="light"
               >
                 <i class="ti ti-sun"></i> Light
               </button>
               <button
                 class="st-seg-btn"
                 data-mode="dark"
-                onclick="stSetThemeMode('dark')"
+                data-onclick="stSetThemeMode" data-onclick-arg0="dark"
               >
                 <i class="ti ti-moon"></i> Dark
               </button>
               <button
                 class="st-seg-btn"
                 data-mode="system"
-                onclick="stSetThemeMode('system')"
+                data-onclick="stSetThemeMode" data-onclick-arg0="system"
               >
                 <i class="ti ti-device-laptop"></i> System
               </button>
@@ -1059,14 +1057,14 @@ content-loss issue found in the prior split.
               <button
                 class="st-seg-btn"
                 data-density="compact"
-                onclick="stSetDensity('compact')"
+                data-onclick="stSetDensity" data-onclick-arg0="compact"
               >
                 <i class="ti ti-baseline-density-medium"></i> Compact
               </button>
               <button
                 class="st-seg-btn"
                 data-density="cozy"
-                onclick="stSetDensity('cozy')"
+                data-onclick="stSetDensity" data-onclick-arg0="cozy"
               >
                 <i class="ti ti-baseline-density-small"></i> Cozy
               </button>
@@ -1130,49 +1128,49 @@ content-loss issue found in the prior split.
               <button
                 class="st-accent-dot"
                 style="background: #41076b"
-                onclick="stPickPreset('#41076b', '#7b2cad', this)"
+                data-onclick="stPickPreset" data-onclick-arg0="#41076b" data-onclick-arg1="#7b2cad" data-onclick-this
                 title="Sivarr"
               ></button>
               <button
                 class="st-accent-dot"
                 style="background: #4f6ef7"
-                onclick="stPickPreset('#4f6ef7', '#7c3aed', this)"
+                data-onclick="stPickPreset" data-onclick-arg0="#4f6ef7" data-onclick-arg1="#7c3aed" data-onclick-this
                 title="Indigo"
               ></button>
               <button
                 class="st-accent-dot"
                 style="background: #06b6d4"
-                onclick="stPickPreset('#06b6d4', '#0284c7', this)"
+                data-onclick="stPickPreset" data-onclick-arg0="#06b6d4" data-onclick-arg1="#0284c7" data-onclick-this
                 title="Cyan"
               ></button>
               <button
                 class="st-accent-dot"
                 style="background: #10b981"
-                onclick="stPickPreset('#10b981', '#059669', this)"
+                data-onclick="stPickPreset" data-onclick-arg0="#10b981" data-onclick-arg1="#059669" data-onclick-this
                 title="Emerald"
               ></button>
               <button
                 class="st-accent-dot"
                 style="background: #f59e0b"
-                onclick="stPickPreset('#f59e0b', '#d97706', this)"
+                data-onclick="stPickPreset" data-onclick-arg0="#f59e0b" data-onclick-arg1="#d97706" data-onclick-this
                 title="Amber"
               ></button>
               <button
                 class="st-accent-dot"
                 style="background: #ef4444"
-                onclick="stPickPreset('#ef4444', '#f97316', this)"
+                data-onclick="stPickPreset" data-onclick-arg0="#ef4444" data-onclick-arg1="#f97316" data-onclick-this
                 title="Red"
               ></button>
               <button
                 class="st-accent-dot"
                 style="background: #ec4899"
-                onclick="stPickPreset('#ec4899', '#8b5cf6', this)"
+                data-onclick="stPickPreset" data-onclick-arg0="#ec4899" data-onclick-arg1="#8b5cf6" data-onclick-this
                 title="Pink"
               ></button>
               <button
                 class="st-accent-dot"
                 style="background: #8b5cf6"
-                onclick="stPickPreset('#8b5cf6', '#ec4899', this)"
+                data-onclick="stPickPreset" data-onclick-arg0="#8b5cf6" data-onclick-arg1="#ec4899" data-onclick-this
                 title="Violet"
               ></button>
             </div>
@@ -1281,7 +1279,7 @@ content-loss issue found in the prior split.
                   </label>
                 </div>
               </div>
-              <button class="st-reset-btn" onclick="stResetAppearance()">
+              <button class="st-reset-btn" data-onclick="stResetAppearance">
                 <i class="ti ti-rotate-2"></i> Reset to default
               </button>
             </div>
@@ -1291,7 +1289,7 @@ content-loss issue found in the prior split.
 
       <!-- Notifications -->
       <div class="st-section" id="st-sec-notifications">
-        <div class="st-section-hd" onclick="stToggleSection('notifications')">
+        <div class="st-section-hd" data-onclick="stToggleSection" data-onclick-arg0="notifications">
           <div class="st-section-icon" style="background: #34d39920">🔔</div>
           <div class="st-section-title">Notifications</div>
           <i class="ti ti-chevron-down st-section-chevron"></i>
@@ -1367,7 +1365,7 @@ content-loss issue found in the prior split.
 
       <!-- Security -->
       <div class="st-section" id="st-sec-security">
-        <div class="st-section-hd" onclick="stToggleSection('security')">
+        <div class="st-section-hd" data-onclick="stToggleSection" data-onclick-arg0="security">
           <div class="st-section-icon" style="background: #f59e0b20">🔒</div>
           <div class="st-section-title">Security</div>
           <i class="ti ti-chevron-down st-section-chevron"></i>
@@ -1404,10 +1402,10 @@ content-loss issue found in the prior split.
               placeholder="Repeat new password"
             />
           </div>
-          <button onclick="stChangePassword()" class="st-btn" id="st-pw-btn">
+          <button data-onclick="stChangePassword" class="st-btn" id="st-pw-btn">
             🔑 Update Password
           </button>
-          <button onclick="stLogoutAll()" class="st-btn danger">
+          <button data-onclick="stLogoutAll" class="st-btn danger">
             🚪 Sign Out Everywhere
           </button>
 
@@ -1433,7 +1431,7 @@ content-loss issue found in the prior split.
               Add a second step at login using an authenticator app (Google
               Authenticator, Authy, 1Password, etc.).
             </p>
-            <button onclick="st2faStart()" class="st-btn" id="st-2fa-start-btn">
+            <button data-onclick="st2faStart" class="st-btn" id="st-2fa-start-btn">
               🔐 Enable 2FA
             </button>
           </div>
@@ -1468,7 +1466,7 @@ content-loss issue found in the prior split.
               placeholder="123456"
             />
             <button
-              onclick="st2faConfirm()"
+              data-onclick="st2faConfirm"
               class="st-btn"
               id="st-2fa-confirm-btn"
               style="margin-top: 8px"
@@ -1476,7 +1474,7 @@ content-loss issue found in the prior split.
               Confirm &amp; Enable
             </button>
             <button
-              onclick="st2faCancelSetup()"
+              data-onclick="st2faCancelSetup"
               class="st-btn"
               style="margin-top: 8px"
             >
@@ -1503,7 +1501,7 @@ content-loss issue found in the prior split.
                 user-select: all;
               "
             ></div>
-            <button onclick="st2faAckRecovery()" class="st-btn">
+            <button data-onclick="st2faAckRecovery" class="st-btn">
               ✓ I've saved these codes
             </button>
           </div>
@@ -1513,7 +1511,7 @@ content-loss issue found in the prior split.
             <p style="font-size: 0.8rem; color: var(--muted); margin: 6px 0 10px">
               Two-factor authentication is enabled on your account.
             </p>
-            <button onclick="st2faDisableStart()" class="st-btn danger">
+            <button data-onclick="st2faDisableStart" class="st-btn danger">
               Disable 2FA
             </button>
           </div>
@@ -1530,14 +1528,14 @@ content-loss issue found in the prior split.
               placeholder="Your current password"
             />
             <button
-              onclick="st2faDisableConfirm()"
+              data-onclick="st2faDisableConfirm"
               class="st-btn danger"
               style="margin-top: 8px"
             >
               Disable 2FA
             </button>
             <button
-              onclick="st2faDisableCancel()"
+              data-onclick="st2faDisableCancel"
               class="st-btn"
               style="margin-top: 8px"
             >
@@ -1549,7 +1547,7 @@ content-loss issue found in the prior split.
 
       <!-- My Plan -->
       <div class="st-section" id="st-sec-plan">
-        <div class="st-section-hd" onclick="stToggleSection('plan')">
+        <div class="st-section-hd" data-onclick="stToggleSection" data-onclick-arg0="plan">
           <div class="st-section-icon" style="background: #f472b620">⚡</div>
           <div class="st-section-title">My Plan</div>
           <i class="ti ti-chevron-down st-section-chevron"></i>
@@ -1636,7 +1634,7 @@ content-loss issue found in the prior split.
           </div>
           <button
             id="st-plan-cta"
-            onclick="showPricing()"
+            data-onclick="showPricing"
             style="
               width: 100%;
               background: linear-gradient(135deg, #f59e0b, #f472b6);
@@ -1657,7 +1655,7 @@ content-loss issue found in the prior split.
           </button>
           <button
             id="st-plan-cancel"
-            onclick="billingCancelConfirm()"
+            data-onclick="billingCancelConfirm"
             style="
               display: none;
               width: 100%;
@@ -1690,7 +1688,7 @@ content-loss issue found in the prior split.
 
       <!-- Import & Export -->
       <div class="st-section" id="st-sec-export">
-        <div class="st-section-hd" onclick="stToggleSection('export')">
+        <div class="st-section-hd" data-onclick="stToggleSection" data-onclick-arg0="export">
           <div class="st-section-icon" style="background: #41076b20">📦</div>
           <div class="st-section-title">Import &amp; Export</div>
           <i class="ti ti-chevron-down st-section-chevron"></i>
@@ -1708,7 +1706,7 @@ content-loss issue found in the prior split.
             journal). Import tasks or goals from CSV, notes from Markdown, or
             a full export from Notion, Trello, or Asana.
           </p>
-          <button class="st-btn" onclick="stExportAll()" id="export-btn">
+          <button class="st-btn" data-onclick="stExportAll" id="export-btn">
             <i class="ti ti-download" style="margin-right: 6px"></i>Export my
             data (ZIP)
           </button>
@@ -1738,7 +1736,7 @@ content-loss issue found in the prior split.
                 id="import-tasks-file"
                 accept=".csv"
                 style="display: none"
-                onchange="stImportTasks(this)"
+                data-onchange="stImportTasks" data-onchange-this
               />
               <button class="st-btn" onclick="$('import-tasks-file').click()">
                 <i class="ti ti-upload" style="margin-right: 6px"></i>Upload
@@ -1763,7 +1761,7 @@ content-loss issue found in the prior split.
                 id="import-goals-file"
                 accept=".csv"
                 style="display: none"
-                onchange="stImportGoals(this)"
+                data-onchange="stImportGoals" data-onchange-this
               />
               <button class="st-btn" onclick="$('import-goals-file').click()">
                 <i class="ti ti-upload" style="margin-right: 6px"></i>Upload
@@ -1789,7 +1787,7 @@ content-loss issue found in the prior split.
               id="import-notes-file"
               accept=".md,.txt"
               style="display: none"
-              onchange="stImportNotes(this)"
+              data-onchange="stImportNotes" data-onchange-this
             />
             <button
               class="st-btn"
@@ -1827,7 +1825,7 @@ content-loss issue found in the prior split.
                 accept=".md,.csv"
                 multiple
                 style="display: none"
-                onchange="stImportNotion(this)"
+                data-onchange="stImportNotion" data-onchange-this
               />
               <button
                 class="st-btn"
@@ -1856,7 +1854,7 @@ content-loss issue found in the prior split.
                 accept=".json,.csv"
                 multiple
                 style="display: none"
-                onchange="stImportTrello(this)"
+                data-onchange="stImportTrello" data-onchange-this
               />
               <button
                 class="st-btn"
@@ -1895,21 +1893,21 @@ content-loss issue found in the prior split.
           <div class="st-section-title">Data &amp; Privacy</div>
         </div>
         <div class="st-section-body">
-          <button class="st-btn danger" onclick="stClearChat()">
+          <button class="st-btn danger" data-onclick="stClearChat">
             <i class="ti ti-eraser" style="margin-right: 6px"></i>Clear chat
             history
           </button>
-          <button class="st-btn danger" onclick="stClearWrong()">
+          <button class="st-btn danger" data-onclick="stClearWrong">
             <i class="ti ti-eraser" style="margin-right: 6px"></i>Clear revision
             list
           </button>
-          <button class="st-btn danger" onclick="stResetProgress()">
+          <button class="st-btn danger" data-onclick="stResetProgress">
             <i class="ti ti-alert-triangle" style="margin-right: 6px"></i>Reset
             all progress
           </button>
           <div class="st-divider"></div>
           <button
-            onclick="stDeleteAccount()"
+            data-onclick="stDeleteAccount"
             style="
               width: 100%;
               background: rgba(239, 68, 68, 0.08);
@@ -1946,7 +1944,7 @@ content-loss issue found in the prior split.
 
       <!-- Organisation (Blueprint Stage 3) — shown only when the user is in an org -->
       <div class="st-section" id="st-sec-org" style="display: none">
-        <div class="st-section-hd" onclick="stToggleSection('org')">
+        <div class="st-section-hd" data-onclick="stToggleSection" data-onclick-arg0="org">
           <div class="st-section-icon" style="background: #41076b20">🏢</div>
           <div class="st-section-title">Organisation</div>
           <i class="ti ti-chevron-down st-section-chevron"></i>
@@ -1970,7 +1968,7 @@ content-loss issue found in the prior split.
               placeholder="What does your org do?"
             />
             <button
-              onclick="orgSettingsSaveProfile()"
+              data-onclick="orgSettingsSaveProfile"
               style="
                 background: linear-gradient(
                   135deg,
@@ -2018,7 +2016,7 @@ content-loss issue found in the prior split.
               cursor: pointer;
               margin-top: 8px;
             "
-            onclick="orgSettingsInvite()"
+            data-onclick="orgSettingsInvite"
           >
             <i class="ti ti-user-plus"></i> Invite member
           </button>
