@@ -1,14 +1,17 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sivarr — Tasks (V1)</title>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css"
-    />
-    <style>
+{# ── FLUX / TASKS ──────────────────────────────────────────────────
+   This file is included into _panels_core.html. It MUST stay a
+   fragment: no <!doctype>, <html>, <head> or <body>, and no <link> or
+   <script src>. A full document here is silently torn apart by the
+   browser — the <style> is hoisted into the real <head> and leaks
+   app-wide, and the content escapes the .panel wrapper so it renders on
+   every screen instead of only this one.
+
+   Tabler icons are already loaded (self-hosted) by index.html; the CDN
+   copy is blocked by this app's own CSP (style-src 'self').
+   tasks.js is already loaded by index.html as /js/features/tasks.js.
+#}
+<div class="panel" id="panel-flux">
+  <style>
       /* ══ Tasks (V1) design tokens */
       .frame {
         --accent-dim: var(--purple2, rgba(138, 43, 226, 0.14));
@@ -25,20 +28,25 @@
         --card: var(--bg2, #0c0c0c);
         --card2: var(--bg3, #111);
       }
-      * {
+      /* Scoped to .frame — this file is included into the app shell, so a
+         bare `*` selector here is hoisted into the real <head> and resets margin
+         and padding across every panel in the app, not just this one. */
+      .frame,
+      .frame * {
         box-sizing: border-box;
         margin: 0;
         padding: 0;
       }
-      html,
-      body {
+      /* Was `html, body` — that overrode the app's global font and font-size
+         everywhere once hoisted. Scoped to the panel's own root. */
+      .frame {
         height: 100%;
         font-family:
           -apple-system, BlinkMacSystemFont, "Segoe UI",
           var(--font-body, system-ui), sans-serif;
         font-size: 14px;
       }
-      ::-webkit-scrollbar {
+      .frame ::-webkit-scrollbar {
         width: 0;
         height: 0;
       }
@@ -1186,9 +1194,8 @@
         }
       }
     </style>
-  </head>
-  <body>
-    <div class="frame" id="frame">
+
+<div class="frame" id="frame">
       <!-- ═══ HEADER ═══ -->
       <div class="app-header">
         <div class="header-left">
@@ -1923,7 +1930,7 @@
       </div>
     </div>
 
-    <script>
+<script>
       /* ── View switcher ── */
       document.querySelectorAll(".view-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -2092,6 +2099,4 @@
 
       /* Task data, rendering, and all sheet content (list/kanban/focus/insights/detail/new-task) live in tasks.js */
     </script>
-    <script src="tasks.js"></script>
-  </body>
-</html>
+</div>

@@ -4167,6 +4167,33 @@ def update_org(org_id: str, owner_sid: str, updates: dict) -> bool:
         _release(conn)
 
 
+def delete_org(org_id: str, owner_sid: str) -> bool:
+    """Delete an org and every piece of its data. Every org_* child table
+    (members, invites, tasks, projects, docs, messages, goals, key_results,
+    founder metrics, announcements, integrations) has ON DELETE CASCADE on
+    org_id in _SCHEMA, so removing the orgs row alone cascades all of them.
+    collections (org_audit's log) has no FK to orgs -- it's a generic
+    key-value store -- so those rows are cleared explicitly first.
+    owner_sid is re-checked in the WHERE clause as defense in depth, on top
+    of the route's own ownership check, the same pattern update_org uses."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM collections WHERE collection = 'org_audit' AND owner = %s", (org_id,))
+            cur.execute("DELETE FROM orgs WHERE id = %s AND owner_sid = %s", (org_id, owner_sid))
+            deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
+    except Exception as exc:
+        log.error(f"delete_org failed [{org_id}]: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
 def set_org_member_role(org_id: str, target_sid: str, role: str) -> bool:
     """Change a member's role. Never touches the owner row (owner is immutable here)."""
     conn = _get_conn()

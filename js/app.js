@@ -338,6 +338,45 @@ const siModal = (() => {
       </div>`);
   }
 
+  // ── confirmTyped (GitHub-style "type the name to confirm") ──
+  // expectedText is never embedded into any inline JS attribute (only
+  // esc()'d into HTML text/attribute content) -- it's kept in a
+  // closure-scoped variable and compared inside _checkTyped(), so a name
+  // containing a quote can't break out of an inline handler string.
+  let _typedExpected = "";
+  function confirmTyped(message, expectedText, opts = {}) {
+    const {
+      title = "Confirm",
+      confirmLabel = "Delete",
+      danger = true,
+    } = opts;
+    _typedExpected = expectedText;
+    return _show(`
+      <div class="si-modal-hd">
+        <span class="si-modal-title">${title}</span>
+        <button class="si-modal-x" onclick="siModal._done(false)"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="si-modal-confirm-body">
+        <p class="si-modal-confirm-msg">${message}</p>
+        <p class="si-modal-confirm-msg" style="margin-top:10px;font-size:.82rem">
+          Type <strong>${esc(expectedText)}</strong> to confirm.
+        </p>
+        <input id="si-m-typed" class="si-modal-input" type="text" autocomplete="off"
+          placeholder="${esc(expectedText)}" oninput="siModal._checkTyped()">
+      </div>
+      <div class="si-modal-ft">
+        <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(false)">Cancel</button>
+        <button class="si-modal-btn si-modal-btn-primary${danger ? " danger" : ""}"
+          id="si-m-typed-btn" disabled onclick="siModal._done(true)">${confirmLabel}</button>
+      </div>`);
+  }
+  function _checkTyped() {
+    const inp = $("si-m-typed");
+    const btn = $("si-m-typed-btn");
+    if (!inp || !btn) return;
+    btn.disabled = inp.value !== _typedExpected;
+  }
+
   // ── alert ──────────────────────────────────────────────────
   function alert(message, opts = {}) {
     const { title = "Notice" } = opts;
@@ -442,12 +481,14 @@ const siModal = (() => {
   return {
     input,
     confirm,
+    confirmTyped,
     alert,
     form,
     _done,
     _bgClose,
     _subInput,
     _subForm,
+    _checkTyped,
     _pickEmoji,
     _show_raw: _show,
   };
@@ -1130,8 +1171,6 @@ function _rehydrateActivePanel() {
   else if (id === "panel-skills" && typeof skillsInit === "function")
     skillsInit();
   else if (id === "panel-finance" && typeof finInit === "function") finInit();
-  else if (id === "panel-flux" && typeof loadStudyHelp === "function")
-    loadStudyHelp();
   else if (id === "panel-goals" && typeof glLoad === "function") glLoad();
 }
 
@@ -13013,7 +13052,6 @@ function nav(name, btn) {
   if (name === "stats") loadStats();
   if (name === "more") syncMore();
   if (name === "leaderboard") loadLeaderboard();
-  if (name === "flux") loadStudyHelp();
   if (name === "announcements") annLoad();
   if (name === "studyplan") {
     $("sp-date") && ($("sp-date").min = new Date().toISOString().split("T")[0]);
@@ -13090,7 +13128,6 @@ function navTab(name, btn) {
   if (name === "more") syncMore();
   if (name === "leaderboard") loadLeaderboard();
   if (name === "notes") docInit();
-  if (name === "flux") loadStudyHelp();
   if (name === "announcements") annLoad();
   if (name === "studyplan") {
     const d = new Date();
@@ -15023,10 +15060,15 @@ function spMoreMenu(id, btn) {
   const r = btn.getBoundingClientRect();
   menu.style.top = r.bottom + 4 + "px";
   menu.style.left = r.left + "px";
+  const isOrgOwner =
+    sp.id === "org" &&
+    ORG &&
+    (ORG.member_role === "owner" || ORG.owner_sid === S.sid);
   menu.innerHTML = `
     <div class="ctx-item" onclick="openSpaceSettingsById('${id}')"><i class="ti ti-settings"></i> Settings &amp; extensions</div>
     <div class="ctx-item" onclick="spRename('${id}')"><i class="ti ti-pencil"></i> Rename</div>
     ${sp.id !== "org" ? `<div class="ctx-item ctx-danger" onclick="spDelete('${id}')"><i class="ti ti-trash"></i> Delete</div>` : ""}
+    ${isOrgOwner ? `<div class="ctx-item ctx-danger" onclick="orgDeleteFlow()"><i class="ti ti-trash"></i> Delete Organization</div>` : ""}
   `;
   document.body.appendChild(menu);
   const remove = (e) => {
@@ -15043,9 +15085,10 @@ async function spDelete(id) {
   const sp = spaces.find((s) => s.id === id);
   if (!sp || sp.id === "org") return;
   if (
-    !(await siModal.confirm(
-      `"${sp.name}" and all its data will be permanently deleted.`,
-      { title: "Delete Space", confirmLabel: "Delete", danger: true },
+    !(await siModal.confirmTyped(
+      `"${esc(sp.name)}" and all its data will be permanently deleted. This cannot be undone.`,
+      sp.name,
+      { title: "Delete Space", confirmLabel: "Delete Space", danger: true },
     ))
   )
     return;
@@ -15054,6 +15097,54 @@ async function spDelete(id) {
   _spFetch("/api/spaces/delete", { space_id: id });
   spaceRenderSidebar();
   nav("home");
+}
+
+// ── Delete Organization (owner-only, typed confirmation) ────────
+async function orgDeleteFlow() {
+  if (!ORG) return;
+  const isOwner = ORG.member_role === "owner" || ORG.owner_sid === S.sid;
+  if (!isOwner) {
+    toast("Only the owner can delete the organization.");
+    return;
+  }
+  const confirmed = await siModal.confirmTyped(
+    `This permanently deletes "${esc(ORG.name)}" for every member. All shared tasks, docs, goals, announcements, and chat history will be lost. This cannot be undone.`,
+    ORG.name,
+    {
+      title: "Delete Organization",
+      confirmLabel: "Delete Organization",
+      danger: true,
+    },
+  );
+  if (!confirmed) return;
+  const token = getToken();
+  try {
+    await API("/api/org/delete", { token, confirm_name: ORG.name });
+    toast("Organization deleted");
+    try {
+      localStorage.removeItem(`sivarr_org_logo_${ORG.id}`);
+    } catch (_) {}
+    ORG = null;
+    ORG_MEMBERS = [];
+    ORG_TASKS = [];
+    ORG_PROJECTS = [];
+    ORG_DOCS = [];
+    ORG_GOALS = [];
+    ORG_FOUNDER = {};
+    // Reset the sidebar's synthetic org entry back to its default label —
+    // orgInit() shows the create-org setup card next time it's opened,
+    // since /api/org/get will correctly report no org for this user now.
+    const spaces = getSpaces();
+    const orgRow = spaces.find((s) => s.id === "org");
+    if (orgRow) {
+      orgRow.name = "Organisation Hub";
+      saveSpaces(spaces);
+    }
+    spaceRenderSidebar();
+    nav("home");
+  } catch (e) {
+    toast(e.message || "Could not delete organization.");
+  }
 }
 
 // ── Create Space modal ────────────────────────────────────────

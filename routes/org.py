@@ -735,6 +735,31 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         return {"ok": True, **updates}
 
 
+    @router.post("/api/org/delete")
+    async def org_delete(data: dict):
+        """Owner-only, permanent. Requires the caller to echo the org's exact
+        current name back as confirm_name -- checked here server-side, not
+        just in the client's typed-confirmation modal, the same
+        never-trust-client-side-only principle _validate_auth_input uses for
+        login. db.delete_org cascades every org_* table via FK ON DELETE
+        CASCADE; nothing else needs to be told about this individually."""
+        sid, actor = _resolve_token(data)
+        if not db.is_available():
+            raise HTTPException(503, "Database unavailable.")
+        org = db.get_org_by_member(sid)
+        if not org:
+            raise HTTPException(404, "You don't belong to an organization.")
+        if org.get("owner_sid") != sid:
+            raise HTTPException(403, "Only the owner can delete the organization.")
+        confirm_name = sanitize_text(str(data.get("confirm_name", "")), 80).strip()
+        if confirm_name != org.get("name", ""):
+            raise HTTPException(400, "Organization name confirmation did not match.")
+        if not db.delete_org(org["id"], sid):
+            raise HTTPException(500, "Failed to delete organization.")
+        log.info(f"Org deleted: {org.get('name')} ({org['id']}) by {sid}")
+        return {"ok": True}
+
+
     @router.post("/api/org/member/role")
     async def org_member_role(data: dict):
         sid, actor = _resolve_token(data)
