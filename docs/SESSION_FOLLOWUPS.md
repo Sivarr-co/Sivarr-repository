@@ -25,7 +25,7 @@ standard below is additional, and it is not optional.
 | 16 | Make search coverage uniform | **Done** — verified 2026-08-25 |
 | 17 | Extend the import UI | **Done** — verified 2026-08-25 |
 | 18 | Small cleanups left behind | **Done** — verified 2026-08-25 |
-| 19 | CSP: remove `unsafe-inline` | **In progress** — 2 groups done, 536 onclick left |
+| 19 | CSP: remove `unsafe-inline` | **In progress** — 492 migrated, 198 inline left |
 | 20 | User-facing two-factor auth | **Done** — verified 2026-08-25 |
 | 21 | Make the two chat tests hermetic | **Done** — verified 2026-08-25 |
 
@@ -430,63 +430,87 @@ assertion still genuinely reached (break it deliberately and watch it fail).
 
 ### Session 19 (continued) — CSP, remaining handler groups
 
-**Group 2 landed 2026-08-25: `templates/_login.html`, 12 handlers.** All 12 were
-simple named-global calls (`setAuthTab`, `togglePwVis`, `doLogin`,
-`showForgotPassword`, `showLoginView`, `submitForgotPassword`,
-`submitResetPassword`). Browser-verified with real clicks: register tab switches,
-password toggle flips `password` -> `text`, forgot-password view renders, zero
-console errors. `_login.html` now has 1 inline `onclick` left
-(`googleSignInStart(event)`) plus 7 `onkeydown` expressions.
+**Status after the 2026-08-27 overnight run: 492 handlers migrated.**
+Inline handlers across `templates/` went **655 -> 198**; `onclick` alone
+**536 -> 94**. Groups 3-7 landed as five separate commits, each CI-green:
+`_shell` (16), `_modals` (65), `_panels_core` (92), five panel templates (161),
+then `_panels_extra`/`_panel_academic`/`_panel_notes`/`_login` (133).
 
-**Remaining: 536 real inline `onclick` attributes** across `templates/*.html`.
-Plus 46 `onchange`, 24 `onkeydown`, 21 `oninput`, 6 `onblur`, 6 `onfocus` — none
-of which `delegate.js` handles at all today (it listens for `click` only).
+Every batch was browser-verified the same way, and this is the check worth
+repeating: enumerate every function named by a `data-on*` attribute, assert
+**none is missing** from `window`, stub them all, then click every element and
+audit the argument types actually received. The final pass covered 253 distinct
+functions, 465 elements, 486 invocations, zero missing, zero page errors, and
+arg types 248 string / 141 element / 29 null / 27 number / 11 event / 1 boolean.
+A typo'd `data-onclick="fnName"` only logs a console warning and silently does
+nothing, so the missing-function check is what actually catches a bad migration.
 
 #### Counting them correctly
 
-`grep -c 'onclick='` **overcounts**, because `data-onclick="..."` contains the
-substring `onclick="..."`. Use a negative lookbehind:
+`grep -c 'onclick='` **overcounts** — `data-onclick="..."` contains the substring
+`onclick="..."`. Use a negative lookbehind:
 
 ```
 grep -rhoP '(?<![-\w])onclick="' templates/*.html | wc -l
 ```
 
-#### delegate.js now handles every pattern in this codebase
-
-`js/core/delegate.js` was extended on 2026-08-27 and browser-verified. Use these
-rather than skipping handlers:
+#### What delegate.js supports
 
 | Pattern | Attribute |
 |---|---|
 | `fn()` | `data-onclick="fn"` |
 | `fn('a','b')` | `data-onclick-arg0="a" data-onclick-arg1="b"` (strings) |
-| `fn('tasks', null)` | `data-onclick-args='["tasks", null]'` (**real types**) |
-| `fn(event)` | `data-onclick-event` (Event passed first) |
-| `fn(x, this)` | `data-onclick-this` (element passed last) |
+| `fn('tasks', null)` / `fn(3)` | `data-onclick-args='["tasks", null]'` (**real types**) |
+| `fn(event)` | `data-onclick-event` (Event first) |
+| `fn(x, this)` | `data-onclick-this` (element last) |
 | `if (event.target === this) fn()` | `data-onclick-self` |
-| `onchange` / `oninput` / `onkeydown` / `onkeyup` / `onblur` / `onfocus` / `onsubmit` | `data-onchange="fn"` etc., same grammar |
+| `onchange` / `oninput` / `onkeydown` / `onkeyup` / `onblur` / `onfocus` / `onsubmit` | `data-onchange="fn"` etc. |
 
-**The one rule that matters:** if an argument is not a string, it MUST go through
-`data-*-args` as JSON. About 30 call sites look like
-`onclick="nav('skills', null)"`. With the positional `arg0`/`arg1` form that
-`null` becomes the **string** `"null"`, which is truthy, so `if (btn)` inside
-`nav()` takes the wrong branch and nothing throws. Same class of silent bug as
-`1002 === '1002'` in the Home redesign.
+**Non-string arguments MUST use `data-*-args`.** The positional form turns `null`
+into the truthy string `"null"` and `3` into `"3"`. CI fails the build on
+malformed `data-*-args` JSON.
 
-Still not supported, deliberately: arbitrary expressions such as
-`onclick="$('pfp-input').click()"`. Those need a real named function first.
-Adding expression support would recreate the hole this file exists to close.
+A reusable, deliberately conservative migrator lives at
+`scratchpad/migrate.py` in the session that wrote it — it rewrites only single
+calls to a named global with literal arguments and leaves everything else
+untouched. Re-deriving it is a few minutes' work if it is gone.
 
-#### Ordering suggestion
+#### The 153 left in fragment templates
 
-Largest remaining templates: `_panels_core.html` (123), `_panels_extra.html` (79),
-`_panel_academic.html` (78), `_modals.html` (72), `_panel_org.html` (59),
-`_panel_marketplace.html` (52), `admin.html` (41), `_panel_flux.html` (41).
+None are mechanical. Each needs a real named function written first:
 
-Take one template per session, report the remaining count each time, and
-browser-verify the migrated controls actually still fire. Only drop
-`unsafe-inline` from `app.py:1540` once the count reaches zero — and `style-src`
-at `app.py:1549` carries its own `unsafe-inline` needing separate treatment.
+| Count | Pattern | Example |
+|---|---|---|
+| 54 | `this.<property>` passed | `stSetFontScale(this.value)` |
+| 47 | multi-statement | `nav('stats', null); closeProfile();` |
+| 13 | element in **lead** position | `sSetFormat(this, 'apa')` |
+| 12 | conditional | `if (event.key === 'Enter') doLogin();` |
+| 12 | DOM expression | `$('pfp-input').click()` |
+| 8 | method call | `siModal._bgClose(event)` |
+| 7 | other | `acRenameByType ? spRenameByType('academic') : null` |
+
+Two of these are worth a helper change rather than 67 hand-written wrappers:
+
+- **`data-*-value`** — pass `el.value`. Clears most of the 54.
+- **element in lead position** — the helper always appends. An explicit
+  `data-*-this-first` would clear the 13.
+
+The rest genuinely need named functions. `if (event.key === 'Enter') fn()` is
+frequent enough to deserve one shared `data-onkeydown-enter="fn"` instead.
+
+#### Do NOT migrate these three files
+
+`admin.html` (41), `admin_metrics.html` (2) and `landing.html` (6) are
+**standalone pages that never load `delegate.js`**. Migrating them silently
+breaks every control on them. Either add the script to each page first, or leave
+them and accept that `unsafe-inline` cannot be dropped until they are handled.
+
+#### Before `unsafe-inline` can come out
+
+All of the above, **plus** 10 inline `<script>` blocks (`index.html` has 5) —
+those are governed by the same `script-src` directive. `style-src` at
+`app.py:1549` carries its own `unsafe-inline` covering ~982 inline `style=`
+attributes, and is a separate project.
 
 ---
 
