@@ -364,15 +364,44 @@ def load_users() -> dict:
     return {}
 
 
-def save_users(users: dict):
-    """Save users to JSON file and sync to DB."""
+def save_users(users: dict, *, removed: set | None = None):
+    """MERGE `users` into the on-disk store; never replace it wholesale.
+
+    This used to write the caller's whole dict over the file. Production runs
+    four gunicorn workers, each holding its own snapshot from its own
+    load_users(), so two people registering seconds apart meant the second
+    worker's save silently erased the first person's account -- no error, no
+    log. Reproduced directly:
+
+        worker A save -> ['alice', 'existing1']
+        worker B save -> ['bob',   'existing1']     # alice gone
+
+    Merging means a stale worker can only add or update its own entries, never
+    delete someone else's. Deletion is now explicit via `removed`, so the two
+    real delete paths (self-delete, admin delete) still work.
+
+    The DB sync also only touches the sids this caller actually modified.
+    Looping every user on every save was O(N) queries per request AND let a
+    worker with a stale snapshot push old data back over newer rows.
+
+    Passwords deliberately do NOT flow through here: db.update_user() only
+    writes name/phone, and password changes go through _persist_password() ->
+    db.update_user_password(). That split is what stops a stale in-memory
+    password hash from overwriting a newer one.
+    """
+    merged = load_users()          # re-read: another worker may have written since
+    merged.update(users)
+    for sid in (removed or ()):
+        merged.pop(sid, None)
+
     tmp = str(USERS_PATH) + f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
     with open(tmp, "w") as f:
-        json.dump(users, f, indent=2)
+        json.dump(merged, f, indent=2)
     shutil.move(tmp, str(USERS_PATH))
-    # Sync to DB — create new rows, update existing ones
+
     if db.is_available():
-        for sid, u in users.items():
+        for sid in users:
+            u = users[sid]
             try:
                 if db.user_exists(sid):
                     db.update_user(u)
@@ -2712,11 +2741,21 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks, respon
 
     # ── LOGIN ──────────────────────────────────────────────────
     else:
-        # Look up by email — no name required
-        user = next((u for u in users.values() if u.get("email", "").lower() == email), None)
-        # Fallback to DB lookup
-        if not user and db.is_available():
+        # Look up by email. THE DATABASE IS AUTHORITATIVE when it is available;
+        # the JSON file is only a fallback for deployments running without one.
+        #
+        # This order used to be reversed, and that is what made "the password I
+        # just set does not work" possible: a worker holding a stale snapshot
+        # could write an old password hash back into the file, and because the
+        # file was consulted first, the stale hash beat the correct one in the
+        # database. Password changes have always been written to the DB
+        # correctly (_persist_password -> db.update_user_password); it was the
+        # read order that let the file win.
+        user = None
+        if db.is_available():
             user = db.get_user_by_email(email)
+        if not user:
+            user = next((u for u in users.values() if u.get("email", "").lower() == email), None)
 
         if not user:
             # Anti-enumeration: same generic message AND comparable timing as a
@@ -3601,7 +3640,7 @@ async def account_delete(data: dict):
     sid, _ = _resolve_token(data)
     users = load_users()
     users.pop(sid, None)
-    save_users(users)
+    save_users(users, removed={sid})   # explicit: save_users merges now
     try:
         pf = ppath(sid)
         if pf.exists():
@@ -3962,7 +4001,7 @@ async def admin_user_delete(data: dict):
     # Remove from JSON store
     users = load_users()
     users.pop(sid, None)
-    save_users(users)
+    save_users(users, removed={sid})   # explicit: save_users merges now
     # Remove progress file
     pf = ppath(sid)
     if pf.exists():
