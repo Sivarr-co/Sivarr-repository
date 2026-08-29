@@ -61,7 +61,7 @@
           <div class="acad-metric-icon acad-icon-teal">
             <i class="ti ti-notebook" aria-hidden="true"></i>
           </div>
-          <div class="acad-metric-label">Active Courses</div>
+          <div class="acad-metric-label">Active Classes</div>
           <div class="acad-metric-value" id="lm-courses">–</div>
         </div>
         <div class="acad-metric-card">
@@ -90,10 +90,10 @@
         </button>
         <button
           class="acad-tab"
-          data-tab="l-courses"
-          data-onclick="lSwitchTab" data-onclick-arg0="l-courses"
+          data-tab="l-classes"
+          data-onclick="lSwitchTab" data-onclick-arg0="l-classes"
         >
-          Courses
+          Classes
         </button>
         <button
           class="acad-tab"
@@ -250,30 +250,27 @@
         </div>
       </div>
 
-      <!-- L: COURSES -->
-      <div class="acad-tab-content" id="tab-l-courses" style="display: none">
+      <!-- L: CLASSES -->
+      <div class="acad-tab-content" id="tab-l-classes" style="display: none">
         <div class="acad-tab-toolbar">
-          <input
-            class="acad-search-inline"
-            type="text"
-            placeholder="Search courses…"
-            oninput="lFilterCourses(this.value)"
-          />
-          <button class="acad-btn-teal" data-onclick="lCreateCourse">
-            + New Course
+          <p class="acad-brief-desc" style="margin: 0">
+            Every class you run — each with its own roster, join code, and gradebook.
+          </p>
+          <button class="acad-btn-teal" data-onclick="lCreateNewClass">
+            + New Class
           </button>
         </div>
-        <div class="acad-course-grid" id="lCourseGrid">
+        <div class="acad-course-grid" id="lClassesGrid">
           <div
             class="acad-course-card acad-course-card--add"
-            data-onclick="lCreateCourse"
+            data-onclick="lCreateNewClass"
           >
             <i
               class="ti ti-plus"
               style="font-size: 24px; opacity: 0.4"
               aria-hidden="true"
             ></i>
-            <div>Create your first course</div>
+            <div>Create your first class</div>
           </div>
         </div>
       </div>

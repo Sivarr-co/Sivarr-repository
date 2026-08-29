@@ -794,6 +794,10 @@
   border-color: var(--border2);
   transform: translateY(-2px);
 }
+.acad-course-card--active {
+  border-color: var(--acad-accent);
+  box-shadow: 0 0 0 1px var(--acad-accent);
+}
 .acad-course-card--add {
   display: flex;
   flex-direction: column;

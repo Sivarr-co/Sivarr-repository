@@ -152,7 +152,7 @@ let lData = {
 
 function lInit() {
   const d = adData();
-  lData.courses = d.lCourses || [];
+  lData.courses = []; // no longer backed by local fake data -- see the Classes tab
   lData.students = d.lStudents || [];
   lData.quizzes = d.lQuizzes || [];
   lData.assignments = d.lAssignments || [];
@@ -160,15 +160,21 @@ function lInit() {
   lSwitchTab("l-overview");
   lRenderMetrics();
   lRenderOverview();
-  if (d.classCode) {
-    lRenderClassCode(d.classCode);
-    lLoadRoster();
-    lLoadRegister();
-    lLoadAnnouncements();
-    lLoadLive();
-    lLoadPolls();
-  }
+  lRenderClasses(); // populates the Overview "Active Classes" KPI too
+  if (d.classCode) _lLoadActiveClass(d.classCode);
   hostMountExtensions(window.currentSpace || window.currentAcademicSpace);
+}
+
+// Everything scoped to "whichever class is currently being viewed" -- shared
+// by lInit() (on space open) and lSwitchClass() (when a lecturer with
+// multiple classes picks a different one from the Classes tab).
+function _lLoadActiveClass(code) {
+  lRenderClassCode(code);
+  lLoadRoster();
+  lLoadRegister();
+  lLoadAnnouncements();
+  lLoadLive();
+  lLoadPolls();
 }
 function lRenderMetrics() {
   const set = (id, v) => {
@@ -176,7 +182,8 @@ function lRenderMetrics() {
     if (el) el.innerHTML = v;
   };
   set("lm-students", lData.students.length || "–");
-  set("lm-courses", lData.courses.length || "–");
+  // lm-courses (Active Classes) is owned by lRenderClasses() -- it needs a
+  // real fetch of /api/acad/class/mine, not the local lData snapshot.
   const pending = lData.submissions.filter((s) => !s.graded).length;
   set("lm-submissions", pending || "–");
   const scores = lData.students
@@ -207,7 +214,7 @@ function lSwitchTab(tabId) {
     ac.classList.add("active");
     ac.style.display = "block";
   }
-  if (tabId === "l-courses") lRenderCourses();
+  if (tabId === "l-classes") lRenderClasses();
   if (tabId === "l-students") lRenderStudents();
   if (tabId === "l-gradebook") lLoadGradebook();
   if (tabId === "l-analytics") lLoadClassStats();
@@ -234,30 +241,93 @@ function lRenderOverview() {
   const cEl = document.getElementById("lSubmissionCount");
   if (cEl) cEl.textContent = `${pending} pending`;
 }
-function lRenderCourses(filter = "") {
-  const grid = document.getElementById("lCourseGrid");
+// ── Classes: the real multi-class list (replaces the old fake Courses tab)
+// A lecturer space isn't capped at one class -- /api/acad/class/create never
+// had a limit, and /api/acad/class/mine already lists every class a lecturer
+// owns. "classCode" in the space's data means "whichever class is currently
+// being viewed" (every class-scoped call site already reads it fresh), so
+// switching classes is just writing a different code into that one field.
+let _lClasses = [];
+async function lRenderClasses() {
+  const grid = document.getElementById("lClassesGrid");
   if (!grid) return;
-  const list = filter
-    ? lData.courses.filter((c) =>
-        c.name.toLowerCase().includes(filter.toLowerCase()),
-      )
-    : lData.courses;
-  const cards = list
-    .map(
-      (c) => `
-    <div class="acad-course-card" onclick="lOpenCourse('${c.id}')">
-      <div class="acad-course-card-top"><div class="acad-course-name">${acEsc(c.name)}</div><span class="acad-tag acad-tag--teal">${acEsc(c.code || "")}</span></div>
-      <div class="acad-course-meta"><span><i class="ti ti-users" aria-hidden="true"></i> ${c.student_count || 0} students</span><span><i class="ti ti-file" aria-hidden="true"></i> ${c.material_count || 0} materials</span></div>
-      <div style="margin-top:10px;"><div class="acad-attend-bar" style="width:100%;height:6px;"><div class="acad-attend-fill" style="width:${c.completion || 0}%;background:var(--acad-accent);"></div></div><div class="acad-priority-sub" style="margin-top:3px;">${c.completion || 0}% curriculum complete</div></div>
-    </div>`,
-    )
+  let classes = [];
+  try {
+    const r = await acadAPI("/api/acad/class/mine");
+    classes = (r && r.classes) || [];
+  } catch (e) {
+    grid.innerHTML = `<div class="acad-empty-state"><i class="ti ti-alert-triangle" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Couldn't load your classes. Try again.</div></div>`;
+    return;
+  }
+  _lClasses = classes;
+  const countEl = document.getElementById("lm-courses");
+  if (countEl) countEl.textContent = classes.length || "–";
+  const stats = await Promise.all(
+    classes.map((c) =>
+      acadAPI("/api/acad/class/stats", { code: c.code }).catch(() => null),
+    ),
+  );
+  const activeCode = adData().classCode;
+  const cards = classes
+    .map((c, i) => {
+      const st = stats[i];
+      const memberCount = st ? Object.keys(st.students || {}).length : 0;
+      const scores = st
+        ? Object.values(st.students || {})
+            .map((s) => s.avg_score)
+            .filter((v) => v != null)
+        : [];
+      const avg = scores.length
+        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+        : null;
+      const attends = st
+        ? Object.values(st.students || {}).map((s) => s.attendance_pct)
+        : [];
+      const attendAvg = attends.length
+        ? Math.round(attends.reduce((a, b) => a + b, 0) / attends.length)
+        : null;
+      const isActive = c.code === activeCode;
+      return `<div class="acad-course-card${isActive ? " acad-course-card--active" : ""}">
+      <div class="acad-course-card-top"><div class="acad-course-name">${acEsc(c.name)}</div>${isActive ? '<span class="acad-tag acad-tag--teal">Active</span>' : ""}</div>
+      <div class="acad-course-meta"><span><i class="ti ti-users" aria-hidden="true"></i> ${memberCount} students</span><span>Join code: <strong>${acEsc(c.code)}</strong></span></div>
+      <div class="acad-priority-sub" style="margin-top:8px;">${avg != null ? avg + "% avg score" : "No grades yet"} · ${attendAvg != null ? attendAvg + "% attendance" : "No attendance yet"}</div>
+      ${isActive ? "" : `<button class="acad-btn-ghost acad-btn-sm" style="margin-top:10px;" data-onclick="lSwitchClass" data-onclick-arg0="${acEsc(c.code)}">View this class</button>`}
+    </div>`;
+    })
     .join("");
   grid.innerHTML =
     cards +
-    `<div class="acad-course-card acad-course-card--add" onclick="lCreateCourse()"><i class="ti ti-plus" style="font-size:24px;opacity:.4;" aria-hidden="true"></i><div>New Course</div></div>`;
+    `<div class="acad-course-card acad-course-card--add" data-onclick="lCreateNewClass"><i class="ti ti-plus" style="font-size:24px;opacity:.4;" aria-hidden="true"></i><div>New Class</div></div>`;
 }
-function lFilterCourses(v) {
-  lRenderCourses(v);
+async function lCreateNewClass() {
+  const f = await siModal.form("New class", [
+    { id: "name", label: "Class name", placeholder: "e.g. Psych 101", required: true },
+    { id: "subject", label: "Subject", placeholder: "optional" },
+  ]);
+  if (!f || !f.name) return;
+  try {
+    const r = await acadAPI("/api/acad/class/create", {
+      name: f.name,
+      subject: f.subject || "",
+    });
+    if (r && r.ok) {
+      acToast(`Class created, code ${r.code}`);
+      lSwitchClass(r.code);
+    }
+  } catch (e) {
+    acToast((e && e.message) || "Could not create class");
+  }
+}
+function lSwitchClass(code) {
+  adSave({ classCode: code });
+  _lLoadActiveClass(code);
+  lRenderClasses();
+  if (document.getElementById("tab-l-students")?.classList.contains("active"))
+    lLoadRoster();
+  if (document.getElementById("tab-l-gradebook")?.classList.contains("active"))
+    lLoadGradebook();
+  if (document.getElementById("tab-l-analytics")?.classList.contains("active"))
+    lLoadClassStats();
 }
 function lRenderStudents(filter = "", courseId = "") {
   const tb = document.getElementById("lStudentTableBody");
@@ -741,33 +811,6 @@ function lGenerateFeedback() {
 }
 function lAutoMark() {
   acToast("Auto-mark: connect a submission batch to begin");
-}
-async function lCreateCourse() {
-  const name = await siModal.input("New course", "e.g. Data Structures", "", {
-    confirmLabel: "Create",
-  });
-  if (!name) return;
-  const code = await siModal.input(
-    "Course code (optional)",
-    "e.g. CSC301",
-    "",
-    { confirmLabel: "Add" },
-  );
-  lData.courses.push({
-    id: "c_" + Date.now(),
-    name,
-    code: code || "",
-    student_count: 0,
-    material_count: 0,
-    completion: 0,
-  });
-  adSave({ lCourses: lData.courses });
-  lRenderMetrics();
-  lRenderCourses();
-  acToast("Course created");
-}
-function lOpenCourse() {
-  acToast("Course detail coming soon");
 }
 const _lClamp = (v) => Math.max(0, Math.min(100, parseInt(v) || 0));
 async function lInviteStudent() {
