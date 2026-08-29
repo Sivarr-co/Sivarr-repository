@@ -111,6 +111,13 @@
         </button>
         <button
           class="acad-tab"
+          data-tab="l-gradebook"
+          data-onclick="lSwitchTab" data-onclick-arg0="l-gradebook"
+        >
+          Gradebook
+        </button>
+        <button
+          class="acad-tab"
           data-tab="l-analytics"
           data-onclick="lSwitchTab" data-onclick-arg0="l-analytics"
         >
@@ -475,6 +482,35 @@
         </div>
       </div>
 
+      <!-- L: GRADEBOOK -->
+      <div class="acad-tab-content" id="tab-l-gradebook" style="display: none">
+        <div class="acad-card">
+          <div class="acad-card-header">
+            <span class="acad-card-title">Gradebook</span>
+            <button class="acad-btn-ghost acad-btn-sm" data-onclick="lExportGradebookCSV">
+              Export CSV
+            </button>
+          </div>
+          <div class="acad-card-body" style="overflow-x: auto">
+            <table class="acad-data-grid" id="lGradebookTable">
+              <thead>
+                <tr id="lGradebookHead">
+                  <th>Student</th>
+                  <th>Final</th>
+                </tr>
+              </thead>
+              <tbody id="lGradebookBody">
+                <tr>
+                  <td colspan="2" class="acad-table-empty">
+                    No gradable items yet. Post an assignment or exam to see grades here.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- L: ANALYTICS -->
       <div class="acad-tab-content" id="tab-l-analytics" style="display: none">
         <div class="acad-split">
@@ -679,6 +715,13 @@
         </button>
         <button
           class="acad-tab"
+          data-tab="s-grades"
+          data-onclick="sSwitchTab" data-onclick-arg0="s-grades"
+        >
+          My Grades
+        </button>
+        <button
+          class="acad-tab"
           data-tab="s-vault"
           data-onclick="sSwitchTab" data-onclick-arg0="s-vault"
         >
@@ -872,6 +915,39 @@
               ></i>
               <div>No upcoming deadlines</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S: MY GRADES -->
+      <div class="acad-tab-content" id="tab-s-grades" style="display: none">
+        <div
+          id="sGradesSummary"
+          style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px"
+        ></div>
+        <div class="acad-card">
+          <div class="acad-card-header">
+            <span class="acad-card-title">All grades, every class</span>
+          </div>
+          <div class="acad-card-body" style="overflow-x: auto">
+            <table class="acad-data-grid" id="sGradesTable">
+              <thead>
+                <tr>
+                  <th>Class</th>
+                  <th>Item</th>
+                  <th>Type</th>
+                  <th>Score</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="sGradesBody">
+                <tr>
+                  <td colspan="5" class="acad-table-empty">
+                    No grades yet. Join a class and submit some work to see them here.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

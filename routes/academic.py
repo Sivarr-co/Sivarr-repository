@@ -271,6 +271,66 @@ def _acad_class_grade_stats(code: str) -> tuple:
     return out, total_items
 
 
+def _acad_gradebook_items(code: str) -> tuple:
+    """Per-item breakdown behind the Gradebook (lecturer, all students) and
+    My Grades (student, own row only) tabs -- unlike _acad_class_grade_stats
+    above (which only returns an average), this keeps one cell per gradable
+    item so a table can actually show "Reading Response #4: 18/20" per
+    student, not just their overall %.
+
+    Returns (items, rows):
+      items = [{id, type: "assignment"|"exam", title}, ...]
+      rows  = {sid: {sid, name, cells: {item_id: {display, pct, grading,
+               state}}, final_pct}}  -- state is "graded"/"pending"/"missing",
+               grading is "manual"/"auto"/None (None when ungraded)."""
+    members = {m["sid"]: m for m in db.coll_list("acad_members", owner=code)}
+    items = []
+    rows = {sid: {"sid": sid, "name": m.get("name", ""), "cells": {}}
+            for sid, m in members.items()}
+
+    def _cell(display, pct, grading, state):
+        return {"display": display, "pct": pct, "grading": grading, "state": state}
+
+    for a in db.coll_list("acad_assignments", owner=code):
+        items.append({"id": a["id"], "type": "assignment", "title": a.get("title", "Assignment")})
+        subs = {s["sid"]: s for s in db.coll_list("acad_submissions", owner=a["id"])}
+        for sid in rows:
+            sub = subs.get(sid)
+            if not sub:
+                rows[sid]["cells"][a["id"]] = _cell("—", None, None, "missing")
+            elif not sub.get("graded"):
+                rows[sid]["cells"][a["id"]] = _cell("Pending", None, None, "pending")
+            else:
+                grade = sub.get("grade", "")
+                rows[sid]["cells"][a["id"]] = _cell(grade, _parse_grade_pct(grade), "manual", "graded")
+
+    for ce in db.coll_list("acad_class_exams", owner=code):
+        items.append({"id": ce["exam_id"], "type": "exam", "title": ce.get("title", "Exam")})
+        results = {r["sid"]: r for r in db.coll_list("acad_exam_results", owner=f"{code}:{ce['exam_id']}")}
+        for sid in rows:
+            res = results.get(sid)
+            if not res:
+                rows[sid]["cells"][ce["exam_id"]] = _cell("—", None, None, "missing")
+                continue
+            manual_pct = _parse_grade_pct(res.get("grade", "")) if res.get("graded") else None
+            auto_pct = (res.get("auto") or {}).get("auto_pct")
+            if manual_pct is not None:
+                rows[sid]["cells"][ce["exam_id"]] = _cell(res.get("grade", ""), manual_pct, "manual", "graded")
+            elif auto_pct is not None:
+                rows[sid]["cells"][ce["exam_id"]] = _cell(f"{auto_pct}% auto", float(auto_pct), "auto", "graded")
+            elif res.get("graded"):
+                # Manually graded but the grade text didn't parse (e.g. "B+").
+                rows[sid]["cells"][ce["exam_id"]] = _cell(res.get("grade", ""), None, "manual", "graded")
+            else:
+                rows[sid]["cells"][ce["exam_id"]] = _cell("Pending", None, None, "pending")
+
+    for row in rows.values():
+        pcts = [c["pct"] for c in row["cells"].values() if c["pct"] is not None]
+        row["final_pct"] = round(sum(pcts) / len(pcts), 1) if pcts else None
+
+    return items, rows
+
+
 
 def build_router(send_push) -> APIRouter:
     router = APIRouter()
@@ -494,6 +554,29 @@ def build_router(send_push) -> APIRouter:
         return {"ok": True, "students": students, "score_buckets": buckets,
                 "at_risk": at_risk, "attendance_sessions": att_sessions,
                 "attendance_weekly": weekly}
+
+
+    @router.post("/api/acad/gradebook")
+    async def acad_gradebook(data: dict):
+        """Owner-only: every student x every gradable item, one table. See
+        _acad_gradebook_items for the shape."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        items, rows = _acad_gradebook_items(code)
+        return {"ok": True, "items": items, "rows": list(rows.values())}
+
+
+    @router.post("/api/acad/gradebook/mine")
+    async def acad_gradebook_mine(data: dict):
+        """Member-only: the same table, but only the caller's own row --
+        never exposes other students' grades."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        if not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join this class first.")
+        items, rows = _acad_gradebook_items(code)
+        return {"ok": True, "items": items, "row": rows.get(sid)}
 
 
     @router.post("/api/acad/attendance/mine")

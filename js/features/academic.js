@@ -209,6 +209,7 @@ function lSwitchTab(tabId) {
   }
   if (tabId === "l-courses") lRenderCourses();
   if (tabId === "l-students") lRenderStudents();
+  if (tabId === "l-gradebook") lLoadGradebook();
   if (tabId === "l-analytics") lLoadClassStats();
   if (tabId === "l-assessments") {
     lAssessSegment(_lAssessSeg);
@@ -367,6 +368,90 @@ function lRenderAnalytics() {
       : `<div class="acad-empty-state"><i class="ti ti-shield-check" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No at-risk students identified</div></div>`;
   }
 }
+
+// ── Gradebook: every student x every gradable item, one table ──
+// Built on /api/acad/gradebook, the per-item sibling of Phase 1's
+// /api/acad/class/stats (which only returns an average) -- kept as its own
+// cache (_lGradebook) rather than folded into _lClassStats since the two
+// endpoints return unrelated shapes.
+let _lGradebook = null;
+async function lLoadGradebook() {
+  const d = adData();
+  const head = document.getElementById("lGradebookHead");
+  const body = document.getElementById("lGradebookBody");
+  if (!d.classCode || !head || !body) return;
+  try {
+    const r = await acadAPI("/api/acad/gradebook", { code: d.classCode });
+    if (!r || !r.ok) return;
+    _lGradebook = r;
+    const items = r.items || [];
+    head.innerHTML =
+      `<th>Student</th>` +
+      items.map((it) => `<th>${acEsc(it.title)}</th>`).join("") +
+      `<th>Final</th>`;
+    const rows = r.rows || [];
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="${items.length + 2}" class="acad-table-empty">No students enrolled yet.</td></tr>`;
+      return;
+    }
+    body.innerHTML = rows
+      .map((row) => {
+        const cells = items
+          .map((it) => {
+            const c = row.cells[it.id] || { display: "—", state: "missing" };
+            const cls =
+              c.state === "graded"
+                ? "acad-tag--teal"
+                : c.state === "pending"
+                  ? "acad-tag--orange"
+                  : "acad-tag--red";
+            return `<td><span class="acad-tag ${cls}">${acEsc(String(c.display))}</span></td>`;
+          })
+          .join("");
+        const final = row.final_pct != null ? row.final_pct + "%" : "–";
+        return `<tr><td>${acEsc(row.name)}</td>${cells}<td style="font-weight:700;">${final}</td></tr>`;
+      })
+      .join("");
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="2" class="acad-table-empty">Couldn't load the gradebook. Try again.</td></tr>`;
+  }
+}
+
+function lExportGradebookCSV() {
+  if (!_lGradebook || !_lGradebook.rows || !_lGradebook.rows.length) {
+    acToast("Nothing to export yet.");
+    return;
+  }
+  const items = _lGradebook.items || [];
+  const header = ["Student", ...items.map((it) => it.title), "Final %"];
+  const lines = [header];
+  _lGradebook.rows.forEach((row) => {
+    const cells = items.map((it) => {
+      const c = row.cells[it.id];
+      return c ? String(c.display) : "";
+    });
+    lines.push([
+      row.name,
+      ...cells,
+      row.final_pct != null ? row.final_pct : "",
+    ]);
+  });
+  const csv = lines
+    .map((line) =>
+      line.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","),
+    )
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "gradebook.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 let _lAssessSeg = "quizzes";
 function lAssessSegment(seg) {
   _lAssessSeg = seg;
@@ -911,11 +996,65 @@ function sSwitchTab(tabId) {
     ac.classList.add("active");
     ac.style.display = "block";
   }
+  if (tabId === "s-grades") sLoadMyGrades();
   if (tabId === "s-vault") sRenderModules();
   if (tabId === "s-sprint") sRenderKanban();
   if (tabId === "s-research") sRenderCitations();
   if (tabId === "s-groups") sRenderGroups();
   if (tabId === "s-tutor") sLoadFlashcards();
+}
+
+// ── My Grades: every joined class, every gradable item, one table ──
+// Loops adData().joinedClasses the same way sLoadAssignments/sLoadExams
+// already do (both untouched -- this is an additional consolidated view),
+// calling /api/acad/gradebook/mine per class and flattening into one list.
+async function sLoadMyGrades() {
+  const list = adData().joinedClasses || [];
+  const summary = document.getElementById("sGradesSummary");
+  const body = document.getElementById("sGradesBody");
+  if (!body) return;
+  if (!list.length) return; // keep the template's empty state
+  let allRows = [];
+  if (summary) summary.innerHTML = "";
+  for (const c of list) {
+    try {
+      const r = await acadAPI("/api/acad/gradebook/mine", { code: c.code });
+      if (!r || !r.ok) continue;
+      const items = r.items || [];
+      const row = r.row;
+      if (summary) {
+        const pct = row && row.final_pct != null ? row.final_pct + "%" : "–";
+        summary.innerHTML += `<div class="acad-card" style="padding:12px 16px;min-width:140px;flex:1;"><div class="acad-priority-sub">${acEsc(c.name || c.code)}</div><div style="font-size:20px;font-weight:700;color:var(--text);">${pct}</div></div>`;
+      }
+      items.forEach((it) => {
+        const cell = (row && row.cells[it.id]) || {
+          display: "—",
+          state: "missing",
+        };
+        allRows.push({
+          cls: c.name || c.code,
+          title: it.title,
+          type: it.type,
+          display: cell.display,
+          state: cell.state,
+        });
+      });
+    } catch (e) {
+      /* skip a class we can't reach right now */
+    }
+  }
+  if (!allRows.length) return; // keep the template's empty state
+  body.innerHTML = allRows
+    .map((r) => {
+      const cls =
+        r.state === "graded"
+          ? "acad-tag--teal"
+          : r.state === "pending"
+            ? "acad-tag--orange"
+            : "acad-tag--red";
+      return `<tr><td>${acEsc(r.cls)}</td><td>${acEsc(r.title)}</td><td>${acEsc(r.type)}</td><td><span class="acad-tag ${cls}">${acEsc(String(r.display))}</span></td><td>${acEsc(r.state)}</td></tr>`;
+    })
+    .join("");
 }
 function sRenderPriorities() {
   const list = document.getElementById("sPriorityList");
