@@ -69,12 +69,13 @@ BANK_LIMIT    = 20   # max cached answers per topic bank
 # ── File storage paths ───────────────────────────────────────────
 # Set RAILWAY_VOLUME_MOUNT_PATH in Railway env vars for persistent storage
 _BASE       = Path(os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", "."))
-DATA_DIR    = _BASE / "data"
-UPLOADS_DIR = _BASE / "uploads"
-SHARES_DIR  = _BASE / "shares"
-LOG_DIR     = _BASE / "logs"
+DATA_DIR      = _BASE / "data"
+UPLOADS_DIR   = _BASE / "uploads"
+SHARES_DIR    = _BASE / "shares"
+LOG_DIR       = _BASE / "logs"
+MATERIALS_DIR = _BASE / "materials"  # Academic space: lecturer-posted class files
 
-for _d in [DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR]:
+for _d in [DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR, MATERIALS_DIR]:
     _d.mkdir(parents=True, exist_ok=True)
 
 # JSON data file paths

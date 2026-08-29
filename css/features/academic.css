@@ -1448,6 +1448,12 @@
   gap: 10px;
   padding: 14px 16px;
 }
+.acad-notes-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px;
+}
 .acad-assess-panel {
   display: block;
 }

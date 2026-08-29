@@ -29,19 +29,53 @@ item_id)) via db.coll_get/coll_put/coll_list/coll_delete, in the
 JSON-file fallback (Postgres-only, unlike Tasks/Habits/Goals).
 """
 
+import asyncio
 import datetime
 import hashlib
 import logging
+import mimetypes
 import random
 import re
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 
 import database as db
-from core import sanitize_text, _resolve_token
+from config import MATERIALS_DIR
+from core import (
+    sanitize_text, _resolve_token,
+    check_rate_limit, get_client_key, get_session_from_token, validate_sid,
+)
 
 log = logging.getLogger("sivarr")
+
+# ── Materials: lecturer-posted class files/doc references ────────────────
+# Real uploads live on MATERIALS_DIR (config.py) -- the same Railway
+# persistent-volume pattern DATA_DIR/UPLOADS_DIR already use, chosen instead
+# of standing up a new cloud storage provider (Hunter's call). A doc-type
+# material is a content SNAPSHOT of one of the lecturer's own Docs & Notes
+# entries at attach time, not a live share -- Docs are personal-space data
+# with no sharing/permission model of their own, and a stable "posted notes"
+# copy is simpler and sufficient here.
+_MATERIAL_MAGIC = {".pdf": b"%PDF"}
+_MATERIAL_TEXT_EXTS = {".txt", ".md"}
+_MATERIAL_ALLOWED_EXTS = {".pdf", ".md", ".txt"}
+MATERIAL_MAX_SIZE = 20 * 1024 * 1024  # 20MB -- lecture PDFs run bigger than quiz-upload text
+_MATERIAL_RATE_LIMIT = 10  # uploads per window, per acad_upload key
+
+
+def _validate_material_magic(content: bytes, ext: str) -> bool:
+    magic = _MATERIAL_MAGIC.get(ext)
+    if magic and not content.startswith(magic):
+        return False
+    if ext in _MATERIAL_TEXT_EXTS:
+        sample = content[:512]
+        if sample:
+            non_text = sum(1 for b in sample if b < 32 and b not in (9, 10, 13))
+            if non_text / len(sample) > 0.30:
+                return False
+    return True
 
 # Mirrors app.py's own MAX_NAME_LEN (a plain int=80 module constant shared
 # across many unrelated domains) -- not worth injecting for the 2 call sites
@@ -1022,6 +1056,133 @@ def build_router(send_push) -> APIRouter:
             poll["open"] = False
             db.coll_put("acad_polls", pid, poll, owner=code)
         return {"ok": True}
+
+
+    # ── Materials ──────────────────────────────────────────────────
+    @router.post("/api/acad/materials/list")
+    async def acad_materials_list(data: dict):
+        """Every material for a class -- owner or member."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_class_or_404(code)
+        if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join this class to view its materials.")
+        items = sorted(db.coll_list("acad_materials", owner=code),
+                       key=lambda m: m.get("posted_at", ""), reverse=True)
+        return {"ok": True, "materials": items}
+
+
+    @router.post("/api/acad/materials/add_doc")
+    async def acad_materials_add_doc(data: dict):
+        """Owner attaches a snapshot of one of their own Docs & Notes entries."""
+        sid, name = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        doc_id = sanitize_text(str(data.get("doc_id", "")), 40)
+        doc = next((d for d in db.get_docs(sid) if str(d.get("id", "")) == doc_id), None)
+        if not doc:
+            raise HTTPException(404, "Doc not found.")
+        m = {
+            "id": uuid.uuid4().hex[:10], "code": code, "type": "doc",
+            "title": sanitize_text(str(doc.get("title", "Untitled")), 200),
+            "content": sanitize_text(str(doc.get("content", "")), 20000),
+            "posted_by": name, "posted_at": datetime.datetime.utcnow().isoformat(),
+        }
+        db.coll_put("acad_materials", m["id"], m, owner=code)
+        log.info(f"Acad material (doc) posted: {m['title']} to {code} by {sid[:12]}")
+        return {"ok": True, "material": m}
+
+
+    @router.post("/api/acad/materials/upload")
+    async def acad_materials_upload(
+        request: Request, token: str = Form(""), code: str = Form(""),
+        file: UploadFile = File(...),
+    ):
+        """Owner uploads a real file (PDF/MD/TXT for now). Same security
+        discipline as app.py's /api/upload -- session-token auth, rate limit,
+        extension allowlist, size pre-check, magic-byte validation -- but
+        keeps the original bytes instead of discarding them for extracted
+        text, since a student needs to download this one back."""
+        sess = get_session_from_token(sanitize_text(token, 100))
+        if not sess:
+            raise HTTPException(401, "Sign in to upload files.")
+        sid = validate_sid(sess["sid"])
+        name = sess.get("name", "")
+        key = get_client_key(request, sid)
+        check_rate_limit(key, _MATERIAL_RATE_LIMIT, "acad_upload")
+
+        code = sanitize_text(code, 12).upper()
+        _acad_require_owner(code, sid)
+
+        ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+        if ext not in _MATERIAL_ALLOWED_EXTS:
+            raise HTTPException(400, "Use .pdf, .md, or .txt files only.")
+
+        clen = request.headers.get("content-length")
+        if clen and clen.isdigit() and int(clen) > MATERIAL_MAX_SIZE + 8192:
+            raise HTTPException(400, "File too large. Maximum size is 20MB.")
+
+        content = await file.read()
+        if len(content) > MATERIAL_MAX_SIZE:
+            raise HTTPException(400, "File too large. Maximum size is 20MB.")
+        if not _validate_material_magic(content, ext):
+            raise HTTPException(400, "File content does not match its extension.")
+
+        material_id = uuid.uuid4().hex[:10]
+        fpath = MATERIALS_DIR / f"{material_id}{ext}"
+        await asyncio.to_thread(fpath.write_bytes, content)
+
+        m = {
+            "id": material_id, "code": code, "type": "file",
+            "title": sanitize_text(file.filename, 200),
+            "filename": sanitize_text(file.filename, 200),
+            "ext": ext, "size": len(content),
+            "posted_by": name, "posted_at": datetime.datetime.utcnow().isoformat(),
+        }
+        db.coll_put("acad_materials", material_id, m, owner=code)
+        log.info(f"Acad material (file) uploaded: {file.filename} to {code} by {sid[:12]}")
+        return {"ok": True, "material": m}
+
+
+    @router.post("/api/acad/materials/delete")
+    async def acad_materials_delete(data: dict):
+        """Owner removes a material (and its file on disk, if any)."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        material_id = sanitize_text(str(data.get("id", "")), 20)
+        m = db.coll_get("acad_materials", material_id)
+        if m and m.get("type") == "file":
+            fpath = MATERIALS_DIR / f"{material_id}{m.get('ext', '')}"
+            try:
+                fpath.unlink(missing_ok=True)
+            except Exception as exc:
+                log.warning(f"Could not delete material file {fpath}: {exc}")
+        db.coll_delete("acad_materials", material_id)
+        return {"ok": True}
+
+
+    @router.get("/api/acad/materials/{material_id}/file")
+    async def acad_materials_file(material_id: str, token: str = "", code: str = ""):
+        """Stream a file-type material back -- owner or member. token/code as
+        query params (same style GET /api/docs/restore already uses) so this
+        works as a plain link, not just an authenticated fetch()."""
+        sess = get_session_from_token(sanitize_text(token, 100))
+        if not sess:
+            raise HTTPException(401, "Invalid session.")
+        sid = validate_sid(sess["sid"])
+        code = sanitize_text(code, 12).upper()
+        cls = _acad_class_or_404(code)
+        if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
+            raise HTTPException(403, "Join this class to view its materials.")
+        m = db.coll_get("acad_materials", sanitize_text(material_id, 20))
+        if not m or m.get("code") != code or m.get("type") != "file":
+            raise HTTPException(404, "Material not found.")
+        fpath = MATERIALS_DIR / f"{material_id}{m.get('ext', '')}"
+        if not fpath.exists():
+            raise HTTPException(404, "File not found.")
+        media_type = mimetypes.guess_type(m.get("filename", ""))[0] or "application/octet-stream"
+        return FileResponse(fpath, media_type=media_type, filename=m.get("filename", "download"))
 
 
     return router

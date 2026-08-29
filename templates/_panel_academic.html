@@ -235,6 +235,35 @@
         </div>
         <div class="acad-card" style="margin-top: 14px">
           <div class="acad-card-header">
+            <span class="acad-card-title">Materials</span>
+            <div style="display: flex; gap: 6px">
+              <button class="acad-btn-teal acad-btn-sm" data-onclick="lAttachDoc">
+                Attach a Doc</button
+              ><label class="acad-btn-ghost acad-btn-sm" style="cursor: pointer; margin: 0">
+                Upload a file
+                <input
+                  type="file"
+                  id="lMaterialFileInput"
+                  accept=".pdf,.md,.txt"
+                  style="display: none"
+                  onchange="lUploadMaterial(this)"
+                />
+              </label>
+            </div>
+          </div>
+          <div class="acad-card-body" id="lMaterialsList">
+            <div class="acad-empty-state">
+              <i
+                class="ti ti-folder"
+                style="font-size: 24px; opacity: 0.3"
+                aria-hidden="true"
+              ></i>
+              <div>No materials posted yet.</div>
+            </div>
+          </div>
+        </div>
+        <div class="acad-card" style="margin-top: 14px">
+          <div class="acad-card-header">
             <span class="acad-card-title">Recent Student Activity</span>
           </div>
           <div class="acad-card-body" id="lRecentActivity">
@@ -987,13 +1016,7 @@
         </div>
         <div class="acad-card" style="margin-top: 14px">
           <div class="acad-card-header">
-            <span class="acad-card-title">Lecture Notes Archive</span
-            ><button
-              class="acad-btn-ghost acad-btn-sm"
-              data-onclick="sUploadNotes"
-            >
-              <i class="ti ti-upload" aria-hidden="true"></i> Upload Notes
-            </button>
+            <span class="acad-card-title">Lecture Notes Archive</span>
           </div>
           <div class="acad-notes-grid" id="sNotesGrid">
             <div class="acad-empty-state">
@@ -1002,7 +1025,7 @@
                 style="font-size: 24px; opacity: 0.3"
                 aria-hidden="true"
               ></i>
-              <div>No notes uploaded yet</div>
+              <div>No materials posted yet</div>
             </div>
           </div>
         </div>

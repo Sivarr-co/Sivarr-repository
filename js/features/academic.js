@@ -175,6 +175,99 @@ function _lLoadActiveClass(code) {
   lLoadAnnouncements();
   lLoadLive();
   lLoadPolls();
+  lLoadMaterials();
+}
+
+// ── Materials: attach a Doc, or upload a real file ──────────────
+async function lLoadMaterials() {
+  const d = adData();
+  const list = document.getElementById("lMaterialsList");
+  if (!d.classCode || !list) return;
+  try {
+    const r = await acadAPI("/api/acad/materials/list", { code: d.classCode });
+    const items = (r && r.materials) || [];
+    list.innerHTML = items.length
+      ? items
+          .map((m) => {
+            const icon = m.type === "doc" ? "ti-file-text" : "ti-file";
+            const meta =
+              m.type === "doc"
+                ? "Doc"
+                : `${(m.filename || "").split(".").pop().toUpperCase()} · ${Math.round((m.size || 0) / 1024)} KB`;
+            return `<div class="acad-priority-item"><div class="acad-priority-meta"><i class="ti ${icon}" style="margin-right:6px;color:var(--acad-accent);" aria-hidden="true"></i><div class="acad-priority-title" style="display:inline;">${acEsc(m.title)}</div><div class="acad-priority-sub">${meta} · posted ${acEsc((m.posted_at || "").slice(0, 10))}</div></div><button class="acad-action-btn acad-action-btn--red" data-onclick="lDeleteMaterial" data-onclick-arg0="${acEsc(m.id)}">Delete</button></div>`;
+          })
+          .join("")
+      : `<div class="acad-empty-state"><i class="ti ti-folder" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No materials posted yet.</div></div>`;
+  } catch (e) {
+    /* offline / not owner */
+  }
+}
+async function lAttachDoc() {
+  const d = adData();
+  if (!d.classCode) {
+    acToast("Publish or select a class first.");
+    return;
+  }
+  let docs = [];
+  try {
+    // GET, not POST -- /api/docs/restore takes ?token= as a query param.
+    const res = await fetch(`/api/docs/restore?token=${encodeURIComponent(getToken())}`);
+    if (!res.ok) throw new Error("failed");
+    const r = await res.json();
+    docs = ((r && r.docs) || []).filter((doc) => !doc.deleted_at);
+  } catch (e) {
+    acToast("Could not load your docs.");
+    return;
+  }
+  if (!docs.length) {
+    acToast("You don't have any docs yet — create one in Docs & Notes first.");
+    return;
+  }
+  const f = await siModal.form("Attach a Doc", [
+    {
+      id: "doc_id",
+      label: "Doc",
+      type: "select",
+      options: docs.map((doc) => ({ value: doc.id, label: doc.title || "Untitled" })),
+    },
+  ]);
+  if (!f || !f.doc_id) return;
+  try {
+    await acadAPI("/api/acad/materials/add_doc", { code: d.classCode, doc_id: f.doc_id });
+    acToast("Doc attached");
+    lLoadMaterials();
+  } catch (e) {
+    acToast((e && e.message) || "Could not attach doc");
+  }
+}
+async function lUploadMaterial(inputEl) {
+  const d = adData();
+  const file = inputEl.files && inputEl.files[0];
+  inputEl.value = "";
+  if (!file || !d.classCode) return;
+  const form = new FormData();
+  form.append("token", getToken());
+  form.append("code", d.classCode);
+  form.append("file", file);
+  try {
+    const r = await fetch("/api/acad/materials/upload", { method: "POST", body: form });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || "Upload failed");
+    acToast("File uploaded");
+    lLoadMaterials();
+  } catch (e) {
+    acToast((e && e.message) || "Upload failed");
+  }
+}
+async function lDeleteMaterial(id) {
+  const d = adData();
+  if (!d.classCode) return;
+  try {
+    await acadAPI("/api/acad/materials/delete", { code: d.classCode, id });
+    lLoadMaterials();
+  } catch (e) {
+    acToast((e && e.message) || "Could not delete material");
+  }
 }
 function lRenderMetrics() {
   const set = (id, v) => {
@@ -1040,7 +1133,10 @@ function sSwitchTab(tabId) {
     ac.style.display = "block";
   }
   if (tabId === "s-grades") sLoadMyGrades();
-  if (tabId === "s-vault") sRenderModules();
+  if (tabId === "s-vault") {
+    sRenderModules();
+    sLoadMaterials();
+  }
   if (tabId === "s-sprint") sRenderKanban();
   if (tabId === "s-research") sRenderCitations();
   if (tabId === "s-groups") sRenderGroups();
@@ -1098,6 +1194,47 @@ async function sLoadMyGrades() {
       return `<tr><td>${acEsc(r.cls)}</td><td>${acEsc(r.title)}</td><td>${acEsc(r.type)}</td><td><span class="acad-tag ${cls}">${acEsc(String(r.display))}</span></td><td>${acEsc(r.state)}</td></tr>`;
     })
     .join("");
+}
+let _sMaterials = {}; // id -> material, for the Preview modal below
+async function sLoadMaterials() {
+  const list = adData().joinedClasses || [];
+  const grid = document.getElementById("sNotesGrid");
+  if (!grid || !list.length) return; // keep the template's empty state
+  let allItems = [];
+  for (const c of list) {
+    try {
+      const r = await acadAPI("/api/acad/materials/list", { code: c.code });
+      ((r && r.materials) || []).forEach((m) =>
+        allItems.push(Object.assign({}, m, { _cls: c.name || c.code, _code: c.code })),
+      );
+    } catch (e) {
+      /* skip a class we can't reach right now */
+    }
+  }
+  if (!allItems.length) return; // keep the template's empty state
+  allItems.forEach((m) => (_sMaterials[m.id] = m));
+  grid.innerHTML = allItems
+    .map((m) => {
+      const icon = m.type === "doc" ? "ti-file-text" : "ti-file";
+      const meta =
+        m.type === "doc"
+          ? m._cls
+          : `${m._cls} · ${Math.round((m.size || 0) / 1024)} KB`;
+      const action =
+        m.type === "doc"
+          ? `<button class="acad-btn-ghost acad-btn-sm" data-onclick="sPreviewMaterial" data-onclick-arg0="${acEsc(m.id)}">Preview</button>`
+          : `<a class="acad-btn-ghost acad-btn-sm" href="/api/acad/materials/${acEsc(m.id)}/file?token=${encodeURIComponent(getToken())}&code=${acEsc(m._code)}" target="_blank" rel="noopener">Download</a>`;
+      return `<div class="acad-notes-card"><i class="ti ${icon}" style="font-size:20px;color:var(--acad-accent);" aria-hidden="true"></i><div class="acad-priority-title" style="margin-top:6px;">${acEsc(m.title)}</div><div class="acad-priority-sub">${acEsc(meta)}</div><div style="margin-top:8px;">${action}</div></div>`;
+    })
+    .join("");
+}
+function sPreviewMaterial(id) {
+  const m = _sMaterials[id];
+  if (!m) return;
+  siModal.confirm(
+    `<div style="white-space:pre-wrap;text-align:left;max-height:50vh;overflow:auto;">${acEsc(m.content || "")}</div>`,
+    { title: m.title || "Preview", confirmLabel: "Close" },
+  );
 }
 function sRenderPriorities() {
   const list = document.getElementById("sPriorityList");
@@ -1214,9 +1351,6 @@ function sFilterModules(v) {
 }
 function sOpenModule() {
   acToast("Module detail coming soon");
-}
-function sUploadNotes() {
-  acToast("File upload coming soon");
 }
 async function sAddModule() {
   const f = await siModal.form("Add module", [
