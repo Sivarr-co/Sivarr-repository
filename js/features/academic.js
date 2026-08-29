@@ -209,7 +209,7 @@ function lSwitchTab(tabId) {
   }
   if (tabId === "l-courses") lRenderCourses();
   if (tabId === "l-students") lRenderStudents();
-  if (tabId === "l-analytics") lRenderAnalytics();
+  if (tabId === "l-analytics") lLoadClassStats();
   if (tabId === "l-assessments") {
     lAssessSegment(_lAssessSeg);
     lRenderAssessLists();
@@ -303,28 +303,69 @@ function lFilterByCourse(v) {
 }
 function lRenderAnalytics() {
   const chart = document.getElementById("lDistributionChart");
-  if (!chart) return;
-  const withScores = lData.students.filter((s) => s.avg_score != null);
-  if (!withScores.length) return;
-  const buckets = [0, 0, 0, 0, 0];
-  withScores.forEach((s) => {
-    buckets[Math.min(Math.floor(s.avg_score / 20), 4)]++;
-  });
-  const max = Math.max(...buckets, 1);
-  const labels = ["0-20%", "21-40%", "41-60%", "61-80%", "81-100%"];
-  chart.innerHTML = `<div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding:0 8px;">
-    ${buckets
-      .map(
-        (
-          b,
-          i,
-        ) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
-      <div style="font-size:10px;color:var(--text4);">${b}</div>
-      <div style="width:100%;background:var(--acad-accent);opacity:${0.4 + 0.6 * (b / max)};border-radius:4px 4px 0 0;height:${Math.max(4, Math.round((b / max) * 90))}px;"></div>
-      <div style="font-size:9.5px;color:var(--text4);">${labels[i]}</div></div>`,
-      )
-      .join("")}
-  </div>`;
+  if (chart) {
+    const buckets = (_lClassStats && _lClassStats.score_buckets) || [
+      0, 0, 0, 0, 0,
+    ];
+    if (!buckets.some((b) => b > 0)) {
+      chart.innerHTML = `<div class="acad-empty-state" style="padding:32px 0"><i class="ti ti-chart-bar" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No score data yet</div></div>`;
+    } else {
+      const max = Math.max(...buckets, 1);
+      const labels = ["0-20%", "21-40%", "41-60%", "61-80%", "81-100%"];
+      chart.innerHTML = `<div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding:0 8px;">
+        ${buckets
+          .map(
+            (
+              b,
+              i,
+            ) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <div style="font-size:10px;color:var(--text4);">${b}</div>
+          <div style="width:100%;background:var(--acad-accent);opacity:${0.4 + 0.6 * (b / max)};border-radius:4px 4px 0 0;height:${Math.max(4, Math.round((b / max) * 90))}px;"></div>
+          <div style="font-size:9.5px;color:var(--text4);">${labels[i]}</div></div>`,
+          )
+          .join("")}
+      </div>`;
+    }
+  }
+
+  const attChart = document.getElementById("lAttendanceChart");
+  if (attChart) {
+    const weekly = (_lClassStats && _lClassStats.attendance_weekly) || [];
+    if (!weekly.length) {
+      attChart.innerHTML = `<div class="acad-empty-state" style="padding:32px 0"><i class="ti ti-calendar-stats" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No attendance data yet</div></div>`;
+    } else {
+      const max = Math.max(...weekly.map((w) => w.pct), 1);
+      attChart.innerHTML = `<div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding:0 8px;">
+        ${weekly
+          .map((w) => {
+            const label = w.week.includes("-W")
+              ? "Wk " + parseInt(w.week.split("-W")[1], 10)
+              : w.week;
+            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <div style="font-size:10px;color:var(--text4);">${w.pct}%</div>
+          <div style="width:100%;background:var(--acad-accent);opacity:${0.4 + 0.6 * (w.pct / max)};border-radius:4px 4px 0 0;height:${Math.max(4, Math.round((w.pct / max) * 90))}px;"></div>
+          <div style="font-size:9.5px;color:var(--text4);">${acEsc(label)}</div></div>`;
+          })
+          .join("")}
+      </div>`;
+    }
+  }
+
+  const arCount = document.getElementById("lAtRiskCount");
+  const arList = document.getElementById("lAtRiskList");
+  const atRisk = (_lClassStats && _lClassStats.at_risk) || [];
+  if (arCount)
+    arCount.textContent = `${atRisk.length} flagged`;
+  if (arList) {
+    arList.innerHTML = atRisk.length
+      ? atRisk
+          .map(
+            (s) =>
+              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(s.name)}</div><div class="acad-priority-sub">${s.attendance_pct}% attendance${s.missing_items ? " · " + s.missing_items + " missing item" + (s.missing_items > 1 ? "s" : "") : ""}</div></div><span class="acad-tag acad-tag--red">At risk</span></div>`,
+          )
+          .join("")
+      : `<div class="acad-empty-state"><i class="ti ti-shield-check" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No at-risk students identified</div></div>`;
+  }
 }
 let _lAssessSeg = "quizzes";
 function lAssessSegment(seg) {
@@ -759,7 +800,12 @@ async function lCreateAssessment() {
   lRenderAssessLists();
   acToast("Assignment created");
 }
-function lLoadDistribution() {
+function lLoadDistribution(courseFilter) {
+  // Filtering by course becomes meaningful once a lecturer can run more than
+  // one class -- for now there's only ever one, so this just stops the
+  // dropdown from silently dropping its own value. Wire the real filter in
+  // once multi-class ships.
+  void courseFilter;
   lRenderAnalytics();
 }
 
@@ -1659,7 +1705,37 @@ async function lLoadRoster() {
       lData.students = manual.concat(joined);
       lRenderMetrics();
       lRenderStudents();
+      lLoadClassStats(); // fills in real attendance %/avg score, then re-renders
     }
+  } catch (e) {
+    /* offline / not owner */
+  }
+}
+
+// Real per-student attendance % + grade average (POST /api/acad/class/stats),
+// plus the class-level score distribution / at-risk list Analytics needs.
+// Joined members start with placeholder attendance:0/avg_score:null (set
+// above) since the roster call alone doesn't carry either -- this fills
+// them in for real. Kept as one merged fetch rather than baking the stats
+// into the roster endpoint itself, since Analytics needs the class-level
+// aggregates (buckets/at-risk/weekly trend) too, not just per-student rows.
+let _lClassStats = null;
+async function lLoadClassStats() {
+  const d = adData();
+  if (!d.classCode) return;
+  try {
+    const r = await acadAPI("/api/acad/class/stats", { code: d.classCode });
+    if (!r || !r.ok) return;
+    _lClassStats = r;
+    lData.students = lData.students.map((s) => {
+      const st = r.students[s.sid];
+      return st
+        ? { ...s, attendance: st.attendance_pct, avg_score: st.avg_score }
+        : s;
+    });
+    lRenderMetrics();
+    lRenderStudents();
+    lRenderAnalytics();
   } catch (e) {
     /* offline / not owner */
   }

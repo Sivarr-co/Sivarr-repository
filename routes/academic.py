@@ -33,6 +33,7 @@ import datetime
 import hashlib
 import logging
 import random
+import re
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
@@ -156,6 +157,118 @@ def _acad_poll_tally(poll: dict) -> dict:
             counts[i] += 1
     return {"id": poll["id"], "question": poll["question"], "options": poll["options"],
             "counts": counts, "total": len(votes), "open": poll.get("open", True)}
+
+
+# ── Class stats: real per-student grade average + attendance % ──────
+#  Grades are free text today (a lecturer can type "18/20", "92%", or "B+"),
+#  so averaging them into a distribution chart needs a best-effort parse --
+#  anything that doesn't look numeric is simply excluded from the average
+#  rather than guessed at. Reuses the exact collections acad_grade/
+#  acad_exam_grade/acad_att_register already read one item at a time; this
+#  just aggregates them for the Students tab and Analytics.
+
+_GRADE_FRACTION_RE = re.compile(r"^(\d+(?:\.\d+)?)\s*/\s*(\d+(?:\.\d+)?)$")
+_GRADE_PERCENT_RE  = re.compile(r"^(\d+(?:\.\d+)?)\s*%$")
+_GRADE_PLAIN_RE    = re.compile(r"^(\d+(?:\.\d+)?)$")
+
+
+def _parse_grade_pct(grade: str) -> float | None:
+    """'18/20' -> 90.0 · '92%' -> 92.0 · '85' -> 85.0 · 'B+' -> None (not
+    guessed, just excluded from the numeric average)."""
+    g = str(grade or "").strip()
+    if not g:
+        return None
+    m = _GRADE_FRACTION_RE.match(g)
+    if m:
+        num, den = float(m.group(1)), float(m.group(2))
+        return round(100 * num / den, 1) if den else None
+    m = _GRADE_PERCENT_RE.match(g)
+    if m:
+        return round(float(m.group(1)), 1)
+    m = _GRADE_PLAIN_RE.match(g)
+    if m:
+        val = float(m.group(1))
+        return round(val, 1) if 0 <= val <= 100 else None
+    return None
+
+
+def _acad_attendance_pcts(code: str, members: list) -> tuple:
+    """sid -> {present, total, pct} for every current member, across all
+    ended sessions. Shared by acad_att_register and acad_class_stats so the
+    two never drift apart on what "attendance %" means."""
+    sessions = [s for s in db.coll_list("acad_att_sessions", owner=code) if not s.get("open")]
+    total = len(sessions)
+    present: dict = {}
+    for s in sessions:
+        for r in db.coll_list("acad_att_records", owner=s["session_id"]):
+            present[r["sid"]] = present.get(r["sid"], 0) + 1
+    out = {}
+    for m in members:
+        cnt = present.get(m["sid"], 0)
+        out[m["sid"]] = {"present": cnt, "total": total,
+                          "pct": round(cnt / total * 100) if total else 0}
+    return out, total
+
+
+def _acad_attendance_weekly(code: str, member_count: int) -> list:
+    """Weekly attendance % trend across ended sessions, oldest first --
+    each session's own present/member-count %, averaged per ISO week."""
+    sessions = [s for s in db.coll_list("acad_att_sessions", owner=code)
+                if not s.get("open") and s.get("ended")]
+    weekly: dict = {}
+    for s in sessions:
+        try:
+            dt = datetime.datetime.fromisoformat(s["ended"])
+        except Exception:
+            continue
+        wk = dt.strftime("%G-W%V")
+        present_count = len(db.coll_list("acad_att_records", owner=s["session_id"]))
+        pct = round(present_count / member_count * 100) if member_count else 0
+        weekly.setdefault(wk, []).append(pct)
+    return [{"week": wk, "pct": round(sum(v) / len(v))} for wk, v in sorted(weekly.items())]
+
+
+def _acad_class_grade_stats(code: str) -> tuple:
+    """sid -> {avg_score, scored_count} across assignments + exams, plus the
+    total gradable-item count for the class (used to compute "missing").
+    An exam counts as scored if it has EITHER a parseable manual grade OR an
+    auto_pct (an all-MCQ exam is a real score the moment it's submitted, even
+    before a lecturer marks it "graded") -- an assignment only counts once
+    manually graded, since assignments have no auto-grading path."""
+    per_student: dict = {}
+
+    def _record(sid: str, pct):
+        row = per_student.setdefault(sid, {"pcts": [], "scored": 0})
+        row["scored"] += 1
+        if pct is not None:
+            row["pcts"].append(pct)
+
+    assignments = db.coll_list("acad_assignments", owner=code)
+    for a in assignments:
+        for sub in db.coll_list("acad_submissions", owner=a["id"]):
+            if not sub.get("graded"):
+                continue
+            _record(sub.get("sid", ""), _parse_grade_pct(sub.get("grade", "")))
+
+    class_exams = db.coll_list("acad_class_exams", owner=code)
+    for ce in class_exams:
+        for r in db.coll_list("acad_exam_results", owner=f"{code}:{ce['exam_id']}"):
+            manual_pct = _parse_grade_pct(r.get("grade", "")) if r.get("graded") else None
+            auto_pct = (r.get("auto") or {}).get("auto_pct")
+            pct = manual_pct if manual_pct is not None else (float(auto_pct) if auto_pct is not None else None)
+            if pct is None and not r.get("graded"):
+                continue  # no usable score yet
+            _record(r.get("sid", ""), pct)
+
+    total_items = len(assignments) + len(class_exams)
+    out = {
+        sid: {
+            "avg_score": round(sum(row["pcts"]) / len(row["pcts"]), 1) if row["pcts"] else None,
+            "scored_count": row["scored"],
+        }
+        for sid, row in per_student.items()
+    }
+    return out, total_items
 
 
 
@@ -335,16 +448,52 @@ def build_router(send_push) -> APIRouter:
         sid, _ = _resolve_token(data)
         code = sanitize_text(str(data.get("code", "")), 12).upper()
         _acad_require_owner(code, sid)
-        sessions = [s for s in db.coll_list("acad_att_sessions", owner=code) if not s.get("open")]
-        total = len(sessions)
-        present: dict = {}
-        for s in sessions:
-            for r in db.coll_list("acad_att_records", owner=s["session_id"]):
-                present[r["sid"]] = present.get(r["sid"], 0) + 1
-        rows = [{"sid": m["sid"], "name": m["name"], "present": present.get(m["sid"], 0),
-                 "total": total, "pct": round(present.get(m["sid"], 0) / total * 100) if total else 0}
-                for m in db.coll_list("acad_members", owner=code)]
+        members = db.coll_list("acad_members", owner=code)
+        att, total = _acad_attendance_pcts(code, members)
+        rows = [{"sid": m["sid"], "name": m["name"], **att[m["sid"]]} for m in members]
         return {"ok": True, "sessions": total, "rows": rows}
+
+
+    @router.post("/api/acad/class/stats")
+    async def acad_class_stats(data: dict):
+        """Owner-only: real per-student attendance % + grade average, plus a
+        class-level score distribution and at-risk list. Read-only aggregation
+        over the same collections /attendance/register, /submissions, and
+        /exam/results already expose one item at a time -- built so the
+        Students tab and Analytics can show real numbers instead of the
+        placeholders they previously carried."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+
+        members = db.coll_list("acad_members", owner=code)
+        att, att_sessions = _acad_attendance_pcts(code, members)
+        grades, total_items = _acad_class_grade_stats(code)
+        weekly = _acad_attendance_weekly(code, len(members))
+
+        buckets = [0, 0, 0, 0, 0]
+        at_risk = []
+        students = {}
+        for m in members:
+            msid = m["sid"]
+            a = att[msid]
+            g = grades.get(msid, {"avg_score": None, "scored_count": 0})
+            students[msid] = {
+                "attendance_pct": a["pct"],
+                "avg_score":      g["avg_score"],
+                "scored_count":   g["scored_count"],
+                "total_count":    total_items,
+            }
+            if g["avg_score"] is not None:
+                buckets[min(int(g["avg_score"] // 20), 4)] += 1
+            missing = max(0, total_items - g["scored_count"])
+            if a["pct"] < 70 or missing >= 2:
+                at_risk.append({"sid": msid, "name": m.get("name", ""),
+                                 "attendance_pct": a["pct"], "missing_items": missing})
+
+        return {"ok": True, "students": students, "score_buckets": buckets,
+                "at_risk": at_risk, "attendance_sessions": att_sessions,
+                "attendance_weekly": weekly}
 
 
     @router.post("/api/acad/attendance/mine")
