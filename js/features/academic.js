@@ -2436,7 +2436,11 @@ async function sSubmitAssignment(code, aid) {
 
 /* ── Student exams: list assigned exams, take (timed), submit ── */
 let _sxTimer = null,
-  _sxCtx = null;
+  _sxCtx = null,
+  _sxAnswers = {}, // question index -> answer string -- the source of truth,
+  // the DOM only ever shows one question at a time so it can't be re-scanned
+  // at submit time the way a single long scrollable list could be
+  _sxCurrentQ = 0; // position into _sxCtx.questions currently on screen
 async function sLoadExams() {
   const list = adData().joinedClasses || [];
   const body = document.getElementById("sExamsBody");
@@ -2478,37 +2482,46 @@ async function sTakeExam(code, examId) {
   if (!r || !r.exam) return;
   sExamRenderTaker(code, r.exam, r.submission);
 }
+// Draft answers persist locally so "Save & Exit" is genuinely resumable --
+// there's no per-question autosave on the server, this is intentionally
+// local-only (see the Phase 5 plan).
+function _sxDraftKey(code, examId) {
+  return `sx_draft_${S.sid || ""}_${code}_${examId}`;
+}
+function _sxSaveDraft() {
+  if (!_sxCtx) return;
+  try {
+    localStorage.setItem(
+      _sxDraftKey(_sxCtx.code, _sxCtx.examId),
+      JSON.stringify(_sxAnswers),
+    );
+  } catch (e) {}
+}
+function _sxClearDraft(code, examId) {
+  try {
+    localStorage.removeItem(_sxDraftKey(code, examId));
+  } catch (e) {}
+}
+
 function sExamRenderTaker(code, exam, submission) {
   sExamCloseTaker();
   const graded = !!(submission && submission.graded);
   _sxCtx = { code, examId: exam.id, questions: exam.questions || [] };
-  const prior = {};
+  _sxCurrentQ = 0;
+  _sxAnswers = {};
   if (submission && submission.answers)
     submission.answers.forEach((a) => {
-      prior[a.i] = a.a;
+      _sxAnswers[a.i] = a.a;
     });
-  const qHtml = (exam.questions || [])
-    .map((q, n) => {
-      let input;
-      if (q.type === "mcq" && Array.isArray(q.options) && q.options.length) {
-        input =
-          `<div class="sx-opts">` +
-          q.options
-            .map(
-              (opt) =>
-                `<label class="sx-opt"><input type="radio" name="sxq-${q.i}" value="${acEsc(opt)}" ${prior[q.i] === opt ? "checked" : ""} ${graded ? "disabled" : ""}/><span>${acEsc(opt)}</span></label>`,
-            )
-            .join("") +
-          `</div>`;
-      } else {
-        input = `<textarea class="sx-ans" data-i="${q.i}" ${graded ? "readonly" : ""} placeholder="Type your answer…">${acEsc(prior[q.i] || "")}</textarea>`;
-      }
-      return `<div class="sx-q" data-qi="${q.i}" data-qtype="${q.type || "text"}">
-      <div class="sx-qn">Q${n + 1}. ${acEsc(q.q)}${q.type === "mcq" ? '<span class="sx-qtag">MCQ</span>' : ""}</div>
-      ${input}
-    </div>`;
-    })
-    .join("");
+  if (!graded) {
+    try {
+      const draft = JSON.parse(
+        localStorage.getItem(_sxDraftKey(code, exam.id)) || "null",
+      );
+      if (draft) Object.assign(_sxAnswers, draft);
+    } catch (e) {}
+  }
+
   const banner = graded
     ? `<div class="sx-graded">Graded: <strong>${acEsc(submission.grade || "–")}</strong>${submission.feedback ? " (" + acEsc(submission.feedback) + ")" : ""}</div>`
     : submission
@@ -2516,17 +2529,45 @@ function sExamRenderTaker(code, exam, submission) {
       : "";
   const foot = graded
     ? `<button class="acad-action-btn acad-action-btn--teal" onclick="sExamCloseTaker()">Close</button>`
-    : `<button class="acad-action-btn acad-action-btn--red" onclick="sExamCloseTaker()">Cancel</button><button class="acad-action-btn acad-action-btn--teal" onclick="sSubmitExam('${code}','${exam.id}',false)">${submission ? "Resubmit" : "Submit exam"}</button>`;
+    : `<button class="acad-action-btn acad-action-btn--red" data-onclick="sExamCancel">Cancel</button><button class="acad-action-btn acad-action-btn--teal" data-onclick="sSubmitExam" data-onclick-arg0="${code}" data-onclick-arg1="${exam.id}">${submission ? "Resubmit" : "Submit exam"}</button>`;
+
   const ov = document.createElement("div");
   ov.className = "sx-overlay";
   ov.id = "sxOverlay";
-  ov.innerHTML = `<div class="sx-modal">
-    <div class="sx-head"><div class="sx-title">${acEsc(exam.title)}</div>${graded ? "" : '<div class="sx-timer" id="sxTimer"></div>'}<button class="sx-x" onclick="sExamCloseTaker()" aria-label="Close">✕</button></div>
+  ov.innerHTML = `<div class="sx-modal sx-modal--wide">
+    <div class="sx-head">
+      <div style="flex:1">
+        <div class="sx-title">${acEsc(exam.title)}</div>
+        <div class="sx-subtitle" id="sxSubtitle"></div>
+      </div>
+      ${graded ? "" : '<div class="sx-timer" id="sxTimer"></div>'}
+      ${graded ? "" : '<button class="sx-savebtn" data-onclick="sExamSaveExit">Save &amp; Exit</button>'}
+      <button class="sx-x" onclick="sExamCloseTaker()" aria-label="Close">✕</button>
+    </div>
     ${banner}
-    <div class="sx-body">${qHtml || '<div class="acad-priority-sub">This exam has no questions.</div>'}</div>
+    <div class="sx-layout">
+      <div class="sx-navgrid" id="sxNavGrid"></div>
+      <div class="sx-qpanel" id="sxQPanel"></div>
+      ${
+        graded
+          ? ""
+          : `<div class="sx-info-panel">
+        <div class="sx-info-box sx-info-box--warn">
+          <div class="sx-info-title">Auto-submits at 0:00</div>
+          <div class="sx-info-body">Answers stay hidden until you submit. Your question set is different from your classmates' — same set if you reload.</div>
+        </div>
+        <div class="sx-info-box">
+          <div class="sx-info-title">Grading</div>
+          <div class="sx-info-body">Multiple-choice grades instantly on submit. Free-response questions are reviewed by your instructor.</div>
+        </div>
+      </div>`
+      }
+    </div>
     <div class="sx-foot">${foot}</div>
   </div>`;
   document.body.appendChild(ov);
+  _sxRenderQuestionPanel(graded);
+
   if (!graded && exam.duration) {
     const deadline = Date.now() + exam.duration * 60 * 1000;
     const tick = () => {
@@ -2547,6 +2588,95 @@ function sExamRenderTaker(code, exam, submission) {
     _sxTimer = setInterval(tick, 1000);
   }
 }
+
+// Re-renders the navigator grid + the single current question -- called on
+// open and every time the student navigates, without rebuilding the modal.
+function _sxRenderQuestionPanel(graded) {
+  if (!_sxCtx) return;
+  const qs = _sxCtx.questions;
+  const total = qs.length;
+  const sub = document.getElementById("sxSubtitle");
+  if (sub) sub.textContent = total ? `Question ${_sxCurrentQ + 1} of ${total}` : "";
+
+  const nav = document.getElementById("sxNavGrid");
+  if (nav) {
+    nav.innerHTML = qs
+      .map((q, n) => {
+        const answered = String(_sxAnswers[q.i] || "").trim().length > 0;
+        const cls =
+          n === _sxCurrentQ
+            ? "sx-navbtn--current"
+            : answered
+              ? "sx-navbtn--answered"
+              : "";
+        return `<button type="button" class="sx-navbtn ${cls}" data-onclick="sExamGoTo" data-onclick-arg0="${n}">${n + 1}</button>`;
+      })
+      .join("");
+  }
+
+  const panel = document.getElementById("sxQPanel");
+  if (!panel) return;
+  if (!total) {
+    panel.innerHTML = `<div class="acad-priority-sub">This exam has no questions.</div>`;
+    return;
+  }
+  const q = qs[_sxCurrentQ];
+  const val = _sxAnswers[q.i] || "";
+  let input;
+  if (q.type === "mcq" && Array.isArray(q.options) && q.options.length) {
+    input =
+      `<div class="sx-opts">` +
+      q.options
+        .map(
+          (opt) =>
+            `<label class="sx-opt"><input type="radio" name="sxq-${q.i}" value="${acEsc(opt)}" ${val === opt ? "checked" : ""} ${graded ? "disabled" : ""} onchange="_sxCaptureAnswer(${q.i}, this.value)"/><span>${acEsc(opt)}</span></label>`,
+        )
+        .join("") +
+      `</div>`;
+  } else {
+    input = `<textarea class="sx-ans" ${graded ? "readonly" : ""} placeholder="Type your answer…" oninput="_sxCaptureAnswer(${q.i}, this.value)">${acEsc(val)}</textarea>`;
+  }
+  panel.innerHTML = `
+    <div class="sx-qn">${q.type === "mcq" ? '<span class="sx-qtag">Multiple choice</span>' : '<span class="sx-qtag">Free response</span>'}</div>
+    <div class="sx-qtext">${acEsc(q.q)}</div>
+    ${input}
+    <div class="sx-qfoot">
+      <button class="acad-btn-ghost acad-btn-sm" data-onclick="sExamNav" data-onclick-arg0="-1" ${_sxCurrentQ === 0 ? "disabled" : ""}>Previous</button>
+      <button class="acad-btn-teal acad-btn-sm" data-onclick="sExamNav" data-onclick-arg0="1" ${_sxCurrentQ === total - 1 ? "disabled" : ""}>Next</button>
+    </div>`;
+}
+function _sxCaptureAnswer(i, value) {
+  _sxAnswers[i] = value;
+  _sxSaveDraft();
+  // Only the navigator's answered/unanswered coloring needs to refresh --
+  // re-rendering the whole question panel here would steal input focus.
+  const nav = document.getElementById("sxNavGrid");
+  if (nav && _sxCtx) {
+    const n = _sxCtx.questions.findIndex((q) => q.i === i);
+    const btn = nav.children[n];
+    if (btn && n !== _sxCurrentQ) {
+      const answered = String(value || "").trim().length > 0;
+      btn.className = "sx-navbtn" + (answered ? " sx-navbtn--answered" : "");
+    }
+  }
+}
+function sExamGoTo(idx) {
+  if (!_sxCtx) return;
+  _sxCurrentQ = Math.max(0, Math.min(_sxCtx.questions.length - 1, +idx));
+  _sxRenderQuestionPanel(false);
+}
+function sExamNav(delta) {
+  sExamGoTo(_sxCurrentQ + +delta);
+}
+function sExamSaveExit() {
+  _sxSaveDraft();
+  acToast("Saved — resume anytime before it's due.");
+  sExamCloseTaker();
+}
+function sExamCancel() {
+  if (_sxCtx) _sxClearDraft(_sxCtx.code, _sxCtx.examId);
+  sExamCloseTaker();
+}
 function sExamCloseTaker() {
   if (_sxTimer) {
     clearInterval(_sxTimer);
@@ -2554,26 +2684,15 @@ function sExamCloseTaker() {
   }
   const ov = document.getElementById("sxOverlay");
   if (ov) ov.remove();
+  _sxCtx = null;
 }
 async function sSubmitExam(code, examId, auto) {
-  const ov = document.getElementById("sxOverlay");
-  if (!ov || !_sxCtx) return;
-  const qmap = {};
-  _sxCtx.questions.forEach((q) => {
-    qmap[q.i] = q.q;
-  });
-  const answers = [...ov.querySelectorAll(".sx-q")].map((qel) => {
-    const i = +qel.dataset.qi;
-    let a = "";
-    if (qel.dataset.qtype === "mcq") {
-      const sel = qel.querySelector("input[type=radio]:checked");
-      a = sel ? sel.value : "";
-    } else {
-      const ta = qel.querySelector(".sx-ans");
-      a = ta ? ta.value : "";
-    }
-    return { i, q: qmap[i] || "", a };
-  });
+  if (!_sxCtx) return;
+  const answers = _sxCtx.questions.map((q) => ({
+    i: q.i,
+    q: q.q,
+    a: _sxAnswers[q.i] || "",
+  }));
   if (!auto && !answers.some((a) => a.a.trim())) {
     acToast("Answer at least one question first");
     return;
@@ -2586,6 +2705,7 @@ async function sSubmitExam(code, examId, auto) {
     });
     const ap = r && r.auto && r.auto.auto_pct;
     acToast(ap != null ? `Submitted · auto-score ${ap}%` : "Exam submitted");
+    _sxClearDraft(code, examId);
     sExamCloseTaker();
     sLoadExams();
   } catch (e) {

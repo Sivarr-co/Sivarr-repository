@@ -1523,6 +1523,119 @@
   font-size: 12px;
   color: var(--text-primary);
 }
+
+/* ── Exam taker (Phase 5 reskin): navigator grid + one question + info panel ── */
+.sx-modal--wide {
+  max-width: 1040px;
+}
+.sx-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.sx-savebtn {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sx-savebtn:hover {
+  border-color: var(--acad-accent);
+  color: var(--acad-accent);
+}
+.sx-layout {
+  display: grid;
+  grid-template-columns: 120px 1fr 220px;
+  gap: 16px;
+  padding: 12px 16px;
+  overflow-y: auto;
+}
+@media (max-width: 720px) {
+  .sx-layout {
+    grid-template-columns: 1fr;
+  }
+  .sx-navgrid {
+    order: 2;
+  }
+  .sx-info-panel {
+    order: 3;
+  }
+}
+.sx-navgrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  align-content: start;
+}
+.sx-navbtn {
+  aspect-ratio: 1;
+  border: 1px solid var(--border-color);
+  background: var(--bg3);
+  color: var(--text-secondary);
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sx-navbtn:hover {
+  border-color: var(--acad-accent);
+}
+.sx-navbtn--answered {
+  background: var(--acad-accent-soft, rgba(127, 127, 127, 0.12));
+  border-color: var(--acad-accent);
+  color: var(--acad-accent);
+}
+.sx-navbtn--current {
+  background: var(--acad-accent);
+  border-color: var(--acad-accent);
+  color: #fff;
+}
+.sx-qpanel {
+  min-width: 0;
+}
+.sx-qtext {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin: 8px 0 14px;
+}
+.sx-qfoot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+.sx-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sx-info-box {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--bg3);
+}
+.sx-info-box--warn {
+  border-color: var(--amber3, #d29922);
+}
+.sx-info-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.sx-info-body {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 .sx-body {
   padding: 8px 16px 4px;
   overflow-y: auto;
