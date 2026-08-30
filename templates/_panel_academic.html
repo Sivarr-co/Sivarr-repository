@@ -20,6 +20,7 @@
             type="text"
             placeholder="Search this space…"
             id="acadSearchInput"
+            oninput="acSearchSpace(this.value)"
           />
         </div>
         <button
@@ -308,6 +309,7 @@
       <div class="acad-tab-content" id="tab-l-students" style="display: none">
         <div class="acad-tab-toolbar">
           <input
+            id="lStudentSearchInput"
             class="acad-search-inline"
             type="text"
             placeholder="Search students…"

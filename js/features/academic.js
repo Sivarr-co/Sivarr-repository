@@ -135,6 +135,17 @@ function acadInit(space) {
     sInit();
   }
 }
+// Topbar "Search this space" -- scoped to student search (the Students tab
+// already has its own working filter; this is the one useful "search from
+// anywhere" case: finding a student without clicking into that tab first).
+// No-ops for a student viewer, who has no Students tab to jump to.
+function acSearchSpace(v) {
+  if (acadRole !== "lecturer") return;
+  lSwitchTab("l-students");
+  const inp = document.getElementById("lStudentSearchInput");
+  if (inp) inp.value = v; // keep the Students tab's own box in sync
+  lFilterStudents(v);
+}
 function acadOpenSettings() {
   if (typeof openSpaceSettings === "function")
     openSpaceSettings(window.currentSpace || window.currentAcademicSpace);
@@ -147,7 +158,6 @@ let lData = {
   students: [],
   quizzes: [],
   assignments: [],
-  submissions: [],
 };
 
 function lInit() {
@@ -156,7 +166,6 @@ function lInit() {
   lData.students = d.lStudents || [];
   lData.quizzes = d.lQuizzes || [];
   lData.assignments = d.lAssignments || [];
-  lData.submissions = d.lSubmissions || [];
   lSwitchTab("l-overview");
   lRenderMetrics();
   lRenderOverview();
@@ -176,6 +185,51 @@ function _lLoadActiveClass(code) {
   lLoadLive();
   lLoadPolls();
   lLoadMaterials();
+  lLoadSubmissionQueue();
+}
+
+// Real pending-submissions count + list -- reuses the Gradebook endpoint
+// (every student x every item, with a per-cell state) rather than adding a
+// new backend endpoint just to filter it down to "pending" here.
+async function lLoadSubmissionQueue() {
+  const d = adData();
+  if (!d.classCode) return;
+  try {
+    const r = await acadAPI("/api/acad/gradebook", { code: d.classCode });
+    if (!r || !r.ok) return;
+    const items = r.items || [];
+    const itemsById = {};
+    items.forEach((it) => (itemsById[it.id] = it));
+    const pending = [];
+    (r.rows || []).forEach((row) => {
+      items.forEach((it) => {
+        const cell = row.cells[it.id];
+        if (cell && cell.state === "pending")
+          pending.push({ name: row.name, title: it.title, type: it.type });
+      });
+    });
+    const cEl = document.getElementById("lSubmissionCount");
+    if (cEl) cEl.textContent = `${pending.length} pending`;
+    const smEl = document.getElementById("lm-submissions");
+    if (smEl) smEl.innerHTML = pending.length || "–";
+    const qEl = document.getElementById("lSubmissionQueue");
+    if (qEl) {
+      qEl.innerHTML = pending.length
+        ? pending
+            .map(
+              (p) =>
+                `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(p.name)}</div><div class="acad-priority-sub">${acEsc(p.title)} · ${acEsc(p.type)}</div></div><button class="acad-action-btn acad-action-btn--teal" data-onclick="lGoToGrading">Grade</button></div>`,
+            )
+            .join("")
+        : `<div class="acad-empty-state"><i class="ti ti-inbox" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No pending submissions</div></div>`;
+    }
+  } catch (e) {
+    /* offline / not owner */
+  }
+}
+function lGoToGrading() {
+  lSwitchTab("l-assessments");
+  lAssessSegment("grading");
 }
 
 // ── Materials: attach a Doc, or upload a real file ──────────────
@@ -277,8 +331,8 @@ function lRenderMetrics() {
   set("lm-students", lData.students.length || "–");
   // lm-courses (Active Classes) is owned by lRenderClasses() -- it needs a
   // real fetch of /api/acad/class/mine, not the local lData snapshot.
-  const pending = lData.submissions.filter((s) => !s.graded).length;
-  set("lm-submissions", pending || "–");
+  // lm-submissions is owned by lLoadSubmissionQueue() -- same reason,
+  // needs a real gradebook fetch, not the (always-empty) local snapshot.
   const scores = lData.students
     .filter((s) => s.avg_score != null)
     .map((s) => s.avg_score);
@@ -310,7 +364,10 @@ function lSwitchTab(tabId) {
   if (tabId === "l-classes") lRenderClasses();
   if (tabId === "l-students") lRenderStudents();
   if (tabId === "l-gradebook") lLoadGradebook();
-  if (tabId === "l-analytics") lLoadClassStats();
+  if (tabId === "l-analytics") {
+    _lPopulateClassFilter();
+    lLoadClassStats();
+  }
   if (tabId === "l-assessments") {
     lAssessSegment(_lAssessSeg);
     lRenderAssessLists();
@@ -330,9 +387,9 @@ function lRenderOverview() {
       )
       .join("");
   }
-  const pending = lData.submissions.filter((s) => !s.graded).length;
-  const cEl = document.getElementById("lSubmissionCount");
-  if (cEl) cEl.textContent = `${pending} pending`;
+  // Submission count/list are owned by lLoadSubmissionQueue() -- see
+  // _lLoadActiveClass() -- lData.submissions was never actually written to
+  // by anything, so this used to always read "0 pending".
 }
 // ── Classes: the real multi-class list (replaces the old fake Courses tab)
 // A lecturer space isn't capped at one class -- /api/acad/class/create never
@@ -465,12 +522,15 @@ function lFilterStudents(v) {
 function lFilterByCourse(v) {
   lRenderStudents("", v);
 }
-function lRenderAnalytics() {
+function lRenderAnalytics(statsOverride) {
+  // statsOverride lets the class filter "peek" at a different class's
+  // analytics without touching _lClassStats (the active class's cache) or
+  // adData().classCode -- switching which class is active is a separate,
+  // deliberate action via the Classes tab, not a side effect of this filter.
+  const stats = statsOverride || _lClassStats;
   const chart = document.getElementById("lDistributionChart");
   if (chart) {
-    const buckets = (_lClassStats && _lClassStats.score_buckets) || [
-      0, 0, 0, 0, 0,
-    ];
+    const buckets = (stats && stats.score_buckets) || [0, 0, 0, 0, 0];
     if (!buckets.some((b) => b > 0)) {
       chart.innerHTML = `<div class="acad-empty-state" style="padding:32px 0"><i class="ti ti-chart-bar" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No score data yet</div></div>`;
     } else {
@@ -494,7 +554,7 @@ function lRenderAnalytics() {
 
   const attChart = document.getElementById("lAttendanceChart");
   if (attChart) {
-    const weekly = (_lClassStats && _lClassStats.attendance_weekly) || [];
+    const weekly = (stats && stats.attendance_weekly) || [];
     if (!weekly.length) {
       attChart.innerHTML = `<div class="acad-empty-state" style="padding:32px 0"><i class="ti ti-calendar-stats" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No attendance data yet</div></div>`;
     } else {
@@ -517,7 +577,7 @@ function lRenderAnalytics() {
 
   const arCount = document.getElementById("lAtRiskCount");
   const arList = document.getElementById("lAtRiskList");
-  const atRisk = (_lClassStats && _lClassStats.at_risk) || [];
+  const atRisk = (stats && stats.at_risk) || [];
   if (arCount)
     arCount.textContent = `${atRisk.length} flagged`;
   if (arList) {
@@ -1021,13 +1081,33 @@ async function lCreateAssessment() {
   lRenderAssessLists();
   acToast("Assignment created");
 }
-function lLoadDistribution(courseFilter) {
-  // Filtering by course becomes meaningful once a lecturer can run more than
-  // one class -- for now there's only ever one, so this just stops the
-  // dropdown from silently dropping its own value. Wire the real filter in
-  // once multi-class ships.
-  void courseFilter;
-  lRenderAnalytics();
+async function lLoadDistribution(courseFilter) {
+  if (!courseFilter) {
+    // No class picked -- fall back to the active class via the normal path
+    // (also keeps _lClassStats current for the Students tab).
+    lLoadClassStats();
+    return;
+  }
+  // A specific class was picked: fetch and render ITS stats without
+  // touching _lClassStats or adData().classCode -- a transient peek, not a
+  // switch (switching is a separate, deliberate action on the Classes tab).
+  try {
+    const r = await acadAPI("/api/acad/class/stats", { code: courseFilter });
+    if (r && r.ok) lRenderAnalytics(r);
+  } catch (e) {
+    /* offline / not owner of that class */
+  }
+}
+function _lPopulateClassFilter() {
+  const sel = document.getElementById("lDistCourseFilter");
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML =
+    `<option value="">${adData().classCode ? "Active class" : "All classes"}</option>` +
+    (_lClasses || [])
+      .map((c) => `<option value="${acEsc(c.code)}">${acEsc(c.name)}</option>`)
+      .join("");
+  sel.value = current || "";
 }
 
 /* ════════ STUDENT ════════ */
