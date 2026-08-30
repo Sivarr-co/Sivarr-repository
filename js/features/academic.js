@@ -186,6 +186,30 @@ function _lLoadActiveClass(code) {
   lLoadPolls();
   lLoadMaterials();
   lLoadSubmissionQueue();
+  lLoadActivity();
+}
+
+// Real "what's happened in my class recently" feed -- was a permanently
+// empty card before this (nothing ever wrote to it). Deliberately excludes
+// grading/polls/live (see routes/academic.py's _acad_log_activity docstring).
+async function lLoadActivity() {
+  const d = adData();
+  const el = document.getElementById("lRecentActivity");
+  if (!d.classCode || !el) return;
+  try {
+    const r = await acadAPI("/api/acad/activity/list", { code: d.classCode });
+    const items = (r && r.activity) || [];
+    el.innerHTML = items.length
+      ? items
+          .map(
+            (a) =>
+              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.text)}</div><div class="acad-priority-sub">${acEsc((a.ts || "").slice(0, 16).replace("T", " "))}</div></div></div>`,
+          )
+          .join("")
+      : `<div class="acad-empty-state"><i class="ti ti-activity" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No recent activity</div></div>`;
+  } catch (e) {
+    /* offline / not owner */
+  }
 }
 
 // Real pending-submissions count + list -- reuses the Gradebook endpoint
@@ -290,6 +314,7 @@ async function lAttachDoc() {
     await acadAPI("/api/acad/materials/add_doc", { code: d.classCode, doc_id: f.doc_id });
     acToast("Doc attached");
     lLoadMaterials();
+    lLoadActivity();
   } catch (e) {
     acToast((e && e.message) || "Could not attach doc");
   }
@@ -309,6 +334,7 @@ async function lUploadMaterial(inputEl) {
     if (!r.ok) throw new Error(j.detail || "Upload failed");
     acToast("File uploaded");
     lLoadMaterials();
+    lLoadActivity();
   } catch (e) {
     acToast((e && e.message) || "Upload failed");
   }
@@ -859,6 +885,7 @@ async function lAssignExam(examId) {
   try {
     await acadAPI("/api/acad/exam/assign", { code, exam_id: examId });
     acToast("Exam assigned to class " + code);
+    lLoadActivity();
   } catch (e) {
     acToast((e && e.message) || "Could not assign exam");
   }
@@ -1066,6 +1093,7 @@ async function lCreateAssessment() {
       });
       acToast("Assignment posted to class");
       lLoadClassAssignments();
+      lLoadActivity();
     } catch (e) {
       acToast((e && e.message) || "Could not post assignment");
     }
@@ -2267,6 +2295,7 @@ async function lEndAttendance() {
   if (p) p.style.display = "none";
   acToast("Attendance saved to the register");
   lLoadRegister();
+  lLoadActivity();
 }
 async function lLoadRegister() {
   const d = adData();
@@ -2335,6 +2364,7 @@ async function lPostAnnounce() {
       if (ta) ta.value = "";
       acToast("Posted, students notified");
       lLoadAnnouncements();
+      lLoadActivity();
     }
   } catch (e) {
     acToast((e && e.message) || "Could not post");

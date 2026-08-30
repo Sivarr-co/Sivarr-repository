@@ -365,6 +365,22 @@ def _acad_gradebook_items(code: str) -> tuple:
     return items, rows
 
 
+def _acad_log_activity(code: str, text: str) -> None:
+    """Append one pre-rendered entry to a class's Recent Activity feed. Text
+    is rendered here rather than a type code the frontend interprets, so the
+    read side stays a plain list of strings + timestamps with no
+    type-to-copy mapping to keep in sync. Deliberately not logged: grading
+    actions (lecturer-facing only, they already know), polls/live sessions
+    (already surfaced elsewhere) -- this is "what's new since I last
+    looked," not a full audit trail."""
+    entry = {
+        "id": uuid.uuid4().hex[:10],
+        "code": code,
+        "text": sanitize_text(text, 300),
+        "ts": datetime.datetime.utcnow().isoformat(),
+    }
+    db.coll_put("acad_activity", entry["id"], entry, owner=code)
+
 
 def build_router(send_push) -> APIRouter:
     router = APIRouter()
@@ -409,6 +425,7 @@ def build_router(send_push) -> APIRouter:
                     {"code": code, "sid": sid, "name": name,
                      "joined": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")},
                     owner=code)
+        _acad_log_activity(code, f"{name} joined the class")
         return {"ok": True, "class": {"code": code, "name": cls.get("name"),
                                       "owner_name": cls.get("owner_name"), "subject": cls.get("subject")}}
 
@@ -533,7 +550,11 @@ def build_router(send_push) -> APIRouter:
             sess["open"] = False
             sess["ended"] = datetime.datetime.utcnow().isoformat()
             db.coll_put("acad_att_sessions", session_id, sess, owner=code)
-        return {"ok": True, "present_count": len(db.coll_list("acad_att_records", owner=session_id))}
+        present_count = len(db.coll_list("acad_att_records", owner=session_id))
+        if sess:
+            total_members = len(db.coll_list("acad_members", owner=code))
+            _acad_log_activity(code, f"Attendance session closed — {present_count}/{total_members} present")
+        return {"ok": True, "present_count": present_count}
 
 
     @router.post("/api/acad/attendance/register")
@@ -640,6 +661,8 @@ def build_router(send_push) -> APIRouter:
         ann = {"id": uuid.uuid4().hex[:10], "code": code, "text": text,
                "author": name, "ts": datetime.datetime.utcnow().isoformat()}
         db.coll_put("acad_announcements", ann["id"], ann, owner=code)
+        preview = text if len(text) <= 60 else text[:57] + "..."
+        _acad_log_activity(code, f"Announcement posted: {preview}")
         bg.add_task(_acad_push_members, code, f"📢 {cls.get('name', 'Class')}", text, "/app")
         return {"ok": True, "announcement": ann}
 
@@ -684,6 +707,7 @@ def build_router(send_push) -> APIRouter:
              "points": sanitize_text(str(data.get("points", "")), 10),
              "created": datetime.datetime.utcnow().isoformat()}
         db.coll_put("acad_assignments", a["id"], a, owner=code)
+        _acad_log_activity(code, f"New assignment: {title}")
         bg.add_task(_acad_push_members, code, f"📝 {cls.get('name', 'Class')}: new assignment", title, "/app")
         return {"ok": True, "assignment": a}
 
@@ -780,6 +804,7 @@ def build_router(send_push) -> APIRouter:
             "assigned":             datetime.datetime.utcnow().isoformat(),
         }
         db.coll_put("acad_class_exams", rec["id"], rec, owner=code)
+        _acad_log_activity(code, f"New exam assigned: {exam['title']}")
         bg.add_task(_acad_push_members, code, f"📝 {cls.get('name', 'Class')}: new exam", exam["title"], "/app")
         return {"ok": True, "assignment": rec}
 
@@ -1089,6 +1114,7 @@ def build_router(send_push) -> APIRouter:
             "posted_by": name, "posted_at": datetime.datetime.utcnow().isoformat(),
         }
         db.coll_put("acad_materials", m["id"], m, owner=code)
+        _acad_log_activity(code, f"New material posted: {m['title']}")
         log.info(f"Acad material (doc) posted: {m['title']} to {code} by {sid[:12]}")
         return {"ok": True, "material": m}
 
@@ -1140,6 +1166,7 @@ def build_router(send_push) -> APIRouter:
             "posted_by": name, "posted_at": datetime.datetime.utcnow().isoformat(),
         }
         db.coll_put("acad_materials", material_id, m, owner=code)
+        _acad_log_activity(code, f"New material posted: {file.filename}")
         log.info(f"Acad material (file) uploaded: {file.filename} to {code} by {sid[:12]}")
         return {"ok": True, "material": m}
 
@@ -1183,6 +1210,17 @@ def build_router(send_push) -> APIRouter:
             raise HTTPException(404, "File not found.")
         media_type = mimetypes.guess_type(m.get("filename", ""))[0] or "application/octet-stream"
         return FileResponse(fpath, media_type=media_type, filename=m.get("filename", "download"))
+
+
+    @router.post("/api/acad/activity/list")
+    async def acad_activity_list(data: dict):
+        """Owner-only: the 20 most recent activity entries for a class."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        _acad_require_owner(code, sid)
+        items = sorted(db.coll_list("acad_activity", owner=code),
+                       key=lambda a: a.get("ts", ""), reverse=True)
+        return {"ok": True, "activity": items[:20]}
 
 
     return router

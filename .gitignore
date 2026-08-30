@@ -214,6 +214,7 @@ data/
 uploads/
 shares/
 logs/
+materials/
 *.backup.json
 
 # Root-level Node tooling (build.js's esbuild dependency) — mobile/ has its
