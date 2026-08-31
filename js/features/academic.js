@@ -150,7 +150,6 @@ function acSearchSpace(v) {
 let lData = {
   courses: [],
   students: [],
-  quizzes: [],
   assignments: [],
 };
 
@@ -158,7 +157,6 @@ function lInit() {
   const d = adData();
   lData.courses = []; // no longer backed by local fake data -- see the Classes tab
   lData.students = d.lStudents || [];
-  lData.quizzes = d.lQuizzes || [];
   lData.assignments = d.lAssignments || [];
   lSwitchTab("l-overview");
   lRenderMetrics();
@@ -223,7 +221,7 @@ async function lLoadSubmissionQueue() {
       items.forEach((it) => {
         const cell = row.cells[it.id];
         if (cell && cell.state === "pending")
-          pending.push({ name: row.name, title: it.title, type: it.type });
+          pending.push({ name: row.name, title: it.title, type: it.type, id: it.id });
       });
     });
     const cEl = document.getElementById("lSubmissionCount");
@@ -236,7 +234,7 @@ async function lLoadSubmissionQueue() {
         ? pending
             .map(
               (p) =>
-                `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(p.name)}</div><div class="acad-priority-sub">${acEsc(p.title)} · ${acEsc(p.type)}</div></div><button class="acad-action-btn acad-action-btn--teal" data-onclick="lGoToGrading">Grade</button></div>`,
+                `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(p.name)}</div><div class="acad-priority-sub">${acEsc(p.title)} · ${acEsc(p.type)}</div></div><button class="acad-action-btn acad-action-btn--teal" data-onclick="lGoToGrading" data-onclick-arg0="${acEsc(p.type)}" data-onclick-arg1="${acEsc(p.id)}">Grade</button></div>`,
             )
             .join("")
         : `<div class="acad-empty-state"><i class="ti ti-inbox" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No pending submissions</div></div>`;
@@ -245,9 +243,14 @@ async function lLoadSubmissionQueue() {
     /* offline / not owner */
   }
 }
-function lGoToGrading() {
+function lGoToGrading(type, id) {
   lSwitchTab("l-assessments");
-  lAssessSegment("grading");
+  if (type === "quiz" || type === "exam") {
+    lAssessSegment(type === "quiz" ? "quizzes" : "exams");
+    if (id) lExamResults(id);
+  } else {
+    lAssessSegment("grading");
+  }
 }
 
 // ── Materials: attach a Doc, or upload a real file ──────────────
@@ -724,25 +727,14 @@ function lAssessSegment(seg) {
   const hasClass = !!adData().classCode;
   if (seg === "assignments" && hasClass) lLoadClassAssignments();
   if (seg === "grading") lLoadGrading();
-  if (seg === "exams") lLoadExams();
+  if (seg === "exams" || seg === "quizzes") lLoadExams();
 }
 function lRenderAssessLists() {
   const set = (id, v) => {
     const el = document.getElementById(id);
     if (el) el.textContent = v;
   };
-  set("lQuizCount", `${lData.quizzes.length} quizzes`);
   set("lAssignCount", `${lData.assignments.length} assignments`);
-  const ql = document.getElementById("lQuizList");
-  if (ql)
-    ql.innerHTML = lData.quizzes.length
-      ? lData.quizzes
-          .map(
-            (q) =>
-              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(q.title)}</div><div class="acad-priority-sub">${acEsc(q.course || "–")}${q.questions ? " · " + acEsc(q.questions) + " Qs" : ""}</div></div><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteAssess('quiz','${q.id}')">Delete</button></div>`,
-          )
-          .join("")
-      : `<div class="acad-empty-state"><i class="ti ti-help" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No quizzes yet. Create your first quiz.</div></div>`;
   const al = document.getElementById("lAssignList");
   if (al)
     al.innerHTML = lData.assignments.length
@@ -755,13 +747,8 @@ function lRenderAssessLists() {
       : `<div class="acad-empty-state"><i class="ti ti-file-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No assignments yet.</div></div>`;
 }
 function lDeleteAssess(kind, id) {
-  if (kind === "quiz") {
-    lData.quizzes = lData.quizzes.filter((q) => q.id !== id);
-    adSave({ lQuizzes: lData.quizzes });
-  } else {
-    lData.assignments = lData.assignments.filter((a) => a.id !== id);
-    adSave({ lAssignments: lData.assignments });
-  }
+  lData.assignments = lData.assignments.filter((a) => a.id !== id);
+  adSave({ lAssignments: lData.assignments });
   lRenderAssessLists();
 }
 
@@ -771,55 +758,67 @@ function lDeleteAssess(kind, id) {
 // Endpoints (v3-native, normal session token): POST /api/acad/exam/list ·
 // /create · /delete · assign via POST /api/acad/exam/assign.
 let _lExams = [];
+let _lQuizzes = [];
 async function lLoadExams() {
-  const list = document.getElementById("lExamList");
   try {
     const d = await acadAPI("/api/acad/exam/list");
-    lRenderExams(d.exams || []);
+    const all = d.exams || [];
+    lRenderExams(all.filter((e) => e.kind !== "quiz"));
+    lRenderQuizzes(all.filter((e) => e.kind === "quiz"));
   } catch (e) {
-    if (list)
-      list.innerHTML = `<div class="acad-empty-state"><i class="ti ti-alert-triangle" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Couldn't load exams. Try again.</div></div>`;
+    const failMsg = `<div class="acad-empty-state"><i class="ti ti-alert-triangle" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Couldn't load exams. Try again.</div></div>`;
+    const el = document.getElementById("lExamList");
+    if (el) el.innerHTML = failMsg;
+    const ql = document.getElementById("lQuizList");
+    if (ql) ql.innerHTML = failMsg;
   }
+}
+function _lRenderExamBank(items, listId, countId, emptyIcon, emptyMsg, noun) {
+  const cEl = document.getElementById(countId);
+  if (cEl) cEl.textContent = `${items.length} ${noun}${items.length !== 1 ? "s" : ""}`;
+  const list = document.getElementById(listId);
+  if (!list) return;
+  list.innerHTML = items.length
+    ? items
+        .map(
+          (e) =>
+            `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title || `Untitled ${noun}`)}</div><div class="acad-priority-sub">${(e.questions || []).length} Qs · ${e.questions_per_student || 0}/student · ${e.duration || 0} min</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" onclick="lAssignExam('${acEsc(e.id)}')">Assign</button><button class="acad-action-btn" onclick="lExamResults('${acEsc(e.id)}')">Results</button><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteExam('${acEsc(e.id)}')">Delete</button></div></div>`,
+        )
+        .join("")
+    : `<div class="acad-empty-state"><i class="ti ${emptyIcon}" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>${emptyMsg}</div></div>`;
 }
 function lRenderExams(exams) {
   _lExams = exams || [];
-  const cEl = document.getElementById("lExamCount");
-  if (cEl)
-    cEl.textContent = `${_lExams.length} exam${_lExams.length !== 1 ? "s" : ""}`;
-  const list = document.getElementById("lExamList");
-  if (!list) return;
-  list.innerHTML = _lExams.length
-    ? _lExams
-        .map(
-          (e, i) =>
-            `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title || "Untitled exam")}</div><div class="acad-priority-sub">${(e.questions || []).length} Qs · ${e.questions_per_student || 0}/student · ${e.duration || 0} min</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" onclick="lAssignExam('${acEsc(e.id)}')">Assign</button><button class="acad-action-btn" onclick="lExamResults('${acEsc(e.id)}')">Results</button><button class="acad-action-btn acad-action-btn--red" onclick="lDeleteExam('${acEsc(e.id)}')">Delete</button></div></div>`,
-        )
-        .join("")
-    : `<div class="acad-empty-state"><i class="ti ti-file-pencil" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No exams yet. Build your first exam.</div></div>`;
+  _lRenderExamBank(_lExams, "lExamList", "lExamCount", "ti-file-pencil", "No exams yet. Build your first exam.", "exam");
 }
-async function lCreateExam() {
+function lRenderQuizzes(quizzes) {
+  _lQuizzes = quizzes || [];
+  _lRenderExamBank(_lQuizzes, "lQuizList", "lQuizCount", "ti-help", "No quizzes yet. Create your first quiz.", "quiz");
+}
+async function _lCreateExamOrQuiz(kind) {
+  const isQuiz = kind === "quiz";
   const f = await siModal.form(
-    "New exam",
+    isQuiz ? "New quiz" : "New exam",
     [
       {
         id: "title",
-        label: "Exam title",
-        placeholder: "e.g. Mid-Semester Biology",
+        label: isQuiz ? "Quiz title" : "Exam title",
+        placeholder: isQuiz ? "e.g. Week 3 Quiz" : "e.g. Mid-Semester Biology",
         required: true,
       },
       {
         id: "duration",
         label: "Duration (minutes)",
         type: "number",
-        placeholder: "60",
-        default: "60",
+        placeholder: isQuiz ? "15" : "60",
+        default: isQuiz ? "15" : "60",
       },
       {
         id: "qps",
         label: "Questions per student",
         type: "number",
-        placeholder: "30",
-        default: "30",
+        placeholder: isQuiz ? "10" : "30",
+        default: isQuiz ? "10" : "30",
       },
       {
         id: "bank",
@@ -830,7 +829,7 @@ async function lCreateExam() {
           "Explain photosynthesis.\nWhat is 2 + 2? | 3 | *4 | 5\nDefine osmosis.",
       },
     ],
-    { confirmLabel: "Create exam" },
+    { confirmLabel: isQuiz ? "Create quiz" : "Create exam" },
   );
   if (!f || !f.title) return;
   const questions = (f.bank || "")
@@ -845,15 +844,22 @@ async function lCreateExam() {
     await acadAPI("/api/acad/exam/create", {
       title: f.title,
       questions,
-      questions_per_student: parseInt(f.qps) || 30,
-      duration: parseInt(f.duration) || 60,
+      kind,
+      questions_per_student: parseInt(f.qps) || (isQuiz ? 10 : 30),
+      duration: parseInt(f.duration) || (isQuiz ? 15 : 60),
       lecturer: (window.S && S.name) || "",
     });
-    acToast("Exam created");
+    acToast(isQuiz ? "Quiz created" : "Exam created");
     lLoadExams();
   } catch (e) {
-    acToast((e && e.message) || "Could not create exam");
+    acToast((e && e.message) || `Could not create ${isQuiz ? "quiz" : "exam"}`);
   }
+}
+async function lCreateExam() {
+  return _lCreateExamOrQuiz("exam");
+}
+async function lCreateQuiz() {
+  return _lCreateExamOrQuiz("quiz");
 }
 async function lDeleteExam(examId) {
   const ok = await siModal.confirm("Delete this exam? This cannot be undone.", {
@@ -898,7 +904,8 @@ async function lExamResults(examId) {
     return;
   }
   const results = (r && r.results) || [];
-  const ex = (_lExams || []).find((e) => e.id === examId) || {};
+  const ex = (_lExams || []).concat(_lQuizzes || []).find((e) => e.id === examId) || {};
+  const exKindTag = ex.kind === "quiz" ? ' <span class="acad-tag acad-tag--orange">Quiz</span>' : "";
   sExamCloseTaker();
   const rowsHtml = results.length
     ? results
@@ -915,7 +922,7 @@ async function lExamResults(examId) {
   const ov = document.createElement("div");
   ov.className = "sx-overlay";
   ov.id = "sxOverlay";
-  ov.innerHTML = `<div class="sx-modal"><div class="sx-head"><div class="sx-title">${acEsc(ex.title || "Exam")}: results (${results.length})</div><button class="sx-x" onclick="sExamCloseTaker()" aria-label="Close">✕</button></div><div class="sx-body">${rowsHtml}</div><div class="sx-foot"><button class="acad-action-btn acad-action-btn--teal" onclick="sExamCloseTaker()">Close</button></div></div>`;
+  ov.innerHTML = `<div class="sx-modal"><div class="sx-head"><div class="sx-title">${acEsc(ex.title || "Exam")}${exKindTag}: results (${results.length})</div><button class="sx-x" onclick="sExamCloseTaker()" aria-label="Close">✕</button></div><div class="sx-body">${rowsHtml}</div><div class="sx-foot"><button class="acad-action-btn acad-action-btn--teal" onclick="sExamCloseTaker()">Close</button></div></div>`;
   document.body.appendChild(ov);
 }
 async function lSaveExamGrade(code, examId, sid) {
@@ -1051,34 +1058,25 @@ async function lCreateAssessment() {
     lCreateExam();
     return;
   }
-  const isQuiz = _lAssessSeg === "quizzes";
-  const f = await siModal.form(isQuiz ? "New quiz" : "New assignment", [
+  if (_lAssessSeg === "quizzes") {
+    lCreateQuiz();
+    return;
+  }
+  const f = await siModal.form("New assignment", [
     {
       id: "title",
       label: "Title",
-      placeholder: isQuiz ? "e.g. Week 3 Quiz" : "e.g. Essay 1",
+      placeholder: "e.g. Essay 1",
       required: true,
     },
     { id: "course", label: "Course code", placeholder: "optional" },
     {
       id: "extra",
-      label: isQuiz ? "Number of questions" : "Due date (YYYY-MM-DD)",
+      label: "Due date (YYYY-MM-DD)",
       placeholder: "optional",
     },
   ]);
   if (!f || !f.title) return;
-  if (isQuiz) {
-    lData.quizzes.push({
-      id: "q_" + Date.now(),
-      title: f.title,
-      course: f.course || "",
-      questions: f.extra || "",
-    });
-    adSave({ lQuizzes: lData.quizzes });
-    lRenderAssessLists();
-    acToast("Quiz created");
-    return;
-  }
   // Assignment: post to the class (shared) when published, else keep local.
   if (adData().classCode) {
     try {
@@ -2618,7 +2616,8 @@ async function sLoadExams() {
             ? "Submitted"
             : "Not taken") + auto;
       const label = e.graded ? "Review" : e.submitted ? "Resume" : "Take";
-      return `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title)}</div><div class="acad-priority-sub">${acEsc(e._cls)} · ${e.questions_per_student || "?"} questions · ${e.duration || "?"} min · ${status}</div></div><button class="acad-action-btn acad-action-btn--teal" onclick="sTakeExam('${acEsc(e._code)}','${acEsc(e.exam_id)}')">${label}</button></div>`;
+      const kindTag = e.kind === "quiz" ? ' <span class="acad-tag acad-tag--orange">Quiz</span>' : "";
+      return `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title)}${kindTag}</div><div class="acad-priority-sub">${acEsc(e._cls)} · ${e.questions_per_student || "?"} questions · ${e.duration || "?"} min · ${status}</div></div><button class="acad-action-btn acad-action-btn--teal" onclick="sTakeExam('${acEsc(e._code)}','${acEsc(e.exam_id)}')">${label}</button></div>`;
     })
     .join("");
 }
@@ -2688,7 +2687,7 @@ function sExamRenderTaker(code, exam, submission) {
   ov.innerHTML = `<div class="sx-modal sx-modal--wide">
     <div class="sx-head">
       <div style="flex:1">
-        <div class="sx-title">${acEsc(exam.title)}</div>
+        <div class="sx-title">${acEsc(exam.title)}${exam.kind === "quiz" ? ' <span class="acad-tag acad-tag--orange">Quiz</span>' : ""}</div>
         <div class="sx-subtitle" id="sxSubtitle"></div>
       </div>
       ${graded ? "" : '<div class="sx-timer" id="sxTimer"></div>'}

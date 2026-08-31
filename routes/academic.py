@@ -339,7 +339,7 @@ def _acad_gradebook_items(code: str) -> tuple:
                 rows[sid]["cells"][a["id"]] = _cell(grade, _parse_grade_pct(grade), "manual", "graded")
 
     for ce in db.coll_list("acad_class_exams", owner=code):
-        items.append({"id": ce["exam_id"], "type": "exam", "title": ce.get("title", "Exam")})
+        items.append({"id": ce["exam_id"], "type": ce.get("kind", "exam"), "title": ce.get("title", "Exam")})
         results = {r["sid"]: r for r in db.coll_list("acad_exam_results", owner=f"{code}:{ce['exam_id']}")}
         for sid in rows:
             res = results.get(sid)
@@ -756,10 +756,13 @@ def build_router(send_push) -> APIRouter:
         questions = [_parse_exam_q(str(q)) for q in data.get("questions", [])[:100] if str(q).strip()]
         if not questions:
             raise HTTPException(400, "Add at least one question to the bank.")
+        kind = str(data.get("kind", "exam"))
+        kind = kind if kind in ("exam", "quiz") else "exam"
         exam = {
             "id":                   uuid.uuid4().hex[:10],
             "owner_sid":            sid,
             "title":                title,
+            "kind":                 kind,
             "questions":            questions,
             "questions_per_student": min(max(int(data.get("questions_per_student", 30)), 1), 100),
             "duration":             min(max(int(data.get("duration", 60)), 1), 300),
@@ -801,18 +804,20 @@ def build_router(send_push) -> APIRouter:
         exam = db.coll_get("acad_exams", exam_id)
         if not exam or exam.get("owner_sid") != sid:
             raise HTTPException(404, "Exam not found.")
+        kind = exam.get("kind", "exam")
         rec = {
             "id":                   f"{code}:{exam_id}",
             "code":                 code,
             "exam_id":              exam_id,
             "title":                exam["title"],
+            "kind":                 kind,
             "questions_per_student": exam.get("questions_per_student", 30),
             "duration":             exam.get("duration", 60),
             "assigned":             datetime.datetime.utcnow().isoformat(),
         }
         db.coll_put("acad_class_exams", rec["id"], rec, owner=code)
-        _acad_log_activity(code, f"New exam assigned: {exam['title']}")
-        bg.add_task(_acad_push_members, code, f"📝 {cls.get('name', 'Class')}: new exam", exam["title"], "/app")
+        _acad_log_activity(code, f"New {kind} assigned: {exam['title']}")
+        bg.add_task(_acad_push_members, code, f"📝 {cls.get('name', 'Class')}: new {kind}", exam["title"], "/app")
         return {"ok": True, "assignment": rec}
 
 
@@ -852,6 +857,7 @@ def build_router(send_push) -> APIRouter:
         res = db.coll_get("acad_exam_results", f"{code}:{exam_id}:{sid}")
         return {"ok": True, "exam": {
             "id": exam_id, "title": exam.get("title", "Exam"),
+            "kind": exam.get("kind", "exam"),
             "duration": exam.get("duration", 60),
             "questions": _exam_questions_for(exam, sid),
         }, "submission": res}
