@@ -3492,8 +3492,10 @@ async function sVote(code, pid, idx) {
 }
 
 // ── Mobile FAB → Sivarr AI quick-chat popup (templates/_modals.html,
-//    #ac-chat-sheet-bg) — js/app.js's mobFabTrigger() opens this instead of
-//    the usual quick-capture sheet while this panel is active on mobile.
+//    #ac-chat-sheet-bg) — js/app.js's mobFabTrigger() opens this from the
+//    global mobile FAB on ANY panel, not just Academic Space (despite the
+//    acad* naming/location here — same "stays a plain global despite living
+//    in this file" situation as acadAPI above, not scoped privately).
 //    Posts to the real /api/chat/stream, the same endpoint and per-user
 //    daily quota the main Sivarr AI panel (js/app.js's send()) uses,
 //    deliberately without that panel's context-injection/attachments/
@@ -3582,20 +3584,31 @@ function _acadChatAddMsg(role, text, isError) {
   w.scrollTop = w.scrollHeight;
   return bub;
 }
-// What tab/role the popup was opened from, so a question like "how am I
-// doing in this module" or "what's due here" resolves against the space
-// the user is actually looking at, not a blind guess. Injected server-side
-// into the Gemini prompt only (routes/ai_chat.py prepends req.context to
-// the message it sends the model) -- add_history persists req.message
-// alone, so this line never pollutes the user's saved chat history.
+// What the user is actually looking at when they open the popup, so a
+// question like "how am I doing in this module" or "what's due here"
+// resolves against that instead of a blind guess. The FAB now triggers this
+// from any panel (js/app.js's mobFabTrigger()), not just Academic Space, so
+// this branches: full space/tab/role detail on Academic Space, a plain
+// "which page" fallback everywhere else via NAV_TABS' labels (js/app.js).
+// Injected server-side into the Gemini prompt only (routes/ai_chat.py
+// prepends req.context to the message it sends the model) -- add_history
+// persists req.message alone, so this line never pollutes the user's saved
+// chat history.
 function _acadChatContext() {
-  const spaceName =
-    $("acadSpaceNameLabel")?.textContent?.trim() || "this Academic Space";
-  const tabBarId = acadRole === "lecturer" ? "lecturerTabBar" : "studentTabBar";
-  const activeTab = document.querySelector(`#${tabBarId} .acad-tab.active`);
-  const tabLabel = activeTab ? activeTab.textContent.trim() : "Overview";
-  const roleLabel = acadRole === "lecturer" ? "lecturer" : "student";
-  return `The user opened this quick-chat from their Academic Space "${spaceName}", where they are a ${roleLabel} currently viewing the "${tabLabel}" tab. If their question relates to this space or tab, use that context.`;
+  const activePanel = document.querySelector(".panel.active");
+  if (activePanel?.id === "panel-academic") {
+    const spaceName =
+      $("acadSpaceNameLabel")?.textContent?.trim() || "this Academic Space";
+    const tabBarId = acadRole === "lecturer" ? "lecturerTabBar" : "studentTabBar";
+    const activeTab = document.querySelector(`#${tabBarId} .acad-tab.active`);
+    const tabLabel = activeTab ? activeTab.textContent.trim() : "Overview";
+    const roleLabel = acadRole === "lecturer" ? "lecturer" : "student";
+    return `The user opened this quick-chat from their Academic Space "${spaceName}", where they are a ${roleLabel} currently viewing the "${tabLabel}" tab. If their question relates to this space or tab, use that context.`;
+  }
+  const panelName = activePanel?.id?.replace(/^panel-/, "") || "";
+  const label = (typeof NAV_TABS !== "undefined" && NAV_TABS[panelName]?.label) || "";
+  if (!label) return "";
+  return `The user has this quick-chat open while viewing their "${label}" page. If their question relates to what's shown there, use that context.`;
 }
 
 async function acadChatSend() {

@@ -1,13 +1,14 @@
-<!-- ── Mobile FAB (quick capture) — real one, defined again lower in body
-         since app.js re-binds cnOpen() to this instance; kept here to travel
-         with the rest of the mobile shell chrome. mobFabTrigger() (js/app.js)
-         hands off to the Academic Space quick-chat popup below instead of
-         cnOpen() while that panel is active on a mobile viewport. -->
-<button class="mob-fab" id="mob-fab" data-onclick="mobFabTrigger" title="Quick capture">
-  <i class="ti ti-plus"></i>
+<!-- ── Mobile FAB — Sivarr AI quick-chat trigger, everywhere. Used to open
+         quick-capture (cnOpen()) and only become the chat trigger on the
+         Academic Space panel; mobFabTrigger() (js/app.js) now always opens
+         the chat popup below, on every panel, and never opens
+         quick-capture. -->
+<button class="mob-fab" id="mob-fab" data-onclick="mobFabTrigger" title="Ask Sivarr AI">
+  <i class="ti ti-message-2"></i>
 </button>
 
-<!-- Academic Space: mobile FAB → Sivarr AI quick-chat popup. Real chat --
+<!-- Sivarr AI quick-chat popup, opened from the mobile FAB above on any
+     panel. Real chat --
      posts to /api/chat/stream, the same endpoint and daily quota as the
      main Sivarr AI panel — deliberately without that panel's context
      injection/attachments/retry machinery, a lighter quick-ask surface,

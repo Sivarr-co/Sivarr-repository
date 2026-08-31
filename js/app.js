@@ -5628,32 +5628,14 @@ function chGenerateInsight(m, engRate, platform) {
 }
 
 // ═══════════════════════ MOBILE FAB DISPATCH ═════════════════════
-// #mob-fab is one global element (templates/_modals.html), normally
-// quick-capture. While the Academic Space panel is active on a mobile
-// viewport it becomes the Sivarr AI quick-chat trigger instead
-// (js/features/academic.js's acadChat*) -- cnOpen() itself is untouched,
-// so quick-capture elsewhere in the app is unaffected.
+// #mob-fab is one global element (templates/_modals.html). It used to open
+// quick-capture (cnOpen()) everywhere and only became the Sivarr AI
+// quick-chat trigger on the Academic Space panel; it's now the chat trigger
+// everywhere, on every panel, and never opens quick-capture at all.
+// acadChatToggle() (js/features/academic.js) itself is unaffected by which
+// panel is active -- _acadChatContext() there is what adapts per panel.
 function mobFabTrigger() {
-  const activePanel = document.querySelector(".panel.active");
-  if (
-    activePanel &&
-    activePanel.id === "panel-academic" &&
-    window.innerWidth <= 720 &&
-    typeof acadChatToggle === "function"
-  ) {
-    acadChatToggle();
-    return;
-  }
-  cnOpen();
-}
-
-function _updateMobFabIcon(panelName) {
-  const fab = $("mob-fab");
-  if (!fab) return;
-  const icon = fab.querySelector("i");
-  const onAcademicMobile = panelName === "academic" && window.innerWidth <= 720;
-  if (icon) icon.className = onAcademicMobile ? "ti ti-message-2" : "ti ti-plus";
-  fab.title = onAcademicMobile ? "Ask Sivarr AI" : "Quick capture";
+  if (typeof acadChatToggle === "function") acadChatToggle();
 }
 
 // ═══════════════════════ CREATE NEW ═════════════════════════
@@ -12810,8 +12792,6 @@ function nav(name, btn) {
     } catch (e) {}
   }
   _updateMobileNav(name);
-  _updateMobFabIcon(name);
-  if (name !== "academic" && typeof acadChatClose === "function") acadChatClose();
   syncSnavFromPanel(name);
   _trackNav(name);
   if (typeof sbRenderStats === "function") sbRenderStats();
