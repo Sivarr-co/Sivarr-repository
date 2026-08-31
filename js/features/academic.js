@@ -985,8 +985,60 @@ function lGenerateFeedback() {
     "Generate Feedback",
   );
 }
-function lAutoMark() {
-  acToast("Auto-mark: connect a submission batch to begin");
+async function lAutoMark() {
+  const btn = document.querySelector('[data-onclick="lAutoMark"]');
+  const resultEl = document.getElementById("lAutoMarkResult");
+  const rubric = document.getElementById("lAutoMarkRubric")?.value?.trim() || "";
+  const show = (html) => {
+    if (resultEl) {
+      resultEl.style.display = "block";
+      resultEl.innerHTML = html;
+    }
+  };
+  if (!_lPendingSubs.length) {
+    show('<div class="acad-priority-sub">No pending submissions to grade right now.</div>');
+    return;
+  }
+  const total = _lPendingSubs.length;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> Analyzing…';
+  }
+  let done = 0,
+    flagged = 0;
+  for (let i = 0; i < total; i++) {
+    const sub = _lPendingSubs[i];
+    show(`<div class="acad-priority-sub">Analyzing ${i + 1} of ${total}…</div>`);
+    const prompt = `You are SIVARR AI, grading a student submission for the assignment "${sub.title}".${
+      rubric
+        ? ` Grade strictly against this rubric: "${rubric}".`
+        : " No rubric was provided -- use your best judgement for a typical academic assignment."
+    } Submission: "${sub.text}". Respond in EXACTLY this format, nothing else:\nGRADE: <a grade like 8/10 or 85%>\nCONFIDENT: <yes or no -- answer "no" if the submission is off-topic, too short, blank, or you are unsure>\nFEEDBACK: <one or two sentences of specific feedback>`;
+    const reply = await acadAsk(prompt, "academic_lecturer");
+    const gradeMatch = reply && reply.match(/GRADE:\s*(.+)/i);
+    const confMatch = reply && reply.match(/CONFIDENT:\s*(yes|no)/i);
+    const fbMatch = reply && reply.match(/FEEDBACK:\s*([\s\S]+)/i);
+    const inp = document.getElementById(`g-${sub.aid}-${sub.sid}`);
+    if (inp && gradeMatch) {
+      inp.value = gradeMatch[1].trim();
+      inp.title = fbMatch ? fbMatch[1].trim() : "";
+      const lowConfidence = confMatch && confMatch[1].toLowerCase() === "no";
+      inp.style.outline = lowConfidence
+        ? "2px solid var(--red3)"
+        : "2px solid var(--acad-accent)";
+      if (lowConfidence) flagged++;
+      done++;
+    }
+  }
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-bolt" aria-hidden="true"></i> Run Auto-Mark';
+  }
+  show(
+    done
+      ? `<div class="acad-priority-sub">${done}/${total} suggestion${done !== 1 ? "s" : ""} ready${flagged ? ` — ${flagged} flagged for extra review (red outline)` : ""}. Review each below, then click Save to confirm.${done < total ? " Some submissions couldn't be reached (rate limit or connection) -- run Auto-Mark again shortly for the rest." : ""}</div>`
+      : '<div class="acad-priority-sub" style="color:var(--red3);">Could not reach SIVARR AI. Try again.</div>',
+  );
 }
 async function lViewStudent(sid) {
   const s = lData.students.find((x) => x.sid === sid);
@@ -2520,6 +2572,7 @@ async function lDeleteClassAssignment(id) {
   } catch (e) {}
   lLoadClassAssignments();
 }
+let _lPendingSubs = []; // {aid, sid, title, text} for every currently-ungraded assignment submission -- feeds lAutoMark()
 async function lLoadGrading() {
   const d = adData();
   const el = document.getElementById("lGradingQueue");
@@ -2528,6 +2581,7 @@ async function lLoadGrading() {
     const r = await acadAPI("/api/acad/assignment/list", { code: d.classCode });
     const items = (r && r.assignments) || [];
     let html = "";
+    _lPendingSubs = [];
     for (const a of items) {
       const sr = await acadAPI("/api/acad/submissions", {
         code: d.classCode,
@@ -2535,6 +2589,11 @@ async function lLoadGrading() {
       });
       const subs = (sr && sr.submissions) || [];
       if (!subs.length) continue;
+      subs
+        .filter((s) => !s.graded)
+        .forEach((s) =>
+          _lPendingSubs.push({ aid: a.id, sid: s.sid, title: a.title, text: s.text || "" }),
+        );
       html += `<div style="margin-bottom:10px;"><div class="acad-card-title" style="margin-bottom:6px;">${acEsc(a.title)}</div>`;
       html += subs
         .map(

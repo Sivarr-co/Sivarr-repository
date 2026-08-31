@@ -486,9 +486,16 @@
               </div>
               <div class="acad-card-body">
                 <p class="acad-brief-desc">
-                  Upload a submission batch and SIVARR AI will grade against
-                  your rubric, flagging edge cases for your review.
+                  Grades every pending submission below against your rubric,
+                  suggesting a grade and feedback for your review before
+                  anything is saved.
                 </p>
+                <label class="acad-label">Rubric / marking criteria (optional)</label>
+                <textarea
+                  class="acad-ai-textarea"
+                  id="lAutoMarkRubric"
+                  placeholder="Paste your rubric or marking criteria here…"
+                ></textarea>
                 <button class="acad-generate-btn" data-onclick="lAutoMark">
                   <i class="ti ti-bolt" aria-hidden="true"></i> Run Auto-Mark
                 </button>
