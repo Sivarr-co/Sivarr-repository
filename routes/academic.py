@@ -443,7 +443,11 @@ def build_router(send_push) -> APIRouter:
         code = sanitize_text(str(data.get("code", "")), 12).upper()
         cls = _acad_class_or_404(code)
         if cls.get("owner_sid") == sid:
-            raise HTTPException(400, "You own this class. You're already in it.")
+            raise HTTPException(
+                400,
+                "You're the lecturer for this class, so it won't show up under "
+                "Student view. Switch to Lecturer view to manage it.",
+            )
         db.coll_put("acad_members", f"{code}:{sid}",
                     {"code": code, "sid": sid, "name": name,
                      "joined": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")},

@@ -1792,3 +1792,100 @@
 .ac-chat-sheet .chat-input-row {
   padding-bottom: calc(10px + env(safe-area-inset-bottom, 0));
 }
+
+/* ── Mobile: restrained welcome card + stat grid ──────────────────
+   Replaces the gradient banner (.acad-welcome-banner) and the 4 tinted
+   metric cards (.acad-metric-row/.acad-metric-card) with a plain
+   bordered card and a flat monochrome grid on small screens -- same
+   markup and JS-populated content, just less visual noise where space
+   is tightest. Desktop keeps the existing gradient/tinted look
+   untouched; this only fires under the app's mobile breakpoint (also
+   used in js/app.js's mobFabTrigger()). */
+@media (max-width: 720px) {
+  .acad-welcome-banner {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 14px 15px;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    flex-shrink: 0;
+  }
+  .acad-welcome-banner::before {
+    display: none;
+  }
+  .acad-welcome-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--acad-accent);
+  }
+  .acad-welcome-eyebrow::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--acad-accent);
+    flex-shrink: 0;
+  }
+  .acad-welcome-headline {
+    color: var(--text-primary);
+    font-size: 15px;
+  }
+  .acad-welcome-sub {
+    color: var(--text-secondary);
+  }
+  .acad-welcome-cta-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+  }
+  .acad-welcome-cta-btn:hover {
+    background: var(--bg-card);
+    border-color: var(--border2, var(--border-color));
+  }
+  .acad-welcome-stat-cluster {
+    gap: 4px 16px;
+    margin-top: 4px;
+  }
+  .acad-welcome-stat {
+    text-align: left;
+  }
+  .acad-welcome-stat-value,
+  .acad-welcome-stat-value--sm {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .acad-welcome-stat-label {
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--text-muted);
+    margin-top: 0;
+  }
+
+  .acad-metric-row {
+    gap: 8px;
+  }
+  .acad-metric-card {
+    padding: 10px 8px;
+    gap: 8px;
+    border-radius: 10px;
+  }
+  .acad-metric-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    font-size: 12px;
+    background: transparent;
+    color: var(--text-secondary);
+  }
+  .acad-metric-label {
+    font-size: 8.5px;
+  }
+  .acad-metric-value {
+    font-size: 15px;
+  }
+}

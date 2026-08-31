@@ -114,6 +114,12 @@ function acadInit(space) {
     );
   const lDash = document.getElementById("acadLecturerDash");
   const sDash = document.getElementById("acadStudentDash");
+  // acSearchSpace() only does anything for a lecturer (jumps to + filters the
+  // Students tab); for a student it's a no-op, so the bar just duplicates the
+  // real top bar's search with nothing behind it. Hide it there instead of
+  // leaving dead UI next to a working one.
+  const searchBar = document.getElementById("acadSearchInput")?.closest(".acad-search-bar");
+  if (searchBar) searchBar.style.display = acadRole === "lecturer" ? "" : "none";
 
   if (acadRole === "lecturer") {
     if (pill) pill.classList.add("acad-role-pill--lecturer");
