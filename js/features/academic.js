@@ -50,6 +50,7 @@ function adSave(patch) {
 async function acadAsk(message, context = "") {
   try {
     const r = await API("/api/chat", {
+      sid: (window.S && S.sid) || "",
       token: getToken(),
       message,
       context,
@@ -161,7 +162,8 @@ function lInit() {
   lSwitchTab("l-overview");
   lRenderMetrics();
   lRenderOverview();
-  lRenderClasses(); // populates the Overview "Active Classes" KPI too
+  _lRenderWelcomeCTAs();
+  lRenderClasses(); // populates the Overview "Active Classes" KPI + welcome "Classes" stat too
   if (d.classCode) _lLoadActiveClass(d.classCode);
   hostMountExtensions(window.currentSpace || window.currentAcademicSpace);
 }
@@ -179,6 +181,8 @@ function _lLoadActiveClass(code) {
   lLoadMaterials();
   lLoadSubmissionQueue();
   lLoadActivity();
+  lLoadSchedule();
+  _lRenderWelcomeCTAs();
 }
 
 // Real "what's happened in my class recently" feed -- was a permanently
@@ -435,6 +439,8 @@ async function lRenderClasses() {
   _lClasses = classes;
   const countEl = document.getElementById("lm-courses");
   if (countEl) countEl.textContent = classes.length || "–";
+  _lWelcomeClassCount = classes.length;
+  _lRenderWelcomeStats();
   const stats = await Promise.all(
     classes.map((c) =>
       acadAPI("/api/acad/class/stats", { code: c.code }).catch(() => null),
@@ -1147,8 +1153,138 @@ function lExportRoster() {
   a.download = "sivarr-roster.csv";
   a.click();
 }
-function lAddClass() {
-  acToast("Schedule editor coming soon");
+const _ACAD_DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const _ACAD_DAY_LABELS = { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" };
+function _lTodayCode() {
+  return _ACAD_DAY_ORDER[(new Date().getDay() + 6) % 7]; // JS Date: Sun=0 -> mon-indexed
+}
+function _lFormatTime(t) {
+  const [h, m] = String(t || "0:0").split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
+}
+// Soonest upcoming entry in a class's weekly schedule -- today if its time
+// hasn't passed yet, else the next matching weekday. Shared by the Today's
+// Schedule card and the welcome banner's "Next class" stat so there's one
+// source of truth for "what's next," not two slightly-different computations.
+function _lNextClassOccurrence(schedule) {
+  if (!schedule || !schedule.length) return null;
+  const todayIdx = _ACAD_DAY_ORDER.indexOf(_lTodayCode());
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  let best = null,
+    bestDelta = Infinity;
+  for (const s of schedule) {
+    const dIdx = _ACAD_DAY_ORDER.indexOf(s.day);
+    if (dIdx === -1) continue;
+    const [h, m] = String(s.time).split(":").map(Number);
+    const entryMinutes = h * 60 + m;
+    let dayDelta = (dIdx - todayIdx + 7) % 7;
+    if (dayDelta === 0 && entryMinutes <= nowMinutes) dayDelta = 7;
+    const totalDelta = dayDelta * 1440 + entryMinutes - nowMinutes;
+    if (totalDelta < bestDelta) {
+      bestDelta = totalDelta;
+      best = Object.assign({}, s, { isToday: dayDelta === 0 });
+    }
+  }
+  return best;
+}
+async function lAddClass() {
+  const d = adData();
+  if (!d.classCode) {
+    acToast("Publish a class first");
+    return;
+  }
+  const f = await siModal.form(
+    "Add class time",
+    [
+      {
+        id: "day",
+        label: "Day",
+        type: "select",
+        options: [
+          { value: "mon", label: "Monday" },
+          { value: "tue", label: "Tuesday" },
+          { value: "wed", label: "Wednesday" },
+          { value: "thu", label: "Thursday" },
+          { value: "fri", label: "Friday" },
+          { value: "sat", label: "Saturday" },
+          { value: "sun", label: "Sunday" },
+        ],
+      },
+      { id: "time", label: "Time", type: "time", required: true },
+    ],
+    { confirmLabel: "Add" },
+  );
+  if (!f || !f.time) return;
+  try {
+    await acadAPI("/api/acad/class/schedule", {
+      code: d.classCode,
+      day: f.day,
+      time: f.time,
+    });
+    acToast("Class time added");
+    lLoadSchedule();
+  } catch (e) {
+    acToast((e && e.message) || "Could not add class time");
+  }
+}
+async function lLoadSchedule() {
+  const d = adData();
+  const el = document.getElementById("lScheduleList");
+  if (!el || !d.classCode) return;
+  try {
+    const r = await acadAPI("/api/acad/class/get", { code: d.classCode });
+    const schedule = (r && r.class && r.class.schedule) || [];
+    const todayCode = _lTodayCode();
+    const today = schedule.filter((s) => s.day === todayCode);
+    el.innerHTML = today.length
+      ? today
+          .map(
+            (s) =>
+              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc((r.class && r.class.name) || "Class")}</div><div class="acad-priority-sub">${_lFormatTime(s.time)}</div></div><button class="acad-action-btn acad-action-btn--red" data-onclick="lRemoveScheduleEntry" data-onclick-arg0="${acEsc(s.day)}">Remove</button></div>`,
+          )
+          .join("")
+      : `<div class="acad-empty-state"><i class="ti ti-calendar" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No classes today</div></div>`;
+    _lWelcomeNextClass = _lNextClassOccurrence(schedule);
+    _lRenderWelcomeStats();
+  } catch (e) {
+    /* offline / not owner */
+  }
+}
+async function lRemoveScheduleEntry(day) {
+  const d = adData();
+  if (!d.classCode) return;
+  try {
+    await acadAPI("/api/acad/class/schedule/remove", { code: d.classCode, day });
+    lLoadSchedule();
+  } catch (e) {
+    acToast((e && e.message) || "Could not remove class time");
+  }
+}
+// ── Welcome banner: real CTAs + stats (lecturer side) ──────────────
+let _lWelcomeClassCount = null;
+let _lWelcomeNextClass = null;
+function _lRenderWelcomeStats() {
+  const el = document.getElementById("acadWelcomeStats");
+  if (!el) return;
+  const nextLabel = _lWelcomeNextClass
+    ? (_lWelcomeNextClass.isToday ? "Today " : _ACAD_DAY_LABELS[_lWelcomeNextClass.day] + " ") +
+      _lFormatTime(_lWelcomeNextClass.time)
+    : "None set";
+  el.innerHTML = `<div class="acad-welcome-stat"><div class="acad-welcome-stat-value">${_lWelcomeClassCount != null ? _lWelcomeClassCount : "–"}</div><div class="acad-welcome-stat-label">Classes</div></div><div class="acad-welcome-stat"><div class="acad-welcome-stat-value acad-welcome-stat-value--sm">${acEsc(nextLabel)}</div><div class="acad-welcome-stat-label">Next class</div></div>`;
+}
+function _lRenderWelcomeCTAs() {
+  const el = document.getElementById("acadWelcomeCTAs");
+  if (!el) return;
+  el.innerHTML = adData().classCode
+    ? `<button class="acad-welcome-cta-btn" data-onclick="lTakeAttendance">Take Attendance</button><button class="acad-welcome-cta-btn" data-onclick="lGoToGradingCTA">Grade Submissions</button>`
+    : `<button class="acad-welcome-cta-btn" data-onclick="lPublishClass">Publish your first class</button>`;
+}
+function lGoToGradingCTA() {
+  lSwitchTab("l-assessments");
+  lAssessSegment("grading");
 }
 async function lCreateAssessment() {
   if (_lAssessSeg === "grading") return;
@@ -1277,11 +1413,28 @@ function sInit() {
   sSyncModuleDropdowns();
   sUpdateCitationStats();
   sRenderMyClasses();
+  _sRenderWelcomeCTAs();
+  _sRenderWelcomeStats(null);
   sLoadFeed();
-  sLoadAssignments();
+  sLoadAssignments(); // also fills in the welcome banner's "Pending assignments" stat
   sLoadExams();
   sLoadLivePolls();
   hostMountExtensions(window.currentSpace || window.currentAcademicSpace);
+}
+// ── Welcome banner: real CTAs + stats (student side) ──────────────
+function _sRenderWelcomeCTAs() {
+  const el = document.getElementById("acadWelcomeCTAs");
+  if (!el) return;
+  const joined = (adData().joinedClasses || []).length;
+  el.innerHTML = joined
+    ? `<button class="acad-welcome-cta-btn" data-onclick="sSwitchTab" data-onclick-arg0="s-grades">My Grades</button><button class="acad-welcome-cta-btn" data-onclick="sSwitchTab" data-onclick-arg0="s-vault">Lecture Vault</button>`
+    : `<button class="acad-welcome-cta-btn" data-onclick="sJoinClass">Join a class</button>`;
+}
+function _sRenderWelcomeStats(pendingCount) {
+  const el = document.getElementById("acadWelcomeStats");
+  if (!el) return;
+  const joined = (adData().joinedClasses || []).length;
+  el.innerHTML = `<div class="acad-welcome-stat"><div class="acad-welcome-stat-value">${joined}</div><div class="acad-welcome-stat-label">Classes joined</div></div><div class="acad-welcome-stat"><div class="acad-welcome-stat-value">${pendingCount != null ? pendingCount : "–"}</div><div class="acad-welcome-stat-label">Pending assignments</div></div>`;
 }
 function sAllSprint() {
   return [].concat(
@@ -1751,6 +1904,89 @@ async function sGenerateCitation() {
   adSave({ aiQuestions: (d.aiQuestions || 0) + 1 });
   if (input) input.value = "";
 }
+// Real literature search (PubMed + Semantic Scholar) -- distinct from the AI
+// "Generate" flow above, which never searches a real index, just asks Gemini
+// to freehand a citation string. This one returns real metadata a student
+// can turn into a citation via _sFormatCitation, not an AI guess.
+let _sSearchResults = [];
+async function sSearchLiterature() {
+  const input = document.getElementById("sCiteInput");
+  const q = input?.value?.trim();
+  if (!q) return;
+  const resultsEl = document.getElementById("sSearchResults");
+  const btn = document.querySelector('[data-onclick="sSearchLiterature"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> Searching…';
+  }
+  if (resultsEl) {
+    resultsEl.style.display = "block";
+    resultsEl.innerHTML = `<div class="acad-priority-sub">Searching PubMed and Semantic Scholar…</div>`;
+  }
+  try {
+    const r = await acadAPI("/api/acad/research/search", { query: q });
+    _sSearchResults = (r && r.results) || [];
+    if (resultsEl) {
+      resultsEl.innerHTML = _sSearchResults.length
+        ? _sSearchResults
+            .map((res, i) => {
+              const authors = (res.authors || []).slice(0, 3).join(", ") + ((res.authors || []).length > 3 ? " et al." : "");
+              const meta = [authors, res.year, res.venue].filter(Boolean).join(" · ");
+              return `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(res.title || "Untitled")}</div><div class="acad-priority-sub">${acEsc(meta)}</div></div><div class="acad-priority-actions">${res.url ? `<a class="acad-btn-ghost acad-btn-sm" href="${acEsc(res.url)}" target="_blank" rel="noopener">View</a>` : ""}<button class="acad-action-btn acad-action-btn--teal" data-onclick="sAddRealCitation" data-onclick-arg0="${i}">Add citation</button></div></div>`;
+            })
+            .join("")
+        : `<div class="acad-priority-sub">No results found for "${acEsc(q)}".</div>`;
+    }
+  } catch (e) {
+    if (resultsEl)
+      resultsEl.innerHTML = `<div class="acad-priority-sub" style="color:var(--red3);">Search failed. Try again.</div>`;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-search" aria-hidden="true"></i> Search';
+    }
+  }
+}
+// Real-metadata citation formatter -- not a full bibliographic-style engine,
+// just an honest, non-hallucinated shape for the 4 formats this space offers.
+function _sFormatCitation(meta) {
+  const authors = (meta.authors || []).filter(Boolean);
+  const year = meta.year || "n.d.";
+  const title = meta.title || "Untitled";
+  const venue = meta.venue || "";
+  if (sCiteFormat === "mla") {
+    const first = authors[0] || "Unknown author";
+    return `${first}${authors.length > 1 ? ", et al." : "."} "${title}." ${venue}${venue ? ", " : ""}${year}.`;
+  }
+  if (sCiteFormat === "ieee") {
+    const authorStr = authors.length ? authors.join(", ") : "Unknown author";
+    return `${authorStr}, "${title}," ${venue}, ${year}.`;
+  }
+  if (sCiteFormat === "vancouver") {
+    const authorStr = authors.length
+      ? authors.slice(0, 6).join(", ") + (authors.length > 6 ? ", et al." : "")
+      : "Unknown author";
+    return `${authorStr}. ${title}. ${venue}. ${year}.`;
+  }
+  const authorStr = authors.length ? authors.join(", ") : "Unknown author";
+  return `${authorStr} (${year}). ${title}. ${venue}.`;
+}
+function sAddRealCitation(idx) {
+  const res = _sSearchResults[idx];
+  if (!res) return;
+  sCitations.unshift({
+    id: "r_" + Date.now(),
+    title: (res.title || "").substring(0, 80),
+    citation: _sFormatCitation(res),
+    format: sCiteFormat,
+    auto: false,
+    source: res.source,
+  });
+  adSave({ citations: sCitations });
+  sRenderCitations();
+  sUpdateCitationStats();
+  acToast("Citation added");
+}
 function sRenderCitations(filter = "") {
   const c = document.getElementById("sCitationList");
   if (!c) return;
@@ -1768,7 +2004,7 @@ function sRenderCitations(filter = "") {
       (x) => `
     <div class="acad-citation-item">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;"><div style="flex:1;"><div class="acad-citation-title">${acEsc(x.title)}</div><div class="acad-citation-ref">${acEsc(x.citation)}</div></div><span class="acad-tag acad-tag--teal" style="flex-shrink:0;font-size:9px;">${acEsc((x.format || "APA").toUpperCase())}</span></div>
-      <div class="acad-citation-footer">${x.auto ? '<span class="acad-source-badge acad-source-badge--purple">AI Generated</span>' : ""}<button style="margin-left:auto;" class="acad-action-btn" onclick="sCopyCite('${x.id}')">Copy</button><button class="acad-action-btn acad-action-btn--red" onclick="sDeleteCite('${x.id}')">Delete</button></div>
+      <div class="acad-citation-footer">${x.auto ? '<span class="acad-source-badge acad-source-badge--purple">AI Generated</span>' : x.source ? `<span class="acad-source-badge acad-source-badge--teal">${acEsc(x.source === "pubmed" ? "PubMed" : "Semantic Scholar")}</span>` : ""}<button style="margin-left:auto;" class="acad-action-btn" onclick="sCopyCite('${x.id}')">Copy</button><button class="acad-action-btn acad-action-btn--red" onclick="sDeleteCite('${x.id}')">Delete</button></div>
     </div>`,
     )
     .join("");
@@ -1810,9 +2046,6 @@ function sExportBib() {
   a.href = URL.createObjectURL(new Blob([bib], { type: "text/plain" }));
   a.download = "sivarr-references.bib";
   a.click();
-}
-function sConnectIndex(n) {
-  acToast(n + " integration coming soon");
 }
 // ── Study Groups ──
 function sRenderGroups(filter = "") {
@@ -2199,6 +2432,7 @@ async function lPublishClass() {
     if (r && r.ok) {
       adSave({ classCode: r.code });
       _lLoadActiveClass(r.code);
+      lRenderClasses(); // refreshes the "Active Classes" KPI + welcome "Classes" stat for the newly-created class
       acToast("Class published, code " + r.code);
     }
   } catch (e) {
@@ -2282,6 +2516,7 @@ async function sJoinClass() {
       if (!list.find((c) => c.code === r.class.code)) list.push(r.class);
       adSave({ joinedClasses: list });
       sRenderMyClasses();
+      _sRenderWelcomeCTAs();
       sLoadFeed();
       sLoadAssignments();
       sLoadExams();
@@ -2316,6 +2551,7 @@ async function sLeaveClass(code) {
     joinedClasses: (d.joinedClasses || []).filter((c) => c.code !== code),
   });
   sRenderMyClasses();
+  _sRenderWelcomeCTAs();
   sLoadFeed();
   sLoadAssignments();
   sLoadExams();
@@ -2635,6 +2871,7 @@ async function sLoadAssignments() {
   const emptyState = `<div class="acad-empty-state"><i class="ti ti-file-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No assignments yet. Join a class to see and submit work.</div></div>`;
   if (!list.length) {
     body.innerHTML = emptyState;
+    _sRenderWelcomeStats(0);
     return;
   }
   let rows = [];
@@ -2649,6 +2886,7 @@ async function sLoadAssignments() {
         );
     } catch (e) {}
   }
+  _sRenderWelcomeStats(rows.filter((r) => !r.submitted).length);
   if (!rows.length) {
     body.innerHTML = emptyState;
     return;

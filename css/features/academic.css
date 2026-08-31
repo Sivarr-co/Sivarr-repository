@@ -198,6 +198,40 @@
   flex-wrap: wrap;
   z-index: 1;
 }
+.acad-welcome-cta-btn {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.acad-welcome-cta-btn:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+.acad-welcome-stat {
+  text-align: right;
+}
+.acad-welcome-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+.acad-welcome-stat-value--sm {
+  font-size: 14px;
+}
+.acad-welcome-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: 2px;
+}
 
 .acad-metric-row {
   display: grid;

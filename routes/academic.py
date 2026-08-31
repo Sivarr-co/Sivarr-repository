@@ -50,6 +50,14 @@ from core import (
 
 log = logging.getLogger("sivarr")
 
+# httpx is optional app-wide (see app.py's own try/except at import time) --
+# mirrored here rather than injected since it's a pure library import with
+# no app-state dependency. Used only by the real literature-search endpoint.
+try:
+    import httpx as _httpx
+except ImportError:
+    _httpx = None
+
 # ── Materials: lecturer-posted class files/doc references ────────────────
 # Real uploads live on MATERIALS_DIR (config.py) -- the same Railway
 # persistent-volume pattern DATA_DIR/UPLOADS_DIR already use, chosen instead
@@ -63,6 +71,12 @@ _MATERIAL_TEXT_EXTS = {".txt", ".md"}
 _MATERIAL_ALLOWED_EXTS = {".pdf", ".md", ".txt"}
 MATERIAL_MAX_SIZE = 20 * 1024 * 1024  # 20MB -- lecture PDFs run bigger than quiz-upload text
 _MATERIAL_RATE_LIMIT = 10  # uploads per window, per acad_upload key
+
+# ── Real literature search: PubMed (NCBI E-utilities) + Semantic Scholar's
+# public Graph API -- both free, no key needed at this volume. Rate-limited
+# server-side so Sivarr's own aggregate traffic doesn't get throttled by
+# either free public API on top of whatever limits they already impose.
+_RESEARCH_RATE_LIMIT = 20  # searches per window, per acad_research key
 
 
 def _validate_material_magic(content: bytes, ext: str) -> bool:
@@ -108,6 +122,15 @@ def _acad_require_owner(code: str, sid: str) -> dict:
     if cls.get("owner_sid") != sid:
         raise HTTPException(403, "Only the class owner can do that.")
     return cls
+
+
+# ── Recurring weekly class schedule (stored directly on acad_classes) ────
+#  One entry per weekday max -- re-adding the same day replaces its time
+#  rather than duplicating, giving add/edit/remove without a separate
+#  collection. Not the same thing as a "Live" session (acad_live_set/clear
+#  below), which is an ad-hoc "go live now" event, not a recurring time.
+_ACAD_SCHEDULE_DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+_ACAD_SCHEDULE_TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
 
 # ── Live attendance (built on the class bridge) ──────────────────
@@ -1032,6 +1055,37 @@ def build_router(send_push) -> APIRouter:
         return {"ok": True}
 
 
+    @router.post("/api/acad/class/schedule")
+    async def acad_class_schedule(data: dict):
+        """Owner sets a recurring weekly class time. Re-adding the same day
+        replaces that day's time rather than duplicating it."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_require_owner(code, sid)
+        day = str(data.get("day", "")).strip().lower()
+        time_str = str(data.get("time", "")).strip()
+        if day not in _ACAD_SCHEDULE_DAYS or not _ACAD_SCHEDULE_TIME_RE.match(time_str):
+            raise HTTPException(400, "Pick a valid day and time.")
+        schedule = [s for s in (cls.get("schedule") or []) if s.get("day") != day]
+        schedule.append({"day": day, "time": time_str})
+        schedule.sort(key=lambda s: (_ACAD_SCHEDULE_DAYS.index(s["day"]), s["time"]))
+        cls["schedule"] = schedule
+        db.coll_put("acad_classes", code, cls, owner=cls.get("owner_sid", sid))
+        return {"ok": True, "schedule": cls["schedule"]}
+
+
+    @router.post("/api/acad/class/schedule/remove")
+    async def acad_class_schedule_remove(data: dict):
+        """Owner removes a class's schedule entry for a given day."""
+        sid, _ = _resolve_token(data)
+        code = sanitize_text(str(data.get("code", "")), 12).upper()
+        cls = _acad_require_owner(code, sid)
+        day = str(data.get("day", "")).strip().lower()
+        cls["schedule"] = [s for s in (cls.get("schedule") or []) if s.get("day") != day]
+        db.coll_put("acad_classes", code, cls, owner=cls.get("owner_sid", sid))
+        return {"ok": True, "schedule": cls["schedule"]}
+
+
     @router.post("/api/acad/poll/create")
     async def acad_poll_create(data: dict, bg: BackgroundTasks):
         """Owner opens a poll for the class."""
@@ -1234,6 +1288,72 @@ def build_router(send_push) -> APIRouter:
             raise HTTPException(404, "File not found.")
         media_type = mimetypes.guess_type(m.get("filename", ""))[0] or "application/octet-stream"
         return FileResponse(fpath, media_type=media_type, filename=m.get("filename", "download"))
+
+
+    @router.post("/api/acad/research/search")
+    async def acad_research_search(data: dict, request: Request):
+        """Real literature search against free, credential-free public APIs --
+        PubMed and Semantic Scholar. Google Scholar has no public API at all
+        and JSTOR needs a paid institutional agreement, so neither is offered
+        here (unlike the AI citation generator elsewhere in this space, which
+        never claimed to search a real index in the first place)."""
+        sid, _ = _resolve_token(data)
+        key = get_client_key(request, sid)
+        check_rate_limit(key, _RESEARCH_RATE_LIMIT, "acad_research")
+        query = sanitize_text(str(data.get("query", "")), 300)
+        if not query:
+            raise HTTPException(400, "Enter a search query.")
+        if not _httpx:
+            return {"ok": True, "results": []}
+
+        results = []
+        async with _httpx.AsyncClient(timeout=10) as client:
+            try:
+                r = await client.get(
+                    "https://api.semanticscholar.org/graph/v1/paper/search",
+                    params={"query": query, "limit": 8, "fields": "title,authors,year,venue,externalIds,url"},
+                )
+                if r.status_code == 200:
+                    for p in r.json().get("data", []) or []:
+                        doi = (p.get("externalIds") or {}).get("DOI")
+                        results.append({
+                            "source": "semantic_scholar",
+                            "title": p.get("title") or "",
+                            "authors": [a.get("name", "") for a in (p.get("authors") or [])],
+                            "year": p.get("year"),
+                            "venue": p.get("venue") or "",
+                            "url": p.get("url") or (f"https://doi.org/{doi}" if doi else ""),
+                        })
+            except Exception as exc:
+                log.warning(f"Semantic Scholar search failed: {exc}")
+
+            try:
+                r = await client.get(
+                    "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+                    params={"db": "pubmed", "term": query, "retmax": 8, "retmode": "json", "tool": "sivarr-academic"},
+                )
+                ids = (r.json().get("esearchresult") or {}).get("idlist", []) if r.status_code == 200 else []
+                if ids:
+                    r2 = await client.get(
+                        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi",
+                        params={"db": "pubmed", "id": ",".join(ids), "retmode": "json", "tool": "sivarr-academic"},
+                    )
+                    if r2.status_code == 200:
+                        summary = r2.json().get("result", {}) or {}
+                        for pmid in summary.get("uids", []):
+                            doc = summary.get(pmid) or {}
+                            results.append({
+                                "source": "pubmed",
+                                "title": doc.get("title") or "",
+                                "authors": [a.get("name", "") for a in (doc.get("authors") or [])],
+                                "year": (doc.get("pubdate") or "")[:4],
+                                "venue": doc.get("fulljournalname") or doc.get("source") or "",
+                                "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+                            })
+            except Exception as exc:
+                log.warning(f"PubMed search failed: {exc}")
+
+        return {"ok": True, "results": results[:16]}
 
 
     @router.post("/api/acad/activity/list")

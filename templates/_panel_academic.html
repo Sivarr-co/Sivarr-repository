@@ -1145,26 +1145,34 @@
                 >
                 <div style="display: flex; gap: 5px">
                   <span class="acad-source-badge acad-source-badge--teal"
-                    >Google Scholar</span
-                  >
-                  <span class="acad-source-badge acad-source-badge--purple"
                     >Semantic Scholar</span
+                  >
+                  <span class="acad-source-badge acad-source-badge--teal"
+                    >PubMed</span
                   >
                 </div>
               </div>
               <div class="acad-card-body">
                 <p class="acad-brief-desc">
-                  Paste a URL, DOI, or paper title, and SIVARR AI auto-generates a
-                  formal citation.
+                  Search PubMed and Semantic Scholar for real sources, or
+                  paste a URL, DOI, or paper title for SIVARR AI to generate a
+                  citation.
                 </p>
                 <div class="acad-research-input-row">
                   <input
                     class="acad-research-input"
                     id="sCiteInput"
                     type="text"
-                    placeholder="Paste URL, DOI, or paper title…"
-                    onkeydown="if (event.key === 'Enter') sGenerateCitation();"
+                    placeholder="Search topic, or paste a URL/DOI/title…"
+                    onkeydown="if (event.key === 'Enter') sSearchLiterature();"
                   />
+                  <button
+                    class="acad-research-btn"
+                    data-onclick="sSearchLiterature"
+                  >
+                    <i class="ti ti-search" aria-hidden="true"></i>
+                    Search
+                  </button>
                   <button
                     class="acad-research-btn"
                     data-onclick="sGenerateCitation"
@@ -1173,6 +1181,7 @@
                     Generate
                   </button>
                 </div>
+                <div id="sSearchResults" style="display: none; margin-bottom: 10px"></div>
                 <div class="acad-cite-format-row">
                   <span class="acad-brief-desc" style="margin: 0">Format:</span>
                   <button
@@ -1276,17 +1285,6 @@
                 style="display: flex; flex-direction: column; gap: 8px"
               >
                 <div class="acad-index-row acad-index-row--active">
-                  <i
-                    class="ti ti-search acad-index-icon"
-                    aria-hidden="true"
-                  ></i>
-                  <div>
-                    <div class="acad-index-name">Google Scholar</div>
-                    <div class="acad-index-status">Active</div>
-                  </div>
-                  <div class="acad-online-dot"></div>
-                </div>
-                <div class="acad-index-row acad-index-row--active">
                   <i class="ti ti-book acad-index-icon" aria-hidden="true"></i>
                   <div>
                     <div class="acad-index-name">Semantic Scholar</div>
@@ -1294,37 +1292,26 @@
                   </div>
                   <div class="acad-online-dot"></div>
                 </div>
-                <div class="acad-index-row acad-index-row--inactive">
-                  <i
-                    class="ti ti-building-bank acad-index-icon"
-                    aria-hidden="true"
-                  ></i>
-                  <div>
-                    <div class="acad-index-name">JSTOR</div>
-                    <div class="acad-index-status">Not connected</div>
-                  </div>
-                  <button
-                    class="acad-btn-ghost acad-btn-sm"
-                    data-onclick="sConnectIndex" data-onclick-arg0="jstor"
-                  >
-                    Connect
-                  </button>
-                </div>
-                <div class="acad-index-row acad-index-row--inactive">
+                <div class="acad-index-row acad-index-row--active">
                   <i
                     class="ti ti-heartbeat acad-index-icon"
                     aria-hidden="true"
                   ></i>
                   <div>
                     <div class="acad-index-name">PubMed</div>
-                    <div class="acad-index-status">Not connected</div>
+                    <div class="acad-index-status">Active</div>
                   </div>
-                  <button
-                    class="acad-btn-ghost acad-btn-sm"
-                    data-onclick="sConnectIndex" data-onclick-arg0="pubmed"
-                  >
-                    Connect
-                  </button>
+                  <div class="acad-online-dot"></div>
+                </div>
+                <div class="acad-index-row acad-index-row--inactive">
+                  <i
+                    class="ti ti-search acad-index-icon"
+                    aria-hidden="true"
+                  ></i>
+                  <div>
+                    <div class="acad-index-name">Google Scholar</div>
+                    <div class="acad-index-status">No public API available</div>
+                  </div>
                 </div>
               </div>
             </div>
