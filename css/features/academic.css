@@ -33,6 +33,7 @@
 .acad-role-card:hover {
   border-color: var(--border2);
   background: rgba(127, 127, 127, 0.04);
+  transform: translateY(-1px);
 }
 .acad-role-card--active {
   border-color: var(--teal);

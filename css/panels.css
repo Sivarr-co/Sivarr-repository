@@ -9099,7 +9099,7 @@ html {
   padding: 18px 20px 14px;
   border-bottom: 1px solid var(--border);
 }
-.csp-head h3 {
+.csp-head h2 {
   font-size: 1rem;
   font-weight: 700;
   color: var(--fg);
@@ -9166,6 +9166,7 @@ html {
 .csp-type:hover {
   border-color: var(--teal);
   background: var(--hover);
+  transform: translateY(-1px);
 }
 .csp-type.selected {
   border-color: var(--teal);

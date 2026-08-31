@@ -544,7 +544,9 @@ body {
     padding: 24px 16px 32px !important;
   }
 
-  /* ── Create Space modal bottom sheet ──────────────────────── */
+  /* ── Create Space modal: bottom sheet, matching the same drag-handle +
+     entrance animation every other mobile sheet in this app already uses
+     (.mkt-modal / .modal-overlay .modal-box) ──────────────────────────── */
   .csp-overlay {
     align-items: flex-end;
     padding: 0;
@@ -554,26 +556,78 @@ body {
     max-height: 92dvh;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0));
+    animation: mob-sheet-up 0.26s cubic-bezier(0.22, 1, 0.36, 1);
   }
+  .csp-modal::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border2, var(--border));
+    margin: 10px auto 0;
+  }
+
+  /* One column of full-width rows instead of a squeezed icon-only grid, so
+     the description text (what actually distinguishes the three types)
+     stays legible instead of being dropped to fit 3 columns. */
   .csp-types {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 7px;
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
   .csp-type {
-    padding: 10px 6px;
-    gap: 5px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "icon name" "icon desc";
+    align-items: center;
+    column-gap: 14px;
+    row-gap: 2px;
+    text-align: left;
+    padding: 12px 14px;
+    min-height: 60px;
   }
   .csp-type-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    font-size: 0.9rem;
+    grid-area: icon;
   }
   .csp-type-name {
-    font-size: 0.72rem;
+    grid-area: name;
+    align-self: end;
+    font-size: 0.85rem;
   }
   .csp-type-desc {
-    display: none;
+    grid-area: desc;
+    align-self: start;
+    display: block;
+    font-size: 0.74rem;
+  }
+
+  /* Role cards stay side-by-side (only 2 of them, fits fine) but with
+     comfortably readable text instead of the previous 10-12px squint. */
+  .acad-role-card {
+    padding: 14px 10px;
+  }
+  .acad-role-icon {
+    font-size: 22px;
+    margin-bottom: 4px;
+  }
+  .acad-role-name {
+    font-size: 12.5px;
+  }
+  .acad-role-desc {
+    font-size: 10.5px;
+  }
+
+  /* Real tap targets for the name field and footer actions — scoped to this
+     modal so the shared .sp-input/.sp-btn-* classes elsewhere are untouched. */
+  #create-space-modal .sp-input {
+    padding: 13px 14px;
+    font-size: 0.9rem;
+  }
+  #create-space-modal .csp-footer button {
+    flex: 1;
+    justify-content: center;
+    padding: 12px 16px;
   }
 
   /* ── Launcher Space rows: show ⋮ options ──────────────────── */
@@ -1862,63 +1916,6 @@ button {
     padding: 0 10px;
   }
 
-  /* Modal becomes a bottom-anchored sheet so all content is reachable */
-  .csp-overlay {
-    align-items: flex-end;
-    padding: 0;
-  }
-
-  .csp-modal {
-    border-radius: 20px 20px 0 0;
-    max-height: 92dvh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Keep 3-column grid but shrink the cards to not eat the screen */
-  .csp-types {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 7px;
-  }
-
-  .csp-type {
-    padding: 10px 6px;
-    gap: 5px;
-  }
-
-  .csp-type-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    font-size: 0.9rem;
-  }
-
-  .csp-type-name {
-    font-size: 0.72rem;
-  }
-
-  .csp-type-desc {
-    display: none;
-  }
-
-  /* Role cards — keep side-by-side but slimmer */
-  .acad-role-card {
-    padding: 10px 8px;
-  }
-
-  .acad-role-icon {
-    font-size: 20px;
-    margin-bottom: 3px;
-  }
-
-  .acad-role-name {
-    font-size: 12px;
-  }
-
-  .acad-role-desc {
-    font-size: 10px;
-  }
-
   .ag-grid {
     grid-template-columns: 1fr;
   }
@@ -1929,18 +1926,6 @@ button {
 
   .ag-tb-btn span {
     display: none;
-  }
-
-  #create-space-modal .csp-types {
-    padding: 0 14px;
-  }
-
-  #create-space-modal #csp-name-row {
-    padding: 0 14px;
-  }
-
-  #create-space-modal #acadRoleStep {
-    padding: 0 14px;
   }
 
   .ps-stat-row {
