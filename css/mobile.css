@@ -608,7 +608,10 @@ body {
     padding: 14px 10px;
   }
   .acad-role-icon {
-    font-size: 22px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    font-size: 16px;
     margin-bottom: 4px;
   }
   .acad-role-name {

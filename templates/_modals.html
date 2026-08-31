@@ -1,9 +1,63 @@
 <!-- ── Mobile FAB (quick capture) — real one, defined again lower in body
          since app.js re-binds cnOpen() to this instance; kept here to travel
-         with the rest of the mobile shell chrome -->
-<button class="mob-fab" id="mob-fab" data-onclick="cnOpen" title="Quick capture">
+         with the rest of the mobile shell chrome. mobFabTrigger() (js/app.js)
+         hands off to the Academic Space quick-chat popup below instead of
+         cnOpen() while that panel is active on a mobile viewport. -->
+<button class="mob-fab" id="mob-fab" data-onclick="mobFabTrigger" title="Quick capture">
   <i class="ti ti-plus"></i>
 </button>
+
+<!-- Academic Space: mobile FAB → Sivarr AI quick-chat popup. Real chat --
+     posts to /api/chat/stream, the same endpoint and daily quota as the
+     main Sivarr AI panel — deliberately without that panel's context
+     injection/attachments/retry machinery, a lighter quick-ask surface,
+     not a duplicate of it. See js/features/academic.js's acadChat*. -->
+<div class="ac-chat-sheet-bg" id="ac-chat-sheet-bg">
+  <div class="ac-chat-sheet" id="ac-chat-sheet">
+    <div class="chat-header" id="ac-chat-drag-handle">
+      <div class="chat-header-av">
+        <img src="{{ asset('/static/sivarrai.png') }}" alt="Sivarr AI" />
+      </div>
+      <div class="chat-header-info">
+        <div class="chat-header-name">Sivarr AI</div>
+        <div class="chat-header-status">
+          <div class="chat-status-dot"></div>
+          <span>Online &middot; Ready</span>
+        </div>
+      </div>
+      <div class="chat-header-actions">
+        <button class="chat-hdr-btn" data-onclick="acadChatClose" title="Close">
+          <i class="ti ti-x"></i>
+        </button>
+      </div>
+    </div>
+    <div class="chat-msgs" id="ac-chat-msgs">
+      <div class="msg sivarr">
+        <div class="msg-av">AI</div>
+        <div class="msg-inner">
+          <div class="msg-bub md-body">
+            Ask me anything about this space &mdash; a module, a deadline, or a
+            quick explainer.
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-row">
+      <textarea
+        class="chat-input"
+        id="ac-chat-input"
+        placeholder="Ask Sivarr anything..."
+        rows="1"
+        data-onkeydown="acadChatKeydown"
+        data-onkeydown-event
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"
+      ></textarea>
+      <button class="chat-send-btn" id="ac-chat-send" data-onclick="acadChatSend">
+        <i class="ti ti-arrow-up"></i>
+      </button>
+    </div>
+  </div>
+</div>
 
 {# ═══════════════════════════════════════════════════════════════ _modals.html
 — all modals, overlays, and banners Re-extracted VERBATIM from
@@ -811,12 +865,16 @@ BANNER ── #}
     <p class="csp-sub">
       Pick a type to get started. You can always customise later.
     </p>
+    <label class="sp-label" style="display: block; margin-bottom: 8px"
+      >Space type</label
+    >
     <div class="csp-types" id="csp-types">
       <div
         class="csp-type"
         data-type="personal"
         data-onclick="cspSelectType" data-onclick-arg0="personal" data-onclick-this
       >
+        <span class="csp-check"><i class="ti ti-check"></i></span>
         <div class="csp-type-icon" style="background: var(--blue2)">
           <i class="ti ti-user" style="color: var(--blue)"></i>
         </div>
@@ -828,6 +886,7 @@ BANNER ── #}
         data-type="org"
         data-onclick="cspSelectType" data-onclick-arg0="org" data-onclick-this
       >
+        <span class="csp-check"><i class="ti ti-check"></i></span>
         <div class="csp-type-icon" style="background: var(--teal2)">
           <i class="ti ti-building" style="color: var(--teal)"></i>
         </div>
@@ -839,6 +898,7 @@ BANNER ── #}
         data-type="academic"
         data-onclick="cspSelectType" data-onclick-arg0="academic" data-onclick-this
       >
+        <span class="csp-check"><i class="ti ti-check"></i></span>
         <div class="csp-type-icon" style="background: var(--amber2)">
           <i class="ti ti-school" style="color: var(--amber3)"></i>
         </div>
@@ -856,6 +916,7 @@ BANNER ── #}
           data-role="student"
           data-onclick="acadSelectRole" data-onclick-arg0="student"
         >
+          <span class="csp-check"><i class="ti ti-check"></i></span>
           <div class="acad-role-icon">🎓</div>
           <div class="acad-role-name">Student</div>
           <div class="acad-role-desc">
@@ -867,6 +928,7 @@ BANNER ── #}
           data-role="lecturer"
           data-onclick="acadSelectRole" data-onclick-arg0="lecturer"
         >
+          <span class="csp-check"><i class="ti ti-check"></i></span>
           <div class="acad-role-icon">📋</div>
           <div class="acad-role-name">Lecturer</div>
           <div class="acad-role-desc">

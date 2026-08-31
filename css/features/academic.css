@@ -20,6 +20,7 @@
 }
 
 .acad-role-card {
+  position: relative;
   background: var(--card);
   border: 2px solid var(--border);
   border-radius: 12px;
@@ -28,7 +29,7 @@
   transition:
     border-color 0.15s,
     background 0.15s;
-  text-align: center;
+  text-align: left;
 }
 .acad-role-card:hover {
   border-color: var(--border2);
@@ -40,7 +41,14 @@
   background: var(--teal2);
 }
 .acad-role-icon {
-  font-size: 28px;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--teal2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
   margin-bottom: 6px;
 }
 .acad-role-name {
@@ -1736,4 +1744,51 @@
   gap: 8px;
   padding: 12px 16px;
   border-top: 1px solid var(--border-color);
+}
+
+/* ── Mobile FAB → Sivarr AI quick-chat popup ──────────────────────
+   While the Academic Space panel is active on a mobile viewport, the
+   global #mob-fab (normally quick-capture, see js/app.js's
+   mobFabTrigger()) opens this instead. A floating card, not a modal
+   bottom sheet: no backdrop, the rest of the page stays interactive
+   while it's open, and it can be dragged anywhere by its header (see
+   js/features/academic.js's _acadChatMakeDraggable) -- it starts
+   anchored near the FAB via right/bottom, and dragging switches it to
+   an explicit left/top so it can go anywhere in the viewport.
+   .chat-header/.chat-msgs/.chat-input-row are reused completely
+   unstyled here: they're already generic flex children in panels.css,
+   not scoped to #panel-chat, so this looks like the real chat UI with
+   zero new rules for the internals. */
+.ac-chat-sheet-bg {
+  display: none;
+}
+.ac-chat-sheet-bg.open {
+  display: block;
+}
+.ac-chat-sheet {
+  position: fixed;
+  right: 16px;
+  bottom: 90px;
+  width: min(90vw, 340px);
+  height: min(65vh, 480px);
+  background: var(--card, var(--bg2));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow3);
+  z-index: 9000;
+  animation: si-modal-in 0.2s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+.ac-chat-sheet .chat-header {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.ac-chat-sheet .chat-header:active {
+  cursor: grabbing;
+}
+.ac-chat-sheet .chat-input-row {
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0));
 }

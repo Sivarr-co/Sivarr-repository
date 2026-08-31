@@ -3484,3 +3484,204 @@ async function sVote(code, pid, idx) {
     acToast((e && e.message) || "Vote failed");
   }
 }
+
+// ── Mobile FAB → Sivarr AI quick-chat popup (templates/_modals.html,
+//    #ac-chat-sheet-bg) — js/app.js's mobFabTrigger() opens this instead of
+//    the usual quick-capture sheet while this panel is active on mobile.
+//    Posts to the real /api/chat/stream, the same endpoint and per-user
+//    daily quota the main Sivarr AI panel (js/app.js's send()) uses,
+//    deliberately without that panel's context-injection/attachments/
+//    retry machinery — a lighter quick-ask surface, not a duplicate of it.
+function acadChatOpen() {
+  $("ac-chat-sheet-bg")?.classList.add("open");
+  _acadChatMakeDraggable();
+  setTimeout(() => $("ac-chat-input")?.focus(), 200);
+}
+
+// Draggable by its header, like any floating widget -- bound once (guarded
+// by dataset.dragBound) since acadChatOpen() calls this on every open.
+// Pointer Events cover mouse + touch + pen in one listener set; the panel
+// starts anchored near the FAB via CSS right/bottom and switches to an
+// explicit left/top on first drag so it can end up anywhere on screen,
+// clamped to stay fully within the viewport.
+function _acadChatMakeDraggable() {
+  const sheet = $("ac-chat-sheet");
+  const handle = $("ac-chat-drag-handle");
+  if (!sheet || !handle || sheet.dataset.dragBound) return;
+  sheet.dataset.dragBound = "1";
+
+  let dragging = false,
+    startX = 0,
+    startY = 0,
+    startLeft = 0,
+    startTop = 0;
+
+  handle.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".chat-hdr-btn")) return; // let the close (X) button work
+    dragging = true;
+    handle.setPointerCapture(e.pointerId);
+    const rect = sheet.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    startLeft = rect.left;
+    startTop = rect.top;
+    sheet.style.right = "auto";
+    sheet.style.bottom = "auto";
+    sheet.style.left = `${startLeft}px`;
+    sheet.style.top = `${startTop}px`;
+  });
+  handle.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const maxLeft = Math.max(4, window.innerWidth - sheet.offsetWidth - 4);
+    const maxTop = Math.max(4, window.innerHeight - sheet.offsetHeight - 4);
+    const newLeft = Math.min(Math.max(4, startLeft + (e.clientX - startX)), maxLeft);
+    const newTop = Math.min(Math.max(4, startTop + (e.clientY - startY)), maxTop);
+    sheet.style.left = `${newLeft}px`;
+    sheet.style.top = `${newTop}px`;
+  });
+  const endDrag = (e) => {
+    dragging = false;
+    try {
+      handle.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+  };
+  handle.addEventListener("pointerup", endDrag);
+  handle.addEventListener("pointercancel", endDrag);
+}
+function acadChatClose() {
+  $("ac-chat-sheet-bg")?.classList.remove("open");
+}
+function acadChatToggle() {
+  const bg = $("ac-chat-sheet-bg");
+  if (!bg) return;
+  if (bg.classList.contains("open")) acadChatClose();
+  else acadChatOpen();
+}
+function acadChatKeydown(e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    acadChatSend();
+  }
+}
+function _acadChatAddMsg(role, text, isError) {
+  const w = $("ac-chat-msgs");
+  if (!w) return null;
+  const d = document.createElement("div");
+  d.className = `msg ${role}`;
+  d.innerHTML = `<div class="msg-av">${role === "user" ? acEsc((S.name || "?").charAt(0).toUpperCase()) : "AI"}</div><div class="msg-inner"><div class="msg-bub md-body${isError ? " msg-error" : ""}"></div></div>`;
+  const bub = d.querySelector(".msg-bub");
+  if (role === "user") bub.textContent = text;
+  else bub.innerHTML = isError ? acEsc(text) : renderMarkdown(text);
+  w.appendChild(d);
+  w.scrollTop = w.scrollHeight;
+  return bub;
+}
+// What tab/role the popup was opened from, so a question like "how am I
+// doing in this module" or "what's due here" resolves against the space
+// the user is actually looking at, not a blind guess. Injected server-side
+// into the Gemini prompt only (routes/ai_chat.py prepends req.context to
+// the message it sends the model) -- add_history persists req.message
+// alone, so this line never pollutes the user's saved chat history.
+function _acadChatContext() {
+  const spaceName =
+    $("acadSpaceNameLabel")?.textContent?.trim() || "this Academic Space";
+  const tabBarId = acadRole === "lecturer" ? "lecturerTabBar" : "studentTabBar";
+  const activeTab = document.querySelector(`#${tabBarId} .acad-tab.active`);
+  const tabLabel = activeTab ? activeTab.textContent.trim() : "Overview";
+  const roleLabel = acadRole === "lecturer" ? "lecturer" : "student";
+  return `The user opened this quick-chat from their Academic Space "${spaceName}", where they are a ${roleLabel} currently viewing the "${tabLabel}" tab. If their question relates to this space or tab, use that context.`;
+}
+
+async function acadChatSend() {
+  const input = $("ac-chat-input");
+  const msg = input?.value.trim() || "";
+  if (!msg || !S.sid) return;
+  _acadChatAddMsg("user", msg);
+  input.value = "";
+  input.style.height = "auto";
+
+  const btn = $("ac-chat-send");
+  if (btn) btn.disabled = true;
+
+  let res;
+  try {
+    const token = getToken() || "";
+    res = await fetch("/api/chat/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sid: S.sid,
+        message: msg,
+        context: _acadChatContext(),
+        token,
+      }),
+    });
+  } catch {
+    _acadChatAddMsg(
+      "sivarr",
+      "Could not reach Sivarr. Check your connection and try again.",
+      true,
+    );
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      _acadChatAddMsg(
+        "sivarr",
+        "Your session expired. Please sign in again.",
+        true,
+      );
+    } else if (res.status === 429) {
+      const data = await res.json().catch(() => ({}));
+      _acadChatAddMsg(
+        "sivarr",
+        data.detail || "You've sent a lot of messages. Please wait a moment.",
+        true,
+      );
+    } else {
+      _acadChatAddMsg("sivarr", "Could not reach Sivarr. Please try again.", true);
+    }
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  const bub = _acadChatAddMsg("sivarr", "");
+  const msgsEl = $("ac-chat-msgs");
+  let fullText = "";
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  try {
+    outer: while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const raw = line.slice(6).trim();
+        if (raw === "[DONE]") break outer;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.done) break outer;
+          if (parsed.token) {
+            fullText += parsed.token;
+            bub.textContent = fullText + "▌";
+            if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+          }
+        } catch {}
+      }
+    }
+  } catch {
+    bub.classList.add("msg-error");
+    bub.textContent = "Stream interrupted. Please try again.";
+    if (btn) btn.disabled = false;
+    return;
+  }
+  bub.innerHTML = renderMarkdown(fullText);
+  if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+  if (btn) btn.disabled = false;
+}
