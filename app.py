@@ -4549,12 +4549,11 @@ async def list_groups(sid: str = "", token: str = ""):
             continue
         last_text, last_date = "", g.get("created_at", "")
         if db.is_available():
-            # Live messages live in org_messages (grp_<gid>); pull the most recent for the preview
-            rows = await asyncio.to_thread(db.get_org_messages, _grp_oid(gid), "main", 1)
+            rows = db.coll_list("group_messages", owner=gid)
             if rows:
-                last_text = (rows[-1].get("content") or "")[:50]
-                ca = rows[-1].get("created_at")
-                last_date = ca.isoformat() if hasattr(ca, "isoformat") else str(ca or last_date)
+                rows.sort(key=lambda m: m.get("date", ""))
+                last_text = (rows[-1].get("text") or "")[:50]
+                last_date = rows[-1].get("date", last_date)
         elif g.get("messages"):
             lm = g["messages"][-1]
             last_text = (lm.get("text") or lm.get("message") or "")[:50]  # tolerate legacy `message` key
@@ -4567,26 +4566,16 @@ async def list_groups(sid: str = "", token: str = ""):
 
 
 # ── Study-group chat helpers ──────────────────────────────────
-# Group messages are stored in the same atomic `org_messages` table as org chat
-# (org_id namespaced as "grp_<gid>"). This gives study groups the same guarantees
-# as org chat: per-row INSERTs (no lost messages under concurrency) and a feed
-# every Gunicorn worker can read — so a message sent by one member is received by
-# every other member, on every device, via DB-poll SSE. Group *metadata* (name,
-# members) stays in the `groups` collection.
-def _grp_oid(gid: str) -> str:
-    return f"grp_{gid}"
-
-def _grp_msg_from_row(r: dict) -> dict:
-    """Normalize an org_messages row → the shape the group chat frontend expects."""
-    ca = r.get("created_at")
-    return {
-        "id":          r.get("id"),
-        "sender":      r.get("author_sid"),
-        "sender_name": r.get("author_name"),
-        "text":        r.get("content"),
-        "date":        ca.isoformat() if hasattr(ca, "isoformat") else str(ca or ""),
-    }
-
+# Group messages live in the generic `collections` table (db.coll_put/coll_list,
+# collection="group_messages", owner=group_id) -- the same store-anything
+# pattern Academic space's own announcements/activity feeds already use.
+# NOT org_messages: that table's org_id column is a real foreign key into
+# `orgs(id)` (ON DELETE CASCADE) -- a study group's synthetic "grp_<gid>" id
+# is never a real row there, so every insert through that path unconditionally
+# violated the FK constraint and silently dropped every message (confirmed via
+# a live Postgres test; this was broken from the moment that FK was added,
+# not something this pass introduced). Group *metadata* (name, members) stays
+# in the `groups` collection, unchanged.
 def _grp_msg_normalize(m: dict) -> dict:
     """Normalize a legacy file-stored group message (handles old `message`/`name` keys)."""
     return {
@@ -4610,24 +4599,22 @@ async def send_group_message(data: dict, request: Request):
     if gid not in groups: raise HTTPException(404, "Group not found")
     if sid not in groups[gid]["members"]: raise HTTPException(403, "Not a member")
 
-    # Atomic per-row store (cross-worker safe; no read-modify-write race on groups.json).
-    if db.is_available():
-        row = await asyncio.to_thread(db.send_org_message, _grp_oid(gid), "main", sid, name, content)
-        if not row: raise HTTPException(500, "Failed to send message.")
-        return {"ok": True, "msg": _grp_msg_from_row(row)}
-
-    # File fallback (no DB): legacy append, stored in the normalized shape.
     msg = {
-        "id":          str(uuid.uuid4())[:8],
+        "id":          str(uuid.uuid4())[:12],
         "sid":         sid,
         "sender_name": name,
         "text":        content,
-        "date":        datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "date":        datetime.datetime.utcnow().isoformat(),
     }
+    if db.is_available():
+        db.coll_put("group_messages", msg["id"], msg, owner=gid)
+        return {"ok": True, "msg": _grp_msg_normalize(msg)}
+
+    # File fallback (no DB): legacy append, stored in the normalized shape.
     groups[gid].setdefault("messages", []).append(msg)
     groups[gid]["messages"] = groups[gid]["messages"][-300:]
     save_groups(groups)
-    return {"ok": True, "msg": {**_grp_msg_normalize(msg)}}
+    return {"ok": True, "msg": _grp_msg_normalize(msg)}
 
 
 @app.get("/api/group/messages")
@@ -4642,16 +4629,30 @@ async def get_group_messages(group_id: str, sid: str = "", token: str = ""):
     if gid not in groups: raise HTTPException(404, "Group not found")
     if sid not in groups[gid]["members"]: raise HTTPException(403, "Not a member")
     if db.is_available():
-        rows = await asyncio.to_thread(db.get_org_messages, _grp_oid(gid), "main", 100)
-        return {"messages": [_grp_msg_from_row(r) for r in rows], "name": groups[gid]["name"]}
+        rows = db.coll_list("group_messages", owner=gid)
+        rows.sort(key=lambda m: m.get("date", ""))
+        return {"messages": [_grp_msg_normalize(m) for m in rows[-100:]], "name": groups[gid]["name"]}
     msgs = [_grp_msg_normalize(m) for m in groups[gid].get("messages", [])[-100:]]
     return {"messages": msgs, "name": groups[gid]["name"]}
 
 
 @app.get("/api/group/chat/stream")
-async def group_chat_stream(token: str = "", group_id: str = "", last_id: int = 0, request: Request = None):
-    """SSE for study-group chat — DB-polls org_messages so every worker (and so
-    every connected member) sees the same live feed."""
+async def group_chat_stream(token: str = "", group_id: str = "", since: str = "", request: Request = None):
+    """SSE for study-group chat — DB-polls group_messages so every worker (and
+    so every connected member) sees the same live feed. Cursor is the ISO
+    timestamp of the last message seen (messages have no numeric ordering
+    column in the generic collections store), not a numeric id.
+
+    NOT currently called by any frontend. Confirmed live: the connection opens
+    and stays open (no error), but the global GZipMiddleware registered on
+    `app` buffers small streamed chunks and never flushes them to the client —
+    a known Starlette/FastAPI GZip+StreamingResponse incompatibility, not a
+    bug in this handler. The Academic space's study-group chat
+    (js/features/academic.js) uses plain REST polling against
+    /api/group/messages instead, which was confirmed reliable. Fixing GZip's
+    interaction with streaming responses app-wide is a separate, larger piece
+    of work than any one feature — this endpoint is left in place, correct and
+    ready to use the moment that's addressed, rather than deleted."""
     entry = get_session_from_token(sanitize_text(token, 100))
     if not entry: raise HTTPException(401, "Invalid token.")
     sid = entry["sid"]
@@ -4660,19 +4661,19 @@ async def group_chat_stream(token: str = "", group_id: str = "", last_id: int = 
     groups = load_groups()
     if gid not in groups: raise HTTPException(404, "Group not found")
     if sid not in groups[gid]["members"]: raise HTTPException(403, "Not a member")
-    oid = _grp_oid(gid)
-    cursor = max(0, int(last_id))
+    cursor = sanitize_text(since, 40)
 
     async def stream():
         nonlocal cursor
         while True:
             if request and await request.is_disconnected():
                 break
-            rows = await asyncio.to_thread(db.get_org_messages_since, oid, cursor)
+            rows = [m for m in db.coll_list("group_messages", owner=gid) if m.get("date", "") > cursor]
             if rows:
+                rows.sort(key=lambda m: m.get("date", ""))
                 for r in rows:
-                    cursor = r["id"]
-                    yield f"data: {json.dumps(_grp_msg_from_row(r))}\n\n"
+                    cursor = r.get("date", cursor)
+                    yield f"data: {json.dumps(_grp_msg_normalize(r))}\n\n"
             else:
                 yield ": ping\n\n"
             await asyncio.sleep(2)

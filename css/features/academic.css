@@ -1195,6 +1195,12 @@
   border-color: var(--acad-accent-line);
   color: var(--text-primary);
 }
+.acad-group-msg-sender {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--acad-accent);
+  margin-bottom: 3px;
+}
 .acad-tutor-input-row {
   display: flex;
   gap: 8px;

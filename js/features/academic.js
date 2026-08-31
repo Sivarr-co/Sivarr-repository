@@ -1370,7 +1370,6 @@ function _lPopulateClassFilter() {
 /* ════════ STUDENT ════════ */
 let sModules = [],
   sCitations = [],
-  sGroups = [],
   sCiteFormat = "apa";
 let sSprintCards = {
   to_review: [],
@@ -1400,7 +1399,6 @@ function sInit() {
   const d = adData();
   sModules = d.modules || [];
   sCitations = d.citations || [];
-  sGroups = d.groups || [];
   const cols = { to_review: [], spaced_rep: [], flashcard: [], mastered: [] };
   (d.sprintCards || []).forEach((c) => {
     (cols[c.column] || cols.to_review).push(c);
@@ -2048,23 +2046,36 @@ function sExportBib() {
   a.click();
 }
 // ── Study Groups ──
-function sRenderGroups(filter = "") {
+// ── Study Groups (real, shared via the existing /api/group/* backend --
+// the same one org chat's atomic message store already backs; see app.py)
+let _sGroups = [];
+async function sRenderGroups(filter = "") {
   const grid = document.getElementById("sGroupsGrid");
   if (!grid) return;
+  let groups = [];
+  try {
+    const r = await fetch(`/api/group/list?token=${encodeURIComponent(getToken() || "")}`);
+    const d = await r.json();
+    groups = d.groups || [];
+  } catch (e) {
+    grid.innerHTML = `<div class="acad-empty-state"><i class="ti ti-alert-triangle" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Couldn't load your groups. Try again.</div></div>`;
+    return;
+  }
+  _sGroups = groups;
   const list = filter
-    ? sGroups.filter((g) => g.name.toLowerCase().includes(filter.toLowerCase()))
-    : sGroups;
+    ? groups.filter((g) => (g.name || "").toLowerCase().includes(filter.toLowerCase()))
+    : groups;
   if (!list.length) {
-    grid.innerHTML = `<div class="acad-empty-state"><i class="ti ti-users" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No study groups yet. Create one to get started.</div></div>`;
+    grid.innerHTML = `<div class="acad-empty-state"><i class="ti ti-users" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No study groups yet. Create one or ask a classmate to invite you.</div></div>`;
     return;
   }
   grid.innerHTML = list
     .map(
       (g) => `
-    <div class="acad-group-card" onclick="sOpenGroup('${g.id}')">
-      <div class="acad-group-header"><div class="acad-group-name">${acEsc(g.name)}</div><span class="acad-tag acad-tag--teal">${(g.members || []).length || 1} members</span></div>
-      <div class="acad-priority-sub" style="margin-top:4px;">${acEsc(g.description || "")}</div>
-      <div class="acad-group-footer" style="margin-top:10px;"><span class="acad-priority-sub">${acEsc(g.module || "General")}</span><button class="acad-btn-teal acad-btn-sm">Open</button></div>
+    <div class="acad-group-card" onclick="sOpenGroup('${acEsc(g.id)}','${acEsc(g.name)}')">
+      <div class="acad-group-header"><div class="acad-group-name">${acEsc(g.name)}</div><span class="acad-tag acad-tag--teal">${g.member_count || 1} member${(g.member_count || 1) !== 1 ? "s" : ""}</span></div>
+      <div class="acad-priority-sub" style="margin-top:4px;">${g.last_msg ? acEsc(g.last_msg) : "No messages yet"}</div>
+      <div class="acad-group-footer" style="margin-top:10px;"><span class="acad-priority-sub">${acEsc(g.last_date || "")}</span><button class="acad-btn-teal acad-btn-sm">Open</button></div>
     </div>`,
     )
     .join("");
@@ -2080,24 +2091,139 @@ async function sCreateGroup() {
     { confirmLabel: "Create" },
   );
   if (!name) return;
-  const desc = await siModal.input(
-    "Description (optional)",
-    "What is this group about?",
-    "",
-    { confirmLabel: "Add" },
-  );
-  sGroups.push({
-    id: "g_" + Date.now(),
-    name,
-    description: desc || "",
-    members: [(window.S && S.name) || "You"],
-  });
-  adSave({ groups: sGroups });
-  sRenderGroups();
-  acToast("Group created");
+  try {
+    const r = await acadAPI("/api/group/create", { name });
+    acToast(`Group created! Code: ${r.group_id}`);
+    sRenderGroups();
+  } catch (e) {
+    acToast((e && e.message) || "Could not create group");
+  }
 }
-function sOpenGroup() {
-  acToast("Group room coming soon");
+async function sJoinGroup() {
+  const gid = await siModal.input(
+    "Join a study group",
+    "Paste the group code a classmate shared",
+    "",
+    { confirmLabel: "Join" },
+  );
+  if (!gid) return;
+  try {
+    await acadAPI("/api/group/join", { group_id: gid.trim() });
+    acToast("Joined group");
+    sRenderGroups();
+  } catch (e) {
+    acToast((e && e.message) || "Invalid group code, or already a member");
+  }
+}
+
+let _sGroupActive = null; // {id, name}
+let _sGroupPollInterval = null;
+let _sGroupLastTs = "";
+let _sGroupSeen = new Set();
+
+// Live delivery is REST polling only, not SSE: /api/group/chat/stream connects
+// fine but this app's global GZipMiddleware buffers small streamed chunks and
+// never flushes them (a well-known Starlette/FastAPI GZip+SSE incompatibility,
+// confirmed live -- the connection stays "open" but no event ever arrives).
+// Fixing that would mean changing global response-compression behavior for
+// the whole app, well beyond this feature's scope. Plain polling against
+// /api/group/messages was already confirmed reliable, so it's the only
+// transport here -- same real, shared data, ~3s later instead of instant.
+function sOpenGroup(gid, name) {
+  sExamCloseTaker(); // close any other open .sx-overlay (also tears down a prior poll interval)
+  _sGroupActive = { id: gid, name };
+  _sGroupLastTs = "";
+  _sGroupSeen = new Set();
+  const ov = document.createElement("div");
+  ov.className = "sx-overlay";
+  ov.id = "sxOverlay";
+  ov.innerHTML = `<div class="sx-modal">
+    <div class="sx-head">
+      <div style="flex:1">
+        <div class="sx-title">${acEsc(name)}</div>
+        <div class="sx-subtitle">Code: ${acEsc(gid)} <button class="acad-btn-ghost acad-btn-sm" onclick="navigator.clipboard&&navigator.clipboard.writeText('${acEsc(gid)}');acToast('Code copied')">Copy</button></div>
+      </div>
+      <button class="sx-x" onclick="sCloseGroupChat()" aria-label="Close">✕</button>
+    </div>
+    <div class="acad-tutor-messages" id="sGroupMessages" style="max-height:360px;"></div>
+    <div class="acad-tutor-input-row">
+      <input class="acad-research-input" id="sGroupMsgInput" type="text" placeholder="Message the group…" onkeydown="if (event.key === 'Enter') sSendGroupMessage();">
+      <button class="acad-research-btn" data-onclick="sSendGroupMessage"><i class="ti ti-send" aria-hidden="true"></i></button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  sLoadGroupMessages(true).then(() => {
+    if (_sGroupActive) _sGroupPollInterval = setInterval(() => sLoadGroupMessages(false), 3000);
+  });
+}
+function sCloseGroupChat() {
+  _sGroupActive = null;
+  sExamCloseTaker(); // stops the poll interval too
+}
+// Also called from the shared sExamCloseTaker() so opening a *different*
+// modal on top of an open group chat can't leave the poll timer running.
+function sStopGroupLive() {
+  if (_sGroupPollInterval) {
+    clearInterval(_sGroupPollInterval);
+    _sGroupPollInterval = null;
+  }
+}
+async function sLoadGroupMessages(replace = false) {
+  if (!_sGroupActive) return;
+  try {
+    const r = await fetch(
+      `/api/group/messages?group_id=${encodeURIComponent(_sGroupActive.id)}&token=${encodeURIComponent(getToken() || "")}`,
+    );
+    const d = await r.json();
+    const box = document.getElementById("sGroupMessages");
+    if (replace) {
+      if (box) box.innerHTML = "";
+      _sGroupSeen = new Set();
+      _sGroupLastTs = "";
+    }
+    const msgs = d.messages || [];
+    if (replace && !msgs.length) {
+      if (box)
+        box.innerHTML = `<div class="acad-priority-sub" id="sGroupEmptyMsg" style="text-align:center;padding:20px 0;">No messages yet. Say hello!</div>`;
+      return;
+    }
+    msgs.forEach(sAppendGroupMsg);
+  } catch (e) {}
+}
+// Append a single message if unseen (dedupes by id -- the same poll tick can
+// re-fetch a message already rendered from a previous tick).
+function sAppendGroupMsg(m) {
+  if (!_sGroupActive) return;
+  const box = document.getElementById("sGroupMessages");
+  if (!box) return;
+  const key = m.id != null ? String(m.id) : `${m.sender}:${m.text}:${m.date}`;
+  if (_sGroupSeen.has(key)) return;
+  _sGroupSeen.add(key);
+  if (m.date && m.date > _sGroupLastTs) _sGroupLastTs = m.date;
+  const emptyEl = document.getElementById("sGroupEmptyMsg");
+  if (emptyEl) emptyEl.remove();
+  const mine = m.sender === (window.S && S.sid);
+  const el = document.createElement("div");
+  el.className = `acad-tutor-msg${mine ? " acad-tutor-msg--user" : ""}`;
+  el.innerHTML = `<div class="acad-tutor-bubble">${!mine ? `<div class="acad-group-msg-sender">${acEsc(m.sender_name || "Student")}</div>` : ""}${acEsc(m.text || "")}</div>`;
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+async function sSendGroupMessage() {
+  if (!_sGroupActive) return;
+  const input = document.getElementById("sGroupMsgInput");
+  const text = input?.value?.trim();
+  if (!text) return;
+  input.value = "";
+  try {
+    // The live feed (SSE/poll) echoes the message back to everyone, including
+    // us, so we don't append optimistically here -- avoids double-rendering.
+    await acadAPI("/api/group/message", { group_id: _sGroupActive.id, text });
+    if (_sGroupPollInterval) sLoadGroupMessages(false); // polling fallback: pull immediately
+  } catch (e) {
+    input.value = text;
+    acToast((e && e.message) || "Send failed");
+  }
 }
 // ── AI Tutor ──
 function sTutorSetModule(id) {
@@ -3168,6 +3294,7 @@ function sExamCloseTaker() {
     clearInterval(_sxTimer);
     _sxTimer = null;
   }
+  sStopGroupLive(); // in case a group chat's live connection is what's currently open on #sxOverlay
   const ov = document.getElementById("sxOverlay");
   if (ov) ov.remove();
   _sxCtx = null;
