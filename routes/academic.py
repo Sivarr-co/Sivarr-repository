@@ -673,7 +673,11 @@ def build_router(send_push) -> APIRouter:
         sid, _ = _resolve_token(data)
         code = sanitize_text(str(data.get("code", "")), 12).upper()
         _acad_require_owner(code, sid)
-        db.coll_delete("acad_announcements", sanitize_text(str(data.get("id", "")), 20))
+        ann_id = sanitize_text(str(data.get("id", "")), 20)
+        ann = db.coll_get("acad_announcements", ann_id)
+        if not ann or ann.get("code") != code:
+            raise HTTPException(404, "Announcement not found.")
+        db.coll_delete("acad_announcements", ann_id)
         return {"ok": True}
 
 
@@ -730,6 +734,9 @@ def build_router(send_push) -> APIRouter:
         code = sanitize_text(str(data.get("code", "")), 12).upper()
         _acad_require_owner(code, sid)
         aid = sanitize_text(str(data.get("id", "")), 20)
+        a = db.coll_get("acad_assignments", aid)
+        if not a or a.get("code") != code:
+            raise HTTPException(404, "Assignment not found.")
         db.coll_delete("acad_assignments", aid)
         return {"ok": True}
 
@@ -948,6 +955,9 @@ def build_router(send_push) -> APIRouter:
         code = sanitize_text(str(data.get("code", "")), 12).upper()
         _acad_require_owner(code, sid)
         aid = sanitize_text(str(data.get("assignment_id", "")), 20)
+        a = db.coll_get("acad_assignments", aid)
+        if not a or a.get("code") != code:
+            raise HTTPException(404, "Assignment not found.")
         return {"ok": True, "submissions": db.coll_list("acad_submissions", owner=aid)}
 
 
@@ -958,6 +968,9 @@ def build_router(send_push) -> APIRouter:
         code = sanitize_text(str(data.get("code", "")), 12).upper()
         cls = _acad_require_owner(code, sid)
         aid = sanitize_text(str(data.get("assignment_id", "")), 20)
+        a = db.coll_get("acad_assignments", aid)
+        if not a or a.get("code") != code:
+            raise HTTPException(404, "Assignment not found.")
         target = sanitize_text(str(data.get("sid", "")), 40)
         sub = db.coll_get("acad_submissions", f"{aid}:{target}")
         if not sub:
@@ -1057,7 +1070,9 @@ def build_router(send_push) -> APIRouter:
             raise HTTPException(403, "Join the class first.")
         pid = sanitize_text(str(data.get("poll_id", "")), 20)
         poll = db.coll_get("acad_polls", pid)
-        if not poll or not poll.get("open"):
+        if not poll or poll.get("code") != code:
+            raise HTTPException(404, "Poll not found.")
+        if not poll.get("open"):
             raise HTTPException(400, "Poll is closed.")
         try:
             idx = int(data.get("option_index", -1))
@@ -1077,9 +1092,10 @@ def build_router(send_push) -> APIRouter:
         _acad_require_owner(code, sid)
         pid = sanitize_text(str(data.get("poll_id", "")), 20)
         poll = db.coll_get("acad_polls", pid)
-        if poll:
-            poll["open"] = False
-            db.coll_put("acad_polls", pid, poll, owner=code)
+        if not poll or poll.get("code") != code:
+            raise HTTPException(404, "Poll not found.")
+        poll["open"] = False
+        db.coll_put("acad_polls", pid, poll, owner=code)
         return {"ok": True}
 
 
@@ -1179,7 +1195,9 @@ def build_router(send_push) -> APIRouter:
         _acad_require_owner(code, sid)
         material_id = sanitize_text(str(data.get("id", "")), 20)
         m = db.coll_get("acad_materials", material_id)
-        if m and m.get("type") == "file":
+        if not m or m.get("code") != code:
+            raise HTTPException(404, "Material not found.")
+        if m.get("type") == "file":
             fpath = MATERIALS_DIR / f"{material_id}{m.get('ext', '')}"
             try:
                 fpath.unlink(missing_ok=True)

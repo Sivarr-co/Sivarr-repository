@@ -146,12 +146,6 @@ function acSearchSpace(v) {
   if (inp) inp.value = v; // keep the Students tab's own box in sync
   lFilterStudents(v);
 }
-function acadOpenSettings() {
-  if (typeof openSpaceSettings === "function")
-    openSpaceSettings(window.currentSpace || window.currentAcademicSpace);
-  else acToast("Space settings coming soon");
-}
-
 /* ════════ LECTURER ════════ */
 let lData = {
   courses: [],
@@ -935,6 +929,9 @@ async function lSaveExamGrade(code, examId, sid) {
       grade,
     });
     acToast("Grade saved, student notified");
+    lExamResults(examId);
+    lLoadGradebook();
+    lLoadSubmissionQueue();
   } catch (e) {
     acToast((e && e.message) || "Could not save grade");
   }
@@ -1260,9 +1257,13 @@ async function sLoadMyGrades() {
   const summary = document.getElementById("sGradesSummary");
   const body = document.getElementById("sGradesBody");
   if (!body) return;
-  if (!list.length) return; // keep the template's empty state
-  let allRows = [];
+  const emptyState = `<tr><td colspan="5" class="acad-table-empty">No grades yet. Join a class and submit some work to see them here.</td></tr>`;
   if (summary) summary.innerHTML = "";
+  if (!list.length) {
+    body.innerHTML = emptyState;
+    return;
+  }
+  let allRows = [];
   for (const c of list) {
     try {
       const r = await acadAPI("/api/acad/gradebook/mine", { code: c.code });
@@ -1290,7 +1291,10 @@ async function sLoadMyGrades() {
       /* skip a class we can't reach right now */
     }
   }
-  if (!allRows.length) return; // keep the template's empty state
+  if (!allRows.length) {
+    body.innerHTML = emptyState;
+    return;
+  }
   body.innerHTML = allRows
     .map((r) => {
       const cls =
@@ -1307,7 +1311,12 @@ let _sMaterials = {}; // id -> material, for the Preview modal below
 async function sLoadMaterials() {
   const list = adData().joinedClasses || [];
   const grid = document.getElementById("sNotesGrid");
-  if (!grid || !list.length) return; // keep the template's empty state
+  if (!grid) return;
+  const emptyState = `<div class="acad-empty-state"><i class="ti ti-file" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No materials posted yet</div></div>`;
+  if (!list.length) {
+    grid.innerHTML = emptyState;
+    return;
+  }
   let allItems = [];
   for (const c of list) {
     try {
@@ -1319,7 +1328,10 @@ async function sLoadMaterials() {
       /* skip a class we can't reach right now */
     }
   }
-  if (!allItems.length) return; // keep the template's empty state
+  if (!allItems.length) {
+    grid.innerHTML = emptyState;
+    return;
+  }
   allItems.forEach((m) => (_sMaterials[m.id] = m));
   grid.innerHTML = allItems
     .map((m) => {
@@ -1456,9 +1468,6 @@ function sRenderModules(filter = "") {
 }
 function sFilterModules(v) {
   sRenderModules(v);
-}
-function sOpenModule() {
-  acToast("Module detail coming soon");
 }
 async function sAddModule() {
   const f = await siModal.form("Add module", [
@@ -2093,8 +2102,7 @@ async function lPublishClass() {
     });
     if (r && r.ok) {
       adSave({ classCode: r.code });
-      lRenderClassCode(r.code);
-      lLoadRoster();
+      _lLoadActiveClass(r.code);
       acToast("Class published, code " + r.code);
     }
   } catch (e) {
@@ -2183,6 +2191,12 @@ async function sJoinClass() {
       if (!list.find((c) => c.code === r.class.code)) list.push(r.class);
       adSave({ joinedClasses: list });
       sRenderMyClasses();
+      sLoadFeed();
+      sLoadAssignments();
+      sLoadExams();
+      sLoadLivePolls();
+      sLoadMyGrades();
+      sLoadMaterials();
       acToast("Joined " + (r.class.name || "class"));
     }
   } catch (e) {
@@ -2211,6 +2225,12 @@ async function sLeaveClass(code) {
     joinedClasses: (d.joinedClasses || []).filter((c) => c.code !== code),
   });
   sRenderMyClasses();
+  sLoadFeed();
+  sLoadAssignments();
+  sLoadExams();
+  sLoadLivePolls();
+  sLoadMyGrades();
+  sLoadMaterials();
   acToast("Left class");
 }
 
@@ -2400,7 +2420,11 @@ async function lDeleteAnnounce(id) {
 async function sLoadFeed() {
   const list = adData().joinedClasses || [];
   const body = document.getElementById("sFeedBody");
-  if (!body || !list.length) return;
+  if (!body) return;
+  if (!list.length) {
+    body.innerHTML = `<div class="acad-empty-state"><i class="ti ti-bell" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No announcements yet. Join a class to see its feed.</div></div>`;
+    return;
+  }
   let all = [];
   for (const c of list) {
     try {
@@ -2414,7 +2438,10 @@ async function sLoadFeed() {
     } catch (e) {}
   }
   all.sort((a, b) => String(b.ts || "").localeCompare(String(a.ts || "")));
-  if (!all.length) return;
+  if (!all.length) {
+    body.innerHTML = `<div class="acad-empty-state"><i class="ti ti-bell" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No announcements yet. Join a class to see its feed.</div></div>`;
+    return;
+  }
   body.innerHTML = all
     .slice(0, 30)
     .map(
@@ -2498,6 +2525,8 @@ async function lSubmitGrade(aid, sid) {
     });
     acToast("Grade saved, student notified");
     lLoadGrading();
+    lLoadGradebook();
+    lLoadSubmissionQueue();
   } catch (e) {
     acToast((e && e.message) || "Could not save grade");
   }
@@ -2506,7 +2535,12 @@ async function lSubmitGrade(aid, sid) {
 async function sLoadAssignments() {
   const list = adData().joinedClasses || [];
   const body = document.getElementById("sAssignmentsBody");
-  if (!body || !list.length) return;
+  if (!body) return;
+  const emptyState = `<div class="acad-empty-state"><i class="ti ti-file-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No assignments yet. Join a class to see and submit work.</div></div>`;
+  if (!list.length) {
+    body.innerHTML = emptyState;
+    return;
+  }
   let rows = [];
   for (const c of list) {
     try {
@@ -2519,7 +2553,10 @@ async function sLoadAssignments() {
         );
     } catch (e) {}
   }
-  if (!rows.length) return;
+  if (!rows.length) {
+    body.innerHTML = emptyState;
+    return;
+  }
   body.innerHTML = rows
     .map(
       (it) =>
@@ -2555,6 +2592,7 @@ async function sLoadExams() {
   const list = adData().joinedClasses || [];
   const body = document.getElementById("sExamsBody");
   if (!body) return;
+  const emptyState = `<div class="acad-empty-state"><i class="ti ti-clipboard-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No exams assigned yet. Join a class to take exams.</div></div>`;
   let rows = [];
   for (const c of list) {
     try {
@@ -2566,7 +2604,10 @@ async function sLoadExams() {
       );
     } catch (e) {}
   }
-  if (!rows.length) return; // keep the empty state
+  if (!rows.length) {
+    body.innerHTML = emptyState;
+    return;
+  }
   body.innerHTML = rows
     .map((e) => {
       const auto = e.auto_pct != null ? ` · auto ${e.auto_pct}%` : "";
@@ -2938,7 +2979,12 @@ async function lClosePoll(pid) {
 async function sLoadLivePolls() {
   const list = adData().joinedClasses || [];
   const body = document.getElementById("sLivePollsBody");
-  if (!body || !list.length) return;
+  if (!body) return;
+  const emptyState = `<div class="acad-empty-state"><i class="ti ti-broadcast" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>Nothing live right now.</div></div>`;
+  if (!list.length) {
+    body.innerHTML = emptyState;
+    return;
+  }
   let html = "";
   for (const c of list) {
     try {
@@ -2962,7 +3008,7 @@ async function sLoadLivePolls() {
       });
     } catch (e) {}
   }
-  if (html) body.innerHTML = html;
+  body.innerHTML = html || emptyState;
 }
 async function sVote(code, pid, idx) {
   try {
