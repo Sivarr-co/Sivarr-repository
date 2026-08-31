@@ -316,22 +316,12 @@
             oninput="lFilterStudents(this.value)"
           />
           <div style="display: flex; gap: 6px">
-            <select
-              class="acad-select"
-              onchange="lFilterByCourse(this.value)"
-              id="lStudentCourseFilter"
-            >
-              <option value="">All courses</option>
-            </select>
             <button class="acad-btn-ghost" data-onclick="lExportRoster">
               <i class="ti ti-download" aria-hidden="true"></i> Export
             </button>
             <button class="acad-btn-ghost" data-onclick="lTakeAttendance">
               <i class="ti ti-user-check" aria-hidden="true"></i> Take
               Attendance
-            </button>
-            <button class="acad-btn-teal" data-onclick="lInviteStudent">
-              + Invite Student
             </button>
           </div>
         </div>
@@ -345,7 +335,6 @@
             <thead>
               <tr>
                 <th>Student</th>
-                <th>Course(s)</th>
                 <th>Attendance</th>
                 <th>Avg. Score</th>
                 <th>Last Active</th>
@@ -355,8 +344,8 @@
             </thead>
             <tbody id="lStudentTableBody">
               <tr>
-                <td colspan="7" class="acad-table-empty">
-                  No students enrolled yet. Invite students to get started.
+                <td colspan="6" class="acad-table-empty">
+                  No students yet. Share your class code so students can join.
                 </td>
               </tr>
             </tbody>

@@ -156,7 +156,7 @@ let lData = {
 function lInit() {
   const d = adData();
   lData.courses = []; // no longer backed by local fake data -- see the Classes tab
-  lData.students = d.lStudents || [];
+  lData.students = []; // no longer backed by local fake data -- see lLoadRoster
   lData.assignments = d.lAssignments || [];
   lSwitchTab("l-overview");
   lRenderMetrics();
@@ -502,7 +502,7 @@ function lSwitchClass(code) {
   if (document.getElementById("tab-l-analytics")?.classList.contains("active"))
     lLoadClassStats();
 }
-function lRenderStudents(filter = "", courseId = "") {
+function lRenderStudents(filter = "") {
   const tb = document.getElementById("lStudentTableBody");
   if (!tb) return;
   let st = lData.students;
@@ -510,9 +510,8 @@ function lRenderStudents(filter = "", courseId = "") {
     st = st.filter((s) =>
       (s.name + (s.email || "")).toLowerCase().includes(filter.toLowerCase()),
     );
-  if (courseId) st = st.filter((s) => (s.courses || []).includes(courseId));
   if (!st.length) {
-    tb.innerHTML = `<tr><td colspan="7" class="acad-table-empty">No students found.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="6" class="acad-table-empty">No students found.</td></tr>`;
     return;
   }
   tb.innerHTML = st
@@ -526,24 +525,17 @@ function lRenderStudents(filter = "", courseId = "") {
             : "var(--red3)";
       return `<tr>
       <td><div style="font-weight:600;color:var(--text);">${acEsc(s.name)}</div><div style="font-size:10.5px;color:var(--text4);">${acEsc(s.email || "")}</div></td>
-      <td style="font-size:11px;">${(s.courses || []).map(acEsc).join(", ") || "–"}</td>
       <td><div style="display:flex;align-items:center;gap:6px;"><div class="acad-attend-bar"><div class="acad-attend-fill" style="width:${pct}%;background:${bc};"></div></div><span style="font-size:11px;font-weight:600;color:${bc};">${pct}%</span></div></td>
       <td style="font-size:11px;font-weight:600;color:var(--text);">${s.avg_score != null ? s.avg_score + "%" : "–"}</td>
       <td style="font-size:11px;color:var(--text4);">${acEsc(s.last_active || "–")}</td>
       <td><span class="acad-tag ${pct >= 80 ? "acad-tag--teal" : pct >= 60 ? "acad-tag--orange" : "acad-tag--red"}">${pct >= 80 ? "Active" : pct >= 60 ? "At risk" : "Critical"}</span></td>
-      <td><button class="acad-btn-ghost acad-btn-sm" onclick="lViewStudent('${s.id}')">View</button></td>
+      <td><button class="acad-btn-ghost acad-btn-sm" onclick="lViewStudent('${acEsc(s.sid)}')">View</button></td>
     </tr>`;
     })
     .join("");
 }
 function lFilterStudents(v) {
-  lRenderStudents(
-    v,
-    document.getElementById("lStudentCourseFilter")?.value || "",
-  );
-}
-function lFilterByCourse(v) {
-  lRenderStudents("", v);
+  lRenderStudents(v);
 }
 function lRenderAnalytics(statsOverride) {
   // statsOverride lets the class filter "peek" at a different class's
@@ -996,36 +988,90 @@ function lGenerateFeedback() {
 function lAutoMark() {
   acToast("Auto-mark: connect a submission batch to begin");
 }
-const _lClamp = (v) => Math.max(0, Math.min(100, parseInt(v) || 0));
-async function lInviteStudent() {
-  const f = await siModal.form("Add student", [
-    { id: "name", label: "Name", placeholder: "e.g. Ada Obi", required: true },
-    { id: "email", label: "Email", placeholder: "optional" },
-    { id: "courses", label: "Course code(s)", placeholder: "comma-separated" },
-    { id: "attendance", label: "Attendance %", placeholder: "0-100" },
-    { id: "avg_score", label: "Avg score %", placeholder: "0-100" },
-  ]);
-  if (!f || !f.name) return;
-  lData.students.push({
-    id: "st_" + Date.now(),
-    name: f.name,
-    email: f.email || "",
-    courses: (f.courses || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean),
-    attendance: _lClamp(f.attendance),
-    avg_score: f.avg_score ? _lClamp(f.avg_score) : null,
-    last_active: "just now",
-  });
-  adSave({ lStudents: lData.students });
-  lRenderMetrics();
-  lRenderStudents();
-  lRenderAnalytics();
-  acToast("Student added");
+async function lViewStudent(sid) {
+  const s = lData.students.find((x) => x.sid === sid);
+  if (!s) return;
+  const d = adData();
+  if (!d.classCode) return;
+  let gb, att;
+  try {
+    [gb, att] = await Promise.all([
+      acadAPI("/api/acad/gradebook", { code: d.classCode }),
+      acadAPI("/api/acad/attendance/register", { code: d.classCode }),
+    ]);
+  } catch (e) {
+    acToast((e && e.message) || "Could not load student details");
+    return;
+  }
+  const row = (gb.rows || []).find((r) => r.sid === sid) || { cells: {}, final_pct: null };
+  const attRow = (att.rows || []).find((r) => r.sid === sid) || { present: 0, total: 0, pct: 0 };
+  const items = gb.items || [];
+
+  const gradesHtml = items.length
+    ? `<table class="acad-data-grid"><thead><tr><th>Item</th><th>Type</th><th>Score</th><th>Status</th></tr></thead><tbody>${items
+        .map((it) => {
+          const cell = row.cells[it.id] || { display: "—", state: "missing" };
+          const cls =
+            cell.state === "graded"
+              ? "acad-tag--teal"
+              : cell.state === "pending"
+                ? "acad-tag--orange"
+                : "acad-tag--red";
+          return `<tr><td>${acEsc(it.title)}</td><td>${acEsc(it.type)}</td><td>${acEsc(String(cell.display))}</td><td><span class="acad-tag ${cls}">${acEsc(cell.state)}</span></td></tr>`;
+        })
+        .join("")}</tbody></table>`
+    : `<div class="acad-priority-sub">No gradable work yet.</div>`;
+
+  const attPct = attRow.pct || 0;
+  const attColor =
+    attPct >= 80 ? "var(--acad-accent)" : attPct >= 60 ? "var(--amber3)" : "var(--red3)";
+
+  sExamCloseTaker(); // reuse the generic "close whatever sx-overlay is open" helper
+  const ov = document.createElement("div");
+  ov.className = "sx-overlay";
+  ov.id = "sxOverlay";
+  ov.innerHTML = `<div class="sx-modal">
+    <div class="sx-head">
+      <div class="sx-title">${acEsc(s.name)}</div>
+      <button class="sx-x" onclick="sExamCloseTaker()" aria-label="Close">✕</button>
+    </div>
+    <div class="sx-body">
+      <div class="acad-priority-sub" style="margin-bottom:10px;">Joined ${acEsc(s.last_active || "–")}</div>
+      <div class="acad-card" style="margin-bottom:14px;">
+        <div class="acad-card-body">
+          <div class="acad-priority-title" style="margin-bottom:6px;">Attendance</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="acad-attend-bar" style="flex:1;height:8px;"><div class="acad-attend-fill" style="width:${attPct}%;background:${attColor};"></div></div>
+            <span style="font-size:12px;font-weight:700;color:${attColor};">${attPct}%</span>
+          </div>
+          <div class="acad-priority-sub" style="margin-top:6px;">${attRow.present}/${attRow.total} sessions present &middot; Overall grade: ${row.final_pct != null ? row.final_pct + "%" : "–"}</div>
+        </div>
+      </div>
+      ${gradesHtml}
+    </div>
+    <div class="sx-foot">
+      <button class="acad-action-btn acad-action-btn--red" data-onclick="lRemoveStudent" data-onclick-arg0="${acEsc(sid)}">Remove from class</button>
+      <button class="acad-action-btn acad-action-btn--teal" onclick="sExamCloseTaker()">Close</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
 }
-function lViewStudent() {
-  acToast("Student detail coming soon");
+async function lRemoveStudent(sid) {
+  const d = adData();
+  const s = lData.students.find((x) => x.sid === sid);
+  const ok = await siModal.confirm(
+    `Remove ${s ? s.name : "this student"} from the class? They'll need to rejoin with the class code.`,
+    { title: "Remove student", confirmLabel: "Remove", danger: true },
+  );
+  if (!ok) return;
+  try {
+    await acadAPI("/api/acad/class/leave", { code: d.classCode, member_sid: sid });
+    acToast("Student removed");
+    sExamCloseTaker();
+    lLoadRoster();
+  } catch (e) {
+    acToast((e && e.message) || "Could not remove student");
+  }
 }
 function lExportRoster() {
   if (!lData.students.length) {
@@ -2120,19 +2166,14 @@ async function lLoadRoster() {
   try {
     const r = await acadAPI("/api/acad/class/roster", { code: d.classCode });
     if (r && r.members) {
-      const joined = r.members.map((m) => ({
-        id: "jm_" + m.sid,
+      lData.students = r.members.map((m) => ({
         sid: m.sid,
         name: m.name,
         email: "",
-        courses: [],
         attendance: 0,
         avg_score: null,
         last_active: m.joined,
-        joinedVia: "code",
       }));
-      const manual = (d.lStudents || []).filter((s) => !s.joinedVia);
-      lData.students = manual.concat(joined);
       lRenderMetrics();
       lRenderStudents();
       lLoadClassStats(); // fills in real attendance %/avg score, then re-renders
@@ -2324,9 +2365,7 @@ async function lLoadRegister() {
     });
     if (r && r.rows) {
       r.rows.forEach((row) => {
-        const s = lData.students.find(
-          (x) => x.sid === row.sid || x.id === "jm_" + row.sid,
-        );
+        const s = lData.students.find((x) => x.sid === row.sid);
         if (s) s.attendance = row.pct;
       });
       lRenderStudents();
