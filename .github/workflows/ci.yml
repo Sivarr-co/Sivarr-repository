@@ -90,7 +90,7 @@ jobs:
           set -o pipefail
           python -m pytest tests/ -q -rs 2>&1 | tee /tmp/pytest_output.txt
           test_exit=$?
-          if grep -qE '^[0-9]+ skipped' /tmp/pytest_output.txt; then
+          if grep -qE '[0-9]+ skipped' /tmp/pytest_output.txt; then
             echo "::error::Tests skipped in CI with a real Postgres provisioned -- every test should run here. See docs/SESSION_FOLLOWUPS.md Session 14."
             exit 1
           fi

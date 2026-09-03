@@ -162,6 +162,56 @@ def test_chat_actually_injects_retrieved_context_into_the_prompt(monkeypatch, cl
     assert FAKE_CONTEXT not in user_turns[-1], "retrieval context leaked into saved chat history"
 
 
+def test_chat_context_field_augments_prompt_but_never_leaks_into_history(monkeypatch, clean_progress):
+    """The client-supplied req.context field (js/features/academic.js's
+    acadAsk() sends context="academic_lecturer", for example) is meant to
+    steer the AI's answer, not to be shown back to the user as part of their
+    own message. Before this fix, /api/chat's add_history calls persisted
+    `msg` (context prepended) instead of req.message — a 2026-09 audit
+    finding, since a code comment claimed context never touches saved
+    history but that was only true for /api/chat/stream's main path, not
+    this endpoint. Every context-carrying request was silently rewriting
+    what the user appears to have typed, permanently, in their own history."""
+    from fastapi.testclient import TestClient
+    import app as app_module
+    import routes.ai_chat as ai_chat_module
+
+    client = TestClient(app_module.app)
+
+    captured_prompts = []
+
+    async def fake_build_retrieval_context(sid, query, k=5):
+        return ""
+
+    async def fake_async_gemini_ask(session, question):
+        captured_prompts.append(question)
+        return "ok"
+
+    monkeypatch.setattr(ai_chat_module, "build_retrieval_context", fake_build_retrieval_context)
+    monkeypatch.setattr(ai_chat_module, "async_gemini_ask", fake_async_gemini_ask)
+
+    sid = "chat_context_leak_sid"
+    clean_progress(sid)
+    token = core.create_session_token(sid, "C", "chatcontext@example.invalid")
+    context = "You are grading a lecturer's submission; be concise."
+    user_message = "How does this look?"
+    r = client.post("/api/chat", json={
+        "sid": sid, "token": token, "message": user_message, "context": context,
+    })
+
+    assert r.status_code == 200
+    # The context must still reach the model...
+    assert context in captured_prompts[0]
+    assert user_message in captured_prompts[0]
+
+    # ...but never show up as what the user "typed" in their own saved history.
+    saved = app_module.load_progress(sid)
+    user_turns = [h["message"] for h in saved.get("chat_history", []) if h["role"] == "user"]
+    assert user_turns, "chat turn was never saved to history"
+    assert user_turns[-1] == user_message
+    assert context not in user_turns[-1], "client context field leaked into saved chat history"
+
+
 @pytest.mark.skipif(not db.is_available(), reason="needs a real Postgres with pgvector — see module docstring")
 def test_embeddings_round_trip():
     """Indexing writes a chunk, a query for the same sid finds it, and

@@ -238,10 +238,14 @@ def _parse_grade_pct(grade: str) -> float | None:
     m = _GRADE_FRACTION_RE.match(g)
     if m:
         num, den = float(m.group(1)), float(m.group(2))
-        return round(100 * num / den, 1) if den else None
+        if not den:
+            return None
+        val = round(100 * num / den, 1)
+        return val if 0 <= val <= 100 else None
     m = _GRADE_PERCENT_RE.match(g)
     if m:
-        return round(float(m.group(1)), 1)
+        val = round(float(m.group(1)), 1)
+        return val if 0 <= val <= 100 else None
     m = _GRADE_PLAIN_RE.match(g)
     if m:
         val = float(m.group(1))
@@ -560,6 +564,9 @@ def build_router(send_push) -> APIRouter:
         code = sanitize_text(str(data.get("code", "")), 12).upper()
         _acad_require_owner(code, sid)
         session_id = sanitize_text(str(data.get("session_id", "")), 20)
+        sess = db.coll_get("acad_att_sessions", session_id)
+        if not sess or sess.get("code") != code:
+            raise HTTPException(404, "Session not found.")
         recs   = db.coll_list("acad_att_records", owner=session_id)
         roster = db.coll_list("acad_members", owner=code)
         return {"ok": True, "records": recs, "present_count": len(recs), "total": len(roster)}
@@ -573,14 +580,14 @@ def build_router(send_push) -> APIRouter:
         _acad_require_owner(code, sid)
         session_id = sanitize_text(str(data.get("session_id", "")), 20)
         sess = db.coll_get("acad_att_sessions", session_id)
-        if sess:
-            sess["open"] = False
-            sess["ended"] = datetime.datetime.utcnow().isoformat()
-            db.coll_put("acad_att_sessions", session_id, sess, owner=code)
+        if not sess or sess.get("code") != code:
+            raise HTTPException(404, "Session not found.")
+        sess["open"] = False
+        sess["ended"] = datetime.datetime.utcnow().isoformat()
+        db.coll_put("acad_att_sessions", session_id, sess, owner=code)
         present_count = len(db.coll_list("acad_att_records", owner=session_id))
-        if sess:
-            total_members = len(db.coll_list("acad_members", owner=code))
-            _acad_log_activity(code, f"Attendance session closed — {present_count}/{total_members} present")
+        total_members = len(db.coll_list("acad_members", owner=code))
+        _acad_log_activity(code, f"Attendance session closed — {present_count}/{total_members} present")
         return {"ok": True, "present_count": present_count}
 
 
@@ -892,7 +899,8 @@ def build_router(send_push) -> APIRouter:
 
     @router.post("/api/acad/exam/submit")
     async def acad_exam_submit(data: dict):
-        """Member submits exam answers (overwrites a prior ungraded attempt)."""
+        """Member submits exam answers (overwrites a prior ungraded attempt, capped at
+        3 attempts to close a guess-and-check oracle on the auto-graded score)."""
         sid, name = _resolve_token(data)
         code = sanitize_text(str(data.get("code", "")), 12).upper()
         if not _acad_is_member(code, sid):
@@ -900,32 +908,49 @@ def build_router(send_push) -> APIRouter:
         exam_id = sanitize_text(str(data.get("exam_id", "")), 20)
         if not db.coll_get("acad_class_exams", f"{code}:{exam_id}"):
             raise HTTPException(404, "Exam not assigned to this class.")
+        exam = db.coll_get("acad_exams", exam_id)
+        if not exam:
+            raise HTTPException(404, "Exam not found.")
         prev = db.coll_get("acad_exam_results", f"{code}:{exam_id}:{sid}")
         if prev and prev.get("graded"):
             raise HTTPException(409, "This exam has already been graded.")
+        attempts = int((prev or {}).get("attempts", 0) or 0)
+        if attempts >= 3:
+            raise HTTPException(429, "Maximum submission attempts reached for this exam.")
+
+        # Grade only against the subset actually assigned to this student (not whatever
+        # indices the client sends) — grading against submitted-only answers previously
+        # let a student report 100% by submitting one correct answer on a 10-question exam.
+        assigned = {q["i"]: q for q in _exam_questions_for(exam, sid)}
+        bank = exam.get("questions", []) or []
         answers = data.get("answers", []) or []
         clean = [{"i": int(a.get("i", 0)),
                   "q": sanitize_text(str(a.get("q", "")), 500),
-                  "a": sanitize_text(str(a.get("a", "")), 3000)} for a in answers[:100]]
+                  "a": sanitize_text(str(a.get("a", "")), 3000)} for a in answers[:100]
+                 if int(a.get("i", -1)) in assigned]
+        answered = {a["i"]: a for a in clean}
+
         # Auto-grade MCQ answers against the bank (free-text is left for manual grading).
-        bank = (db.coll_get("acad_exams", exam_id) or {}).get("questions", []) or []
         mcq_total = mcq_correct = 0
-        for ans in clean:
-            i = ans["i"]
+        for i in assigned:
             q = bank[i] if 0 <= i < len(bank) else None
-            if isinstance(q, dict) and q.get("type") == "mcq":
-                mcq_total += 1
-                opts = q.get("options", []) or []
-                cidx = q.get("correct", -1)
-                correct_text = opts[cidx] if isinstance(cidx, int) and 0 <= cidx < len(opts) else None
-                ans["correct"] = (correct_text is not None and ans["a"] == correct_text)
-                if ans["correct"]:
-                    mcq_correct += 1
+            if not (isinstance(q, dict) and q.get("type") == "mcq"):
+                continue
+            mcq_total += 1
+            ans = answered.get(i)
+            opts = q.get("options", []) or []
+            cidx = q.get("correct", -1)
+            correct_text = opts[cidx] if isinstance(cidx, int) and 0 <= cidx < len(opts) else None
+            is_correct = bool(ans and correct_text is not None and ans["a"] == correct_text)
+            if ans is not None:
+                ans["correct"] = is_correct
+            if is_correct:
+                mcq_correct += 1
         auto = {"mcq_total": mcq_total, "mcq_correct": mcq_correct,
                 "auto_pct": round(100 * mcq_correct / mcq_total) if mcq_total else None}
         db.coll_put("acad_exam_results", f"{code}:{exam_id}:{sid}",
                     {"exam_id": exam_id, "code": code, "sid": sid, "name": name, "answers": clean,
-                     "auto": auto,
+                     "auto": auto, "attempts": attempts + 1,
                      "submitted_at": datetime.datetime.utcnow().isoformat(),
                      "graded": False, "grade": "", "feedback": ""},
                     owner=f"{code}:{exam_id}")
@@ -970,7 +995,8 @@ def build_router(send_push) -> APIRouter:
         if not _acad_is_member(code, sid):
             raise HTTPException(403, "Join the class first.")
         aid = sanitize_text(str(data.get("assignment_id", "")), 20)
-        if not db.coll_get("acad_assignments", aid):
+        a = db.coll_get("acad_assignments", aid)
+        if not a or a.get("code") != code:
             raise HTTPException(404, "Assignment not found.")
         db.coll_put("acad_submissions", f"{aid}:{sid}",
                     {"assignment_id": aid, "code": code, "sid": sid, "name": name,
@@ -1284,7 +1310,8 @@ def build_router(send_push) -> APIRouter:
         cls = _acad_class_or_404(code)
         if cls.get("owner_sid") != sid and not _acad_is_member(code, sid):
             raise HTTPException(403, "Join this class to view its materials.")
-        m = db.coll_get("acad_materials", sanitize_text(material_id, 20))
+        material_id = sanitize_text(material_id, 20)
+        m = db.coll_get("acad_materials", material_id)
         if not m or m.get("code") != code or m.get("type") != "file":
             raise HTTPException(404, "Material not found.")
         fpath = MATERIALS_DIR / f"{material_id}{m.get('ext', '')}"

@@ -84,7 +84,7 @@ def build_router(chat_authorize, load_progress, save_progress, add_history) -> A
 
         local = solve_local(msg)
         if local:
-            add_history(p, sid, "user", msg)
+            add_history(p, sid, "user", req.message)
             add_history(p, sid, "sivarr", local)
             p["questions"] += 1
             p["topics"]["math"] = p["topics"].get("math", 0) + 1
@@ -100,7 +100,7 @@ def build_router(chat_authorize, load_progress, save_progress, add_history) -> A
             if not is_err:
                 p["questions"] += 1
                 p["topics"]["math"] = p["topics"].get("math", 0) + 1
-                add_history(p, sid, "user", msg)
+                add_history(p, sid, "user", req.message)
                 add_history(p, sid, "sivarr", ans)
                 save_progress(sid, p)
             return {"reply": ans, "uncertain": uncertain, "error": is_err}
@@ -120,9 +120,10 @@ def build_router(chat_authorize, load_progress, save_progress, add_history) -> A
         # Embeds req.message, not msg — msg may already carry req.context
         # prepended, and diluting the retrieval query with that would hurt
         # match quality for no benefit. Kept in a separate gemini_msg rather
-        # than folded into msg: msg is what add_history saves below, and a
-        # user re-opening this conversation should see what they typed, not
-        # a wall of [task:...]/[doc:...] tags prepended to it.
+        # than folded into msg: add_history below saves req.message (the raw
+        # text the user actually typed), never msg or gemini_msg — a user
+        # re-opening this conversation should see what they typed, not a
+        # wall of req.context/[task:...]/[doc:...] tags prepended to it.
         retrieval_ctx = await build_retrieval_context(sid, req.message)
         gemini_msg = f"{retrieval_ctx}\n\n{msg}" if retrieval_ctx else msg
 
@@ -136,7 +137,7 @@ def build_router(chat_authorize, load_progress, save_progress, add_history) -> A
                 save_json(lpath(), lib)
             p["questions"] += 1
             p["topics"][topic or "general"] = p["topics"].get(topic or "general", 0) + 1
-            add_history(p, sid, "user", msg)
+            add_history(p, sid, "user", req.message)
             add_history(p, sid, "sivarr", ans)
             save_progress(sid, p)
 
@@ -156,7 +157,7 @@ def build_router(chat_authorize, load_progress, save_progress, add_history) -> A
         # Local math solver — stream the single result
         local = solve_local(msg)
         if local:
-            add_history(p, sid, "user", msg)
+            add_history(p, sid, "user", req.message)
             add_history(p, sid, "sivarr", local)
             p["questions"] += 1
             save_progress(sid, p)

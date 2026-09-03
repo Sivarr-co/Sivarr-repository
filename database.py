@@ -1457,6 +1457,47 @@ def claim_capped_slot(key: str, cap: int) -> int | None:
         _release(conn)
 
 
+def claim_scheduler_tick(job_name: str) -> bool:
+    """True if this gunicorn worker should run job_name's current tick,
+    False if another worker already claimed it this instant.
+
+    gunicorn runs 4 UvicornWorker processes (Procfile: `-w 4`), each with
+    its own independent APScheduler instance on an identical cron/interval
+    schedule and no coordination of its own -- so every scheduled job (streak
+    reminders, task-due alerts, embeddings indexing, ...) actually fires 4x
+    per tick in production, confirmed from live logs. This is the fix: a
+    transaction-scoped Postgres advisory lock (pg_try_advisory_xact_lock),
+    released automatically on COMMIT rather than requiring an explicit
+    unlock -- the first worker to reach this call for a given job_name wins
+    the tick, the other 3 see the lock held and back off immediately. Using
+    the transaction-scoped variant (not a session-level lock) matters
+    because this connection returns to a pool afterward; a session-level
+    lock would stay held on that pooled connection until something
+    remembered to unlock it, eventually deadlocking every future tick.
+
+    Fails open (returns True) when no DB is configured or the lock check
+    itself errors -- an occasional duplicate run is the current status quo
+    and far better than silently stopping every scheduled job from ever
+    running again over a transient DB hiccup."""
+    import zlib
+    key = zlib.crc32(job_name.encode()) & 0x7FFFFFFF
+    conn = _get_conn()
+    if not conn:
+        return True
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_try_advisory_xact_lock(%s)", (key,))
+            won = cur.fetchone()[0]
+        conn.commit()
+        return bool(won)
+    except Exception as exc:
+        log.error(f"claim_scheduler_tick[{job_name}] failed: {exc}")
+        conn.rollback()
+        return True
+    finally:
+        _release(conn)
+
+
 # ── Google OAuth exchange codes (multi-worker safe) ────────────────
 
 def create_google_xcode(code: str, token: str) -> None:

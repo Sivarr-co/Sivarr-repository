@@ -2377,16 +2377,30 @@ def _start_scheduler():
             log.info(f"Embeddings index: {indexed} item(s) (re)indexed for AI retrieval")
 
     # ── Register jobs and start — wrapped so a failure never crashes the app ──
+    def _once_per_tick(job_name, fn):
+        """gunicorn runs 4 identical worker processes, each with its own
+        APScheduler on the same schedule — without this, every job below
+        fires 4x per tick (confirmed live: duplicate push notifications,
+        4x embeddings-indexing API cost). db.claim_scheduler_tick() lets
+        exactly one worker's firing win via a Postgres advisory lock; see
+        its docstring for why session-level locking wouldn't be safe here."""
+        async def _wrapped():
+            if not db.claim_scheduler_tick(job_name):
+                return
+            await fn()
+        _wrapped.__name__ = fn.__name__
+        return _wrapped
+
     try:
         import datetime as _tz_dt
         scheduler = AsyncIOScheduler(timezone=_tz_dt.timezone.utc)
-        scheduler.add_job(_auto_weekly_reviews, CronTrigger(day_of_week="mon", hour=6, minute=0))
-        scheduler.add_job(_purge_deleted_goals, CronTrigger(hour=4, minute=30))
-        scheduler.add_job(_purge_deleted_tasks, CronTrigger(hour=4, minute=45))
-        scheduler.add_job(_purge_deleted_habits, CronTrigger(hour=5, minute=0))
-        scheduler.add_job(_streak_reminders,    CronTrigger(hour=19, minute=0))
-        scheduler.add_job(_task_due_alerts,     IntervalTrigger(minutes=15))
-        scheduler.add_job(_index_embeddings,    IntervalTrigger(minutes=30))
+        scheduler.add_job(_once_per_tick("auto_weekly_reviews", _auto_weekly_reviews), CronTrigger(day_of_week="mon", hour=6, minute=0))
+        scheduler.add_job(_once_per_tick("purge_deleted_goals", _purge_deleted_goals), CronTrigger(hour=4, minute=30))
+        scheduler.add_job(_once_per_tick("purge_deleted_tasks", _purge_deleted_tasks), CronTrigger(hour=4, minute=45))
+        scheduler.add_job(_once_per_tick("purge_deleted_habits", _purge_deleted_habits), CronTrigger(hour=5, minute=0))
+        scheduler.add_job(_once_per_tick("streak_reminders", _streak_reminders),    CronTrigger(hour=19, minute=0))
+        scheduler.add_job(_once_per_tick("task_due_alerts", _task_due_alerts),      IntervalTrigger(minutes=15))
+        scheduler.add_job(_once_per_tick("index_embeddings", _index_embeddings),    IntervalTrigger(minutes=30))
         scheduler.start()
         log.info("APScheduler started — weekly review (Mon 06:00 UTC) + push + trash-purge (goals 04:30, tasks 04:45, habits 05:00 UTC) + embeddings index (every 30min) jobs registered")
     except Exception as exc:
@@ -6460,7 +6474,12 @@ async def github_oauth_callback(code: str = "", state: str = "", error: str = ""
                 })
             tokens = tok.json()
             if "error" in tokens or "access_token" not in tokens:
-                log.error(f"GitHub token error: {tokens}")
+                # Redact before logging -- this branch is reached whenever
+                # "error" is present, which doesn't rule out an access_token
+                # also being in the same response body.
+                safe_tokens = {k: ("<redacted>" if k in ("access_token", "refresh_token") else v)
+                               for k, v in tokens.items()} if isinstance(tokens, dict) else tokens
+                log.error(f"GitHub token error: {safe_tokens}")
                 return RedirectResponse("/app?github_error=token_failed")
 
             info = await client.get(f"{GITHUB_API}/user",
