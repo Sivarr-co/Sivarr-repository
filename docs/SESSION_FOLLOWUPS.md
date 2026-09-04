@@ -25,7 +25,7 @@ standard below is additional, and it is not optional.
 | 16 | Make search coverage uniform | **Done** — verified 2026-08-25 |
 | 17 | Extend the import UI | **Done** — verified 2026-08-25 |
 | 18 | Small cleanups left behind | **Done** — verified 2026-08-25 |
-| 19 | CSP: remove `unsafe-inline` | **In progress** — 492 migrated, 198 inline left |
+| 19 | CSP: remove `unsafe-inline` | **In progress** — 492 migrated, 198 inline left in `templates/*.html`, **+388 more in `js/*.js` not previously tracked here** (2026-09-03 audit — see "A second, untracked surface" below) |
 | 20 | User-facing two-factor auth | **Done** — verified 2026-08-25 |
 | 21 | Make the two chat tests hermetic | **Done** — verified 2026-08-25 |
 
@@ -454,6 +454,44 @@ nothing, so the missing-function check is what actually catches a bad migration.
 grep -rhoP '(?<![-\w])onclick="' templates/*.html | wc -l
 ```
 
+**This only counts `templates/*.html`.** It does not, and never did, count
+inline handlers written into HTML that JS builds and injects at runtime (e.g.
+`` `<button onclick="foo('${id}')">` `` inside a template literal, then set via
+`innerHTML`). The browser sees an identical inline `onclick=` attribute either
+way and CSP blocks it identically — script-src `unsafe-inline` cannot come out
+until these are gone too, and every "N inline left" figure reported by earlier
+Session 19 work only ever tracked the template-authored half. Reproduce:
+
+```
+grep -rhoP '(?<![-\w])on(click|change|input|keydown|keyup|blur|focus|submit)="' js/*.js js/features/*.js | wc -l
+```
+
+**388** as of 2026-09-03 (a 2026-09 audit estimated ~404; re-count before
+relying on either — this surface isn't tracked incrementally the way the
+template-side count is, so it can only drift further from either number).
+Per file (`onclick=` only, 371 of the 388):
+
+| File | Count |
+|---|---|
+| `js/app.js` | 173 |
+| `js/features/agents.js` | 56 |
+| `js/features/academic.js` | 45 |
+| `js/features/marketplace.js` | 45 |
+| `js/features/org.js` | 27 |
+| `js/features/tasks.js` | 17 |
+| `js/features/docs_notes.js` | 5 |
+| `js/features/habits.js` | 3 |
+
+`app.py`'s own CSP-header comment ("~1000+ handlers total, migrating
+incrementally") already accounted for a number in this range — the doc's
+"N inline left" figures were the more precise but incomplete of the two.
+No migration decision has been made about how to close this half (delegate.js
+already supports everything needed since it works off attributes, not literal
+markup — a JS-side handler would need rewriting to emit `data-onclick="fn"
+data-onclick-arg0="..."` instead of `onclick="fn('...')"` in the template
+literal itself, then the existing delegation wiring picks it up unchanged).
+Flagging the gap here rather than guessing at scope or starting the rewrite.
+
 #### What delegate.js supports
 
 | Pattern | Attribute |
@@ -507,10 +545,11 @@ them and accept that `unsafe-inline` cannot be dropped until they are handled.
 
 #### Before `unsafe-inline` can come out
 
-All of the above, **plus** 10 inline `<script>` blocks (`index.html` has 5) —
-those are governed by the same `script-src` directive. `style-src` at
-`app.py:1549` carries its own `unsafe-inline` covering ~982 inline `style=`
-attributes, and is a separate project.
+All of the above, **plus** the ~388 JS-generated inline handlers from "A
+second, untracked surface" above, **plus** 10 inline `<script>` blocks
+(`index.html` has 5) — those are governed by the same `script-src` directive.
+`style-src` at `app.py:1549` carries its own `unsafe-inline` covering ~982
+inline `style=` attributes, and is a separate project.
 
 ---
 

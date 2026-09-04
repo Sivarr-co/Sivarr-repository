@@ -162,6 +162,93 @@ def test_chat_actually_injects_retrieved_context_into_the_prompt(monkeypatch, cl
     assert FAKE_CONTEXT not in user_turns[-1], "retrieval context leaked into saved chat history"
 
 
+class _FakeStreamChunk:
+    def __init__(self, text):
+        self.text = text
+
+
+class _FakeChatSession:
+    """Stands in for genai's ChatSession.send_message(..., stream=True),
+    which chat_stream() iterates as `for chunk in resp: chunk.text`."""
+
+    def send_message(self, msg, stream=True):
+        return [_FakeStreamChunk("Hello "), _FakeStreamChunk("world")]
+
+
+def test_chat_stream_skips_suggestion_generation_when_not_wanted(monkeypatch, clean_progress):
+    """The Academic quick-chat popup (acadChatSend()) never renders the
+    follow-up suggestion pills, but chat_stream() used to generate them
+    unconditionally on every message anyway -- a full extra Gemini call
+    (tokens=1200) thrown away every time. want_suggestions=False is the
+    fix; this proves the suggestion-generation call is actually skipped,
+    not just that the response still looks fine without it."""
+    from fastapi.testclient import TestClient
+    import app as app_module
+    import routes.ai_chat as ai_chat_module
+
+    client = TestClient(app_module.app)
+
+    async def fake_build_retrieval_context(sid, query, k=5):
+        return ""
+
+    suggestion_calls = []
+
+    async def fake_async_gemini_once(prompt, temp=0.7, tokens=1200):
+        suggestion_calls.append(prompt)
+        return '["a","b","c"]'
+
+    monkeypatch.setattr(ai_chat_module, "build_retrieval_context", fake_build_retrieval_context)
+    monkeypatch.setattr(ai_chat_module, "async_gemini_once", fake_async_gemini_once)
+    monkeypatch.setattr(ai_chat_module, "get_sessions", lambda sid: {"chat": _FakeChatSession()})
+
+    sid = "chat_stream_no_suggestions_sid"
+    clean_progress(sid)
+    token = core.create_session_token(sid, "S", "chatstreamnosug@example.invalid")
+
+    r = client.post("/api/chat/stream", json={
+        "sid": sid, "token": token, "message": "hi there", "want_suggestions": False,
+    })
+    assert r.status_code == 200
+    assert '{"token": "Hello "}' in r.text and '{"token": "world"}' in r.text
+    assert suggestion_calls == [], "suggestion generation must be skipped when want_suggestions=False"
+    assert '"suggestions": []' in r.text
+
+
+def test_chat_stream_generates_suggestions_by_default(monkeypatch, clean_progress):
+    """The main Sivarr AI panel (js/app.js's _chatStream()) never sends
+    want_suggestions at all -- confirms the default (True, unchanged
+    behavior) still actually generates them, so the opt-out above didn't
+    silently become the new default for every other caller."""
+    from fastapi.testclient import TestClient
+    import app as app_module
+    import routes.ai_chat as ai_chat_module
+
+    client = TestClient(app_module.app)
+
+    async def fake_build_retrieval_context(sid, query, k=5):
+        return ""
+
+    suggestion_calls = []
+
+    async def fake_async_gemini_once(prompt, temp=0.7, tokens=1200):
+        suggestion_calls.append(prompt)
+        return '["a","b","c"]'
+
+    monkeypatch.setattr(ai_chat_module, "build_retrieval_context", fake_build_retrieval_context)
+    monkeypatch.setattr(ai_chat_module, "async_gemini_once", fake_async_gemini_once)
+    monkeypatch.setattr(ai_chat_module, "get_sessions", lambda sid: {"chat": _FakeChatSession()})
+
+    sid = "chat_stream_default_suggestions_sid"
+    clean_progress(sid)
+    token = core.create_session_token(sid, "S", "chatstreamdefsug@example.invalid")
+
+    r = client.post("/api/chat/stream", json={
+        "sid": sid, "token": token, "message": "hi there",
+    })
+    assert r.status_code == 200
+    assert len(suggestion_calls) == 1
+
+
 def test_chat_context_field_augments_prompt_but_never_leaks_into_history(monkeypatch, clean_progress):
     """The client-supplied req.context field (js/features/academic.js's
     acadAsk() sends context="academic_lecturer", for example) is meant to

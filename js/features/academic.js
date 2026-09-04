@@ -3616,6 +3616,11 @@ function _acadChatContext() {
   return `The user has this quick-chat open while viewing their "${label}" page. If their question relates to what's shown there, use that context.`;
 }
 
+// Set whenever a send ends in an error, cleared on the next successful send
+// or retry -- lets acadChatRetry() resend the same text without the user
+// retyping it, same shape as app.js's _lastFailedMsg/retryChat().
+let _acadLastFailedMsg = null;
+
 async function acadChatSend() {
   const input = $("ac-chat-input");
   const msg = input?.value.trim() || "";
@@ -3623,7 +3628,26 @@ async function acadChatSend() {
   _acadChatAddMsg("user", msg);
   input.value = "";
   input.style.height = "auto";
+  await _acadChatDoSend(msg);
+}
 
+function acadChatRetry() {
+  if (!_acadLastFailedMsg) return;
+  const w = $("ac-chat-msgs");
+  if (w) {
+    const errBubs = w.querySelectorAll(".msg-error");
+    if (errBubs.length) errBubs[errBubs.length - 1].closest(".msg")?.remove();
+  }
+  const txt = _acadLastFailedMsg;
+  _acadLastFailedMsg = null;
+  _acadChatDoSend(txt);
+}
+
+// The actual /api/chat/stream call -- factored out of acadChatSend() so
+// acadChatRetry() can resend failed text without re-adding a user bubble
+// (the original one is still visible above) or re-reading the (now empty)
+// input box.
+async function _acadChatDoSend(msg) {
   const btn = $("ac-chat-send");
   if (btn) btn.disabled = true;
 
@@ -3638,6 +3662,11 @@ async function acadChatSend() {
         message: msg,
         context: _acadChatContext(),
         token,
+        // This popup never renders the follow-up suggestion pills (unlike
+        // the main Sivarr AI panel) -- without this, the backend still ran
+        // a full extra Gemini call to generate them on every message here,
+        // for a result that was always discarded client-side.
+        want_suggestions: false,
       }),
     });
   } catch {
@@ -3646,6 +3675,7 @@ async function acadChatSend() {
       "Could not reach Sivarr. Check your connection and try again.",
       true,
     );
+    _acadLastFailedMsg = msg;
     if (btn) btn.disabled = false;
     return;
   }
@@ -3666,6 +3696,7 @@ async function acadChatSend() {
       );
     } else {
       _acadChatAddMsg("sivarr", "Could not reach Sivarr. Please try again.", true);
+      _acadLastFailedMsg = msg;
     }
     if (btn) btn.disabled = false;
     return;
@@ -3673,7 +3704,8 @@ async function acadChatSend() {
 
   const bub = _acadChatAddMsg("sivarr", "");
   const msgsEl = $("ac-chat-msgs");
-  let fullText = "";
+  let fullText = "",
+    isError = false;
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = "";
@@ -3693,6 +3725,11 @@ async function acadChatSend() {
           if (parsed.done) break outer;
           if (parsed.token) {
             fullText += parsed.token;
+            // parsed.error marks a circuit-breaker/friendly-error string
+            // riding the token stream (see ai_core.py's friendly_gemini_error)
+            // -- without checking it, that text rendered as a normal reply
+            // with no error styling and no way to retry.
+            isError = parsed.error || false;
             bub.textContent = fullText + "▌";
             if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
           }
@@ -3701,11 +3738,26 @@ async function acadChatSend() {
     }
   } catch {
     bub.classList.add("msg-error");
-    bub.textContent = "Stream interrupted. Please try again.";
+    bub.innerHTML =
+      'Stream interrupted. <button class="chat-retry-btn" onclick="acadChatRetry()">↻ Try again</button>';
+    _acadLastFailedMsg = msg;
     if (btn) btn.disabled = false;
     return;
   }
-  bub.innerHTML = renderMarkdown(fullText);
+
+  if (isError) {
+    bub.classList.add("msg-error");
+    bub.innerHTML = `${acEsc(fullText)} <button class="chat-retry-btn" onclick="acadChatRetry()">↻ Try again</button>`;
+    _acadLastFailedMsg = msg;
+  } else {
+    bub.innerHTML = renderMarkdown(fullText);
+    // Same per-sid daily counter the main Sivarr AI panel shows -- both
+    // surfaces count against the same server-side quota (routes/ai_chat.py),
+    // so leaving this uncalled here left the visible "N left today" stale
+    // for anyone who ever used this popup.
+    if (typeof chatCounterDecrement === "function") chatCounterDecrement();
+    if (typeof track === "function") track("Chat_Sent");
+  }
   if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
   if (btn) btn.disabled = false;
 }

@@ -49,6 +49,7 @@ class ChatRequest(BaseModel):
     message: str
     context: str = ""
     token: str = ""
+    want_suggestions: bool = True
 
     @validator("message")
     def msg_valid(cls, v):
@@ -209,9 +210,12 @@ def build_router(chat_authorize, load_progress, save_progress, add_history) -> A
                 p["questions"] += 1
                 save_progress(sid, p)
 
-            # Generate 3 follow-up suggestions (fast, non-blocking)
+            # Generate 3 follow-up suggestions (fast, non-blocking) — skippable
+            # via want_suggestions=False for callers that never render them
+            # (the Academic quick-chat popup), so they don't pay for a Gemini
+            # call whose result is thrown away on every single message.
             suggestions: list[str] = []
-            if full_text and not _is_ai_error(full_text):
+            if req.want_suggestions and full_text and not _is_ai_error(full_text):
                 try:
                     raw = await async_gemini_once(
                         f"Based on this AI response, suggest exactly 3 short follow-up questions a user might ask next. "
