@@ -2538,6 +2538,14 @@ async def changelog_page():
     raise HTTPException(404, "Changelog not found")
 
 
+@app.get("/about", response_class=HTMLResponse)
+async def about_page():
+    p = Path("templates/legal/about.html")
+    if p.exists():
+        return p.read_text(encoding="utf-8")
+    raise HTTPException(404, "About page not found")
+
+
 def _serve_app() -> HTMLResponse:
     """Return the main SPA HTML rendered via Jinja2 (cached in production)."""
     global _APP_HTML_CACHE

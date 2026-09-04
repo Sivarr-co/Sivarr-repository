@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About: Sivarr</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --purple: #41076B;
+  --teal:   var(--purple);
+  --teal2:  #2d0454;
+  --bg:     #080808;
+  --bg2:    #0f0f0f;
+  --bg3:    #161616;
+  --card:   #111111;
+  --border: #1e1e1e;
+  --border2:#2a2a2a;
+  --text1:  #f0f0f0;
+  --text2:  #a0a0a0;
+  --muted:  #555;
+  --font:   'Plus Jakarta Sans', system-ui, sans-serif;
+  --r:      12px;
+}
+
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text1); font-family: var(--font); font-size: 16px; line-height: 1.7; overflow-x: hidden; }
+a { color: var(--teal); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── NAVBAR ── */
+nav {
+  position: sticky; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px; height: 64px;
+  background: rgba(8,8,8,.92); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font); font-size: 1.15rem; font-weight: 800;
+  letter-spacing: -.03em; color: var(--text1); text-decoration: none;
+}
+.nav-logo-dot {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--teal), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; color: #fff; font-weight: 900;
+}
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.nav-link { font-size: .85rem; color: var(--text2); font-weight: 500; transition: color .2s; }
+.nav-link:hover { color: var(--text1); text-decoration: none; }
+.btn-nav {
+  padding: 8px 18px; border-radius: 9px; border: none;
+  background: linear-gradient(135deg, var(--teal), var(--teal2));
+  color: #fff; font-family: var(--font); font-size: .83rem;
+  font-weight: 700; cursor: pointer; text-decoration: none;
+}
+
+/* ── LEGAL LAYOUT (shared with /security, /cookies, /changelog) ── */
+.legal-wrap {
+  max-width: 740px; margin: 0 auto; padding: 72px 24px 100px;
+}
+.legal-label {
+  display: inline-block; background: rgba(13,122,95,.12);
+  border: 1px solid rgba(13,122,95,.25); color: var(--teal);
+  padding: 5px 12px; border-radius: 20px; font-size: .73rem;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.legal-title {
+  font-size: clamp(2rem, 5vw, 3rem); font-weight: 900;
+  letter-spacing: -.04em; line-height: 1.1; margin-bottom: 12px;
+}
+.legal-meta { font-size: .95rem; color: var(--text2); margin-bottom: 56px; font-style: italic; }
+
+/* Sections */
+.legal-section { margin-bottom: 52px; scroll-margin-top: 88px; }
+.legal-section h2 {
+  font-size: 1.2rem; font-weight: 800; letter-spacing: -.02em;
+  margin-bottom: 14px; color: var(--text1);
+}
+.legal-section p { color: var(--text2); font-size: .93rem; margin-bottom: 12px; }
+.legal-section ul { padding-left: 20px; display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.legal-section li { color: var(--text2); font-size: .93rem; }
+.legal-section li::marker { color: var(--teal); }
+.legal-section li strong { color: var(--text1); }
+hr.section-div { border: none; border-top: 1px solid var(--border); margin-bottom: 52px; }
+
+.about-cta {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 28px 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap;
+}
+.about-cta p { color: var(--text2); font-size: .93rem; margin: 0; max-width: 480px; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border); background: var(--bg);
+  padding: 32px 40px;
+}
+.footer-inner {
+  max-width: 740px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+  font-size: .78rem; color: var(--muted);
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a { color: var(--muted); transition: color .2s; }
+.footer-links a:hover { color: var(--text1); text-decoration: none; }
+
+@media (max-width: 600px) {
+  nav { padding: 0 20px; }
+  .legal-wrap { padding: 48px 20px 80px; }
+  footer { padding: 24px 20px; }
+  .footer-inner { flex-direction: column; gap: 12px; }
+  .about-cta { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-dot">S</div>
+    Sivarr
+  </a>
+  <div class="nav-right">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/security" class="nav-link">Security</a>
+    <a href="/privacy" class="nav-link">Privacy</a>
+    <a href="/app" class="btn-nav">Open app</a>
+  </div>
+</nav>
+
+<div class="legal-wrap">
+  <div class="legal-label">Company</div>
+  <h1 class="legal-title">About Sivarr</h1>
+  <p class="legal-meta">An AI-powered operating system for how people work, build, and learn.</p>
+
+  <div class="legal-section" id="what-we-are">
+    <h2>What We Are</h2>
+    <p>Sivarr is an AI-powered operating system built to unify personal productivity, team operations, and academic management into a single connected workspace. Instead of a task app, a habit tracker, a team chat tool, a class portal, and an analytics dashboard living in five different places, Sivarr brings them together under one roof, with an AI layer that understands the connections between them.</p>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="the-problem">
+    <h2>The Problem We're Solving</h2>
+    <p>Most people today manage their work and life across a scattered stack of disconnected software. A student uses one app for assignments and another for notes. A founder switches between a task manager, a team chat tool, and a spreadsheet to track the same project. A trader logs trades in a spreadsheet that has no memory of why a decision was made. Each tool works in isolation, and none of them understand the full picture of what a person is actually trying to accomplish.</p>
+    <p>This fragmentation isn't just inconvenient. It means valuable context gets lost between tools, decisions get made without the full picture, and people spend real time and money maintaining software instead of doing the work that software was supposed to make easier.</p>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="our-vision">
+    <h2>Our Vision</h2>
+    <p>We want a future where software adapts to how people actually think and work, instead of forcing people to adapt to a dozen disconnected tools. We want a single, intelligent workspace that understands the full context of someone's goals, habits, classes, team, and decisions, and helps them act on that understanding rather than simply storing it.</p>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="how-it-works">
+    <h2>How Sivarr Solves It</h2>
+    <p>Sivarr organizes work into three connected environments: a Personal Space for individual goals, tasks, habits, and reflection, an Organisation Space for teams to plan, communicate, and track performance, and an Academic Space for students, lecturers, and institutions to manage coursework and communication in one place. Running through all three is Siva, an AI layer built from specialized agents that read real context from a person's workspace, rather than answering questions in a vacuum.</p>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="who-its-for">
+    <h2>Who Sivarr Is Built For</h2>
+    <p>Individuals managing their own goals, habits, and daily work. Students and lecturers coordinating coursework, assignments, and communication. Startups and teams running projects, sprints, and internal operations. Traders who want their execution history and their decision-making tied together instead of living in separate spreadsheets. Creators and social media managers who need to understand what's actually working across their platforms, not just see the numbers. And builders who want to create and monetize workflows, templates, and AI agents on top of the platform itself.</p>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="what-makes-us-different">
+    <h2>What Makes Sivarr Different</h2>
+    <p>Most tools in this space solve one problem well and stop there. Sivarr is built as one connected ecosystem instead of a single-purpose app, with AI woven directly into the workflow rather than bolted on as a separate chat window. It includes specialized, purpose-built modules, like a trading journal with genuine broker integration and behavioral analysis, and a content hub that explains why a post performed the way it did, not just what the numbers were. It's also built with an open marketplace, so builders can extend the platform and earn from what they create, rather than Sivarr being a closed system only its own team can improve.</p>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="ai-and-technology">
+    <h2>AI & Technology</h2>
+    <p>Siva, Sivarr's AI layer, is built from specialized agents, each with a narrow responsibility: one focused on discovery and research, one on structuring workflows and tasks, and one on financial and risk safeguards. Every agent operates under a human-in-the-loop principle: nothing critical, like a payment, a deletion, or an external message, executes without explicit confirmation. Sivarr is built on modern, secure infrastructure, with encrypted data transport and clear boundaries around how user data is used.</p>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="our-philosophy">
+    <h2>Our Core Philosophy</h2>
+    <p>We believe AI shouldn't be another tool people have to manage on top of everything else. It should be an intelligent layer that connects the tools, information, and decisions people already have, and helps them see patterns and make better calls, not just automate busywork.</p>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="our-ecosystem">
+    <h2>Our Ecosystem</h2>
+    <ul>
+      <li><strong>Personal Space</strong> — goals, tasks, habits, and journaling for individual productivity.</li>
+      <li><strong>Organisation Space</strong> — sprints, team communication, roles, and performance tracking for teams.</li>
+      <li><strong>Academic Space</strong> — coursework, live class communication, and grading for students, lecturers, and institutions.</li>
+    </ul>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="where-we-are">
+    <h2>Where We Are Today</h2>
+    <p>Sivarr is in active development, built by a small team based in Lagos, Nigeria, with a foundation designed for institutions and users across Africa first, and built to scale globally from there. We are working toward institutional partnerships with universities as part of our academic rollout, and continuing to build out the platform's core spaces and specialized modules ahead of a wider launch.</p>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="our-values">
+    <h2>Our Values</h2>
+    <ul>
+      <li><strong>Ambition</strong> — we think in terms of what should exist, not just what's easy to build.</li>
+      <li><strong>Simplicity</strong> — a connected system should feel simpler than the tools it replaces, not more complex.</li>
+      <li><strong>Ownership</strong> — we build things we'd actually want to use ourselves, and hold them to that standard.</li>
+      <li><strong>User-first thinking</strong> — every feature has to make someone's actual work easier, not just look impressive.</li>
+      <li><strong>Accessibility</strong> — built Africa-first, priced and designed for real access, not as an afterthought market.</li>
+    </ul>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="where-were-going">
+    <h2>Where We're Going</h2>
+    <p>Our direction is to become the intelligent operating layer for how people, teams, and institutions work, an AI-connected system that spans personal life, organizational operations, and education, with specialized agents and an open ecosystem of builders extending what it can do. We're starting from where we have the deepest access and understanding, Africa, and building toward a platform with global reach.</p>
+  </div>
+
+  <hr class="section-div">
+  <div class="legal-section" id="get-involved">
+    <h2>Get Involved</h2>
+    <p>Sivarr is being built in the open, one space at a time. If you want to follow along, try the product early, or explore what it could mean for your team or institution, we'd like to hear from you.</p>
+    <div class="about-cta">
+      <p>Reach out and we'll get back to you.</p>
+      <a href="mailto:support@sivarr.com" class="btn-nav">Get in touch</a>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <span>© 2026 Sivarr. Built in Lagos, Nigeria.</span>
+    <div class="footer-links">
+      <a href="/">Home</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="mailto:support@sivarr.com">Support</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

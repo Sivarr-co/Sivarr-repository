@@ -555,16 +555,28 @@ inline `style=` attributes, and is a separate project.
 
 ## Not for a session — needs Hunter
 
-Unchanged from SESSION_BRIEFS.md, none resolved. Do not guess and do not fabricate
-content for any of these.
+Do not guess and do not fabricate content for any of these.
 
-- **Pricing.** Landing shows ₦0 / ₦19,800 / ₦36,300; `config.py` bills
-  ₦2,500 / ₦25,000 / ₦8,000; Stripe is now in the stack for USD. Which set is
-  canonical is Hunter's call, and it sits directly between a visitor and a payment.
-- **NDPR section and registered business entity** on the legal pages.
-- **Footer pages** (About, Blog, Careers, Changelog, Roadmap, Security, Cookies).
-- **Mobile EAS project id and Play Store service account.**
-- **Resend sending domain verification.**
+- ~~Pricing.~~ **Resolved 2026-09-03.** The mismatch was `config.py`'s dead
+  `SIVARR_PLANS` dict (₦2,500/₦25,000/₦8,000) against the real one in
+  `app.py`; `config.py`'s copy was never imported anywhere and has been
+  deleted. `app.py`'s `SIVARR_PLANS` (USD-anchor) is the sole source of
+  truth, and landing's ₦19,800/₦36,300 are already correct FX conversions of
+  it (both resolve to ≈1,650 NGN/USD) — nothing left to reconcile.
+- **NDPR section and registered business entity** on the legal pages. Needs
+  real entity name/RC number/registered address — not something to guess at.
+- **Footer pages** — narrower than it looks. The footer today only links
+  Changelog, Terms, Privacy, Security, Cookies; About/Blog/Careers/Roadmap
+  aren't linked from it at all, so there's no live dead link. About now has
+  real copy (Hunter supplied it 2026-09-03) and is being built as a real
+  page + footer link. Blog/Careers/Roadmap remain content-less and
+  unlinked — build them only once there's real copy for them too.
+- **Mobile EAS project id and Play Store service account.** Half-resolved —
+  `mobile/app.json` already has a real `projectId` set. Still needed: the
+  Play Store service account JSON (from Google Play Console) wired into
+  EAS/CI submit config, which only Hunter can generate.
+- **Resend sending domain verification.** A DNS action (SPF/DKIM records on
+  the real domain), not code — outside what a session can do.
 
 ---
 

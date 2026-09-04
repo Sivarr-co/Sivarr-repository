@@ -63,7 +63,7 @@ def _clean_ci_test_sid_data_files():
 
 # ── Boot ──────────────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("path", ["/", "/app", "/health", "/sw.js", "/terms", "/privacy"])
+@pytest.mark.parametrize("path", ["/", "/app", "/health", "/sw.js", "/terms", "/privacy", "/about"])
 def test_page_serves(client, path):
     assert client.get(path).status_code == 200
 
