@@ -578,19 +578,19 @@ function mktRenderFeatured() {
   const strip = document.getElementById("mktFeaturedStrip");
   if (!strip) return;
   const f = mktItems.filter((i) => i.official).slice(0, 4);
-  strip.innerHTML = `<div class="mkt-featured-label">Featured</div><div class="mkt-featured-cards">${f.map((i) => `<div class="mkt-featured-card" onclick="mktOpenDetail('${i.id}')"><div class="mkt-item-icon">${i.icon}</div><div><div class="mkt-item-name">${mktEsc(i.name)}</div><span class="mkt-item-type-badge mkt-type-${i.type}">${i.type}</span></div></div>`).join("")}</div>`;
+  strip.innerHTML = `<div class="mkt-featured-label">Featured</div><div class="mkt-featured-cards">${f.map((i) => `<div class="mkt-featured-card" data-onclick="mktOpenDetail" data-onclick-arg0="${mktEsc(i.id)}"><div class="mkt-item-icon">${i.icon}</div><div><div class="mkt-item-name">${mktEsc(i.name)}</div><span class="mkt-item-type-badge mkt-type-${i.type}">${i.type}</span></div></div>`).join("")}</div>`;
 }
 
 function mktItemBtn(i) {
   if (i.type === "integration")
-    return `<button class="mkt-install-btn mkt-install-btn--installed" onclick="event.stopPropagation();nav('library')">Connect →</button>`;
+    return `<button class="mkt-install-btn mkt-install-btn--installed" data-onclick="nav" data-onclick-arg0="library">Connect →</button>`;
   if (i.type === "template")
-    return `<button class="mkt-install-btn" onclick="event.stopPropagation();mktUseTemplate('${i.id}')">Use</button>`;
+    return `<button class="mkt-install-btn" data-onclick="mktUseTemplate" data-onclick-arg0="${mktEsc(i.id)}">Use</button>`;
   const inst = mktInstalled.find((x) => x.id === i.id);
   // This catalogue is seed/preview content (see the "Preview" badge on the
   // panel header) — no real checkout ever runs, so the button must never
   // say "Buy"/show a price as if clicking it charges anything.
-  return `<button class="mkt-install-btn ${inst ? "mkt-install-btn--installed" : ""}" onclick="event.stopPropagation();${inst ? `mktUninstall('${i.id}')` : `mktInstall('${i.id}')`}">${inst ? "Installed ✓" : "Install"}</button>`;
+  return `<button class="mkt-install-btn ${inst ? "mkt-install-btn--installed" : ""}" data-onclick="${inst ? "mktUninstall" : "mktInstall"}" data-onclick-arg0="${mktEsc(i.id)}">${inst ? "Installed ✓" : "Install"}</button>`;
 }
 
 function mktRenderGrid() {
@@ -604,7 +604,7 @@ function mktRenderGrid() {
   grid.innerHTML = items
     .map(
       (i) =>
-        `<div class="mkt-card" onclick="mktOpenDetail('${i.id}')"><div class="mkt-card-top"><div class="mkt-item-icon">${i.icon}</div><span class="mkt-item-type-badge mkt-type-${i.type}">${i.type}</span></div><div class="mkt-item-name">${mktEsc(i.name)}</div><div class="mkt-item-author">${i.official ? "✦ Sivarr Official" : mktEsc(i.author)}</div><div class="mkt-item-desc">${mktEsc(i.desc)}</div><div class="mkt-card-footer"><div class="mkt-item-stats"><span>★ ${i.rating}</span><span>${i.installs.toLocaleString()}</span></div>${mktItemBtn(i)}</div></div>`,
+        `<div class="mkt-card" data-onclick="mktOpenDetail" data-onclick-arg0="${mktEsc(i.id)}"><div class="mkt-card-top"><div class="mkt-item-icon">${i.icon}</div><span class="mkt-item-type-badge mkt-type-${i.type}">${i.type}</span></div><div class="mkt-item-name">${mktEsc(i.name)}</div><div class="mkt-item-author">${i.official ? "✦ Sivarr Official" : mktEsc(i.author)}</div><div class="mkt-item-desc">${mktEsc(i.desc)}</div><div class="mkt-card-footer"><div class="mkt-item-stats"><span>★ ${i.rating}</span><span>${i.installs.toLocaleString()}</span></div>${mktItemBtn(i)}</div></div>`,
     )
     .join("");
 }
@@ -622,7 +622,7 @@ function mktRenderInstalled() {
   list.innerHTML = items
     .map(
       (i) =>
-        `<div class="mkt-installed-row"><div class="mkt-item-icon" style="font-size:20px">${i.icon}</div><div style="flex:1"><div class="mkt-item-name">${mktEsc(i.name)}</div><div class="mkt-item-author">${i.type} · ${i.official ? "Sivarr" : mktEsc(i.author)}</div></div><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="mktUninstall('${i.id}')">Remove</button></div>`,
+        `<div class="mkt-installed-row"><div class="mkt-item-icon" style="font-size:20px">${i.icon}</div><div style="flex:1"><div class="mkt-item-name">${mktEsc(i.name)}</div><div class="mkt-item-author">${i.type} · ${i.official ? "Sivarr" : mktEsc(i.author)}</div></div><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" data-onclick="mktUninstall" data-onclick-arg0="${mktEsc(i.id)}">Remove</button></div>`,
     )
     .join("");
 }
@@ -785,14 +785,14 @@ function mktOpenDetail(id) {
     `<span class="mkt-item-type-badge mkt-type-${item.type}">${item.type}</span><span class="mkt-meta-stat">★ ${item.rating}</span><span class="mkt-meta-stat">${item.installs.toLocaleString()} installs</span><span class="mkt-meta-stat">${item.price > 0 ? "₦" + item.price.toLocaleString() : "Free"}</span>`;
   document.getElementById("mktDetailActions").innerHTML =
     item.type === "integration"
-      ? `<button class="mkt-install-btn mkt-btn-lg" onclick="mktCloseDetail();nav('library')">Open Integrations →</button>`
+      ? `<button class="mkt-install-btn mkt-btn-lg" data-onclick="_mktCloseDetailThenNav" data-onclick-arg0="library">Open Integrations →</button>`
       : item.type === "template"
-        ? `<button class="mkt-install-btn mkt-btn-lg" onclick="mktUseTemplate('${item.id}')">Use template</button>`
+        ? `<button class="mkt-install-btn mkt-btn-lg" data-onclick="mktUseTemplate" data-onclick-arg0="${mktEsc(item.id)}">Use template</button>`
         : (() => {
             const inst = mktInstalled.find((i) => i.id === item.id);
             // See mktItemBtn() — no real checkout runs for this preview
             // catalogue, so the button must never say "Buy" as if it does.
-            return `<button class="mkt-install-btn ${inst ? "mkt-install-btn--installed" : ""} mkt-btn-lg" onclick="${inst ? `mktUninstall('${item.id}')` : `mktInstall('${item.id}')`};mktCloseDetail()">${inst ? "✓ Installed · Remove" : "Install"}</button>`;
+            return `<button class="mkt-install-btn ${inst ? "mkt-install-btn--installed" : ""} mkt-btn-lg" data-onclick="_mktInstallToggleAndClose" data-onclick-args="${mktEsc(JSON.stringify([item.id, !!inst]))}">${inst ? "✓ Installed · Remove" : "Install"}</button>`;
           })();
   document
     .querySelectorAll("#mktDetailModal .mkt-modal-tab")
@@ -809,6 +809,23 @@ function mktCloseDetail(e) {
   if (m) m.style.display = "none";
   mktCurrentItem = null;
 }
+
+// CSP migration: both were multi-statement inline handlers (close the modal,
+// then do something else) -- delegate.js only dispatches to single named
+// functions (js/core/delegate.js's own header), so these are real wrappers.
+window._mktCloseDetailThenNav = function (panel) {
+  mktCloseDetail();
+  nav(panel);
+};
+window._mktInstallToggleAndClose = function (id, isInstalled) {
+  if (isInstalled) mktUninstall(id);
+  else mktInstall(id);
+  mktCloseDetail();
+};
+window._mktCloseDetailThenAddOrgExt = function () {
+  mktCloseDetail();
+  if (typeof orgAddExtension === "function") orgAddExtension();
+};
 function mktDetailTab(tab, btn) {
   document
     .querySelectorAll("#mktDetailModal .mkt-modal-tab")
@@ -832,7 +849,7 @@ function mktRenderReviews(itemId) {
   const content = document.getElementById("mktDetailContent");
   if (!content) return;
   const reviews = mktAllReviews[itemId] || [];
-  content.innerHTML = `<div class="mkt-reviews-section"><div class="mkt-review-form"><div class="mkt-section-label" style="margin-bottom:8px">Leave a review</div><div class="mkt-star-row" id="mktStarRow">${[1, 2, 3, 4, 5].map((n) => `<button class="mkt-star" data-val="${n}" onclick="mktSetStar(${n})">★</button>`).join("")}</div><textarea class="mkt-review-input" id="mktReviewText" placeholder="What do you think? How did you use it?"></textarea><button class="mkt-btn-teal mkt-btn-sm" onclick="mktSubmitReview('${itemId}')"><i class="ti ti-send" aria-hidden="true"></i> Submit review</button></div><div id="mktReviewsList">${_mktReviewsListHTML(reviews)}</div></div>`;
+  content.innerHTML = `<div class="mkt-reviews-section"><div class="mkt-review-form"><div class="mkt-section-label" style="margin-bottom:8px">Leave a review</div><div class="mkt-star-row" id="mktStarRow">${[1, 2, 3, 4, 5].map((n) => `<button class="mkt-star" data-val="${n}" data-onclick="mktSetStar" data-onclick-args="[${n}]">★</button>`).join("")}</div><textarea class="mkt-review-input" id="mktReviewText" placeholder="What do you think? How did you use it?"></textarea><button class="mkt-btn-teal mkt-btn-sm" data-onclick="mktSubmitReview" data-onclick-arg0="${mktEsc(itemId)}"><i class="ti ti-send" aria-hidden="true"></i> Submit review</button></div><div id="mktReviewsList">${_mktReviewsListHTML(reviews)}</div></div>`;
   mktReviewStar = 0;
   mktLoadReviews(itemId);
 }
@@ -1026,6 +1043,12 @@ function closeSpaceSettings(e) {
   const m = document.getElementById("spaceSettingsModal");
   if (m) m.style.display = "none";
 }
+
+// CSP migration: multi-statement (close the modal, then navigate).
+window._closeSpaceSettingsThenNav = function (panel) {
+  closeSpaceSettings();
+  nav(panel);
+};
 function spaceSettingsTab(tab, btn) {
   document
     .querySelectorAll("#spaceSettingsModal .mkt-modal-tab")
@@ -1050,7 +1073,7 @@ function spaceSettingsRenderExtensions() {
   list.innerHTML = exts
     .map(
       (i) =>
-        `<div class="sset-toggle-row"><div class="mkt-item-icon" style="font-size:16px">${i.icon}</div><div style="flex:1"><div class="mkt-item-name" style="font-size:12px">${mktEsc(i.name)}</div><div class="mkt-item-author">Adds a tab (coming soon)</div></div><label class="sset-toggle"><input type="checkbox" ${enabled.includes(i.id) ? "checked" : ""} onchange="mktExtToggle('${i.id}','${sid}',this.checked)"/><span class="sset-toggle-track"></span></label></div>`,
+        `<div class="sset-toggle-row"><div class="mkt-item-icon" style="font-size:16px">${i.icon}</div><div style="flex:1"><div class="mkt-item-name" style="font-size:12px">${mktEsc(i.name)}</div><div class="mkt-item-author">Adds a tab (coming soon)</div></div><label class="sset-toggle"><input type="checkbox" ${enabled.includes(i.id) ? "checked" : ""} data-onchange="_mktExtToggleFromEl" data-onchange-args="${mktEsc(JSON.stringify([i.id, sid]))}" data-onchange-this/><span class="sset-toggle-track"></span></label></div>`,
     )
     .join("");
 }
@@ -1090,9 +1113,9 @@ function spaceSettingsRenderIntegrations() {
     `<div class="mkt-item-author">${off ? (INT_CONNECTABLE.has(c.id) ? "Not connected" : "Coming soon") : mktEsc(c.desc)}</div></div>` +
     (off
       ? INT_CONNECTABLE.has(c.id)
-        ? `<a class="sset-int-connect" onclick="closeSpaceSettings();nav('library')">Connect</a>`
+        ? `<a class="sset-int-connect" data-onclick="_closeSpaceSettingsThenNav" data-onclick-arg0="library">Connect</a>`
         : `<span class="sset-int-soon">Soon</span>`
-      : `<label class="sset-toggle"><input type="checkbox" ${isOn ? "checked" : ""} onchange="spaceIntToggle('${c.id}','${sid}',this.checked)"/><span class="sset-toggle-track"></span></label>`) +
+      : `<label class="sset-toggle"><input type="checkbox" ${isOn ? "checked" : ""} data-onchange="_spaceIntToggleFromEl" data-onchange-args="${mktEsc(JSON.stringify([c.id, sid]))}" data-onchange-this/><span class="sset-toggle-track"></span></label>`) +
     `</div>`;
   let html = connected.length
     ? connected.map((c) => row(c, enabled.includes(c.id), false)).join("")
@@ -1103,8 +1126,14 @@ function spaceSettingsRenderIntegrations() {
       available.map((c) => row(c, false, true)).join("");
   list.innerHTML =
     html +
-    `<div class="mkt-brief-desc" style="margin-top:10px">Connect accounts in the <a onclick="closeSpaceSettings();nav('library')" style="color:var(--teal);cursor:pointer">Integrations</a> panel. Toggles here choose which apply to this Space.</div>`;
+    `<div class="mkt-brief-desc" style="margin-top:10px">Connect accounts in the <a data-onclick="_closeSpaceSettingsThenNav" data-onclick-arg0="library" style="color:var(--teal);cursor:pointer">Integrations</a> panel. Toggles here choose which apply to this Space.</div>`;
 }
+// CSP migration: delegate.js has no this.checked-read grammar; read it
+// here instead (data-onchange-this passes the checkbox element last).
+window._spaceIntToggleFromEl = function (intId, spaceId, el) {
+  spaceIntToggle(intId, spaceId, el.checked);
+};
+
 function spaceIntToggle(intId, spaceId, enable) {
   if (enable && !intIsConnected(intId)) {
     mktToast("Connect this integration first in the Integrations panel");
@@ -1126,6 +1155,11 @@ function spaceIntToggle(intId, spaceId, enable) {
     `${c ? c.name : "Integration"} ${enable ? "enabled" : "disabled"} for this Space`,
   );
 }
+// CSP migration: same this.checked-read wrapper pattern as spaceIntToggle above.
+window._mktExtToggleFromEl = function (extId, spaceId, el) {
+  mktExtToggle(extId, spaceId, el.checked);
+};
+
 function mktExtToggle(extId, spaceId, enable) {
   if (!mktExtEnabled[spaceId]) mktExtEnabled[spaceId] = [];
   mktExtEnabled[spaceId] = enable
@@ -1333,7 +1367,7 @@ function extGetTabHTML(item) {
     `<div class="ext-tab-shell"><div class="ext-tab-icon">${item.icon}</div><div class="ext-tab-name">${mktEsc(item.name)}</div><div class="ext-tab-desc">${mktEsc(item.desc)}</div>${inner}</div>`;
   if (item.id === "ext-pomodoro") {
     return shell(
-      `<div class="ext-pomo-display" id="extPomo-${item.id}">25:00</div><div style="display:flex;gap:8px;justify-content:center;margin-top:8px"><button class="mkt-btn-teal" onclick="extPomoStart('${item.id}')"><i class="ti ti-player-play" aria-hidden="true"></i> Start</button><button class="mkt-btn-ghost" onclick="extPomoReset('${item.id}')"><i class="ti ti-refresh" aria-hidden="true"></i></button></div>`,
+      `<div class="ext-pomo-display" id="extPomo-${item.id}">25:00</div><div style="display:flex;gap:8px;justify-content:center;margin-top:8px"><button class="mkt-btn-teal" data-onclick="extPomoStart" data-onclick-arg0="${mktEsc(item.id)}"><i class="ti ti-player-play" aria-hidden="true"></i> Start</button><button class="mkt-btn-ghost" data-onclick="extPomoReset" data-onclick-arg0="${mktEsc(item.id)}"><i class="ti ti-refresh" aria-hidden="true"></i></button></div>`,
     );
   }
   const empties = {
@@ -1397,7 +1431,7 @@ function extFcShell(item) {
 }
 function extFcInner() {
   const cards = extData(_extSpaceId(), "ext-flashcards").cards || [];
-  const top = `<div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px"><button class="mkt-btn-teal" onclick="extFcAdd()"><i class="ti ti-plus" aria-hidden="true"></i> Add card</button>${cards.length ? `<button class="mkt-btn-ghost mkt-btn-danger" onclick="extFcDelete()"><i class="ti ti-trash" aria-hidden="true"></i> Delete</button>` : ""}</div>`;
+  const top = `<div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px"><button class="mkt-btn-teal" data-onclick="extFcAdd"><i class="ti ti-plus" aria-hidden="true"></i> Add card</button>${cards.length ? `<button class="mkt-btn-ghost mkt-btn-danger" data-onclick="extFcDelete"><i class="ti ti-trash" aria-hidden="true"></i> Delete</button>` : ""}</div>`;
   if (!cards.length)
     return (
       top +
@@ -1407,7 +1441,7 @@ function extFcInner() {
   const c = cards[i];
   return (
     top +
-    `<div onclick="extFcFlip()" style="cursor:pointer;border:1px solid var(--border);border-radius:14px;padding:28px 18px;min-height:120px;display:flex;align-items:center;justify-content:center;text-align:center;background:var(--card)"><div><div class="acad-label" style="margin-bottom:8px">${_extFcFlip ? "Answer" : "Question"}</div><div style="font-size:15px;font-weight:600;color:var(--text)">${mktEsc(_extFcFlip ? c.a || "–" : c.q)}</div><div style="font-size:10px;color:var(--muted2);margin-top:10px">tap to flip</div></div></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px"><button class="mkt-btn-ghost mkt-btn-sm" onclick="extFcNav(-1)">‹ Prev</button><span style="font-size:11px;color:var(--muted)">${i + 1} / ${cards.length}</span><button class="mkt-btn-ghost mkt-btn-sm" onclick="extFcNav(1)">Next ›</button></div>`
+    `<div data-onclick="extFcFlip" style="cursor:pointer;border:1px solid var(--border);border-radius:14px;padding:28px 18px;min-height:120px;display:flex;align-items:center;justify-content:center;text-align:center;background:var(--card)"><div><div class="acad-label" style="margin-bottom:8px">${_extFcFlip ? "Answer" : "Question"}</div><div style="font-size:15px;font-weight:600;color:var(--text)">${mktEsc(_extFcFlip ? c.a || "–" : c.q)}</div><div style="font-size:10px;color:var(--muted2);margin-top:10px">tap to flip</div></div></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px"><button class="mkt-btn-ghost mkt-btn-sm" data-onclick="extFcNav" data-onclick-args="[-1]">‹ Prev</button><span style="font-size:11px;color:var(--muted)">${i + 1} / ${cards.length}</span><button class="mkt-btn-ghost mkt-btn-sm" data-onclick="extFcNav" data-onclick-args="[1]">Next ›</button></div>`
   );
 }
 function extFcRender() {
@@ -1458,10 +1492,10 @@ function extCiteInner() {
   const fmts = ["APA", "MLA", "IEEE", "Harvard"]
     .map(
       (f) =>
-        `<button class="mkt-cat-pill ${_extCiteFmt === f ? "active" : ""}" onclick="extCiteFmt('${f}')">${f}</button>`,
+        `<button class="mkt-cat-pill ${_extCiteFmt === f ? "active" : ""}" data-onclick="extCiteFmt" data-onclick-arg0="${f}">${f}</button>`,
     )
     .join("");
-  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${fmts}</div><div style="display:flex;gap:8px;margin-bottom:12px"><input id="extcite-q" class="mkt-review-input" style="min-height:0;flex:1" placeholder="Paste a title, URL, or DOI…"><button class="mkt-btn-teal" onclick="extCiteGen()"><i class="ti ti-bolt" aria-hidden="true"></i> Cite</button></div><div>${items.length ? items.map((c, idx) => `<div class="mkt-review-item"><div class="mkt-review-body">${mktEsc(c.text)}</div><div style="display:flex;gap:6px;margin-top:6px;align-items:center"><span class="mkt-cat-pill" style="cursor:default">${mktEsc(c.fmt)}</span><button class="mkt-btn-ghost mkt-btn-sm" onclick="extCiteCopy(${idx})">Copy</button><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extCiteDel(${idx})">Delete</button></div></div>`).join("") : `<div class="mkt-empty-state"><i class="ti ti-file-text" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No citations yet.</div></div>`}</div>`;
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${fmts}</div><div style="display:flex;gap:8px;margin-bottom:12px"><input id="extcite-q" class="mkt-review-input" style="min-height:0;flex:1" placeholder="Paste a title, URL, or DOI…"><button class="mkt-btn-teal" data-onclick="extCiteGen"><i class="ti ti-bolt" aria-hidden="true"></i> Cite</button></div><div>${items.length ? items.map((c, idx) => `<div class="mkt-review-item"><div class="mkt-review-body">${mktEsc(c.text)}</div><div style="display:flex;gap:6px;margin-top:6px;align-items:center"><span class="mkt-cat-pill" style="cursor:default">${mktEsc(c.fmt)}</span><button class="mkt-btn-ghost mkt-btn-sm" data-onclick="extCiteCopy" data-onclick-args="[${idx}]">Copy</button><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" data-onclick="extCiteDel" data-onclick-args="[${idx}]">Delete</button></div></div>`).join("") : `<div class="mkt-empty-state"><i class="ti ti-file-text" style="font-size:28px;opacity:.2" aria-hidden="true"></i><div>No citations yet.</div></div>`}</div>`;
 }
 function extCiteRender() {
   const r = document.getElementById("extcite-root");
@@ -1609,13 +1643,13 @@ function extKbInner() {
             (c) => `
         <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:9px">
           <div style="font-size:12px;color:var(--text);margin-bottom:6px">${mktEsc(c.title)}</div>
-          <div style="display:flex;gap:5px">${k !== "done" ? `<button class="mkt-btn-ghost mkt-btn-sm" onclick="extKbMove('${c.id}')">Move →</button>` : ""}<button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extKbDel('${c.id}')">✕</button></div>
+          <div style="display:flex;gap:5px">${k !== "done" ? `<button class="mkt-btn-ghost mkt-btn-sm" data-onclick="extKbMove" data-onclick-arg0="${mktEsc(c.id)}">Move →</button>` : ""}<button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" data-onclick="extKbDel" data-onclick-arg0="${mktEsc(c.id)}">✕</button></div>
         </div>`,
           )
           .join("") ||
         '<div class="mkt-brief-desc" style="padding:6px">No cards.</div>'
       }</div>
-      <div style="padding:8px;border-top:1px solid var(--border)"><button class="mkt-btn-ghost mkt-btn-sm" style="width:100%" onclick="extKbAdd('${k}')">+ Add</button></div>
+      <div style="padding:8px;border-top:1px solid var(--border)"><button class="mkt-btn-ghost mkt-btn-sm" style="width:100%" data-onclick="extKbAdd" data-onclick-arg0="${k}">+ Add</button></div>
     </div>`,
   ).join("")}</div>`;
 }
@@ -1681,7 +1715,7 @@ function extAgInner() {
     ["pipeline", "Pipeline"],
     ["revisions", "Revisions"],
   ];
-  const bar = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px">${segs.map(([k, l]) => `<button class="mkt-cat-pill ${_extAgSeg === k ? "active" : ""}" onclick="extAgSetSeg('${k}')">${l}</button>`).join("")}</div>`;
+  const bar = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px">${segs.map(([k, l]) => `<button class="mkt-cat-pill ${_extAgSeg === k ? "active" : ""}" data-onclick="extAgSetSeg" data-onclick-arg0="${k}">${l}</button>`).join("")}</div>`;
   return (
     bar +
     (_extAgSeg === "clients"
@@ -1701,7 +1735,7 @@ function extAgSetSeg(s) {
 }
 function extAgClients() {
   const d = extAgData();
-  const top = `<div style="display:flex;justify-content:center;margin-bottom:12px"><button class="mkt-btn-teal" onclick="extAgAddClient()"><i class="ti ti-plus" aria-hidden="true"></i> Add client</button></div>`;
+  const top = `<div style="display:flex;justify-content:center;margin-bottom:12px"><button class="mkt-btn-teal" data-onclick="extAgAddClient"><i class="ti ti-plus" aria-hidden="true"></i> Add client</button></div>`;
   if (!d.clients.length)
     return (
       top +
@@ -1712,7 +1746,7 @@ function extAgClients() {
     d.clients
       .map(
         (c) =>
-          `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${mktEsc(c.name)}</div><div class="mkt-item-author">${mktEsc(c.status || "active")}</div></div><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extAgDelClient('${c.id}')">Remove</button></div>`,
+          `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${mktEsc(c.name)}</div><div class="mkt-item-author">${mktEsc(c.status || "active")}</div></div><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" data-onclick="extAgDelClient" data-onclick-arg0="${mktEsc(c.id)}">Remove</button></div>`,
       )
       .join("")
   );
@@ -1741,7 +1775,7 @@ function extAgPipeline() {
     ["review", "Review"],
     ["done", "Delivered"],
   ];
-  return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">${COL.map(([k, label]) => `<div style="background:rgba(127,127,127,.05);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;min-height:150px"><div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-bottom:1px solid var(--border)"><span style="font-size:11px;font-weight:700;color:var(--text)">${label}</span><span class="mkt-count-badge">${(d.pipeline[k] || []).length}</span></div><div style="padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">${(d.pipeline[k] || []).map((c) => `<div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:8px"><div style="font-size:11.5px;font-weight:600;color:var(--text);margin-bottom:3px">${mktEsc(c.title)}</div><div style="font-size:9.5px;color:var(--muted)">${mktEsc(c.client || "")}${c.revisions ? ` · ${c.revisions} rev` : ""}</div><div style="display:flex;gap:5px;margin-top:6px">${k !== "done" ? `<button class="mkt-btn-ghost mkt-btn-sm" onclick="extAgMove('${c.id}')">Move →</button>` : ""}<button class="mkt-btn-ghost mkt-btn-sm" onclick="extAgRev('${c.id}')" title="Log a revision">↻</button><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extAgDel('${c.id}')">✕</button></div></div>`).join("") || '<div class="mkt-brief-desc" style="padding:6px">–</div>'}</div><div style="padding:8px;border-top:1px solid var(--border)"><button class="mkt-btn-ghost mkt-btn-sm" style="width:100%" onclick="extAgAddCard('${k}')">+ Add</button></div></div>`).join("")}</div>`;
+  return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">${COL.map(([k, label]) => `<div style="background:rgba(127,127,127,.05);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;min-height:150px"><div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-bottom:1px solid var(--border)"><span style="font-size:11px;font-weight:700;color:var(--text)">${label}</span><span class="mkt-count-badge">${(d.pipeline[k] || []).length}</span></div><div style="padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">${(d.pipeline[k] || []).map((c) => `<div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:8px"><div style="font-size:11.5px;font-weight:600;color:var(--text);margin-bottom:3px">${mktEsc(c.title)}</div><div style="font-size:9.5px;color:var(--muted)">${mktEsc(c.client || "")}${c.revisions ? ` · ${c.revisions} rev` : ""}</div><div style="display:flex;gap:5px;margin-top:6px">${k !== "done" ? `<button class="mkt-btn-ghost mkt-btn-sm" data-onclick="extAgMove" data-onclick-arg0="${mktEsc(c.id)}">Move →</button>` : ""}<button class="mkt-btn-ghost mkt-btn-sm" data-onclick="extAgRev" data-onclick-arg0="${mktEsc(c.id)}" title="Log a revision">↻</button><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" data-onclick="extAgDel" data-onclick-arg0="${mktEsc(c.id)}">✕</button></div></div>`).join("") || '<div class="mkt-brief-desc" style="padding:6px">–</div>'}</div><div style="padding:8px;border-top:1px solid var(--border)"><button class="mkt-btn-ghost mkt-btn-sm" style="width:100%" data-onclick="extAgAddCard" data-onclick-arg0="${k}">+ Add</button></div></div>`).join("")}</div>`;
 }
 async function extAgAddCard(col) {
   const title = await siModal.input(
@@ -1879,7 +1913,7 @@ function extTjInner() {
   const liveDot = _MT_CONNECTED
     ? '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green,#16a34a);margin-left:4px;vertical-align:middle"></span>'
     : "";
-  const bar = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px;flex-wrap:wrap">${segs.map(([k, l]) => `<button class="mkt-cat-pill ${_extTjSeg === k ? "active" : ""}" onclick="extTjSetSeg('${k}')">${l}${k === "live" ? liveDot : ""}</button>`).join("")}</div>`;
+  const bar = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px;flex-wrap:wrap">${segs.map(([k, l]) => `<button class="mkt-cat-pill ${_extTjSeg === k ? "active" : ""}" data-onclick="extTjSetSeg" data-onclick-arg0="${k}">${l}${k === "live" ? liveDot : ""}</button>`).join("")}</div>`;
   const body =
     _extTjSeg === "live"
       ? extTjLive()
@@ -1922,7 +1956,7 @@ function _tjRBadge(t) {
 }
 function extTjTrades() {
   const d = extTjData();
-  const top = `<div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px;flex-wrap:wrap"><button class="mkt-btn-teal" onclick="extTjAddTrade()"><i class="ti ti-plus" aria-hidden="true"></i> Add trade</button><button class="mkt-btn-ghost" onclick="extTjImport()"><i class="ti ti-upload" aria-hidden="true"></i> Import CSV</button></div>`;
+  const top = `<div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px;flex-wrap:wrap"><button class="mkt-btn-teal" data-onclick="extTjAddTrade"><i class="ti ti-plus" aria-hidden="true"></i> Add trade</button><button class="mkt-btn-ghost" data-onclick="extTjImport"><i class="ti ti-upload" aria-hidden="true"></i> Import CSV</button></div>`;
   if (!d.trades.length)
     return (
       top +
@@ -1933,7 +1967,7 @@ function extTjTrades() {
     .reverse()
     .map((t) => {
       const b = _tjRBadge(t);
-      return `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${b.arrow} ${mktEsc(t.symbol || "–")} <span style="font-size:9.5px;color:var(--muted);font-weight:500">${mktEsc(t.dir || "long")}</span></div><div class="mkt-item-author">${mktEsc(t.date || "")}${t.emotion ? " · " + mktEsc(t.emotion) : ""}</div></div><span style="font-weight:700;font-size:12px;color:${b.col};margin-right:10px">${b.rTxt}</span><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" onclick="extTjDel('${t.id}')">✕</button></div>`;
+      return `<div class="mkt-installed-row"><div style="flex:1"><div class="mkt-item-name">${b.arrow} ${mktEsc(t.symbol || "–")} <span style="font-size:9.5px;color:var(--muted);font-weight:500">${mktEsc(t.dir || "long")}</span></div><div class="mkt-item-author">${mktEsc(t.date || "")}${t.emotion ? " · " + mktEsc(t.emotion) : ""}</div></div><span style="font-weight:700;font-size:12px;color:${b.col};margin-right:10px">${b.rTxt}</span><button class="mkt-btn-ghost mkt-btn-sm mkt-btn-danger" data-onclick="extTjDel" data-onclick-arg0="${mktEsc(t.id)}">✕</button></div>`;
     })
     .join("");
   return top + rows;
@@ -2112,7 +2146,7 @@ function extTjRisk() {
       <label class="si-modal-label">Entry price</label><input id="tj-entry" class="si-modal-input" type="number" placeholder="e.g. 1.1000">
       <label class="si-modal-label">Stop price</label><input id="tj-stop" class="si-modal-input" type="number" placeholder="e.g. 1.0980">
     </div>
-    <button class="mkt-btn-teal" style="width:100%;margin-top:12px" onclick="extTjCalc()">Calculate</button>
+    <button class="mkt-btn-teal" style="width:100%;margin-top:12px" data-onclick="extTjCalc">Calculate</button>
     <div id="tj-calc-result" style="margin-top:12px"></div>
   </div>`;
 }
@@ -2203,7 +2237,7 @@ function extTjLive() {
       <div style="font-size:30px">📈</div>
       <div class="mkt-item-name" style="margin:6px 0 4px">Connect MetaTrader</div>
       <div class="mkt-brief-desc" style="margin-bottom:14px">Link your MT4/MT5 account to see your live balance, equity, open positions and trade history, and import closed trades straight into this journal.</div>
-      <button class="mkt-btn-teal" onclick="mtConnect()"><i class="ti ti-plug-connected" aria-hidden="true"></i> Connect MetaTrader</button>
+      <button class="mkt-btn-teal" data-onclick="mtConnect"><i class="ti ti-plug-connected" aria-hidden="true"></i> Connect MetaTrader</button>
     </div>`;
   }
   const a = _MT_ACCOUNT;
@@ -2212,7 +2246,7 @@ function extTjLive() {
     return `<div class="mkt-empty-state"><i class="ti ti-loader-2 ps-spin" style="font-size:26px;opacity:.35" aria-hidden="true"></i>
       <div>Syncing ${mktEsc(_MT_STATUS.login || "your account")} (${(_MT_STATUS.platform || "mt5").toUpperCase()})…</div>
       <div class="mkt-brief-desc" style="margin-top:4px">MetaApi is connecting to your broker. This can take a minute on first link.</div>
-      <button class="mkt-btn-ghost mkt-btn-sm" style="margin-top:10px" onclick="mtLoadAccount()">Refresh</button></div>`;
+      <button class="mkt-btn-ghost mkt-btn-sm" style="margin-top:10px" data-onclick="mtLoadAccount">Refresh</button></div>`;
   }
   const info = a.info || {};
   const cur = info.currency || "";
@@ -2238,8 +2272,8 @@ function extTjLive() {
     <div><span class="mkt-item-name">${mktEsc(info.name || _MT_STATUS.login || "Account")}</span>
       <span class="mkt-item-author">${mktEsc(_MT_STATUS.server || "")} · ${(_MT_STATUS.platform || "mt5").toUpperCase()}</span></div>
     <div style="display:flex;gap:6px">
-      <button class="mkt-btn-ghost mkt-btn-sm" onclick="mtLoadAccount()"><i class="ti ti-refresh" aria-hidden="true"></i></button>
-      <button class="mkt-btn-teal mkt-btn-sm" onclick="extTjImportLive()"${deals.length ? "" : " disabled"}><i class="ti ti-download" aria-hidden="true"></i> Import ${deals.length} closed</button>
+      <button class="mkt-btn-ghost mkt-btn-sm" data-onclick="mtLoadAccount"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+      <button class="mkt-btn-teal mkt-btn-sm" data-onclick="extTjImportLive"${deals.length ? "" : " disabled"}><i class="ti ti-download" aria-hidden="true"></i> Import ${deals.length} closed</button>
     </div></div>`;
 
   // ── Open positions ──
@@ -2354,11 +2388,11 @@ function extShowOnboarding(item) {
   document.getElementById("mktDetailAuthor").textContent = "Get started";
   document.getElementById("mktDetailMeta").innerHTML = "";
   document.getElementById("mktDetailActions").innerHTML =
-    `<button class="mkt-install-btn mkt-btn-lg" onclick="mktCloseDetail()">Done</button>`;
+    `<button class="mkt-install-btn mkt-btn-lg" data-onclick="mktCloseDetail">Done</button>`;
   c.innerHTML = `<div class="mkt-reviews-section"><div class="mkt-section-label" style="margin-bottom:8px">Set up ${mktEsc(item.name)}</div>
     <div class="mkt-onboard-step">✅ Installed</div>
     <div class="mkt-onboard-step">▢ <strong>Enable it in a space</strong>: open any space → ⋮ → <em>Settings &amp; extensions</em> → toggle ${mktEsc(item.name)} on.</div>
     <div class="mkt-onboard-step">▢ <strong>Open the space</strong>: a new <em>${mktEsc(item.name)}</em> tab appears in that space.</div>
-    <div style="margin-top:12px"><button class="mkt-btn-teal" onclick="mktCloseDetail(); if(typeof orgAddExtension==='function') orgAddExtension();">Enable in my Org</button></div></div>`;
+    <div style="margin-top:12px"><button class="mkt-btn-teal" data-onclick="_mktCloseDetailThenAddOrgExt">Enable in my Org</button></div></div>`;
   m.style.display = "flex";
 }

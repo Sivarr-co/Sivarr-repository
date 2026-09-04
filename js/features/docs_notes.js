@@ -14,6 +14,12 @@
 const DOC_KEY = () => `sivarr_docs_${S.sid || "guest"}`;
 const DOC_AUTOSAVE_MS = 1500;
 
+// CSP migration: location.reload isn't a single identifier delegate.js can
+// dispatch to (window["location.reload"] doesn't resolve) -- named wrapper.
+window.reloadPage = function () {
+  location.reload();
+};
+
 let _docId = null;
 let _docTimer = null;
 let _docEditor = null; // Tiptap Editor instance
@@ -83,7 +89,7 @@ function _renderRecentPills() {
       .map((name) => {
         const m = _NAV_META[name];
         if (!m) return "";
-        return `<button class="siva-pill" onclick="nav('${name}',null)"><i class="ti ${m.i}"></i> ${m.l}</button>`;
+        return `<button class="siva-pill" data-onclick="nav" data-onclick-args="${esc(JSON.stringify([name, null]))}"><i class="ti ${m.i}"></i> ${m.l}</button>`;
       })
       .join("");
   } catch (e) {}
@@ -148,10 +154,7 @@ function docNew() {
           ]
             .map(
               (t) => `
-            <div onclick="docFromTemplate('${t.k}')" style="background:var(--surface);border:1px solid var(--border);
-                 border-radius:10px;padding:16px 14px;cursor:pointer;transition:var(--transition)"
-              onmouseover="this.style.borderColor='var(--accent)';this.style.background='var(--teal2,rgba(13,122,95,.06))'"
-              onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+            <div class="doc-tpl-card" data-onclick="docFromTemplate" data-onclick-arg0="${esc(t.k)}">
               <div style="font-size:1.8rem;margin-bottom:8px">${t.i}</div>
               <div style="font-size:.82rem;font-weight:600;color:var(--text)">${t.n}</div>
             </div>`,
@@ -232,7 +235,10 @@ function _relTime(ts) {
   });
 }
 
-function docDelete(id, e) {
+// CSP migration: param order flipped to (e, id) -- delegate.js's
+// data-onclick-event always passes the Event first, args after (js/core/
+// delegate.js's collectArgs). Only call site is the delete button below.
+function docDelete(e, id) {
   e?.stopPropagation();
   const list = docGetAll();
   const doc = list.find((d) => d.id === id);
@@ -301,10 +307,10 @@ function docRenderList(filter) {
         ? d.content.replace(/<[^>]+>/g, "").slice(0, 48)
         : "";
       const rel = _relTime(d.updated);
-      return `<div class="doc-item${_docId === d.id ? " active" : ""}" onclick="docOpen(${d.id})">
+      return `<div class="doc-item${_docId === d.id ? " active" : ""}" data-onclick="docOpen" data-onclick-args="${esc(JSON.stringify([d.id]))}">
       <div class="doc-item-row">
         <div class="doc-item-title">${esc(title)}</div>
-        <button class="doc-delete-btn" onmousedown="event.stopPropagation()" onclick="docDelete(${d.id},event)" title="Delete">✕</button>
+        <button class="doc-delete-btn" data-onclick="docDelete" data-onclick-args="${esc(JSON.stringify([d.id]))}" data-onclick-event title="Delete">✕</button>
       </div>
       <div class="doc-item-meta">${preview ? esc(preview) : rel}</div>
     </div>`;
@@ -609,7 +615,7 @@ function _waitForTiptap(cb) {
     const el = $("doc-content");
     if (el && !_docEditor)
       el.innerHTML =
-        '<div style="padding:20px;color:var(--muted);font-size:.9rem">The editor failed to load. <a onclick="location.reload()" style="color:var(--teal);cursor:pointer">Reload</a> to try again.</div>';
+        '<div style="padding:20px;color:var(--muted);font-size:.9rem">The editor failed to load. <a data-onclick="reloadPage" style="color:var(--teal);cursor:pointer">Reload</a> to try again.</div>';
   }, 5000);
 }
 
@@ -824,7 +830,7 @@ function _slashRender() {
   menu.innerHTML = vis
     .map(
       (c, i) => `
-    <div class="slash-item${i === _slashIdx ? " sel" : ""}" onmousedown="event.preventDefault();_slashRun(${_SLASH_CMDS.indexOf(c)})">
+    <div class="slash-item${i === _slashIdx ? " sel" : ""}" data-onmousedown="_slashRunFromEvent" data-onmousedown-args="${esc(JSON.stringify([_SLASH_CMDS.indexOf(c)]))}" data-onmousedown-event>
       <div class="slash-ic"><i class="ti ${c.icon}"></i></div>
       <div>
         <div class="slash-lb">${c.label}</div>
@@ -857,6 +863,14 @@ function _slashExec() {
   );
   _slashRun(_SLASH_CMDS.indexOf(vis[_slashIdx]));
 }
+
+// CSP migration: mousedown (not click) + preventDefault() is deliberate here
+// -- click fires after the contenteditable editor has already lost focus/
+// selection to the mousedown, which _slashRun relies on still being valid.
+window._slashRunFromEvent = function (e, idx) {
+  e.preventDefault();
+  _slashRun(idx);
+};
 
 function _slashRun(idx) {
   _slashHide();

@@ -2489,6 +2489,25 @@
   color: var(--teal4);
 }
 
+/* Study plan "Export" button (js/app.js) -- was onmouseover/onmouseout JS
+   toggling these same two properties; CSS :hover replaces it 1:1. */
+.sp-export-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 12px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-family: var(--font);
+  font-weight: 700;
+  transition: all 0.15s;
+}
+.sp-export-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ═══════════════════════════════════════════════════════════════
    CLASSES PANEL  (#panel-courses)
    ═══════════════════════════════════════════════════════════════ */
@@ -2568,6 +2587,25 @@
   color: #fff;
 }
 .gl-filter-btn:hover:not(.active) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* "+ Key Result" button (js/app.js) -- was onmouseover/onmouseout JS
+   toggling these same two properties; CSS :hover replaces it 1:1. */
+.gl-add-kr-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  color: var(--muted);
+  cursor: pointer;
+  width: 100%;
+  font-family: var(--font-body);
+  transition: var(--transition);
+}
+.gl-add-kr-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
 }

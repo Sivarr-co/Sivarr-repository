@@ -458,3 +458,19 @@
   margin-top: 1px;
 }
 
+/* New-document template picker card (docNew()) -- was onmouseover/onmouseout
+   JS toggling these same two properties; CSS :hover is the same effect with
+   no inline handler, and delegate.js doesn't cover mouseover/mouseout at all. */
+.doc-tpl-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 14px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.doc-tpl-card:hover {
+  border-color: var(--accent);
+  background: var(--teal2, rgba(13, 122, 95, 0.06));
+}
+

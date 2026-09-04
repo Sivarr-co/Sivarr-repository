@@ -299,7 +299,7 @@ const siModal = (() => {
     return _show(`
       <div class="si-modal-hd">
         <span class="si-modal-title">${title}</span>
-        <button class="si-modal-x" onclick="siModal._done(null)"><i class="ti ti-x"></i></button>
+        <button class="si-modal-x" data-onclick="siModalDone" data-onclick-args="[null]"><i class="ti ti-x"></i></button>
       </div>
       ${description ? `<div class="si-modal-desc">${description}</div>` : ""}
       <div class="si-modal-body">
@@ -307,8 +307,8 @@ const siModal = (() => {
           placeholder="${placeholder}" value="${esc(defaultVal)}" autocomplete="off">
       </div>
       <div class="si-modal-ft">
-        <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(null)">Cancel</button>
-        <button class="si-modal-btn si-modal-btn-primary" onclick="siModal._subInput()">${confirmLabel}</button>
+        <button class="si-modal-btn si-modal-btn-cancel" data-onclick="siModalDone" data-onclick-args="[null]">Cancel</button>
+        <button class="si-modal-btn si-modal-btn-primary" data-onclick="siModalSubInput">${confirmLabel}</button>
       </div>`);
   }
   function _subInput() {
@@ -326,15 +326,15 @@ const siModal = (() => {
     return _show(`
       <div class="si-modal-hd">
         <span class="si-modal-title">${title}</span>
-        <button class="si-modal-x" onclick="siModal._done(false)"><i class="ti ti-x"></i></button>
+        <button class="si-modal-x" data-onclick="siModalDone" data-onclick-args="[false]"><i class="ti ti-x"></i></button>
       </div>
       <div class="si-modal-confirm-body">
         <p class="si-modal-confirm-msg">${message}</p>
       </div>
       <div class="si-modal-ft">
-        <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(false)">Cancel</button>
+        <button class="si-modal-btn si-modal-btn-cancel" data-onclick="siModalDone" data-onclick-args="[false]">Cancel</button>
         <button class="si-modal-btn si-modal-btn-primary${danger ? " danger" : ""}"
-          onclick="siModal._done(true)">${confirmLabel}</button>
+          data-onclick="siModalDone" data-onclick-args="[true]">${confirmLabel}</button>
       </div>`);
   }
 
@@ -354,7 +354,7 @@ const siModal = (() => {
     return _show(`
       <div class="si-modal-hd">
         <span class="si-modal-title">${title}</span>
-        <button class="si-modal-x" onclick="siModal._done(false)"><i class="ti ti-x"></i></button>
+        <button class="si-modal-x" data-onclick="siModalDone" data-onclick-args="[false]"><i class="ti ti-x"></i></button>
       </div>
       <div class="si-modal-confirm-body">
         <p class="si-modal-confirm-msg">${message}</p>
@@ -362,12 +362,12 @@ const siModal = (() => {
           Type <strong>${esc(expectedText)}</strong> to confirm.
         </p>
         <input id="si-m-typed" class="si-modal-input" type="text" autocomplete="off"
-          placeholder="${esc(expectedText)}" oninput="siModal._checkTyped()">
+          placeholder="${esc(expectedText)}" data-oninput="siModalCheckTyped">
       </div>
       <div class="si-modal-ft">
-        <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(false)">Cancel</button>
+        <button class="si-modal-btn si-modal-btn-cancel" data-onclick="siModalDone" data-onclick-args="[false]">Cancel</button>
         <button class="si-modal-btn si-modal-btn-primary${danger ? " danger" : ""}"
-          id="si-m-typed-btn" disabled onclick="siModal._done(true)">${confirmLabel}</button>
+          id="si-m-typed-btn" disabled data-onclick="siModalDone" data-onclick-args="[true]">${confirmLabel}</button>
       </div>`);
   }
   function _checkTyped() {
@@ -388,7 +388,7 @@ const siModal = (() => {
         <p class="si-modal-confirm-msg">${message}</p>
       </div>
       <div class="si-modal-ft">
-        <button class="si-modal-btn si-modal-btn-primary" onclick="siModal._done(true)">OK</button>
+        <button class="si-modal-btn si-modal-btn-primary" data-onclick="siModalDone" data-onclick-args="[true]">OK</button>
       </div>`);
   }
 
@@ -408,7 +408,7 @@ const siModal = (() => {
               .map(
                 (e) => `
               <button type="button" class="si-modal-emoji-btn${(f.default || "") === e ? " sel" : ""}"
-                onclick="siModal._pickEmoji('smg-${f.id}','si-mf-${f.id}',this)">${e}</button>`,
+                data-onclick="siModalPickEmoji" data-onclick-arg0="smg-${f.id}" data-onclick-arg1="si-mf-${f.id}" data-onclick-this>${e}</button>`,
               )
               .join("")}
           </div>
@@ -443,18 +443,22 @@ const siModal = (() => {
         </div>`;
       })
       .join("");
-    const ids = JSON.stringify(fields.map((f) => f.id));
+    // -args spreads a JSON array as SEPARATE positional arguments (delegate.js's
+    // collectArgs does args.concat(parsed)); siModalSubForm takes ONE array
+    // argument, so the ids array must be wrapped an extra level deep here
+    // ([[..ids..]]) to survive that spread as a single argument again.
+    const idsArgs = JSON.stringify([fields.map((f) => f.id)]);
     return _show(`
       <div class="si-modal-hd">
         <span class="si-modal-title">${title}</span>
-        <button class="si-modal-x" onclick="siModal._done(null)"><i class="ti ti-x"></i></button>
+        <button class="si-modal-x" data-onclick="siModalDone" data-onclick-args="[null]"><i class="ti ti-x"></i></button>
       </div>
       ${description ? `<div class="si-modal-desc">${description}</div>` : ""}
       <div class="si-modal-form-body">${fHTML}</div>
       <div class="si-modal-ft">
-        <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(null)">Cancel</button>
+        <button class="si-modal-btn si-modal-btn-cancel" data-onclick="siModalDone" data-onclick-args="[null]">Cancel</button>
         <button class="si-modal-btn si-modal-btn-primary"
-          onclick="siModal._subForm(${ids.replace(/"/g, "'")})">
+          data-onclick="siModalSubForm" data-onclick-args="${esc(idsArgs)}">
           ${confirmLabel}
         </button>
       </div>`);
@@ -493,6 +497,17 @@ const siModal = (() => {
     _show_raw: _show,
   };
 })();
+
+// CSP migration: siModal.* are dotted names delegate.js's window[fnName]
+// lookup can't resolve (siModal is a `const`, never on window at all, and
+// even if it were, "siModal._done" is a nested property, not one literal
+// window key) -- flat wrapper globals for every siModal method an inline
+// handler used to call directly.
+window.siModalDone = (v) => siModal._done(v);
+window.siModalSubInput = () => siModal._subInput();
+window.siModalCheckTyped = () => siModal._checkTyped();
+window.siModalSubForm = (ids) => siModal._subForm(ids);
+window.siModalPickEmoji = (gridId, hidId, el) => siModal._pickEmoji(gridId, hidId, el);
 
 // ═══════════════════════════ PROFILE PICTURE ════════════════════
 
@@ -914,17 +929,13 @@ async function loadAnnouncements() {
             <div style="font-size:.88rem;line-height:1.5;color:var(--text)">${esc(latest.text)}</div>
             <div style="font-size:.72rem;color:var(--muted);margin-top:4px">${latest.date}</div>
           </div>
-          <button onclick="dismissAnnouncement('${key}')"
-            style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;
-              flex-shrink:0;padding:2px 4px;line-height:1;transition:color .15s"
-            onmouseover="this.style.color='var(--text)'"
-            onmouseout="this.style.color='var(--muted)'">✕</button>
+          <button class="announcement-dismiss-btn" data-onclick="dismissAnnouncement" data-onclick-arg0="${key}">✕</button>
         </div>
         ${
           unseen.length > 1
             ? `
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid ${style.border}">
-          <button onclick="showAllAnnouncements()" style="background:none;border:none;
+          <button data-onclick="showAllAnnouncements" style="background:none;border:none;
             color:${style.color};font-size:.78rem;font-weight:600;cursor:pointer;font-family:var(--font)">
             View all ${unseen.length} announcements →
           </button>
@@ -1666,7 +1677,7 @@ function _showPaywall(panelName) {
       <h3>${esc(cfg.title)}</h3>
       <p>${esc(cfg.desc)}</p>
       <ul class="paywall-perks">${cfg.perks.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>
-      <button class="paywall-btn" onclick="showPricing()">Upgrade to ${esc(cfg.plan)} →</button>
+      <button class="paywall-btn" data-onclick="showPricing">Upgrade to ${esc(cfg.plan)} →</button>
     </div>`;
   panel.style.position = "relative";
   panel.appendChild(el);
@@ -1753,6 +1764,20 @@ async function githubLoadActivity(repoFullName) {
 // ─────────────────────────────────────────────────────────────
 //  INTEGRATIONS PAGE (Library panel)
 // ─────────────────────────────────────────────────────────────
+
+// CSP migration: each integration card's button used to serialize its
+// action closure to source text and eval it inline (`onclick="(${fn.toString()})()"`)
+// -- the one genuinely inexpressible pattern in this whole migration, since
+// delegate.js deliberately only ever dispatches to real named globals, never
+// arbitrary serialized code (see js/core/delegate.js's own header). Real fix:
+// dispatch on the integration's stable `id` instead. _intActions is
+// rebuilt on every integrationsRender() call, so intAction() always calls
+// whatever the most recently rendered card's action closure actually is.
+let _intActions = {};
+window.intAction = function (id) {
+  const fn = _intActions[id];
+  if (fn) fn();
+};
 
 function integrationsRender() {
   const grid = $("integrations-grid");
@@ -1888,14 +1913,16 @@ function integrationsRender() {
       </div>
       ${
         i.comingSoon
-          ? `<button class="int-btn int-soon" onclick="(${i.action.toString()})()">${esc(i.actionLabel)}</button>`
+          ? `<button class="int-btn int-soon" data-onclick="intAction" data-onclick-arg0="${i.id}">${esc(i.actionLabel)}</button>`
           : i.action
-            ? `<button class="int-btn ${i.connected ? "connected-btn" : ""}" onclick="(${i.action.toString()})()">${i.connected ? "✓ " : ""}${esc(i.actionLabel)}</button>`
+            ? `<button class="int-btn ${i.connected ? "connected-btn" : ""}" data-onclick="intAction" data-onclick-arg0="${i.id}">${i.connected ? "✓ " : ""}${esc(i.actionLabel)}</button>`
             : `<button class="int-btn connected-btn" disabled>✓ ${esc(i.actionLabel)}</button>`
       }
     </div>`;
   const byCat = {};
+  _intActions = {};
   integrations.forEach((i) => {
+    if (i.action) _intActions[i.id] = i.action;
     const c = INT_CAT[i.id] || "Other";
     (byCat[c] = byCat[c] || []).push(i);
   });
@@ -2144,8 +2171,8 @@ async function showPricing() {
             : p.free
               ? `<button class="pricing-btn free-btn" disabled>Free</button>`
               : `<div style="display:flex;flex-direction:column;gap:6px">
-                <button class="pricing-btn" onclick="billingSubscribe('${p.id}')">Paystack →</button>
-                <button class="pricing-btn" style="background:var(--amber,#F5A623);border-color:var(--amber,#F5A623)" onclick="flutterwaveSubscribe('${p.id}')">Flutterwave →</button>
+                <button class="pricing-btn" data-onclick="billingSubscribe" data-onclick-arg0="${p.id}">Paystack →</button>
+                <button class="pricing-btn" style="background:var(--amber,#F5A623);border-color:var(--amber,#F5A623)" data-onclick="flutterwaveSubscribe" data-onclick-arg0="${p.id}">Flutterwave →</button>
                </div>`
         }
       </div>`;
@@ -2963,7 +2990,7 @@ function renderAttachPreview() {
     <div class="attach-chip">
       <span>${a.type === "image" ? "🖼️" : a.type === "pdf" ? "📄" : "📎"}</span>
       ${esc(a.name)}
-      <button onclick="removeAttach(${i})">✕</button>
+      <button data-onclick="removeAttach" data-onclick-args="[${i}]">✕</button>
     </div>`,
   ).join("");
 }
@@ -3463,7 +3490,7 @@ async function _chatStream(fullMsg, context) {
     if (btn) btn.disabled = false;
     bub.classList.add("msg-error");
     bub.innerHTML =
-      'Stream interrupted. <button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>';
+      'Stream interrupted. <button class="chat-retry-btn" data-onclick="retryChat">↻ Try again</button>';
     _lastFailedMsg = fullMsg;
     return null;
   }
@@ -3480,13 +3507,13 @@ async function _chatStream(fullMsg, context) {
       "beforeend",
       `
       <div class="msg-actions">
-        <button class="msg-action-btn" onclick="chatSaveTask(this)">+ Task</button>
-        <button class="msg-action-btn" onclick="chatSaveNote(this)">+ Note</button>
-        <button class="msg-action-btn" onclick="chatCopyMsg(this)">Copy</button>
-        <button class="msg-action-btn" onclick="chatRegenerate()" title="Regenerate response">↻</button>
-        <button class="msg-action-btn" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
-        <button class="msg-action-btn chat-react-btn" data-val="up"   onclick="chatReact(this,'up')"   title="Good response">👍</button>
-        <button class="msg-action-btn chat-react-btn" data-val="down" onclick="chatReact(this,'down')" title="Bad response">👎</button>
+        <button class="msg-action-btn" data-onclick="chatSaveTask" data-onclick-this>+ Task</button>
+        <button class="msg-action-btn" data-onclick="chatSaveNote" data-onclick-this>+ Note</button>
+        <button class="msg-action-btn" data-onclick="chatCopyMsg" data-onclick-this>Copy</button>
+        <button class="msg-action-btn" data-onclick="chatRegenerate" title="Regenerate response">↻</button>
+        <button class="msg-action-btn" data-onclick="_chatDownloadFromBtn" data-onclick-this>⬇ Save</button>
+        <button class="msg-action-btn chat-react-btn" data-val="up"   data-onclick="chatReact" data-onclick-arg0="up"   data-onclick-this title="Good response">👍</button>
+        <button class="msg-action-btn chat-react-btn" data-val="down" data-onclick="chatReact" data-onclick-arg0="down" data-onclick-this title="Bad response">👎</button>
       </div>`,
     );
     if (suggestions.length) {
@@ -3494,7 +3521,7 @@ async function _chatStream(fullMsg, context) {
         "beforeend",
         `
         <div class="chat-suggestions">
-          ${suggestions.map((s) => `<button class="chat-sug-pill" onclick="quickPrompt(${JSON.stringify(s)})">${esc(s)}</button>`).join("")}
+          ${suggestions.map((s) => `<button class="chat-sug-pill" data-onclick="quickPrompt" data-onclick-arg0="${esc(s)}">${esc(s)}</button>`).join("")}
         </div>`,
       );
     }
@@ -3502,7 +3529,7 @@ async function _chatStream(fullMsg, context) {
     _lastFailedMsg = fullMsg;
     inner.insertAdjacentHTML(
       "beforeend",
-      `<button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>`,
+      `<button class="chat-retry-btn" data-onclick="retryChat">↻ Try again</button>`,
     );
   }
 
@@ -3512,7 +3539,10 @@ async function _chatStream(fullMsg, context) {
   return { reply: fullText, uncertain: false, error: isError };
 }
 
-function chatReact(btn, val) {
+// CSP migration: param order flipped to (val, btn) -- delegate.js's
+// data-onclick-this always appends the element LAST, never first. Both
+// call sites are the two reaction buttons just above.
+function chatReact(val, btn) {
   const msgId = btn.closest(".msg")?.dataset.msgId;
   if (!msgId || !S.sid) return;
   const key = `sivarr_chat_reactions_${S.sid}`;
@@ -3586,16 +3616,16 @@ function addMsg(role, text, uncertain = false, isError = false) {
     <div class="msg-inner">
       <div class="msg-bub md-body${errClass}">${rendered}</div>
       ${uncertain ? `<div class="uncertain"><i class="ti ti-alert-triangle"></i> Verify with your lecturer</div>` : ""}
-      ${isError ? `<button class="chat-retry-btn" onclick="retryChat()">↻ Try again</button>` : ""}
+      ${isError ? `<button class="chat-retry-btn" data-onclick="retryChat">↻ Try again</button>` : ""}
       ${
         isAI && !isError
           ? `
         <div class="msg-actions">
-          <button class="msg-action-btn" onclick="chatSaveTask(this)">+ Task</button>
-          <button class="msg-action-btn" onclick="chatSaveNote(this)">+ Note</button>
-          <button class="msg-action-btn" onclick="chatCopyMsg(this)">Copy</button>
-          <button class="msg-action-btn" onclick="chatRegenerate()" title="Regenerate response">↻</button>
-          <button class="msg-action-btn" onclick="downloadText(this.closest('.msg').querySelector('.msg-bub').innerText)">⬇ Save</button>
+          <button class="msg-action-btn" data-onclick="chatSaveTask" data-onclick-this>+ Task</button>
+          <button class="msg-action-btn" data-onclick="chatSaveNote" data-onclick-this>+ Note</button>
+          <button class="msg-action-btn" data-onclick="chatCopyMsg" data-onclick-this>Copy</button>
+          <button class="msg-action-btn" data-onclick="chatRegenerate" title="Regenerate response">↻</button>
+          <button class="msg-action-btn" data-onclick="_chatDownloadFromBtn" data-onclick-this>⬇ Save</button>
         </div>`
           : ""
       }
@@ -3806,6 +3836,11 @@ function ckd(e) {
 }
 
 // ═══════════════════════════ QUIZ ═════════════════════════════
+// CSP migration: Enter-to-start on the quiz topic input.
+window._startQuizOnEnter = function (e) {
+  if (e.key === "Enter") startQuiz();
+};
+
 function startQuiz() {
   const typed = $("quiz-topic-input") ? $("quiz-topic-input").value.trim() : "";
 
@@ -3857,8 +3892,8 @@ async function loadQ() {
       <div style="padding:2rem;text-align:center">
         <div style="font-size:1.5rem;margin-bottom:.5rem">⚠️</div>
         <div style="color:var(--muted);font-size:.88rem;margin-bottom:1rem">Couldn't generate question. AI may be busy.</div>
-        <button class="btn-start" style="padding:8px 20px;font-size:.82rem" onclick="loadQ()">Try Again</button>
-        <button style="margin-left:8px;background:none;border:1px solid var(--border);border-radius:8px;padding:8px 16px;color:var(--muted);font-size:.82rem;cursor:pointer" onclick="resetQuiz()">Cancel</button>
+        <button class="btn-start" style="padding:8px 20px;font-size:.82rem" data-onclick="loadQ">Try Again</button>
+        <button style="margin-left:8px;background:none;border:1px solid var(--border);border-radius:8px;padding:8px 16px;color:var(--muted);font-size:.82rem;cursor:pointer" data-onclick="resetQuiz">Cancel</button>
       </div>`;
   }
 }
@@ -3877,7 +3912,7 @@ function renderQ(q) {
         ${["A", "B", "C", "D"]
           .map(
             (l) => `
-          <button class="opt-btn" onclick="answer('${l}')" data-l="${l}">
+          <button class="opt-btn" data-onclick="answer" data-onclick-arg0="${l}" data-l="${l}">
             <span class="opt-letter">${l}</span>${esc(q.options[l])}
           </button>`,
           )
@@ -3936,9 +3971,9 @@ async function showResult() {
       <div style="color:var(--muted);margin:.4rem 0">${pct}% · ${S.diff.toUpperCase()}</div>
       <div style="font-weight:500;margin-bottom:1.5rem">${msg}</div>
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:1rem">
-        <button class="action-btn" onclick="shareResult(${S.quizScore},'${S.topics[0] || "general"}')">🔗 Share Result</button>
+        <button class="action-btn" data-onclick="shareResult" data-onclick-args="${esc(JSON.stringify([S.quizScore, S.topics[0] || "general"]))}">🔗 Share Result</button>
       </div>
-      <button class="btn-start" onclick="startQuiz()">Take Another Quiz</button>
+      <button class="btn-start" data-onclick="startQuiz">Take Another Quiz</button>
     </div>`;
   S.stats.quizzes++;
   updateSBStats();
@@ -3960,10 +3995,10 @@ function resetQuiz() {
         <input id="quiz-topic-input" type="text"
           placeholder="e.g. Photosynthesis, Newton's laws..."
           style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--text);font-family:var(--font-body);font-size:.88rem;outline:none"
-          onkeydown="if(event.key==='Enter') startQuiz()">
+          data-onkeydown="_startQuizOnEnter" data-onkeydown-event>
         <p style="font-size:.72rem;color:var(--muted);margin-top:5px">Leave blank to quiz from your studied topics</p>
       </div>
-      <button class="btn-start" onclick="startQuiz()">Start Quiz</button>
+      <button class="btn-start" data-onclick="startQuiz">Start Quiz</button>
     </div>`;
 }
 
@@ -4009,7 +4044,7 @@ async function loadWrong() {
             <div class="wrong-q">${esc(w.question)}</div>
             <div class="wrong-ans">You: ${w.your_answer} · Correct: <span>${w.correct}</span></div>
             <div style="color:var(--muted);font-size:.7rem;margin-top:2px">${esc(w.explanation)}</div>
-            <button class="btn-clear" onclick="clearWrong(${i})">✓ Got it</button>
+            <button class="btn-clear" data-onclick="clearWrong" data-onclick-args="[${i}]">✓ Got it</button>
           </div>`,
           )
           .join("");
@@ -4164,7 +4199,7 @@ async function loadStats() {
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:.625rem">
         ${d.weak.map((t) => `<span style="background:#ef444415;border:1px solid #ef444430;border-radius:20px;padding:3px 10px;font-size:.72rem;color:var(--red);font-weight:600">${esc(t)}</span>`).join("")}
       </div>
-      <button onclick="nav('chat',null);setTimeout(()=>{const ci=$('ci');if(ci){ci.value='Help me improve my understanding of ${esc(d.weak[0] || "")}';ci.focus();}},300)"
+      <button data-onclick="_navChatWithPrefill" data-onclick-arg0="${esc(`Help me improve my understanding of ${d.weak[0] || ""}`)}"
         style="width:100%;background:none;border:1px solid #ef444440;border-radius:8px;padding:7px;color:var(--red);font-family:var(--font);font-size:.75rem;font-weight:700;cursor:pointer">
         Study weak topics with AI →
       </button>
@@ -4329,7 +4364,7 @@ async function loadProgress() {
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         ${d.weak.map((t) => `<span style="background:#ef444415;border:1px solid #ef444430;border-radius:20px;padding:3px 10px;font-size:.72rem;color:var(--red);font-weight:600">${esc(t)}</span>`).join("")}
       </div>
-      <button onclick="nav('chat',null);setTimeout(()=>{const ci=$('ci');if(ci){ci.value='Help me improve at '+${JSON.stringify(d.weak[0])};ci.focus();}},300)" style="width:100%;margin-top:.75rem;background:none;border:1px solid #ef444440;border-radius:8px;padding:7px;color:var(--red);font-family:var(--font);font-size:.75rem;font-weight:700;cursor:pointer;transition:all .15s">
+      <button data-onclick="_navChatWithPrefill" data-onclick-arg0="${esc(`Help me improve at ${d.weak[0]}`)}" style="width:100%;margin-top:.75rem;background:none;border:1px solid #ef444440;border-radius:8px;padding:7px;color:var(--red);font-family:var(--font);font-size:.75rem;font-weight:700;cursor:pointer;transition:all .15s">
         Study weak topics with AI →
       </button>
     </div>`
@@ -4360,7 +4395,7 @@ async function loadProgress() {
     <div style="background:linear-gradient(135deg,var(--accent)15,var(--accent2)10);border:1px solid var(--accent)30;border-radius:12px;padding:1rem;margin-bottom:.875rem;text-align:center">
       <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">✨ AI Coaching</div>
       <div style="font-size:.8rem;color:var(--text2);margin-bottom:.75rem">Get a personalised coaching session based on your progress data.</div>
-      <button onclick="getProgressCoaching()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:9px;padding:9px 22px;font-family:var(--font);font-size:.8rem;font-weight:700;cursor:pointer">Get coaching from Sivarr →</button>
+      <button data-onclick="getProgressCoaching" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:9px;padding:9px 22px;font-family:var(--font);font-size:.8rem;font-weight:700;cursor:pointer">Get coaching from Sivarr →</button>
     </div>
   `;
 }
@@ -4515,7 +4550,7 @@ function glRender() {
       <div class="es-orb" style="font-size:2rem;margin-bottom:10px">🎯</div>
       <div class="es-title">No goals yet</div>
       <p class="es-sub" style="max-width:300px">Goals keep you accountable. Set a target, track progress, and let Sivarr AI tell you if you're on track.</p>
-      <button class="es-cta" onclick="glToggleForm()">+ Set your first goal</button>
+      <button class="es-cta" data-onclick="glToggleForm">+ Set your first goal</button>
     </div>`;
     return;
   }
@@ -4531,7 +4566,7 @@ function glRender() {
         <div style="font-weight:700;font-size:.86rem;color:var(--text)">📋 Weekly check-in</div>
         <div style="font-size:.77rem;color:var(--muted);margin-top:2px">How are your goals tracking? Update your progress numbers.</div>
       </div>
-      <button onclick="glStartCheckin()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-family:var(--font-body);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">Update now</button>
+      <button data-onclick="glStartCheckin" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-family:var(--font-body);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">Update now</button>
     </div>`
     : "";
 
@@ -4545,9 +4580,9 @@ function glRender() {
 
   const filtersHTML = `
     <div class="gl-filters">
-      <button class="gl-filter-btn${_glFilter === "all" ? " active" : ""}" onclick="glSetFilter('all')">All (${total})</button>
-      <button class="gl-filter-btn${_glFilter === "active" ? " active" : ""}" onclick="glSetFilter('active')">Active (${active})</button>
-      <button class="gl-filter-btn${_glFilter === "completed" ? " active" : ""}" onclick="glSetFilter('completed')">Completed (${completed})</button>
+      <button class="gl-filter-btn${_glFilter === "all" ? " active" : ""}" data-onclick="glSetFilter" data-onclick-arg0="all">All (${total})</button>
+      <button class="gl-filter-btn${_glFilter === "active" ? " active" : ""}" data-onclick="glSetFilter" data-onclick-arg0="active">Active (${active})</button>
+      <button class="gl-filter-btn${_glFilter === "completed" ? " active" : ""}" data-onclick="glSetFilter" data-onclick-arg0="completed">Completed (${completed})</button>
     </div>`;
 
   const emptyFilter = !goals.length
@@ -4594,11 +4629,11 @@ function glRender() {
               <input type="number" value="${kr.current}" min="0"
                 style="width:52px;text-align:right;background:var(--bg3);border:1px solid var(--border);
                        border-radius:5px;padding:2px 6px;font-size:.76rem;color:var(--text);outline:none"
-                onblur="glUpdateKR('${g.id}','${kr.id}',+this.value)"
-                onkeydown="if(event.key==='Enter')this.blur()">
+                data-onblur="_glUpdateKRFromEl" data-onblur-arg0="${g.id}" data-onblur-arg1="${kr.id}" data-onblur-this
+                data-onkeydown="_blurElOnEnter" data-onkeydown-event>
               <span style="font-size:.7rem;color:var(--muted);white-space:nowrap">/ ${kr.target}${kr.unit ? " " + esc(kr.unit) : ""}</span>
               <span style="font-size:.7rem;font-weight:700;color:var(--accent);min-width:30px;text-align:right">${Math.round(krPct)}%</span>
-              <button onclick="glDeleteKR('${g.id}','${kr.id}')"
+              <button data-onclick="glDeleteKR" data-onclick-arg0="${g.id}" data-onclick-arg1="${kr.id}"
                 style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.72rem;padding:1px 3px;flex-shrink:0">✕</button>
             </div>
           </div>
@@ -4631,21 +4666,17 @@ function glRender() {
         ${hasKRs ? `<div style="margin-top:10px">${krsHTML}</div>` : ""}
         ${
           !isScore
-            ? `<button onclick="glAddKR('${g.id}')"
-          style="background:none;border:1px dashed var(--border);border-radius:7px;padding:4px 10px;
-                 font-size:.74rem;color:var(--muted);cursor:pointer;margin-top:${hasKRs ? "0" : "8px"};width:100%;
-                 font-family:var(--font-body);transition:var(--transition)"
-          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
-          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+            ? `<button class="gl-add-kr-btn" data-onclick="glAddKR" data-onclick-arg0="${g.id}"
+          style="margin-top:${hasKRs ? "0" : "8px"}">
           + Key Result</button>`
             : ""
         }
         <div class="gl-actions">
-          ${isScore || !hasKRs ? `<button class="gl-action-btn" onclick="glUpdateProgress('${g.id}',${pct})">📈 Update</button>` : ""}
-          <button class="gl-action-btn done-btn" onclick="glMarkDone('${g.id}')">${g.completed ? "↩ Reopen" : "✓ Done"}</button>
-          <button class="gl-action-btn" onclick="glEditGoal('${g.id}')">✏️ Edit</button>
-          <button class="gl-action-btn siva-btn" onclick="glAskSivaGoal('${g.id}')">🤖 Ask SIVA</button>
-          <button class="gl-action-btn del-btn" onclick="glDelete('${g.id}')">🗑</button>
+          ${isScore || !hasKRs ? `<button class="gl-action-btn" data-onclick="glUpdateProgress" data-onclick-args="${esc(JSON.stringify([g.id, pct]))}">📈 Update</button>` : ""}
+          <button class="gl-action-btn done-btn" data-onclick="glMarkDone" data-onclick-arg0="${g.id}">${g.completed ? "↩ Reopen" : "✓ Done"}</button>
+          <button class="gl-action-btn" data-onclick="glEditGoal" data-onclick-arg0="${g.id}">✏️ Edit</button>
+          <button class="gl-action-btn siva-btn" data-onclick="glAskSivaGoal" data-onclick-arg0="${g.id}">🤖 Ask SIVA</button>
+          <button class="gl-action-btn del-btn" data-onclick="glDelete" data-onclick-arg0="${g.id}">🗑</button>
         </div>
       </div>`;
       })
@@ -4905,7 +4936,7 @@ function trashRender() {
         <div class="trash-item-title">${esc(it.title)}</div>
         <div class="trash-item-meta">${_TRASH_TYPE_LABEL[it.type]} · deleted ${_trashRelTime(it.deleted_at)}</div>
       </div>
-      <button class="btn" onclick="trashRestore('${it.type}','${esc(String(it.id))}')">Restore</button>
+      <button class="btn" data-onclick="trashRestore" data-onclick-arg0="${it.type}" data-onclick-arg1="${esc(String(it.id))}">Restore</button>
     </div>`,
     )
     .join("");
@@ -4946,10 +4977,10 @@ function glAddKR(goalId) {
     <input placeholder="Unit" id="kr-unit-${goalId}" value="%"
       style="width:60px;background:var(--surface);border:1px solid var(--border);border-radius:7px;
              padding:5px 8px;color:var(--text);font-family:var(--font-body);font-size:.8rem;outline:none">
-    <button onclick="glSaveKR('${goalId}')"
+    <button data-onclick="glSaveKR" data-onclick-arg0="${goalId}"
       style="background:var(--accent);color:#fff;border:none;border-radius:7px;
              padding:5px 13px;font-family:var(--font-body);font-size:.78rem;font-weight:600;cursor:pointer">Add</button>
-    <button onclick="this.closest('.gl-kr-form').remove()"
+    <button data-onclick="_removeClosest" data-onclick-arg0=".gl-kr-form" data-onclick-this
       style="background:none;border:1px solid var(--border);border-radius:7px;
              padding:5px 9px;font-family:var(--font-body);font-size:.78rem;color:var(--muted);cursor:pointer">✕</button>`;
   card.appendChild(form);
@@ -4979,6 +5010,27 @@ async function glSaveKR(goalId) {
     toast("Could not add Key Result");
   }
 }
+
+// CSP migration: delegate.js has no this.value-read grammar (needs the
+// numeric coercion too); read it here instead.
+window._glUpdateKRFromEl = function (goalId, krId, el) {
+  glUpdateKR(goalId, krId, +el.value);
+};
+
+// CSP migration: generic blur-on-Enter for single-line numeric/text inputs.
+window._blurElOnEnter = function (e) {
+  if (e.key === "Enter") e.target.blur();
+};
+
+// CSP migration: generic "close this inline form" button (this.closest(sel).remove()).
+window._removeClosest = function (selector, el) {
+  el.closest(selector)?.remove();
+};
+
+// CSP migration: generic "remove this element by id" (document.getElementById(id).remove()).
+window._removeElById = function (id) {
+  document.getElementById(id)?.remove();
+};
 
 async function glUpdateKR(goalId, krId, current) {
   try {
@@ -5048,8 +5100,8 @@ function glEditGoal(id) {
     <input class="gl-edit-input" id="gl-edit-s-${id}" placeholder="Category (optional)" value="${esc(g.subject || "")}">
     <input class="gl-edit-input" id="gl-edit-d-${id}" type="date" value="${g.deadline || ""}" style="color-scheme:dark">
     <div style="display:flex;gap:7px">
-      <button class="gl-edit-save" onclick="glSaveEdit('${id}')">Save</button>
-      <button class="gl-edit-cancel" onclick="this.closest('.gl-edit-form').remove()">Cancel</button>
+      <button class="gl-edit-save" data-onclick="glSaveEdit" data-onclick-arg0="${id}">Save</button>
+      <button class="gl-edit-cancel" data-onclick="_removeClosest" data-onclick-arg0=".gl-edit-form" data-onclick-this>Cancel</button>
     </div>`;
   const actions = card.querySelector(".gl-actions");
   if (actions) card.insertBefore(form, actions);
@@ -5245,9 +5297,7 @@ function renderStudyPlan(data) {
       <div style="font-family:var(--font);font-size:.85rem;font-weight:700;color:var(--text)">
         📅 ${plan.length}-Day Plan · ${data.subject}
       </div>
-      <button onclick="downloadStudyPlan()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:5px 12px;color:var(--muted);font-size:.72rem;cursor:pointer;font-family:var(--font);font-weight:700;transition:all .15s"
-        onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
-        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+      <button class="sp-export-btn" data-onclick="downloadStudyPlan">
         ⬇ Export
       </button>
     </div>
@@ -5268,7 +5318,7 @@ function renderStudyPlan(data) {
               const done = saved[key] ? "done" : "";
               return `
               <div class="sp-task">
-                <div class="sp-task-check ${done}" onclick="toggleSPTask('${di}','${ti}',this)">
+                <div class="sp-task-check ${done}" data-onclick="toggleSPTask" data-onclick-arg0="${di}" data-onclick-arg1="${ti}" data-onclick-this>
                   ${done ? "✓" : ""}
                 </div>
                 <span style="${done ? "text-decoration:line-through;opacity:.5" : ""}" id="sp-task-text-${di}-${ti}">${esc(task)}</span>
@@ -5485,7 +5535,7 @@ function chRenderTabs(connected) {
     .map((p) => {
       const pl = CH_PLATFORMS[p] || { name: p, icon: "📊" };
       return `<button class="ch-tab ${p === CH_ACTIVE_PLATFORM ? "active" : ""}"
-      onclick="chSwitchPlatform('${p}',this)">${pl.icon} ${pl.name}</button>`;
+      data-onclick="chSwitchPlatform" data-onclick-arg0="${p}" data-onclick-this>${pl.icon} ${pl.name}</button>`;
     })
     .join("");
 }
@@ -5639,6 +5689,12 @@ function mobFabTrigger() {
 }
 
 // ═══════════════════════ CREATE NEW ═════════════════════════
+
+// CSP migration: multi-statement (close the create-space modal, then open pricing).
+window._closeCnModalThenShowPricing = function () {
+  document.getElementById("cn-modal-bg")?.classList.remove("open");
+  showPricing();
+};
 
 function cnOpen() {
   cnTab("create");
@@ -6184,7 +6240,7 @@ async function stLoadBillingHistory() {
             <div style="font-weight:700;color:var(--accent)">${esc(h.amount)}</div>
             <div style="color:var(--muted);font-size:.7rem">${esc(h.reference || "")}</div>
           </div>
-          <button class="int-btn" style="padding:5px 9px;font-size:.72rem" onclick="stDownloadInvoice(${i})" title="Download invoice"><i class="ti ti-download" aria-hidden="true"></i> Invoice</button>
+          <button class="int-btn" style="padding:5px 9px;font-size:.72rem" data-onclick="stDownloadInvoice" data-onclick-args="[${i}]" title="Download invoice"><i class="ti ti-download" aria-hidden="true"></i> Invoice</button>
         </div>
       </div>`,
       )
@@ -6198,6 +6254,11 @@ function stDownloadInvoice(i) {
   const who = (typeof S !== "undefined" && S.name) || "";
   const email = (typeof S !== "undefined" && S.email) || "";
   const ref = h.reference || "SVR-" + Date.now();
+  // NOT part of the CSP migration: this is a self-contained, standalone
+  // HTML document served as its own downloadable blob (a.href below), never
+  // inserted into this app's own DOM and never loaded with delegate.js --
+  // its inline onclick="window.print()" runs in a fresh, unrelated document
+  // context that our unsafe-inline removal doesn't reach or need to.
   const inv = `<!doctype html><html><head><meta charset="utf-8"><title>Sivarr invoice ${esc(ref)}</title>
 <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;max-width:640px;margin:40px auto;padding:0 24px}
 .hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0ea5a4;padding-bottom:16px;margin-bottom:24px}
@@ -6260,7 +6321,7 @@ async function stSaveProfile() {
     return;
   }
   const token = getToken();
-  const btn = document.querySelector('[onclick="stSaveProfile()"]');
+  const btn = document.querySelector('[data-onclick="stSaveProfile"]');
   if (btn) {
     btn.disabled = true;
     btn.textContent = "Saving…";
@@ -7618,7 +7679,7 @@ function spCreate() {
     if (e)
       e.innerHTML =
         `Your plan includes ${cap} space${cap !== 1 ? "s" : ""}. ` +
-        `<a onclick="document.getElementById('cn-modal-bg').classList.remove('open');showPricing()" ` +
+        `<a data-onclick="_closeCnModalThenShowPricing" ` +
         `style="color:var(--teal);cursor:pointer;text-decoration:underline">Upgrade</a> to add more.`;
     return;
   }
@@ -7663,14 +7724,14 @@ function spRender() {
       const tabs = sp.type === "personal" ? SP_PERSONAL_TABS : SP_ORG_TABS;
       const icon = sp.type === "personal" ? "👤" : "🏢";
       return `<div class="dsp-section" data-spid="${sp.id}">
-      <div class="dsp-header" onclick="spToggle('${sp.id}')">
+      <div class="dsp-header" data-onclick="spToggle" data-onclick-arg0="${sp.id}">
         <span class="dsp-icon">${icon}</span>
         <span class="dsp-name">${esc(sp.name)}</span>
-        <button class="dsp-ellipsis" onclick="event.stopPropagation();spMenu('${sp.id}')" title="Options">···</button>
+        <button class="dsp-ellipsis" data-onclick="spMenu" data-onclick-arg0="${sp.id}" title="Options">···</button>
         <div class="dsp-menu" id="dspm-${sp.id}">
-          <button class="dsp-menu-item" onclick="spRename('${sp.id}')">✏️ Rename</button>
-          ${sp.type === "org" ? `<button class="dsp-menu-item" onclick="spAddMember('${sp.id}')">👥 Add Member</button>` : ""}
-          <button class="dsp-menu-item danger" onclick="spDelete('${sp.id}')">🗑 Delete</button>
+          <button class="dsp-menu-item" data-onclick="spRename" data-onclick-arg0="${sp.id}">✏️ Rename</button>
+          ${sp.type === "org" ? `<button class="dsp-menu-item" data-onclick="spAddMember" data-onclick-arg0="${sp.id}">👥 Add Member</button>` : ""}
+          <button class="dsp-menu-item danger" data-onclick="spDelete" data-onclick-arg0="${sp.id}">🗑 Delete</button>
         </div>
       </div>
       <div class="dsp-items open" id="dspi-${sp.id}">
@@ -7678,7 +7739,7 @@ function spRender() {
           .map(
             (
               t,
-            ) => `<button class="snav-item" onclick="snavSelect('${t.key}','spaces',this)">
+            ) => `<button class="snav-item" data-onclick="snavSelect" data-onclick-arg0="${t.key}" data-onclick-arg1="spaces" data-onclick-this>
           <span class="snav-item-icon">${t.icon}</span> ${t.label}
         </button>`,
           )
@@ -8142,7 +8203,7 @@ function _cmdFavStar(panel) {
   if (meta.section === "core")
     return `<span class="cmd-fav on cmd-fav-locked" title="Always pinned" aria-hidden="true"><i class="ti ti-star-filled"></i></span>`;
   const on = isNavTab(panel);
-  return `<span class="cmd-fav ${on ? "on" : ""}" title="${on ? "Remove from sidebar" : "Add to sidebar"}" onclick="event.stopPropagation();toggleNavTab('${panel}')"><i class="ti ${on ? "ti-star-filled" : "ti-star"}" aria-hidden="true"></i></span>`;
+  return `<span class="cmd-fav ${on ? "on" : ""}" title="${on ? "Remove from sidebar" : "Add to sidebar"}" data-onclick="toggleNavTab" data-onclick-arg0="${panel}"><i class="ti ${on ? "ti-star-filled" : "ti-star"}" aria-hidden="true"></i></span>`;
 }
 
 function _navRenderSec(hostId, panels) {
@@ -8152,7 +8213,7 @@ function _navRenderSec(hostId, panels) {
     .map((panel) => {
       const t = NAV_TABS[panel];
       if (!t) return "";
-      return `<button class="si" data-panel="${panel}" data-tip="${t.label}" data-tip-pos="right" onclick="sidebarNav(this)">
+      return `<button class="si" data-panel="${panel}" data-tip="${t.label}" data-tip-pos="right" data-onclick="sidebarNav" data-onclick-this>
       <div class="si-icon"><i class="ti ${t.icon}"></i></div>
       <span class="si-lb">${t.label}</span>${NAV_EXTRA[panel] || ""}
     </button>`;
@@ -8407,7 +8468,7 @@ function cmdRenderResults(q) {
   });
 
   const itemHTML = (item) => `
-      <button class="cmd-item" data-idx="${item._idx}" onclick="cmdRun(${item._idx})">
+      <button class="cmd-item" data-idx="${item._idx}" data-onclick="cmdRun" data-onclick-args="[${item._idx}]">
         ${_cmdFavStar(item.panel)}
         <div class="cmd-item-icon">${item.icon}</div>
         <div style="flex:1;min-width:0">
@@ -8420,7 +8481,7 @@ function cmdRenderResults(q) {
   const serverHTML = serverItems.length
     ? `<div class="cmd-section-label">Results</div>${serverItems.map(itemHTML).join("")}` +
       (_cmdSearchHasMore
-        ? `<button class="cmd-item cmd-item-more" onclick="cmdSearchMore()">
+        ? `<button class="cmd-item cmd-item-more" data-onclick="cmdSearchMore">
              <div class="cmd-item-icon">⋯</div>
              <div style="flex:1;min-width:0"><div class="cmd-item-label">Show more results</div></div>
            </button>`
@@ -8546,6 +8607,11 @@ const _GS_VIDEOS = [
   { title: "Billing & Plans", embed: null },
 ];
 
+// CSP migration: DOM expression, no named global to dispatch to.
+window._removeGsVideoModal = function () {
+  document.getElementById("gs-video-modal")?.remove();
+};
+
 function gsOpenVideo(idx, card) {
   const v = _GS_VIDEOS[idx];
   if (!v) return;
@@ -8565,7 +8631,7 @@ function gsOpenVideo(idx, card) {
       </div>`;
   modal.innerHTML = `
     <div style="background:var(--bg);border-radius:14px;padding:20px;width:min(720px,95vw);position:relative">
-      <button onclick="document.getElementById('gs-video-modal').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">×</button>
+      <button data-onclick="_removeGsVideoModal" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">×</button>
       <div style="font-weight:700;margin-bottom:12px;padding-right:24px">${esc(v.title)}</div>
       ${body}
     </div>`;
@@ -8701,7 +8767,7 @@ function briefDecorToggle(btn) {
       ${BRIEF_ICONS.map(
         (i) =>
           `<button class="bdp-opt ${i.key === cur ? "sel" : ""}" title="${i.label}"
-                 onclick="briefDecorPick('${i.key}')"><i class="ti ${i.icon}"></i></button>`,
+                 data-onclick="briefDecorPick" data-onclick-arg0="${i.key}"><i class="ti ${i.icon}"></i></button>`,
       ).join("")}
     </div>`;
   document.body.appendChild(pop);
@@ -8914,7 +8980,7 @@ async function loadHome() {
         ),
         ...shTasksToday.slice(0, 3).map(
           (t) => `
-          <div class="sched-item" onclick="nav('flux',null)" style="cursor:pointer">
+          <div class="sched-item" data-onclick="nav" data-onclick-args="[&quot;flux&quot;,null]" style="cursor:pointer">
             <div class="sched-time">${t.time || "Task"}</div>
             <div class="sched-dot" style="background:var(--amber3,#f59e0b)"></div>
             <div class="sched-info">
@@ -9000,7 +9066,7 @@ async function loadHome() {
             .map((k) => {
               const lv = _skLevel(k.level || 0);
               const pct = k.level || 0;
-              return `<div onclick="nav('skills',null)" style="display:flex;align-items:center;gap:10px;padding:6px 0;cursor:pointer;border-bottom:1px solid var(--border)">
+              return `<div data-onclick="nav" data-onclick-args="[&quot;skills&quot;,null]" style="display:flex;align-items:center;gap:10px;padding:6px 0;cursor:pointer;border-bottom:1px solid var(--border)">
             <span style="font-size:1.1rem;flex-shrink:0">${k.emoji || "💡"}</span>
             <div style="flex:1;min-width:0">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
@@ -9083,7 +9149,7 @@ function _homeRenderToday(today8601, habits) {
               .map((s) => {
                 const sNext = s.status === "done" ? "todo" : "done";
                 return `<div class="h-today-subrow">
-                <button class="habit-cb h-today-subcheck ${s.status === "done" ? "done" : ""}" onclick="event.stopPropagation();_homeTaskToggle(${s.id},'${sNext}')" aria-label="Toggle subtask"></button>
+                <button class="habit-cb h-today-subcheck ${s.status === "done" ? "done" : ""}" data-onclick="_homeTaskToggle" data-onclick-args="${esc(JSON.stringify([s.id, sNext]))}" aria-label="Toggle subtask"></button>
                 <span class="h-today-subname ${s.status === "done" ? "done" : ""}">${esc(s.title)}</span>
               </div>`;
               })
@@ -9091,8 +9157,8 @@ function _homeRenderToday(today8601, habits) {
           </div>`
         : "";
       return `<div class="h-today-item">
-        <div class="h-today-main" ${subs.length ? `onclick="_homeToggleSub('${t.id}')"` : ""}>
-          <button class="habit-cb" onclick="event.stopPropagation();_homeTaskToggle(${t.id},'${nextStatus}')" aria-label="Toggle task"></button>
+        <div class="h-today-main" ${subs.length ? `data-onclick="_homeToggleSub" data-onclick-arg0="${esc(t.id)}"` : ""}>
+          <button class="habit-cb" data-onclick="_homeTaskToggle" data-onclick-args="${esc(JSON.stringify([t.id, nextStatus]))}" aria-label="Toggle task"></button>
           <div class="h-today-body">
             <div class="h-today-title-row">
               <div class="h-today-title">${esc(t.title)}</div>
@@ -9111,8 +9177,8 @@ function _homeRenderToday(today8601, habits) {
     .map((h, i) => {
       const done = (h.completions || []).includes(today8601);
       return `<div class="h-today-item">
-        <div class="h-today-main" onclick="homeHabitToggle(${i})">
-          <button class="habit-cb ${done ? "done" : ""}" onclick="event.stopPropagation();homeHabitToggle(${i})" aria-label="Toggle habit"></button>
+        <div class="h-today-main" data-onclick="homeHabitToggle" data-onclick-args="[${i}]">
+          <button class="habit-cb ${done ? "done" : ""}" data-onclick="homeHabitToggle" data-onclick-args="[${i}]" aria-label="Toggle habit"></button>
           <div class="h-today-body">
             <div class="h-today-title-row"><div class="h-today-title">${esc(h.emoji || "📌")} ${esc(h.title)}</div></div>
           </div>
@@ -9123,7 +9189,7 @@ function _homeRenderToday(today8601, habits) {
     .join("");
 
   const moreRow = moreCount > 0
-    ? `<div class="h-today-more" onclick="nav('flux',null)">${moreCount} more waiting in Tasks →</div>`
+    ? `<div class="h-today-more" data-onclick="nav" data-onclick-args="${esc(JSON.stringify(["flux", null]))}">${moreCount} more waiting in Tasks →</div>`
     : "";
 
   tl.innerHTML = taskRows + habitRows + moreRow;
@@ -9198,7 +9264,7 @@ function _homeRenderDiscovery(activeGoals, habits, notes) {
   sec.style.display = "block";
   strip.innerHTML = cards
     .map(
-      (c) => `<div class="h-discover-card" onclick="nav('${c.go}',null)">
+      (c) => `<div class="h-discover-card" data-onclick="nav" data-onclick-args="${esc(JSON.stringify([c.go, null]))}">
         <div class="h-discover-icon"><i class="ti ${c.icon}"></i></div>
         <div class="h-discover-title">${esc(c.title)}</div>
         <div class="h-discover-sub">${esc(c.sub)}</div>
@@ -9264,7 +9330,7 @@ function _homeRenderSpaces(activeGoals, jnl, notes, today8601) {
   list.innerHTML = candidates
     .slice(0, 4)
     .map(
-      (c) => `<div class="h-brief-row" onclick="nav('${c.go}',null)">
+      (c) => `<div class="h-brief-row" data-onclick="nav" data-onclick-args="${esc(JSON.stringify([c.go, null]))}">
         <div class="h-brief-icon ${c.cls}"><i class="ti ${c.icon}"></i></div>
         <div style="flex:1;min-width:0">
           <div class="h-brief-text">${c.html}</div>
@@ -9280,6 +9346,13 @@ function _homeRenderSpaces(activeGoals, jnl, notes, today8601) {
 // TPL_LIBRARY placeholder array. Independent fetch (doesn't touch the
 // agents-panel's own _ag.templates state) so it works even if that panel
 // has never been opened this session.
+// CSP migration: multi-statement (navigate to the marketplace, then open a
+// specific template's detail view).
+window._navAgentsThenOpenTemplate = function (id) {
+  nav("agents", null);
+  agOpenTemplate(id);
+};
+
 async function _homeRenderTrending() {
   const strip = $("home-trending-list");
   if (!strip) return;
@@ -9289,7 +9362,7 @@ async function _homeRenderTrending() {
     const d = await r.json();
     const templates = d.templates || [];
     if (!templates.length) {
-      strip.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:8px 0">Nothing trending yet, <button onclick="nav('agents',null)" style="background:none;border:none;color:var(--teal);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">browse the marketplace →</button></div>`;
+      strip.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:8px 0">Nothing trending yet, <button data-onclick="nav" data-onclick-args="[&quot;agents&quot;,null]" style="background:none;border:none;color:var(--teal);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">browse the marketplace →</button></div>`;
       return;
     }
     strip.innerHTML = templates
@@ -9297,7 +9370,7 @@ async function _homeRenderTrending() {
         const color = t.thumbnail_color || AG_CAT_COLORS[t.category] || "var(--teal)";
         const icon = AG_CAT_ICONS[t.category] || "ti-template";
         const price = agFormatPrice(t);
-        return `<div class="h-trend-card" onclick="nav('agents',null);agOpenTemplate('${t.id}')">
+        return `<div class="h-trend-card" data-onclick="_navAgentsThenOpenTemplate" data-onclick-arg0="${esc(t.id)}">
           <div class="h-trend-thumb" style="background:${color}1a;color:${color}"><i class="ti ${icon}"></i></div>
           <div class="h-trend-name">${esc(t.name)}</div>
           <div class="h-trend-tag">${esc(AG_CAT_LABELS[t.category] || "Template")} · ${price}</div>
@@ -9744,7 +9817,7 @@ function _calRenderHeader() {
 function _calChip(i) {
   const click =
     i.kind === "event"
-      ? ` onclick="event.stopPropagation();calEditEvent('${i.id}')"`
+      ? ` data-onclick="calEditEvent" data-onclick-arg0="${esc(i.id)}"`
       : "";
   return `<div class="cal-chip" style="background:${_calPillBg(i.color)};color:${i.color}"${click} title="${esc(i.title)}">${esc(i.title)}</div>`;
 }
@@ -9754,7 +9827,7 @@ function _calBlockHTML(i) {
   const lanes = i.lanes || 1,
     lane = i.lane || 0,
     w = 100 / lanes;
-  const click = i.kind === "event" ? ` onclick="calEditEvent('${i.id}')"` : "";
+  const click = i.kind === "event" ? ` data-onclick="calEditEvent" data-onclick-arg0="${esc(i.id)}"` : "";
   return `<div class="cw-event" style="top:${Math.max(0, top)}px;height:${h}px;left:calc(${lane * w}% + 2px);width:calc(${w}% - 5px);background:${_calPillBg(i.color)};border-left:3px solid ${i.color}"${click} title="${esc(i.title)}">
       <div class="cw-ev-title" style="color:${i.color}">${esc(i.title)}</div>
       <div class="cw-ev-time">${_calFmtMin(i.startMin)} – ${_calFmtMin(i.endMin)}</div>
@@ -9835,7 +9908,7 @@ function _calMonthHTML() {
       .map((it) => {
         const click =
           it.kind === "event"
-            ? ` onclick="event.stopPropagation();calEditEvent('${it.id}')"`
+            ? ` data-onclick="calEditEvent" data-onclick-arg0="${esc(it.id)}"`
             : "";
         return `<div class="cal-pill" style="background:${_calPillBg(it.color)};color:${it.color}"${click} title="${esc(it.title)}">${esc(it.title)}</div>`;
       })
@@ -9844,7 +9917,7 @@ function _calMonthHTML() {
       items.length > 3
         ? `<div class="cal-more">+${items.length - 3} more</div>`
         : "";
-    cells += `<div class="cal-cell${ymd === todayYMD ? " today" : ""}" onclick="calPickDay('${ymd}')"><div class="cal-num">${d}</div>${pills}${more}</div>`;
+    cells += `<div class="cal-cell${ymd === todayYMD ? " today" : ""}" data-onclick="calPickDay" data-onclick-arg0="${ymd}"><div class="cal-num">${d}</div>${pills}${more}</div>`;
   }
   return `<div class="cal-month-view"><div class="cal-dow-row">${dow}</div><div class="cal-grid">${cells}</div></div>`;
 }
@@ -9885,7 +9958,7 @@ function _calRenderMini() {
     if (ymd === todayYMD) cls.push("today");
     if (ymd === anchorYMD) cls.push("sel");
     if (evDates.has(ymd)) cls.push("has");
-    html += `<button class="${cls.join(" ")}" onclick="calPickMini('${ymd}')">${d}</button>`;
+    html += `<button class="${cls.join(" ")}" data-onclick="calPickMini" data-onclick-arg0="${ymd}">${d}</button>`;
   }
   grid.innerHTML = html;
 }
@@ -9939,7 +10012,7 @@ function _calRenderReminder() {
     <div class="cal-rem-label"><i class="ti ti-bell" aria-hidden="true"></i> Next up</div>
     <div class="cal-rem-title">${esc(next.title)}</div>
     <div class="cal-rem-when">${when}</div>
-    <button class="cal-rem-btn" onclick="calPickMini('${next.date}')">View <i class="ti ti-arrow-right" aria-hidden="true"></i></button>`;
+    <button class="cal-rem-btn" data-onclick="calPickMini" data-onclick-arg0="${next.date}">View <i class="ti ti-arrow-right" aria-hidden="true"></i></button>`;
 }
 
 function _calRenderFilters() {
@@ -9948,7 +10021,7 @@ function _calRenderFilters() {
   const f = _calGetFilters();
   el.innerHTML = CAL_CATS.map(
     (c) => `
-    <label class="cal-filter${f.has(c.id) ? " on" : ""}" onclick="calToggleFilter('${c.id}')">
+    <label class="cal-filter${f.has(c.id) ? " on" : ""}" data-onclick="calToggleFilter" data-onclick-arg0="${c.id}">
       <span class="cal-filter-box" style="--c:${c.color}">${f.has(c.id) ? '<i class="ti ti-check" aria-hidden="true"></i>' : ""}</span>
       <span class="cal-filter-dot" style="background:${c.color}"></span>
       <span class="cal-filter-label">${c.label}</span>
@@ -10040,7 +10113,7 @@ async function calEditEvent(id) {
   ).join("");
   modal.innerHTML = `
     <div style="background:var(--bg);border-radius:14px;padding:22px;width:min(380px,95vw);position:relative">
-      <button onclick="document.getElementById('cal-edit-modal').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer">×</button>
+      <button data-onclick="_removeElById" data-onclick-arg0="cal-edit-modal" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer">×</button>
       <div style="font-weight:700;margin-bottom:16px">Edit Event</div>
       <label style="${lbS}">Title</label>
       <input id="cal-edit-title" value="${esc(ev.title)}" style="${inS}">
@@ -10053,8 +10126,8 @@ async function calEditEvent(id) {
       <label style="${lbS}">Category</label>
       <select id="cal-edit-cat" style="${inS}">${catOpts}</select>
       <div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px">
-        <button onclick="calDeleteEventFromEdit('${id}')" style="background:var(--red,#ef4444);color:#fff;border:none;border-radius:8px;padding:9px 14px;cursor:pointer;font-family:var(--font);font-size:.85rem">Delete</button>
-        <button onclick="calSaveEditEvent('${id}')" style="background:var(--teal);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:var(--font);font-size:.85rem;font-weight:600">Save</button>
+        <button data-onclick="calDeleteEventFromEdit" data-onclick-arg0="${id}" style="background:var(--red,#ef4444);color:#fff;border:none;border-radius:8px;padding:9px 14px;cursor:pointer;font-family:var(--font);font-size:.85rem">Delete</button>
+        <button data-onclick="calSaveEditEvent" data-onclick-arg0="${id}" style="background:var(--teal);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:var(--font);font-size:.85rem;font-weight:600">Save</button>
       </div>
     </div>`;
   modal.addEventListener("click", (e) => {
@@ -10186,7 +10259,7 @@ function skillsRender() {
   const filterBtns = cats
     .map(
       (c) =>
-        `<button class="sk-filter-btn${_skFilter === c ? " active" : ""}" onclick="skSetFilter('${c}')">${c === "all" ? `All (${skills.length})` : c}</button>`,
+        `<button class="sk-filter-btn${_skFilter === c ? " active" : ""}" data-onclick="skSetFilter" data-onclick-arg0="${esc(c)}">${c === "all" ? `All (${skills.length})` : c}</button>`,
     )
     .join("");
 
@@ -10220,10 +10293,10 @@ function skillsRender() {
           </div>
         </div>
         <div class="sk-card-actions">
-          <button class="sk-action-btn" onclick="skillLog('${k.id}')"><i class="ti ti-plus"></i> Log</button>
-          <button class="sk-action-btn siva" onclick="skillAskSiva('${k.id}')"><i class="ti ti-sparkles"></i> SIVA</button>
-          <button class="sk-action-btn" onclick="skillEdit('${k.id}')"><i class="ti ti-pencil"></i></button>
-          <button class="sk-action-btn danger" onclick="skillDelete('${k.id}')"><i class="ti ti-trash"></i></button>
+          <button class="sk-action-btn" data-onclick="skillLog" data-onclick-arg0="${esc(k.id)}"><i class="ti ti-plus"></i> Log</button>
+          <button class="sk-action-btn siva" data-onclick="skillAskSiva" data-onclick-arg0="${esc(k.id)}"><i class="ti ti-sparkles"></i> SIVA</button>
+          <button class="sk-action-btn" data-onclick="skillEdit" data-onclick-arg0="${esc(k.id)}"><i class="ti ti-pencil"></i></button>
+          <button class="sk-action-btn danger" data-onclick="skillDelete" data-onclick-arg0="${esc(k.id)}"><i class="ti ti-trash"></i></button>
         </div>
       </div>
       <div class="sk-progress-wrap">
@@ -10696,9 +10769,9 @@ function finRenderTransactions() {
 
   el.innerHTML = `
     <div class="fin-tabs" style="margin-bottom:10px">
-      <button class="fin-tab ${filter === "all" ? "active" : ""}"     onclick="finTxFilter('all')">All (${allTxs.length})</button>
-      <button class="fin-tab ${filter === "income" ? "active" : ""}"  onclick="finTxFilter('income')">Income</button>
-      <button class="fin-tab ${filter === "expense" ? "active" : ""}" onclick="finTxFilter('expense')">Expenses</button>
+      <button class="fin-tab ${filter === "all" ? "active" : ""}"     data-onclick="finTxFilter" data-onclick-arg0="all">All (${allTxs.length})</button>
+      <button class="fin-tab ${filter === "income" ? "active" : ""}"  data-onclick="finTxFilter" data-onclick-arg0="income">Income</button>
+      <button class="fin-tab ${filter === "expense" ? "active" : ""}" data-onclick="finTxFilter" data-onclick-arg0="expense">Expenses</button>
     </div>
     <div class="fin-card">
       ${
@@ -10729,7 +10802,7 @@ function _finTxHtml(t) {
       <div class="fin-tx-meta">${cat.label} · ${d}</div>
     </div>
     <div class="fin-tx-amt ${t.type}">${t.type === "income" ? "+" : "-"}${_finFmt(t.amount)}</div>
-    <button class="fin-tx-del" onclick="finDeleteTx('${t.id}')" title="Delete"><i class="ti ti-x"></i></button>
+    <button class="fin-tx-del" data-onclick="finDeleteTx" data-onclick-arg0="${esc(t.id)}" title="Delete"><i class="ti ti-x"></i></button>
   </div>`;
 }
 
@@ -10760,7 +10833,7 @@ function finRenderBudget() {
       ${budget > 0 ? `<div class="fin-budget-bar"><div class="fin-budget-fill" style="width:${pct}%;background:${over ? "#f87171" : cat.color}"></div></div>` : ""}
       <div class="fin-budget-edit">
         <input class="fin-budget-input" type="number" id="fbi-${cat.id}" placeholder="Monthly limit (₦)" value="${budget || ""}" min="0">
-        <button class="fin-save-budget" onclick="finSaveBudgetCat('${cat.id}')">Set</button>
+        <button class="fin-save-budget" data-onclick="finSaveBudgetCat" data-onclick-arg0="${esc(cat.id)}">Set</button>
       </div>
     </div>`;
     })
@@ -10974,7 +11047,7 @@ function journalRenderEntries() {
     <div class="journal-entry">
       <div class="je-date">${e.mood} ${new Date(e.date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</div>
       <div class="je-text">${esc(e.text)}</div>
-      <button onclick="reflectWithAI(${i})" style="margin-top:8px;background:none;border:1px solid var(--border);border-radius:7px;padding:5px 12px;color:var(--teal);font-size:.75rem;font-weight:600;cursor:pointer;font-family:var(--font)">✨ Reflect with AI</button>
+      <button data-onclick="reflectWithAI" data-onclick-args="[${i}]" style="margin-top:8px;background:none;border:1px solid var(--border);border-radius:7px;padding:5px 12px;color:var(--teal);font-size:.75rem;font-weight:600;cursor:pointer;font-family:var(--font)">✨ Reflect with AI</button>
     </div>`,
     )
     .join("");
@@ -11029,7 +11102,7 @@ function _aiShowExtractedTasks(tasks) {
   const html = `
     <div class="si-modal-hd">
       <span class="si-modal-title">✨ ${tasks.length} task${tasks.length > 1 ? "s" : ""} found</span>
-      <button class="si-modal-x" onclick="siModal._done(null)"><i class="ti ti-x"></i></button>
+      <button class="si-modal-x" data-onclick="siModalDone" data-onclick-args="[null]"><i class="ti ti-x"></i></button>
     </div>
     <div class="si-modal-body" style="max-height:320px;overflow-y:auto">
       ${tasks
@@ -11049,8 +11122,8 @@ function _aiShowExtractedTasks(tasks) {
         .join("")}
     </div>
     <div class="si-modal-ft">
-      <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(null)">Cancel</button>
-      <button class="si-modal-btn si-modal-btn-primary" onclick="siModal._done('ok')">Add selected tasks</button>
+      <button class="si-modal-btn si-modal-btn-cancel" data-onclick="siModalDone" data-onclick-args="[null]">Cancel</button>
+      <button class="si-modal-btn si-modal-btn-primary" data-onclick="siModalDone" data-onclick-arg0="ok">Add selected tasks</button>
     </div>`;
   siModal._show_raw(html).then((result) => {
     if (!result) return;
@@ -11150,14 +11223,14 @@ function _aiShowWriteResult(result) {
   siModal._show_raw(`
     <div class="si-modal-hd">
       <span class="si-modal-title">✍️ AI Result</span>
-      <button class="si-modal-x" onclick="siModal._done(null)"><i class="ti ti-x"></i></button>
+      <button class="si-modal-x" data-onclick="siModalDone" data-onclick-args="[null]"><i class="ti ti-x"></i></button>
     </div>
     <div class="si-modal-body">
       <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:.85rem;line-height:1.65;color:var(--text1);white-space:pre-wrap;max-height:300px;overflow-y:auto">${esc(result)}</div>
     </div>
     <div class="si-modal-ft">
-      <button class="si-modal-btn si-modal-btn-cancel" onclick="siModal._done(null)">Close</button>
-      <button class="si-modal-btn si-modal-btn-primary" onclick="_aiCopyResult(${JSON.stringify(result)})">Copy text</button>
+      <button class="si-modal-btn si-modal-btn-cancel" data-onclick="siModalDone" data-onclick-args="[null]">Close</button>
+      <button class="si-modal-btn si-modal-btn-primary" data-onclick="_aiCopyResult" data-onclick-arg0="${esc(result)}">Copy text</button>
     </div>`);
 }
 
@@ -11333,27 +11406,27 @@ function _commRenderPost(p) {
       <div class="feed-hd">
         <div class="feed-av">${initials}</div>
         <div style="flex:1;min-width:0">
-          <div class="feed-name feed-author-link" onclick="commViewAuthor('${esc(p.sid || "")}','${esc(p.author)}')">${esc(p.author)}</div>
+          <div class="feed-name feed-author-link" data-onclick="commViewAuthor" data-onclick-arg0="${esc(p.sid || "")}" data-onclick-arg1="${esc(p.author)}">${esc(p.author)}</div>
           <div class="feed-time">${ago}</div>
         </div>
         ${p.category && p.category !== "general" ? `<span class="feat-badge">${esc(p.category)}</span>` : ""}
-        <button class="comm-save-btn ${isSaved ? "saved" : ""}" title="${isSaved ? "Remove from saved" : "Save"}" onclick="commToggleSave('${esc(p.id)}',this)">
+        <button class="comm-save-btn ${isSaved ? "saved" : ""}" title="${isSaved ? "Remove from saved" : "Save"}" data-onclick="commToggleSave" data-onclick-arg0="${esc(p.id)}" data-onclick-this>
           <i class="ti ${isSaved ? "ti-bookmark-filled" : "ti-bookmark"}"></i>
         </button>
-        ${isOwn ? `<button class="feed-delete-btn" onclick="commDeletePost('${esc(p.id)}')" title="Delete post"><i class="ti ti-trash"></i></button>` : ""}
+        ${isOwn ? `<button class="feed-delete-btn" data-onclick="commDeletePost" data-onclick-arg0="${esc(p.id)}" title="Delete post"><i class="ti ti-trash"></i></button>` : ""}
       </div>
       <div class="feed-body">${esc(p.body)}</div>
       ${tags ? `<div class="feed-tags">${tags}</div>` : ""}
-      ${moreReps > 0 ? `<div style="font-size:.72rem;color:var(--accent);margin-top:6px;cursor:pointer" onclick="commLoadFeed()">↑ ${moreReps} earlier repl${moreReps > 1 ? "ies" : "y"}</div>` : ""}
+      ${moreReps > 0 ? `<div style="font-size:.72rem;color:var(--accent);margin-top:6px;cursor:pointer" data-onclick="commLoadFeed">↑ ${moreReps} earlier repl${moreReps > 1 ? "ies" : "y"}</div>` : ""}
       ${repliesHtml}
       <div class="feed-actions">
-        <button class="feed-action-btn ${liked ? "liked" : ""}" onclick="commLike('${esc(p.id)}',this)">
+        <button class="feed-action-btn ${liked ? "liked" : ""}" data-onclick="commLike" data-onclick-arg0="${esc(p.id)}" data-onclick-this>
           <i class="ti ti-heart${liked ? " ti-heart-filled" : ""}"></i> <span>${likes}</span>
         </button>
-        <button class="feed-action-btn" onclick="commReply('${esc(p.id)}',this)">
+        <button class="feed-action-btn" data-onclick="commReply" data-onclick-arg0="${esc(p.id)}" data-onclick-this>
           <i class="ti ti-message"></i> <span>${allReps.length}</span>
         </button>
-        <button class="feed-action-btn" title="Draft a reply with Sivarr AI" onclick="commDraftReply('${esc(p.id)}')">
+        <button class="feed-action-btn" title="Draft a reply with Sivarr AI" data-onclick="commDraftReply" data-onclick-arg0="${esc(p.id)}">
           <i class="ti ti-sparkles"></i> Draft with AI
         </button>
       </div>
@@ -11704,7 +11777,7 @@ function _oppRenderCard(o) {
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
               <span class="feat-badge">${esc(o.category)}</span>
-              <button class="comm-save-btn ${isSaved ? "saved" : ""}" title="${isSaved ? "Remove from saved" : "Save"}" onclick="oppToggleSave('${esc(o.id)}',this)">
+              <button class="comm-save-btn ${isSaved ? "saved" : ""}" title="${isSaved ? "Remove from saved" : "Save"}" data-onclick="oppToggleSave" data-onclick-arg0="${esc(o.id)}" data-onclick-this>
                 <i class="ti ${isSaved ? "ti-bookmark-filled" : "ti-bookmark"}"></i>
               </button>
             </div>
@@ -12741,6 +12814,21 @@ function sidebarNav(btn) {
 // already goes through, means every existing caller (⌘K, marketplace
 // buttons, space-settings links, etc.) lands in the right place with zero
 // per-call-site changes.
+// CSP migration: navigate to chat and prefill+focus the input once it's
+// rendered -- was two near-duplicate multi-statement inline handlers (one
+// of which broke its own attribute quoting via JSON.stringify, exactly
+// like the quickPrompt bug above).
+window._navChatWithPrefill = function (msg) {
+  nav("chat", null);
+  setTimeout(() => {
+    const ci = $("ci");
+    if (ci) {
+      ci.value = msg;
+      ci.focus();
+    }
+  }, 300);
+};
+
 function nav(name, btn) {
   if (name === "opportunities") {
     nav("community", btn);
@@ -13534,7 +13622,7 @@ function renderFileList() {
       <div>
         <div class="fi-name">📄 ${esc(f.name)}</div>
       </div>
-      <button class="btn-file-quiz" onclick="quizFromFile('${f.id}')">Quiz me</button>
+      <button class="btn-file-quiz" data-onclick="quizFromFile" data-onclick-arg0="${esc(f.id)}">Quiz me</button>
     </div>`,
     )
     .join("");
@@ -13570,6 +13658,13 @@ async function startQuizFromFile(fileId) {
 }
 
 // ═══════════════════════════ DOWNLOAD ═══════════════════════════
+// CSP migration: the "Save" button's argument was a DOM expression
+// (this.closest(...).querySelector(...).innerText), not `this` itself --
+// delegate.js's data-onclick-this only ever passes the element as-is.
+window._chatDownloadFromBtn = function (btn) {
+  downloadText(btn.closest(".msg").querySelector(".msg-bub").innerText);
+};
+
 function downloadText(text) {
   const clean = text
     .replace(/&amp;/g, "&")
@@ -14307,8 +14402,8 @@ function autoRenderList() {
           When: ${AUTO_TRIGGER_LABELS[r.trigger] || r.trigger} → Then: ${AUTO_ACTION_LABELS[r.action] || r.action}
         </div>
       </div>
-      <button class="auto-rule-toggle${r.enabled ? "" : " off"}" onclick="autoToggle(${r.id})" title="Toggle rule"></button>
-      <button onclick="autoDelete(${r.id})" style="background:none;border:none;color:var(--text4);cursor:pointer;font-size:.9rem;padding:4px" title="Delete">✕</button>
+      <button class="auto-rule-toggle${r.enabled ? "" : " off"}" data-onclick="autoToggle" data-onclick-args="${esc(JSON.stringify([r.id]))}" title="Toggle rule"></button>
+      <button data-onclick="autoDelete" data-onclick-args="${esc(JSON.stringify([r.id]))}" style="background:none;border:none;color:var(--text4);cursor:pointer;font-size:.9rem;padding:4px" title="Delete">✕</button>
     </div>`,
     )
     .join("");
@@ -14452,14 +14547,14 @@ async function profileInit() {
   const sl = $("profile-skills-list");
   if (sl) {
     if (!skills.length) {
-      sl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:6px 0">No skills tracked yet, <button onclick="nav('skills',null)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">add one →</button></div>`;
+      sl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:6px 0">No skills tracked yet, <button data-onclick="nav" data-onclick-args="[&quot;skills&quot;,null]" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">add one →</button></div>`;
     } else {
       sl.innerHTML =
         skills
           .slice(0, 5)
           .map((k) => {
             const lv = _skLevel(k.level || 0);
-            return `<div class="profile-skill-row" onclick="nav('skills',null)">
+            return `<div class="profile-skill-row" data-onclick="nav" data-onclick-args="[&quot;skills&quot;,null]">
           <span style="font-size:1.1rem">${k.emoji || "💡"}</span>
           <div style="flex:1;min-width:0">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
@@ -14483,14 +14578,14 @@ async function profileInit() {
   const pl = $("profile-posts-list");
   if (pl) {
     if (!myPosts.length) {
-      pl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:6px 0">No posts yet, <button onclick="nav('community',null)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">share something →</button></div>`;
+      pl.innerHTML = `<div style="font-size:.82rem;color:var(--text4);padding:6px 0">No posts yet, <button data-onclick="nav" data-onclick-args="[&quot;community&quot;,null]" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:.82rem;padding:0">share something →</button></div>`;
     } else {
       pl.innerHTML = myPosts
         .slice(0, 5)
         .map((p) => {
           const likes = (p.likes || []).length;
           const reps = (p.replies || []).length;
-          return `<div class="profile-post-item" onclick="nav('community',null)">
+          return `<div class="profile-post-item" data-onclick="nav" data-onclick-args="[&quot;community&quot;,null]">
           <div class="profile-post-body">${esc((p.body || "").slice(0, 120))}${p.body?.length > 120 ? "…" : ""}</div>
           <div class="profile-post-meta">
             <span>❤️ ${likes}</span><span>💬 ${reps}</span>
@@ -14568,10 +14663,10 @@ function profileRenderSkills(skills) {
     skills
       .map(
         (s, i) =>
-          `<span class="skill-tag">${escHtml(s)}<button onclick="profileRemoveSkill(${i})">✕</button></span>`,
+          `<span class="skill-tag">${escHtml(s)}<button data-onclick="profileRemoveSkill" data-onclick-args="[${i}]">✕</button></span>`,
       )
       .join("") +
-    `<button class="skill-add-btn" onclick="profileAddSkill()">+ Add skill</button>`;
+    `<button class="skill-add-btn" data-onclick="profileAddSkill">+ Add skill</button>`;
 }
 
 async function profileEditBio() {
@@ -14760,11 +14855,11 @@ function spaceRenderSidebar() {
     .map((sp) => {
       const col = dotColor[sp.type] || dotColor.default;
       const meta = typeLabel[sp.type] || "";
-      return `<button class="si sp-si" id="sb-space-row-${sp.id}" data-tip="${sp.name}" data-tip-pos="right" onclick="openSpace('${sp.id}')">
+      return `<button class="si sp-si" id="sb-space-row-${sp.id}" data-tip="${sp.name}" data-tip-pos="right" data-onclick="openSpace" data-onclick-arg0="${sp.id}">
       <span class="si-ic sp-si-dot" style="color:${col};font-size:10px">●</span>
       <span class="si-lb">${sp.name}</span>
       ${meta ? `<span class="si-stat">${meta}</span>` : ""}
-      <span class="sb-space-more" onclick="event.stopPropagation();spMoreMenu('${sp.id}',this)" title="Options">
+      <span class="sb-space-more" data-onclick="spMoreMenu" data-onclick-arg0="${sp.id}" data-onclick-this title="Options">
         <i class="ti ti-dots-vertical" style="font-size:12px;color:var(--text4)"></i>
       </span>
     </button>`;
@@ -14883,10 +14978,10 @@ function spMoreMenu(id, btn) {
     ORG &&
     (ORG.member_role === "owner" || ORG.owner_sid === S.sid);
   menu.innerHTML = `
-    <div class="ctx-item" onclick="openSpaceSettingsById('${id}')"><i class="ti ti-settings"></i> Settings &amp; extensions</div>
-    <div class="ctx-item" onclick="spRename('${id}')"><i class="ti ti-pencil"></i> Rename</div>
-    ${sp.id !== "org" ? `<div class="ctx-item ctx-danger" onclick="spDelete('${id}')"><i class="ti ti-trash"></i> Delete</div>` : ""}
-    ${isOrgOwner ? `<div class="ctx-item ctx-danger" onclick="orgDeleteFlow()"><i class="ti ti-trash"></i> Delete Organization</div>` : ""}
+    <div class="ctx-item" data-onclick="openSpaceSettingsById" data-onclick-arg0="${id}"><i class="ti ti-settings"></i> Settings &amp; extensions</div>
+    <div class="ctx-item" data-onclick="spRename" data-onclick-arg0="${id}"><i class="ti ti-pencil"></i> Rename</div>
+    ${sp.id !== "org" ? `<div class="ctx-item ctx-danger" data-onclick="spDelete" data-onclick-arg0="${id}"><i class="ti ti-trash"></i> Delete</div>` : ""}
+    ${isOrgOwner ? `<div class="ctx-item ctx-danger" data-onclick="orgDeleteFlow"><i class="ti ti-trash"></i> Delete Organization</div>` : ""}
   `;
   document.body.appendChild(menu);
   const remove = (e) => {
@@ -15194,7 +15289,7 @@ function psRenderKanban() {
                 : t.priority === "low"
                   ? "var(--green3,#34d399)"
                   : "var(--amber3,#f59e0b)";
-            return `<div class="os-task-card" onclick="psMoveTask(${t.id})">
+            return `<div class="os-task-card" data-onclick="psMoveTask" data-onclick-args="[${t.id}]">
             <span class="os-task-title">${esc(t.title)}</span>
             <div style="display:flex;gap:5px;align-items:center;margin-top:4px;flex-wrap:wrap">
               ${t.priority ? `<span style="font-size:.65rem;color:${priColor}">${t.priority}</span>` : ""}
@@ -15203,7 +15298,7 @@ function psRenderKanban() {
           </div>`;
           })
           .join("")}
-        <button class="os-add-task-btn" onclick="psNewTask()"><i class="ti ti-plus"></i> Add task</button>
+        <button class="os-add-task-btn" data-onclick="psNewTask"><i class="ti ti-plus"></i> Add task</button>
       </div>
     </div>`;
     })
@@ -15273,7 +15368,7 @@ function psRenderGoals() {
       return `<div class="sp-goal-card">
       <div class="sp-goal-title">${esc(g.title)}</div>
       <div class="sp-goal-bar-bg"><div class="sp-goal-bar-fill" style="width:${pct}%"></div></div>
-      <div class="sp-goal-meta"><span>${pct}%</span><span onclick="psUpdateGoal(${g.id})" style="cursor:pointer;color:var(--blue)">Update</span></div>
+      <div class="sp-goal-meta"><span>${pct}%</span><span data-onclick="psUpdateGoal" data-onclick-args="[${g.id}]" style="cursor:pointer;color:var(--blue)">Update</span></div>
     </div>`;
     })
     .join("");
@@ -15324,7 +15419,7 @@ function psRenderHabits() {
     .map(
       (h) => `
     <div class="sp-habit-row">
-      <div class="sp-habit-check ${h.doneToday ? "done" : ""}" onclick="psToggleHabit(${h.id})">
+      <div class="sp-habit-check ${h.doneToday ? "done" : ""}" data-onclick="psToggleHabit" data-onclick-args="[${h.id}]">
         ${h.doneToday ? '<i class="ti ti-check"></i>' : ""}
       </div>
       <span class="sp-habit-name">${h.name}</span>
@@ -15419,7 +15514,7 @@ function psRenderNotes() {
   grid.innerHTML = notes
     .map(
       (n) => `
-    <div class="sp-note-card" onclick="psEditNote(${n.id})">
+    <div class="sp-note-card" data-onclick="psEditNote" data-onclick-args="[${n.id}]">
       <div class="sp-note-title">${esc(n.title)}</div>
       <div class="sp-note-preview">${esc(n.body) || "Empty note…"}</div>
       <div class="sp-note-date">${esc(n.date)}</div>
@@ -15577,6 +15672,13 @@ function siObMaybeStart() {
   siObRender();
 }
 
+// CSP migration: multi-statement (finish onboarding, then jump straight to
+// a role-specific starting panel).
+window._siObFinishThenNav = function (panel) {
+  siObFinish();
+  nav(panel, null);
+};
+
 async function siObFinish() {
   if (S.sid) localStorage.setItem(`si_onboarded_${S.sid}`, "1");
   // Persist role to backend
@@ -15618,13 +15720,13 @@ function siObRender() {
       <div class="si-ob-title">Welcome to Sivarr,<br>${esc(first)}!</div>
       <div class="si-ob-sub">Your all-in-one productivity OS. Let's get you set up in under 2 minutes.</div>
       <div class="si-ob-actions">
-        <button class="si-ob-btn-pri" onclick="siObNext()">Get started →</button>
+        <button class="si-ob-btn-pri" data-onclick="siObNext">Get started →</button>
       </div>`;
   } else if (_siObStep === 2) {
     const cards = _OB_ROLES
       .map(
         (r) => `
-      <div class="si-ob-role-card${_siObRole === r.id ? " sel" : ""}" onclick="siObSelectRole('${r.id}',this)">
+      <div class="si-ob-role-card${_siObRole === r.id ? " sel" : ""}" data-onclick="siObSelectRole" data-onclick-arg0="${r.id}" data-onclick-this>
         <div class="si-ob-role-icon">${r.icon}</div>
         <div class="si-ob-role-label">${r.label}</div>
         <div class="si-ob-role-desc">${r.desc}</div>
@@ -15636,8 +15738,8 @@ function siObRender() {
       <div class="si-ob-sub">Choose your primary focus. You can use every feature regardless.</div>
       <div class="si-ob-role-grid">${cards}</div>
       <div class="si-ob-actions">
-        <button class="si-ob-btn-sec" onclick="siObPrev()">← Back</button>
-        <button class="si-ob-btn-pri" onclick="siObNext()">Continue →</button>
+        <button class="si-ob-btn-sec" data-onclick="siObPrev">← Back</button>
+        <button class="si-ob-btn-pri" data-onclick="siObNext">Continue →</button>
       </div>`;
   } else if (_siObStep === 3) {
     const placeholders = {
@@ -15668,9 +15770,9 @@ function siObRender() {
         </div>
       </div>
       <div class="si-ob-actions">
-        <button class="si-ob-btn-sec" onclick="siObPrev()">← Back</button>
-        <button class="si-ob-btn-pri" onclick="siObSaveGoal()">Set goal →</button>
-        <button class="si-ob-skip-step" onclick="siObNext()">Skip</button>
+        <button class="si-ob-btn-sec" data-onclick="siObPrev">← Back</button>
+        <button class="si-ob-btn-pri" data-onclick="siObSaveGoal">Set goal →</button>
+        <button class="si-ob-skip-step" data-onclick="siObNext">Skip</button>
       </div>`;
   } else if (_siObStep === 4) {
     content = `
@@ -15678,28 +15780,28 @@ function siObRender() {
       <div class="si-ob-title">Connect your tools</div>
       <div class="si-ob-sub">Link your favourite apps. You can always do this later in Integrations.</div>
       <div class="si-ob-int-grid">
-        <button class="si-ob-int-btn ${_GCAL_CONNECTED ? "done" : ""}" onclick="gcalConnect()">
+        <button class="si-ob-int-btn ${_GCAL_CONNECTED ? "done" : ""}" data-onclick="gcalConnect">
           <span class="si-ob-int-icon">📅</span>
           <span class="si-ob-int-label">${_GCAL_CONNECTED ? "✓ Calendar" : "Google Calendar"}</span>
         </button>
-        <button class="si-ob-int-btn ${_GITHUB_CONNECTED ? "done" : ""}" onclick="githubConnect()">
+        <button class="si-ob-int-btn ${_GITHUB_CONNECTED ? "done" : ""}" data-onclick="githubConnect">
           <span class="si-ob-int-icon">🐙</span>
           <span class="si-ob-int-label">${_GITHUB_CONNECTED ? "✓ GitHub" : "GitHub"}</span>
         </button>
-        <button class="si-ob-int-btn ${_MONO_CONNECTED ? "done" : ""}" onclick="monoConnect()">
+        <button class="si-ob-int-btn ${_MONO_CONNECTED ? "done" : ""}" data-onclick="monoConnect">
           <span class="si-ob-int-icon">🏦</span>
           <span class="si-ob-int-label">${_MONO_CONNECTED ? "✓ Mono Bank" : "Mono Bank"}</span>
         </button>
       </div>
       <div class="si-ob-actions">
-        <button class="si-ob-btn-sec" onclick="siObPrev()">← Back</button>
-        <button class="si-ob-btn-pri" onclick="siObNext()">Almost done →</button>
+        <button class="si-ob-btn-sec" data-onclick="siObPrev">← Back</button>
+        <button class="si-ob-btn-pri" data-onclick="siObNext">Almost done →</button>
       </div>`;
   } else if (_siObStep === 5) {
     const actions = (_OB_DONE_ACTIONS[_siObRole] || _OB_DONE_ACTIONS.creator)
       .map(
         (a) => `
-      <div class="si-ob-action-card" onclick="siObFinish();nav('${a.nav}',null)">
+      <div class="si-ob-action-card" data-onclick="_siObFinishThenNav" data-onclick-arg0="${a.nav}">
         <div class="si-ob-action-icon">${a.icon}</div>
         <div><div class="si-ob-action-label">${a.label}</div><div class="si-ob-action-desc">${a.desc}</div></div>
       </div>`,
@@ -15711,7 +15813,7 @@ function siObRender() {
       <div class="si-ob-sub">Here's where to start. Pick one and dive in.</div>
       <div class="si-ob-done-actions">${actions}</div>
       <div class="si-ob-actions">
-        <button class="si-ob-btn-pri" onclick="siObFinish()">Go to dashboard →</button>
+        <button class="si-ob-btn-pri" data-onclick="siObFinish">Go to dashboard →</button>
       </div>`;
   }
 
@@ -15924,8 +16026,7 @@ function _renderNotifList() {
   list.innerHTML = notifs
     .map(
       (n) => `
-    <div onclick="notifAction('${n.id}')" style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:${n.read ? "transparent" : "var(--teal)08"};transition:background .15s"
-         onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='${n.read ? "transparent" : "var(--teal)08"}'">
+    <div class="notif-row${n.read ? "" : " unread"}" data-onclick="notifAction" data-onclick-arg0="${esc(n.id)}">
       <span style="font-size:1.1rem;flex-shrink:0;margin-top:1px">${n.icon}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:.8rem;color:var(--text);line-height:1.45">${esc(n.msg)}</div>
@@ -16129,7 +16230,7 @@ function monoRender() {
         <div class="mono-logo">M</div>
         <div class="mono-connect-title">Connect your bank</div>
         <div class="mono-connect-desc">Link your African bank account via Mono to view your balance and transactions inside Sivarr.</div>
-        <button class="mono-connect-btn" onclick="monoConnect()"><span style="font-weight:900">M</span> Connect Bank</button>
+        <button class="mono-connect-btn" data-onclick="monoConnect"><span style="font-weight:900">M</span> Connect Bank</button>
       </div>`;
     return;
   }
@@ -16470,29 +16571,29 @@ function renderMobileMePanel() {
 
     <!-- Quick links -->
     <div class="me-links">
-      <button class="me-link-btn" onclick="nav('goals',null)">
+      <button class="me-link-btn" data-onclick="nav" data-onclick-args="[&quot;goals&quot;,null]">
         <div class="me-link-icon">🎯</div>
         <div class="me-link-label">Goals</div>
         <div class="me-link-sub">${activeGoals} active</div>
       </button>
-      <button class="me-link-btn" onclick="nav('habits',null)">
+      <button class="me-link-btn" data-onclick="nav" data-onclick-args="[&quot;habits&quot;,null]">
         <div class="me-link-icon">🔥</div>
         <div class="me-link-label">Habits</div>
         <div class="me-link-sub">${doneToday}/${habits.length} today</div>
       </button>
-      <button class="me-link-btn" onclick="nav('journal',null)">
+      <button class="me-link-btn" data-onclick="nav" data-onclick-args="[&quot;journal&quot;,null]">
         <div class="me-link-icon">✍️</div>
         <div class="me-link-label">Journal</div>
         <div class="me-link-sub">Write today's entry</div>
       </button>
-      <button class="me-link-btn" onclick="nav('settings',null)">
+      <button class="me-link-btn" data-onclick="nav" data-onclick-args="[&quot;settings&quot;,null]">
         <div class="me-link-icon">⚙️</div>
         <div class="me-link-label">Settings</div>
         <div class="me-link-sub">Account & appearance</div>
       </button>
     </div>
 
-    <button class="me-sign-out" onclick="logout()">Sign out</button>
+    <button class="me-sign-out" data-onclick="logout">Sign out</button>
   `;
 }
 
@@ -17720,7 +17821,7 @@ function cmdRecentHTML() {
       if (!btn) return "";
       const label = btn.querySelector(".si-lb")?.textContent || name;
       const icon = btn.querySelector(".si-icon")?.innerHTML || "";
-      return `<button class="cmd-item" onclick="cmdRunNamed('${name}')"><div class="cmd-item-icon">${icon}</div><div style="flex:1;min-width:0"><div class="cmd-item-label">${esc(label)}</div></div><span class="cmd-item-tag">Recent</span></button>`;
+      return `<button class="cmd-item" data-onclick="cmdRunNamed" data-onclick-arg0="${esc(name)}"><div class="cmd-item-icon">${icon}</div><div style="flex:1;min-width:0"><div class="cmd-item-label">${esc(label)}</div></div><span class="cmd-item-tag">Recent</span></button>`;
     })
     .filter(Boolean)
     .join("");

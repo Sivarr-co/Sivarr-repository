@@ -364,14 +364,14 @@ function orgRenderOverview() {
       ? active
           .map(
             (g) => `
-        <div class="os-task-card" onclick="orgTab('goals',null)">
+        <div class="os-task-card" data-onclick="orgTab" data-onclick-args="${esc(JSON.stringify(["goals", null]))}">
           <div class="os-task-title">${escHtml(g.title)}</div>
           <div class="os-goal-bar-wrap"><div class="os-goal-bar-fill" style="width:${g.progress || 0}%"></div></div>
           <div class="os-task-meta"><span>${g.progress || 0}%</span>${g.due_date ? `<span>${g.due_date}</span>` : ""}</div>
         </div>`,
           )
           .join("")
-      : '<div class="os-empty">No active goals. <span class="os-card-link" onclick="orgTab(\'goals\',null)">Add one →</span></div>';
+      : `<div class="os-empty">No active goals. <span class="os-card-link" data-onclick="orgTab" data-onclick-args="${esc(JSON.stringify(["goals", null]))}">Add one →</span></div>`;
   }
 
   // Priority tasks
@@ -384,7 +384,7 @@ function orgRenderOverview() {
       ? pri
           .map(
             (t) =>
-              `<div class="os-task-card" onclick="orgEditTask('${t.id}')"><div class="os-task-title">${escHtml(t.title)}</div><div class="os-task-meta"><span>${escHtml(ORG_COL_LABELS[t.status] || t.status)}</span>${t.due_date ? `<span>${t.due_date}</span>` : ""}</div></div>`,
+              `<div class="os-task-card" data-onclick="orgEditTask" data-onclick-arg0="${esc(t.id)}"><div class="os-task-title">${escHtml(t.title)}</div><div class="os-task-meta"><span>${escHtml(ORG_COL_LABELS[t.status] || t.status)}</span>${t.due_date ? `<span>${t.due_date}</span>` : ""}</div></div>`,
           )
           .join("")
       : '<div class="os-empty">No high-priority tasks.</div>';
@@ -441,7 +441,7 @@ function orgRenderKanban() {
       ${tasks
         .map(
           (t) => `
-        <div class="os-task-card" onclick="orgEditTask('${t.id}')">
+        <div class="os-task-card" data-onclick="orgEditTask" data-onclick-arg0="${esc(t.id)}">
           ${t.priority === "high" ? '<div class="os-task-tag">High</div>' : ""}
           <div class="os-task-title">${escHtml(t.title)}</div>
           <div class="os-task-meta">
@@ -451,7 +451,7 @@ function orgRenderKanban() {
         </div>`,
         )
         .join("")}
-      <button class="os-add-card-btn" onclick="orgAddTaskToCol('${col}')">+ Add task</button>
+      <button class="os-add-card-btn" data-onclick="orgAddTaskToCol" data-onclick-arg0="${esc(col)}">+ Add task</button>
     </div>`;
   }).join("");
 }
@@ -489,7 +489,7 @@ function orgRenderTaskList() {
       ${tasks
         .map(
           (t) => `
-        <div class="os-list-row" onclick="orgEditTask('${t.id}')">
+        <div class="os-list-row" data-onclick="orgEditTask" data-onclick-arg0="${esc(t.id)}">
           <span class="os-list-dot os-list-dot-${col}"></span>
           <span class="os-list-title">${escHtml(t.title)}</span>
           ${t.priority === "high" ? '<span class="os-task-tag">High</span>' : ""}
@@ -548,7 +548,7 @@ function orgRenderDocs() {
   }
   grid.innerHTML = ORG_DOCS.map(
     (doc) => `
-    <div class="os-doc-card" onclick="orgOpenDoc('${doc.id}')">
+    <div class="os-doc-card" data-onclick="orgOpenDoc" data-onclick-arg0="${esc(doc.id)}">
       <div class="os-doc-icon"><i class="ti ti-file-text"></i></div>
       <div class="os-doc-name">${escHtml(doc.title)}</div>
       <div class="os-doc-meta">${doc.updated_at ? new Date(doc.updated_at).toLocaleDateString() : "Just now"}</div>
@@ -566,14 +566,14 @@ function _orgBillingBanner() {
     return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg2)">
       <i class="ti ti-users-group" style="color:var(--teal)"></i>
       <span style="font-size:.85rem"><b>${used}/${seats}</b> seats used${full ? ' · <span style="color:var(--coral,#e8614a)">all seats in use</span>' : ""}</span>
-      ${isOwner ? `<button class="btn" style="margin-left:auto;font-size:.78rem" onclick="orgBilling('monthly')">Manage seats</button>` : ""}
+      ${isOwner ? `<button class="btn" style="margin-left:auto;font-size:.78rem" data-onclick="orgBilling" data-onclick-arg0="monthly">Manage seats</button>` : ""}
     </div>`;
   }
   if (isOwner) {
     return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px dashed var(--border);border-radius:10px">
       <i class="ti ti-building" style="color:var(--teal)"></i>
       <span style="font-size:.85rem;color:var(--muted)">Put your team on a per-seat Org plan.</span>
-      <button class="btn primary" style="margin-left:auto;font-size:.78rem" onclick="orgBilling('monthly')">Set up billing →</button>
+      <button class="btn primary" style="margin-left:auto;font-size:.78rem" data-onclick="orgBilling" data-onclick-arg0="monthly">Set up billing →</button>
     </div>`;
   }
   return "";
@@ -606,6 +606,12 @@ function orgRenderMembers() {
     ).join("");
 }
 
+// CSP migration: document.getElementById(...).remove() is a DOM expression,
+// not a single named global delegate.js could dispatch to.
+window._orgCloseBillModal = function () {
+  document.getElementById("org-bill-modal")?.remove();
+};
+
 async function orgBilling(period, seats) {
   period = period === "yearly" ? "yearly" : "monthly";
   let q;
@@ -634,27 +640,27 @@ async function orgBilling(period, seats) {
     "position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center";
   m.innerHTML = `
     <div style="background:var(--bg);border-radius:14px;padding:22px;width:min(420px,95vw);position:relative">
-      <button onclick="document.getElementById('org-bill-modal').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer">×</button>
+      <button data-onclick="_orgCloseBillModal" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer">×</button>
       <div style="font-weight:800;font-size:1.05rem;margin-bottom:4px">Organisation plan</div>
       <div style="font-size:.78rem;color:var(--muted);margin-bottom:12px">$${q.per_seat_usd || ""}/seat · ${members} member${members !== 1 ? "s" : ""} currently</div>
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
         <span style="font-size:.85rem;font-weight:600">Seats</span>
-        <button class="btn" style="width:36px;font-size:1.1rem" onclick="orgBilling('${period}', ${n - 1})" ${n <= Math.max(members, 1) ? "disabled" : ""}>−</button>
+        <button class="btn" style="width:36px;font-size:1.1rem" data-onclick="orgBilling" data-onclick-args="${esc(JSON.stringify([period, n - 1]))}" ${n <= Math.max(members, 1) ? "disabled" : ""}>−</button>
         <b style="font-size:1.15rem;min-width:26px;text-align:center">${n}</b>
-        <button class="btn" style="width:36px;font-size:1.1rem" onclick="orgBilling('${period}', ${n + 1})" ${n >= maxSeats ? "disabled" : ""}>+</button>
+        <button class="btn" style="width:36px;font-size:1.1rem" data-onclick="orgBilling" data-onclick-args="${esc(JSON.stringify([period, n + 1]))}" ${n >= maxSeats ? "disabled" : ""}>+</button>
         <span style="font-size:.72rem;color:var(--muted)">max ${maxSeats}</span>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:14px">
-        <button class="btn${period === "monthly" ? " primary" : ""}" style="flex:1;font-size:.8rem" onclick="orgBilling('monthly', ${n})">Monthly</button>
-        <button class="btn${period === "yearly" ? " primary" : ""}" style="flex:1;font-size:.8rem" onclick="orgBilling('yearly', ${n})">Yearly · save 20%</button>
+        <button class="btn${period === "monthly" ? " primary" : ""}" style="flex:1;font-size:.8rem" data-onclick="orgBilling" data-onclick-args="${esc(JSON.stringify(["monthly", n]))}">Monthly</button>
+        <button class="btn${period === "yearly" ? " primary" : ""}" style="flex:1;font-size:.8rem" data-onclick="orgBilling" data-onclick-args="${esc(JSON.stringify(["yearly", n]))}">Yearly · save 20%</button>
       </div>
       <div style="padding:14px;border:1px solid var(--border);border-radius:10px;margin-bottom:16px">${priceLine}</div>
       ${
         custom
           ? `<a class="btn primary" style="width:100%;text-align:center;text-decoration:none" href="mailto:sales@sivarr.com?subject=Enterprise%20plan">Contact sales</a>`
           : `<div style="display:flex;flex-direction:column;gap:8px">
-             <button class="btn primary" style="width:100%" onclick="orgBillingSubscribe('${period}', ${n}, 'paystack')">Pay ${esc(q.fx?.display_local || q.display_usd)} for ${n} seat${n !== 1 ? "s" : ""} · Paystack →</button>
-             <button class="btn" style="width:100%" onclick="orgBillingSubscribe('${period}', ${n}, 'flutterwave')">Pay with Flutterwave →</button>
+             <button class="btn primary" style="width:100%" data-onclick="orgBillingSubscribe" data-onclick-args="${esc(JSON.stringify([period, n, "paystack"]))}">Pay ${esc(q.fx?.display_local || q.display_usd)} for ${n} seat${n !== 1 ? "s" : ""} · Paystack →</button>
+             <button class="btn" style="width:100%" data-onclick="orgBillingSubscribe" data-onclick-args="${esc(JSON.stringify([period, n, "flutterwave"]))}">Pay with Flutterwave →</button>
            </div>`
       }
       <div style="font-size:.72rem;color:var(--muted);margin-top:10px">Buy seats ahead of inviting. Each member takes one seat. You can add more anytime.</div>
@@ -794,8 +800,8 @@ function orgRenderGoals() {
         <div class="os-goal-title">${escHtml(g.title)}</div>
         <span class="os-goal-badge" style="background:${sc}22;color:${sc}">${escHtml(g.type || "okr")}</span>
         <span class="os-goal-pct">${pct}%</span>
-        <button class="os-goal-menu" onclick="orgEditGoal('${g.id}')"><i class="ti ti-pencil"></i></button>
-        <button class="os-goal-menu" onclick="orgDeleteGoal('${g.id}')"><i class="ti ti-trash"></i></button>
+        <button class="os-goal-menu" data-onclick="orgEditGoal" data-onclick-arg0="${esc(g.id)}"><i class="ti ti-pencil"></i></button>
+        <button class="os-goal-menu" data-onclick="orgDeleteGoal" data-onclick-arg0="${esc(g.id)}"><i class="ti ti-trash"></i></button>
       </div>
       <div class="os-goal-bar-wrap"><div class="os-goal-bar-fill" style="width:${pct}%"></div></div>
       ${g.description ? `<div class="os-goal-desc">${escHtml(g.description)}</div>` : ""}
@@ -816,11 +822,11 @@ function orgRenderGoals() {
               <div class="os-kr-bar"><div class="os-kr-fill" style="width:${kpct}%"></div></div>
               <span class="os-kr-val">${kr.current_value}/${kr.target_value}${escHtml(kr.unit)}</span>
             </div>
-            <button class="os-goal-menu" onclick="orgUpdateKR('${kr.id}','${kr.current_value}','${kr.target_value}','${escHtml(kr.unit)}')"><i class="ti ti-edit"></i></button>
+            <button class="os-goal-menu" data-onclick="orgUpdateKR" data-onclick-args="${esc(JSON.stringify([kr.id, kr.current_value, kr.target_value, kr.unit]))}"><i class="ti ti-edit"></i></button>
           </div>`;
           })
           .join("")}
-        <button class="os-kr-add" onclick="orgAddKR('${g.id}')"><i class="ti ti-plus"></i> Add key result</button>
+        <button class="os-kr-add" data-onclick="orgAddKR" data-onclick-arg0="${esc(g.id)}"><i class="ti ti-plus"></i> Add key result</button>
       </div>
     </div>`;
   }).join("");
@@ -1098,9 +1104,9 @@ function founderRender() {
           .map(
             (m, i) => `
         <div class="os-task-card" style="display:flex;align-items:center;gap:8px">
-          <input type="checkbox" ${m.done ? "checked" : ""} onchange="founderToggleMilestone(${i})" style="accent-color:var(--teal)">
+          <input type="checkbox" ${m.done ? "checked" : ""} data-onchange="founderToggleMilestone" data-onchange-args="${esc(JSON.stringify([i]))}" style="accent-color:var(--teal)">
           <span style="flex:1;${m.done ? "text-decoration:line-through;color:var(--muted)" : ""}">${escHtml(m.text)}</span>
-          <button class="os-goal-menu" onclick="founderRemoveMilestone(${i})"><i class="ti ti-x"></i></button>
+          <button class="os-goal-menu" data-onclick="founderRemoveMilestone" data-onclick-args="${esc(JSON.stringify([i]))}"><i class="ti ti-x"></i></button>
         </div>`,
           )
           .join("")
@@ -1128,7 +1134,7 @@ function founderRender() {
             <div class="fd-inv-firm">${escHtml(inv.firm || "")}</div>
           </div>
           <span class="fd-inv-badge" style="background:${stages[inv.stage] || "var(--muted)"}22;color:${stages[inv.stage] || "var(--muted)"}">${escHtml(inv.stage || "contacted")}</span>
-          <button class="os-goal-menu" onclick="founderRemoveInvestor(${i})"><i class="ti ti-x"></i></button>
+          <button class="os-goal-menu" data-onclick="founderRemoveInvestor" data-onclick-args="${esc(JSON.stringify([i]))}"><i class="ti ti-x"></i></button>
         </div>`,
           )
           .join("")}</div>`
@@ -1914,9 +1920,9 @@ function _ocRenderSidebar() {
     chList.innerHTML = _OC_CHANNELS
       .map(
         (ch) => `
-      <div class="oc-ch-item${ch.id === _OC_CHANNEL ? " active" : ""}" onclick="ocSwitchChannel('${ch.id}')">
+      <div class="oc-ch-item${ch.id === _OC_CHANNEL ? " active" : ""}" data-onclick="ocSwitchChannel" data-onclick-arg0="${esc(ch.id)}">
         <span class="oc-ch-hash">#</span>
-        <span style="flex:1" title="Double-click to rename" ondblclick="event.stopPropagation();ocRenameChannel('${ch.id}',this)">${esc(ch.name)}</span>
+        <span style="flex:1" title="Double-click to rename" data-ondblclick="ocRenameChannel" data-ondblclick-arg0="${esc(ch.id)}" data-ondblclick-this>${esc(ch.name)}</span>
         ${_OC_UNREAD[ch.id] ? '<div class="oc-ch-unread"></div>' : ""}
       </div>`,
       )
@@ -1932,7 +1938,7 @@ function _ocRenderSidebar() {
       .map((m) => {
         const online = _OC_ONLINE.has(m.sid);
         const dmId = _ocDmId(S.sid, m.sid);
-        return `<div class="oc-dm-item${_OC_CHANNEL === dmId ? " active" : ""}" onclick="ocSwitchChannel('${dmId}')">
+        return `<div class="oc-dm-item${_OC_CHANNEL === dmId ? " active" : ""}" data-onclick="ocSwitchChannel" data-onclick-arg0="${esc(dmId)}">
           <div class="oc-dm-av" style="background:${_ocColour(m.name)}">${(m.name || "?")[0].toUpperCase()}</div>
           <span style="flex:1;font-size:.82rem">${esc(m.name)}</span>
           <div class="oc-presence-dot ${online ? "online" : "offline"}"></div>
@@ -2364,7 +2370,7 @@ function ocEmojiToggle() {
     p.innerHTML = _OC_EMOJIS
       .map(
         (e) =>
-          `<button class="oc-emoji-btn-item" onclick="ocInsertEmoji('${e}')">${e}</button>`,
+          `<button class="oc-emoji-btn-item" data-onclick="ocInsertEmoji" data-onclick-arg0="${esc(e)}">${e}</button>`,
       )
       .join("");
   }
@@ -2468,7 +2474,7 @@ function annRender() {
       <div class="ann-card-head">
         ${a.pinned ? '<span class="ann-pin-badge">Pinned</span>' : ""}
         <div class="ann-card-title">${esc(a.title)}</div>
-        ${_orgIsAdmin() ? `<button class="ann-del-btn" onclick="annDelete('${esc(a.id)}')"><i class="ti ti-trash"></i></button>` : ""}
+        ${_orgIsAdmin() ? `<button class="ann-del-btn" data-onclick="annDelete" data-onclick-arg0="${esc(a.id)}"><i class="ti ti-trash"></i></button>` : ""}
       </div>
       <div class="ann-card-body">${esc(a.body)}</div>
       <div class="ann-card-meta">By ${esc(a.author_name)} · ${_fmtTs(a.created_at)}</div>
@@ -2668,9 +2674,9 @@ function orgSettingsRenderMembers() {
         (_orgSet.role === "owner" ||
           (_orgSet.role === "admin" && role !== "admin" && role !== "manager"));
       const roleCtl = canManage
-        ? `<select onchange="orgSettingsSetRole('${msid}',this.value)" style="padding:3px 6px;font-size:.72rem;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text)">${roles.map((rr) => `<option value="${rr}" ${rr === role ? "selected" : ""}>${rr}</option>`).join("")}</select>`
+        ? `<select data-onchange="orgSettingsSetRoleFromEl" data-onchange-arg0="${esc(msid)}" data-onchange-this style="padding:3px 6px;font-size:.72rem;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text)">${roles.map((rr) => `<option value="${rr}" ${rr === role ? "selected" : ""}>${rr}</option>`).join("")}</select>`
         : `<span style="font-size:.7rem;color:var(--muted);text-transform:capitalize">${esc(role)}</span>`;
-      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.name || msid.slice(0, 8))}${isOwnerRow ? " 👑" : ""}</div></div>${roleCtl}${canRemove ? `<button onclick="orgSettingsRemove('${msid}','${esc((m.name || "").replace(/'/g, ""))}')" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:.9rem" title="Remove member">✕</button>` : ""}</div>`;
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.name || msid.slice(0, 8))}${isOwnerRow ? " 👑" : ""}</div></div>${roleCtl}${canRemove ? `<button data-onclick="orgSettingsRemove" data-onclick-args="${esc(JSON.stringify([msid, m.name || ""]))}" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:.9rem" title="Remove member">✕</button>` : ""}</div>`;
     })
     .join("");
 }
@@ -2685,6 +2691,12 @@ async function orgSettingsSaveProfile() {
     toast((e && e.message) || "Could not update");
   }
 }
+
+// CSP migration: delegate.js has no this.value-read grammar; read it here
+// instead of adding one (data-onchange-this passes the <select> itself last).
+window.orgSettingsSetRoleFromEl = function (sid, el) {
+  orgSettingsSetRole(sid, el.value);
+};
 
 async function orgSettingsSetRole(sid, role) {
   try {

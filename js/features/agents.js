@@ -189,6 +189,23 @@ function agUpdateTitle(view) {
   if (t) t.textContent = titles[view] || "Sivarr Agents";
 }
 
+// CSP migration: each pairs agNav (state/title only, doesn't render) with
+// the matching render call -- delegate.js dispatches to one named function,
+// so each distinct pairing used inline needs its own thin wrapper, same
+// shape as the pre-existing agNavDashboardOrApply() just below.
+window._agNavDirectory = function () {
+  agNav("directory");
+  agRenderDirectory();
+};
+window._agNavApply = function () {
+  agNav("apply");
+  agRenderApply();
+};
+window._agNavMarketplace = function () {
+  agNav("marketplace", false);
+  agRenderMarketplace();
+};
+
 function agNavDashboardOrApply() {
   if (_ag.myAgent) {
     agNav("dashboard");
@@ -257,8 +274,8 @@ async function agRenderMarketplace() {
         <i class="ti ti-search"></i>
         <input id="ag-search-input" placeholder="Search templates…" autocomplete="off"
           value="${esc(_ag.searchQuery || "")}"
-          oninput="agSearchTemplates(this.value)">
-        ${_ag.searchQuery ? `<button class="ag-search-clear" onclick="agSearchTemplates('')">✕</button>` : ""}
+          data-oninput="_agSearchTemplatesFromEl" data-oninput-this>
+        ${_ag.searchQuery ? `<button class="ag-search-clear" data-onclick="agSearchTemplates" data-onclick-arg0="">✕</button>` : ""}
       </div>
 
       <!-- Category tabs + currency toggle row -->
@@ -276,16 +293,16 @@ async function agRenderMarketplace() {
             .map(
               (c) => `
             <button class="ag-cat${_ag.category === c ? " active" : ""}"
-              onclick="agSetCategory('${c}')">${AG_CAT_LABELS[c] || c}</button>
+              data-onclick="agSetCategory" data-onclick-arg0="${c}">${AG_CAT_LABELS[c] || c}</button>
           `,
             )
             .join("")}
         </div>
         <div class="ag-currency-toggle">
           <button class="ag-currency-opt usd${_ag.currency === "usd" ? " active" : ""}"
-            data-cur="usd" onclick="agSetCurrency('usd')">$ USD</button>
+            data-cur="usd" data-onclick="agSetCurrency" data-onclick-arg0="usd">$ USD</button>
           <button class="ag-currency-opt ngn${_ag.currency === "ngn" ? " active" : ""}"
-            data-cur="ngn" onclick="agSetCurrency('ngn')">₦ NGN</button>
+            data-cur="ngn" data-onclick="agSetCurrency" data-onclick-arg0="ngn">₦ NGN</button>
         </div>
       </div>
 
@@ -301,7 +318,7 @@ async function agRenderMarketplace() {
           .map(
             (f) => `
           <button class="ag-chip${_ag.filters.includes(f.id) ? " active" : ""}"
-            onclick="agToggleFilter('${f.id}')">${f.label}</button>
+            data-onclick="agToggleFilter" data-onclick-arg0="${f.id}">${f.label}</button>
         `,
           )
           .join("")}
@@ -316,7 +333,7 @@ async function agRenderMarketplace() {
           ? `
       <div class="ag-section-hd">
         <div class="ag-section-title">🔥 Trending this week</div>
-        <span class="ag-section-link" onclick="agNav('directory');agRenderDirectory()">All agents →</span>
+        <span class="ag-section-link" data-onclick="_agNavDirectory">All agents →</span>
       </div>
       <div class="ag-grid" id="ag-grid">
         ${filtered.map((t) => agTemplateCardHTML(t)).join("")}
@@ -326,7 +343,7 @@ async function agRenderMarketplace() {
         <div class="ag-launch-icon">🚀</div>
         <div class="ag-launch-title">Marketplace is warming up</div>
         <div class="ag-launch-desc">Be among the first creators to publish templates on Sivarr and get in front of early users.</div>
-        <button class="ag-tb-btn ag-tb-btn--primary" style="margin-top:8px" onclick="agNav('apply');agRenderApply()">
+        <button class="ag-tb-btn ag-tb-btn--primary" style="margin-top:8px" data-onclick="_agNavApply">
           <i class="ti ti-rocket"></i> Become a Creator
         </button>
       </div>`
@@ -335,7 +352,7 @@ async function agRenderMarketplace() {
       <!-- Top agents section -->
       <div class="ag-section-hd" style="margin-top:${filtered.length ? 8 : 32}px">
         <div class="ag-section-title">🌟 Top agents</div>
-        <span class="ag-section-link" onclick="agNav('directory');agRenderDirectory()">See all →</span>
+        <span class="ag-section-link" data-onclick="_agNavDirectory">See all →</span>
       </div>
       <div id="ag-agents-preview">
         <div class="ag-loading" style="height:100px"><div class="ag-spinner"></div></div>
@@ -351,7 +368,7 @@ async function agRenderMarketplace() {
     if (!_ag.agents.length) {
       cont.innerHTML = `<div class="ag-empty" style="padding:24px 20px">
         <div class="ag-empty-icon">👋</div>
-        <p>No agents yet, <span style="color:var(--accent);cursor:pointer;font-weight:600" onclick="agNav('apply');agRenderApply()">be the first to join</span>.</p>
+        <p>No agents yet, <span style="color:var(--accent);cursor:pointer;font-weight:600" data-onclick="_agNavApply">be the first to join</span>.</p>
       </div>`;
       return;
     }
@@ -371,7 +388,7 @@ async function agFeaturedBannerHTML() {
     const color = t.thumbnail_color || AG_CAT_COLORS[t.category] || "#4f6ef7";
     const icon = AG_CAT_ICONS[t.category] || "ti-template";
     return `
-      <div class="ag-featured" style="margin-bottom:24px" onclick="agOpenTemplate('${t.id}')">
+      <div class="ag-featured" style="margin-bottom:24px" data-onclick="agOpenTemplate" data-onclick-arg0="${esc(t.id)}">
         <div class="ag-feat-thumb" style="background:${color}20">
           <i class="ti ${icon}" style="color:${color};font-size:2.5rem"></i>
         </div>
@@ -385,7 +402,7 @@ async function agFeaturedBannerHTML() {
             <span>★ ${(t.avg_rating || 0).toFixed(1)}</span>
           </div>
           <div class="ag-feat-actions">
-            <button class="ag-get-btn" onclick="event.stopPropagation();agOpenTemplate('${t.id}')">
+            <button class="ag-get-btn" data-onclick="agOpenTemplate" data-onclick-arg0="${esc(t.id)}">
               Preview template →
             </button>
           </div>
@@ -404,7 +421,7 @@ function agTemplateCardHTML(t) {
   const price = parseFloat(t.price || 0);
   const priceNgn = agNgnPrice(t);
   return `
-    <div class="ag-card" onclick="agOpenTemplate('${t.id}')">
+    <div class="ag-card" data-onclick="agOpenTemplate" data-onclick-arg0="${esc(t.id)}">
       <div class="ag-card-thumb" style="background:${color}20">
         <i class="ti ${icon}" style="color:${color};font-size:1.8rem"></i>
       </div>
@@ -423,7 +440,7 @@ function agTemplateCardHTML(t) {
             ${!isFree && _ag.currency === "ngn" ? `<div class="ag-price-ngn">≈ $${price.toFixed(2)}</div>` : ""}
           </div>
           <button class="ag-get-btn"
-            onclick="event.stopPropagation();agHandleGet('${t.id}',${price})">
+            data-onclick="agHandleGet" data-onclick-args="${esc(JSON.stringify([t.id, price]))}">
             Get
           </button>
         </div>
@@ -433,7 +450,7 @@ function agTemplateCardHTML(t) {
 
 function agAgentRowHTML(a) {
   return `
-    <div class="ag-agent-row" onclick="agOpenAgentProfile('${a.id}')">
+    <div class="ag-agent-row" data-onclick="agOpenAgentProfile" data-onclick-arg0="${esc(a.id)}">
       <div class="ag-agent-av">${(a.display_name || "?")[0].toUpperCase()}</div>
       <div class="ag-agent-info">
         <div class="ag-agent-name">
@@ -506,6 +523,11 @@ function agApplyFilters(templates, category, filters) {
     );
   return list;
 }
+
+// CSP migration: delegate.js has no this.value-read grammar; read it here.
+window._agSearchTemplatesFromEl = function (el) {
+  agSearchTemplates(el.value);
+};
 
 function agSearchTemplates(q) {
   _ag.searchQuery = q.trim();
@@ -607,7 +629,7 @@ async function agOpenTemplate(id) {
             <div class="ag-detail-name">${esc(t.name)}</div>
             <div class="ag-detail-agent-row">
               <div class="ag-detail-agent-av">${(t.agent_name || "?")[0].toUpperCase()}</div>
-              <span onclick="agOpenAgentProfile('${t.agent_id}')" style="cursor:pointer;color:var(--accent)">
+              <span data-onclick="agOpenAgentProfile" data-onclick-arg0="${esc(t.agent_id)}" style="cursor:pointer;color:var(--accent)">
                 ${esc(t.agent_name || "")}
               </span>
               ${t.agent_verified ? '<i class="ti ti-rosette-discount-check ag-verified-badge"></i>' : ""}
@@ -625,7 +647,7 @@ async function agOpenTemplate(id) {
                 ? `
               <div class="ag-pay-methods">
                 <div class="ag-pay-method stripe${_ag.currency === "usd" ? " active" : ""}"
-                  onclick="agSelectPayment('${id}',${price},'usd')">
+                  data-onclick="agSelectPayment" data-onclick-args="${esc(JSON.stringify([id, price, "usd"]))}">
                   <i class="ti ti-credit-card"></i>
                   <div>
                     <div style="font-weight:700">$${price.toFixed(2)} <span style="font-size:.7rem;font-weight:400">USD</span></div>
@@ -636,7 +658,7 @@ async function agOpenTemplate(id) {
                   _ag.paystackAvailable
                     ? `
                 <div class="ag-pay-method paystack${_ag.currency === "ngn" ? " active" : ""}"
-                  onclick="agSelectPayment('${id}',${price},'ngn')">
+                  data-onclick="agSelectPayment" data-onclick-args="${esc(JSON.stringify([id, price, "ngn"]))}">
                   <i class="ti ti-currency-naira"></i>
                   <div>
                     <div style="font-weight:700">₦${priceNgn.toLocaleString()} <span style="font-size:.7rem;font-weight:400">NGN</span></div>
@@ -649,7 +671,7 @@ async function agOpenTemplate(id) {
                 : ""
             }
             <button class="ag-detail-cta${owned ? " owned" : ""}"
-              onclick="${owned ? "" : `agHandleGet('${id}',${price})`}">
+              ${owned ? "" : `data-onclick="agHandleGet" data-onclick-args="${esc(JSON.stringify([id, price]))}"`}>
               ${
                 owned
                   ? "✓ Installed"
@@ -660,10 +682,10 @@ async function agOpenTemplate(id) {
                       : `Buy for $${price.toFixed(2)}`
               }
             </button>
-            <button class="ag-detail-secondary" onclick="agOpenAgentProfile('${t.agent_id}')">
+            <button class="ag-detail-secondary" data-onclick="agOpenAgentProfile" data-onclick-arg0="${esc(t.agent_id)}">
               View agent profile
             </button>
-            <button class="ag-detail-report" onclick="agReportTemplate('${id}')" title="Report this template for review">
+            <button class="ag-detail-report" data-onclick="agReportTemplate" data-onclick-arg0="${esc(id)}" title="Report this template for review">
               <i class="ti ti-flag"></i> Report
             </button>
           </div>
@@ -681,7 +703,7 @@ async function agOpenTemplate(id) {
                 owned
                   ? `
                 <button style="margin-top:10px;width:100%;padding:7px;border:1px solid var(--border);border-radius:8px;background:none;color:var(--accent);font-size:.78rem;font-weight:700;cursor:pointer"
-                  onclick="agLeaveReview('${id}')">
+                  data-onclick="agLeaveReview" data-onclick-arg0="${esc(id)}">
                   + Leave a review
                 </button>`
                   : ""
@@ -1012,7 +1034,7 @@ async function agOpenAgentProfile(agentId) {
             </div>
           </div>
           <button class="ag-follow-btn${isFollowing ? " following" : ""}" id="ag-follow-btn-${agentId}"
-            onclick="agToggleFollow('${agentId}')">
+            data-onclick="agToggleFollow" data-onclick-arg0="${esc(agentId)}">
             ${isFollowing ? "Following" : "+ Follow"}
           </button>
         </div>
@@ -1067,7 +1089,7 @@ async function agRenderDirectory() {
           .map(
             (s) => `
           <button class="ag-dir-sort-btn${s.id === "downloads" ? " active" : ""}"
-            onclick="agReSortAgents('${s.id}',this)">${s.label}</button>
+            data-onclick="agReSortAgents" data-onclick-arg0="${s.id}" data-onclick-this>${s.label}</button>
         `,
           )
           .join("")}
@@ -1080,7 +1102,7 @@ async function agRenderDirectory() {
               <div class="ag-launch-icon">🌐</div>
               <div class="ag-launch-title">No agents yet</div>
               <div class="ag-launch-desc">Sivarr Agents is in early access. Apply now and get prime visibility as one of the founding creators.</div>
-              <button class="ag-tb-btn ag-tb-btn--primary" style="margin-top:8px" onclick="agNav('apply');agRenderApply()">
+              <button class="ag-tb-btn ag-tb-btn--primary" style="margin-top:8px" data-onclick="_agNavApply">
                 <i class="ti ti-user-plus"></i> Apply to become an agent
               </button>
             </div>`
@@ -1147,14 +1169,14 @@ function agRenderApply(step) {
               .map((s) => {
                 const id = s.toLowerCase().replace(/ /g, "_");
                 const sel = (_agApply.data.speciality || []).includes(s);
-                return `<button class="ag-spec-chip${sel ? " sel" : ""}" onclick="agToggleSpec(this,'${s}')">${s}</button>`;
+                return `<button class="ag-spec-chip${sel ? " sel" : ""}" data-onclick="agToggleSpec" data-onclick-arg0="${s}" data-onclick-this>${s}</button>`;
               })
               .join("")}
           </div>
         </div>
       </div>
       <div class="ag-apply-nav">
-        <button class="ag-btn-next" onclick="agApplyNext(1)">Continue →</button>
+        <button class="ag-btn-next" data-onclick="agApplyNext" data-onclick-args="[1]">Continue →</button>
       </div>`;
   } else if (step === 2) {
     bodyHTML = `
@@ -1201,8 +1223,8 @@ function agRenderApply(step) {
         </div>
       </div>
       <div class="ag-apply-nav">
-        <button class="ag-btn-back" onclick="agRenderApply(1)">← Back</button>
-        <button class="ag-btn-next" onclick="agApplyNext(2)">Continue →</button>
+        <button class="ag-btn-back" data-onclick="agRenderApply" data-onclick-args="[1]">← Back</button>
+        <button class="ag-btn-next" data-onclick="agApplyNext" data-onclick-args="[2]">Continue →</button>
       </div>`;
   } else if (step === 3) {
     const d = _agApply.data;
@@ -1226,8 +1248,8 @@ function agRenderApply(step) {
         </div>
       </div>
       <div class="ag-apply-nav">
-        <button class="ag-btn-back" onclick="agRenderApply(2)">← Back</button>
-        <button class="ag-btn-next" id="ag-submit-btn" onclick="agSubmitApplication()">Submit application →</button>
+        <button class="ag-btn-back" data-onclick="agRenderApply" data-onclick-args="[2]">← Back</button>
+        <button class="ag-btn-next" id="ag-submit-btn" data-onclick="agSubmitApplication">Submit application →</button>
       </div>`;
   }
 
@@ -1238,7 +1260,11 @@ function agRenderApply(step) {
     </div>`;
 }
 
-function agToggleSpec(btn, spec) {
+// CSP migration: param order flipped to (spec, btn) -- delegate.js's
+// data-onclick-this always appends the element LAST (js/core/delegate.js's
+// collectArgs), never first, so the old (element, arg) order isn't
+// expressible without a wrapper. Only call site is the spec chip below.
+function agToggleSpec(spec, btn) {
   btn.classList.toggle("sel");
   const specs = _agApply.data.speciality || [];
   const idx = specs.indexOf(spec);
@@ -1292,7 +1318,7 @@ async function agSubmitApplication() {
           </p>
           ${d.onboarding_url ? `<a href="${d.onboarding_url}" target="_blank" class="ag-btn-next" style="display:inline-block;text-decoration:none;padding:10px 24px">Complete Stripe setup →</a>` : ""}
           <br><br>
-          <button class="ag-btn-back" onclick="agNav('marketplace',false);agRenderMarketplace()">Back to marketplace</button>
+          <button class="ag-btn-back" data-onclick="_agNavMarketplace">Back to marketplace</button>
         </div>`;
     } else {
       if (btn) {
@@ -1331,11 +1357,11 @@ async function agRenderDashboard() {
   v.innerHTML = `
     <div class="ag-dash-wrap">
       <div class="ag-dash-tabs">
-        <button class="ag-dash-tab active" id="ag-dt-overview"  onclick="agDashTab('overview',this)">Overview</button>
-        <button class="ag-dash-tab"        id="ag-dt-templates" onclick="agDashTab('templates',this)">My Templates</button>
-        <button class="ag-dash-tab"        id="ag-dt-earnings"  onclick="agDashTab('earnings',this)">Earnings</button>
-        <button class="ag-dash-tab"        id="ag-dt-reviews"   onclick="agDashTab('reviews',this)">Reviews</button>
-        <button class="ag-dash-tab"        id="ag-dt-settings"  onclick="agDashTab('settings',this)">Settings</button>
+        <button class="ag-dash-tab active" id="ag-dt-overview"  data-onclick="agDashTab" data-onclick-arg0="overview" data-onclick-this>Overview</button>
+        <button class="ag-dash-tab"        id="ag-dt-templates" data-onclick="agDashTab" data-onclick-arg0="templates" data-onclick-this>My Templates</button>
+        <button class="ag-dash-tab"        id="ag-dt-earnings"  data-onclick="agDashTab" data-onclick-arg0="earnings" data-onclick-this>Earnings</button>
+        <button class="ag-dash-tab"        id="ag-dt-reviews"   data-onclick="agDashTab" data-onclick-arg0="reviews" data-onclick-this>Reviews</button>
+        <button class="ag-dash-tab"        id="ag-dt-settings"  data-onclick="agDashTab" data-onclick-arg0="settings" data-onclick-this>Settings</button>
       </div>
       <div id="ag-dash-content">
         <div class="ag-loading"><div class="ag-spinner"></div></div>
@@ -1343,6 +1369,14 @@ async function agRenderDashboard() {
     </div>`;
   await agDashLoadOverview();
 }
+
+// CSP migration: this one call site passes a DIFFERENT element than the
+// one clicked (jumps straight to the Templates tab from elsewhere in the
+// dashboard) -- data-onclick-this always passes the clicked element itself,
+// so that specific call needs a small wrapper instead.
+window._agDashTabTemplates = function () {
+  agDashTab("templates", document.getElementById("ag-dt-templates"));
+};
 
 async function agDashTab(tab, btn) {
   _agDash.tab = tab;
@@ -1448,7 +1482,7 @@ async function agDashLoadOverview() {
     <div>
       <div class="ag-section-hd">
         <div class="ag-section-title">Recent templates</div>
-        <button class="ag-section-link" onclick="agDashTab('templates',document.getElementById('ag-dt-templates'))">See all</button>
+        <button class="ag-section-link" data-onclick="_agDashTabTemplates">See all</button>
       </div>
       ${feed}
     </div>`;
@@ -1464,7 +1498,7 @@ async function agDashLoadTemplates() {
   $("ag-dash-content").innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div class="ag-section-title">My templates (${templates.length})</div>
-      <button class="ag-tb-btn ag-tb-btn--primary" onclick="agOpenBuilder()">
+      <button class="ag-tb-btn ag-tb-btn--primary" data-onclick="agOpenBuilder">
         <i class="ti ti-plus"></i> New template
       </button>
     </div>
@@ -1486,9 +1520,9 @@ async function agDashLoadTemplates() {
             <td>${parseFloat(t.price || 0) === 0 ? "Free" : "$" + parseFloat(t.price).toFixed(2)}</td>
             <td><span class="ag-status-badge ${t.status === "published" ? "live" : t.status}">${t.status}</span></td>
             <td style="display:flex;gap:6px">
-              <button class="ag-tb-btn" style="font-size:.7rem;padding:3px 9px" onclick="agOpenBuilder('${t.id}')">Edit</button>
-              ${t.status === "draft" ? `<button class="ag-tb-btn ag-tb-btn--primary" style="font-size:.7rem;padding:3px 9px" onclick="agPublishTemplate('${t.id}')">Publish</button>` : ""}
-              <button class="ag-tb-btn" style="font-size:.7rem;padding:3px 9px;color:var(--red)" onclick="agDeleteTemplate('${t.id}')">Delete</button>
+              <button class="ag-tb-btn" style="font-size:.7rem;padding:3px 9px" data-onclick="agOpenBuilder" data-onclick-arg0="${esc(t.id)}">Edit</button>
+              ${t.status === "draft" ? `<button class="ag-tb-btn ag-tb-btn--primary" style="font-size:.7rem;padding:3px 9px" data-onclick="agPublishTemplate" data-onclick-arg0="${esc(t.id)}">Publish</button>` : ""}
+              <button class="ag-tb-btn" style="font-size:.7rem;padding:3px 9px;color:var(--red)" data-onclick="agDeleteTemplate" data-onclick-arg0="${esc(t.id)}">Delete</button>
             </td>
           </tr>`,
           )
@@ -1499,7 +1533,7 @@ async function agDashLoadTemplates() {
     <div class="ag-empty">
       <div class="ag-empty-icon">📦</div>
       <p>No templates yet.</p>
-      <button class="ag-btn-next" style="margin-top:12px" onclick="agOpenBuilder()">Create your first template</button>
+      <button class="ag-btn-next" style="margin-top:12px" data-onclick="agOpenBuilder">Create your first template</button>
     </div>`
     }`;
 }
@@ -1651,12 +1685,12 @@ function agDashRenderSettings() {
           <input id="ag-set-name" value="${esc(a.display_name || "")}"></div>
         <div class="ag-field"><label>Bio</label>
           <textarea id="ag-set-bio" rows="2">${esc(a.bio || "")}</textarea></div>
-        <button class="ag-btn-next" onclick="agSaveSettings()">Save changes</button>
+        <button class="ag-btn-next" data-onclick="agSaveSettings">Save changes</button>
       </div>
       <div class="ag-apply-card" style="border-color:#ef444430;background:#ef444408">
         <div style="font-size:.84rem;font-weight:700;color:var(--red);margin-bottom:8px">Danger zone</div>
         <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px">Deleting your agent account will remove all templates and forfeit any unpaid earnings.</p>
-        <button onclick="agDeleteAccount()" style="background:none;border:1px solid #ef4444;border-radius:8px;padding:7px 16px;color:var(--red);font-size:.78rem;font-weight:700;cursor:pointer">Delete agent account</button>
+        <button data-onclick="agDeleteAccount" style="background:none;border:1px solid #ef4444;border-radius:8px;padding:7px 16px;color:var(--red);font-size:.78rem;font-weight:700;cursor:pointer">Delete agent account</button>
       </div>
     </div>`;
 }
@@ -1824,7 +1858,7 @@ function agRenderBuilder() {
             ${AG_COLORS.map(
               (c) => `
               <div class="ag-color-swatch${d.thumbnail_color === c ? " sel" : ""}"
-                style="background:${c}" onclick="agBuilderSetColor('${c}',this)"></div>`,
+                style="background:${c}" data-onclick="agBuilderSetColor" data-onclick-arg0="${c}" data-onclick-this></div>`,
             ).join("")}
           </div>
         </div>
@@ -1841,8 +1875,8 @@ function agRenderBuilder() {
             const count = items.length;
             return `
               <div class="ag-content-section${isOpen ? " open" : ""}" id="ab-ct-${c.id}">
-                <div class="ag-content-header" onclick="agBuilderToggleSection('${c.id}')">
-                  <input type="checkbox"${isOpen ? " checked" : ""} onclick="event.stopPropagation();agBuilderToggleSection('${c.id}')">
+                <div class="ag-content-header" data-onclick="agBuilderToggleSection" data-onclick-arg0="${c.id}">
+                  <input type="checkbox"${isOpen ? " checked" : ""} data-onclick="agBuilderToggleSection" data-onclick-arg0="${c.id}">
                   <span class="ag-content-icon">${c.icon}</span>
                   <div class="ag-content-info">
                     <div class="ag-content-name">${c.name}</div>
@@ -1859,7 +1893,7 @@ function agRenderBuilder() {
                   <div class="ag-items-list" id="ab-items-${c.id}">
                     ${items.map((item, i) => agBuilderItemRowHTML(c.id, i, item)).join("")}
                   </div>
-                  <button class="ag-add-item-btn" onclick="agBuilderAddItem('${c.id}')">
+                  <button class="ag-add-item-btn" data-onclick="agBuilderAddItem" data-onclick-arg0="${c.id}">
                     <i class="ti ti-plus"></i> Add item
                   </button>
                 </div>`
@@ -1874,13 +1908,13 @@ function agRenderBuilder() {
       <div class="ag-apply-card">
         <div class="ag-apply-title">Step 3: Pricing</div>
         <div class="ag-pricing-toggle">
-          <button class="ag-pricing-opt${d.free ? " active" : ""}" onclick="agBuilderSetPricing(true)">🆓 Free</button>
-          <button class="ag-pricing-opt${!d.free ? " active" : ""}" onclick="agBuilderSetPricing(false)">💰 Paid</button>
+          <button class="ag-pricing-opt${d.free ? " active" : ""}" data-onclick="agBuilderSetPricing" data-onclick-args="[true]">🆓 Free</button>
+          <button class="ag-pricing-opt${!d.free ? " active" : ""}" data-onclick="agBuilderSetPricing" data-onclick-args="[false]">💰 Paid</button>
         </div>
         <div id="ab-price-wrap" style="${d.free ? "display:none" : ""}">
           <div class="ag-field"><label>Price (USD)</label>
             <input id="ab-price" type="number" min="1" max="999" step="0.01" placeholder="4.99"
-              value="${d.price > 0 ? d.price : ""}" oninput="agBuilderUpdateEarnings()">
+              value="${d.price > 0 ? d.price : ""}" data-oninput="agBuilderUpdateEarnings">
           </div>
           ${
             _ag.paystackAvailable
@@ -1888,7 +1922,7 @@ function agRenderBuilder() {
           <div class="ag-field" style="margin-top:8px">
             <label>Price (NGN) <span style="font-size:.7rem;font-weight:400;color:var(--muted)">(leave blank to auto-calculate ≈ USD × ${_ag.nairaRate})</span></label>
             <input id="ab-price-ngn" type="number" min="100" step="50" placeholder="Auto"
-              value="${d.price_ngn || ""}" oninput="agBuilderUpdateNgn()">
+              value="${d.price_ngn || ""}" data-oninput="agBuilderUpdateNgn">
           </div>`
               : ""
           }
@@ -1921,8 +1955,8 @@ function agRenderBuilder() {
         </div>
       </div>
       <div style="display:flex;gap:10px">
-        <button class="ag-btn-back" style="flex:1" onclick="agSaveTemplate('draft')">Save as draft</button>
-        <button class="ag-btn-next" style="flex:1" onclick="agSaveTemplate('published')">Publish template 🚀</button>
+        <button class="ag-btn-back" style="flex:1" data-onclick="agSaveTemplate" data-onclick-arg0="draft">Save as draft</button>
+        <button class="ag-btn-next" style="flex:1" data-onclick="agSaveTemplate" data-onclick-arg0="published">Publish template 🚀</button>
       </div>`;
   }
 
@@ -1934,8 +1968,8 @@ function agRenderBuilder() {
         step < 4
           ? `
       <div class="ag-apply-nav">
-        ${step > 1 ? `<button class="ag-btn-back" onclick="agBuilderStep(${step - 1})">← Back</button>` : "<span></span>"}
-        <button class="ag-btn-next" onclick="agBuilderStep(${step + 1})">Continue →</button>
+        ${step > 1 ? `<button class="ag-btn-back" data-onclick="agBuilderStep" data-onclick-args="[${step - 1}]">← Back</button>` : "<span></span>"}
+        <button class="ag-btn-next" data-onclick="agBuilderStep" data-onclick-args="[${step + 1}]">Continue →</button>
       </div>`
           : ""
       }
@@ -2003,7 +2037,7 @@ function agBuilderToggleSection(id) {
       <div class="ag-items-list" id="ab-items-${id}">
         ${(d.contents[id] || []).map((item, i) => agBuilderItemRowHTML(id, i, item)).join("")}
       </div>
-      <button class="ag-add-item-btn" onclick="agBuilderAddItem('${id}')">
+      <button class="ag-add-item-btn" data-onclick="agBuilderAddItem" data-onclick-arg0="${id}">
         <i class="ti ti-plus"></i> Add item
       </button>`;
     section.appendChild(editorEl);
@@ -2024,8 +2058,7 @@ function agBuilderDefaultItem(typeId) {
 }
 
 function agBuilderItemRowHTML(typeId, idx, item) {
-  const del = `agBuilderRemoveItem('${typeId}',${idx})`;
-  const delBtn = `<button class="ag-item-del" onclick="${del}"><i class="ti ti-x"></i></button>`;
+  const delBtn = `<button class="ag-item-del" data-onclick="agBuilderRemoveItem" data-onclick-args="${esc(JSON.stringify([typeId, idx]))}"><i class="ti ti-x"></i></button>`;
   if (typeId === "studyDeck") {
     return `<div class="ag-item-row" data-idx="${idx}">
       <div style="flex:1;display:flex;flex-direction:column;gap:4px">

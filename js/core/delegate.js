@@ -105,9 +105,13 @@
   }
 
   // blur/focus do not bubble, so those two listen in the capture phase.
+  // mousedown: needed for the rare case a handler must run BEFORE a click
+  // would (e.g. preventDefault()-ing a contenteditable's focus loss before
+  // it happens) -- click cannot substitute for this, it fires too late.
   var TYPES = [
     ["click", false], ["change", false], ["input", false],
     ["keydown", false], ["keyup", false], ["submit", false],
+    ["mousedown", false], ["dblclick", false],
     ["blur", true], ["focus", true],
   ];
 

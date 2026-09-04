@@ -25,7 +25,7 @@ standard below is additional, and it is not optional.
 | 16 | Make search coverage uniform | **Done** — verified 2026-08-25 |
 | 17 | Extend the import UI | **Done** — verified 2026-08-25 |
 | 18 | Small cleanups left behind | **Done** — verified 2026-08-25 |
-| 19 | CSP: remove `unsafe-inline` | **In progress** — 492 migrated, 198 inline left in `templates/*.html`, **+388 more in `js/*.js` not previously tracked here** (2026-09-03 audit — see "A second, untracked surface" below) |
+| 19 | CSP: remove `unsafe-inline` | **In progress** — 492 migrated + **all 388 JS-generated handlers now done too** (2026-09-04, see "this second wave is done" below); 198 left in `templates/*.html`, plus 10 inline `<script>` blocks, still block dropping `unsafe-inline` |
 | 20 | User-facing two-factor auth | **Done** — verified 2026-08-25 |
 | 21 | Make the two chat tests hermetic | **Done** — verified 2026-08-25 |
 
@@ -492,6 +492,84 @@ data-onclick-arg0="..."` instead of `onclick="fn('...')"` in the template
 literal itself, then the existing delegation wiring picks it up unchanged).
 Flagging the gap here rather than guessing at scope or starting the rewrite.
 
+#### Update 2026-09-04 — this second wave is done
+
+All 388 sites across all 8 files (table above) are migrated. `grep -rhoP
+'(?<![-\w])on(click|change|input|keydown|keyup|blur|focus|submit|mousedown|dblclick)="'
+js/*.js js/features/*.js | wc -l` now returns **0** real hits (a few residual
+grep matches are delegate.js's own docstring examples and two explanatory
+code comments quoting the pattern — not live code; see below).
+
+What it took, beyond mechanical attribute rewrites:
+- **2 small `delegate.js` grammar additions**: `mousedown` (one real need —
+  a slash-command menu in the docs editor uses `mousedown` + `preventDefault()`
+  instead of `click` specifically because `click` fires too late to stop a
+  contenteditable losing its text selection first) and `dblclick` (one real
+  need — org chat's rename-channel-on-double-click). Both are pure additions
+  to the `TYPES` array; the dispatch mechanism itself needed no changes.
+- **~35 small named wrapper functions** added across the 8 files for cases
+  `delegate.js` deliberately doesn't support directly: multi-statement
+  handlers (needs a real named function, not string concatenation — this is
+  the same rule the template-side wave already established), `this.value`/
+  `this.checked` reads (delegate.js has no property-read grammar), DOM
+  expressions as an argument (`this.closest(...).querySelector(...)`), and
+  dotted names (`siModal._done(...)` — `window[fnName]` can't resolve a
+  nested property lookup even if the outer object were exposed on `window`,
+  which it wasn't).
+- **1 real architectural fix**, not a wrapper: `js/app.js`'s integrations
+  grid used to serialize each card's action closure to source text and
+  `eval` it inline (`onclick="(${fn.toString()})()"`) — the one genuinely
+  inexpressible pattern in the whole 388, since `delegate.js` deliberately
+  only dispatches to real named globals (see its own header). Fixed by
+  dispatching on the integration's stable `id` through a small
+  `intAction(id)` lookup instead, populated fresh on every
+  `integrationsRender()` call.
+- **3 function signature reorders** (`docDelete`, `agToggleSpec`,
+  `chatReact`) — each had exactly one call site, all now `(event, ...)` or
+  `(...args, element)` to match `delegate.js`'s fixed `[event?] ...args
+  [element?]` order (`data-*-event` always first, `data-*-this` always
+  last), rather than adding wrapper indirection for a trivial reorder.
+
+**Found and fixed along the way, unrelated to the migration itself but
+turned up by reading every one of these 388 sites closely:**
+- 4 buttons that were **already silently broken in production**, all the
+  same root cause — interpolating `JSON.stringify(x)` directly into a
+  double-quoted `onclick="..."` attribute, where `JSON.stringify`'s own `"`
+  characters terminate the attribute early: the chat suggestion pills
+  (`quickPrompt`), the AI-result "Copy text" button (`_aiCopyResult`), and
+  one "help me improve at weak topic" chat-prefill button. A 4th
+  (`shareResult`) wasn't a quoting break but an unescaped-user-text
+  attribute-breakout risk (`S.topics[0]` is user-typed). Moving these to
+  `data-*-args` fixes the whole class, since the value crosses as data and
+  is never re-parsed as JS or HTML.
+- 2 more `document.querySelector('[onclick="fnName()"]')` self-lookups
+  (`academic.js`'s 3 AI-generate buttons, `app.js`'s `stSaveProfile`) that
+  had already gone stale when *their own* buttons were migrated to
+  `data-onclick=` in an earlier commit — the exact same "second surface"
+  problem this doc describes, just self-inflicted on a single-file scale.
+  Grepped the whole codebase afterward for the same pattern; none left.
+- `org.js`'s member-removal confirm dialog was silently stripping
+  apostrophes from names (`.replace(/'/g, "")`) as a workaround for the old
+  inline-attribute escaping problem — no longer needed once the value
+  crosses as `data-*-args` instead of literal JS, so real names now display
+  correctly.
+- Several `onmouseover`/`onmouseout` pairs that only ever toggled a
+  `this.style.X` property between two fixed values were replaced with a CSS
+  class + `:hover` rule instead of a wrapper function — simpler, and
+  `delegate.js` doesn't cover `mouseover`/`mouseout` at all.
+
+Verification per file: a Node harness (no local Postgres/browser needed)
+that loads the real source, renders it against fabricated data or calls the
+real functions directly, and audits every emitted `data-on*` attribute —
+function resolves, args decode to the right JSON types, and (for the
+higher-risk new wrappers) the actual runtime effect is correct, not just
+the attribute string shape. For `app.js` specifically (119 distinct
+dispatched names across 184 sites), a static whole-file name-resolution
+pass caught what a rendering harness alone might have missed at that scale.
+Full pytest suite (156 passed) re-run clean after every file. `unsafe-inline`
+itself is not dropped from the CSP header by this work — see "Before
+`unsafe-inline` can come out" below for what (if anything) still blocks it.
+
 #### What delegate.js supports
 
 | Pattern | Attribute |
@@ -503,6 +581,7 @@ Flagging the gap here rather than guessing at scope or starting the rewrite.
 | `fn(x, this)` | `data-onclick-this` (element last) |
 | `if (event.target === this) fn()` | `data-onclick-self` |
 | `onchange` / `oninput` / `onkeydown` / `onkeyup` / `onblur` / `onfocus` / `onsubmit` | `data-onchange="fn"` etc. |
+| `onmousedown` / `ondblclick` | `data-onmousedown="fn"` / `data-ondblclick="fn"` (added 2026-09-04, see above) |
 
 **Non-string arguments MUST use `data-*-args`.** The positional form turns `null`
 into the truthy string `"null"` and `3` into `"3"`. CI fails the build on
@@ -545,11 +624,13 @@ them and accept that `unsafe-inline` cannot be dropped until they are handled.
 
 #### Before `unsafe-inline` can come out
 
-All of the above, **plus** the ~388 JS-generated inline handlers from "A
-second, untracked surface" above, **plus** 10 inline `<script>` blocks
+The 153 template-side handlers above (198 total inline in `templates/*.html`,
+153 of them non-mechanical), **plus** 10 inline `<script>` blocks
 (`index.html` has 5) — those are governed by the same `script-src` directive.
-`style-src` at `app.py:1549` carries its own `unsafe-inline` covering ~982
-inline `style=` attributes, and is a separate project.
+The ~388 JS-generated handlers from "A second, untracked surface" are **no
+longer on this list** — done as of 2026-09-04, see "this second wave is
+done" above. `style-src` at `app.py:1549` carries its own `unsafe-inline`
+covering ~982 inline `style=` attributes, and is a separate project.
 
 ---
 
