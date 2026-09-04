@@ -99,15 +99,15 @@ function habitInit() {
       return `
     <div class="habit-card">
       <div style="display:flex;align-items:center;gap:10px">
-        <button class="habit-cb ${isToday ? "done" : ""}" onclick="habitToggle(${i})" title="${isToday ? "Mark undone" : "Mark done today"}">${isToday ? "✓" : ""}</button>
+        <button class="habit-cb ${isToday ? "done" : ""}" data-onclick="habitToggle" data-onclick-args="${esc(JSON.stringify([i]))}" title="${isToday ? "Mark undone" : "Mark done today"}">${isToday ? "✓" : ""}</button>
         <div class="habit-emoji">${h.emoji || "📌"}</div>
         <div class="habit-info" style="flex:1;min-width:0">
           <div class="habit-title">${esc(h.title)}</div>
           <div class="habit-sub2">${_habFreqLabel(h.freq)} · 🔥 ${streak}${best > streak ? ` · best: ${best}` : ""}</div>
         </div>
         <div class="hab-card-actions">
-          <button class="habit-action-btn" onclick="habitEdit(${i})" title="Edit"><i class="ti ti-pencil"></i></button>
-          <button class="habit-action-btn" onclick="habitDelete(${i})" title="Delete"><i class="ti ti-trash"></i></button>
+          <button class="habit-action-btn" data-onclick="habitEdit" data-onclick-args="${esc(JSON.stringify([i]))}" title="Edit"><i class="ti ti-pencil"></i></button>
+          <button class="habit-action-btn" data-onclick="habitDelete" data-onclick-args="${esc(JSON.stringify([i]))}" title="Delete"><i class="ti ti-trash"></i></button>
         </div>
       </div>
       ${_habHeatmap(h)}
