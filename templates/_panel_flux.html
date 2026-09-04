@@ -1313,279 +1313,47 @@
             </div>
           </div>
 
-          <div class="list-wrap">
-            <div class="list-group">
-              <div class="list-group-head">
-                <div class="list-group-title">Today</div>
-                <div class="list-group-count">3</div>
-              </div>
-
-              <div class="task-row" onclick="openDetail()">
-                <div class="task-check"></div>
-                <div class="task-body">
-                  <div class="task-title-row">
-                    <div class="task-title">Finish Q3 launch review deck</div>
-                    <i class="ti ti-flag-filled priority-flag high"></i>
-                  </div>
-                  <div class="task-meta-row">
-                    <div class="task-meta-item overdue">
-                      <i class="ti ti-clock"></i>Due today
-                    </div>
-                    <div class="subtask-progress">4/7 subtasks</div>
-                    <div class="collab-stack">
-                      <div class="collab-av">TT</div>
-                      <div class="collab-av">BA</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="task-row" onclick="openDetail()">
-                <div class="task-check"></div>
-                <div class="task-body">
-                  <div class="task-title-row">
-                    <div class="task-title">
-                      Research paper: Balanced tree structures
-                    </div>
-                    <i class="ti ti-flag-filled priority-flag high"></i>
-                    <div class="space-link-tag academic">
-                      <i class="ti ti-school" style="font-size: 10px"></i>CSC301
-                    </div>
-                  </div>
-                  <div class="task-meta-row">
-                    <div class="task-meta-item overdue">
-                      <i class="ti ti-clock"></i>Due today
-                    </div>
-                    <div class="subtask-progress">2/5 subtasks</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="task-row" onclick="openDetail()">
-                <div class="task-check"></div>
-                <div class="task-body">
-                  <div class="task-title-row">
-                    <div class="task-title">
-                      Review this week's FOMO-tagged trades
-                    </div>
-                    <div class="space-link-tag trading">
-                      <i class="ti ti-chart-candle" style="font-size: 10px"></i
-                      >Trading Journal
-                    </div>
-                  </div>
-                  <div class="task-meta-row">
-                    <div class="task-meta-item">
-                      <i class="ti ti-hourglass"></i>~20 min
-                    </div>
-                    <div class="task-meta-item">
-                      <i class="ti ti-repeat"></i>Repeats weekly
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="task-row" onclick="openDetail()">
-                <div class="task-check"></div>
-                <div class="task-body">
-                  <div class="task-title-row">
-                    <div class="task-title">
-                      Call the printer about the flyer order
-                    </div>
-                    <div
-                      class="space-link-tag"
-                      style="color: #3ba55c; border-color: #123320"
-                    >
-                      <i
-                        class="ti ti-brand-whatsapp"
-                        style="font-size: 10px"
-                      ></i
-                      >via WhatsApp
-                    </div>
-                  </div>
-                  <div class="task-meta-row">
-                    <div class="task-meta-item">
-                      <i class="ti ti-clock"></i>Added 40m ago
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="list-group">
-              <div class="list-group-head">
-                <div class="list-group-title">This week</div>
-                <div class="list-group-count">2</div>
-              </div>
-
-              <div class="task-row" onclick="openDetail()">
-                <div class="task-check"></div>
-                <div class="task-body">
-                  <div class="task-title-row">
-                    <div class="task-title">Draft GIA consulting proposal</div>
-                    <i class="ti ti-flag-filled priority-flag med"></i>
-                  </div>
-                  <div class="task-meta-row">
-                    <div class="task-meta-item">
-                      <i class="ti ti-calendar"></i>Thu
-                    </div>
-                    <div class="subtask-progress">0/4 subtasks</div>
-                    <div class="collab-stack">
-                      <div class="collab-av">CT</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="task-row" onclick="openDetail()">
-                <div class="task-check"></div>
-                <div class="task-body">
-                  <div class="task-title-row">
-                    <div class="task-title">Book flight for Abuja trip</div>
-                  </div>
-                  <div class="task-meta-row">
-                    <div class="task-meta-item">
-                      <i class="ti ti-calendar"></i>Fri
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="list-group">
-              <div class="list-group-head">
-                <div class="list-group-title">Done</div>
-                <div class="list-group-count">2</div>
-              </div>
-
-              <div class="task-row">
-                <div class="task-check done"><i class="ti ti-check"></i></div>
-                <div class="task-body">
-                  <div class="task-title-row">
-                    <div class="task-title done">
-                      Send granite client audit notes
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="task-row">
-                <div class="task-check done"><i class="ti ti-check"></i></div>
-                <div class="task-body">
-                  <div class="task-title-row">
-                    <div class="task-title done">
-                      Renew LCU course registration
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div class="list-wrap" id="listWrap">
+            <!-- rendered by tasks.js -->
           </div>
         </div>
 
         <!-- ═══ KANBAN VIEW ═══ -->
         <div id="view-kanban" style="display: none; height: 100%">
-          <div class="kanban-wrap">
-            <div class="kanban-col">
+          <div class="kanban-wrap" id="kanbanWrap">
+            <div class="kanban-col" data-status="todo">
               <div class="kanban-col-head">
                 <div class="kanban-dot todo"></div>
                 <div class="kanban-col-title">To Do</div>
-                <div class="kanban-col-count">3</div>
+                <div class="kanban-col-count" id="kanbanCount-todo">0</div>
               </div>
-              <div class="kanban-card" onclick="openDetail()">
-                <div class="kanban-card-title">Book flight for Abuja trip</div>
-                <div class="kanban-card-meta">
-                  <div class="task-meta-item">
-                    <i class="ti ti-calendar"></i>Fri
-                  </div>
-                </div>
-              </div>
-              <div class="kanban-card" onclick="openDetail()">
-                <div class="kanban-card-title">
-                  Draft GIA consulting proposal
-                </div>
-                <div class="kanban-card-meta">
-                  <i class="ti ti-flag-filled priority-flag med"></i>
-                  <div class="collab-stack">
-                    <div class="collab-av">CT</div>
-                  </div>
-                </div>
-              </div>
-              <div class="kanban-card" onclick="openDetail()">
-                <div class="kanban-card-title">
-                  Review this week's FOMO-tagged trades
-                </div>
-                <div class="kanban-card-meta">
-                  <div class="space-link-tag trading">
-                    <i class="ti ti-chart-candle" style="font-size: 10px"></i
-                    >Trading
-                  </div>
-                </div>
-              </div>
+              <div class="kanban-col-body" id="kanbanBody-todo"></div>
             </div>
-            <div class="kanban-col">
+            <div class="kanban-col" data-status="inprogress">
               <div class="kanban-col-head">
                 <div class="kanban-dot progress"></div>
                 <div class="kanban-col-title">In Progress</div>
-                <div class="kanban-col-count">2</div>
-              </div>
-              <div class="kanban-card" onclick="openDetail()">
-                <div class="kanban-card-title">
-                  Finish Q3 launch review deck
-                </div>
-                <div class="kanban-card-meta">
-                  <i class="ti ti-flag-filled priority-flag high"></i>
-                  <div class="subtask-progress">4/7</div>
+                <div class="kanban-col-count" id="kanbanCount-inprogress">
+                  0
                 </div>
               </div>
-              <div class="kanban-card" onclick="openDetail()">
-                <div class="kanban-card-title">
-                  Research paper: Balanced tree structures
-                </div>
-                <div class="kanban-card-meta">
-                  <div class="space-link-tag academic">
-                    <i class="ti ti-school" style="font-size: 10px"></i>CSC301
-                  </div>
-                </div>
-              </div>
+              <div class="kanban-col-body" id="kanbanBody-inprogress"></div>
             </div>
-            <div class="kanban-col">
+            <div class="kanban-col" data-status="blocked">
               <div class="kanban-col-head">
                 <div class="kanban-dot blocked"></div>
                 <div class="kanban-col-title">Blocked</div>
-                <div class="kanban-col-count">1</div>
+                <div class="kanban-col-count" id="kanbanCount-blocked">0</div>
               </div>
-              <div class="kanban-card" onclick="openDetail()">
-                <div class="kanban-card-title">
-                  CTO sign-off on Sivarr auth flow
-                </div>
-                <div class="kanban-card-meta">
-                  <div class="task-meta-item">
-                    <i class="ti ti-user-pause"></i>Waiting on Chidi
-                  </div>
-                </div>
-              </div>
+              <div class="kanban-col-body" id="kanbanBody-blocked"></div>
             </div>
-            <div class="kanban-col">
+            <div class="kanban-col" data-status="done">
               <div class="kanban-col-head">
                 <div class="kanban-dot done"></div>
                 <div class="kanban-col-title">Done</div>
-                <div class="kanban-col-count">2</div>
+                <div class="kanban-col-count" id="kanbanCount-done">0</div>
               </div>
-              <div class="kanban-card" style="opacity: 0.6">
-                <div
-                  class="kanban-card-title"
-                  style="text-decoration: line-through"
-                >
-                  Send granite client audit notes
-                </div>
-              </div>
-              <div class="kanban-card" style="opacity: 0.6">
-                <div
-                  class="kanban-card-title"
-                  style="text-decoration: line-through"
-                >
-                  Renew LCU course registration
-                </div>
-              </div>
+              <div class="kanban-col-body" id="kanbanBody-done"></div>
             </div>
           </div>
         </div>
@@ -1850,22 +1618,28 @@
         <div id="view-focus" style="display: none; height: 100%">
           <div class="focus-wrap">
             <div class="focus-lbl">Up next</div>
-            <div class="focus-task-title">Finish Q3 launch review deck</div>
-            <div class="focus-task-sub">4 of 7 subtasks done · Due today</div>
+            <div class="focus-task-title" id="focusTaskTitle">
+              You're all caught up
+            </div>
+            <div class="focus-task-sub" id="focusTaskSub">
+              No open tasks right now
+            </div>
             <div class="focus-ring">
               <div class="focus-ring-time">18:24</div>
             </div>
             <div class="focus-actions">
-              <button class="cta-ghost">
+              <button
+                class="cta-ghost"
+                id="focusPauseBtn"
+                onclick="toggleFocusTimer()"
+              >
                 <i class="ti ti-player-pause" style="font-size: 13px"></i>Pause
               </button>
-              <button class="cta-purple" onclick="openDetail()">
+              <button class="cta-purple" id="focusOpenBtn">
                 <i class="ti ti-check" style="font-size: 13px"></i>Open task
               </button>
             </div>
-            <div class="focus-next-lbl">
-              Next up: Research paper — Balanced tree structures
-            </div>
+            <div class="focus-next-lbl" id="focusNextLbl"></div>
           </div>
         </div>
 
@@ -1882,23 +1656,25 @@
 
             <div class="insight-stat-grid">
               <div class="insight-stat-cell">
-                <div class="insight-stat-val">68%</div>
-                <div class="insight-stat-lbl">Tasks completed on time</div>
+                <div class="insight-stat-val" id="statCompletionRate">–</div>
+                <div class="insight-stat-lbl">Tasks completed</div>
               </div>
               <div class="insight-stat-cell">
-                <div class="insight-stat-val">2.1x</div>
-                <div class="insight-stat-lbl">
-                  Faster when linked to a space
+                <div class="insight-stat-val" id="statOpenCount">–</div>
+                <div class="insight-stat-lbl">Open tasks</div>
+              </div>
+              <div class="insight-stat-cell">
+                <div
+                  class="insight-stat-val"
+                  id="statOverdueCount"
+                  style="color: var(--red)"
+                >
+                  –
                 </div>
+                <div class="insight-stat-lbl">Overdue right now</div>
               </div>
               <div class="insight-stat-cell">
-                <div class="insight-stat-val" style="color: var(--red)">
-                  Wed
-                </div>
-                <div class="insight-stat-lbl">Most-missed deadline day</div>
-              </div>
-              <div class="insight-stat-cell">
-                <div class="insight-stat-val">4.2</div>
+                <div class="insight-stat-val" id="statAvgSubtasks">–</div>
                 <div class="insight-stat-lbl">Avg. subtasks per task</div>
               </div>
             </div>
@@ -1906,26 +1682,13 @@
             <div class="list-group-head" style="margin-top: 22px">
               <div class="list-group-title">Patterns</div>
             </div>
-            <div class="insight-row">
-              <i class="ti ti-alert-triangle" style="color: var(--amber)"></i>
-              <div class="insight-row-text">
-                Tasks due on <b>Wednesdays</b> slip 3x more often than any other
-                day — usually the same week as your CSC301 deadlines. Want SIVA
-                to space these out automatically?
-              </div>
-            </div>
-            <div class="insight-row">
-              <i class="ti ti-trending-up" style="color: var(--green)"></i>
-              <div class="insight-row-text">
-                Tasks with a collaborator get done <b>2.1x faster</b> than solo
-                ones. Consider inviting someone to your 2 open drafts.
-              </div>
-            </div>
-            <div class="insight-row">
-              <i class="ti ti-brand-whatsapp" style="color: #3ba55c"></i>
-              <div class="insight-row-text">
-                6 tasks this month came in via WhatsApp — all completed within a
-                day. Fastest-closing task source so far.
+            <div id="insightPatterns">
+              <div
+                class="insight-row"
+                style="color: var(--t4); font-size: 12px"
+              >
+                Complete a few tasks and SIVA will start surfacing patterns
+                here.
               </div>
             </div>
           </div>
@@ -1943,222 +1706,8 @@
           <i class="ti ti-x"></i>
         </div>
         <div class="sheet-handle"></div>
-        <div class="sheet-scroll">
-          <div class="detail-title-row">
-            <div class="detail-check"></div>
-            <div class="detail-title">Finish Q3 launch review deck</div>
-          </div>
-          <div class="detail-tags-row">
-            <div class="detail-tag">
-              <i
-                class="ti ti-flag-filled"
-                style="color: var(--red); font-size: 11px"
-              ></i
-              >High priority
-            </div>
-            <div class="detail-tag">
-              <i class="ti ti-calendar" style="font-size: 11px"></i>Due today
-            </div>
-            <div class="detail-tag">
-              <i class="ti ti-hourglass" style="font-size: 11px"></i>~2 hrs
-            </div>
-          </div>
-
-          <div class="detail-section">
-            <div class="detail-section-lbl">Description</div>
-            <div class="detail-desc">
-              Pull together traction numbers, the Marketplace/Trading Journal
-              builds, and next-quarter roadmap into a deck for the Q3 review.
-              Keep it under 12 slides.
-            </div>
-          </div>
-
-          <div class="siva-banner" style="margin: 0 0 22px">
-            <div class="siva-banner-icon"><i class="ti ti-sparkles"></i></div>
-            <div class="siva-banner-text">
-              This overlaps with your <b>research paper</b> deadline today —
-              both due by end of day.
-            </div>
-          </div>
-
-          <div class="detail-section">
-            <div class="detail-section-lbl">Subtasks · 4 of 7</div>
-            <div class="subtask-row">
-              <div class="subtask-check done"><i class="ti ti-check"></i></div>
-              <div class="subtask-name done">Pull traction numbers</div>
-              <div class="collab-av" style="margin-left: 0">M</div>
-            </div>
-            <div class="subtask-row">
-              <div class="subtask-check done"><i class="ti ti-check"></i></div>
-              <div class="subtask-name done">
-                Export Marketplace mockup screenshots
-              </div>
-              <div class="collab-av" style="margin-left: 0">M</div>
-            </div>
-            <div class="subtask-row">
-              <div class="subtask-check done"><i class="ti ti-check"></i></div>
-              <div class="subtask-name done">Draft roadmap slide</div>
-              <div class="collab-av" style="margin-left: 0">TT</div>
-            </div>
-            <div class="subtask-row">
-              <div class="subtask-check done"><i class="ti ti-check"></i></div>
-              <div class="subtask-name done">Write opening summary</div>
-              <div class="collab-av" style="margin-left: 0">M</div>
-            </div>
-            <div class="subtask-row">
-              <div class="subtask-check"></div>
-              <div class="subtask-name">Add Trading Journal metrics slide</div>
-              <div class="collab-av" style="margin-left: 0">M</div>
-            </div>
-            <div class="subtask-row">
-              <div class="subtask-check"></div>
-              <div class="subtask-name">Get Bisi's design pass</div>
-              <div class="collab-av" style="margin-left: 0">BA</div>
-            </div>
-            <div class="subtask-row">
-              <div class="subtask-check"></div>
-              <div class="subtask-name">Final proofread</div>
-              <div
-                class="collab-av"
-                style="
-                  margin-left: 0;
-                  background: transparent;
-                  border: 1.2px dashed var(--line2);
-                "
-              >
-                <i class="ti ti-plus" style="font-size: 9px"></i>
-              </div>
-            </div>
-            <div class="add-subtask-row">
-              <i class="ti ti-plus" style="font-size: 13px"></i>Add subtask
-            </div>
-          </div>
-
-          <div class="detail-section">
-            <div class="detail-section-lbl">Details</div>
-            <div class="detail-meta-grid">
-              <div class="detail-meta-cell">
-                <div class="detail-meta-lbl">
-                  <i class="ti ti-calendar"></i>Due
-                </div>
-                <div class="detail-meta-val">Today, 11:59 PM</div>
-              </div>
-              <div class="detail-meta-cell">
-                <div class="detail-meta-lbl">
-                  <i class="ti ti-hourglass"></i>Effort
-                </div>
-                <div class="detail-meta-val">~2 hours</div>
-              </div>
-              <div class="detail-meta-cell">
-                <div class="detail-meta-lbl">
-                  <i class="ti ti-flag"></i>Priority
-                </div>
-                <div class="detail-meta-val">High</div>
-              </div>
-              <div class="detail-meta-cell">
-                <div class="detail-meta-lbl">
-                  <i class="ti ti-progress"></i>Status
-                </div>
-                <div class="detail-meta-val">In Progress</div>
-              </div>
-              <div class="detail-meta-cell">
-                <div class="detail-meta-lbl">
-                  <i class="ti ti-repeat"></i>Repeats
-                </div>
-                <div class="detail-meta-val">Doesn't repeat</div>
-              </div>
-              <div class="detail-meta-cell">
-                <div class="detail-meta-lbl">
-                  <i class="ti ti-lock"></i>Blocked by
-                </div>
-                <div class="detail-meta-val" style="color: var(--t3)">
-                  Nothing
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="detail-section">
-            <div class="detail-section-lbl">Attachments</div>
-            <div class="attachment-row">
-              <div class="attachment-icon">
-                <i class="ti ti-presentation"></i>
-              </div>
-              <div>
-                <div class="attachment-name">Q3_review_draft.pptx</div>
-                <div class="attachment-sub">Added yesterday</div>
-              </div>
-            </div>
-            <div class="add-attachment-row">
-              <i class="ti ti-paperclip" style="margin-right: 5px"></i>Attach a
-              file
-            </div>
-          </div>
-
-          <div class="detail-section">
-            <div class="detail-section-lbl">Collaborators</div>
-            <div class="collab-row">
-              <div
-                class="collab-full-av"
-                style="background: var(--accent-dim); color: #c9a8f0"
-              >
-                M
-              </div>
-              <div class="collab-full-info">
-                <div class="collab-full-name">You</div>
-                <div class="collab-full-role">Owner</div>
-              </div>
-              <span class="role-tag owner">Owner</span>
-            </div>
-            <div class="collab-row">
-              <div class="collab-full-av">TT</div>
-              <div class="collab-full-info">
-                <div class="collab-full-name">Temi Tope</div>
-                <div class="collab-full-role">Can check off subtasks</div>
-              </div>
-              <span class="role-tag">Contributor</span>
-            </div>
-            <div class="collab-row">
-              <div class="collab-full-av">BA</div>
-              <div class="collab-full-info">
-                <div class="collab-full-name">Bisi Adewale</div>
-                <div class="collab-full-role">Can check off subtasks</div>
-              </div>
-              <span class="role-tag">Contributor</span>
-            </div>
-            <div class="invite-row" onclick="openInvite()">
-              <div class="collab-full-av">
-                <i class="ti ti-plus" style="font-size: 14px"></i>
-              </div>
-              <div class="collab-full-info">
-                <div class="collab-full-name">Invite someone</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="detail-section">
-            <div class="detail-section-lbl">Activity</div>
-            <div class="activity-log-row">
-              <span class="activity-log-who">Temi</span> checked off
-              <span class="activity-log-what">"Draft roadmap slide"</span
-              ><span class="activity-log-time">1h ago</span>
-            </div>
-            <div class="activity-log-row">
-              <span class="activity-log-who">Bisi</span> was assigned
-              <span class="activity-log-what">"Get Bisi's design pass"</span
-              ><span class="activity-log-time">3h ago</span>
-            </div>
-            <div class="activity-log-row">
-              <span class="activity-log-who">You</span> added attachment
-              <span class="activity-log-what">Q3_review_draft.pptx</span
-              ><span class="activity-log-time">Yesterday</span>
-            </div>
-            <div class="activity-log-row">
-              <span class="activity-log-who">You</span> invited
-              <span class="activity-log-what">Temi Tope</span
-              ><span class="activity-log-time">2 days ago</span>
-            </div>
-          </div>
+        <div class="sheet-scroll" id="detailScroll">
+          <!-- rendered by tasks.js -->
         </div>
       </div>
 
@@ -2185,8 +1734,8 @@
             <i class="ti ti-sparkles"></i
             ><input
               type="text"
+              id="newTaskAiPrompt"
               placeholder="e.g. Plan the Q3 launch"
-              value="Plan the Sivarr Q3 launch"
             />
           </div>
           <button class="ai-breakdown-btn" onclick="showAiBreakdown()">
@@ -2198,81 +1747,65 @@
             class="ai-generated-list"
             id="aiGeneratedList"
             style="display: none"
-          >
-            <div class="ai-generated-head">
-              <i class="ti ti-sparkles" style="font-size: 13px"></i>Suggested
-              subtasks — edit before saving
-            </div>
-            <div class="subtask-row">
-              <div class="subtask-check done"><i class="ti ti-check"></i></div>
-              <div class="subtask-name">Finalize launch review deck</div>
-            </div>
-            <div class="subtask-row">
-              <div class="subtask-check done"><i class="ti ti-check"></i></div>
-              <div class="subtask-name">Lock marketplace pricing</div>
-            </div>
-            <div class="subtask-row">
-              <div class="subtask-check done"><i class="ti ti-check"></i></div>
-              <div class="subtask-name">Draft launch announcement post</div>
-            </div>
-            <div class="subtask-row">
-              <div class="subtask-check done"><i class="ti ti-check"></i></div>
-              <div class="subtask-name">Line up 3 builder beta testers</div>
-            </div>
-            <div class="add-subtask-row">
-              <i class="ti ti-plus" style="font-size: 13px"></i>Add subtask
-            </div>
-          </div>
+          ></div>
 
           <div class="field-row">
             <label class="field-lbl">Title</label
-            ><input class="field-input" type="text" placeholder="Task name" />
+            ><input
+              class="field-input"
+              type="text"
+              id="newTaskTitle"
+              placeholder="Task name"
+            />
           </div>
           <div class="field-row">
             <label class="field-lbl">Description</label
             ><textarea
               class="field-textarea"
+              id="newTaskDesc"
               placeholder="Optional details..."
             ></textarea>
           </div>
           <div class="field-grid2">
             <div class="field-row">
               <label class="field-lbl">Due date</label
-              ><input class="field-input" type="date" />
+              ><input class="field-input" type="date" id="newTaskDate" />
             </div>
             <div class="field-row">
               <label class="field-lbl">Estimated effort</label
               ><input
                 class="field-input"
                 type="text"
+                id="newTaskEffort"
                 placeholder="e.g. 2 hours"
               />
             </div>
           </div>
           <div class="field-row">
             <label class="field-lbl">Priority</label>
-            <div class="priority-pill-row">
-              <div class="priority-pill">Low</div>
-              <div class="priority-pill sel">Medium</div>
-              <div class="priority-pill">High</div>
+            <div class="priority-pill-row" id="newTaskPriorityRow">
+              <div class="priority-pill" data-priority="low">Low</div>
+              <div class="priority-pill sel" data-priority="medium">Medium</div>
+              <div class="priority-pill" data-priority="high">High</div>
             </div>
           </div>
           <div class="field-grid2">
             <div class="field-row">
               <label class="field-lbl">Repeats</label>
-              <select class="field-select">
-                <option>Doesn't repeat</option>
-                <option>Daily</option>
-                <option>Weekly</option>
-                <option>Custom</option>
+              <select class="field-select" id="newTaskRepeat">
+                <option value="none">Doesn't repeat</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="custom">Custom</option>
               </select>
             </div>
             <div class="field-row">
-              <label class="field-lbl">Link to a space (optional)</label>
-              <select class="field-select">
-                <option>None</option>
-                <option>Academic Space — CSC301</option>
-                <option>Trading Journal</option>
+              <label class="field-lbl">Status</label>
+              <select class="field-select" id="newTaskStatus">
+                <option value="todo">To Do</option>
+                <option value="inprogress">In Progress</option>
+                <option value="blocked">Blocked</option>
+                <option value="done">Done</option>
               </select>
             </div>
           </div>
@@ -2305,7 +1838,11 @@
             <div class="wa-toggle" onclick="this.classList.toggle('on')"></div>
           </div>
 
-          <button class="cta-purple block" onclick="closeNewTask()">
+          <button
+            class="cta-purple block"
+            id="newTaskSaveBtn"
+            onclick="saveNewTaskFromSheet()"
+          >
             <i class="ti ti-check" style="font-size: 13px"></i>Create task
           </button>
         </div>
@@ -2470,6 +2007,7 @@
     <!-- /.frame -->
 
     <script>
+      /* ══ View switcher — purely presentational, not owned by tasks.js ══ */
       document.querySelectorAll(".view-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           document
@@ -2498,24 +2036,45 @@
           document.getElementById("scrollArea").scrollTop = 0;
           if (btn.dataset.view === "focus") startFocusTimer();
           else stopFocusTimer();
+          if (btn.dataset.view === "insights" && window.renderInsightsView)
+            renderInsightsView();
         });
       });
+
+      /* ══ Sheet open/close helpers — tasks.js calls these by name but doesn't
+   define them itself, so they need to live here. ══ */
+      function openSheet(id, overlayId) {
+        document.getElementById(id).classList.add("open");
+        document.getElementById(overlayId).classList.add("show");
+      }
+      function closeSheetEls(id, overlayId) {
+        document.getElementById(id).classList.remove("open");
+        document.getElementById(overlayId).classList.remove("show");
+      }
       function openWhatsApp() {
-        document.getElementById("waSheet").classList.add("open");
-        document.getElementById("waOverlay").classList.add("show");
+        openSheet("waSheet", "waOverlay");
       }
       function closeWhatsApp() {
-        document.getElementById("waSheet").classList.remove("open");
-        document.getElementById("waOverlay").classList.remove("show");
+        closeSheetEls("waSheet", "waOverlay");
       }
+      function openInvite() {
+        openSheet("inviteSheet", "inviteOverlay");
+      }
+      function closeInvite() {
+        closeSheetEls("inviteSheet", "inviteOverlay");
+      }
+      /* openDetail/closeDetail/openNewTask/closeNewTask/showAiBreakdown are all
+   owned by tasks.js (they read/write real task data) — not redefined here. */
 
-      /* live focus countdown */
+      /* ══ Focus view countdown ring — cosmetic only, tasks.js owns the task
+   title/subtitle/next-up text via renderFocusView(). ══ */
       let focusSeconds = 18 * 60 + 24,
         focusInterval = null;
       function renderFocusTime() {
         const m = String(Math.floor(focusSeconds / 60)).padStart(2, "0");
         const s = String(focusSeconds % 60).padStart(2, "0");
-        document.querySelector(".focus-ring-time").textContent = m + ":" + s;
+        const el = document.querySelector(".focus-ring-time");
+        if (el) el.textContent = m + ":" + s;
       }
       function startFocusTimer() {
         if (focusInterval) return;
@@ -2532,33 +2091,25 @@
         clearInterval(focusInterval);
         focusInterval = null;
       }
+      function toggleFocusTimer() {
+        const btn = document.getElementById("focusPauseBtn");
+        if (focusInterval) {
+          stopFocusTimer();
+          if (btn)
+            btn.innerHTML =
+              '<i class="ti ti-player-play" style="font-size:13px;"></i>Resume';
+        } else {
+          startFocusTimer();
+          if (btn)
+            btn.innerHTML =
+              '<i class="ti ti-player-pause" style="font-size:13px;"></i>Pause';
+        }
+      }
 
-      /* draggable kanban */
-      let dragCard = null;
-      document.querySelectorAll(".kanban-card").forEach((card) => {
-        card.setAttribute("draggable", "true");
-        card.addEventListener("dragstart", () => {
-          dragCard = card;
-          card.style.opacity = ".4";
-        });
-        card.addEventListener("dragend", () => {
-          card.style.opacity = "1";
-          dragCard = null;
-        });
-      });
-      document.querySelectorAll(".kanban-col").forEach((col) => {
-        col.addEventListener("dragover", (e) => e.preventDefault());
-        col.addEventListener("drop", (e) => {
-          e.preventDefault();
-          if (!dragCard) return;
-          const addRow = col.querySelector(".add-subtask-row");
-          col.appendChild(dragCard);
-          const counts = col.querySelectorAll(".kanban-card").length;
-          col.querySelector(".kanban-col-count").textContent = counts;
-        });
-      });
-
-      /* timeline: vertical drag reschedules, horizontal drag between day columns moves day */
+      /* ══ Calendar timeline drag/reschedule — visual-only interaction on the
+   demo grid; tasks.js's renderCalendarView() only populates the
+   unscheduled bucket (real task data), it doesn't manage time-slot
+   placement yet, so this stays separate and doesn't touch task records. ══ */
       function pxToTimeLabel(px, durationPx) {
         const totalMin = Math.round(((px / 50) * 60) / 30) * 30; // snap to 30-min
         const startMin = 7 * 60 + totalMin;
@@ -2573,6 +2124,7 @@
         };
         return fmt(startMin) + "–" + fmt(endMin);
       }
+      let dragCard = null;
       document.querySelectorAll(".tl-block, .tl-chip").forEach((el) => {
         el.addEventListener("dragstart", () => {
           dragCard = el;
@@ -2593,7 +2145,6 @@
           dropY = Math.max(0, Math.min(690, Math.round(dropY / 25) * 25));
 
           if (dragCard.classList.contains("tl-chip")) {
-            // convert an unscheduled chip into a scheduled block
             const block = document.createElement("div");
             block.className = "tl-block";
             block.style.cssText =
@@ -2604,7 +2155,11 @@
               ";color:" +
               getComputedStyle(dragCard).color +
               ";border-left-color:var(--t3);";
-            block.onclick = openDetail;
+            block.dataset.id = dragCard.dataset.id || "";
+            block.onclick = () => {
+              if (block.dataset.id && window.openDetail)
+                openDetail(Number(block.dataset.id));
+            };
             block.innerHTML =
               '<div class="tl-block-time">' +
               pxToTimeLabel(dropY, 75) +
@@ -2613,7 +2168,11 @@
               "</div>";
             block.setAttribute("draggable", "true");
             block.addEventListener("dragstart", () => {
-              dragCard2set(block);
+              dragCard = block;
+            });
+            block.addEventListener("dragend", () => {
+              block.style.opacity = "1";
+              dragCard = null;
             });
             grid.appendChild(block);
             dragCard.remove();
@@ -2626,65 +2185,7 @@
           }
         });
       });
-      function dragCard2set(el) {
-        dragCard = el;
-      }
-      document
-        .querySelectorAll(".task-check, .subtask-check, .detail-check")
-        .forEach((chk) => {
-          chk.addEventListener("click", (e) => {
-            e.stopPropagation();
-            chk.classList.toggle("done");
-            if (
-              chk.classList.contains("task-check") ||
-              chk.classList.contains("subtask-check")
-            ) {
-              chk.innerHTML = chk.classList.contains("done")
-                ? '<i class="ti ti-check"></i>'
-                : "";
-            }
-            const titleEl = chk.parentElement.querySelector(
-              ".task-title, .subtask-name",
-            );
-            if (titleEl) titleEl.classList.toggle("done");
-          });
-        });
-      function openDetail() {
-        document.getElementById("detailSheet").classList.add("open");
-        document.getElementById("detailOverlay").classList.add("show");
-      }
-      function closeDetail() {
-        document.getElementById("detailSheet").classList.remove("open");
-        document.getElementById("detailOverlay").classList.remove("show");
-      }
-      function openNewTask() {
-        document.getElementById("newTaskSheet").classList.add("open");
-        document.getElementById("newTaskOverlay").classList.add("show");
-      }
-      function closeNewTask() {
-        document.getElementById("newTaskSheet").classList.remove("open");
-        document.getElementById("newTaskOverlay").classList.remove("show");
-        document.getElementById("aiGeneratedList").style.display = "none";
-      }
-      function openInvite() {
-        document.getElementById("inviteSheet").classList.add("open");
-        document.getElementById("inviteOverlay").classList.add("show");
-      }
-      function closeInvite() {
-        document.getElementById("inviteSheet").classList.remove("open");
-        document.getElementById("inviteOverlay").classList.remove("show");
-      }
-      function showAiBreakdown() {
-        document.getElementById("aiGeneratedList").style.display = "block";
-      }
-      document.querySelectorAll(".priority-pill").forEach((p) => {
-        p.addEventListener("click", () => {
-          p.parentElement
-            .querySelectorAll(".priority-pill")
-            .forEach((x) => x.classList.remove("sel"));
-          p.classList.add("sel");
-        });
-      });
     </script>
+    <script src="tasks.js"></script>
   </body>
 </html>
