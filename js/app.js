@@ -8379,13 +8379,60 @@ function cmdDismiss() {
 
 let _cmdSearchTimer = null;
 
+// ── Typed slash-commands ("/task Buy milk" + Enter) ──────────────────────
+// Deterministic dispatch to the same real capture functions the "Capture
+// as:" buttons below already use (qcCapture) — no AI interpretation, no new
+// write path, just a faster way to reach one that already exists.
+const _CMD_SLASH_TYPE_MAP = {
+  task: "task", t: "task",
+  event: "event", ev: "event",
+  journal: "journal", j: "journal",
+  goal: "goal", g: "goal",
+  note: "note", n: "note",
+};
+const _CMD_SLASH_INFO = {
+  task: { icon: "📋", noun: "a task", verb: "Add task" },
+  event: { icon: "📅", noun: "an event", verb: "Add event" },
+  journal: { icon: "✍️", noun: "a journal entry", verb: "Save journal entry" },
+  goal: { icon: "🎯", noun: "a goal", verb: "Add goal" },
+  note: { icon: "💡", noun: "a note", verb: "Save note" },
+};
+function _cmdParseSlash(raw) {
+  const m = /^\/(\w+)(?:\s+(.*))?$/s.exec((raw || "").trim());
+  if (!m) return null;
+  const type = _CMD_SLASH_TYPE_MAP[m[1].toLowerCase()];
+  if (!type) return null;
+  return { type, prefix: m[1], text: (m[2] || "").trim() };
+}
+
 function cmdSearch() {
-  const q = ($("cmd-input")?.value || "").toLowerCase().trim();
+  const raw = $("cmd-input")?.value || "";
+  const q = raw.toLowerCase().trim();
   const res = $("cmd-results");
   if (!res) return;
   CMD_IDX = -1;
 
   const capRow = $("cmd-capture-row");
+
+  const slash = _cmdParseSlash(raw);
+  if (slash) {
+    if (capRow) capRow.style.display = "none";
+    const info = _CMD_SLASH_INFO[slash.type];
+    if (slash.text) {
+      CMD_VISIBLE = [{
+        icon: info.icon,
+        label: `${info.verb}: "${slash.text.slice(0, 60)}"`,
+        tag: "Press Enter",
+        type: "slash-action",
+        action: () => qcCapture(slash.type, slash.text),
+      }];
+      cmdRenderResults(q);
+    } else {
+      CMD_VISIBLE = [];
+      res.innerHTML = `<div class="cmd-empty">Type ${info.noun} after <strong>/${esc(slash.prefix)}</strong>, then press Enter.</div>`;
+    }
+    return;
+  }
   if (capRow) capRow.style.display = q.length > 1 ? "flex" : "none";
 
   // ── Step 1: instant local results (panels + localStorage content) ──
@@ -13907,9 +13954,11 @@ window._qcCaptureFromMousedown = function (e, type) {
   qcCapture(type);
 };
 
-function qcCapture(type) {
+function qcCapture(type, textOverride) {
   if (!S.sid) return;
-  const text = ($("cmd-input")?.value || "").trim();
+  const text = (
+    textOverride != null ? textOverride : $("cmd-input")?.value || ""
+  ).trim();
   if (!text) {
     cmdDismiss();
     return;
