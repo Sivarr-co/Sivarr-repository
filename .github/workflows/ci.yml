@@ -76,6 +76,15 @@ jobs:
               echo "::error::pyflakes found undefined names"; exit 1;
             } || echo "No undefined names."
 
+      - name: _SCHEMA statement ordering
+        # init_db() applies _SCHEMA one statement at a time and CONTINUES past a
+        # failure by design. So an ALTER above its own CREATE TABLE fails
+        # silently on a fresh database and leaves the schema quietly wrong --
+        # exactly what `ALTER TABLE docs ADD COLUMN is_public`, sitting 343
+        # lines above `CREATE TABLE docs`, did. Production was fine (its table
+        # predated the change) so it only showed up here, red for eight pushes.
+        run: python scripts/check_schema_order.py
+
       - name: Tests
         # -rs prints why anything skipped, straight into the CI log -- no
         # more silently trusting a green summary (this is the exact failure

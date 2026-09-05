@@ -463,7 +463,6 @@ CREATE INDEX IF NOT EXISTS idx_agent_payouts_agent ON agent_payouts(agent_id);
 -- ── Migrations for existing installs ──────────────────────────
 ALTER TABLE agent_templates ADD COLUMN IF NOT EXISTS price_ngn NUMERIC(10,2);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
-ALTER TABLE org_docs ADD COLUMN IF NOT EXISTS yjs_state TEXT DEFAULT '';
 
 -- Session 20: user-facing TOTP 2FA. totp_secret holds a pending (unconfirmed)
 -- or active base32 secret. totp_enabled only flips true once the user proves
@@ -473,13 +472,6 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_recovery_codes JSONB DEFAULT '[]';
 
--- 2026-09-05: read-only public doc pages (GET /doc/{slug}). public_slug is
--- opaque (client-generated, not a title-derived slug) and looked up across
--- ALL users, not scoped by sid like every other docs query -- hence the
--- separate global unique index rather than reusing the (sid, id) PK.
-ALTER TABLE docs ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE;
-ALTER TABLE docs ADD COLUMN IF NOT EXISTS public_slug TEXT;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_docs_public_slug ON docs(public_slug) WHERE public_slug IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     token      TEXT PRIMARY KEY,
@@ -594,6 +586,8 @@ CREATE TABLE IF NOT EXISTS org_docs (
     updated_at   TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_org_docs_org ON org_docs(org_id);
+-- Kept for databases created before yjs_state moved into the CREATE above.
+ALTER TABLE org_docs ADD COLUMN IF NOT EXISTS yjs_state TEXT DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS org_messages (
     id           SERIAL PRIMARY KEY,
@@ -827,11 +821,30 @@ CREATE TABLE IF NOT EXISTS docs (
     content     TEXT DEFAULT '',
     updated     TEXT DEFAULT '',
     deleted_at  TIMESTAMPTZ,
+    -- Read-only public doc pages (GET /doc/{slug}), 2026-09-05. These live in
+    -- the CREATE, not only in an ALTER below, because _SCHEMA is applied
+    -- statement by statement in order: an ALTER placed above this table ran
+    -- before it existed, failed ("relation docs does not exist"), was
+    -- swallowed by init_db()'s per-statement handler, and left every fresh
+    -- database with a docs table missing these columns. Production survived
+    -- only because its table predated the change; CI, which provisions a
+    -- clean database, failed every doc write with
+    -- 'column "is_public" of relation "docs" does not exist'.
+    is_public   BOOLEAN DEFAULT FALSE,
+    public_slug TEXT,
     created_at  TIMESTAMPTZ DEFAULT NOW(),
     updated_at  TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (sid, id)
 );
 CREATE INDEX IF NOT EXISTS idx_docs_sid_deleted ON docs(sid, deleted_at);
+-- Kept for databases created before the columns moved into the CREATE above.
+-- Harmless and idempotent now that they run AFTER the table exists.
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS public_slug TEXT;
+-- public_slug is opaque (client-generated, not title-derived) and looked up
+-- across ALL users rather than scoped by sid like every other docs query,
+-- hence a global unique index rather than reusing the (sid, id) PK.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_docs_public_slug ON docs(public_slug) WHERE public_slug IS NOT NULL;
 
 -- Spaced repetition (2026-09-05) — a real SM-2-lite schedule (ease/interval/
 -- repetitions/due_date), shared by Study Deck AI flashcards and cards users
