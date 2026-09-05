@@ -312,6 +312,22 @@
     toast("Task deleted");
   }
 
+  // Exposed so other modules read/create tasks through the real path
+  // (correct storage key, correct defaults, correct server sync via
+  // saveTasksData) instead of hand-writing localStorage against a key this
+  // panel never reads. js/app.js had ~10 call sites doing exactly that
+  // under old pre-rewrite names (getSHData/saveSHData/SH_KEY/
+  // shActiveTasks/_shServerTaskToLocal) that don't exist anywhere anymore
+  // -- every one of them either silently lost whatever it wrote, or threw
+  // and (in _hydrateFromServer's case) aborted everything after it. Fixed
+  // by pointing them at these four instead of duplicating tasks.js's logic
+  // a second time in app.js, which is exactly how the old bug happened.
+  window.getTasksData = getTasksData;
+  window.addTask = addTask;
+  window.updateTaskFields = updateTaskFields;
+  window.activeTasks = activeTasks;
+  window.serverTaskToLocal = serverTaskToLocal;
+
   window.toggleTaskDone = function (id) {
     const data = getTasksData();
     const task = (data.tasks || []).find((t) => String(t.id) === String(id));
