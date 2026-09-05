@@ -200,6 +200,25 @@ BANNER ── #}
   </div>
 </div>
 
+{# ── SPACED REVIEW SHEET — one shared due-cards queue for Study Deck
+     flashcards + Notes/Journal cards (js/features/review.js) ── #}
+<div class="review-sheet-bg" id="review-sheet-bg" data-onclick="reviewBgClick" data-onclick-event>
+  <div class="review-sheet" id="review-sheet">
+    <div class="review-sheet-header">
+      <span class="review-sheet-title"><i class="ti ti-brain"></i> Spaced Review</span>
+      <button class="review-sheet-close" data-onclick="reviewClose"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="review-progress"></div>
+    <div class="review-sheet-body">
+      <div id="review-card-display"></div>
+    </div>
+    <div id="review-card-actions">
+      <button class="rv-act-btn rv-act-btn--again" data-onclick="reviewAnswer" data-onclick-arg0="again">✗ Again</button>
+      <button class="rv-act-btn rv-act-btn--good" data-onclick="reviewAnswer" data-onclick-arg0="good">✓ Good</button>
+    </div>
+  </div>
+</div>
+
 {# ── QUICK CAPTURE MODAL ── #}
 <div class="cn-modal-bg" id="cn-modal-bg" data-onclick="cnClose" data-onclick-event>
   <div class="cn-modal">

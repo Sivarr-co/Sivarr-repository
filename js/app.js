@@ -11230,10 +11230,33 @@ function journalRenderEntries() {
     <div class="journal-entry">
       <div class="je-date">${e.mood} ${new Date(e.date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</div>
       <div class="je-text">${esc(e.text)}</div>
-      <button data-onclick="reflectWithAI" data-onclick-args="[${i}]" style="margin-top:8px;background:none;border:1px solid var(--border);border-radius:7px;padding:5px 12px;color:var(--teal);font-size:.75rem;font-weight:600;cursor:pointer;font-family:var(--font)">✨ Reflect with AI</button>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button data-onclick="reflectWithAI" data-onclick-args="[${i}]" style="background:none;border:1px solid var(--border);border-radius:7px;padding:5px 12px;color:var(--teal);font-size:.75rem;font-weight:600;cursor:pointer;font-family:var(--font)">✨ Reflect with AI</button>
+        <button data-onclick="journalAddToReview" data-onclick-args="[${i}]" style="background:none;border:1px solid var(--border);border-radius:7px;padding:5px 12px;color:var(--muted);font-size:.75rem;font-weight:600;cursor:pointer;font-family:var(--font)">🧠 Add to Review</button>
+      </div>
     </div>`,
     )
     .join("");
+}
+
+// Spaced repetition (js/features/review.js). Journal entries have no
+// server-generated id -- `ts` (Date.now() at save time) is the closest
+// thing to a stable identifier and is unique per entry already.
+function journalAddToReview(idx) {
+  const entries = JSON.parse(localStorage.getItem(JNL_KEY()) || "[]");
+  const e = entries[idx];
+  if (!e) return;
+  const dateLabel = new Date(e.date + "T12:00:00").toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  reviewAddFromPrompt(
+    "journal",
+    String(e.ts || e.date || idx),
+    `What did I write about on ${dateLabel}?`,
+    (e.text || "").slice(0, 500),
+  );
 }
 
 function reflectWithAI(idx) {

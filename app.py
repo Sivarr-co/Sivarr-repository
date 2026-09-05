@@ -1413,6 +1413,7 @@ from routes.finance import router as _finance_router
 from routes.home_brief import router as _home_brief_router
 from routes.marketplace import router as _marketplace_router
 from routes.search import router as _search_router
+from routes.review import router as _review_router
 # _org_sub_active: routes.org's build_router() (needing load_progress/
 # send_email/send_push/_is_valid_admin_session) is wired further down, right
 # after send_push is defined — but this one pure helper is also needed here,
@@ -1429,6 +1430,7 @@ app.include_router(_finance_router)
 app.include_router(_home_brief_router)
 app.include_router(_marketplace_router)
 app.include_router(_search_router)
+app.include_router(_review_router)
 from routes.import_notion import router as _import_notion_router; app.include_router(_import_notion_router)
 from routes.import_trello import router as _import_trello_router; app.include_router(_import_trello_router)
 from routes.focus import router as _focus_router; app.include_router(_focus_router)

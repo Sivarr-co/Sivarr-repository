@@ -833,6 +833,32 @@ CREATE TABLE IF NOT EXISTS docs (
 );
 CREATE INDEX IF NOT EXISTS idx_docs_sid_deleted ON docs(sid, deleted_at);
 
+-- Spaced repetition (2026-09-05) — a real SM-2-lite schedule (ease/interval/
+-- repetitions/due_date), shared by Study Deck AI flashcards and cards users
+-- create from Notes/Journal entries (source_type/source_id just record
+-- where a card came from -- nothing here reaches back into docs/journal to
+-- read live content, so an edited/deleted source note doesn't need to sync
+-- anything back to its cards). due_date is a plain ISO date string (not
+-- TIMESTAMPTZ) -- reviews are a once-a-day granularity, same convention
+-- tasks/goals already use for their own `date` field.
+CREATE TABLE IF NOT EXISTS review_cards (
+    id            TEXT NOT NULL,
+    sid           TEXT NOT NULL REFERENCES users(sid) ON DELETE CASCADE,
+    source_type   TEXT DEFAULT 'custom',
+    source_id     TEXT DEFAULT '',
+    front         TEXT DEFAULT '',
+    back          TEXT DEFAULT '',
+    ease          REAL DEFAULT 2.5,
+    interval_days INTEGER DEFAULT 0,
+    repetitions   INTEGER DEFAULT 0,
+    due_date      TEXT DEFAULT '',
+    deleted_at    TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (sid, id)
+);
+CREATE INDEX IF NOT EXISTS idx_review_cards_sid_due ON review_cards(sid, due_date) WHERE deleted_at IS NULL;
+
 -- In-app notification history, real per-item rows (id/title/body/read state)
 -- rather than the ad-hoc push_subs JSON files send_push() previously wrote
 -- to directly (DATA_DIR / f"{sid}_push_subs.json" — still used for the
@@ -3599,6 +3625,126 @@ def get_sids_with_docs() -> list[str]:
     except Exception as exc:
         log.error(f"get_sids_with_docs: {exc}")
         return []
+    finally:
+        _release(conn)
+
+
+# ── Spaced repetition (review_cards) ───────────────────────────
+# Real per-row table (not a bulk-sync blob like docs above) -- every review
+# answer updates exactly one card's schedule, and scheduling math (see
+# routes/review.py's _sm2_next) must be server-authoritative so a client
+# can't just set its own due_date/ease. No lazy blob migration needed (unlike
+# tasks/goals/habits) since this is a brand-new feature with no pre-existing
+# client-side data to import. Reuses _row_to_doc below for the generic
+# TIMESTAMPTZ->naive-isoformat normalization it does -- despite the name,
+# nothing in it is doc-specific, it just walks deleted_at/created_at/
+# updated_at, which review_cards also has.
+
+def create_review_card(sid: str, card_id: str, front: str, back: str,
+                        source_type: str = "custom", source_id: str = "",
+                        due_date: str = "") -> dict | None:
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """INSERT INTO review_cards (id, sid, source_type, source_id, front, back, due_date)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)
+                   RETURNING *""",
+                (card_id, sid, source_type, source_id, front, back, due_date),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return _row_to_doc(row) if row else None
+    except Exception as exc:
+        log.error(f"create_review_card: {exc}")
+        conn.rollback()
+        return None
+    finally:
+        _release(conn)
+
+
+def get_due_review_cards(sid: str, today_iso: str, limit: int = 50) -> list:
+    """Cards due today or earlier -- oldest-due first, so a long-neglected
+    card surfaces before ones that only just came due."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM review_cards
+                   WHERE sid=%s AND deleted_at IS NULL AND due_date <= %s
+                   ORDER BY due_date ASC LIMIT %s""",
+                (sid, today_iso, limit),
+            )
+            return [_row_to_doc(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error(f"get_due_review_cards: {exc}")
+        return []
+    finally:
+        _release(conn)
+
+
+def get_review_card(sid: str, card_id: str) -> dict | None:
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM review_cards WHERE sid=%s AND id=%s AND deleted_at IS NULL",
+                (sid, card_id),
+            )
+            row = cur.fetchone()
+            return _row_to_doc(row) if row else None
+    except Exception as exc:
+        log.error(f"get_review_card: {exc}")
+        return None
+    finally:
+        _release(conn)
+
+
+def update_review_schedule(sid: str, card_id: str, ease: float, interval_days: int,
+                            repetitions: int, due_date: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE review_cards
+                   SET ease=%s, interval_days=%s, repetitions=%s, due_date=%s, updated_at=NOW()
+                   WHERE sid=%s AND id=%s""",
+                (ease, interval_days, repetitions, due_date, sid, card_id),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"update_review_schedule: {exc}")
+        conn.rollback()
+        return False
+    finally:
+        _release(conn)
+
+
+def soft_delete_review_card(sid: str, card_id: str) -> bool:
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE review_cards SET deleted_at=NOW() WHERE sid=%s AND id=%s",
+                (sid, card_id),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        log.error(f"soft_delete_review_card: {exc}")
+        conn.rollback()
+        return False
     finally:
         _release(conn)
 

@@ -1901,6 +1901,14 @@ async function sGenAIFlashcards() {
   adSave({ aiQuestions: (d.aiQuestions || 0) + 1 });
   sLoadFlashcards();
   acToast(`${cards.length} flashcards added to Flashcard Drill`);
+  // Also feed these into the real spaced-repetition queue (js/features/
+  // review.js) -- the Exam Sprint board above stays exactly as it was
+  // (session-only known/again, unchanged), this is additive: the same
+  // generated cards ALSO get a real, persisted SM-2-lite schedule so they
+  // resurface days later instead of only existing for this one session.
+  if (typeof reviewCreate === "function") {
+    cards.forEach((c) => reviewCreate(c.title, c.answer, "flashcard", c.id));
+  }
 }
 // ── Research / Citations ──
 // CSP migration: param order flipped to (fmt, btn) -- delegate.js's

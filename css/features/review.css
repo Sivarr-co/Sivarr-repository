@@ -1,0 +1,173 @@
+/* Spaced repetition review sheet (js/features/review.js) — a global overlay,
+   not scoped to any one panel, since it serves Study Deck flashcards + Notes
+   + Journal cards from one shared queue. Deliberately does NOT reuse
+   #panel-academic's .acad-flashcard family (css/features/academic.css) —
+   those rely on CSS custom properties declared only on #panel-academic, so
+   reusing them here (outside that subtree) would silently resolve to
+   nothing. Same flip mechanic, independent tokens. */
+
+.review-sheet-bg {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 9500;
+  align-items: center;
+  justify-content: center;
+}
+.review-sheet-bg.open {
+  display: flex;
+}
+.review-sheet {
+  width: min(92vw, 420px);
+  max-height: min(80vh, 560px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow3, 0 20px 60px rgba(0, 0, 0, 0.35));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.review-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.review-sheet-title {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.review-sheet-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 4px;
+  line-height: 1;
+}
+#review-progress {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 8px 16px 0;
+  flex-shrink: 0;
+}
+.review-sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.rv-flashcard {
+  width: 100%;
+  min-height: 160px;
+  cursor: pointer;
+  perspective: 900px;
+  flex: 1;
+}
+.rv-flashcard-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 160px;
+  transform-style: preserve-3d;
+  transition: transform 0.4s;
+}
+.rv-flashcard-inner--flipped {
+  transform: rotateY(180deg);
+}
+.rv-flashcard-front,
+.rv-flashcard-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  padding: 20px;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+.rv-flashcard-back {
+  transform: rotateY(180deg);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border-color: var(--accent2);
+}
+.rv-fc-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.rv-fc-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.rv-fc-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.rv-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.86rem;
+  padding: 30px 10px;
+}
+.rv-empty i {
+  font-size: 28px;
+  color: var(--accent);
+}
+
+#review-card-actions {
+  display: none;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.rv-act-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.rv-act-btn--again {
+  color: #e5484d;
+  border-color: #e5484d;
+}
+.rv-act-btn--good {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}

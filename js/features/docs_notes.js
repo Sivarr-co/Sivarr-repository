@@ -265,6 +265,18 @@ function _docRenderPublishUI(doc) {
   }
 }
 
+// Spaced repetition (js/features/review.js) — offers the doc's own plain
+// text as a starting point for "back", but the user can edit both sides
+// before it's actually created (reviewAddFromPrompt's modal).
+function docAddToReview() {
+  if (!_docId) return;
+  const doc = docGetAll().find((d) => d.id === _docId);
+  if (!doc) return;
+  const title = doc.title || "Untitled";
+  const plain = _docEditor ? _docEditor.getText().trim().slice(0, 500) : "";
+  reviewAddFromPrompt("note", String(doc.id), `What's in "${title}"?`, plain);
+}
+
 function docCopyPublicLink() {
   const el = $("doc-publish-link");
   if (!el || !el.value) return;
