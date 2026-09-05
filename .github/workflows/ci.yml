@@ -183,6 +183,14 @@ jobs:
             process.exit(fail);
           '
 
+      - name: Inline handler / style budget
+        # Ratchet, not a gate. Session 19 is migrating inline on*= handlers to
+        # js/core/delegate.js, but new work kept adding them back faster than
+        # they were removed -- _panel_flux.html gained 25 fresh ones between two
+        # checks. These counts may only go down; raising one fails the build
+        # with instructions. Baseline lives in scripts/inline-budget.json.
+        run: node scripts/check_inline_budget.js
+
   assets:
     name: Asset versioning
     runs-on: ubuntu-latest

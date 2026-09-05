@@ -1,15 +1,22 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sivarr — Tasks (V1)</title>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css"
-    />
-    <style>
-      :root {
+{# ── FLUX / TASKS ──────────────────────────────────────────────────
+   This file is included into _panels_core.html. It MUST stay a
+   fragment: no <!doctype>, <html>, <head> or <body>, and no <link> or
+   <script src>. A full document here is silently torn apart by the
+   browser — the <style> is hoisted into the real <head> and leaks
+   app-wide (global `*`/`html, body`/`:root` rules override every panel,
+   not just this one), and the content escapes the .panel wrapper so it
+   renders on every screen instead of only this one. This exact
+   regression has been reintroduced by a raw mockup-export overwrite
+   more than once — check `git log -- templates/_panel_flux.html`
+   before ever pasting a fresh export back over this file.
+
+   Tabler icons are already loaded (self-hosted) by index.html; the CDN
+   copy is blocked by this app's own CSP (style-src 'self').
+   tasks.js is already loaded by index.html as /js/features/tasks.js.
+#}
+<div class="panel" id="panel-flux">
+  <style>
+      .frame {
         --bg: #000000;
         --accent: #8a2be2;
         --accent-dim: #1c0e2e;
@@ -28,21 +35,25 @@
         --t3: #666660;
         --t4: #3d3c39;
       }
-      * {
+      /* Scoped to .frame — this file is included into the app shell, so a
+         bare `*` selector here is hoisted into the real <head> and resets
+         margin/padding across every panel in the app, not just this one. */
+      .frame,
+      .frame * {
         box-sizing: border-box;
         margin: 0;
         padding: 0;
       }
-      html,
-      body {
+      /* Was `html, body` — that overrode the app's global background, text
+         color, and font everywhere once hoisted. Scoped to the panel's own
+         root; background/color already come from the `.frame` rule below. */
+      .frame {
         height: 100%;
-        background: #050505;
-        color: var(--t1);
         font-family:
           -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
         font-size: 14px;
       }
-      ::-webkit-scrollbar {
+      .frame ::-webkit-scrollbar {
         width: 0;
         height: 0;
       }
@@ -1254,9 +1265,8 @@
         }
       }
     </style>
-  </head>
-  <body>
-    <div class="frame" id="frame">
+
+<div class="frame" id="frame">
       <!-- ═══ HEADER ═══ -->
       <div class="app-header">
         <div class="header-left">
@@ -1270,10 +1280,10 @@
           <i class="ti ti-search"></i>
           <i
             class="ti ti-brand-whatsapp"
-            onclick="openWhatsApp()"
+            data-onclick="openWhatsApp"
             style="color: #3ba55c"
           ></i>
-          <div class="add-task-btn" onclick="openNewTask()">
+          <div class="add-task-btn" data-onclick="openNewTask">
             <i class="ti ti-plus"></i>
           </div>
         </div>
@@ -1435,7 +1445,7 @@
                         color: #6ba8c4;
                         border-left-color: var(--red);
                       "
-                      onclick="openDetail()"
+                      data-onclick="openDetail"
                     >
                       <div class="tl-block-time">10:00–12:00</div>
                       <div class="tl-block-title">
@@ -1452,7 +1462,7 @@
                         color: var(--t1);
                         border-left-color: var(--red);
                       "
-                      onclick="openDetail()"
+                      data-onclick="openDetail"
                     >
                       <div class="tl-block-time">1:00–3:30</div>
                       <div class="tl-block-title">
@@ -1631,7 +1641,7 @@
               <button
                 class="cta-ghost"
                 id="focusPauseBtn"
-                onclick="toggleFocusTimer()"
+                data-onclick="toggleFocusTimer"
               >
                 <i class="ti ti-player-pause" style="font-size: 13px"></i>Pause
               </button>
@@ -1699,10 +1709,10 @@
       <div
         class="sheet-overlay"
         id="detailOverlay"
-        onclick="closeDetail()"
+        data-onclick="closeDetail"
       ></div>
       <div class="sheet" id="detailSheet">
-        <div class="sheet-close" onclick="closeDetail()">
+        <div class="sheet-close" data-onclick="closeDetail">
           <i class="ti ti-x"></i>
         </div>
         <div class="sheet-handle"></div>
@@ -1715,10 +1725,10 @@
       <div
         class="sheet-overlay"
         id="newTaskOverlay"
-        onclick="closeNewTask()"
+        data-onclick="closeNewTask"
       ></div>
       <div class="sheet" id="newTaskSheet">
-        <div class="sheet-close" onclick="closeNewTask()">
+        <div class="sheet-close" data-onclick="closeNewTask">
           <i class="ti ti-x"></i>
         </div>
         <div class="sheet-handle"></div>
@@ -1738,7 +1748,7 @@
               placeholder="e.g. Plan the Q3 launch"
             />
           </div>
-          <button class="ai-breakdown-btn" onclick="showAiBreakdown()">
+          <button class="ai-breakdown-btn" data-onclick="showAiBreakdown">
             <i class="ti ti-wand" style="font-size: 14px"></i>Break it down with
             SIVA
           </button>
@@ -1756,7 +1766,7 @@
               type="text"
               id="newTaskTitle"
               placeholder="Task name (try 'next Friday' or 'tomorrow')"
-              oninput="_taskTitleDateDetect()"
+              data-oninput="_taskTitleDateDetect"
             />
           </div>
           <!-- Natural-language due date preview -- shown only while
@@ -1774,7 +1784,7 @@
               type="button"
               class="cta-ghost"
               style="padding: 3px 10px; font-size: 12px"
-              onclick="_taskTitleDateApply()"
+              data-onclick="_taskTitleDateApply"
             >
               Use
             </button>
@@ -1782,7 +1792,7 @@
               type="button"
               class="cta-ghost"
               style="padding: 3px 10px; font-size: 12px"
-              onclick="_taskTitleDateDismiss()"
+              data-onclick="_taskTitleDateDismiss"
             >
               Dismiss
             </button>
@@ -1802,7 +1812,7 @@
                 class="field-input"
                 type="date"
                 id="newTaskDate"
-                onchange="_taskTitleDateDetect()"
+                data-onchange="_taskTitleDateDetect"
               />
             </div>
             <div class="field-row">
@@ -1875,7 +1885,7 @@
           <button
             class="cta-purple block"
             id="newTaskSaveBtn"
-            onclick="saveNewTaskFromSheet()"
+            data-onclick="saveNewTaskFromSheet"
           >
             <i class="ti ti-check" style="font-size: 13px"></i>Create task
           </button>
@@ -1886,10 +1896,10 @@
       <div
         class="sheet-overlay"
         id="inviteOverlay"
-        onclick="closeInvite()"
+        data-onclick="closeInvite"
       ></div>
       <div class="sheet" id="inviteSheet">
-        <div class="sheet-close" onclick="closeInvite()">
+        <div class="sheet-close" data-onclick="closeInvite">
           <i class="ti ti-x"></i>
         </div>
         <div class="sheet-handle"></div>
@@ -1915,16 +1925,16 @@
               <option>Can view only</option>
             </select>
           </div>
-          <button class="cta-purple block" onclick="closeInvite()">
+          <button class="cta-purple block" data-onclick="closeInvite">
             <i class="ti ti-send" style="font-size: 13px"></i>Send invite
           </button>
         </div>
       </div>
 
       <!-- ═══ WHATSAPP CONNECTOR SHEET ═══ -->
-      <div class="sheet-overlay" id="waOverlay" onclick="closeWhatsApp()"></div>
+      <div class="sheet-overlay" id="waOverlay" data-onclick="closeWhatsApp"></div>
       <div class="sheet" id="waSheet">
-        <div class="sheet-close" onclick="closeWhatsApp()">
+        <div class="sheet-close" data-onclick="closeWhatsApp">
           <i class="ti ti-x"></i>
         </div>
         <div class="sheet-handle"></div>
@@ -2032,7 +2042,7 @@
             <div class="wa-toggle" onclick="this.classList.toggle('on')"></div>
           </div>
 
-          <button class="cta-ghost block" onclick="closeWhatsApp()">
+          <button class="cta-ghost block" data-onclick="closeWhatsApp">
             Done
           </button>
         </div>
@@ -2219,7 +2229,8 @@
           }
         });
       });
+
+      /* Task data, rendering, and all sheet content (list/kanban/focus/insights/detail/new-task) live in tasks.js */
     </script>
-    <script src="tasks.js"></script>
-  </body>
-</html>
+</div>
+<!-- /#panel-flux -->
