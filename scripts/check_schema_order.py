@@ -19,6 +19,12 @@ pushes before anyone traced it.
 
 Put new columns in the CREATE TABLE, and keep the ALTER after it for databases
 that already exist.
+
+This also checks for a semicolon inside a `--` comment. init_db() splits
+_SCHEMA with a plain `_SCHEMA.split(";")`, so a semicolon in prose cuts the
+surrounding statement in half. A comment reading "predated the change; CI"
+split a CREATE TABLE and stopped the docs table being created at all -- while
+the fix for the ordering bug above was being written.
 """
 import re
 import sys
@@ -48,7 +54,21 @@ def main() -> int:
         if m and m.group(1) not in created:
             problems.append((n, "ALTER" if a else "INDEX", m.group(1), line.strip()[:72]))
 
-    if not problems:
+    # init_db() splits on ";" with no SQL awareness, so a semicolon anywhere in
+    # a comment silently truncates the statement it sits inside.
+    semis = [
+        (n, line.strip())
+        for n, line in enumerate(schema.split("\n"), start=1)
+        if line.strip().startswith("--") and ";" in line
+    ]
+    for n, line in semis:
+        print(
+            f"::error::_SCHEMA line {n}: a ';' inside a comment splits the "
+            f"surrounding statement, because init_db() applies _SCHEMA with a "
+            f"plain split(';'). Rewrite the sentence without it. -> {line[:72]}"
+        )
+
+    if not problems and not semis:
         print("_SCHEMA ordering: OK")
         return 0
     for n, kind, table, sql in problems:
@@ -58,7 +78,7 @@ def main() -> int:
             f"the column missing. Move it below the CREATE, and put the column "
             f"in the CREATE too. -> {sql}"
         )
-    print(f"{len(problems)} ordering problem(s)")
+    print(f"{len(problems)} ordering problem(s), {len(semis)} comment-semicolon problem(s)")
     return 1
 
 

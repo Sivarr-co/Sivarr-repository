@@ -827,7 +827,7 @@ CREATE TABLE IF NOT EXISTS docs (
     -- before it existed, failed ("relation docs does not exist"), was
     -- swallowed by init_db()'s per-statement handler, and left every fresh
     -- database with a docs table missing these columns. Production survived
-    -- only because its table predated the change; CI, which provisions a
+    -- only because its table predated the change. CI, which provisions a
     -- clean database, failed every doc write with
     -- 'column "is_public" of relation "docs" does not exist'.
     is_public   BOOLEAN DEFAULT FALSE,
