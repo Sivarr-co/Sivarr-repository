@@ -64,7 +64,7 @@
   }
 
   function activeTasks(tasks) {
-    return (tasks || []).filter((t) => !t.deleted_at);
+    return (Array.isArray(tasks) ? tasks : []).filter((t) => !t.deleted_at);
   }
 
   function saveTasksData(data) {

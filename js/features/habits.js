@@ -939,10 +939,15 @@ function _syncGoalsToServer(goals) {
     if (!was.deleted_at && g.deleted_at) {
       _goalSendMutation("/api/goals/delete", { id: g.id });
     } else if (was.deleted_at && !g.deleted_at) {
-      _goalSendMutation("/api/goals/undelete", { id: g.id });
+      _goalSendMutation("/api/goals/restore", { id: g.id });
       _goalSendMutation("/api/goals/update", { id: g.id, ...g });
+      _goalSendMutation("/api/goals/edit", { id: g.id, ...g });
     } else {
+      // /api/goals/update only persists progress/completed; title, subject,
+      // and deadline are a separate endpoint (/api/goals/edit) server-side,
+      // so both must fire or those field edits silently never reach the DB.
       _goalSendMutation("/api/goals/update", { id: g.id, ...g });
+      _goalSendMutation("/api/goals/edit", { id: g.id, ...g });
     }
   });
 

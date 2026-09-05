@@ -9794,7 +9794,8 @@ function calToggleFilter(cat) {
 // ── Normalized items (events + tasks), respecting filters ─────
 function _calRawEvents() {
   try {
-    return JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || "[]");
+    const v = JSON.parse(localStorage.getItem(CAL_EVENTS_KEY()) || "[]");
+    return Array.isArray(v) ? v : [];
   } catch (_) {
     return [];
   }
@@ -9917,16 +9918,36 @@ function _calLayoutDay(items) {
 }
 
 // ── Main render dispatch ──────────────────────────────────────
+function calResetData() {
+  localStorage.removeItem(CAL_EVENTS_KEY());
+  localStorage.removeItem(CAL_FILTERS_KEY());
+  CAL_FILTERS = null;
+  calRender();
+  toast("Calendar data reset");
+}
 function calRender() {
   const body = $("cal-main-body");
   if (!body) return;
-  _calRenderHeader();
+  try {
+    _calRenderHeader();
+  } catch (err) {
+    console.error("Calendar header render failed:", err);
+  }
   _calRenderRail();
-  if (CAL_VIEW === "month") body.innerHTML = _calMonthHTML();
-  else
-    body.innerHTML = _calTimelineHTML(
-      CAL_VIEW === "day" ? [new Date(CAL_ANCHOR)] : _calWeekDays(),
-    );
+  try {
+    if (CAL_VIEW === "month") body.innerHTML = _calMonthHTML();
+    else
+      body.innerHTML = _calTimelineHTML(
+        CAL_VIEW === "day" ? [new Date(CAL_ANCHOR)] : _calWeekDays(),
+      );
+  } catch (err) {
+    console.error("Calendar body render failed:", err);
+    body.innerHTML = `<div class="cal-render-error">
+      <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+      <div>Couldn't load your calendar events.</div>
+      <button class="btn ghost" data-onclick="calResetData">Reset calendar data</button>
+    </div>`;
+  }
   document
     .querySelectorAll("#cal-view-seg button")
     .forEach((b) => b.classList.toggle("active", b.dataset.v === CAL_VIEW));
@@ -10076,9 +10097,24 @@ function calPickDay(ymd) {
 
 // ── Left rail: mini calendar, next-up, filters ────────────────
 function _calRenderRail() {
-  _calRenderMini();
-  _calRenderReminder();
-  _calRenderFilters();
+  // Each section is isolated: a bad-data throw in one (e.g. the mini
+  // calendar/reminder, which both read normalized events+tasks) must not
+  // blank sections that don't share that data path (e.g. Filters).
+  try {
+    _calRenderMini();
+  } catch (err) {
+    console.error("Calendar mini-month render failed:", err);
+  }
+  try {
+    _calRenderReminder();
+  } catch (err) {
+    console.error("Calendar reminder render failed:", err);
+  }
+  try {
+    _calRenderFilters();
+  } catch (err) {
+    console.error("Calendar filters render failed:", err);
+  }
 }
 
 function _calRenderMini() {
