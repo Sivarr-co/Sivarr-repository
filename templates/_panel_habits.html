@@ -1,96 +1,739 @@
-{# ── HABITS ── #}
-<div class="panel" id="panel-habits">
-  <div class="view-head">
-    <i class="ti ti-flame vh-icon"></i>
-    <span class="vh-title">Habits</span>
-    <button class="btn primary" data-onclick="habitAdd" style="margin-left: auto">
-      + Habit
-    </button>
-  </div>
-  <div class="habits-wrap">
-    <!-- Streak summary -->
-    <div class="h2col-card" style="margin-bottom: 14px">
-      <div
-        style="
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 10px;
-          text-align: center;
-        "
-      >
+{# ── GOALS & HABITS (merged) ────────────────────────────────────── Replaces
+the old standalone _panel_habits.html. Goals now live here too (previously in
+_panels_extra.html / app.js's gl-prefixed functions) — see habits.js for the
+full rationale and a flagged list of backend gaps (this was built without
+routes/goals.py or app.js's gl-* code in hand, so the goal object shape and
+/api/goals/* payload are my best guess at matching the existing per-entity
+endpoint pattern, not verified against the real contract). Must stay a fragment
+only: no doctype, no page-wrapper elements (html / head / body), no external
+stylesheet or script includes. Styles are scoped under .ghframe (NOT .frame --
+_panel_flux.html already owns that class; reusing it here would let the two
+panels' hoisted style blocks clobber each other if both load on the same page).
+Tabler icons are already loaded by index.html. habits.js is already loaded as
+/js/features/habits.js. #}
+<div class="panel" id="panel-goals-habits">
+  <style>
+    .ghframe {
+      --gh-accent: var(--purple, #8a2be2);
+      --gh-accent-dim: var(--purple2, #1c0e2e);
+      --gh-green: var(--green, #1d9e75);
+      --gh-red: var(--red, #e24b4a);
+      --gh-blue: var(--blue, #378add);
+      --gh-amber: var(--amber, #e0a040);
+      --gh-line: var(--border, #1c1c1c);
+      --gh-line2: var(--border2, #262626);
+      --gh-t1: var(--text1, #f5f4f2);
+      --gh-t2: var(--text2, #9b9891);
+      --gh-t3: var(--text3, #666660);
+      --gh-t4: var(--text4, #3d3c39);
+      --gh-bg: var(--bg, #000000);
+      --gh-card: var(--bg2, #0a0a0a);
+    }
+    .ghframe,
+    .ghframe * {
+      box-sizing: border-box;
+    }
+    .ghframe {
+      width: 100%;
+      height: 100%;
+      background: var(--gh-bg);
+      color: var(--gh-t1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI",
+        var(--font-body, system-ui), sans-serif;
+      font-size: 14px;
+    }
+    .ghframe ::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+
+    .ghframe .app-header {
+      padding: 12px 18px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .ghframe .header-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .ghframe .header-title {
+      font-size: 19px;
+      font-weight: 700;
+    }
+    .ghframe .header-sub {
+      font-size: 10.5px;
+      color: var(--gh-t3);
+      margin-top: 1px;
+    }
+    .ghframe .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--gh-t2);
+      font-size: 18px;
+    }
+    .ghframe .header-right i {
+      cursor: pointer;
+    }
+    .ghframe .add-goal-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: var(--gh-accent);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .ghframe .content {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 14px;
+    }
+    .ghframe .wrap {
+      padding: 4px 18px 8px;
+    }
+    .ghframe .section-lbl {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gh-t2);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 20px 0 10px;
+    }
+
+    /* ══ GOAL CARD ══ */
+    .ghframe .goal-card {
+      border: 1px solid var(--gh-line);
+      border-radius: 14px;
+      padding: 15px;
+      margin-bottom: 12px;
+    }
+    .ghframe .goal-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .ghframe .goal-title {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .ghframe .goal-due {
+      font-size: 10.5px;
+      color: var(--gh-t3);
+      margin-top: 2px;
+    }
+    .ghframe .goal-pct-wrap {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .ghframe .goal-pct {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .ghframe .goal-pct-edit-icon {
+      color: var(--gh-t3);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .ghframe .goal-pct-lock {
+      color: var(--gh-t4);
+      font-size: 12px;
+    }
+    .ghframe .goal-pct-wrap.locked .goal-pct {
+      color: var(--gh-t3);
+    }
+    .ghframe .goal-pct-wrap.editable .goal-pct {
+      border-bottom: 1.5px dashed var(--gh-t3);
+      cursor: pointer;
+    }
+    .ghframe .goal-pct-input {
+      width: 52px;
+      background: transparent;
+      border: 1px solid var(--gh-t2);
+      border-radius: 6px;
+      padding: 3px 4px;
+      color: var(--gh-t1);
+      font-size: 15px;
+      font-weight: 700;
+      outline: none;
+      text-align: right;
+    }
+    .ghframe .no-milestone-note {
+      font-size: 11px;
+      color: var(--gh-t3);
+      border: 1px dashed var(--gh-line2);
+      border-radius: 9px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+    }
+    .ghframe .progress-track {
+      width: 100%;
+      height: 6px;
+      background: var(--gh-line2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 13px;
+    }
+    .ghframe .progress-fill {
+      height: 100%;
+      background: var(--gh-t1);
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+    .ghframe .manual-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 13px;
+      margin-top: -4px;
+    }
+    .ghframe .manual-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 6px;
+      border-radius: 4px;
+      background: var(--gh-line2);
+      outline: none;
+    }
+    .ghframe .manual-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--gh-t1);
+      cursor: pointer;
+    }
+
+    .ghframe .goal-milestones {
+      margin-bottom: 12px;
+    }
+    .ghframe .milestone-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 6px 0;
+    }
+    .ghframe .milestone-check {
+      width: 16px;
+      height: 16px;
+      border-radius: 5px;
+      border: 1.5px solid var(--gh-t4);
+      flex-shrink: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ghframe .milestone-check.done {
+      background: var(--gh-t1);
+      border-color: var(--gh-t1);
+    }
+    .ghframe .milestone-check.done i {
+      color: var(--gh-bg);
+      font-size: 9px;
+    }
+    .ghframe .milestone-name {
+      font-size: 11.5px;
+      color: var(--gh-t2);
+    }
+    .ghframe .milestone-name.done {
+      color: var(--gh-t4);
+      text-decoration: line-through;
+    }
+    .ghframe .add-milestone-inline {
+      font-size: 11px;
+      color: var(--gh-t3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 6px 0 0;
+    }
+
+    .ghframe .goal-habits-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .ghframe .habit-mini-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: var(--gh-t2);
+      border: 1px solid var(--gh-line2);
+      border-radius: 20px;
+      padding: 4px 9px;
+      cursor: default;
+    }
+    .ghframe .habit-mini-chip i {
+      font-size: 11px;
+      color: var(--gh-amber);
+    }
+    .ghframe .habit-mini-streak {
+      color: var(--gh-amber);
+      font-weight: 600;
+    }
+    .ghframe .add-habit-chip {
+      border-style: dashed;
+      color: var(--gh-t3);
+      cursor: pointer;
+    }
+    .ghframe .add-habit-chip i {
+      color: var(--gh-t3) !important;
+    }
+
+    .ghframe .goal-card-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .ghframe .gh-action-btn {
+      background: none;
+      border: 1px solid var(--gh-line);
+      color: var(--gh-t3);
+      border-radius: 8px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .ghframe .gh-action-btn:hover {
+      color: var(--gh-t2);
+      border-color: var(--gh-line2);
+    }
+
+    /* ══ SHEETS ══ */
+    .ghframe .sheet-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 60;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .ghframe .sheet-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .ghframe .sheet {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--gh-card);
+      border-top: 1px solid var(--gh-line);
+      border-radius: 22px 22px 0 0;
+      z-index: 70;
+      transform: translateY(100%);
+      transition: transform 0.25s ease;
+      max-height: 90%;
+      display: flex;
+      flex-direction: column;
+    }
+    .ghframe .sheet.open {
+      transform: translateY(0);
+    }
+    .ghframe .sheet-handle {
+      width: 36px;
+      height: 4px;
+      background: var(--gh-line2);
+      border-radius: 4px;
+      margin: 10px auto 4px;
+      flex-shrink: 0;
+    }
+    .ghframe .sheet-close {
+      position: absolute;
+      top: 16px;
+      right: 18px;
+      color: var(--gh-t3);
+      font-size: 18px;
+      cursor: pointer;
+      z-index: 2;
+    }
+    .ghframe .sheet-scroll {
+      overflow-y: auto;
+      padding: 8px 20px 26px;
+    }
+    .ghframe .sheet-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 8px 0 4px;
+    }
+    .ghframe .sheet-sub {
+      font-size: 11.5px;
+      color: var(--gh-t3);
+      margin-bottom: 18px;
+    }
+    .ghframe .field-lbl {
+      font-size: 10.5px;
+      color: var(--gh-t3);
+      margin-bottom: 6px;
+      display: block;
+    }
+    .ghframe .field-row {
+      margin-bottom: 14px;
+    }
+    .ghframe .field-input,
+    .ghframe .field-select {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--gh-line);
+      border-radius: 10px;
+      padding: 10px 13px;
+      color: var(--gh-t1);
+      font-size: 12.5px;
+      outline: none;
+      font-family: inherit;
+    }
+    .ghframe .milestone-builder-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .ghframe .milestone-builder-row input {
+      flex: 1;
+    }
+    .ghframe .remove-milestone {
+      color: var(--gh-t4);
+      cursor: pointer;
+      font-size: 15px;
+    }
+    .ghframe .add-milestone-link {
+      font-size: 11.5px;
+      color: var(--gh-t2);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+    .ghframe .habit-pick-row {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--gh-line);
+      cursor: pointer;
+    }
+    .ghframe .habit-pick-row:last-child {
+      border-bottom: none;
+    }
+    .ghframe .habit-pick-check {
+      width: 19px;
+      height: 19px;
+      border-radius: 6px;
+      border: 1.5px solid var(--gh-t4);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ghframe .habit-pick-check.sel {
+      background: var(--gh-t1);
+      border-color: var(--gh-t1);
+    }
+    .ghframe .habit-pick-check.sel i {
+      color: var(--gh-bg);
+      font-size: 11px;
+    }
+    .ghframe .habit-pick-name {
+      font-size: 12.5px;
+      flex: 1;
+    }
+    .ghframe .habit-pick-streak {
+      font-size: 10.5px;
+      color: var(--gh-amber);
+    }
+    .ghframe .new-habit-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 12px 0 4px;
+      color: var(--gh-t2);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .ghframe .cta-purple {
+      background: var(--gh-accent);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ghframe .cta-purple.block {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .ghframe .mode-btn-row {
+      display: flex;
+      gap: 6px;
+    }
+    .ghframe .mode-btn {
+      flex: 1;
+      text-align: center;
+      font-size: 10.5px;
+      color: var(--gh-t2);
+      border: 1px solid var(--gh-line);
+      border-radius: 9px;
+      padding: 8px 4px;
+      cursor: pointer;
+    }
+    .ghframe .mode-btn.on {
+      background: var(--gh-t1);
+      border-color: var(--gh-t1);
+      color: var(--gh-bg);
+      font-weight: 600;
+    }
+    .ghframe .mode-desc {
+      font-size: 10px;
+      color: var(--gh-t3);
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    /* ══ HABITS LIST (compact rows) ══ */
+    .ghframe .habit-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--gh-line);
+    }
+    .ghframe .habit-row:last-child {
+      border-bottom: none;
+    }
+    .ghframe .habit-check {
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      border: 1.5px solid var(--gh-t4);
+      flex-shrink: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ghframe .habit-check.done {
+      background: var(--gh-t1);
+      border-color: var(--gh-t1);
+    }
+    .ghframe .habit-check.done i {
+      color: var(--gh-bg);
+      font-size: 12px;
+    }
+    .ghframe .habit-emoji {
+      font-size: 16px;
+    }
+    .ghframe .habit-name {
+      font-size: 13px;
+      font-weight: 500;
+      flex: 1;
+      min-width: 0;
+    }
+    .ghframe .habit-goal-tag {
+      font-size: 9px;
+      color: var(--gh-t3);
+      border: 1px solid var(--gh-line);
+      border-radius: 20px;
+      padding: 2px 7px;
+      flex-shrink: 0;
+    }
+    .ghframe .habit-streak-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--gh-amber);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .ghframe .habit-row-actions {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    @media (min-width: 600px) {
+      .ghframe {
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .ghframe .app-header,
+      .ghframe .wrap {
+        max-width: 820px;
+        margin-left: auto;
+        margin-right: auto;
+        width: 100%;
+      }
+    }
+  </style>
+
+  <div class="ghframe" id="ghFrame">
+    <div class="app-header">
+      <div class="header-left">
         <div>
-          <div
-            style="font-size: 1.6rem; font-weight: 800; color: var(--teal)"
-            id="hab-streak"
-          >
-            0
-          </div>
-          <div style="font-size: 0.72rem; color: var(--text3)">Best Streak</div>
+          <div class="header-title">Goals &amp; Habits</div>
+          <div class="header-sub">Personal Space</div>
         </div>
-        <div>
-          <div
-            style="font-size: 1.6rem; font-weight: 800; color: var(--amber3)"
-            id="hab-today"
-          >
-            0
-          </div>
-          <div style="font-size: 0.72rem; color: var(--text3)">Done Today</div>
-        </div>
-        <div>
-          <div
-            style="font-size: 1.6rem; font-weight: 800; color: var(--purple)"
-            id="hab-rate"
-          >
-            –
-          </div>
-          <div style="font-size: 0.72rem; color: var(--text3)">28-Day Rate</div>
+      </div>
+      <div class="header-right">
+        <i class="ti ti-search" data-onclick="ghPromptSearch"></i>
+        <div class="add-goal-btn" data-onclick="openNewGoal">
+          <i class="ti ti-plus"></i>
         </div>
       </div>
     </div>
 
-    <!-- Habit list -->
-    <div id="habits-list">
-      <div class="habit-card">
-        <div class="habit-emoji">📚</div>
-        <div class="habit-info">
-          <div class="habit-title">Morning Study</div>
-          <div class="habit-sub2">Every day · 30 mins</div>
-          <div class="hdots" id="hdots-0">
-            <div class="hdot f"></div>
-            <div class="hdot f"></div>
-            <div class="hdot f"></div>
-            <div class="hdot e"></div>
-            <div class="hdot e"></div>
-            <div class="hdot e"></div>
-            <div class="hdot e"></div>
-          </div>
-        </div>
-        <div style="text-align: right">
-          <div class="habit-pct">43%</div>
-          <div style="font-size: 0.7rem; color: var(--text4)">this week</div>
-        </div>
-      </div>
-      <div class="habit-card">
-        <div class="habit-emoji">🧘</div>
-        <div class="habit-info">
-          <div class="habit-title">Review Notes</div>
-          <div class="habit-sub2">Every day · 15 mins</div>
-          <div class="hdots">
-            <div class="hdot f"></div>
-            <div class="hdot f"></div>
-            <div class="hdot e"></div>
-            <div class="hdot f"></div>
-            <div class="hdot e"></div>
-            <div class="hdot e"></div>
-            <div class="hdot e"></div>
-          </div>
-        </div>
-        <div style="text-align: right">
-          <div class="habit-pct">43%</div>
-          <div style="font-size: 0.7rem; color: var(--text4)">this week</div>
-        </div>
+    <div class="content" id="ghScrollArea">
+      <div class="wrap">
+        <div class="section-lbl">Goals</div>
+        <div id="goalsList"><!-- rendered by habits.js --></div>
+
+        <div class="section-lbl">Habits</div>
+        <div id="habitsList"><!-- rendered by habits.js --></div>
       </div>
     </div>
-    <button class="new-habit-btn" data-onclick="habitAdd">+ Add new habit</button>
+    <!-- ═══ NEW GOAL SHEET ═══ -->
+    <div
+      class="sheet-overlay"
+      id="newGoalOverlay"
+      data-onclick="closeNewGoal"
+    ></div>
+    <div class="sheet" id="newGoalSheet">
+      <div class="sheet-close" data-onclick="closeNewGoal">
+        <i class="ti ti-x"></i>
+      </div>
+      <div class="sheet-handle"></div>
+      <div class="sheet-scroll">
+        <div class="sheet-title">New goal</div>
+        <div class="sheet-sub">
+          Add milestones and link habits — both optional, add them anytime
+        </div>
+
+        <div class="field-row">
+          <label class="field-lbl">Title</label
+          ><input
+            class="field-input"
+            type="text"
+            id="newGoalTitle"
+            placeholder="e.g. Learn to swim"
+          />
+        </div>
+        <div class="field-row">
+          <label class="field-lbl">Target date (optional)</label
+          ><input class="field-input" type="date" id="newGoalDue" />
+        </div>
+
+        <div class="field-row">
+          <label class="field-lbl">How should progress be tracked?</label>
+          <div class="mode-btn-row" id="newGoalModeRow">
+            <div class="mode-btn" data-mode="manual">Manual</div>
+            <div class="mode-btn on" data-mode="milestone">
+              Milestone-driven
+            </div>
+            <div class="mode-btn" data-mode="hybrid">Hybrid</div>
+          </div>
+          <div class="mode-desc" id="newGoalModeDesc">
+            % is calculated automatically from milestones checked. No milestones
+            = no %.
+          </div>
+        </div>
+
+        <label class="field-lbl">Milestones</label>
+        <div id="milestoneBuilder">
+          <div class="milestone-builder-row">
+            <input
+              class="field-input"
+              type="text"
+              placeholder="e.g. Complete beginner course"
+            /><i
+              class="ti ti-x remove-milestone"
+              onclick="this.closest('.milestone-builder-row').remove()"
+            ></i>
+          </div>
+        </div>
+        <div class="add-milestone-link" data-onclick="addMilestoneField">
+          <i class="ti ti-plus" style="font-size: 13px"></i>Add another
+          milestone
+        </div>
+
+        <label class="field-lbl">Link habits</label>
+        <div id="newGoalHabitPickList"><!-- rendered by habits.js --></div>
+        <div class="new-habit-row" data-onclick="createHabitForNewGoal">
+          <i class="ti ti-plus" style="font-size: 14px"></i>Create a new habit
+        </div>
+
+        <button
+          class="cta-purple block"
+          style="margin-top: 18px"
+          data-onclick="saveNewGoal"
+        >
+          <i class="ti ti-check" style="font-size: 13px"></i>Create goal
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══ LINK HABIT SHEET (from an existing goal card) ═══ -->
+    <div
+      class="sheet-overlay"
+      id="linkHabitOverlay"
+      data-onclick="closeLinkHabit"
+    ></div>
+    <div class="sheet" id="linkHabitSheet">
+      <div class="sheet-close" data-onclick="closeLinkHabit">
+        <i class="ti ti-x"></i>
+      </div>
+      <div class="sheet-handle"></div>
+      <div class="sheet-scroll">
+        <div class="sheet-title">Link a habit</div>
+        <div class="sheet-sub">
+          A habit can be linked to more than one goal — its streak stays the
+          same everywhere
+        </div>
+        <div id="linkHabitPickList"><!-- rendered by habits.js --></div>
+        <div class="new-habit-row" data-onclick="createHabitForLink">
+          <i class="ti ti-plus" style="font-size: 14px"></i>Create a new habit
+          for this goal
+        </div>
+        <button
+          class="cta-purple block"
+          style="margin-top: 18px"
+          data-onclick="saveLinkHabit"
+        >
+          <i class="ti ti-check" style="font-size: 13px"></i>Link selected
+        </button>
+      </div>
+    </div>
   </div>
+  <!-- /.ghframe -->
 </div>
