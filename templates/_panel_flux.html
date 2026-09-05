@@ -1755,8 +1755,37 @@
               class="field-input"
               type="text"
               id="newTaskTitle"
-              placeholder="Task name"
+              placeholder="Task name (try 'next Friday' or 'tomorrow')"
+              oninput="_taskTitleDateDetect()"
             />
+          </div>
+          <!-- Natural-language due date preview -- shown only while
+               #newTaskDate is still empty (see _taskTitleDateDetect,
+               js/features/tasks.js); "Use" fills the date picker and
+               strips the phrase from the title, never silently. -->
+          <div
+            class="field-row ntdc-chip"
+            id="newTaskDateChip"
+            style="display: none; align-items: center; gap: 8px; margin-top: -6px"
+          >
+            <i class="ti ti-calendar-event" style="font-size: 13px; color: var(--accent)"></i>
+            <span class="ntdc-label" style="font-size: 12px; flex: 1"></span>
+            <button
+              type="button"
+              class="cta-ghost"
+              style="padding: 3px 10px; font-size: 12px"
+              onclick="_taskTitleDateApply()"
+            >
+              Use
+            </button>
+            <button
+              type="button"
+              class="cta-ghost"
+              style="padding: 3px 10px; font-size: 12px"
+              onclick="_taskTitleDateDismiss()"
+            >
+              Dismiss
+            </button>
           </div>
           <div class="field-row">
             <label class="field-lbl">Description</label
@@ -1769,7 +1798,12 @@
           <div class="field-grid2">
             <div class="field-row">
               <label class="field-lbl">Due date</label
-              ><input class="field-input" type="date" id="newTaskDate" />
+              ><input
+                class="field-input"
+                type="date"
+                id="newTaskDate"
+                onchange="_taskTitleDateDetect()"
+              />
             </div>
             <div class="field-row">
               <label class="field-lbl">Estimated effort</label

@@ -858,6 +858,7 @@
     if ($("newTaskTitle")) $("newTaskTitle").value = "";
     if ($("newTaskDesc")) $("newTaskDesc").value = "";
     if ($("newTaskDate")) $("newTaskDate").value = "";
+    if (typeof window._taskTitleDateDismiss === "function") window._taskTitleDateDismiss();
     if ($("newTaskEffort")) $("newTaskEffort").value = "";
     if ($("newTaskRepeat")) $("newTaskRepeat").value = "none";
     if ($("newTaskStatus")) $("newTaskStatus").value = "todo";
@@ -963,6 +964,147 @@
     renderAll();
     toast("Task added ✓");
     return parentTask.id;
+  };
+
+  // ── Natural-language due dates in the task title (Todoist-style) ────
+  // Detects a trailing date phrase as the user types the title, offers it
+  // as a dismissible chip, and only on explicit "Apply" fills #newTaskDate
+  // and strips the phrase from the title -- never silently, and never over
+  // a date the user already picked by hand in the native picker. Hand-
+  // written rather than a vendored NLP date library: covers the phrasing
+  // people actually type into a task title, stays fully auditable, and
+  // this repo's only existing bundling pipeline (build.js) minifies our
+  // own source, it doesn't vendor third-party npm packages -- pulling one
+  // in would mean standing up that pipeline for a "quick win" feature.
+  // Tasks have no due-TIME field today, so a trailing time ("at 5pm") is
+  // recognized only so it gets cleanly stripped from the title too, never
+  // stored -- the chip label says so explicitly rather than pretending it
+  // was saved.
+  const _TD_WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  const _TD_MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
+  function _tdToday() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  function _tdAddDays(n) {
+    const d = _tdToday();
+    d.setDate(d.getDate() + n);
+    return d;
+  }
+  function _tdNextWeekday(name, isNext) {
+    const idx = _TD_WEEKDAYS.indexOf(name);
+    if (idx === -1) return null;
+    const d = _tdToday();
+    let diff = (idx - d.getDay() + 7) % 7;
+    if (isNext && diff === 0) diff = 7; // "next Friday" said on a Friday means a week away, not today
+    d.setDate(d.getDate() + diff);
+    return d;
+  }
+  function _tdExplicitDate(monthName, day, year) {
+    const idx = _TD_MONTHS.indexOf(monthName);
+    if (idx === -1 || day < 1 || day > 31) return null;
+    const now = new Date();
+    const y = year != null ? year : now.getFullYear();
+    let d = new Date(y, idx, day);
+    d.setHours(0, 0, 0, 0);
+    if (year == null && d < _tdToday()) d = new Date(y + 1, idx, day); // "Jan 5" said in December means next January
+    return d;
+  }
+  function _tdToISO(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  function _tdToLabel(d) {
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  }
+
+  // Priority order matters: specific phrases ("next friday", "in 3 days")
+  // are tried before the bare-weekday fallback so "next friday" doesn't
+  // get parsed as today-relative-to-"friday" alone.
+  function _parseTaskDatePhrase(text) {
+    const src = text || "";
+    const weekdayAlt = _TD_WEEKDAYS.join("|");
+    const monthAlt = _TD_MONTHS.join("|");
+    const patterns = [
+      { re: /\btoday\b/i, resolve: () => _tdAddDays(0) },
+      { re: /\b(?:tomorrow|tmrw)\b/i, resolve: () => _tdAddDays(1) },
+      { re: /\bin\s+(\d+)\s+days?\b/i, resolve: (m) => _tdAddDays(parseInt(m[1], 10)) },
+      { re: /\bin\s+(\d+)\s+weeks?\b/i, resolve: (m) => _tdAddDays(parseInt(m[1], 10) * 7) },
+      { re: new RegExp(`\\bnext\\s+(${weekdayAlt})\\b`, "i"), resolve: (m) => _tdNextWeekday(m[1].toLowerCase(), true) },
+      { re: new RegExp(`\\bthis\\s+(${weekdayAlt})\\b`, "i"), resolve: (m) => _tdNextWeekday(m[1].toLowerCase(), false) },
+      { re: new RegExp(`\\b(${monthAlt})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b`, "i"),
+        resolve: (m) => _tdExplicitDate(m[1].toLowerCase(), parseInt(m[2], 10), m[3] ? parseInt(m[3], 10) : null) },
+      // Negative lookahead excludes a possessive ("Friday's meeting notes")
+      // -- that's clearly referring to content, not scheduling, and was a
+      // real false positive caught in testing.
+      { re: new RegExp(`\\b(${weekdayAlt})\\b(?!['’]s\\b)`, "i"), resolve: (m) => _tdNextWeekday(m[1].toLowerCase(), false) },
+    ];
+
+    for (const p of patterns) {
+      const m = src.match(p.re);
+      if (!m) continue;
+      const date = p.resolve(m);
+      if (!date) continue;
+      let end = m.index + m[0].length;
+      let hadTime = false;
+      const timeMatch = src.slice(end).match(/^\s*(?:at\s+)?(\d{1,2})(:\d{2})?\s*(am|pm)\b/i);
+      if (timeMatch) {
+        hadTime = true;
+        end += timeMatch[0].length;
+      }
+      return { start: m.index, end, date, hadTime };
+    }
+    return null;
+  }
+
+  let _tdChipMatch = null;
+
+  window._taskTitleDateDetect = function () {
+    const chip = $("newTaskDateChip");
+    const titleEl = $("newTaskTitle");
+    if (!chip || !titleEl) return;
+    const dateInput = $("newTaskDate");
+    if (dateInput && dateInput.value) {
+      // Never second-guess a date the user already picked by hand.
+      chip.style.display = "none";
+      _tdChipMatch = null;
+      return;
+    }
+    const match = _parseTaskDatePhrase(titleEl.value);
+    if (!match) {
+      chip.style.display = "none";
+      _tdChipMatch = null;
+      return;
+    }
+    _tdChipMatch = match;
+    const label = chip.querySelector(".ntdc-label");
+    if (label) {
+      label.textContent = `Set due ${_tdToLabel(match.date)}${match.hadTime ? " (time noted but not saved)" : ""}`;
+    }
+    chip.style.display = "flex";
+  };
+
+  window._taskTitleDateApply = function () {
+    if (!_tdChipMatch) return;
+    const titleEl = $("newTaskTitle");
+    const dateInput = $("newTaskDate");
+    if (dateInput) dateInput.value = _tdToISO(_tdChipMatch.date);
+    if (titleEl) {
+      const { start, end } = _tdChipMatch;
+      titleEl.value = (titleEl.value.slice(0, start) + titleEl.value.slice(end))
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    }
+    const chip = $("newTaskDateChip");
+    if (chip) chip.style.display = "none";
+    _tdChipMatch = null;
+  };
+
+  window._taskTitleDateDismiss = function () {
+    const chip = $("newTaskDateChip");
+    if (chip) chip.style.display = "none";
+    _tdChipMatch = null;
   };
 
   // ── Render Orchestration ─────────────────────────────────────────────

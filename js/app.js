@@ -508,6 +508,7 @@ window.siModalSubInput = () => siModal._subInput();
 window.siModalCheckTyped = () => siModal._checkTyped();
 window.siModalSubForm = (ids) => siModal._subForm(ids);
 window.siModalPickEmoji = (gridId, hidId, el) => siModal._pickEmoji(gridId, hidId, el);
+window.siModalBgClose = (e) => siModal._bgClose(e);
 
 // ═══════════════════════════ PROFILE PICTURE ════════════════════
 
@@ -2087,6 +2088,13 @@ function _billingRenderBadge() {
   el.style.color = plan === "Free" ? "var(--muted)" : "var(--teal)";
 }
 
+// CSP migration: the paywall overlay's own "Upgrade Now" button just reveals
+// the real pricing modal by id -- a DOM expression, not a named global.
+window._showPricingModal = function () {
+  const m = document.getElementById("pricing-modal");
+  if (m) m.style.display = "flex";
+};
+
 async function showPricing() {
   const modal = $("pricing-modal");
   if (!modal) return;
@@ -2471,6 +2479,13 @@ async function _acceptPendingOrgInvite() {
 
 
 
+
+// CSP migration: dismiss the email-verify banner (this.closest(...).style
+// mutation -- a DOM expression, not a plain this reference).
+window._hideVerifyBanner = function (el) {
+  const banner = el.closest("#verify-banner");
+  if (banner) banner.style.display = "none";
+};
 
 async function resendVerificationEmail() {
   const token = getSavedSession()?.token;
@@ -5703,6 +5718,20 @@ function cnOpen() {
 function cnClose(e) {
   if (e.target === $("cn-modal-bg")) $("cn-modal-bg").classList.remove("open");
 }
+
+// CSP migration: this call site forces a close regardless of click target by
+// constructing a synthetic event object, which isn't expressible as an HTML
+// attribute value (a real DOM element reference, not serializable data).
+window._forceCloseCnModal = function () {
+  cnClose({ target: $("cn-modal-bg") });
+};
+
+// CSP migration: multi-statement (close the quick-capture modal, then open
+// the separate create-space modal).
+window._closeCnModalThenOpenSpace = function () {
+  $("cn-modal-bg")?.classList.remove("open");
+  openCreateSpaceModal();
+};
 function cnAction(type) {
   $("cn-modal-bg").classList.remove("open");
   setTimeout(() => {
@@ -7518,38 +7547,49 @@ function voiceInit() {
   return rec;
 }
 
-function toggleVoice() {
+// inputId/btnId default to the main chat's own elements so both existing
+// zero-arg call sites (the main chat's mic button, and the
+// setTimeout(toggleVoice, 300) shortcut below) keep working unchanged.
+// Passing them lets any other input+button pair (e.g. the mobile FAB's
+// quick-chat popup, js/features/academic.js's acadChatSend) reuse the same
+// real speech-recognition wiring instead of a second implementation.
+// onFinishName is a global function NAME (string), resolved via window[...]
+// here rather than accepted as a function reference -- data-onclick-args
+// (js/core/delegate.js) only ever carries JSON data, never a live function,
+// by design (the same reason delegate.js dispatches by name, not eval).
+function toggleVoice(inputId = "ci", btnId = "voice-btn", onFinishName = "send") {
   if (VOICE_ACTIVE) {
     VOICE_REC?.stop();
     VOICE_ACTIVE = false;
-    updateVoiceBtn(false);
+    updateVoiceBtn(false, btnId);
     return;
   }
   VOICE_REC = voiceInit();
   if (!VOICE_REC) return;
   VOICE_ACTIVE = true;
-  updateVoiceBtn(true);
+  updateVoiceBtn(true, btnId);
   toast("Listening... 🎤");
 
   VOICE_REC.onresult = (e) => {
     const transcript = Array.from(e.results)
       .map((r) => r[0].transcript)
       .join("");
-    const ci = $("ci");
-    if (ci) ci.value = transcript;
+    const inp = $(inputId);
+    if (inp) inp.value = transcript;
   };
   VOICE_REC.onend = () => {
     VOICE_ACTIVE = false;
-    updateVoiceBtn(false);
-    const ci = $("ci");
-    if (ci && ci.value.trim()) {
+    updateVoiceBtn(false, btnId);
+    const inp = $(inputId);
+    if (inp && inp.value.trim()) {
       toast("Got it, sending... ✓");
-      setTimeout(() => send(), 500);
+      const fn = window[onFinishName];
+      if (typeof fn === "function") setTimeout(fn, 500);
     }
   };
   VOICE_REC.onerror = (e) => {
     VOICE_ACTIVE = false;
-    updateVoiceBtn(false);
+    updateVoiceBtn(false, btnId);
     toast(
       e.error === "not-allowed"
         ? "Microphone permission denied."
@@ -7559,10 +7599,15 @@ function toggleVoice() {
   VOICE_REC.start();
 }
 
-function updateVoiceBtn(active) {
-  const btn = $("voice-btn");
+function updateVoiceBtn(active, btnId = "voice-btn") {
+  const btn = $(btnId);
   if (!btn) return;
-  btn.textContent = active ? "🔴" : "🎤";
+  // Buttons with a real <i> icon (both #voice-btn and the quick-chat
+  // popup's mic button ship one) get their icon swapped in place; a
+  // textContent fallback covers any caller whose button has no icon.
+  const icon = btn.querySelector("i");
+  if (icon) icon.className = active ? "ti ti-player-stop-filled" : "ti ti-microphone";
+  else btn.textContent = active ? "🔴" : "🎤";
   btn.style.color = active ? "var(--red)" : "var(--muted)";
   btn.style.borderColor = active ? "var(--red)" : "var(--border)";
   if (active) btn.style.animation = "pulse 1s infinite";
@@ -7664,6 +7709,11 @@ function spReset() {
   const ei = $("sp-err");
   if (ei) ei.textContent = "";
 }
+
+// CSP migration: Enter-to-create on the space-name input.
+window._spCreateOnEnter = function (e) {
+  if (e.key === "Enter") spCreate();
+};
 
 function spCreate() {
   const name = $("sp-name")?.value.trim();
@@ -12528,6 +12578,22 @@ function closeMobileSidebar() {
   document.body.style.overflow = "";
 }
 
+// CSP migration (templates/_shell.html's #overlay click, mobile only): was a
+// nested ternary picking between closing the sidebar or showing the mobile
+// home visual, depending on which mobile UI state is active.
+window._overlayClick = function () {
+  if (document.body.classList.contains("mobile-sidebar-open")) {
+    closeMobileSidebar();
+  } else if (
+    window.innerWidth <= 720 &&
+    !document.body.classList.contains("mob-drilled")
+  ) {
+    _mobHomeVisual();
+  } else {
+    closeMobileSidebar();
+  }
+};
+
 function mobSnavToggle(sectionId, btn) {
   const items = $(`mob-items-${sectionId}`);
   const secBtn = $(`mob-sec-${sectionId}`) || btn;
@@ -13518,6 +13584,21 @@ function closeProfile() {
   if (d) d.classList.remove("open");
 }
 
+// CSP migration (templates/_shell.html profile dropdown items): each item
+// was multi-statement (navigate/act, then close the dropdown) -- delegate.js
+// only dispatches to single named functions.
+window._navThenCloseProfile = function (panel) {
+  nav(panel, null);
+  closeProfile();
+};
+window._showPricingThenCloseProfile = function () {
+  showPricing();
+  closeProfile();
+};
+window._triggerPfpInput = function () {
+  $("pfp-input")?.click();
+};
+
 document.addEventListener("click", (e) => {
   const menu = $("profile-menu");
   if (menu && !menu.contains(e.target)) closeProfile();
@@ -13764,6 +13845,15 @@ async function shareResult(score, topic) {
 // ═══════════════════════════════════════════════════════════════
 // FEATURE 1 — QUICK CAPTURE (cmd palette extension)
 // ═══════════════════════════════════════════════════════════════
+
+// CSP migration (templates/_modals.html's "Capture as" buttons): mousedown +
+// preventDefault() is deliberate -- it must fire before the click that would
+// otherwise blur the command-palette input first, same reasoning as the
+// docs-editor slash-menu's mousedown use elsewhere in this migration.
+window._qcCaptureFromMousedown = function (e, type) {
+  e.preventDefault();
+  qcCapture(type);
+};
 
 function qcCapture(type) {
   if (!S.sid) return;
@@ -17630,6 +17720,13 @@ function nlOpen() {
   _nlReset();
   setTimeout(() => input?.focus(), 60);
 }
+
+// CSP migration: the natural-language capture input's Enter-to-submit /
+// Escape-to-close, previously two `if` statements in one inline handler.
+window._nlInputKeydown = function (e) {
+  if (e.key === "Enter") nlSubmit();
+  if (e.key === "Escape") nlClose();
+};
 
 function nlClose() {
   const overlay = $("nl-overlay");

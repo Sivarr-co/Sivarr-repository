@@ -1572,6 +1572,26 @@ body.auth-screen #login-screen {
   font-size: 15px;
 }
 
+/* "Change photo" button (templates/_shell.html) -- was onmouseover/
+   onmouseout JS toggling these same two properties; CSS :hover replaces
+   it 1:1. */
+.pd-change-photo-btn {
+  margin-top: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 3px 10px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all 0.15s;
+}
+.pd-change-photo-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .pd-divider {
   height: 1px;
   background: var(--border);

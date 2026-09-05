@@ -128,7 +128,7 @@
               display: inline-block;
               margin-bottom: 8px;
             "
-            onclick="$('pfp-input').click()"
+            data-onclick="_triggerPfpInput"
             title="Change photo"
           >
             <div
@@ -188,27 +188,8 @@
           <div class="pd-name" id="pd-name">Your Name</div>
           <div class="pd-matric" id="pd-matric">Account</div>
           <button
-            onclick="$('pfp-input').click()"
-            style="
-              margin-top: 6px;
-              background: none;
-              border: 1px solid var(--border);
-              border-radius: 7px;
-              padding: 3px 10px;
-              color: var(--muted);
-              font-size: 0.7rem;
-              cursor: pointer;
-              font-family: var(--font);
-              transition: all 0.15s;
-            "
-            onmouseover="
-              this.style.borderColor = 'var(--accent)';
-              this.style.color = 'var(--accent)';
-            "
-            onmouseout="
-              this.style.borderColor = 'var(--border)';
-              this.style.color = 'var(--muted)';
-            "
+            class="pd-change-photo-btn"
+            data-onclick="_triggerPfpInput"
           >
             Change photo
           </button>
@@ -216,37 +197,25 @@
 
         <button
           class="pd-item"
-          onclick="
-            nav('stats', null);
-            closeProfile();
-          "
+          data-onclick="_navThenCloseProfile" data-onclick-arg0="stats"
         >
           <i class="ti ti-chart-bar pd-icon"></i> My Progress
         </button>
         <button
           class="pd-item"
-          onclick="
-            nav('notes', null);
-            closeProfile();
-          "
+          data-onclick="_navThenCloseProfile" data-onclick-arg0="notes"
         >
           <i class="ti ti-notebook pd-icon"></i> My Notes
         </button>
         <button
           class="pd-item"
-          onclick="
-            nav('calendar', null);
-            closeProfile();
-          "
+          data-onclick="_navThenCloseProfile" data-onclick-arg0="calendar"
         >
           <i class="ti ti-calendar pd-icon"></i> Calendar
         </button>
         <button
           class="pd-item"
-          onclick="
-            nav('announcements', null);
-            closeProfile();
-          "
+          data-onclick="_navThenCloseProfile" data-onclick-arg0="announcements"
         >
           <i class="ti ti-bell pd-icon"></i> Announcements
         </button>
@@ -270,10 +239,7 @@
 
         <button
           class="pd-item"
-          onclick="
-            showPricing();
-            closeProfile();
-          "
+          data-onclick="_showPricingThenCloseProfile"
         >
           <i class="ti ti-rocket pd-icon"></i>
           Upgrade Plan
@@ -306,14 +272,7 @@
 <div
   class="overlay"
   id="overlay"
-  onclick="
-    document.body.classList.contains('mobile-sidebar-open')
-      ? closeMobileSidebar()
-      : window.innerWidth <= 720 &&
-          !document.body.classList.contains('mob-drilled')
-        ? _mobHomeVisual()
-        : closeMobileSidebar()
-  "
+  data-onclick="_overlayClick"
 ></div>
 
 <!-- Sidebar -->
@@ -416,10 +375,7 @@
       </span>
       <button
         class="sb-spaces-add"
-        onclick="
-          event.stopPropagation();
-          openCreateSpaceModal();
-        "
+        data-onclick="openCreateSpaceModal"
         title="New space"
         data-tip="New space"
         data-tip-pos="right"

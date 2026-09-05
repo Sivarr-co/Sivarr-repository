@@ -37,6 +37,15 @@ const esc = (s) =>
 
 const escHtml = esc;
 
+/** Grow a single-line-looking textarea to fit its content, capped at 120px.
+ * CSP migration: was `oninput="this.style.height=...` on a couple of chat
+ * inputs; pure DOM, no app state, so it lives here rather than in a feature
+ * module. */
+function autoResizeTextarea(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+}
+
 /** Transient bottom-of-screen message. No-ops if the toast element is absent. */
 function toast(msg, ms = 2500) {
   const el = $("toast");

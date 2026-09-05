@@ -53,6 +53,15 @@
         data-onkeydown-event
         oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"
       ></textarea>
+      <button
+        id="ac-chat-voice-btn"
+        class="chat-icon-btn"
+        data-onclick="toggleVoice"
+        data-onclick-args='["ac-chat-input", "ac-chat-voice-btn", "acadChatSend"]'
+        title="Voice input"
+      >
+        <i class="ti ti-microphone"></i>
+      </button>
       <button class="chat-send-btn" id="ac-chat-send" data-onclick="acadChatSend">
         <i class="ti ti-arrow-up"></i>
       </button>
