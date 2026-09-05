@@ -143,8 +143,60 @@
           </button>
         </div>
         <div class="doc-tb-sep"></div>
+        <div class="doc-tb-group">
+          <button
+            class="doc-tb-btn"
+            id="doc-publish-btn"
+            data-onclick="docTogglePublic"
+            title="Publish a read-only link"
+          >
+            <i class="ti ti-world"></i>
+          </button>
+        </div>
+        <div class="doc-tb-sep"></div>
         <button class="doc-siva-btn" data-onclick="docInlineAI">
           <i class="ti ti-sparkles"></i> AI Write
+        </button>
+      </div>
+
+      <!-- Publish panel (hidden until this doc is published) -->
+      <div
+        id="doc-publish-panel"
+        style="
+          display: none;
+          border-bottom: 1px solid var(--border);
+          padding: 10px 16px;
+          background: var(--surface);
+          flex-shrink: 0;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        "
+      >
+        <i class="ti ti-world" style="color: var(--accent)"></i>
+        <span style="font-size: 0.8rem; color: var(--muted)"
+          >Anyone with this link can view a read-only copy:</span
+        >
+        <input
+          id="doc-publish-link"
+          readonly
+          style="
+            flex: 1;
+            min-width: 200px;
+            font-size: 0.8rem;
+            padding: 6px 9px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            background: var(--bg);
+            color: var(--text);
+          "
+        />
+        <button
+          class="doc-tb-btn"
+          data-onclick="docCopyPublicLink"
+          title="Copy link"
+        >
+          <i class="ti ti-copy"></i>
         </button>
       </div>
 

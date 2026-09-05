@@ -222,6 +222,56 @@ function docOpenEditor(doc) {
     const rel = doc.updated ? _relTime(doc.updated) : "";
     statusEl.textContent = rel ? `Saved ${rel}` : "All changes saved";
   }
+  _docRenderPublishUI(doc);
+}
+
+// ── Public doc pages (GET /doc/{slug}) ────────────────────────────────
+// Opaque, client-generated slug -- never derived from title/content, so
+// nothing about the doc's real content is guessable from the URL. Server
+// re-validates the format (routes/docs_notes.py's sync_docs) since this is
+// looked up globally across all users, not scoped by sid like everything
+// else docs-related.
+function _docGenSlug() {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const arr = new Uint8Array(10);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => chars[b % chars.length]).join("");
+}
+
+function docTogglePublic() {
+  if (!_docId) return;
+  const list = docGetAll();
+  const idx = list.findIndex((d) => d.id === _docId);
+  if (idx < 0) return;
+  const doc = list[idx];
+  doc.is_public = !doc.is_public;
+  if (doc.is_public && !doc.public_slug) doc.public_slug = _docGenSlug();
+  docSaveAll(list);
+  _docRenderPublishUI(doc);
+  toast(doc.is_public ? "Doc published — link is live" : "Doc unpublished");
+}
+
+function _docRenderPublishUI(doc) {
+  const btn = $("doc-publish-btn");
+  const panel = $("doc-publish-panel");
+  const linkInput = $("doc-publish-link");
+  if (btn) btn.classList.toggle("active", !!doc.is_public);
+  if (panel) panel.style.display = doc.is_public ? "flex" : "none";
+  if (linkInput) {
+    linkInput.value =
+      doc.is_public && doc.public_slug
+        ? `${location.origin}/doc/${doc.public_slug}`
+        : "";
+  }
+}
+
+function docCopyPublicLink() {
+  const el = $("doc-publish-link");
+  if (!el || !el.value) return;
+  navigator.clipboard?.writeText(el.value).then(
+    () => toast("Link copied"),
+    () => {},
+  );
 }
 
 function _relTime(ts) {

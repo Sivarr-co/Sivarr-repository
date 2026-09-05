@@ -473,6 +473,14 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_recovery_codes JSONB DEFAULT '[]';
 
+-- 2026-09-05: read-only public doc pages (GET /doc/{slug}). public_slug is
+-- opaque (client-generated, not a title-derived slug) and looked up across
+-- ALL users, not scoped by sid like every other docs query -- hence the
+-- separate global unique index rather than reusing the (sid, id) PK.
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS public_slug TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_docs_public_slug ON docs(public_slug) WHERE public_slug IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     token      TEXT PRIMARY KEY,
     sid        TEXT NOT NULL,
@@ -3440,7 +3448,7 @@ def get_sids_with_goals() -> list[str]:
 # caller's entire doc list), so replace_all_docs is the only write path
 # needed, not per-entity create/update/delete functions.
 
-_DOC_COLUMNS = {"title", "content", "updated", "deleted_at"}
+_DOC_COLUMNS = {"title", "content", "updated", "deleted_at", "is_public", "public_slug"}
 
 
 def _doc_param(key: str, value):
@@ -3453,9 +3461,13 @@ def _doc_param(key: str, value):
     first time it went through replace_all_docs (i.e. the very next
     /api/docs/sync). Coerce defensively here rather than fix it at
     import_notes' call site, since any future write path has the same
-    trap otherwise."""
+    trap otherwise. is_public is the one real BOOLEAN column -- stringifying
+    it like everything else would write the literal text "True"/"False"
+    into a boolean column, which psycopg2 also won't implicitly cast."""
     if value is None:
         return None
+    if key == "is_public":
+        return bool(value)
     return str(value)
 
 
@@ -3485,6 +3497,32 @@ def get_docs(sid: str, include_deleted: bool = False) -> list:
     except Exception as exc:
         log.error(f"get_docs: {exc}")
         return []
+    finally:
+        _release(conn)
+
+
+def get_public_doc(slug: str) -> dict | None:
+    """Look up a published doc by its public_slug, across ALL users -- the
+    one docs query that isn't scoped by sid, since the public /doc/{slug}
+    page has no session and no idea whose doc it is. is_public=TRUE and
+    deleted_at IS NULL are both re-checked here (not just trusted from the
+    slug's existence) so unpublishing or trashing a doc takes the public
+    page down immediately, not just hides the link in the editor."""
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT title, content, updated FROM docs "
+                "WHERE public_slug=%s AND is_public=TRUE AND deleted_at IS NULL",
+                (slug,),
+            )
+            row = cur.fetchone()
+            return _row_to_doc(row) if row else None
+    except Exception as exc:
+        log.error(f"get_public_doc: {exc}")
+        return None
     finally:
         _release(conn)
 

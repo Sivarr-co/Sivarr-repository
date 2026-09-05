@@ -2546,6 +2546,26 @@ async def about_page():
     raise HTTPException(404, "About page not found")
 
 
+@app.get("/doc/{slug}", response_class=HTMLResponse)
+async def public_doc(slug: str):
+    """Read-only public page for a doc the owner has explicitly published
+    (js/features/docs_notes.js's docTogglePublic). Unauthenticated, no
+    session — a stray/guessed slug or an unpublished/deleted doc both just
+    404, same as any other missing page. Renders the server's stored copy,
+    which is plain text only (routes/docs_notes.py's sync_docs strips HTML
+    tags before saving) — not the rich formatting the owner sees in their
+    own editor."""
+    doc = db.get_public_doc(slug) if db.is_available() else None
+    if not doc:
+        raise HTTPException(404, "This page doesn't exist or is no longer public.")
+    env = _get_jinja_env()
+    html = env.get_template("public_doc.html").render(
+        title=doc.get("title") or "Untitled",
+        content=doc.get("content") or "",
+    )
+    return HTMLResponse(html)
+
+
 def _serve_app() -> HTMLResponse:
     """Return the main SPA HTML rendered via Jinja2 (cached in production)."""
     global _APP_HTML_CACHE

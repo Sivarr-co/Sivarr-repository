@@ -57,6 +57,18 @@ async def sync_docs(data: dict):
     for d in docs[:200]:
         raw_content = str(d.get("content", ""))
         text_only   = _re.sub(r'<[^>]+>', ' ', raw_content)[:5000]
+        # Public doc pages (GET /doc/{slug}) — slug is client-generated
+        # (js/features/docs_notes.js's _docGenSlug), opaque, never derived
+        # from title/content. Validated here since it's looked up globally
+        # (not scoped by sid, see db.get_public_doc) — a malformed slug must
+        # never silently become public with a value that doesn't round-trip.
+        # public_slug MUST be None (SQL NULL), not "", when absent -- the
+        # unique index (database.py) is a partial index that only excludes
+        # NULL, so every never-published doc storing "" instead would
+        # collide with every other one on the unique constraint the moment
+        # a second such doc (any user, not just this one) got inserted.
+        raw_slug = str(d.get("public_slug", "") or "")
+        slug_ok  = bool(_re.fullmatch(r"[a-z0-9]{6,32}", raw_slug))
         clean.append({
             "id":       sanitize_text(str(d.get("id", "")),    50),
             "title":    sanitize_text(str(d.get("title", "")), 200),
@@ -65,6 +77,8 @@ async def sync_docs(data: dict):
             # Soft delete — see routes/tasks.py's identical field for the full
             # rationale (client sets this instead of removing the row).
             "deleted_at": sanitize_text(str(d.get("deleted_at","") or ""), 30) or None,
+            "is_public": bool(d.get("is_public")) and slug_ok,
+            "public_slug": raw_slug if slug_ok else None,
         })
     save_docs(sid, clean)
     return {"ok": True, "count": len(clean)}
