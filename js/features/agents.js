@@ -1316,7 +1316,7 @@ async function agSubmitApplication() {
                 : "Our team will review your application and activate your account shortly."
             }
           </p>
-          ${d.onboarding_url ? `<a href="${d.onboarding_url}" target="_blank" class="ag-btn-next" style="display:inline-block;text-decoration:none;padding:10px 24px">Complete Stripe setup →</a>` : ""}
+          ${d.onboarding_url ? `<a href="${esc(safeUrl(d.onboarding_url))}" target="_blank" class="ag-btn-next" style="display:inline-block;text-decoration:none;padding:10px 24px">Complete Stripe setup →</a>` : ""}
           <br><br>
           <button class="ag-btn-back" data-onclick="_agNavMarketplace">Back to marketplace</button>
         </div>`;

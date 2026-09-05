@@ -1978,7 +1978,7 @@ async function sSearchLiterature() {
             .map((res, i) => {
               const authors = (res.authors || []).slice(0, 3).join(", ") + ((res.authors || []).length > 3 ? " et al." : "");
               const meta = [authors, res.year, res.venue].filter(Boolean).join(" · ");
-              return `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(res.title || "Untitled")}</div><div class="acad-priority-sub">${acEsc(meta)}</div></div><div class="acad-priority-actions">${res.url ? `<a class="acad-btn-ghost acad-btn-sm" href="${acEsc(res.url)}" target="_blank" rel="noopener">View</a>` : ""}<button class="acad-action-btn acad-action-btn--teal" data-onclick="sAddRealCitation" data-onclick-arg0="${i}">Add citation</button></div></div>`;
+              return `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(res.title || "Untitled")}</div><div class="acad-priority-sub">${acEsc(meta)}</div></div><div class="acad-priority-actions">${res.url ? `<a class="acad-btn-ghost acad-btn-sm" href="${acEsc(safeUrl(res.url))}" target="_blank" rel="noopener">View</a>` : ""}<button class="acad-action-btn acad-action-btn--teal" data-onclick="sAddRealCitation" data-onclick-arg0="${i}">Add citation</button></div></div>`;
             })
             .join("")
         : `<div class="acad-priority-sub">No results found for "${acEsc(q)}".</div>`;
@@ -3514,7 +3514,7 @@ async function sLoadLivePolls() {
       const g = await acadAPI("/api/acad/class/get", { code: c.code });
       const live = g && g.class && g.class.live;
       if (live)
-        html += `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">🔴 ${acEsc(c.name || c.code)} is live</div><div class="acad-priority-sub">${acEsc(live.title || "")}</div></div>${live.link ? `<a class="acad-action-btn acad-action-btn--teal" href="${acEsc(live.link)}" target="_blank">Join</a>` : ""}</div>`;
+        html += `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">🔴 ${acEsc(c.name || c.code)} is live</div><div class="acad-priority-sub">${acEsc(live.title || "")}</div></div>${live.link ? `<a class="acad-action-btn acad-action-btn--teal" href="${acEsc(safeUrl(live.link))}" target="_blank">Join</a>` : ""}</div>`;
       const pr = await acadAPI("/api/acad/poll/list", { code: c.code });
       const polls = (pr && pr.polls) || [];
       const mine = (pr && pr.my_votes) || {};

@@ -11976,7 +11976,7 @@ function _oppRenderCard(o) {
           ${o.desc ? `<div class="opp-card-desc">${esc(o.desc)}</div>` : ""}
           <div class="opp-card-meta">
             <div class="opp-meta-pills">${pills}</div>
-            ${o.link && o.link !== "#" ? `<a class="opp-apply-btn" href="${esc(o.link)}" target="_blank" rel="noopener">Apply <i class="ti ti-arrow-up-right"></i></a>` : ""}
+            ${o.link && o.link !== "#" ? `<a class="opp-apply-btn" href="${esc(safeUrl(o.link))}" target="_blank" rel="noopener">Apply <i class="ti ti-arrow-up-right"></i></a>` : ""}
           </div>
         </div>
       </div>

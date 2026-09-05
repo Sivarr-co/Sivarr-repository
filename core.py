@@ -244,6 +244,37 @@ def password_policy_error(pw: str) -> str | None:
     return None
 
 
+def safe_url(url: str, max_len: int = 500) -> str:
+    """Return `url` if it is safe to render in an href, else "".
+
+    sanitize_text() strips control characters but says nothing about the SCHEME,
+    so `javascript:...` passes through it untouched and then executes when a
+    victim clicks the rendered link. script-src still carries 'unsafe-inline'
+    (Session 19), which is exactly what allows that.
+
+    Two of these values are chosen by users, not by us:
+      - a lecturer's live-class link (POST /api/acad/live/set), rendered to
+        every student in the class
+      - an opportunity's link (POST /api/opportunities), open to any account
+        and rendered to everyone browsing the board
+
+    js/core/dom.js's safeUrl() does the same check at render time. This is the
+    authoritative half: it stops the value being stored at all.
+
+    Whitespace and control characters are removed before the scheme test because
+    browsers ignore them when resolving a URL, so "java\tscript:x" navigates
+    fine and testing the raw string would miss it.
+    """
+    raw = sanitize_text(str(url or ""), max_len)
+    probe = re.sub(r"[\x00-\x20]", "", raw).lower()
+    if not probe or probe[0] in "/#?":
+        return raw                                   # relative / anchor / query
+    m = re.match(r"^([a-z][a-z0-9+.\-]*):", probe)
+    if not m:
+        return raw                                   # no scheme -> relative
+    return raw if m.group(1) in ("http", "https", "mailto") else ""
+
+
 def validate_sid(sid: str) -> str:
     """
     Validate and sanitize student session ID.

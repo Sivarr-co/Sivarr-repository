@@ -57,3 +57,34 @@ function toast(msg, ms = 2500) {
   el.classList.add("show");
   el._toastTimer = setTimeout(() => el.classList.remove("show"), ms);
 }
+
+/**
+ * safeUrl(u) - return `u` if it is safe to put in an href, otherwise "#".
+ *
+ * WHY: escaping is not enough. acEsc/esc/mktEsc all escape & < > " ' which stops
+ * an attacker breaking OUT of the attribute, but leaves the SCHEME untouched, so
+ * `javascript:doSomething()` survives escaping intact and runs on click. The CSP
+ * does not save us either: script-src still carries 'unsafe-inline' (Session 19),
+ * which is exactly what permits javascript: URLs.
+ *
+ * This matters because several rendered links carry values a user chose:
+ *   - a lecturer's "live class" link  (POST /api/acad/live/set)
+ *   - an opportunity's link           (POST /api/opportunities, open to anyone)
+ * and others carry values from third parties (Semantic Scholar, PubMed, Google
+ * Calendar, Stripe) that we should not assume stay well-formed forever.
+ *
+ * Servers validate these too; this is the second layer, at the point of render.
+ *
+ * Whitespace and control characters are stripped before the scheme test because
+ * browsers ignore them when resolving a URL. "java\tscript:x" navigates fine, so
+ * testing the raw string would miss it.
+ */
+function safeUrl(u) {
+  const raw = String(u == null ? "" : u);
+  const probe = raw.replace(/[\u0000-\u0020]/g, "").toLowerCase();
+  // Relative, anchor and query URLs carry no scheme to abuse.
+  if (/^(?:[/#?]|$)/.test(probe)) return raw;
+  const scheme = probe.match(/^([a-z][a-z0-9+.-]*):/);
+  if (!scheme) return raw;                       // no scheme at all -> relative
+  return ["http", "https", "mailto"].includes(scheme[1]) ? raw : "#";
+}

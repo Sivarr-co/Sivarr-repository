@@ -44,7 +44,7 @@ from fastapi.responses import FileResponse
 import database as db
 from config import MATERIALS_DIR
 from core import (
-    sanitize_text, _resolve_token,
+    sanitize_text, _resolve_token, safe_url,
     check_rate_limit, get_client_key, get_session_from_token, validate_sid,
 )
 
@@ -1066,7 +1066,7 @@ def build_router(send_push) -> APIRouter:
         sid, _ = _resolve_token(data)
         code = sanitize_text(str(data.get("code", "")), 12).upper()
         cls = _acad_require_owner(code, sid)
-        cls["live"] = {"link": sanitize_text(str(data.get("link", "")), 500),
+        cls["live"] = {"link": safe_url(str(data.get("link", "")), 500),
                        "title": sanitize_text(str(data.get("title", "")), 200) or "Live class",
                        "started": datetime.datetime.utcnow().isoformat()}
         db.coll_put("acad_classes", code, cls, owner=cls.get("owner_sid", sid))

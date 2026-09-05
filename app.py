@@ -135,7 +135,7 @@ from core import (
     _req_token, _resolve_token,
     RATE_LIMIT_WINDOW, limiter, get_client_key, check_rate_limit,
     asset, sw_cache_version,
-    password_policy_error,
+    password_policy_error, safe_url,
 )
 
 for d in [DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR]:
@@ -6409,7 +6409,7 @@ async def submit_opportunity(data: dict, request: Request):
     check_rate_limit(get_client_key(request), 5, "opportunity_post")
     title    = sanitize_text(str(data.get("title","")), 120)
     desc     = sanitize_text(str(data.get("desc","")), 600)
-    link     = sanitize_text(str(data.get("link","")), 200)
+    link     = safe_url(str(data.get("link","")), 200)
     category = sanitize_text(str(data.get("category","other")), 20)
     deadline = sanitize_text(str(data.get("deadline","")), 20)
     org      = sanitize_text(str(data.get("organisation","")), 80)

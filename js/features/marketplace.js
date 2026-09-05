@@ -1615,7 +1615,7 @@ async function extCalLoad() {
               minute: ev.allDay ? undefined : "2-digit",
             })
           : "";
-      return `<div class="mkt-installed-row"><div class="mkt-item-icon" style="font-size:16px">📅</div><div style="flex:1"><div class="mkt-item-name">${mktEsc(ev.title)}</div><div class="mkt-item-author">${mktEsc(when)}${ev.allDay ? " · all day" : ""}</div></div>${ev.htmlLink ? `<a class="mkt-btn-ghost mkt-btn-sm" style="text-decoration:none" href="${mktEsc(ev.htmlLink)}" target="_blank">Open</a>` : ""}</div>`;
+      return `<div class="mkt-installed-row"><div class="mkt-item-icon" style="font-size:16px">📅</div><div style="flex:1"><div class="mkt-item-name">${mktEsc(ev.title)}</div><div class="mkt-item-author">${mktEsc(when)}${ev.allDay ? " · all day" : ""}</div></div>${ev.htmlLink ? `<a class="mkt-btn-ghost mkt-btn-sm" style="text-decoration:none" href="${mktEsc(safeUrl(ev.htmlLink))}" target="_blank">Open</a>` : ""}</div>`;
     })
     .join("");
 }
