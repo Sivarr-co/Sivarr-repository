@@ -398,20 +398,6 @@
     renderAll();
   };
 
-  // CSP migration (delegate.js has no `this`-property-read grammar; these
-  // two wrappers read the element directly instead of adding one) --
-  // saveDetailFieldFromEl backs the contenteditable title/desc onblur
-  // handlers, _blurElOnEnter backs their Enter-to-confirm onkeydown.
-  window.saveDetailFieldFromEl = function (id, field, el) {
-    saveDetailField(id, field, el.innerText);
-  };
-
-  window._blurElOnEnter = function (e) {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    e.target.blur();
-  };
-
   window.addSubtaskPrompt = function (parentId) {
     const title = prompt("Subtask name:", "");
     if (!title || !title.trim()) return;
@@ -442,15 +428,6 @@
   };
 
   window.deleteTask = deleteTask;
-
-  // CSP migration: confirm()-gated delete needed a named wrapper since
-  // delegate.js deliberately dispatches only to real named functions, never
-  // arbitrary multi-statement expressions (see js/core/delegate.js's header).
-  window.confirmDeleteTask = function (id) {
-    if (!confirm("Delete this task?")) return;
-    deleteTask(id);
-    closeDetail();
-  };
 
   // ── List View ────────────────────────────────────────────────────────
   function renderListView() {
@@ -504,8 +481,8 @@
     const subs = subtasksOf(allTasks, task.id);
     const subDone = subs.filter((s) => s.status === "done").length;
     return `
-    <div class="task-row" data-id="${task.id}" data-onclick="openDetail" data-onclick-args="${esc(JSON.stringify([task.id]))}">
-      <div class="task-check ${done ? "done" : ""}" data-onclick="toggleTaskDone" data-onclick-args="${esc(JSON.stringify([task.id]))}">${done ? '<i class="ti ti-check"></i>' : ""}</div>
+    <div class="task-row" data-id="${task.id}" onclick="openDetail(${task.id})">
+      <div class="task-check ${done ? "done" : ""}" onclick="event.stopPropagation();toggleTaskDone(${task.id})">${done ? '<i class="ti ti-check"></i>' : ""}</div>
       <div class="task-body">
         <div class="task-title-row">
           <div class="task-title ${done ? "done" : ""}">${esc(task.title)}</div>
@@ -547,7 +524,7 @@
     const done = task.status === "done";
     return `
     <div class="kanban-card" data-id="${task.id}" draggable="true" ${done ? 'style="opacity:.6;"' : ""}
-      data-onclick="openDetail" data-onclick-args="${esc(JSON.stringify([task.id]))}">
+      onclick="openDetail(${task.id})">
       <div class="kanban-card-title" ${done ? 'style="text-decoration:line-through;"' : ""}>${esc(task.title)}</div>
       <div class="kanban-card-meta">
         ${priorityFlagHtml(task.priority)}
@@ -782,9 +759,9 @@
           .map(
             (s) => `
       <div class="subtask-row">
-        <div class="subtask-check ${s.status === "done" ? "done" : ""}" data-onclick="toggleSubtaskDone" data-onclick-args="${esc(JSON.stringify([s.id, task.id]))}">${s.status === "done" ? '<i class="ti ti-check"></i>' : ""}</div>
+        <div class="subtask-check ${s.status === "done" ? "done" : ""}" onclick="toggleSubtaskDone(${s.id},${task.id})">${s.status === "done" ? '<i class="ti ti-check"></i>' : ""}</div>
         <div class="subtask-name ${s.status === "done" ? "done" : ""}">${esc(s.title)}</div>
-        <button data-onclick="deleteSubtask" data-onclick-args="${esc(JSON.stringify([s.id, task.id]))}" style="background:none;border:none;color:var(--t4);cursor:pointer;font-size:12px;padding:2px 4px;">✕</button>
+        <button onclick="deleteSubtask(${s.id},${task.id})" style="background:none;border:none;color:var(--t4);cursor:pointer;font-size:12px;padding:2px 4px;">✕</button>
       </div>`,
           )
           .join("")
@@ -792,21 +769,21 @@
 
     scroll.innerHTML = `
       <div class="detail-title-row">
-        <div class="detail-check ${done ? "done" : ""}" data-onclick="toggleTaskDone" data-onclick-args="${esc(JSON.stringify([task.id]))}">${done ? '<i class="ti ti-check"></i>' : ""}</div>
+        <div class="detail-check ${done ? "done" : ""}" onclick="toggleTaskDone(${task.id})">${done ? '<i class="ti ti-check"></i>' : ""}</div>
         <div class="detail-title" contenteditable="true" spellcheck="false"
-          data-onblur="saveDetailFieldFromEl" data-onblur-args="${esc(JSON.stringify([task.id, "title"]))}" data-onblur-this
-          data-onkeydown="_blurElOnEnter" data-onkeydown-event>${esc(task.title)}</div>
+          onblur="saveDetailField(${task.id},'title',this.innerText)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(task.title)}</div>
       </div>
       <div class="detail-tags-row">
-        <div class="detail-tag" data-onclick="cyclePriority" data-onclick-args="${esc(JSON.stringify([task.id]))}" title="Tap to change"><i class="ti ti-flag-filled" style="color:${pr.color};font-size:11px;"></i>${pr.label} priority</div>
-        <div class="detail-tag" data-onclick="editDueDate" data-onclick-args="${esc(JSON.stringify([task.id]))}" title="Tap to change"><i class="ti ti-calendar" style="font-size:11px;"></i>${dm.has ? esc(dm.label) : "Add due date"}</div>
-        <div class="detail-tag" data-onclick="editEffort" data-onclick-args="${esc(JSON.stringify([task.id]))}" title="Tap to change"><i class="ti ti-hourglass" style="font-size:11px;"></i>${task.effort ? esc(task.effort) : "Add effort"}</div>
+        <div class="detail-tag" onclick="cyclePriority(${task.id})" title="Tap to change"><i class="ti ti-flag-filled" style="color:${pr.color};font-size:11px;"></i>${pr.label} priority</div>
+        <div class="detail-tag" onclick="editDueDate(${task.id})" title="Tap to change"><i class="ti ti-calendar" style="font-size:11px;"></i>${dm.has ? esc(dm.label) : "Add due date"}</div>
+        <div class="detail-tag" onclick="editEffort(${task.id})" title="Tap to change"><i class="ti ti-hourglass" style="font-size:11px;"></i>${task.effort ? esc(task.effort) : "Add effort"}</div>
       </div>
 
       <div class="detail-section">
         <div class="detail-section-lbl">Description</div>
         <div class="detail-desc" contenteditable="true"
-          data-onblur="saveDetailFieldFromEl" data-onblur-args="${esc(JSON.stringify([task.id, "desc"]))}" data-onblur-this
+          onblur="saveDetailField(${task.id},'desc',this.innerText)"
           style="min-height:1.6em;">${esc(task.desc || "")}</div>
       </div>
 
@@ -815,12 +792,12 @@
           <span>Subtasks${subs.length ? ` · ${subDone} of ${subs.length}` : ""}</span>
         </div>
         ${subsHtml}
-        <div class="add-subtask-row" data-onclick="addSubtaskPrompt" data-onclick-args="${esc(JSON.stringify([task.id]))}"><i class="ti ti-plus" style="font-size:13px;"></i>Add subtask</div>
+        <div class="add-subtask-row" onclick="addSubtaskPrompt(${task.id})"><i class="ti ti-plus" style="font-size:13px;"></i>Add subtask</div>
       </div>
 
       <div class="detail-section">
         <div class="detail-section-lbl">Collaborators</div>
-        <div class="invite-row" data-onclick="openInvite">
+        <div class="invite-row" onclick="openInvite()">
           <div class="collab-full-av"><i class="ti ti-user-plus"></i></div>
           <div class="collab-full-info"><div class="collab-full-name" style="color:var(--accent);">Invite contributor</div></div>
         </div>
@@ -829,18 +806,18 @@
       <div class="detail-section">
         <div class="detail-section-lbl">Details</div>
         <div class="detail-meta-grid">
-          <div class="detail-meta-cell" data-onclick="editDueDate" data-onclick-args="${esc(JSON.stringify([task.id]))}" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-calendar"></i>Due</div><div class="detail-meta-val">${dm.has ? esc(dm.label) : "None"}</div></div>
-          <div class="detail-meta-cell" data-onclick="editEffort" data-onclick-args="${esc(JSON.stringify([task.id]))}" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-hourglass"></i>Effort</div><div class="detail-meta-val">${task.effort ? esc(task.effort) : "–"}</div></div>
-          <div class="detail-meta-cell" data-onclick="cyclePriority" data-onclick-args="${esc(JSON.stringify([task.id]))}" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-flag"></i>Priority</div><div class="detail-meta-val">${pr.label}</div></div>
-          <div class="detail-meta-cell" data-onclick="cycleStatus" data-onclick-args="${esc(JSON.stringify([task.id]))}" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-progress"></i>Status</div><div class="detail-meta-val">${st.label}</div></div>
-          <div class="detail-meta-cell" data-onclick="cycleRepeat" data-onclick-args="${esc(JSON.stringify([task.id]))}" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-repeat"></i>Repeats</div><div class="detail-meta-val">${REPEATS[task.repeat || "none"]}</div></div>
+          <div class="detail-meta-cell" onclick="editDueDate(${task.id})" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-calendar"></i>Due</div><div class="detail-meta-val">${dm.has ? esc(dm.label) : "None"}</div></div>
+          <div class="detail-meta-cell" onclick="editEffort(${task.id})" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-hourglass"></i>Effort</div><div class="detail-meta-val">${task.effort ? esc(task.effort) : "–"}</div></div>
+          <div class="detail-meta-cell" onclick="cyclePriority(${task.id})" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-flag"></i>Priority</div><div class="detail-meta-val">${pr.label}</div></div>
+          <div class="detail-meta-cell" onclick="cycleStatus(${task.id})" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-progress"></i>Status</div><div class="detail-meta-val">${st.label}</div></div>
+          <div class="detail-meta-cell" onclick="cycleRepeat(${task.id})" style="cursor:pointer;"><div class="detail-meta-lbl"><i class="ti ti-repeat"></i>Repeats</div><div class="detail-meta-val">${REPEATS[task.repeat || "none"]}</div></div>
           <div class="detail-meta-cell"><div class="detail-meta-lbl"><i class="ti ti-clock"></i>Updated</div><div class="detail-meta-val" style="color:var(--t3);font-weight:500;">${task.updated ? new Date(task.updated).toLocaleDateString() : "–"}</div></div>
         </div>
       </div>
 
       <div class="detail-section">
         <button class="cta-ghost block" style="color:var(--red);border-color:#2a0a0a;"
-          data-onclick="confirmDeleteTask" data-onclick-args="${esc(JSON.stringify([task.id]))}">
+          onclick="if(confirm('Delete this task?')){deleteTask(${task.id});closeDetail();}">
           <i class="ti ti-trash" style="font-size:13px;"></i>Delete task
         </button>
       </div>
