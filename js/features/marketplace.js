@@ -648,12 +648,14 @@ function mktSetCategory(c, btn) {
   if (btn) btn.classList.add("active");
   mktRenderGrid();
 }
-function mktSearch(v) {
-  mktFilter.search = v;
+// CSP migration: takes the element instead of the raw value string.
+function mktSearch(el) {
+  mktFilter.search = el.value;
   mktRenderGrid();
 }
-function mktSetSort(v) {
-  mktFilter.sort = v;
+// CSP migration: takes the element instead of the raw value string.
+function mktSetSort(el) {
+  mktFilter.sort = el.value;
   mktRenderGrid();
 }
 function mktSetView(view, btn) {

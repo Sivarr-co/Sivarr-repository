@@ -25,7 +25,7 @@ standard below is additional, and it is not optional.
 | 16 | Make search coverage uniform | **Done** — verified 2026-08-25 |
 | 17 | Extend the import UI | **Done** — verified 2026-08-25 |
 | 18 | Small cleanups left behind | **Done** — verified 2026-08-25 |
-| 19 | CSP: remove `unsafe-inline` | **In progress** — 492 migrated + **all 388 JS-generated handlers now done too** (2026-09-04, see "this second wave is done" below); 198 left in `templates/*.html`, plus 10 inline `<script>` blocks, still block dropping `unsafe-inline` |
+| 19 | CSP: remove `unsafe-inline` | **In progress** — all 388 JS-generated handlers done (2026-09-04); template-side fragments done too (2026-09-05) except `_panel_flux.html` (Tasks, owned by another engineer's redesign — do not touch) and one deliberately-skipped Goals `onchange` in `_panels_extra.html`. Left: `_panel_flux.html` (25, blocked on the Tasks redesign landing), `admin.html`/`admin_metrics.html`/`landing.html` (49 — standalone pages, need `delegate.js` added first, see below), plus 10 inline `<script>` blocks |
 | 20 | User-facing two-factor auth | **Done** — verified 2026-08-25 |
 | 21 | Make the two chat tests hermetic | **Done** — verified 2026-08-25 |
 
@@ -592,6 +592,89 @@ A reusable, deliberately conservative migrator lives at
 calls to a named global with literal arguments and leaves everything else
 untouched. Re-deriving it is a few minutes' work if it is gone.
 
+#### Update 2026-09-05 — template-side fragments done (except Tasks)
+
+The "153 left in fragment templates" table below is now stale — kept for the
+pattern catalogue, not the count. As of 2026-09-05, every fragment template
+that loads `delegate.js` is fully migrated **except** `_panel_flux.html`
+(Tasks — a collaborator was actively redesigning that tab plus Habits/Goals
+in the same live environment this session ran in; explicitly told not to
+touch it) and one deliberately-skipped `onchange` inside the Goals panel
+markup in `_panels_extra.html` (lines ~182-315 of that file), for the same
+reason. Confirmed via `grep -oP '(?<![-\w])on\w+="' templates/_panel_flux.html`
+still returning its handlers untouched, and the Goals-panel line range
+re-verified against `<div class="panel" id="panel-goals">` before each edit
+in that file so nothing outside Hunter's stated boundary was touched.
+
+Files completed this pass: `_shell.html`, `_modals.html`, `_panels_core.html`,
+`_panels_extra.html` (minus Goals), `_panel_marketplace.html`,
+`_panel_academic.html`, `_login.html`, `_panel_agents.html`, `_panel_org.html`,
+`_panel_notes.html`. (`_shell.html`/`_modals.html` were already done earlier
+in the same session; the rest — 6 files — landed in this pass.)
+
+New patterns that came up beyond what the table below already covers:
+- **`this.value` reads on a function with only ONE call site across the
+  whole codebase** (e.g. `stSetFontScale(this.value)`,
+  `mktSearch(this.value)`, `acSearchSpace(this.value)`): rather than adding a
+  wrapper, the function's own signature was changed to take the element and
+  read `el.value` internally — same spirit as the existing lead-position
+  signature-flip rule, just for the "reads `.value`" case instead of "element
+  passed directly." Only done when every call site (grepped across
+  `templates/*.html` + `js/**/*.js`, not just the one template being edited)
+  passed the same shape; multi-call-site functions kept taking a plain value
+  and got a small wrapper instead.
+- **`window.open(url, '_blank')` inline**: calling a detached native method
+  via `fn.apply(null, args)` (what `delegate.js` does internally) can throw
+  "Illegal invocation" in some browsers, since some native methods require
+  `this` to be the object they came off of. Fixed with one generic
+  `window._openExternalLink(url)` wrapper that calls `window.open` from
+  proper method-call position, rather than dispatching to `open` by name
+  directly.
+- **`ondragover`/`ondragleave`/`ondrop` file-drop zones** (Lab study-deck
+  upload targets, 2 of them): `delegate.js`'s `TYPES` array didn't cover
+  drag events at all, yet `data-ondrop="handleLabDropP" data-ondrop-event`
+  was already sitting in the template from an earlier pass — silently dead,
+  since nothing was listening for `"drop"`. Added `dragover`/`dragleave`/
+  `drop` to `TYPES` (all bubble, same as `click`) and converted the
+  border-color/background hover toggling from inline `this.style.x =` to a
+  `.drag-over` CSS class toggled by two generic wrappers
+  (`_dropZoneDragOver`/`_dropZoneDragLeave`).
+- **A generalized "dispatch to a named global with one extra arg" wrapper**
+  reused across three unrelated multi-statement `mousedown`/`keydown` idioms
+  that don't fit any existing grammar case: `_mdPreventThenCall(e, fnName,
+  arg)` (mousedown-preventDefault-then-call, used by both docs-editor and
+  org-space rich-text toolbars — 21 buttons total across two files) and
+  `_onEnterCallNamed(e, fnName)` (Enter-key-triggers-a-named-zero-arg-fn,
+  used across the login form and the notes AI-prompt input). This dispatches
+  to a template-authored function name exactly the way `data-onclick="fn"`
+  itself already does — not arbitrary-expression eval, just factoring out an
+  idiom that recurred across otherwise-unrelated call sites instead of
+  hand-writing a dozen near-identical single-purpose wrappers.
+
+**Also found and fixed, unrelated to the migration but turned up while
+reading these files closely (same class of bug as the two
+`document.querySelector('[onclick="fnName()"]')` self-lookups noted in the
+2026-09-04 update above):** `js/app.js`'s `switchLabTabP` used
+`document.querySelectorAll('[onclick*="switchLabTabP"]')` /
+`document.querySelector('[onclick*="switchLabTabP"]')` to find and
+deactivate/reactivate its own Lab-panel tab buttons — both had already gone
+stale in an earlier commit that migrated those buttons to
+`data-onclick="switchLabTabP"` without updating the selectors, so the
+"clear active class from other tabs" and "activate first tab" logic had been
+silently doing nothing. Fixed both selectors to `[data-onclick=
+"switchLabTabP"]`. Also spotted (not fixed, out of scope for a pure
+migration pass — flagging for whoever picks these up): **two pre-existing
+duplicate function definitions**, `stClearChat` (`js/app.js` lines 7485 and
+18016) and `spRename` (two definitions in the org-space area) — in both
+cases the second silently wins at runtime and the first is dead code.
+
+Verification per file, same standard as 2026-09-04: `grep -oP
+'(?<![-\w])on\w+="' templates/FILE.html` returns empty, `node --check` on
+every touched `.js` file, a static pass confirming every `data-on*`-named
+function resolves to exactly one real `window.*`/top-level definition, and
+`python3 -m pytest -q` (156 passed, 6 skipped, matching baseline) re-run
+after every file.
+
 #### The 153 left in fragment templates
 
 None are mechanical. Each needs a real named function written first:
@@ -624,13 +707,29 @@ them and accept that `unsafe-inline` cannot be dropped until they are handled.
 
 #### Before `unsafe-inline` can come out
 
-The 153 template-side handlers above (198 total inline in `templates/*.html`,
-153 of them non-mechanical), **plus** 10 inline `<script>` blocks
-(`index.html` has 5) — those are governed by the same `script-src` directive.
-The ~388 JS-generated handlers from "A second, untracked surface" are **no
-longer on this list** — done as of 2026-09-04, see "this second wave is
-done" above. `style-src` at `app.py:1549` carries its own `unsafe-inline`
-covering ~982 inline `style=` attributes, and is a separate project.
+**Updated 2026-09-05** — what's actually left, per the "template-side
+fragments done" update above:
+
+- **`_panel_flux.html`** (25 raw handlers) — Tasks tab, currently owned by
+  another engineer's live redesign of Tasks/Habits/Goals. Do not touch until
+  Hunter says that work has landed and the tab is free again.
+- **One `onchange` in `_panels_extra.html`**, inside the Goals panel markup
+  (`<div class="panel" id="panel-goals">`, roughly lines 182-315 of that
+  file as of 2026-09-05) — same reason, deliberately skipped.
+- **`admin.html` (41), `admin_metrics.html` (2), `landing.html` (6)** — see
+  "Do NOT migrate these three files" above: standalone pages that never load
+  `delegate.js`. Needs the script added to each page first, or leave them
+  and accept `unsafe-inline` can't be dropped until they're handled.
+- **10 inline `<script>` blocks** (`index.html` has 5) — governed by the
+  same `script-src` directive, not yet addressed by any session.
+
+The ~388 JS-generated handlers from "A second, untracked surface" are done
+(2026-09-04). Once Tasks/Habits/Goals land and their tab's handlers are
+migrated, the only work left before `unsafe-inline` can come out of
+`script-src` is the three standalone pages and the 10 script blocks.
+`style-src` at `app.py:1549` carries its own separate `unsafe-inline`
+covering ~982 inline `style=` attributes — a separate project, untouched by
+any of this.
 
 ---
 

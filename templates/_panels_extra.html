@@ -154,22 +154,9 @@ SUPPORT ── #}
         <input
           id="quiz-topic-input"
           type="text"
+          class="quiz-topic-input"
           placeholder="e.g. Photosynthesis, Newton's laws..."
-          style="
-            width: 100%;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px 13px;
-            color: var(--text);
-            font-family: var(--font-body);
-            font-size: 0.88rem;
-            outline: none;
-            transition: border-color 0.2s;
-          "
-          onfocus="this.style.borderColor = 'var(--accent)'"
-          onblur="this.style.borderColor = 'var(--border)'"
-          onkeydown="if (event.key === 'Enter') startQuiz();"
+          data-onkeydown="_startQuizOnEnter" data-onkeydown-event
         />
         <p style="font-size: 0.72rem; color: var(--muted); margin-top: 5px">
           Leave blank to quiz from your studied topics
@@ -675,13 +662,8 @@ SUPPORT ── #}
       <div
         class="tpl-card"
         data-cat="productivity"
-        onclick="
-          openTemplatePreview(
-            'Weekly Task Manager',
-            'Plan your week across days with priority tracking and focus blocks.',
-            '/static/templates/weekly_habit_planner.html',
-          )
-        "
+        data-onclick="openTemplatePreview"
+        data-onclick-args='["Weekly Task Manager", "Plan your week across days with priority tracking and focus blocks.", "/static/templates/weekly_habit_planner.html"]'
       >
         <div class="tpl-preview tpl-preview--weekly">
           <i class="ti ti-calendar-week"></i>
@@ -708,10 +690,7 @@ SUPPORT ── #}
             <span class="tpl-type">Interactive</span>
             <button
               class="tpl-use-btn"
-              onclick="
-                event.stopPropagation();
-                useTemplate('Weekly Task Manager');
-              "
+              data-onclick="useTemplate" data-onclick-arg0="Weekly Task Manager"
             >
               Use template
             </button>
@@ -722,13 +701,8 @@ SUPPORT ── #}
       <div
         class="tpl-card"
         data-cat="productivity habits"
-        onclick="
-          openTemplatePreview(
-            'Daily Task Manager &amp; Habit Tracker',
-            'Combine daily tasks with habit streaks in a warm editorial layout.',
-            '/static/templates/daily_task_manager.html',
-          )
-        "
+        data-onclick="openTemplatePreview"
+        data-onclick-args='["Daily Task Manager &amp; Habit Tracker", "Combine daily tasks with habit streaks in a warm editorial layout.", "/static/templates/daily_task_manager.html"]'
       >
         <div class="tpl-preview tpl-preview--daily">
           <i class="ti ti-checklist"></i>
@@ -755,10 +729,7 @@ SUPPORT ── #}
             <span class="tpl-type">Interactive</span>
             <button
               class="tpl-use-btn"
-              onclick="
-                event.stopPropagation();
-                useTemplate('Daily Task Manager &amp; Habit Tracker');
-              "
+              data-onclick="useTemplate" data-onclick-arg0="Daily Task Manager &amp; Habit Tracker"
             >
               Use template
             </button>
@@ -769,13 +740,8 @@ SUPPORT ── #}
       <div
         class="tpl-card"
         data-cat="habits"
-        onclick="
-          openTemplatePreview(
-            'Habit Tracker',
-            'Monthly habit grid with streaks, completion rings, and daily check-ins.',
-            '/static/templates/habit_tracker.html',
-          )
-        "
+        data-onclick="openTemplatePreview"
+        data-onclick-args='["Habit Tracker", "Monthly habit grid with streaks, completion rings, and daily check-ins.", "/static/templates/habit_tracker.html"]'
       >
         <div class="tpl-preview tpl-preview--habit">
           <i class="ti ti-flame"></i>
@@ -803,10 +769,7 @@ SUPPORT ── #}
             <span class="tpl-type">Interactive</span>
             <button
               class="tpl-use-btn"
-              onclick="
-                event.stopPropagation();
-                useTemplate('Habit Tracker');
-              "
+              data-onclick="useTemplate" data-onclick-arg0="Habit Tracker"
             >
               Use template
             </button>
@@ -817,13 +780,8 @@ SUPPORT ── #}
       <div
         class="tpl-card"
         data-cat="finance"
-        onclick="
-          openTemplatePreview(
-            'Monthly Budget Tracker',
-            'Track income, expenses, and categories with live chart visualisations.',
-            '/static/templates/month_y_budget_tracker.html',
-          )
-        "
+        data-onclick="openTemplatePreview"
+        data-onclick-args='["Monthly Budget Tracker", "Track income, expenses, and categories with live chart visualisations.", "/static/templates/month_y_budget_tracker.html"]'
       >
         <div class="tpl-preview tpl-preview--budget">
           <i class="ti ti-wallet"></i>
@@ -851,10 +809,7 @@ SUPPORT ── #}
             <span class="tpl-type">Interactive</span>
             <button
               class="tpl-use-btn"
-              onclick="
-                event.stopPropagation();
-                useTemplate('Monthly Budget Tracker');
-              "
+              data-onclick="useTemplate" data-onclick-arg0="Monthly Budget Tracker"
             >
               Use template
             </button>
@@ -882,26 +837,10 @@ SUPPORT ── #}
     <!-- Upload zone -->
     <div
       id="lab-drop-zone-p"
-      style="
-        border: 2px dashed var(--border2);
-        border-radius: 12px;
-        padding: 2rem 1rem;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        margin-bottom: 1rem;
-        background: linear-gradient(135deg, #7c3aed08, transparent);
-      "
-      onclick="$('lab-file-input-p').click()"
-      ondragover="
-        event.preventDefault();
-        this.style.borderColor = 'var(--accent2)';
-        this.style.background = '#7c3aed15';
-      "
-      ondragleave="
-        this.style.borderColor = 'var(--border2)';
-        this.style.background = 'linear-gradient(135deg,#7c3aed08,transparent)';
-      "
+      class="lab-drop-zone-p"
+      data-onclick="_triggerFileInputById" data-onclick-arg0="lab-file-input-p"
+      data-ondragover="_dropZoneDragOver" data-ondragover-event data-ondragover-this
+      data-ondragleave="_dropZoneDragLeave" data-ondragleave-this
       data-ondrop="handleLabDropP" data-ondrop-event
     >
       <div style="font-size: 2.5rem; margin-bottom: 0.5rem">📄</div>
@@ -1018,21 +957,8 @@ SUPPORT ── #}
           <input
             id="sp-subject"
             type="text"
+            class="sp-field-input"
             placeholder="e.g. Thermodynamics, Data Structures..."
-            style="
-              width: 100%;
-              background: var(--surface);
-              border: 1px solid var(--border);
-              border-radius: 9px;
-              padding: 9px 13px;
-              color: var(--text);
-              font-family: var(--font-body);
-              font-size: 0.87rem;
-              outline: none;
-              transition: border-color 0.2s;
-            "
-            onfocus="this.style.borderColor = 'var(--accent)'"
-            onblur="this.style.borderColor = 'var(--border)'"
           />
         </div>
         <div class="field">
@@ -1051,21 +977,7 @@ SUPPORT ── #}
           <input
             id="sp-date"
             type="date"
-            style="
-              width: 100%;
-              background: var(--surface);
-              border: 1px solid var(--border);
-              border-radius: 9px;
-              padding: 9px 13px;
-              color: var(--text);
-              font-family: var(--font-body);
-              font-size: 0.87rem;
-              outline: none;
-              transition: border-color 0.2s;
-              color-scheme: dark;
-            "
-            onfocus="this.style.borderColor = 'var(--accent)'"
-            onblur="this.style.borderColor = 'var(--border)'"
+            class="sp-field-input sp-field-input--date"
           />
         </div>
         <div class="field">
@@ -1192,21 +1104,10 @@ SUPPORT ── #}
       <!-- Upload zone -->
       <div
         id="lab-drop-zone"
-        style="
-          border: 2px dashed var(--border2);
-          border-radius: 10px;
-          padding: 1.25rem;
-          text-align: center;
-          cursor: pointer;
-          transition: all 0.2s;
-          margin-bottom: 0.75rem;
-        "
-        onclick="$('lab-file-input').click()"
-        ondragover="
-          event.preventDefault();
-          this.style.borderColor = 'var(--accent2)';
-        "
-        ondragleave="this.style.borderColor = 'var(--border2)'"
+        class="lab-drop-zone"
+        data-onclick="_triggerFileInputById" data-onclick-arg0="lab-file-input"
+        data-ondragover="_dropZoneDragOver" data-ondragover-event data-ondragover-this
+        data-ondragleave="_dropZoneDragLeave" data-ondragleave-this
         data-ondrop="handleLabDrop" data-ondrop-event
       >
         <div style="font-size: 1.75rem; margin-bottom: 0.4rem">📄</div>
@@ -1282,7 +1183,7 @@ SUPPORT ── #}
     <div
       class="r-card"
       style="cursor: pointer"
-      onclick="navTab('flux', $('tab-flux'))"
+      data-onclick="_navTabFlux"
     >
       <div class="r-title">🗂️ Flux</div>
       <p style="font-size: 0.75rem; color: var(--muted); margin-top: 2px">

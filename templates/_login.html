@@ -76,7 +76,7 @@
               type="text"
               placeholder="Your full name"
               autocomplete="name"
-              onkeydown="if (event.key === 'Enter') $('lm').focus();"
+              data-onkeydown="_onEnterFocus" data-onkeydown-event data-onkeydown-arg0="lm"
             />
           </div>
         </div>
@@ -91,7 +91,7 @@
               type="email"
               placeholder="your@email.com"
               autocomplete="email"
-              onkeydown="if (event.key === 'Enter') $('l-pw').focus();"
+              data-onkeydown="_onEnterFocus" data-onkeydown-event data-onkeydown-arg0="l-pw"
             />
           </div>
         </div>
@@ -105,11 +105,7 @@
               id="l-pw"
               type="password"
               placeholder="Your password"
-              onkeydown="
-                if (event.key === 'Enter') {
-                  AUTH_TAB === 'register' ? $('l-cpw').focus() : doLogin();
-                }
-              "
+              data-onkeydown="_loginPwEnterNext" data-onkeydown-event
             />
             <button
               type="button"
@@ -145,7 +141,7 @@
               inputmode="numeric"
               autocomplete="one-time-code"
               placeholder="6-digit code or recovery code"
-              onkeydown="if (event.key === 'Enter') doLogin();"
+              data-onkeydown="_onEnterCallNamed" data-onkeydown-event data-onkeydown-arg0="doLogin"
             />
           </div>
         </div>
@@ -175,7 +171,7 @@
                 id="l-cpw"
                 type="password"
                 placeholder="Re-enter your password"
-                onkeydown="if (event.key === 'Enter') doLogin();"
+                data-onkeydown="_onEnterCallNamed" data-onkeydown-event data-onkeydown-arg0="doLogin"
               />
               <button
                 type="button"
@@ -265,7 +261,7 @@
               id="fp-email"
               type="email"
               placeholder="your@email.com"
-              onkeydown="if (event.key === 'Enter') submitForgotPassword();"
+              data-onkeydown="_onEnterCallNamed" data-onkeydown-event data-onkeydown-arg0="submitForgotPassword"
             />
           </div>
         </div>
@@ -313,7 +309,7 @@
               id="rp-pw"
               type="password"
               placeholder="Min. 8 characters"
-              onkeydown="if (event.key === 'Enter') $('rp-cpw').focus();"
+              data-onkeydown="_onEnterFocus" data-onkeydown-event data-onkeydown-arg0="rp-cpw"
             />
             <button
               type="button"
@@ -333,7 +329,7 @@
               id="rp-cpw"
               type="password"
               placeholder="Re-enter your password"
-              onkeydown="if (event.key === 'Enter') submitResetPassword();"
+              data-onkeydown="_onEnterCallNamed" data-onkeydown-event data-onkeydown-arg0="submitResetPassword"
             />
             <button
               type="button"

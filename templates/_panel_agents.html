@@ -589,28 +589,7 @@
       <!-- Disconnect -->
       <button
         data-onclick="chDisconnect"
-        style="
-          width: 100%;
-          background: none;
-          border: 1px solid var(--border);
-          border-radius: 9px;
-          padding: 8px;
-          color: var(--muted);
-          font-family: var(--font);
-          font-size: 0.75rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.15s;
-          margin-top: 0.25rem;
-        "
-        onmouseover="
-          this.style.borderColor = 'var(--red)';
-          this.style.color = 'var(--red)';
-        "
-        onmouseout="
-          this.style.borderColor = 'var(--border)';
-          this.style.color = 'var(--muted)';
-        "
+        class="ag-disconnect-btn"
       >
         Disconnect Platform
       </button>

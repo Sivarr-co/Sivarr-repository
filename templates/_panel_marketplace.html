@@ -26,7 +26,7 @@
       ><input
         type="text"
         placeholder="Search marketplace…"
-        oninput="mktSearch(this.value)"
+        data-oninput="mktSearch" data-oninput-this
       />
     </div>
     <div class="mkt-type-tabs" id="mktTypeTabs">
@@ -59,7 +59,7 @@
         Templates
       </button>
     </div>
-    <select class="mkt-sort" onchange="mktSetSort(this.value)">
+    <select class="mkt-sort" data-onchange="mktSetSort" data-onchange-this>
       <option value="featured">Featured</option>
       <option value="popular">Most installed</option>
       <option value="free">Free only</option>
@@ -211,7 +211,7 @@
               color: var(--text1);
               outline: none;
             "
-            oninput="libSearch(this.value)"
+            data-oninput="libSearch" data-oninput-this
           />
         </div>
       </div>
@@ -265,7 +265,7 @@
           </div>
           <button
             class="lib-btn"
-            onclick="window.open('https://khanacademy.org', '_blank')"
+            data-onclick="_openExternalLink" data-onclick-arg0="https://khanacademy.org"
           >
             Open →
           </button>
@@ -278,7 +278,7 @@
           </div>
           <button
             class="lib-btn"
-            onclick="window.open('https://coursera.org', '_blank')"
+            data-onclick="_openExternalLink" data-onclick-arg0="https://coursera.org"
           >
             Open →
           </button>
@@ -289,7 +289,7 @@
           <div class="lib-desc">All-in-one workspace for notes and projects.</div>
           <button
             class="lib-btn"
-            onclick="window.open('https://notion.so', '_blank')"
+            data-onclick="_openExternalLink" data-onclick-arg0="https://notion.so"
           >
             Open →
           </button>
@@ -302,7 +302,7 @@
           </div>
           <button
             class="lib-btn"
-            onclick="window.open('https://apps.ankiweb.net', '_blank')"
+            data-onclick="_openExternalLink" data-onclick-arg0="https://apps.ankiweb.net"
           >
             Open →
           </button>
@@ -325,7 +325,7 @@
           </div>
           <button
             class="lib-btn"
-            onclick="window.open('https://scholar.google.com', '_blank')"
+            data-onclick="_openExternalLink" data-onclick-arg0="https://scholar.google.com"
           >
             Open →
           </button>
@@ -452,10 +452,7 @@
           <button
             class="mkt-btn-ghost"
             style="margin-top: 8px"
-            onclick="
-              closeSpaceSettings();
-              nav('marketplace');
-            "
+            data-onclick="_closeSpaceSettingsThenNav" data-onclick-arg0="marketplace"
           >
             Browse Extensions
           </button>
@@ -473,10 +470,7 @@
           <button
             class="mkt-btn-ghost"
             style="margin-top: 8px"
-            onclick="
-              closeSpaceSettings();
-              nav('library');
-            "
+            data-onclick="_closeSpaceSettingsThenNav" data-onclick-arg0="library"
           >
             Open Integrations
           </button>

@@ -394,21 +394,21 @@
           <div class="doc-tb-group">
             <button
               class="doc-tb-btn"
-              onmousedown="event.preventDefault();_orgDocFormat('bold');"
+              data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="_orgDocFormat" data-onmousedown-arg1="bold"
               title="Bold"
             >
               <i class="ti ti-bold"></i>
             </button>
             <button
               class="doc-tb-btn"
-              onmousedown="event.preventDefault();_orgDocFormat('italic');"
+              data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="_orgDocFormat" data-onmousedown-arg1="italic"
               title="Italic"
             >
               <i class="ti ti-italic"></i>
             </button>
             <button
               class="doc-tb-btn"
-              onmousedown="event.preventDefault();_orgDocFormat('underline');"
+              data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="_orgDocFormat" data-onmousedown-arg1="underline"
               title="Underline"
             >
               <i class="ti ti-underline"></i>
@@ -418,35 +418,35 @@
           <div class="doc-tb-group">
             <button
               class="doc-tb-btn"
-              onmousedown="event.preventDefault();_orgDocFormatBlock('h1');"
+              data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="_orgDocFormatBlock" data-onmousedown-arg1="h1"
               title="Heading 1"
             >
               <b style="font-size: 0.8rem">H1</b>
             </button>
             <button
               class="doc-tb-btn"
-              onmousedown="event.preventDefault();_orgDocFormatBlock('h2');"
+              data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="_orgDocFormatBlock" data-onmousedown-arg1="h2"
               title="Heading 2"
             >
               <b style="font-size: 0.78rem">H2</b>
             </button>
             <button
               class="doc-tb-btn"
-              onmousedown="event.preventDefault();_orgDocFormat('insertUnorderedList');"
+              data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="_orgDocFormat" data-onmousedown-arg1="insertUnorderedList"
               title="Bullet list"
             >
               <i class="ti ti-list"></i>
             </button>
             <button
               class="doc-tb-btn"
-              onmousedown="event.preventDefault();_orgDocFormat('insertOrderedList');"
+              data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="_orgDocFormat" data-onmousedown-arg1="insertOrderedList"
               title="Numbered list"
             >
               <i class="ti ti-list-numbers"></i>
             </button>
             <button
               class="doc-tb-btn"
-              onmousedown="event.preventDefault();_orgDocFormatBlock('blockquote');"
+              data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="_orgDocFormatBlock" data-onmousedown-arg1="blockquote"
               title="Quote"
             >
               <i class="ti ti-quote"></i>
@@ -607,12 +607,7 @@
             class="oc-input"
             id="os-chat-input"
             placeholder="Message #general…"
-            onkeydown="
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                orgChatSend();
-              }
-            "
+            data-onkeydown="_orgChatInputKeydown" data-onkeydown-event
           />
           <button
             class="oc-bar-icon"

@@ -481,7 +481,7 @@ content-loss issue found in the prior split.
         </button>
         <button
           class="chat-prompt-card"
-          onclick="quickPrompt('Help me write a draft, email, or post')"
+          data-onclick="quickPrompt" data-onclick-arg0="Help me write a draft, email, or post"
         >
           <i class="ti ti-pencil cpc-icon"></i>
           <div class="cpc-title">Help me write</div>
@@ -489,11 +489,7 @@ content-loss issue found in the prior split.
         </button>
         <button
           class="chat-prompt-card"
-          onclick="
-            quickPrompt(
-              'Help me make a plan for my projects, goals, or schedule',
-            )
-          "
+          data-onclick="quickPrompt" data-onclick-arg0="Help me make a plan for my projects, goals, or schedule"
         >
           <i class="ti ti-map-2 cpc-icon"></i>
           <div class="cpc-title">Make a plan</div>
@@ -501,11 +497,7 @@ content-loss issue found in the prior split.
         </button>
         <button
           class="chat-prompt-card"
-          onclick="
-            quickPrompt(
-              'Give me a quick summary of a topic or condense this for me',
-            )
-          "
+          data-onclick="quickPrompt" data-onclick-arg0="Give me a quick summary of a topic or condense this for me"
         >
           <i class="ti ti-bolt cpc-icon"></i>
           <div class="cpc-title">Quick summary</div>
@@ -564,37 +556,25 @@ content-loss issue found in the prior split.
       <div class="cam-actions">
         <button
           class="cam-action"
-          onclick="
-            triggerAttach('image');
-            closeChatMenu();
-          "
+          data-onclick="_triggerAttachThenCloseMenu" data-onclick-arg0="image"
         >
           <i class="ti ti-photo"></i> Image
         </button>
         <button
           class="cam-action"
-          onclick="
-            triggerAttach('pdf');
-            closeChatMenu();
-          "
+          data-onclick="_triggerAttachThenCloseMenu" data-onclick-arg0="pdf"
         >
           <i class="ti ti-file-type-pdf"></i> PDF
         </button>
         <button
           class="cam-action"
-          onclick="
-            triggerAttach('file');
-            closeChatMenu();
-          "
+          data-onclick="_triggerAttachThenCloseMenu" data-onclick-arg0="file"
         >
           <i class="ti ti-paperclip"></i> File
         </button>
         <button
           class="cam-action"
-          onclick="
-            triggerAttach('doc');
-            closeChatMenu();
-          "
+          data-onclick="_triggerAttachThenCloseMenu" data-onclick-arg0="doc"
         >
           <i class="ti ti-file-text"></i> Ask from Doc
         </button>
@@ -613,28 +593,28 @@ content-loss issue found in the prior split.
       id="attach-image-input"
       style="display: none"
       accept="image/*"
-      onchange="handleAttach(this, 'image')"
+      data-onchange="handleAttach" data-onchange-arg0="image" data-onchange-this
     />
     <input
       type="file"
       id="attach-pdf-input"
       style="display: none"
       accept=".pdf"
-      onchange="handleAttach(this, 'pdf')"
+      data-onchange="handleAttach" data-onchange-arg0="pdf" data-onchange-this
     />
     <input
       type="file"
       id="attach-file-input"
       style="display: none"
       accept="*/*"
-      onchange="handleAttach(this, 'file')"
+      data-onchange="handleAttach" data-onchange-arg0="file" data-onchange-this
     />
     <input
       type="file"
       id="attach-doc-input"
       style="display: none"
       accept=".txt,.md,.docx"
-      onchange="handleAttach(this, 'doc')"
+      data-onchange="handleAttach" data-onchange-arg0="doc" data-onchange-this
     />
 
     <!-- Input row -->
@@ -655,10 +635,7 @@ content-loss issue found in the prior split.
         placeholder="Ask Sivarr anything..."
         rows="1"
         data-onkeydown="ckd" data-onkeydown-event
-        oninput="
-          this.style.height = 'auto';
-          this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-        "
+        data-oninput="autoResizeTextarea" data-oninput-this
       ></textarea>
       <span class="chat-msg-counter" id="chat-msg-counter"></span>
       <button
@@ -880,7 +857,7 @@ content-loss issue found in the prior split.
           >
             <div
               id="st-avatar"
-              onclick="$('pfp-input-st').click()"
+              data-onclick="_triggerFileInputById" data-onclick-arg0="pfp-input-st"
               style="
                 width: 52px;
                 height: 52px;
@@ -989,26 +966,8 @@ content-loss issue found in the prior split.
             </select>
           </div>
           <button
+            class="st-save-profile-btn"
             data-onclick="stSaveProfile"
-            style="
-              background: linear-gradient(
-                135deg,
-                var(--accent),
-                var(--accent2)
-              );
-              border: none;
-              border-radius: 9px;
-              padding: 9px 20px;
-              color: #fff;
-              font-family: var(--font);
-              font-size: 0.82rem;
-              font-weight: 700;
-              cursor: pointer;
-              transition: opacity 0.2s;
-              width: 100%;
-            "
-            onmouseover="this.style.opacity = '.85'"
-            onmouseout="this.style.opacity = '1'"
           >
             Save Profile
           </button>
@@ -1086,7 +1045,7 @@ content-loss issue found in the prior split.
                 max="120"
                 step="5"
                 value="100"
-                oninput="stSetFontScale(this.value)"
+                data-oninput="stSetFontScale" data-oninput-this
               />
               <span style="font-size: 1.15rem; color: var(--text3)">A</span>
             </div>
@@ -1110,7 +1069,7 @@ content-loss issue found in the prior split.
                 max="100"
                 step="10"
                 value="50"
-                oninput="stSetDecorOpacity(this.value)"
+                data-oninput="stSetDecorOpacity" data-oninput-this
               />
               <i
                 class="ti ti-sparkles"
@@ -1189,7 +1148,7 @@ content-loss issue found in the prior split.
                 min="0"
                 max="100"
                 value="50"
-                oninput="stWheelLight(this.value)"
+                data-oninput="stWheelLight" data-oninput-this
                 title="Lightness"
               />
             </div>
@@ -1219,10 +1178,8 @@ content-loss issue found in the prior split.
                     class="st-hex-input"
                     maxlength="7"
                     value="41076B"
-                    onchange="stHexInput(this.value)"
-                    onkeydown="
-                      if (event.key === 'Enter') stHexInput(this.value);
-                    "
+                    data-onchange="stHexInput" data-onchange-this
+                    data-onkeydown="_stHexInputOnEnter" data-onkeydown-event
                   />
                   <label class="st-eyedrop" title="System colour picker">
                     <i class="ti ti-color-picker"></i>
@@ -1230,7 +1187,7 @@ content-loss issue found in the prior split.
                       type="color"
                       id="st-native-color"
                       value="#41076b"
-                      oninput="stHexInput(this.value)"
+                      data-oninput="stHexInput" data-oninput-this
                       style="
                         position: absolute;
                         opacity: 0;
@@ -1256,10 +1213,8 @@ content-loss issue found in the prior split.
                     class="st-hex-input"
                     maxlength="7"
                     value="7B2CAD"
-                    onchange="stSetSecondary(this.value)"
-                    onkeydown="
-                      if (event.key === 'Enter') stSetSecondary(this.value);
-                    "
+                    data-onchange="stSetSecondary" data-onchange-this
+                    data-onkeydown="_stSetSecondaryOnEnter" data-onkeydown-event
                   />
                   <label class="st-eyedrop" title="Secondary colour">
                     <i class="ti ti-color-picker"></i>
@@ -1267,7 +1222,7 @@ content-loss issue found in the prior split.
                       type="color"
                       id="st-native-color2"
                       value="#7b2cad"
-                      oninput="stSetSecondary(this.value)"
+                      data-oninput="stSetSecondary" data-oninput-this
                       style="
                         position: absolute;
                         opacity: 0;
@@ -1300,7 +1255,7 @@ content-loss issue found in the prior split.
             <button
               class="st-toggle on"
               id="st-notif-ann"
-              onclick="stToggleNotif(this, 'ann')"
+              data-onclick="stToggleNotif" data-onclick-arg0="ann" data-onclick-this
             ></button>
           </div>
           <div class="st-row">
@@ -1308,7 +1263,7 @@ content-loss issue found in the prior split.
             <button
               class="st-toggle on"
               id="st-notif-streak"
-              onclick="stToggleNotif(this, 'streak')"
+              data-onclick="stToggleNotif" data-onclick-arg0="streak" data-onclick-this
             ></button>
           </div>
           <div class="st-row">
@@ -1316,7 +1271,7 @@ content-loss issue found in the prior split.
             <button
               class="st-toggle on"
               id="st-notif-quiz"
-              onclick="stToggleNotif(this, 'quiz')"
+              data-onclick="stToggleNotif" data-onclick-arg0="quiz" data-onclick-this
             ></button>
           </div>
           <div
@@ -1335,7 +1290,7 @@ content-loss issue found in the prior split.
             <button
               class="st-toggle on"
               id="st-notifch-inapp"
-              onclick="stToggleNotifCh(this, 'inapp')"
+              data-onclick="stToggleNotifCh" data-onclick-arg0="inapp" data-onclick-this
             ></button>
           </div>
           <div class="st-row">
@@ -1343,7 +1298,7 @@ content-loss issue found in the prior split.
             <button
               class="st-toggle on"
               id="st-notifch-email"
-              onclick="stToggleNotifCh(this, 'email')"
+              data-onclick="stToggleNotifCh" data-onclick-arg0="email" data-onclick-this
             ></button>
           </div>
           <div class="st-row" style="opacity: 0.55">
@@ -1634,45 +1589,16 @@ content-loss issue found in the prior split.
           </div>
           <button
             id="st-plan-cta"
+            class="st-plan-cta-btn"
             data-onclick="showPricing"
-            style="
-              width: 100%;
-              background: linear-gradient(135deg, #f59e0b, #f472b6);
-              border: none;
-              border-radius: 9px;
-              padding: 9px;
-              color: #fff;
-              font-family: var(--font);
-              font-size: 0.82rem;
-              font-weight: 700;
-              cursor: pointer;
-              transition: opacity 0.2s;
-            "
-            onmouseover="this.style.opacity = '.85'"
-            onmouseout="this.style.opacity = '1'"
           >
             ⚡ Upgrade to Pro
           </button>
           <button
             id="st-plan-cancel"
+            class="st-plan-cancel-btn"
+            style="display: none"
             data-onclick="billingCancelConfirm"
-            style="
-              display: none;
-              width: 100%;
-              background: transparent;
-              border: 1px solid var(--border);
-              border-radius: 9px;
-              padding: 9px;
-              color: var(--muted);
-              font-family: var(--font);
-              font-size: 0.82rem;
-              font-weight: 600;
-              cursor: pointer;
-              margin-top: 6px;
-              transition: color 0.2s;
-            "
-            onmouseover="this.style.color = 'var(--red,#ef4444)'"
-            onmouseout="this.style.color = 'var(--muted)'"
           >
             Cancel subscription
           </button>
@@ -1738,7 +1664,7 @@ content-loss issue found in the prior split.
                 style="display: none"
                 data-onchange="stImportTasks" data-onchange-this
               />
-              <button class="st-btn" onclick="$('import-tasks-file').click()">
+              <button class="st-btn" data-onclick="_triggerFileInputById" data-onclick-arg0="import-tasks-file">
                 <i class="ti ti-upload" style="margin-right: 6px"></i>Upload
                 tasks.csv
               </button>
@@ -1763,7 +1689,7 @@ content-loss issue found in the prior split.
                 style="display: none"
                 data-onchange="stImportGoals" data-onchange-this
               />
-              <button class="st-btn" onclick="$('import-goals-file').click()">
+              <button class="st-btn" data-onclick="_triggerFileInputById" data-onclick-arg0="import-goals-file">
                 <i class="ti ti-upload" style="margin-right: 6px"></i>Upload
                 goals.csv
               </button>
@@ -1791,7 +1717,7 @@ content-loss issue found in the prior split.
             />
             <button
               class="st-btn"
-              onclick="$('import-notes-file').click()"
+              data-onclick="_triggerFileInputById" data-onclick-arg0="import-notes-file"
               style="width: 100%"
             >
               <i class="ti ti-upload" style="margin-right: 6px"></i>Upload .md
@@ -1829,7 +1755,7 @@ content-loss issue found in the prior split.
               />
               <button
                 class="st-btn"
-                onclick="$('import-notion-files').click()"
+                data-onclick="_triggerFileInputById" data-onclick-arg0="import-notion-files"
               >
                 <i class="ti ti-upload" style="margin-right: 6px"></i>Upload
                 export (.md / .csv)
@@ -1858,7 +1784,7 @@ content-loss issue found in the prior split.
               />
               <button
                 class="st-btn"
-                onclick="$('import-trello-files').click()"
+                data-onclick="_triggerFileInputById" data-onclick-arg0="import-trello-files"
               >
                 <i class="ti ti-upload" style="margin-right: 6px"></i>Upload
                 export (.json / .csv)

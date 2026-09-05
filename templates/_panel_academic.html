@@ -20,12 +20,12 @@
             type="text"
             placeholder="Search this space…"
             id="acadSearchInput"
-            oninput="acSearchSpace(this.value)"
+            data-oninput="acSearchSpace" data-oninput-this
           />
         </div>
         <button
           class="acad-topbar-btn"
-          onclick="spRenameByType('academic')"
+          data-onclick="spRenameByType" data-onclick-arg0="academic"
           title="Rename space"
         >
           <i class="ti ti-pencil" aria-hidden="true"></i>
@@ -247,7 +247,7 @@
                   id="lMaterialFileInput"
                   accept=".pdf,.md,.txt"
                   style="display: none"
-                  onchange="lUploadMaterial(this)"
+                  data-onchange="lUploadMaterial" data-onchange-this
                 />
               </label>
             </div>
@@ -313,7 +313,7 @@
             class="acad-search-inline"
             type="text"
             placeholder="Search students…"
-            oninput="lFilterStudents(this.value)"
+            data-oninput="lFilterStudents" data-oninput-this
           />
           <div style="display: flex; gap: 6px">
             <button class="acad-btn-ghost" data-onclick="lExportRoster">
@@ -543,7 +543,7 @@
               <span class="acad-card-title">Score Distribution</span>
               <select
                 class="acad-select acad-select-sm"
-                onchange="lLoadDistribution(this.value)"
+                data-onchange="lLoadDistribution" data-onchange-this
                 id="lDistCourseFilter"
               >
                 <option value="">All courses</option>
@@ -983,7 +983,7 @@
             class="acad-search-inline"
             type="text"
             placeholder="Search modules…"
-            oninput="sFilterModules(this.value)"
+            data-oninput="sFilterModules" data-oninput-this
           />
           <button class="acad-btn-teal" data-onclick="sAddModule">
             + Add Module
@@ -1048,7 +1048,7 @@
             <select
               class="acad-select"
               id="sSprintModule"
-              onchange="sFilterSprintByModule(this.value)"
+              data-onchange="sFilterSprintByModule" data-onchange-this
             >
               <option value="">All modules</option>
             </select>
@@ -1164,7 +1164,7 @@
                     id="sCiteInput"
                     type="text"
                     placeholder="Search topic, or paste a URL/DOI/title…"
-                    onkeydown="if (event.key === 'Enter') sSearchLiterature();"
+                    data-onkeydown="_sSearchLiteratureOnEnter" data-onkeydown-event
                   />
                   <button
                     class="acad-research-btn"
@@ -1187,28 +1187,28 @@
                   <button
                     class="acad-format-btn active"
                     data-fmt="apa"
-                    onclick="sSetFormat(this, 'apa')"
+                    data-onclick="sSetFormat" data-onclick-arg0="apa" data-onclick-this
                   >
                     APA 7th
                   </button>
                   <button
                     class="acad-format-btn"
                     data-fmt="ieee"
-                    onclick="sSetFormat(this, 'ieee')"
+                    data-onclick="sSetFormat" data-onclick-arg0="ieee" data-onclick-this
                   >
                     IEEE
                   </button>
                   <button
                     class="acad-format-btn"
                     data-fmt="mla"
-                    onclick="sSetFormat(this, 'mla')"
+                    data-onclick="sSetFormat" data-onclick-arg0="mla" data-onclick-this
                   >
                     MLA 9th
                   </button>
                   <button
                     class="acad-format-btn"
                     data-fmt="vancouver"
-                    onclick="sSetFormat(this, 'vancouver')"
+                    data-onclick="sSetFormat" data-onclick-arg0="vancouver" data-onclick-this
                   >
                     Vancouver
                   </button>
@@ -1234,7 +1234,7 @@
                   style="width: 150px"
                   type="text"
                   placeholder="Filter…"
-                  oninput="sFilterCitations(this.value)"
+                  data-oninput="sFilterCitations" data-oninput-this
                 />
                 <button
                   class="acad-btn-ghost acad-btn-sm"
@@ -1326,7 +1326,7 @@
             class="acad-search-inline"
             type="text"
             placeholder="Search groups…"
-            oninput="sFilterGroups(this.value)"
+            data-oninput="sFilterGroups" data-oninput-this
           />
           <button class="acad-btn-ghost" data-onclick="sJoinGroup">
             Join Group
@@ -1360,7 +1360,7 @@
                 <select
                   class="acad-select acad-select-sm"
                   id="sTutorModule"
-                  onchange="sTutorSetModule(this.value)"
+                  data-onchange="sTutorSetModule" data-onchange-this
                 >
                   <option value="">All modules</option>
                 </select>
@@ -1384,7 +1384,7 @@
                 id="sTutorInput"
                 type="text"
                 placeholder="Ask a question, or say 'quiz me on…'"
-                onkeydown="if (event.key === 'Enter') sSendTutorMessage();"
+                data-onkeydown="_sSendTutorMessageOnEnter" data-onkeydown-event
               />
               <button class="acad-research-btn" data-onclick="sSendTutorMessage">
                 <i class="ti ti-send" aria-hidden="true"></i>

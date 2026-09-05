@@ -573,6 +573,27 @@ function loadProfilePic() {
 
 let AUTH_TAB = "login";
 
+// CSP migration: shared Enter-key wrappers for the login form's field
+// chaining (delegate.js has no conditional-expression grammar).
+// _onEnterCallNamed dispatches to a named global the same way
+// data-onclick="fn" itself does -- not arbitrary-expression eval, just the
+// zero-arg-call idiom `if (event.key === 'Enter') fn();` factored out since
+// it recurs across unrelated fields/functions.
+window._onEnterCallNamed = function (e, fnName) {
+  if (e.key === "Enter") {
+    const fn = window[fnName];
+    if (typeof fn === "function") fn();
+  }
+};
+window._onEnterFocus = function (e, targetId) {
+  if (e.key === "Enter") $(targetId)?.focus();
+};
+window._loginPwEnterNext = function (e) {
+  if (e.key === "Enter") {
+    AUTH_TAB === "register" ? $("l-cpw").focus() : doLogin();
+  }
+};
+
 
 // ── Password policy (register only) ───────────────────────────
 // Mirrors core.py's password_policy_error(). The SERVER is the authority --
@@ -1099,31 +1120,38 @@ function _migrateStrandedFlatTasks() {
     const flat = JSON.parse(
       localStorage.getItem(`sivarr_tasks_${S.sid}`) || "[]",
     );
-    const sh = getSHData();
-    sh.tasks = sh.tasks || [];
-    const known = new Set(sh.tasks.map((t) => String(t.id)));
-    let added = false;
-    flat.forEach((t) => {
-      if (!t || known.has(String(t.id))) return;
-      sh.tasks.push({
-        id: t.id,
-        title: t.title || "",
-        status: t.done
-          ? "done"
-          : t.status === "inprogress"
-            ? "inprogress"
-            : "todo",
-        date: t.due || "",
-        priority: t.priority || "normal",
-        created:
-          typeof t.created === "number"
-            ? new Date(t.created).toLocaleDateString()
-            : t.created || new Date().toLocaleDateString(),
+    // getSHData/saveSHData never existed under those names -- this whole
+    // migration has been silently no-op'ing (caught by this try/catch,
+    // exactly as its own "best-effort" comment intended, just for the
+    // wrong reason) since before this function was written. Real
+    // getTasksData()/addTask() now (js/features/tasks.js, window-exposed).
+    // addTask() spreads its fields object over its own default id, so
+    // passing id explicitly here preserves each stranded task's real id
+    // instead of minting a new one.
+    if (typeof window.getTasksData === "function" && typeof window.addTask === "function") {
+      const known = new Set(
+        (window.getTasksData().tasks || []).map((t) => String(t.id)),
+      );
+      flat.forEach((t) => {
+        if (!t || known.has(String(t.id))) return;
+        window.addTask({
+          id: t.id,
+          title: t.title || "",
+          status: t.done
+            ? "done"
+            : t.status === "inprogress"
+              ? "inprogress"
+              : "todo",
+          date: t.due || "",
+          priority: t.priority || "normal",
+          created:
+            typeof t.created === "number"
+              ? new Date(t.created).toISOString()
+              : t.created || new Date().toISOString(),
+        });
+        known.add(String(t.id));
       });
-      known.add(String(t.id));
-      added = true;
-    });
-    if (added) saveSHData(sh);
+    }
   } catch (_) {
     // best-effort — a migration failure must never block login
   } finally {
@@ -1153,9 +1181,21 @@ async function _hydrateFromServer() {
   let changed = false;
 
   if (tk && Array.isArray(tk.tasks) && tk.tasks.length) {
+    // getSHData/saveSHData/SH_KEY/_shServerTaskToLocal never existed under
+    // those names in this file -- leftover references from before
+    // js/features/tasks.js was rewritten onto a different storage key
+    // (sivarr_sh_${sid}, TASKS_KEY there) under different function names.
+    // Uncaught, this threw and aborted the rest of hydration below (habits/
+    // journal/skills/finance/docs) for any account with server-side tasks
+    // -- caught by actually calling it in a browser, not by reading it.
+    // Writes the real key directly (not via tasks.js's saveTasksData,
+    // which would also push these just-pulled-from-the-server rows back
+    // up as if they were new local edits) — same direct-write shape this
+    // function already uses for habits/journal/skills/finance below.
+    const shKey = `sivarr_sh_${S.sid}`;
     let sh;
     try {
-      sh = JSON.parse(localStorage.getItem(SH_KEY()) || '{"tasks":[]}');
+      sh = JSON.parse(localStorage.getItem(shKey) || '{"tasks":[]}');
     } catch (_) {
       sh = { tasks: [] };
     }
@@ -1163,11 +1203,10 @@ async function _hydrateFromServer() {
     // the render/edit code reads desc/goalId/attachName — translate here or
     // this overwrite silently blanks those fields on every hydrate.
     const localTasks = tk.tasks.map((t) =>
-      typeof _shServerTaskToLocal === "function" ? _shServerTaskToLocal(t) : t,
+      typeof serverTaskToLocal === "function" ? serverTaskToLocal(t) : t,
     );
     sh.tasks = localTasks;
-    localStorage.setItem(SH_KEY(), JSON.stringify(sh));
-    localStorage.setItem(`sivarr_tasks_${S.sid}`, JSON.stringify(localTasks));
+    localStorage.setItem(shKey, JSON.stringify(sh));
     changed = true;
   }
   if (hb && Array.isArray(hb.habits) && hb.habits.length) {
@@ -2944,6 +2983,13 @@ function toggleAttachMenu() {
   btn.style.color = open ? "var(--muted)" : "var(--accent)";
 }
 
+// CSP migration: multi-statement (trigger the attach flow, then close the
+// "+" menu it was opened from).
+window._triggerAttachThenCloseMenu = function (type) {
+  triggerAttach(type);
+  closeChatMenu();
+};
+
 function triggerAttach(type) {
   $("attach-menu").style.display = "none";
   $("attach-btn").style.borderColor = "var(--border)";
@@ -2957,7 +3003,10 @@ function triggerAttach(type) {
   $(inputMap[type])?.click();
 }
 
-function handleAttach(input, type) {
+// CSP migration: param order flipped to (type, input) -- delegate.js's
+// data-onchange-this always appends the element LAST. All 4 call sites are
+// the hidden file inputs just above in templates/_panels_core.html.
+function handleAttach(type, input) {
   const file = input.files[0];
   if (!file) return;
 
@@ -3770,31 +3819,15 @@ async function chatSaveTask(btn) {
     { confirmLabel: "Add Task" },
   );
   if (!title) return;
-  const tasks = JSON.parse(
-    localStorage.getItem(`sivarr_tasks_${S.sid}`) || "[]",
-  );
-  const id = Date.now();
-  tasks.push({
-    id,
-    title,
-    status: "todo",
-    done: false,
-    created: Date.now(),
-    source: "ai",
-  });
-  localStorage.setItem(`sivarr_tasks_${S.sid}`, JSON.stringify(tasks));
-  // Also mirror into the Tasks/Flux board's own store (different shape,
-  // separate key) so it shows up there immediately instead of only after
-  // the next login's hydration pass reconciles the two stores.
-  const sh = getSHData();
-  sh.tasks = sh.tasks || [];
-  sh.tasks.push({
-    id,
-    title,
-    status: "todo",
-    created: new Date().toLocaleDateString(),
-  });
-  saveSHData(sh);
+  // Used to write the legacy sivarr_tasks_ key, then "mirror" into the
+  // real Tasks/Flux store via getSHData/saveSHData -- neither of which
+  // exist anymore, so the mirror silently never happened and this button
+  // never actually added anything the Tasks panel could show. One real
+  // call does both correctly.
+  if (typeof window.addTask === "function") {
+    window.addTask({ title, priority: "medium" });
+    if (typeof window.renderAll === "function") window.renderAll();
+  }
   toast("Task added");
 }
 
@@ -4869,7 +4902,7 @@ async function trashLoadGoals() {
 function _trashLocalItems() {
   const items = [];
 
-  (getSHData().tasks || []).forEach((t) => {
+  (getTasksData().tasks || []).forEach((t) => {
     if (t.deleted_at) {
       items.push({
         type: "task",
@@ -6015,26 +6048,22 @@ async function cnFramework(type) {
     confirmLabel: "Create Tasks",
   });
   if (!vals) return;
-  const now = Date.now();
-  const tasks = fw.build(vals).map((t, i) => ({
-    id: now + i,
-    created: now + i,
-    title: t.title,
-    status: "todo",
-    done: false,
-    type: t.type || "other",
-    priority: t.priority || "normal",
-    desc: t.desc || "",
-  }));
-  const data = getSHData();
-  data.tasks = [...tasks, ...(data.tasks || [])];
-  saveSHData(data);
+  // getSHData/saveSHData/renderSHOverview/renderSHBoard never existed
+  // under those names -- this used to build real-looking task objects and
+  // then silently fail to store or render any of them.
+  const built = fw.build(vals);
+  built.forEach((t) => {
+    if (typeof window.addTask === "function") {
+      window.addTask({
+        title: t.title,
+        priority: t.priority || "medium",
+        desc: t.desc || "",
+      });
+    }
+  });
   nav("flux", null);
-  setTimeout(() => {
-    renderSHOverview();
-    renderSHBoard();
-  }, 300);
-  toast(`${tasks.length} tasks created for "${fw.label}" ✓`);
+  if (typeof window.renderAll === "function") window.renderAll();
+  toast(`${built.length} tasks created for "${fw.label}" ✓`);
 }
 
 // ═══════════════════════ SETTINGS ═════════════════════════
@@ -6392,7 +6421,9 @@ function stToggleTheme(btn) {
   toggleThemeFromMenu();
 }
 
-function stToggleNotif(btn, key) {
+// CSP migration: param order flipped to (key, btn) -- delegate.js's
+// data-onclick-this always appends the element LAST.
+function stToggleNotif(key, btn) {
   const turningOn = !btn.classList.contains("on");
   btn.classList.toggle("on");
   const isOn = btn.classList.contains("on");
@@ -6693,16 +6724,19 @@ function stApplyColor(hex, secondary, syncWheel) {
   }
 }
 
-function stHexInput(v) {
-  const hex = _normHex(v);
+// CSP migration: takes the input element (delegate.js has no `this.value`
+// grammar) instead of the raw value string.
+function stHexInput(el) {
+  const hex = _normHex(el.value);
   if (!hex) {
     toast("Enter a valid hex colour");
     return;
   }
   stApplyColor(hex, null, true);
 }
-function stSetSecondary(v) {
-  const hex = _normHex(v);
+// CSP migration: takes the input element instead of the raw value string.
+function stSetSecondary(el) {
+  const hex = _normHex(el.value);
   if (!hex) {
     toast("Invalid colour");
     return;
@@ -6710,6 +6744,13 @@ function stSetSecondary(v) {
   const primary = localStorage.getItem("sivarr_accent") || "#41076b";
   stApplyColor(primary, hex, false);
 }
+// CSP migration: Enter-to-submit wrappers for the hex-colour text inputs.
+window._stHexInputOnEnter = function (e) {
+  if (e.key === "Enter") stHexInput(e.target);
+};
+window._stSetSecondaryOnEnter = function (e) {
+  if (e.key === "Enter") stSetSecondary(e.target);
+};
 function stPickPreset(c1, c2, el) {
   stApplyColor(c1, c2, true);
   toast("Theme colour updated ✓");
@@ -6788,8 +6829,9 @@ function _stWheelCommit(broadcast) {
   if (nc) nc.value = hex;
   if (broadcast) stApplyColor(hex, null, false);
 }
-function stWheelLight(v) {
-  _stWheelL = Math.max(0, Math.min(1, (parseInt(v) || 50) / 100));
+// CSP migration: takes the range-input element instead of the raw value string.
+function stWheelLight(el) {
+  _stWheelL = Math.max(0, Math.min(1, (parseInt(el.value) || 50) / 100));
   _stWheelCommit(true);
 }
 
@@ -6849,8 +6891,9 @@ function stSetDensity(d) {
   localStorage.setItem("sivarr_density", d);
   _stSyncSeg("st-density-seg", "density", d);
 }
-function stSetFontScale(v) {
-  v = Math.max(85, Math.min(120, parseInt(v) || 100));
+// CSP migration: takes the range-input element instead of the raw value string.
+function stSetFontScale(el) {
+  let v = Math.max(85, Math.min(120, parseInt(el.value) || 100));
   document.documentElement.style.setProperty("--font-scale", v / 100);
   localStorage.setItem("sivarr_font_scale", v);
   const l = $("st-fontscale-label");
@@ -6863,8 +6906,9 @@ function _decorLabel(v) {
   v = +v;
   return v === 0 ? "Off" : v <= 30 ? "Subtle" : v <= 60 ? "Medium" : "Bold";
 }
-function stSetDecorOpacity(v) {
-  v = Math.max(0, Math.min(100, parseInt(v) || 0));
+// CSP migration: takes the range-input element instead of the raw value string.
+function stSetDecorOpacity(el) {
+  let v = Math.max(0, Math.min(100, parseInt(el.value) || 0));
   localStorage.setItem("sivarr_decor_intensity", v);
   const l = $("st-decor-label");
   if (l) l.textContent = _decorLabel(v);
@@ -8996,11 +9040,12 @@ async function loadHome() {
   } catch (_) {}
 
   // ── Today: merged tasks + habits, reactive checklist ────────────
-  // Reads the SH store (getSHData/SH_KEY), not the flat sivarr_tasks_ store —
-  // subtasks (parent_id) only exist there. Known limitation, not fixed here:
-  // tasks added via cmd-k quick-add / NL capture / marketplace-content-install
-  // write only to the flat store and won't appear here until next-login
-  // hydration reconciles the two stores (see _hydrateFromServer).
+  // Reads the real Tasks store (js/features/tasks.js's getTasksData/
+  // TASKS_KEY, window-exposed) — subtasks (parent_id) only exist there.
+  // The dual-store split this comment used to describe is gone: cmd-k
+  // quick-add, NL-date capture and marketplace-content-install all write
+  // through the same real addTask()/getTasksData() now, so nothing needs
+  // a next-login hydration pass to show up here anymore.
   try {
     _homeRenderToday(today8601, habits);
   } catch (_) {}
@@ -9012,7 +9057,7 @@ async function loadHome() {
       const todayEvts = events
         .filter((e) => (e.date || "").startsWith(today8601))
         .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
-      const shTasksToday = shActiveTasks(getSHData().tasks)
+      const shTasksToday = activeTasks(getTasksData().tasks)
         .filter((t) => t.date === today8601 && t.status !== "done")
         .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
 
@@ -9150,14 +9195,14 @@ async function loadHome() {
   } catch (_) {}
 }
 
-// ── Today: builds one merged, reactive list from real SH tasks
+// ── Today: builds one merged, reactive list from real Tasks-store tasks
 // (due today / overdue / pinned, with real parent_id subtasks) and real
-// habits — same data homeHabitToggle()/moveSHTask() already operate on
-// elsewhere, just newly connected to this UI. ───────────────────────
+// habits — same data homeHabitToggle()/_homeTaskToggle() already operate
+// on elsewhere, just newly connected to this UI. ────────────────────
 function _homeRenderToday(today8601, habits) {
   const tl = $("home-today-list");
   if (!tl) return;
-  const shAll = shActiveTasks(getSHData().tasks);
+  const shAll = activeTasks(getTasksData().tasks);
   const topLevel = shAll.filter((t) => !t.parent_id);
   const due = topLevel.filter(
     (t) =>
@@ -9249,7 +9294,12 @@ function _homeRenderToday(today8601, habits) {
 // panel itself uses, then re-render just the Today section (cheap — avoids
 // a full loadHome() + AI-brief-cache touch for a single checkbox click).
 function _homeTaskToggle(id, newStatus) {
-  moveSHTask(id, newStatus);
+  // moveSHTask() never existed anywhere -- the real equivalent is
+  // js/features/tasks.js's updateTaskFields (window-exposed there).
+  if (typeof window.updateTaskFields === "function") {
+    window.updateTaskFields(id, { status: newStatus });
+    if (typeof window.renderAll === "function") window.renderAll();
+  }
   const today8601 = new Date().toISOString().split("T")[0];
   const habits = JSON.parse(localStorage.getItem(HAB_KEY()) || "[]");
   _homeRenderToday(today8601, habits);
@@ -9725,7 +9775,7 @@ function _calNormalize() {
     });
   });
   if (f.has("task")) {
-    shActiveTasks(getSHData().tasks)
+    activeTasks(getTasksData().tasks)
       .filter((t) => t.date && t.status !== "done")
       .forEach((t) => {
         const startMin = _calToMin(t.time);
@@ -11182,37 +11232,22 @@ function _aiShowExtractedTasks(tasks) {
       if (!cb || !cb.checked) return;
       _aiAddTask(t);
     });
+    if (typeof window.renderAll === "function") window.renderAll();
     toast(`Tasks added ✓`);
   });
 }
 
 function _aiAddTask(t) {
-  const key = `sivarr_tasks_${S.sid}`;
-  const tasks = JSON.parse(localStorage.getItem(key) || "[]");
-  const id = `t_ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  tasks.push({
-    id,
-    title: t.title,
-    priority: t.priority || "medium",
-    due: t.due || "",
-    done: false,
-    created: new Date().toISOString(),
-    tags: [],
-  });
-  localStorage.setItem(key, JSON.stringify(tasks));
-  // Also mirror into the Tasks/Flux board's own store — see chatSaveTask()
-  // for why: two separate task stores exist and only reconcile at login.
-  const sh = getSHData();
-  sh.tasks = sh.tasks || [];
-  sh.tasks.push({
-    id,
-    title: t.title,
-    status: "todo",
-    priority: t.priority || "normal",
-    date: t.due || "",
-    created: new Date().toLocaleDateString(),
-  });
-  saveSHData(sh);
+  // Used to write the legacy sivarr_tasks_ key, then "mirror" into the
+  // real store via getSHData/saveSHData -- same dead functions as
+  // chatSaveTask() above, same silent loss.
+  if (typeof window.addTask === "function") {
+    window.addTask({
+      title: t.title,
+      priority: t.priority || "medium",
+      date: t.due || "",
+    });
+  }
 }
 
 async function aiWriteAssist() {
@@ -11940,8 +11975,9 @@ function libFilter(cat, btn) {
   _libApplyFilters();
 }
 
-function libSearch(q) {
-  _libApplyFilters(q);
+// CSP migration: takes the input element instead of the raw value string.
+function libSearch(el) {
+  _libApplyFilters(el.value);
 }
 
 // Category pills previously only toggled their own active style — they
@@ -12082,29 +12118,16 @@ function useTemplate(name) {
   let n = 0,
     base = Date.now();
   if (seed.tasks) {
-    const tasks = JSON.parse(
-      localStorage.getItem(`sivarr_tasks_${S.sid}`) || "[]",
-    );
-    const sh = getSHData();
-    sh.tasks = sh.tasks || [];
-    const todayLabel = new Date().toLocaleDateString();
+    // Used to write the legacy sivarr_tasks_ key, then "mirror" into the
+    // real store via getSHData/saveSHData -- same dead functions as
+    // chatSaveTask() above, same silent loss.
     seed.tasks.forEach((t) => {
-      const id = ++base;
-      tasks.push({
-        id,
-        title: t,
-        status: "todo",
-        done: false,
-        created: Date.now(),
-      });
-      // Also mirror into the Tasks/Flux board's own store — see
-      // chatSaveTask() for why: two separate task stores exist and only
-      // reconcile at login.
-      sh.tasks.push({ id, title: t, status: "todo", created: todayLabel });
+      if (typeof window.addTask === "function") {
+        window.addTask({ title: t });
+      }
       n++;
     });
-    localStorage.setItem(`sivarr_tasks_${S.sid}`, JSON.stringify(tasks));
-    saveSHData(sh);
+    if (typeof window.renderAll === "function") window.renderAll();
   }
   if (seed.habits) {
     const habits = JSON.parse(
@@ -13050,6 +13073,12 @@ function nav(name, btn) {
 }
 
 // Mobile tab bar navigation with smooth pill scroll
+// CSP migration: Study Deck's "Flux" cross-link card -- navTab's 2nd arg
+// is a DOM lookup by id, not `this`, so delegate.js's grammar can't express
+// it directly.
+window._navTabFlux = function () {
+  navTab("flux", $("tab-flux"));
+};
 function navTab(name, btn) {
   // Same paywall guard nav() enforces — without it this was a bypass path
   // for any Pro/Team-gated panel name reachable through this function.
@@ -13191,6 +13220,17 @@ async function runStudyHavenP(input) {
   input.value = "";
 }
 
+// CSP migration: shared drag-hover toggling for the Lab study-deck drop
+// zones (delegate.js has no `this.style.x =` grammar). dragover must
+// preventDefault() for the browser to fire drop at all.
+window._dropZoneDragOver = function (e, el) {
+  e.preventDefault();
+  el.classList.add("drag-over");
+};
+window._dropZoneDragLeave = function (el) {
+  el.classList.remove("drag-over");
+};
+
 function handleLabDropP(e) {
   e.preventDefault();
   const file = e.dataTransfer.files[0];
@@ -13203,7 +13243,7 @@ function switchLabTabP(tab, btn) {
     if (el) el.style.display = t === tab ? "block" : "none";
   });
   document
-    .querySelectorAll('[onclick*="switchLabTabP"]')
+    .querySelectorAll('[data-onclick="switchLabTabP"]')
     .forEach((b) => b.classList.remove("active"));
   if (btn) btn.classList.add("active");
   if (tab === "flashcards") sShowFlashcard();
@@ -13400,7 +13440,7 @@ async function _processLabFile(file, target) {
     if (isPanel)
       switchLabTabP(
         "summary",
-        document.querySelector('[onclick*="switchLabTabP"]'),
+        document.querySelector('[data-onclick="switchLabTabP"]'),
       );
     else if (isMobile)
       switchLabTab("summary", document.querySelector(".lab-tab"));
@@ -13597,6 +13637,18 @@ window._showPricingThenCloseProfile = function () {
 };
 window._triggerPfpInput = function () {
   $("pfp-input")?.click();
+};
+// Same idea, for the Settings-panel avatar (a second, separate hidden
+// <input id="pfp-input-st">) and any other "click this hidden file input"
+// site that shows up going forward.
+window._triggerFileInputById = function (id) {
+  $(id)?.click();
+};
+// CSP migration: window.open() detached from `window` and called via
+// fn.apply(null, ...) throws "Illegal invocation" in some browsers -- this
+// wrapper keeps the call properly bound.
+window._openExternalLink = function (url) {
+  window.open(url, "_blank");
 };
 
 document.addEventListener("click", (e) => {
@@ -13870,17 +13922,19 @@ function qcCapture(type) {
   const sid = S.sid;
 
   if (type === "task") {
-    const tasks = JSON.parse(
-      localStorage.getItem(`sivarr_tasks_${sid}`) || "[]",
-    );
-    tasks.unshift({
-      id: Date.now(),
-      title: text,
-      done: false,
-      priority: "medium",
-      created: Date.now(),
-    });
-    localStorage.setItem(`sivarr_tasks_${sid}`, JSON.stringify(tasks));
+    // Was hand-writing to sivarr_tasks_${sid} -- a legacy key the real
+    // Tasks panel (js/features/tasks.js, storage key sivarr_sh_${sid})
+    // never reads, and which _hydrateFromServer() overwrites wholesale on
+    // the next login anyway. Went through and confirmed the capture was
+    // genuinely unrecoverable, not just "not shown yet" — a task
+    // "✓ Captured" here was silently lost. Uses the real creation path
+    // (js/features/tasks.js's window.addTask) instead, same one the
+    // proper New Task sheet uses, so it gets real defaults, the real
+    // storage key, and a real server sync.
+    if (typeof window.addTask === "function") {
+      window.addTask({ title: text, priority: "medium" });
+      if (typeof window.renderAll === "function") window.renderAll();
+    }
     toast(`📋 Task captured: "${text.slice(0, 40)}"`);
   } else if (type === "event") {
     const events = JSON.parse(
@@ -14538,17 +14592,12 @@ function _autoRunAction(rule, context) {
       break;
 
     case "create_task": {
-      const data = getSHData();
-      data.tasks.unshift({
-        id: Date.now(),
-        created: Date.now(),
-        title: context.followUpTask || `Follow-up: ${rule.name}`,
-        status: "todo",
-        done: false,
-        priority: "medium",
-      });
-      saveSHData(data);
-      toast(`✅ Task created: "${context.followUpTask || rule.name}"`);
+      const title = context.followUpTask || `Follow-up: ${rule.name}`;
+      if (typeof window.addTask === "function") {
+        window.addTask({ title, priority: "medium" });
+        if (typeof window.renderAll === "function") window.renderAll();
+      }
+      toast(`✅ Task created: "${title}"`);
       break;
     }
 
@@ -17963,7 +18012,9 @@ function stExtrasRestore() {
     };
   }
 }
-function stToggleNotifCh(btn, key) {
+// CSP migration: param order flipped to (key, btn) -- delegate.js's
+// data-onclick-this always appends the element LAST.
+function stToggleNotifCh(key, btn) {
   const on = !btn.classList.contains("on");
   btn.classList.toggle("on", on);
   try {

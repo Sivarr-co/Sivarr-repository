@@ -51,7 +51,7 @@
         rows="1"
         data-onkeydown="acadChatKeydown"
         data-onkeydown-event
-        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"
+        data-oninput="autoResizeTextarea" data-oninput-this
       ></textarea>
       <button
         id="ac-chat-voice-btn"
@@ -119,7 +119,7 @@ BANNER ── #}
   </button>
   <button
     type="button"
-    onclick="this.closest('#verify-banner').style.display = 'none'"
+    data-onclick="_hideVerifyBanner" data-onclick-this
     style="
       color: var(--muted);
       background: none;
@@ -163,46 +163,31 @@ BANNER ── #}
       <span class="cmd-capture-label">Capture as:</span>
       <button
         class="cmd-cap-btn"
-        onmousedown="
-          event.preventDefault();
-          qcCapture('task');
-        "
+        data-onmousedown="_qcCaptureFromMousedown" data-onmousedown-event data-onmousedown-arg0="task"
       >
         📋 Task
       </button>
       <button
         class="cmd-cap-btn"
-        onmousedown="
-          event.preventDefault();
-          qcCapture('event');
-        "
+        data-onmousedown="_qcCaptureFromMousedown" data-onmousedown-event data-onmousedown-arg0="event"
       >
         📅 Event
       </button>
       <button
         class="cmd-cap-btn"
-        onmousedown="
-          event.preventDefault();
-          qcCapture('journal');
-        "
+        data-onmousedown="_qcCaptureFromMousedown" data-onmousedown-event data-onmousedown-arg0="journal"
       >
         📓 Journal
       </button>
       <button
         class="cmd-cap-btn"
-        onmousedown="
-          event.preventDefault();
-          qcCapture('goal');
-        "
+        data-onmousedown="_qcCaptureFromMousedown" data-onmousedown-event data-onmousedown-arg0="goal"
       >
         🎯 Goal
       </button>
       <button
         class="cmd-cap-btn"
-        onmousedown="
-          event.preventDefault();
-          qcCapture('note');
-        "
+        data-onmousedown="_qcCaptureFromMousedown" data-onmousedown-event data-onmousedown-arg0="note"
       >
         💡 Note
       </button>
@@ -252,10 +237,7 @@ BANNER ── #}
       </button>
       <button
         id="cntab-space"
-        onclick="
-          $('cn-modal-bg').classList.remove('open');
-          openCreateSpaceModal();
-        "
+        data-onclick="_closeCnModalThenOpenSpace"
         style="
           flex: 1;
           padding: 7px;
@@ -414,7 +396,7 @@ BANNER ── #}
 
         <div style="display: flex; gap: 8px; margin-top: 0.875rem">
           <button
-            onclick="cnClose({ target: $('cn-modal-bg') })"
+            data-onclick="_forceCloseCnModal"
             style="
               flex: 1;
               padding: 9px;
@@ -464,24 +446,10 @@ BANNER ── #}
         </div>
         <input
           id="sp-name"
+          class="sp-modal-input"
           type="text"
           placeholder="e.g. My Study Space, MTH301 Team..."
-          style="
-            width: 100%;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 9px;
-            padding: 9px 12px;
-            color: var(--text);
-            font-family: var(--font-body);
-            font-size: 0.87rem;
-            outline: none;
-            transition: border-color 0.2s;
-            margin-bottom: 0.625rem;
-          "
-          onfocus="this.style.borderColor = 'var(--accent)'"
-          onblur="this.style.borderColor = 'var(--border)'"
-          onkeydown="if (event.key === 'Enter') spCreate();"
+          data-onkeydown="_spCreateOnEnter" data-onkeydown-event
         />
 
         <div id="sp-members-wrap" style="display: none">
@@ -497,23 +465,9 @@ BANNER ── #}
           </div>
           <input
             id="sp-members"
+            class="sp-modal-input"
             type="text"
             placeholder="Names or matric numbers..."
-            style="
-              width: 100%;
-              background: var(--card);
-              border: 1px solid var(--border);
-              border-radius: 9px;
-              padding: 9px 12px;
-              color: var(--text);
-              font-family: var(--font-body);
-              font-size: 0.87rem;
-              outline: none;
-              transition: border-color 0.2s;
-              margin-bottom: 0.625rem;
-            "
-            onfocus="this.style.borderColor = 'var(--accent)'"
-            onblur="this.style.borderColor = 'var(--border)'"
           />
         </div>
 
@@ -656,10 +610,7 @@ BANNER ── #}
         id="nl-input"
         placeholder="e.g. Remind me to follow up with the team tomorrow · Finish the report by Friday · Hit the gym this week"
         maxlength="300"
-        onkeydown="
-          if (event.key === 'Enter') nlSubmit();
-          if (event.key === 'Escape') nlClose();
-        "
+        data-onkeydown="_nlInputKeydown" data-onkeydown-event
       />
     </div>
     <!-- Parsed preview -->
@@ -1088,7 +1039,7 @@ BANNER ── #}
 <div
   id="si-modal-overlay"
   class="si-modal-overlay"
-  onclick="siModal._bgClose(event)"
+  data-onclick="siModalBgClose" data-onclick-event
 >
   <div class="si-modal-box" id="si-modal-box"></div>
 </div>
@@ -1126,7 +1077,7 @@ a showPaywall()-style function expects it. ── #}
     </ul>
     <button
       class="paywall-btn"
-      onclick="document.getElementById('pricing-modal').style.display = 'flex'"
+      data-onclick="_showPricingModal"
     >
       Upgrade Now
     </button>

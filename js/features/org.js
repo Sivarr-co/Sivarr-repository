@@ -1644,6 +1644,17 @@ function _orgDocB64ToUint8(b64) {
   return bytes;
 }
 
+// CSP migration: doc-editor toolbar buttons need preventDefault() on
+// mousedown (so the contenteditable doesn't lose focus/selection before the
+// command runs) followed by a call to a named global with one string arg --
+// dispatches to a named global the same way data-onclick="fn" itself does,
+// just factored out since the preventDefault-then-call idiom recurs across
+// _orgDocFormat/_orgDocFormatBlock.
+window._mdPreventThenCall = function (e, fnName, arg) {
+  e.preventDefault();
+  const fn = window[fnName];
+  if (typeof fn === "function") fn(arg);
+};
 function _orgDocFormat(cmd) {
   if (!_ORG_DOC_EDITOR) return;
   const c = _ORG_DOC_EDITOR.chain().focus();
@@ -2305,6 +2316,14 @@ function _ocAppendMsg(m, scroll = true) {
   if (scroll) box.scrollTop = box.scrollHeight;
 }
 
+// CSP migration: Enter-to-send (Shift+Enter for a newline) wrapper for the
+// org chat composer.
+window._orgChatInputKeydown = function (e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    orgChatSend();
+  }
+};
 async function orgChatSend() {
   if (!ORG) return;
   const inp = $("os-chat-input");

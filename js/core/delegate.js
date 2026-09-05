@@ -108,10 +108,14 @@
   // mousedown: needed for the rare case a handler must run BEFORE a click
   // would (e.g. preventDefault()-ing a contenteditable's focus loss before
   // it happens) -- click cannot substitute for this, it fires too late.
+  // dragover/dragleave/drop: file-drop zones (e.g. the Lab study-deck
+  // upload target) need these to preventDefault() on dragover (required
+  // for drop to fire at all) and to toggle hover styling.
   var TYPES = [
     ["click", false], ["change", false], ["input", false],
     ["keydown", false], ["keyup", false], ["submit", false],
     ["mousedown", false], ["dblclick", false],
+    ["dragover", false], ["dragleave", false], ["drop", false],
     ["blur", true], ["focus", true],
   ];
 

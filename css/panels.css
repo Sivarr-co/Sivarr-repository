@@ -6990,6 +6990,175 @@
 .sp-btn-teal:hover {
   background: var(--teal4, var(--teal));
 }
+
+/* Create-space modal name/members inputs (templates/_modals.html) -- was
+   onfocus/onblur JS toggling border-color; CSS :focus replaces it 1:1. */
+.sp-modal-input {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 9px 12px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.87rem;
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 0.625rem;
+}
+.sp-modal-input:focus {
+  border-color: var(--accent);
+}
+
+/* Settings "Save Profile" button (templates/_panels_core.html) -- was
+   onmouseover/onmouseout JS toggling opacity; CSS :hover replaces it 1:1. */
+.st-save-profile-btn {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none;
+  border-radius: 9px;
+  padding: 9px 20px;
+  color: #fff;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  width: 100%;
+}
+.st-save-profile-btn:hover {
+  opacity: 0.85;
+}
+
+.st-plan-cta-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #f59e0b, #f472b6);
+  border: none;
+  border-radius: 9px;
+  padding: 9px;
+  color: #fff;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.st-plan-cta-btn:hover {
+  opacity: 0.85;
+}
+.st-plan-cancel-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 9px;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: color 0.2s;
+}
+.st-plan-cancel-btn:hover {
+  color: var(--red, #ef4444);
+}
+
+.quiz-topic-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 13px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.quiz-topic-input:focus {
+  border-color: var(--accent);
+}
+
+.lab-drop-zone {
+  border: 2px dashed var(--border2);
+  border-radius: 10px;
+  padding: 1.25rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 0.75rem;
+}
+.lab-drop-zone.drag-over {
+  border-color: var(--accent2);
+}
+
+.lab-drop-zone-p {
+  border: 2px dashed var(--border2);
+  border-radius: 12px;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #7c3aed08, transparent);
+}
+.lab-drop-zone-p.drag-over {
+  border-color: var(--accent2);
+  background: #7c3aed15;
+}
+
+.sp-field-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 9px 13px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.87rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.sp-field-input:focus {
+  border-color: var(--accent);
+}
+.sp-field-input--date {
+  color-scheme: dark;
+}
+
+.ag-disconnect-btn {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 8px;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 0.25rem;
+}
+.ag-disconnect-btn:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.doc-ai-prompt-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.83rem;
+  outline: none;
+}
+.doc-ai-prompt-input:focus {
+  border-color: var(--accent);
+}
 .sp-btn-ghost {
   display: inline-flex;
   align-items: center;

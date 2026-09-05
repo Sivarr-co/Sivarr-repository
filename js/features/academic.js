@@ -163,12 +163,13 @@ function acadInit(space) {
 // already has its own working filter; this is the one useful "search from
 // anywhere" case: finding a student without clicking into that tab first).
 // No-ops for a student viewer, who has no Students tab to jump to.
-function acSearchSpace(v) {
+// CSP migration: takes the input element instead of the raw value string.
+function acSearchSpace(el) {
   if (acadRole !== "lecturer") return;
   lSwitchTab("l-students");
   const inp = document.getElementById("lStudentSearchInput");
-  if (inp) inp.value = v; // keep the Students tab's own box in sync
-  lFilterStudents(v);
+  if (inp) inp.value = el.value; // keep the Students tab's own box in sync
+  lFilterStudents(el);
 }
 /* ════════ LECTURER ════════ */
 let lData = {
@@ -563,8 +564,9 @@ function lRenderStudents(filter = "") {
     })
     .join("");
 }
-function lFilterStudents(v) {
-  lRenderStudents(v);
+// CSP migration: takes the input element instead of the raw value string.
+function lFilterStudents(el) {
+  lRenderStudents(el.value);
 }
 function lRenderAnalytics(statsOverride) {
   // statsOverride lets the class filter "peek" at a different class's
@@ -1366,7 +1368,9 @@ async function lCreateAssessment() {
   lRenderAssessLists();
   acToast("Assignment created");
 }
-async function lLoadDistribution(courseFilter) {
+// CSP migration: takes the select element instead of the raw value string.
+async function lLoadDistribution(el) {
+  const courseFilter = el.value;
   if (!courseFilter) {
     // No class picked -- fall back to the active class via the normal path
     // (also keeps _lClassStats current for the Students tab).
@@ -1741,8 +1745,9 @@ function sRenderModules(filter = "") {
     })
     .join("");
 }
-function sFilterModules(v) {
-  sRenderModules(v);
+// CSP migration: takes the input element instead of the raw value string.
+function sFilterModules(el) {
+  sRenderModules(el.value);
 }
 async function sAddModule() {
   const f = await siModal.form("Add module", [
@@ -1826,8 +1831,9 @@ function sRenderKanban(moduleFilter = "") {
       .join("");
   });
 }
-function sFilterSprintByModule(v) {
-  sRenderKanban(v);
+// CSP migration: takes the select element instead of the raw value string.
+function sFilterSprintByModule(el) {
+  sRenderKanban(el.value);
 }
 async function sAddSprintCard(col = "to_review") {
   const title = await siModal.input(
@@ -1897,7 +1903,9 @@ async function sGenAIFlashcards() {
   acToast(`${cards.length} flashcards added to Flashcard Drill`);
 }
 // ── Research / Citations ──
-function sSetFormat(btn, fmt) {
+// CSP migration: param order flipped to (fmt, btn) -- delegate.js's
+// data-onclick-this always appends the element LAST.
+function sSetFormat(fmt, btn) {
   document
     .querySelectorAll("#tab-s-research .acad-format-btn")
     .forEach((b) => b.classList.remove("active"));
@@ -1935,6 +1943,10 @@ async function sGenerateCitation() {
 // to freehand a citation string. This one returns real metadata a student
 // can turn into a citation via _sFormatCitation, not an AI guess.
 let _sSearchResults = [];
+// CSP migration: Enter-to-search wrapper for the citation search input.
+window._sSearchLiteratureOnEnter = function (e) {
+  if (e.key === "Enter") sSearchLiterature();
+};
 async function sSearchLiterature() {
   const input = document.getElementById("sCiteInput");
   const q = input?.value?.trim();
@@ -2048,8 +2060,9 @@ function sDeleteCite(id) {
   sRenderCitations();
   sUpdateCitationStats();
 }
-function sFilterCitations(v) {
-  sRenderCitations(v);
+// CSP migration: takes the input element instead of the raw value string.
+function sFilterCitations(el) {
+  sRenderCitations(el.value);
 }
 function sUpdateCitationStats() {
   const set = (id, v) => {
@@ -2108,8 +2121,9 @@ async function sRenderGroups(filter = "") {
     )
     .join("");
 }
-function sFilterGroups(v) {
-  sRenderGroups(v);
+// CSP migration: takes the input element instead of the raw value string.
+function sFilterGroups(el) {
+  sRenderGroups(el.value);
 }
 async function sCreateGroup() {
   const name = await siModal.input(
@@ -2254,9 +2268,14 @@ async function sSendGroupMessage() {
   }
 }
 // ── AI Tutor ──
-function sTutorSetModule(id) {
-  sTutorModuleCtx = id;
+// CSP migration: takes the select element instead of the raw value string.
+function sTutorSetModule(el) {
+  sTutorModuleCtx = el.value;
 }
+// CSP migration: Enter-to-send wrapper for the tutor chat input.
+window._sSendTutorMessageOnEnter = function (e) {
+  if (e.key === "Enter") sSendTutorMessage();
+};
 async function sSendTutorMessage() {
   const input = document.getElementById("sTutorInput");
   const msg = input?.value?.trim();

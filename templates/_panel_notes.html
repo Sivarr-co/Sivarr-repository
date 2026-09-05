@@ -40,30 +40,21 @@
         <div class="doc-tb-group">
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docFormat('bold');
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docFormat" data-onmousedown-arg1="bold"
             title="Bold"
           >
             <i class="ti ti-bold"></i>
           </button>
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docFormat('italic');
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docFormat" data-onmousedown-arg1="italic"
             title="Italic"
           >
             <i class="ti ti-italic"></i>
           </button>
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docFormat('underline');
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docFormat" data-onmousedown-arg1="underline"
             title="Underline"
           >
             <i class="ti ti-underline"></i>
@@ -73,40 +64,28 @@
         <div class="doc-tb-group">
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docFormatBlock('h1');
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docFormatBlock" data-onmousedown-arg1="h1"
             title="Heading 1"
           >
             <b style="font-size: 0.8rem">H1</b>
           </button>
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docFormatBlock('h2');
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docFormatBlock" data-onmousedown-arg1="h2"
             title="Heading 2"
           >
             <b style="font-size: 0.78rem">H2</b>
           </button>
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docFormatBlock('h3');
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docFormatBlock" data-onmousedown-arg1="h3"
             title="Heading 3"
           >
             <b style="font-size: 0.74rem">H3</b>
           </button>
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docFormatBlock('p');
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docFormatBlock" data-onmousedown-arg1="p"
             title="Paragraph"
           >
             <i class="ti ti-pilcrow"></i>
@@ -116,20 +95,14 @@
         <div class="doc-tb-group">
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docFormat('insertUnorderedList');
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docFormat" data-onmousedown-arg1="insertUnorderedList"
             title="Bullet list"
           >
             <i class="ti ti-list"></i>
           </button>
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docFormat('insertOrderedList');
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docFormat" data-onmousedown-arg1="insertOrderedList"
             title="Numbered list"
           >
             <i class="ti ti-list-numbers"></i>
@@ -139,20 +112,14 @@
         <div class="doc-tb-group">
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docFormatBlock('blockquote');
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docFormatBlock" data-onmousedown-arg1="blockquote"
             title="Quote"
           >
             <i class="ti ti-quote"></i>
           </button>
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docFormatBlock('pre');
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docFormatBlock" data-onmousedown-arg1="pre"
             title="Code block"
           >
             <i class="ti ti-code"></i>
@@ -162,20 +129,14 @@
         <div class="doc-tb-group">
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docExportMd();
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docExportMd"
             title="Export as Markdown"
           >
             <i class="ti ti-markdown"></i>
           </button>
           <button
             class="doc-tb-btn"
-            onmousedown="
-              event.preventDefault();
-              docExportPdf();
-            "
+            data-onmousedown="_mdPreventThenCall" data-onmousedown-event data-onmousedown-arg0="docExportPdf"
             title="Export as PDF"
           >
             <i class="ti ti-file-type-pdf"></i>
@@ -202,21 +163,9 @@
           <div style="flex: 1; min-width: 0">
             <input
               id="doc-ai-prompt"
+              class="doc-ai-prompt-input"
               placeholder="What should Sivarr write or improve? (e.g. 'Expand this', 'Make it formal')"
-              style="
-                width: 100%;
-                background: var(--bg);
-                border: 1px solid var(--border);
-                border-radius: 8px;
-                padding: 8px 12px;
-                color: var(--text);
-                font-family: var(--font-body);
-                font-size: 0.83rem;
-                outline: none;
-              "
-              onkeydown="if (event.key === 'Enter') docAIGenerate();"
-              onfocus="this.style.borderColor = 'var(--accent)'"
-              onblur="this.style.borderColor = 'var(--border)'"
+              data-onkeydown="_onEnterCallNamed" data-onkeydown-event data-onkeydown-arg0="docAIGenerate"
             />
             <div
               id="doc-ai-result"
