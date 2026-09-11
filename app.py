@@ -1509,8 +1509,8 @@ if SENTRY_AVAILABLE and SENTRY_DSN:
     log.info("Sentry initialized")
 
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.gzip import GZipMiddleware
-from starlette.datastructures import MutableHeaders
+from starlette.middleware.gzip import GZipResponder
+from starlette.datastructures import MutableHeaders, Headers
 
 # Register font MIME types — Windows' mimetypes registry doesn't know these, so
 # StaticFiles would otherwise serve the self-hosted Tabler webfont as text/plain.
@@ -1543,8 +1543,48 @@ app.add_middleware(
     allow_credentials=False,
 )
 
-# Compress responses >= 1 KB — critical for 602 KB app.js / 262 KB styles.css
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+# Compress responses >= 1 KB — critical for 602 KB app.js / 262 KB styles.css.
+#
+# NOT applied unconditionally, though — Starlette's GZipResponder (what
+# GZipMiddleware uses internally) writes each streamed chunk into a
+# gzip.GzipFile but never calls .flush(), only .close() when the stream
+# ends. Fine for a short, bounded StreamingResponse (the main chat reply
+# finishes in a few seconds, so the end-of-stream flush is imperceptible),
+# fatal for a long-lived one that may stay open for minutes (/api/org/
+# chat/stream, /api/group/chat/stream): nothing reaches the client until
+# disconnect, so real-time delivery never arrives at all. Confirmed live
+# by reading the installed starlette==0.37.2 GZipResponder source, not
+# assumed — see docs/SESSION_FOLLOWUPS.md or the academic-space audit
+# this fix came out of for the fuller writeup.
+#
+# Fix: gate GZipResponder behind a path check instead of applying it to
+# every request. Every non-SSE path gets byte-for-byte the same behavior
+# as before (same class, same args) — only the known SSE endpoints skip
+# compression entirely, which costs nothing (their payloads are tiny
+# per-chunk JSON/text anyway) in exchange for chunks actually flushing to
+# the client as they're produced.
+_SSE_PATHS = {"/api/chat/stream", "/api/org/chat/stream", "/api/group/chat/stream"}
+# Any new SSE/long-lived-StreamingResponse endpoint MUST be added here, or
+# it will silently gzip-buffer and never deliver progressively — same
+# class of risk _StaticCacheMiddleware's docstring below already flags
+# for BaseHTTPMiddleware and streaming responses.
+
+class SSESafeGZipMiddleware:
+    def __init__(self, app, minimum_size=1000, compresslevel=9):
+        self.app = app
+        self.minimum_size = minimum_size
+        self.compresslevel = compresslevel
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"] not in _SSE_PATHS:
+            headers = Headers(scope=scope)
+            if "gzip" in headers.get("Accept-Encoding", ""):
+                responder = GZipResponder(self.app, self.minimum_size, compresslevel=self.compresslevel)
+                await responder(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+app.add_middleware(SSESafeGZipMiddleware, minimum_size=1000)
 
 # Long-lived cache headers for versioned static assets (CSS/JS/static)
 #
@@ -4816,16 +4856,15 @@ async def group_chat_stream(token: str = "", group_id: str = "", since: str = ""
     timestamp of the last message seen (messages have no numeric ordering
     column in the generic collections store), not a numeric id.
 
-    NOT currently called by any frontend. Confirmed live: the connection opens
-    and stays open (no error), but the global GZipMiddleware registered on
-    `app` buffers small streamed chunks and never flushes them to the client —
-    a known Starlette/FastAPI GZip+StreamingResponse incompatibility, not a
-    bug in this handler. The Academic space's study-group chat
-    (js/features/academic.js) uses plain REST polling against
-    /api/group/messages instead, which was confirmed reliable. Fixing GZip's
-    interaction with streaming responses app-wide is a separate, larger piece
-    of work than any one feature — this endpoint is left in place, correct and
-    ready to use the moment that's addressed, rather than deleted."""
+    Was NOT called by any frontend for a long time: the connection opened and
+    stayed open (no error), but the global GZipMiddleware then registered on
+    `app` buffered small streamed chunks and never flushed them to the
+    client — a real Starlette/FastAPI GZip+StreamingResponse incompatibility,
+    not a bug in this handler. Fixed at the middleware layer
+    (SSESafeGZipMiddleware, above, skips compression for known SSE paths
+    including this one) rather than here. The Academic space's study-group
+    chat (js/features/academic.js) is being moved off its REST-polling
+    fallback onto this endpoint now that it actually delivers live."""
     entry = get_session_from_token(sanitize_text(token, 100))
     if not entry: raise HTTPException(401, "Invalid token.")
     sid = entry["sid"]
