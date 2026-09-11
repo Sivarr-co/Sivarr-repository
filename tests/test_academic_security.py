@@ -143,7 +143,11 @@ def test_acad_submit_rejects_assignment_from_another_class(client, acad_db):
     # An assignment that belongs to SUBB, guessed/known by a SUBA student.
     acad_db[("acad_assignments", "asg_other")] = {"id": "asg_other", "code": "SUBB", "title": "B's assignment"}
 
-    r = client.post("/api/acad/submit", json={
+    # /api/acad/submit takes multipart/form fields now, not JSON, so an
+    # optional file can travel alongside text (see routes/academic.py) --
+    # data= (no files=) sends it as the equivalent form-urlencoded body,
+    # which FastAPI's Form(...) params accept the same as multipart.
+    r = client.post("/api/acad/submit", data={
         "token": _token("sub_student"), "code": "SUBA",
         "assignment_id": "asg_other", "text": "cross-class injection attempt",
     })
@@ -157,7 +161,7 @@ def test_acad_submit_still_works_for_the_real_class(client, acad_db):
     _make_member(acad_db, "SUBC", "sub_student_c")
     acad_db[("acad_assignments", "asg_c1")] = {"id": "asg_c1", "code": "SUBC", "title": "Real assignment"}
 
-    r = client.post("/api/acad/submit", json={
+    r = client.post("/api/acad/submit", data={
         "token": _token("sub_student_c"), "code": "SUBC",
         "assignment_id": "asg_c1", "text": "my real answer",
     })

@@ -73,9 +73,10 @@ DATA_DIR      = _BASE / "data"
 UPLOADS_DIR   = _BASE / "uploads"
 SHARES_DIR    = _BASE / "shares"
 LOG_DIR       = _BASE / "logs"
-MATERIALS_DIR = _BASE / "materials"  # Academic space: lecturer-posted class files
+MATERIALS_DIR   = _BASE / "materials"    # Academic space: lecturer-posted class files
+SUBMISSIONS_DIR = _BASE / "submissions"  # Academic space: student assignment file uploads
 
-for _d in [DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR, MATERIALS_DIR]:
+for _d in [DATA_DIR, UPLOADS_DIR, SHARES_DIR, LOG_DIR, MATERIALS_DIR, SUBMISSIONS_DIR]:
     _d.mkdir(parents=True, exist_ok=True)
 
 # JSON data file paths

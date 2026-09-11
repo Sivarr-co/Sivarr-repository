@@ -42,7 +42,7 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Reque
 from fastapi.responses import FileResponse
 
 import database as db
-from config import MATERIALS_DIR
+from config import MATERIALS_DIR, SUBMISSIONS_DIR
 from core import (
     sanitize_text, _resolve_token, safe_url,
     check_rate_limit, get_client_key, get_session_from_token, validate_sid,
@@ -988,23 +988,104 @@ def build_router(send_push) -> APIRouter:
 
 
     @router.post("/api/acad/submit")
-    async def acad_submit(data: dict):
-        """Member submits work for an assignment (re-submit overwrites)."""
-        sid, name = _resolve_token(data)
-        code = sanitize_text(str(data.get("code", "")), 12).upper()
+    async def acad_submit(
+        request: Request, token: str = Form(""), code: str = Form(""),
+        assignment_id: str = Form(""), text: str = Form(""),
+        file: UploadFile | None = File(None),
+    ):
+        """Member submits work for an assignment (re-submit overwrites).
+        Multipart, not JSON -- same reasoning as /api/acad/materials/upload:
+        an optional file needs Form fields alongside it. text-only
+        submissions (file omitted) still work unchanged. Same validation
+        discipline as materials (allowlist/size/magic-byte), reusing those
+        constants directly rather than duplicating them."""
+        sess = get_session_from_token(sanitize_text(token, 100))
+        if not sess:
+            raise HTTPException(401, "Sign in to submit.")
+        sid = validate_sid(sess["sid"])
+        name = sess.get("name", "")
+        code = sanitize_text(code, 12).upper()
         if not _acad_is_member(code, sid):
             raise HTTPException(403, "Join the class first.")
-        aid = sanitize_text(str(data.get("assignment_id", "")), 20)
+        aid = sanitize_text(assignment_id, 20)
         a = db.coll_get("acad_assignments", aid)
         if not a or a.get("code") != code:
             raise HTTPException(404, "Assignment not found.")
-        db.coll_put("acad_submissions", f"{aid}:{sid}",
-                    {"assignment_id": aid, "code": code, "sid": sid, "name": name,
-                     "text": sanitize_text(str(data.get("text", "")), 5000),
-                     "ts": datetime.datetime.utcnow().isoformat(),
-                     "graded": False, "grade": "", "feedback": ""},
-                    owner=aid)
+
+        # Text and file are now two independent, decoupled client actions
+        # (sSubmitAssignment vs sSubmitAssignmentFile in academic.js) against
+        # one row that's fully overwritten on every call -- so a blank
+        # incoming field must fall back to whatever was already submitted,
+        # or attaching a file would silently wipe previously-submitted text
+        # (and vice versa). Only an incoming NON-blank value ever replaces
+        # what's there.
+        existing = db.coll_get("acad_submissions", f"{aid}:{sid}") or {}
+        clean_text = sanitize_text(text, 5000)
+        sub = {"assignment_id": aid, "code": code, "sid": sid, "name": name,
+               "text": clean_text or existing.get("text", ""),
+               "ts": datetime.datetime.utcnow().isoformat(),
+               "graded": False, "grade": "", "feedback": ""}
+        if existing.get("attachment_id"):
+            sub["attachment_id"]   = existing["attachment_id"]
+            sub["attachment_name"] = existing.get("attachment_name", "")
+            sub["attachment_ext"]  = existing.get("attachment_ext", "")
+
+        if file is not None and file.filename:
+            # A genuinely new file replaces (and deletes) any prior one.
+            if existing.get("attachment_id"):
+                try:
+                    (SUBMISSIONS_DIR / f"{existing['attachment_id']}{existing.get('attachment_ext', '')}").unlink(missing_ok=True)
+                except Exception as exc:
+                    log.warning(f"Could not delete old submission file: {exc}")
+            key = get_client_key(request, sid)
+            check_rate_limit(key, _MATERIAL_RATE_LIMIT, "acad_submit")
+            ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+            if ext not in _MATERIAL_ALLOWED_EXTS:
+                raise HTTPException(400, "Use .pdf, .md, or .txt files only.")
+            clen = request.headers.get("content-length")
+            if clen and clen.isdigit() and int(clen) > MATERIAL_MAX_SIZE + 8192:
+                raise HTTPException(400, "File too large. Maximum size is 20MB.")
+            content = await file.read()
+            if len(content) > MATERIAL_MAX_SIZE:
+                raise HTTPException(400, "File too large. Maximum size is 20MB.")
+            if not _validate_material_magic(content, ext):
+                raise HTTPException(400, "File content does not match its extension.")
+            attachment_id = uuid.uuid4().hex[:10]
+            fpath = SUBMISSIONS_DIR / f"{attachment_id}{ext}"
+            await asyncio.to_thread(fpath.write_bytes, content)
+            sub["attachment_id"]   = attachment_id
+            sub["attachment_name"] = sanitize_text(file.filename, 200)
+            sub["attachment_ext"]  = ext
+
+        db.coll_put("acad_submissions", f"{aid}:{sid}", sub, owner=aid)
         return {"ok": True}
+
+
+    @router.get("/api/acad/submissions/{submission_id}/file")
+    async def acad_submission_file(submission_id: str, token: str = "", code: str = ""):
+        """Stream a submitted file back -- the submitting student, or the
+        class owner grading it. NOT any class member (unlike materials,
+        above) -- a submission is private between the student and the
+        owner, other students must never see it."""
+        sess = get_session_from_token(sanitize_text(token, 100))
+        if not sess:
+            raise HTTPException(401, "Invalid session.")
+        sid = validate_sid(sess["sid"])
+        code = sanitize_text(code, 12).upper()
+        cls = _acad_class_or_404(code)
+        submission_id = sanitize_text(submission_id, 60)
+        sub = db.coll_get("acad_submissions", submission_id)
+        if not sub or sub.get("code") != code:
+            raise HTTPException(404, "Submission not found.")
+        if sid != sub.get("sid") and cls.get("owner_sid") != sid:
+            raise HTTPException(403, "Not authorized to view this submission.")
+        if not sub.get("attachment_id"):
+            raise HTTPException(404, "No file attached to this submission.")
+        fpath = SUBMISSIONS_DIR / f"{sub['attachment_id']}{sub.get('attachment_ext', '')}"
+        if not fpath.exists():
+            raise HTTPException(404, "File not found.")
+        media_type = mimetypes.guess_type(sub.get("attachment_name", ""))[0] or "application/octet-stream"
+        return FileResponse(fpath, media_type=media_type, filename=sub.get("attachment_name", "submission"))
 
 
     @router.post("/api/acad/submissions")

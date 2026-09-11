@@ -3015,7 +3015,7 @@ async function lLoadGrading() {
       html += subs
         .map(
           (s) =>
-            `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(s.name)} ${s.graded ? '<span class="acad-tag acad-tag--teal">' + acEsc(s.grade) + "</span>" : ""}</div><div class="acad-priority-sub">${acEsc(String(s.text || "").slice(0, 140))}</div><div class="acad-priority-actions"><input class="acad-search-inline" style="width:64px;" id="g-${a.id}-${s.sid}" placeholder="Grade" value="${acEsc(s.grade || "")}"><button class="acad-action-btn acad-action-btn--teal" data-onclick="lSubmitGrade" data-onclick-arg0="${acEsc(a.id)}" data-onclick-arg1="${acEsc(s.sid)}">Save</button></div></div></div>`,
+            `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(s.name)} ${s.graded ? '<span class="acad-tag acad-tag--teal">' + acEsc(s.grade) + "</span>" : ""}</div><div class="acad-priority-sub">${acEsc(String(s.text || "").slice(0, 140))}</div>${s.attachment_id ? `<a class="acad-priority-sub" style="color:var(--acad-accent);text-decoration:underline;" href="/api/acad/submissions/${encodeURIComponent(a.id + ":" + s.sid)}/file?token=${encodeURIComponent(getToken())}&code=${encodeURIComponent(d.classCode)}" target="_blank" rel="noopener"><i class="ti ti-paperclip" aria-hidden="true"></i> ${acEsc(s.attachment_name || "Download file")}</a>` : ""}<div class="acad-priority-actions"><input class="acad-search-inline" style="width:64px;" id="g-${a.id}-${s.sid}" placeholder="Grade" value="${acEsc(s.grade || "")}"><button class="acad-action-btn acad-action-btn--teal" data-onclick="lSubmitGrade" data-onclick-arg0="${acEsc(a.id)}" data-onclick-arg1="${acEsc(s.sid)}">Save</button></div></div></div>`,
         )
         .join("");
       html += "</div>";
@@ -3075,9 +3075,25 @@ async function sLoadAssignments() {
   body.innerHTML = rows
     .map(
       (it) =>
-        `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(it.title)}</div><div class="acad-priority-sub">${acEsc(it.cls)}${it.due ? " · due " + acEsc(it.due) : ""} · ${it.graded ? "Graded: " + acEsc(it.grade) : it.submitted ? "Submitted" : "Not submitted"}</div>${it.graded && it.feedback ? '<div class="acad-priority-sub">Feedback: ' + acEsc(it.feedback) + "</div>" : ""}</div><button class="acad-action-btn acad-action-btn--teal" data-onclick="sSubmitAssignment" data-onclick-arg0="${acEsc(it.code)}" data-onclick-arg1="${acEsc(it.assignment_id)}">${it.submitted ? "Resubmit" : "Submit"}</button></div>`,
+        `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(it.title)}</div><div class="acad-priority-sub">${acEsc(it.cls)}${it.due ? " · due " + acEsc(it.due) : ""} · ${it.graded ? "Graded: " + acEsc(it.grade) : it.submitted ? "Submitted" : "Not submitted"}</div>${it.graded && it.feedback ? '<div class="acad-priority-sub">Feedback: ' + acEsc(it.feedback) + "</div>" : ""}</div><div style="display:flex;gap:6px"><button class="acad-action-btn acad-action-btn--teal" data-onclick="sSubmitAssignment" data-onclick-arg0="${acEsc(it.code)}" data-onclick-arg1="${acEsc(it.assignment_id)}">${it.submitted ? "Resubmit" : "Submit"}</button><label class="acad-action-btn" style="cursor:pointer;margin:0" title="Attach a file (.pdf/.md/.txt)"><i class="ti ti-paperclip" aria-hidden="true"></i><input type="file" accept=".pdf,.md,.txt" style="display:none" data-onchange="sSubmitAssignmentFile" data-onchange-this data-onchange-args='["${acEsc(it.code)}","${acEsc(it.assignment_id)}"]' /></label></div></div>`,
     )
     .join("");
+}
+// /api/acad/submit takes multipart now (an optional file needs Form fields
+// alongside it, same reasoning as /api/acad/materials/upload) -- so this can
+// no longer go through acadAPI()/API(), which always sends JSON. Shared by
+// both the text-only flow below and sSubmitAssignmentFile().
+async function _sSubmitAssignmentForm(code, aid, text, file) {
+  const form = new FormData();
+  form.append("token", getToken());
+  form.append("code", code);
+  form.append("assignment_id", aid);
+  form.append("text", text || "");
+  if (file) form.append("file", file);
+  const r = await fetch("/api/acad/submit", { method: "POST", body: form });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.detail || "Submit failed");
+  return j;
 }
 async function sSubmitAssignment(code, aid) {
   const text = await siModal.input(
@@ -3088,8 +3104,25 @@ async function sSubmitAssignment(code, aid) {
   );
   if (!text) return;
   try {
-    await acadAPI("/api/acad/submit", { code, assignment_id: aid, text });
+    await _sSubmitAssignmentForm(code, aid, text, null);
     acToast("Submitted");
+    sLoadAssignments();
+  } catch (e) {
+    acToast((e && e.message) || "Submit failed");
+  }
+}
+// Attach-a-file affordance next to the text-submit button (see
+// sRenderAssignments' row template) -- mirrors lUploadMaterial's hidden
+// file-input pattern. A file-only submission keeps any existing text blank
+// if none was ever submitted; re-submitting text separately still works
+// (the server preserves whichever fields the client actually sends).
+async function sSubmitAssignmentFile(code, aid, inputEl) {
+  const file = inputEl.files && inputEl.files[0];
+  inputEl.value = "";
+  if (!file) return;
+  try {
+    await _sSubmitAssignmentForm(code, aid, "", file);
+    acToast("File submitted");
     sLoadAssignments();
   } catch (e) {
     acToast((e && e.message) || "Submit failed");
