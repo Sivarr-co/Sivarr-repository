@@ -201,21 +201,66 @@ def get_model():
     return _model_name
 
 
-def get_sessions(sid, memory=""):
+_thorough_model_name = None
+
+def get_thorough_model():
+    """Deliberate, user-requested upgrade for "Thorough" response mode —
+    separate from get_model()'s alerting path, since landing on pro here is
+    expected/requested behavior, not an unwanted cost-risk fallback worth
+    paging Sentry over. Quietly returns get_model()'s result (flash) if pro
+    isn't reachable on this key, so Thorough mode never silently no-ops —
+    see get_sessions()'s max_output_tokens bump for the guaranteed part."""
+    global _thorough_model_name
+    if _thorough_model_name:
+        return _thorough_model_name
+    if not API_KEY or not GEMINI_AVAILABLE:
+        return get_model()
+    try:
+        available = [
+            m.name.replace("models/", "") for m in genai.list_models()
+            if "generateContent" in m.supported_generation_methods
+        ]
+        _thorough_model_name = "gemini-2.5-pro" if "gemini-2.5-pro" in available else get_model()
+    except Exception as e:
+        log.error(f"Thorough model selection failed: {e}")
+        _thorough_model_name = get_model()
+    return _thorough_model_name
+
+
+_TONE_INSTRUCTIONS = {
+    # "warm" (the default) intentionally has no entry -- that's the base
+    # SYSTEM_PROMPT personality as-is, so a lookup miss appends nothing and
+    # reproduces today's exact behavior for anyone who never touches this.
+    "direct": ("Tone preference: be more direct and concise than usual. Skip warm "
+               "framing, celebrations, and casual asides. Get straight to the point "
+               "while staying clear and correct."),
+    "formal": ("Tone preference: override the casual, friend-like register described "
+               "above. Write in a formal, professional tone instead. Still clear and "
+               "helpful, just without slang, casual asides, or texting-style phrasing."),
+}
+
+
+def get_sessions(sid, memory="", mode="fast", tone="warm"):
     if len(_chat_sessions) > 500:
         _evict_stale_chat_sessions()
     if sid not in _chat_sessions:
-        model  = get_model()
-        system = SYSTEM_PROMPT + (f"\n\n{memory}" if memory else "")
+        thorough = mode == "thorough"
+        model  = get_thorough_model() if thorough else get_model()
+        tokens = 800 if thorough else 400
+        extra  = _TONE_INSTRUCTIONS.get(tone, "")
+        system = (SYSTEM_PROMPT + (f"\n\n{memory}" if memory else "")
+                  + (f"\n\n{extra}" if extra else ""))
         def mk(sys):
             m = genai.GenerativeModel(
                 model_name=model,
                 system_instruction=sys,
-                generation_config=genai.GenerationConfig(temperature=0.7, max_output_tokens=400),
+                generation_config=genai.GenerationConfig(temperature=0.7, max_output_tokens=tokens),
             )
             return m.start_chat(history=[])
+        # math keeps the raw MATH_PROMPT, no memory/mode/tone layering --
+        # matches existing precedent, it already got neither of the first two.
         _chat_sessions[sid] = {"chat": mk(system), "math": mk(MATH_PROMPT), "last_used": time.time()}
-        log.info(f"New chat session created for: {sid}")
+        log.info(f"New chat session created for: {sid} (mode={mode}, tone={tone})")
     else:
         _chat_sessions[sid]["last_used"] = time.time()
     return _chat_sessions[sid]
@@ -368,7 +413,8 @@ async def async_embed_text(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> 
 RETRIEVAL_TOP_K = int(os.environ.get("RETRIEVAL_TOP_K", 5))
 
 
-async def build_retrieval_context(sid: str, query: str, k: int = RETRIEVAL_TOP_K) -> str:
+async def build_retrieval_context(sid: str, query: str, k: int = RETRIEVAL_TOP_K,
+                                   enabled: bool = True) -> str:
     """Embed `query` and retrieve up to k of THIS sid's own indexed workspace
     items (tasks/goals/docs/journal — see app.py's _index_embeddings) to
     ground the next Gemini call. Returns "" — never raises — when pgvector
@@ -376,11 +422,18 @@ async def build_retrieval_context(sid: str, query: str, k: int = RETRIEVAL_TOP_K
     ai_chat.py treats an empty string as "nothing to inject," so a chat
     message must work identically with retrieval on or entirely absent.
 
+    `enabled=False` (the user's own Settings > Sivarr AI toggle) short-circuits
+    before any DB or embedding-API call at all -- this is the one function
+    that ever reaches db.search_embeddings, so this is the real, structural
+    opt-out, not just a UI label.
+
     Always scoped by sid, with no code path here that isn't: the caller
     passes in whatever sid its own auth already resolved (chat_authorize()
     in app.py) — this function has no way to see or use anything else, by
     construction, not by a check it could get wrong.
     """
+    if not enabled:
+        return ""
     try:
         if not db.embeddings_available():
             return ""

@@ -27,9 +27,11 @@ import logging
 import os
 import re
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, validator
+
+import database as db
 
 from core import sanitize_text, save_json, MAX_MESSAGE_LEN, get_client_key, check_rate_limit, _resolve_token
 from ai_core import (
@@ -125,7 +127,7 @@ def build_router(chat_authorize, load_progress, save_progress, add_history, buil
         # text the user actually typed), never msg or gemini_msg — a user
         # re-opening this conversation should see what they typed, not a
         # wall of req.context/[task:...]/[doc:...] tags prepended to it.
-        retrieval_ctx = await build_retrieval_context(sid, req.message)
+        retrieval_ctx = await build_retrieval_context(sid, req.message, enabled=p.get("ai_retrieval_enabled", True))
         gemini_msg = f"{retrieval_ctx}\n\n{msg}" if retrieval_ctx else msg
 
         ans       = await async_gemini_ask(sessions["chat"], gemini_msg)
@@ -174,7 +176,7 @@ def build_router(chat_authorize, load_progress, save_progress, add_history, buil
         # of this comment for why req.message (not msg) is what gets embedded,
         # and why it's kept out of msg itself (add_history below logs req.message
         # already, but _run_gemini's closure needs the augmented text separately).
-        retrieval_ctx = await build_retrieval_context(sid, req.message)
+        retrieval_ctx = await build_retrieval_context(sid, req.message, enabled=p.get("ai_retrieval_enabled", True))
         gemini_msg = f"{retrieval_ctx}\n\n{msg}" if retrieval_ctx else msg
 
         loop = asyncio.get_running_loop()
@@ -248,10 +250,18 @@ def build_router(chat_authorize, load_progress, save_progress, add_history, buil
     @router.post("/api/ai/memory")
     async def ai_memory(data: dict):
         """What would actually be fed to Gemini as this user's prior-session
-        context — the real build_memory() output, not a paraphrase."""
+        context — the real build_memory() output, not a paraphrase. Also
+        returns the caller's current response mode/tone so Settings doesn't
+        need extra round-trips to show them."""
         sid, _ = _resolve_token(data)
         p = load_progress(sid)
-        return {"memory": build_memory(p) or ""}
+        return {
+            "memory": build_memory(p) or "",
+            "mode": p.get("ai_mode", "fast"),
+            "tone": p.get("ai_tone", "warm"),
+            "retrieval_enabled": p.get("ai_retrieval_enabled", True),
+            "proactive_enabled": p.get("ai_proactive_enabled", True),
+        }
 
     @router.post("/api/ai/forget")
     async def ai_forget(data: dict):
@@ -264,6 +274,70 @@ def build_router(chat_authorize, load_progress, save_progress, add_history, buil
         p["chat_history"] = []
         save_progress(sid, p)
         forget_sid(sid)
+        return {"ok": True}
+
+    @router.post("/api/ai/mode")
+    async def ai_set_mode(data: dict):
+        """Fast vs. Thorough response mode. Saves the preference, then evicts
+        the live session (same forget_sid used for 'forget me') so the very
+        next message picks it up instead of waiting on the idle TTL or a
+        fresh login — get_sessions() only reads mode when (re)creating a
+        session, not on every call."""
+        sid, _ = _resolve_token(data)
+        mode = sanitize_text(str(data.get("mode", "")), 20)
+        if mode not in ("fast", "thorough"):
+            raise HTTPException(400, "mode must be 'fast' or 'thorough'.")
+        p = load_progress(sid)
+        p["ai_mode"] = mode
+        save_progress(sid, p)
+        forget_sid(sid)
+        return {"ok": True}
+
+    @router.post("/api/ai/tone")
+    async def ai_set_tone(data: dict):
+        """How Sivarr AI talks to you. Same shape as /api/ai/mode: save, then
+        forget_sid() so the next message picks it up right away."""
+        sid, _ = _resolve_token(data)
+        tone = sanitize_text(str(data.get("tone", "")), 20)
+        if tone not in ("warm", "direct", "formal"):
+            raise HTTPException(400, "tone must be 'warm', 'direct', or 'formal'.")
+        p = load_progress(sid)
+        p["ai_tone"] = tone
+        save_progress(sid, p)
+        forget_sid(sid)
+        return {"ok": True}
+
+    @router.post("/api/ai/retrieval")
+    async def ai_set_retrieval(data: dict):
+        """Real opt-out for workspace-data grounding (tasks/goals/docs/journal
+        embedded and pulled into chat answers -- see ai_core.build_retrieval_context
+        and app.py's _index_embeddings). No forget_sid() needed here: unlike
+        mode/tone, retrieval is read fresh per message, not baked into the
+        Gemini session at creation time, so this takes effect on the very next
+        message with no eviction required. Disabling immediately deletes the
+        already-indexed chunks (real text, not just vectors) rather than
+        leaving them to quietly age out of a 30-minute background job."""
+        sid, _ = _resolve_token(data)
+        enabled = bool(data.get("enabled", True))
+        p = load_progress(sid)
+        p["ai_retrieval_enabled"] = enabled
+        save_progress(sid, p)
+        if not enabled:
+            for source_type in ("task", "goal", "doc", "journal"):
+                db.prune_embeddings(sid, source_type, [])
+        return {"ok": True}
+
+    @router.post("/api/ai/proactive")
+    async def ai_set_proactive(data: dict):
+        """Pause/resume Sivarr AI's unprompted Home daily summary. Saves the
+        preference only -- no forget_sid() (unrelated to the chat session)
+        and no data to delete (unlike /api/ai/retrieval, nothing is stored
+        ahead of time here). Enforced server-side in routes/home_brief.py."""
+        sid, _ = _resolve_token(data)
+        enabled = bool(data.get("enabled", True))
+        p = load_progress(sid)
+        p["ai_proactive_enabled"] = enabled
+        save_progress(sid, p)
         return {"ok": True}
 
     return router

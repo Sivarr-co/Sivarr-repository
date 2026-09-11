@@ -6134,6 +6134,8 @@ function stInit() {
   const _dens = localStorage.getItem("sivarr_density") || "cozy";
   _stSyncSeg("st-density-seg", "density", _dens);
   stApplyReduceMotion(localStorage.getItem("sivarr_reduce_motion") === "on");
+  const _voiceLangSel = $("st-voice-lang-select");
+  if (_voiceLangSel) _voiceLangSel.value = localStorage.getItem("sivarr_voice_lang") || "en-NG";
   const _fs = parseInt(localStorage.getItem("sivarr_font_scale")) || 100;
   const _fsr = $("st-fontscale");
   if (_fsr) _fsr.value = _fs;
@@ -7138,7 +7140,6 @@ async function stRevokeSession(ref, btn) {
 
 async function stLoadAIMemory() {
   const box = $("st-ai-memory");
-  if (!box) return;
   const token = getToken();
   if (!token) return;
   try {
@@ -7148,11 +7149,115 @@ async function stLoadAIMemory() {
       body: JSON.stringify({ token }),
     });
     const d = await r.json();
-    const mem = (d && d.memory) || "";
-    box.textContent = mem || "Nothing yet — start a conversation with Sivarr AI.";
+    if (box) {
+      const mem = (d && d.memory) || "";
+      box.textContent = mem || "Nothing yet — start a conversation with Sivarr AI.";
+    }
+    _stSyncSeg("st-ai-mode-seg", "mode", (d && d.mode) || "fast");
+    _stSyncSeg("st-ai-tone-seg", "tone", (d && d.tone) || "warm");
+    const rt = $("st-ai-retrieval-toggle");
+    if (rt) rt.classList.toggle("on", (d && d.retrieval_enabled) !== false);
+    const pt = $("st-ai-proactive-toggle");
+    if (pt) pt.classList.toggle("on", (d && d.proactive_enabled) !== false);
   } catch {
-    box.textContent = "Couldn't load this right now.";
+    if (box) box.textContent = "Couldn't load this right now.";
   }
+}
+async function stSetAIMode(mode) {
+  const token = getToken();
+  if (!token) return;
+  _stSyncSeg("st-ai-mode-seg", "mode", mode);
+  try {
+    const r = await fetch("/api/ai/mode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, mode }),
+    });
+    if (r.ok) {
+      toast(mode === "thorough" ? "Thorough mode on" : "Fast mode on");
+    } else {
+      toast("Couldn't change response mode.");
+    }
+  } catch {
+    toast("Network error. Try again.");
+  }
+}
+async function stSetAITone(tone) {
+  const token = getToken();
+  if (!token) return;
+  _stSyncSeg("st-ai-tone-seg", "tone", tone);
+  try {
+    const r = await fetch("/api/ai/tone", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, tone }),
+    });
+    if (r.ok) {
+      toast(`Tone: ${tone.charAt(0).toUpperCase()}${tone.slice(1)}`);
+    } else {
+      toast("Couldn't change tone.");
+    }
+  } catch {
+    toast("Network error. Try again.");
+  }
+}
+async function stToggleAIRetrieval(btn) {
+  const turningOn = !btn.classList.contains("on");
+  if (!turningOn) {
+    const ok = await siModal.confirm(
+      "Sivarr AI will stop referencing your tasks, goals, notes, and journal in its answers, and what's already indexed will be deleted.",
+      { title: "Turn off workspace access", confirmLabel: "Turn off", danger: true },
+    );
+    if (!ok) return;
+  }
+  const token = getToken();
+  if (!token) return;
+  btn.classList.toggle("on", turningOn);
+  try {
+    const r = await fetch("/api/ai/retrieval", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, enabled: turningOn }),
+    });
+    if (r.ok) {
+      toast(turningOn ? "Sivarr AI can reference your workspace again" : "Workspace access turned off");
+    } else {
+      toast("Couldn't change this.");
+      btn.classList.toggle("on", !turningOn);
+    }
+  } catch {
+    toast("Network error. Try again.");
+    btn.classList.toggle("on", !turningOn);
+  }
+}
+async function stToggleAIProactive(btn) {
+  const turningOn = !btn.classList.contains("on");
+  const token = getToken();
+  if (!token) return;
+  btn.classList.toggle("on", turningOn);
+  try {
+    const r = await fetch("/api/ai/proactive", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, enabled: turningOn }),
+    });
+    if (r.ok) {
+      toast(turningOn ? "Daily home summary resumed" : "Daily home summary paused");
+    } else {
+      toast("Couldn't change this.");
+      btn.classList.toggle("on", !turningOn);
+    }
+  } catch {
+    toast("Network error. Try again.");
+    btn.classList.toggle("on", !turningOn);
+  }
+}
+function stSetVoiceLang(select) {
+  const lang = select.value || "en-NG";
+  try {
+    localStorage.setItem("sivarr_voice_lang", lang);
+  } catch (e) {}
+  toast(`Voice input: ${select.options[select.selectedIndex].text}`);
 }
 async function stForgetAI() {
   if (
@@ -7747,7 +7852,7 @@ function voiceInit() {
   const rec = new SpeechRecognition();
   rec.continuous = false;
   rec.interimResults = true;
-  rec.lang = "en-NG";
+  rec.lang = localStorage.getItem("sivarr_voice_lang") || "en-NG";
   return rec;
 }
 

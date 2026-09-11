@@ -83,7 +83,7 @@ def test_chat_retrieval_never_leaks_across_sids(monkeypatch, clean_progress):
 
     seen_sids = []
 
-    async def fake_build_retrieval_context(sid, query, k=5):
+    async def fake_build_retrieval_context(sid, query, k=5, enabled=True):
         seen_sids.append(sid)
         assert sid == "chat_isolation_sid_a", f"retrieval used the wrong sid: {sid!r}"
         return ""
@@ -129,7 +129,7 @@ def test_chat_actually_injects_retrieved_context_into_the_prompt(monkeypatch, cl
     FAKE_CONTEXT = "Relevant items from the user's own workspace:\n[task:abc123] Finish quarterly report"
     captured_prompts = []
 
-    async def fake_build_retrieval_context(sid, query, k=5):
+    async def fake_build_retrieval_context(sid, query, k=5, enabled=True):
         return FAKE_CONTEXT
 
     async def fake_async_gemini_ask(session, question):
@@ -188,7 +188,7 @@ def test_chat_stream_skips_suggestion_generation_when_not_wanted(monkeypatch, cl
 
     client = TestClient(app_module.app)
 
-    async def fake_build_retrieval_context(sid, query, k=5):
+    async def fake_build_retrieval_context(sid, query, k=5, enabled=True):
         return ""
 
     suggestion_calls = []
@@ -225,7 +225,7 @@ def test_chat_stream_generates_suggestions_by_default(monkeypatch, clean_progres
 
     client = TestClient(app_module.app)
 
-    async def fake_build_retrieval_context(sid, query, k=5):
+    async def fake_build_retrieval_context(sid, query, k=5, enabled=True):
         return ""
 
     suggestion_calls = []
@@ -267,7 +267,7 @@ def test_chat_context_field_augments_prompt_but_never_leaks_into_history(monkeyp
 
     captured_prompts = []
 
-    async def fake_build_retrieval_context(sid, query, k=5):
+    async def fake_build_retrieval_context(sid, query, k=5, enabled=True):
         return ""
 
     async def fake_async_gemini_ask(session, question):

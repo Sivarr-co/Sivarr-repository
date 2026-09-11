@@ -1297,6 +1297,111 @@ content-loss issue found in the prior split.
 
           <div class="st-divider"></div>
 
+          <div class="st-field">
+            <span class="st-label">Response mode</span>
+            <div class="st-seg" id="st-ai-mode-seg">
+              <button
+                class="st-seg-btn"
+                data-mode="fast"
+                data-onclick="stSetAIMode" data-onclick-arg0="fast"
+              >
+                <i class="ti ti-bolt"></i> Fast
+              </button>
+              <button
+                class="st-seg-btn"
+                data-mode="thorough"
+                data-onclick="stSetAIMode" data-onclick-arg0="thorough"
+              >
+                <i class="ti ti-telescope"></i> Thorough
+              </button>
+            </div>
+            <div class="st-field-hint">
+              Thorough gives longer, more considered answers and may take a
+              bit longer to reply. Takes effect on your next message.
+            </div>
+          </div>
+
+          <div class="st-field">
+            <span class="st-label">Tone</span>
+            <div class="st-seg" id="st-ai-tone-seg">
+              <button
+                class="st-seg-btn"
+                data-tone="warm"
+                data-onclick="stSetAITone" data-onclick-arg0="warm"
+              >
+                <i class="ti ti-heart"></i> Warm
+              </button>
+              <button
+                class="st-seg-btn"
+                data-tone="direct"
+                data-onclick="stSetAITone" data-onclick-arg0="direct"
+              >
+                <i class="ti ti-arrow-right"></i> Direct
+              </button>
+              <button
+                class="st-seg-btn"
+                data-tone="formal"
+                data-onclick="stSetAITone" data-onclick-arg0="formal"
+              >
+                <i class="ti ti-briefcase"></i> Formal
+              </button>
+            </div>
+            <div class="st-field-hint">
+              Changes how Sivarr AI talks to you. Takes effect on your next
+              message.
+            </div>
+          </div>
+
+          <div class="st-field">
+            <div class="st-row">
+              <span class="st-label">Reference my workspace</span>
+              <button
+                class="st-toggle on"
+                id="st-ai-retrieval-toggle"
+                data-onclick="stToggleAIRetrieval" data-onclick-this
+              ></button>
+            </div>
+            <div class="st-field-hint">
+              Lets Sivarr AI pull relevant tasks, goals, notes, and journal
+              entries into its answers. Turning this off deletes what's
+              already indexed.
+            </div>
+          </div>
+
+          <div class="st-field">
+            <div class="st-row">
+              <span class="st-label">Daily home summary</span>
+              <button
+                class="st-toggle on"
+                id="st-ai-proactive-toggle"
+                data-onclick="stToggleAIProactive" data-onclick-this
+              ></button>
+            </div>
+            <div class="st-field-hint">
+              Sivarr AI won't generate a proactive summary on your Home
+              dashboard when this is off.
+            </div>
+          </div>
+
+          <div class="st-field">
+            <span class="st-label">Voice input language</span>
+            <select
+              class="st-input"
+              id="st-voice-lang-select"
+              data-onchange="stSetVoiceLang" data-onchange-this
+            >
+              <option value="en-NG">English (Nigeria)</option>
+              <option value="en-US">English (US)</option>
+              <option value="en-GB">English (UK)</option>
+            </select>
+            <div class="st-field-hint">
+              Used for the microphone button in chat. Saved on this device
+              only.
+            </div>
+          </div>
+
+          <div class="st-divider"></div>
+
           <div class="st-label" style="margin-bottom: 8px">
             What Sivarr AI remembers
           </div>

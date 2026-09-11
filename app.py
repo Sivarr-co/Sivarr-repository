@@ -1412,7 +1412,6 @@ from routes.goals import router as _goals_router, load_goals, save_goals
 from routes.journal import router as _journal_router, load_journal
 from routes.skills import router as _skills_router
 from routes.finance import router as _finance_router
-from routes.home_brief import router as _home_brief_router
 from routes.marketplace import router as _marketplace_router
 from routes.search import router as _search_router
 from routes.review import router as _review_router
@@ -1429,7 +1428,6 @@ app.include_router(_goals_router)
 app.include_router(_journal_router)
 app.include_router(_skills_router)
 app.include_router(_finance_router)
-app.include_router(_home_brief_router)
 app.include_router(_marketplace_router)
 app.include_router(_search_router)
 app.include_router(_review_router)
@@ -1442,6 +1440,12 @@ from routes.focus import router as _focus_router; app.include_router(_focus_rout
 # — no real ordering constraint, unlike ai_chat/ai_features below.
 from routes.quiz import build_router as _build_quiz_router
 app.include_router(_build_quiz_router(load_progress, save_progress))
+
+# routes/home_brief.py's build_router() only needs load_progress too (added
+# for the "Daily home summary" pause preference) — same no-ordering-constraint
+# situation as quiz.py just above.
+from routes.home_brief import build_router as _build_home_brief_router
+app.include_router(_build_home_brief_router(load_progress))
 
 # routes/ai_chat.py and routes/ai_features.py are NOT included here — they need
 # _chat_authorize/_ai_meter (which need _plan_caps/_plan_is_active, billing
@@ -2304,6 +2308,9 @@ def _start_scheduler():
 
         # ── Tasks — real table, not user_blobs ──
         for sid in db.get_sids_with_tasks():
+            if not load_progress(sid).get("ai_retrieval_enabled", True):
+                db.prune_embeddings(sid, "task", [])
+                continue
             keep_ids = []
             for t in load_tasks(sid):
                 if t.get("deleted_at"):
@@ -2322,6 +2329,9 @@ def _start_scheduler():
 
         # ── Goals — real table since Session 16, soft-deleted via deleted_at ──
         for sid in db.get_sids_with_goals():
+            if not load_progress(sid).get("ai_retrieval_enabled", True):
+                db.prune_embeddings(sid, "goal", [])
+                continue
             keep_ids = []
             for g in load_goals(sid):
                 if g.get("deleted_at"):
@@ -2340,6 +2350,9 @@ def _start_scheduler():
 
         # ── Docs — real table since Session 16, content already HTML-stripped at write time ──
         for sid in db.get_sids_with_docs():
+            if not load_progress(sid).get("ai_retrieval_enabled", True):
+                db.prune_embeddings(sid, "doc", [])
+                continue
             keep_ids = []
             for d in load_docs(sid):
                 if d.get("deleted_at"):
@@ -2363,6 +2376,9 @@ def _start_scheduler():
         #    which prune_embeddings' keep_ids sweep already handles correctly
         #    without needing a deleted_at check here). ──
         for sid in db.get_sids_with_blob_key("journal"):
+            if not load_progress(sid).get("ai_retrieval_enabled", True):
+                db.prune_embeddings(sid, "journal", [])
+                continue
             keep_ids = []
             for e in load_journal(sid):
                 jid = str(e.get("date", ""))
@@ -2883,7 +2899,7 @@ async def login(req: LoginRequest, request: Request, bg: BackgroundTasks, respon
     # AI chat session init must never block authentication — if Gemini is
     # unavailable or misconfigured, login/register must still succeed.
     try:
-        get_sessions(sid, memory)
+        get_sessions(sid, memory, p.get("ai_mode", "fast"), p.get("ai_tone", "warm"))
     except Exception as _ai_e:
         log.warning(f"AI session init deferred (non-fatal) for {sid}: {_ai_e}")
 
@@ -2942,7 +2958,7 @@ async def session_restore(data: dict, response: Response):
     memory = build_memory(p)
     # AI chat session init must never block session restore.
     try:
-        get_sessions(sid, memory)
+        get_sessions(sid, memory, p.get("ai_mode", "fast"), p.get("ai_tone", "warm"))
     except Exception as _ai_e:
         log.warning(f"AI session init deferred (non-fatal) for {sid}: {_ai_e}")
 
