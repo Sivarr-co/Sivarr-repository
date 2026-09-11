@@ -2168,17 +2168,18 @@ async function sJoinGroup() {
 
 let _sGroupActive = null; // {id, name}
 let _sGroupPollInterval = null;
+let _sGroupEventSource = null;
 let _sGroupLastTs = "";
 let _sGroupSeen = new Set();
 
-// Live delivery is REST polling only, not SSE: /api/group/chat/stream connects
-// fine but this app's global GZipMiddleware buffers small streamed chunks and
-// never flushes them (a well-known Starlette/FastAPI GZip+SSE incompatibility,
-// confirmed live -- the connection stays "open" but no event ever arrives).
-// Fixing that would mean changing global response-compression behavior for
-// the whole app, well beyond this feature's scope. Plain polling against
-// /api/group/messages was already confirmed reliable, so it's the only
-// transport here -- same real, shared data, ~3s later instead of instant.
+// Live delivery is real SSE now (/api/group/chat/stream) -- it used to fall
+// back to REST polling because the app's global GZipMiddleware buffered
+// streamed chunks and never flushed them (a real Starlette/FastAPI GZip+SSE
+// incompatibility, confirmed live), but that's fixed at the middleware layer
+// (SSESafeGZipMiddleware, app.py) now. Polling is kept as a defensive
+// fallback only -- _sGroupConnectLive() switches to it if the browser gives
+// up on the SSE connection entirely (EventSource.readyState === CLOSED),
+// not on a transient drop the browser will auto-retry on its own.
 function sOpenGroup(gid, name) {
   sExamCloseTaker(); // close any other open .sx-overlay (also tears down a prior poll interval)
   _sGroupActive = { id: gid, name };
@@ -2203,16 +2204,45 @@ function sOpenGroup(gid, name) {
   </div>`;
   document.body.appendChild(ov);
   sLoadGroupMessages(true).then(() => {
-    if (_sGroupActive) _sGroupPollInterval = setInterval(() => sLoadGroupMessages(false), 3000);
+    if (_sGroupActive) _sGroupConnectLive();
   });
+}
+function _sGroupConnectLive() {
+  if (!_sGroupActive) return;
+  const token = getToken() || "";
+  const url = `/api/group/chat/stream?token=${encodeURIComponent(token)}&group_id=${encodeURIComponent(_sGroupActive.id)}&since=${encodeURIComponent(_sGroupLastTs)}`;
+  _sGroupEventSource = new EventSource(url);
+  _sGroupEventSource.onmessage = (e) => {
+    try {
+      sAppendGroupMsg(JSON.parse(e.data));
+    } catch (_) {}
+  };
+  _sGroupEventSource.onerror = () => {
+    // readyState CLOSED means the browser gave up for good (e.g. the
+    // server rejected the connection) -- anything else (CONNECTING) is
+    // the browser's own auto-retry in progress, which needs no help here.
+    if (_sGroupEventSource && _sGroupEventSource.readyState === EventSource.CLOSED) {
+      _sGroupCloseLive();
+      if (_sGroupActive && !_sGroupPollInterval) {
+        _sGroupPollInterval = setInterval(() => sLoadGroupMessages(false), 3000);
+      }
+    }
+  };
+}
+function _sGroupCloseLive() {
+  if (_sGroupEventSource) {
+    _sGroupEventSource.close();
+    _sGroupEventSource = null;
+  }
 }
 function sCloseGroupChat() {
   _sGroupActive = null;
-  sExamCloseTaker(); // stops the poll interval too
+  sExamCloseTaker(); // stops the live connection/poll interval too
 }
 // Also called from the shared sExamCloseTaker() so opening a *different*
-// modal on top of an open group chat can't leave the poll timer running.
+// modal on top of an open group chat can't leave the connection/timer running.
 function sStopGroupLive() {
+  _sGroupCloseLive();
   if (_sGroupPollInterval) {
     clearInterval(_sGroupPollInterval);
     _sGroupPollInterval = null;
