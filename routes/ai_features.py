@@ -33,7 +33,7 @@ def build_router(ai_meter) -> APIRouter:
         sess = get_session_from_token(data.get("token",""))
         if not sess:
             raise HTTPException(401, "Invalid session.")
-        check_rate_limit(get_client_key(request), 15, "ai_extract")
+        check_rate_limit(get_client_key(request, sess["sid"]), 15, "ai_extract")
         ai_meter(sess["sid"])
         text = sanitize_text(str(data.get("text","")), 3000)
         if len(text.strip()) < 10:
@@ -68,7 +68,7 @@ Return only valid JSON. No explanation. No markdown. Example:
         sess = get_session_from_token(data.get("token",""))
         if not sess:
             raise HTTPException(401, "Invalid session.")
-        check_rate_limit(get_client_key(request), 20, "ai_write")
+        check_rate_limit(get_client_key(request, sess["sid"]), 20, "ai_write")
         ai_meter(sess["sid"])
         text   = sanitize_text(str(data.get("text","")), 4000)
         action = sanitize_text(str(data.get("action","improve")), 20)
@@ -102,7 +102,7 @@ Respond with ONLY the rewritten text. No preamble, no explanation."""
     async def weekly_review(data: dict, request: Request):
         """Generate a personalised AI weekly review digest."""
         sid, name = _resolve_token(data)
-        check_rate_limit(get_client_key(request), 10, "weekly_review")
+        check_rate_limit(get_client_key(request, sid), 10, "weekly_review")
         ai_meter(sid)
         first_name    = name.split()[0] if name else "there"
         week_end      = _dt.date.today()
@@ -211,7 +211,7 @@ Never use em dashes. Use commas or periods instead."""
     async def parse_intent(data: dict, request: Request):
         """Parse a natural-language string into a structured action (task, goal, or note)."""
         sid, _ = _resolve_token(data)
-        check_rate_limit(get_client_key(request), 30, "parse_intent")
+        check_rate_limit(get_client_key(request, sid), 30, "parse_intent")
         text = sanitize_text(str(data.get("text", "")), 300)
         if not text.strip():
             raise HTTPException(400, "Text required.")
@@ -250,7 +250,7 @@ Rules:
     async def voice_to_task(data: dict, request: Request):
         """Convert a voice-note transcript into structured tasks."""
         sid, _ = _resolve_token(data)
-        check_rate_limit(get_client_key(request), 20, "voice_to_task")
+        check_rate_limit(get_client_key(request, sid), 20, "voice_to_task")
         transcript = sanitize_text(str(data.get("transcript", "")), 600)
         if not transcript.strip():
             raise HTTPException(400, "Transcript required.")

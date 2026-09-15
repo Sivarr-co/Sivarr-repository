@@ -498,6 +498,27 @@ def _org_sub_active(org: dict) -> bool:
             pass
     return True
 
+# Set once inside build_router() (has_plan/load_progress are only available
+# there as injected app.py dependencies) so this module-level helper and
+# _org_check/_org_admin_check -- both defined here, outside build_router,
+# but called from every route inside it -- can reach them without threading
+# two extra params through 14+ call sites.
+_ORG_HAS_PLAN = None
+_ORG_LOAD_PROGRESS = None
+
+def _require_org_entitled(sid: str, org: dict):
+    """Server-side mirror of the client's own orgUnlocked check (js/app.js
+    _hasPlan/_PAYWALL_CFG.org): an active org subscription unlocks it for
+    every member regardless of personal plan, else the caller needs a
+    personal Pro-or-above plan. Was previously enforced client-side only --
+    any authenticated session could reach every org write endpoint directly
+    (POST /api/org/create included) with no plan at all."""
+    if _org_sub_active(org):
+        return
+    if _ORG_HAS_PLAN and _ORG_LOAD_PROGRESS and _ORG_HAS_PLAN(_ORG_LOAD_PROGRESS(sid), "Pro"):
+        return
+    raise HTTPException(402, "Org space requires an active Pro plan or org subscription.")
+
 def _org_audit(org_id: str, actor_sid: str, actor_name: str, action: str):
     """Append an admin action to the org audit log (collections, owner=org_id)."""
     try:
@@ -546,6 +567,7 @@ def _org_check(token: str) -> tuple[dict, str]:
     org = db.get_org_by_member(sess["sid"])
     if not org:
         raise HTTPException(403, "Not in an organisation.")
+    _require_org_entitled(sess["sid"], org)
     return sess, org["id"]
 
 def _org_admin_check(token: str) -> tuple[dict, str]:
@@ -582,6 +604,8 @@ def _ps_key_for_org(org_id: str) -> str:
 
 
 def build_router(load_progress, send_email, send_push, _is_valid_admin_session, session_cookie_key, has_plan) -> APIRouter:
+    global _ORG_HAS_PLAN, _ORG_LOAD_PROGRESS
+    _ORG_HAS_PLAN, _ORG_LOAD_PROGRESS = has_plan, load_progress
     router = APIRouter()
 
     @router.post("/api/org/get")
@@ -709,6 +733,14 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         existing = db.get_org_by_member(sid)
         if existing:
             raise HTTPException(409, "You already belong to an organization.")
+        # No org exists yet for this to check its own subscription against --
+        # the creator's personal plan is what's being spent here. Reads the
+        # module-level _ORG_HAS_PLAN/_ORG_LOAD_PROGRESS (set from these same
+        # has_plan/load_progress params at the top of build_router) rather
+        # than the closure params directly, so this stays consistent with
+        # every other _require_org_entitled call site in this file.
+        if not (_ORG_HAS_PLAN and _ORG_LOAD_PROGRESS and _ORG_HAS_PLAN(_ORG_LOAD_PROGRESS(sid), "Pro")):
+            raise HTTPException(402, "Creating an organization requires a Pro plan.")
         org_name = sanitize_text(str(data.get("name", "")).strip(), 80)
         if not org_name or len(org_name) < 2:
             raise HTTPException(400, "Organization name must be at least 2 characters.")
@@ -849,6 +881,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
             raise HTTPException(404, "You don't belong to an organization.")
         if org.get("member_role") not in ("owner", "admin", "manager"):
             raise HTTPException(403, "Only owners, admins, and managers can invite members.")
+        _require_org_entitled(sid, org)
         # Seat enforcement (only once the org is on a paid seat plan — legacy orgs unaffected).
         if _org_sub_active(org):
             seats_paid = ((org.get("settings") or {}).get("subscription") or {}).get("seats", 0)
@@ -972,6 +1005,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         title = sanitize_text(str(data.get("title", "")).strip(), 200)
         if not title: raise HTTPException(400, "Task title required.")
         task_id    = uuid.uuid4().hex[:20]
@@ -1054,6 +1088,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         name = sanitize_text(str(data.get("name", "")).strip(), 120)
         if not name: raise HTTPException(400, "Project name required.")
         project_id = uuid.uuid4().hex[:20]
@@ -1093,6 +1128,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         doc_id  = sanitize_text(str(data.get("doc_id", "") or uuid.uuid4().hex[:20]), 40)
         title   = sanitize_text(str(data.get("title", "Untitled Doc")).strip(), 200)
         content = sanitize_text(str(data.get("content", "")), 50000)
@@ -1228,6 +1264,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         content = sanitize_text(str(data.get("content", "")).strip(), 2000)
         if not content: raise HTTPException(400, "Message content required.")
         channel = sanitize_text(str(data.get("channel", "general")), 60)
@@ -1422,6 +1459,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         title = sanitize_text(str(data.get("title", "")).strip(), 200)
         if not title: raise HTTPException(400, "Goal title required.")
         goal_id = f"og_{sid[:8]}_{int(__import__('time').time()*1000)}"

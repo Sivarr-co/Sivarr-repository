@@ -95,7 +95,7 @@ async def add_goal(data: dict):
     sid, _    = _resolve_token(data)
     title     = sanitize_text(str(data.get("title","")), 100)
     subject   = sanitize_text(str(data.get("subject","")), 100)
-    target    = int(data.get("target_score", 70))
+    target    = int(data.get("target_score", 70) or 70)
     # `due` is the newer Goals & Habits panel's field name; `deadline` is the
     # older one. Mirror onto both columns so either reader sees the value.
     deadline  = sanitize_text(str(data.get("deadline","") or data.get("due","")), 20)
@@ -141,7 +141,7 @@ async def add_goal(data: dict):
 async def update_goal(data: dict):
     sid, _   = _resolve_token(data)
     goal_id  = sanitize_text(str(data.get("id","")), 20)
-    progress = int(data.get("progress", 0))
+    progress = int(data.get("progress", 0) or 0)
     completed = bool(data.get("completed", False))
     goals = load_goals(sid)
     for g in goals:

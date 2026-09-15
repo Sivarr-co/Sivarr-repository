@@ -5737,12 +5737,6 @@ function mobFabTrigger() {
 
 // ═══════════════════════ CREATE NEW ═════════════════════════
 
-// CSP migration: multi-statement (close the create-space modal, then open pricing).
-window._closeCnModalThenShowPricing = function () {
-  document.getElementById("cn-modal-bg")?.classList.remove("open");
-  showPricing();
-};
-
 function cnOpen() {
   cnTab("create");
   $("cn-modal-bg").classList.add("open");
@@ -7940,241 +7934,10 @@ function cnTab(name) {
       btn.style.color = t === name ? "#fff" : "var(--muted)";
     }
   });
-  if (name === "space") spReset();
 }
 
 // ═══════════════ SPACES SYSTEM ══════════════════════════════
 
-const SPACES_KEY = () => `sivarr_spaces_${S.sid || "guest"}`;
-let _spType = null;
-
-const SP_PERSONAL_TABS = [
-  { key: "task-tracker", icon: "✅", label: "Task Tracker", route: "flux" },
-  { key: "content-hub", icon: "🧠", label: "Content Hub", route: "contenthub" },
-];
-const SP_ORG_TABS = [
-  { key: "goals", icon: "🎯", label: "Goals", route: "goals" },
-  { key: "knowledge", icon: "📚", label: "Knowledge", route: "notes" },
-];
-
-function spGetAll() {
-  try {
-    return JSON.parse(localStorage.getItem(SPACES_KEY()) || "[]");
-  } catch {
-    return [];
-  }
-}
-function spSaveAll(spaces) {
-  localStorage.setItem(SPACES_KEY(), JSON.stringify(spaces));
-}
-
-function spPickType(type) {
-  _spType = type;
-  $("sp-type-personal")?.classList.toggle("sel", type === "personal");
-  $("sp-type-org")?.classList.toggle("sel", type === "org");
-}
-
-function spNext() {
-  if (!_spType) {
-    toast("Please choose a space type.");
-    return;
-  }
-  $("sp-s1").style.display = "none";
-  $("sp-s2").style.display = "block";
-  const label = $("sp-s2-label");
-  if (label)
-    label.textContent =
-      _spType === "personal"
-        ? "Personal space name:"
-        : "Organization space name:";
-  const mw = $("sp-members-wrap");
-  if (mw) mw.style.display = _spType === "org" ? "block" : "none";
-  const ni = $("sp-name");
-  if (ni) {
-    ni.value = "";
-    ni.focus();
-  }
-  const ei = $("sp-err");
-  if (ei) ei.textContent = "";
-}
-
-function spBack() {
-  $("sp-s2").style.display = "none";
-  $("sp-s1").style.display = "block";
-}
-
-function spReset() {
-  _spType = null;
-  $("sp-type-personal")?.classList.remove("sel");
-  $("sp-type-org")?.classList.remove("sel");
-  const s1 = $("sp-s1");
-  if (s1) s1.style.display = "block";
-  const s2 = $("sp-s2");
-  if (s2) s2.style.display = "none";
-  const ni = $("sp-name");
-  if (ni) ni.value = "";
-  const mi = $("sp-members");
-  if (mi) mi.value = "";
-  const ei = $("sp-err");
-  if (ei) ei.textContent = "";
-}
-
-// CSP migration: Enter-to-create on the space-name input.
-window._spCreateOnEnter = function (e) {
-  if (e.key === "Enter") spCreate();
-};
-
-function spCreate() {
-  const name = $("sp-name")?.value.trim();
-  if (!name) {
-    const e = $("sp-err");
-    if (e) e.textContent = "Please enter a space name.";
-    return;
-  }
-  // Quota gating: block a new space beyond the plan cap (server enforces too).
-  const cap = _ENTITLEMENTS?.caps?.spaces;
-  if (cap != null && spGetAll().length >= cap) {
-    const e = $("sp-err");
-    if (e)
-      e.innerHTML =
-        `Your plan includes ${cap} space${cap !== 1 ? "s" : ""}. ` +
-        `<a data-onclick="_closeCnModalThenShowPricing" ` +
-        `style="color:var(--teal);cursor:pointer;text-decoration:underline">Upgrade</a> to add more.`;
-    return;
-  }
-  const members =
-    _spType === "org"
-      ? $("sp-members")
-          ?.value.trim()
-          .split(",")
-          .map((m) => m.trim())
-          .filter(Boolean) || []
-      : [];
-
-  const spaces = spGetAll();
-  spaces.push({
-    id: Date.now().toString(36),
-    type: _spType,
-    name,
-    members,
-    created: new Date().toISOString(),
-  });
-  spSaveAll(spaces);
-
-  $("cn-modal-bg").classList.remove("open");
-  spReset();
-  spRender();
-  toast(`"${name}" created! 🎉`);
-}
-
-function spRender() {
-  const c = $("dyn-spaces-container");
-  if (!c) return;
-  const spaces = spGetAll();
-
-  if (!spaces.length) {
-    c.innerHTML =
-      '<div style="font-size:.72rem;color:var(--muted);padding:4px 8px;opacity:.6">No spaces yet</div>';
-    return;
-  }
-
-  c.innerHTML = spaces
-    .map((sp) => {
-      const tabs = sp.type === "personal" ? SP_PERSONAL_TABS : SP_ORG_TABS;
-      const icon = sp.type === "personal" ? "👤" : "🏢";
-      return `<div class="dsp-section" data-spid="${sp.id}">
-      <div class="dsp-header" data-onclick="spToggle" data-onclick-arg0="${sp.id}">
-        <span class="dsp-icon">${icon}</span>
-        <span class="dsp-name">${esc(sp.name)}</span>
-        <button class="dsp-ellipsis" data-onclick="spMenu" data-onclick-arg0="${sp.id}" title="Options">···</button>
-        <div class="dsp-menu" id="dspm-${sp.id}">
-          <button class="dsp-menu-item" data-onclick="spRename" data-onclick-arg0="${sp.id}">✏️ Rename</button>
-          ${sp.type === "org" ? `<button class="dsp-menu-item" data-onclick="spAddMember" data-onclick-arg0="${sp.id}">👥 Add Member</button>` : ""}
-          <button class="dsp-menu-item danger" data-onclick="spDelete" data-onclick-arg0="${sp.id}">🗑 Delete</button>
-        </div>
-      </div>
-      <div class="dsp-items open" id="dspi-${sp.id}">
-        ${tabs
-          .map(
-            (
-              t,
-            ) => `<button class="snav-item" data-onclick="snavSelect" data-onclick-arg0="${t.key}" data-onclick-arg1="spaces" data-onclick-this>
-          <span class="snav-item-icon">${t.icon}</span> ${t.label}
-        </button>`,
-          )
-          .join("")}
-      </div>
-    </div>`;
-    })
-    .join("");
-}
-
-function spToggle(id) {
-  const items = $("dspi-" + id);
-  if (!items) return;
-  items.classList.toggle("open");
-}
-
-function spMenu(id) {
-  document.querySelectorAll(".dsp-menu").forEach((m) => {
-    if (m.id !== "dspm-" + id) m.classList.remove("open");
-  });
-  $("dspm-" + id)?.classList.toggle("open");
-}
-
-async function spRename(id) {
-  const spaces = spGetAll();
-  const sp = spaces.find((s) => s.id === id);
-  if (!sp) return;
-  const n = await siModal.input("Rename Space", sp.name, sp.name, {
-    confirmLabel: "Rename",
-  });
-  if (!n?.trim()) return;
-  sp.name = n.trim();
-  spSaveAll(spaces);
-  spRender();
-  document
-    .querySelectorAll(".dsp-menu")
-    .forEach((m) => m.classList.remove("open"));
-}
-
-async function spAddMember(id) {
-  const spaces = spGetAll();
-  const sp = spaces.find((s) => s.id === id);
-  if (!sp) return;
-  const m = await siModal.input("Add Member", "Name or matric number", "", {
-    confirmLabel: "Add",
-  });
-  if (!m?.trim()) return;
-  sp.members = sp.members || [];
-  sp.members.push(m.trim());
-  spSaveAll(spaces);
-  toast(`Added ${m.trim()} to "${sp.name}"`);
-  document
-    .querySelectorAll(".dsp-menu")
-    .forEach((m) => m.classList.remove("open"));
-}
-
-async function spDelete(id) {
-  if (
-    !(await siModal.confirm(
-      "This space and all its data will be permanently deleted.",
-      { title: "Delete Space", confirmLabel: "Delete", danger: true },
-    ))
-  )
-    return;
-  spSaveAll(spGetAll().filter((s) => s.id !== id));
-  spRender();
-  toast("Space deleted.");
-}
-
-// Close space menus on outside click
-document.addEventListener("click", (e) => {
-  if (!e.target.closest(".dsp-ellipsis") && !e.target.closest(".dsp-menu"))
-    document
-      .querySelectorAll(".dsp-menu")
-      .forEach((m) => m.classList.remove("open"));
-});
 
 // ═══════════════════════ COMMAND PALETTE ════════════════════
 
@@ -16423,17 +16186,28 @@ async function siObSaveGoal() {
     $("ob-goal-title")?.focus();
     return;
   }
-  // Create goal in the same way glSaveGoal does
+  // Create the goal the same way the live Goals & Habits panel's own "New
+  // Goal" sheet does (habits.js's window.saveNewGoal) -- this panel is
+  // localStorage-first with a background push-sync, not server-first, so
+  // posting straight to /api/goals/add (as this used to) creates a goal the
+  // panel never reads back and the user never sees, crash or no crash.
   try {
-    await API("/api/goals/add", {
-      token: getToken(),
+    const goals = JSON.parse(localStorage.getItem(GOAL_KEY()) || "[]");
+    const goal = {
+      id: Date.now().toString(),
       title,
       subject,
-      deadline: deadline || null,
-      goal_type: "okr",
-      target_score: null,
-    });
-    GL_GOALS = null; // bust cache so Goals panel reloads fresh
+      due: deadline,
+      mode: "milestone",
+      manual_pct: 0,
+      pct_override: null,
+      milestones: [],
+      habit_ids: [],
+    };
+    goals.push(goal);
+    localStorage.setItem(GOAL_KEY(), JSON.stringify(goals));
+    if (typeof _syncGoalsToServer === "function") _syncGoalsToServer(goals);
+    if (typeof renderGoalsAndHabits === "function") renderGoalsAndHabits();
     _siObGoalCreated = true;
   } catch (_) {}
   siObNext();

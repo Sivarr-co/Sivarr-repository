@@ -6436,7 +6436,7 @@ async def community_create_post(data: dict, request: Request):
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
-    check_rate_limit(get_client_key(request), 10, "community_post")
+    check_rate_limit(get_client_key(request, sess["sid"]), 10, "community_post")
     body     = sanitize_text(str(data.get("body","")), 800)
     if len(body) < 3:
         raise HTTPException(400, "Post is too short.")
@@ -6584,7 +6584,7 @@ async def submit_opportunity(data: dict, request: Request):
     sess = get_session_from_token(data.get("token",""))
     if not sess:
         raise HTTPException(401, "Invalid session.")
-    check_rate_limit(get_client_key(request), 5, "opportunity_post")
+    check_rate_limit(get_client_key(request, sess["sid"]), 5, "opportunity_post")
     title    = sanitize_text(str(data.get("title","")), 120)
     desc     = sanitize_text(str(data.get("desc","")), 600)
     link     = safe_url(str(data.get("link","")), 200)
