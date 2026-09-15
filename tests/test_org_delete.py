@@ -7,6 +7,13 @@ orgDeleteFlow()/siModal.confirmTyped()).
 Postgres-only, same as every other org.py endpoint (no JSON-file fallback):
 mocks database.py's is_available/get_org_by_member/delete_org, same pattern
 tests/test_realtime.py already uses for this module.
+
+Every test past the auth/db-availability/org-membership checks also mocks
+entitlement as granted (_mock_plan, same helper tests/test_org_entitlement.py
+uses) -- org_delete now calls _require_org_entitled before its own
+role/name-confirmation checks (see that file's docstring for why), so an
+unmocked org here would 402 before ever reaching what these tests actually
+verify.
 """
 
 import pytest
@@ -15,6 +22,7 @@ from fastapi.testclient import TestClient
 import app as app_module
 import core
 import database as db
+import routes.org as org_module
 
 
 @pytest.fixture(scope="module")
@@ -24,6 +32,11 @@ def client():
 
 def _token(sid: str) -> str:
     return core.create_session_token(sid, sid, f"{sid}@example.invalid")
+
+
+def _mock_plan(monkeypatch, has_plan_result: bool = True):
+    monkeypatch.setattr(org_module, "_ORG_HAS_PLAN", lambda progress, tier: has_plan_result)
+    monkeypatch.setattr(org_module, "_ORG_LOAD_PROGRESS", lambda sid: {})
 
 
 def test_org_delete_requires_auth(client):
@@ -50,6 +63,7 @@ def test_org_delete_403s_for_non_owner(client, monkeypatch):
     monkeypatch.setattr(db, "is_available", lambda: True)
     org = {"id": "org_1", "name": "Acme Inc", "owner_sid": "owner_sid", "member_role": "admin"}
     monkeypatch.setattr(db, "get_org_by_member", lambda sid: org)
+    _mock_plan(monkeypatch)
     token = _token("orgdel_admin_not_owner")
     r = client.post("/api/org/delete", json={"token": token, "confirm_name": "Acme Inc"})
     assert r.status_code == 403
@@ -60,6 +74,7 @@ def test_org_delete_400s_on_name_mismatch(client, monkeypatch):
     sid = "orgdel_owner_wrong_name"
     org = {"id": "org_2", "name": "Acme Inc", "owner_sid": sid, "member_role": "owner"}
     monkeypatch.setattr(db, "get_org_by_member", lambda s: org)
+    _mock_plan(monkeypatch)
     called = []
     monkeypatch.setattr(db, "delete_org", lambda org_id, owner_sid: called.append((org_id, owner_sid)) or True)
     token = _token(sid)
@@ -73,6 +88,7 @@ def test_org_delete_succeeds_for_owner_with_matching_name(client, monkeypatch):
     sid = "orgdel_owner_ok"
     org = {"id": "org_3", "name": "Acme Inc", "owner_sid": sid, "member_role": "owner"}
     monkeypatch.setattr(db, "get_org_by_member", lambda s: org)
+    _mock_plan(monkeypatch)
     called = []
     monkeypatch.setattr(db, "delete_org", lambda org_id, owner_sid: called.append((org_id, owner_sid)) or True)
     token = _token(sid)
@@ -90,6 +106,7 @@ def test_org_delete_owner_via_owner_sid_without_member_role(client, monkeypatch)
     sid = "orgdel_owner_via_sid"
     org = {"id": "org_4", "name": "Acme Inc", "owner_sid": sid, "member_role": "member"}
     monkeypatch.setattr(db, "get_org_by_member", lambda s: org)
+    _mock_plan(monkeypatch)
     monkeypatch.setattr(db, "delete_org", lambda org_id, owner_sid: True)
     token = _token(sid)
     r = client.post("/api/org/delete", json={"token": token, "confirm_name": "Acme Inc"})
@@ -101,6 +118,7 @@ def test_org_delete_500s_when_db_delete_fails(client, monkeypatch):
     sid = "orgdel_db_fail"
     org = {"id": "org_5", "name": "Acme Inc", "owner_sid": sid, "member_role": "owner"}
     monkeypatch.setattr(db, "get_org_by_member", lambda s: org)
+    _mock_plan(monkeypatch)
     monkeypatch.setattr(db, "delete_org", lambda org_id, owner_sid: False)
     token = _token(sid)
     r = client.post("/api/org/delete", json={"token": token, "confirm_name": "Acme Inc"})

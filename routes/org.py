@@ -618,6 +618,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         org = await asyncio.to_thread(db.get_org_by_member, sid)
         if not org:
             return {"org": None}
+        _require_org_entitled(sid, org)
         # These six reads are independent — run them concurrently (each grabs its own
         # pooled connection) instead of six sequential cross-region round-trips, and
         # off the event loop so the worker stays responsive.
@@ -629,6 +630,12 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
             asyncio.to_thread(db.get_org_goals,    org["id"]),
             asyncio.to_thread(db.get_org_founder,  org["id"]),
         )
+        # Founder data (burn rate, cash, MRR/ARR, investors) is sensitive --
+        # the dedicated /api/org/founder/get correctly withholds it from
+        # non-owner/admin members, but this bulk endpoint was returning it
+        # to every member unconditionally. Matches founder/get's own check.
+        if org.get("member_role") not in ("owner", "admin"):
+            founder = None
         _org_sub = (org.get("settings") or {}).get("subscription") or None
         return {
             "org": {
@@ -761,6 +768,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         org = db.get_org_by_member(sid)
         if not org:
             raise HTTPException(404, "You don't belong to an organization.")
+        _require_org_entitled(sid, org)
         if org.get("owner_sid") != sid:
             raise HTTPException(403, "Only the owner can update the organization.")
         updates = {}
@@ -792,6 +800,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         org = db.get_org_by_member(sid)
         if not org:
             raise HTTPException(404, "You don't belong to an organization.")
+        _require_org_entitled(sid, org)
         if org.get("owner_sid") != sid:
             raise HTTPException(403, "Only the owner can delete the organization.")
         confirm_name = sanitize_text(str(data.get("confirm_name", "")), 80).strip()
@@ -811,6 +820,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         org = db.get_org_by_member(sid)
         if not org:
             raise HTTPException(404, "You don't belong to an organization.")
+        _require_org_entitled(sid, org)
         if org.get("owner_sid") != sid:
             raise HTTPException(403, "Only the owner can change member roles.")
         target = sanitize_text(str(data.get("sid", "")), 40)
@@ -835,6 +845,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         org = db.get_org_by_member(sid)
         if not org:
             raise HTTPException(404, "You don't belong to an organization.")
+        _require_org_entitled(sid, org)
         if org.get("member_role") not in ("owner", "admin"):
             raise HTTPException(403, "Only owners and admins can remove members.")
         target = sanitize_text(str(data.get("sid", "")), 40)
@@ -862,6 +873,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         org = db.get_org_by_member(sid)
         if not org:
             raise HTTPException(404, "You don't belong to an organization.")
+        _require_org_entitled(sid, org)
         if org.get("member_role") not in ("owner", "admin"):
             raise HTTPException(403, "Only owners and admins can view the audit log.")
         rows = sorted(db.coll_list("org_audit", owner=org["id"]), key=lambda a: a.get("ts", ""), reverse=True)
@@ -992,6 +1004,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         project_id = data.get("project_id")
         limit  = min(int(data.get("limit",  500)), 1000)
         offset = max(int(data.get("offset", 0)),   0)
@@ -1042,6 +1055,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         task_id = sanitize_text(str(data.get("task_id", "")), 40)
         if not task_id: raise HTTPException(400, "task_id required.")
         allowed = {"title", "description", "status", "priority", "assignee_sid", "project_id", "due_date"}
@@ -1065,6 +1079,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         task_id = sanitize_text(str(data.get("task_id", "")), 40)
         if not task_id: raise HTTPException(400, "task_id required.")
         ok = db.delete_org_task(task_id, org["id"])
@@ -1079,6 +1094,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         return {"projects": db.get_org_projects(org["id"])}
 
 
@@ -1105,6 +1121,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         project_id = sanitize_text(str(data.get("project_id", "")), 40)
         if not project_id: raise HTTPException(400, "project_id required.")
         allowed = {"name", "description", "status", "color"}
@@ -1119,6 +1136,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         return {"docs": db.get_org_docs(org["id"])}
 
 
@@ -1160,6 +1178,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         doc_id = sanitize_text(str(data.get("doc_id", "")), 40)
         if not doc_id: raise HTTPException(400, "doc_id required.")
         doc = db.get_org_doc(doc_id)
@@ -1180,6 +1199,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         doc_id = sanitize_text(str(data.get("doc_id", "")), 40)
         if not doc_id: raise HTTPException(400, "doc_id required.")
         db.delete_org_doc(doc_id, org["id"])
@@ -1253,6 +1273,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         channel = sanitize_text(str(data.get("channel", "general")), 60)
         msgs = db.get_org_messages(org["id"], channel)
         return {"messages": msgs}
@@ -1301,6 +1322,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "DB unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         org_id = org["id"]
         cursor = max(0, int(last_id))
 
@@ -1373,6 +1395,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "DB unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization.")
+        _require_org_entitled(sid, org)
         await asyncio.to_thread(db.upsert_presence, sid, org["id"], uname)
         return {"ok": True}
 
@@ -1385,6 +1408,10 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): return {"online": []}
         org = db.get_org_by_member(entry["sid"])
         if not org: return {"online": []}
+        try:
+            _require_org_entitled(entry["sid"], org)
+        except HTTPException:
+            return {"online": []}
         online = await asyncio.to_thread(db.get_presence, org["id"])
         return {"online": online}
 
@@ -1449,6 +1476,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         goals = db.get_org_goals(org["id"])
         return {"goals": goals}
 
@@ -1480,6 +1508,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         goal_id = str(data.get("goal_id", ""))
         if not goal_id: raise HTTPException(400, "goal_id required.")
         db.update_org_goal(
@@ -1499,6 +1528,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         goal_id = str(data.get("goal_id", ""))
         if not goal_id: raise HTTPException(400, "goal_id required.")
         db.delete_org_goal(goal_id, org["id"])
@@ -1511,6 +1541,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         goal_id = str(data.get("goal_id", ""))
         title   = sanitize_text(str(data.get("title", "")).strip(), 200)
         if not goal_id or not title: raise HTTPException(400, "goal_id and title required.")
@@ -1529,6 +1560,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
         kr_id = str(data.get("kr_id", ""))
         if not kr_id: raise HTTPException(400, "kr_id required.")
         db.update_org_key_result(
@@ -1594,12 +1626,20 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         if not db.is_available(): raise HTTPException(503, "Database unavailable.")
         org = db.get_org_by_member(sid)
         if not org: raise HTTPException(404, "No organization found.")
+        _require_org_entitled(sid, org)
 
         tasks    = db.get_org_tasks(org["id"], limit=100)
         members  = db.get_org_members(org["id"])
         projects = db.get_org_projects(org["id"])
         goals    = db.get_org_goals(org["id"])
-        founder  = db.get_org_founder(org["id"])
+        # Same sensitivity bar as /api/org/founder/get and /api/org/get:
+        # financials are owner/admin-only. This briefing goes into a Gemini
+        # prompt (not just a JSON field), so a non-owner/admin member must
+        # never see MRR/burn/cash-runway lines even indirectly via the
+        # generated text -- omit the figures from the context entirely
+        # rather than trusting the model not to repeat them.
+        is_finance_visible = org.get("member_role") in ("owner", "admin")
+        founder = db.get_org_founder(org["id"]) if is_finance_visible else None
 
         from datetime import date
         today = date.today().isoformat()
@@ -1609,6 +1649,11 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         high_pri     = [t for t in open_tasks if t.get("priority") == "high"]
         active_goals = [g for g in goals if g.get("status") == "active"]
 
+        finance_line = ""
+        if founder:
+            runway = round(founder["cash_balance"]/founder["burn_rate"]) if founder.get("burn_rate",0) > 0 and founder.get("cash_balance",0) > 0 else "N/A"
+            finance_line = f"\n    - MRR: ₦{founder.get('mrr', 0):,.0f} | Burn rate: ₦{founder.get('burn_rate', 0):,.0f}/mo | Runway: {runway} months"
+
         context = f"""You are Sivarr, the AI operating intelligence for {org['name']}.
     Generate a concise executive briefing for {uname} (role: {org.get('member_role','member')}).
 
@@ -1616,8 +1661,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
     - Members: {len(members)}
     - Open tasks: {len(open_tasks)} | Done: {len(done_tasks)} | Overdue: {len(overdue)} | High priority: {len(high_pri)}
     - Projects: {len(projects)} active
-    - Goals: {len(active_goals)} active OKRs
-    - MRR: ₦{founder.get('mrr', 0):,.0f} | Burn rate: ₦{founder.get('burn_rate', 0):,.0f}/mo | Runway: {round(founder['cash_balance']/founder['burn_rate']) if founder.get('burn_rate',0) > 0 and founder.get('cash_balance',0) > 0 else 'N/A'} months
+    - Goals: {len(active_goals)} active OKRs{finance_line}
 
     Top overdue tasks: {', '.join([t['title'] for t in overdue[:3]]) or 'None'}
     High priority: {', '.join([t['title'] for t in high_pri[:3]]) or 'None'}
@@ -1640,6 +1684,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         org = db.get_org_by_member(sid)
         if not org:
             raise HTTPException(403, "Not in an organisation.")
+        _require_org_entitled(sid, org)
         org_id = org["id"]
         role   = org.get("member_role", "member")
         if role not in ("owner","admin"):
@@ -1685,6 +1730,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         org = db.get_org_by_member(sess["sid"])
         if not org:
             raise HTTPException(403, "Not in an organisation.")
+        _require_org_entitled(sess["sid"], org)
         return {"announcements": db.get_org_announcements(org["id"])}
 
 
@@ -1697,6 +1743,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         org = db.get_org_by_member(sess["sid"])
         if not org:
             raise HTTPException(403, "Not in an organisation.")
+        _require_org_entitled(sess["sid"], org)
         role = org.get("member_role", "member")
         if role not in ("owner","admin"):
             raise HTTPException(403, "Only admins can delete announcements.")
@@ -1713,6 +1760,7 @@ def build_router(load_progress, send_email, send_push, _is_valid_admin_session, 
         org = db.get_org_by_member(sess["sid"])
         if not org:
             raise HTTPException(403, "Not in an organisation.")
+        _require_org_entitled(sess["sid"], org)
         data = db.get_org_analytics(org["id"])
         if not data:
             return {"members": 0, "tasks_total": 0, "tasks_done": 0,
