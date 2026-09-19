@@ -2209,10 +2209,6 @@ body.auth-screen #login-screen {
 /* ── PARITY PATCH — restored @media content ── */
 
 @media (max-width: 720px) {
-  .help-grid {
-    grid-template-columns: 1fr;
-  }
-
   .help-wrap {
     padding: 18px 14px 50px;
   }
@@ -2231,10 +2227,6 @@ body.auth-screen #login-screen {
   .topbar {
     padding: 0 12px;
     gap: 8px;
-  }
-
-  .stat-grid {
-    grid-template-columns: repeat(2, 1fr);
   }
 
   /* Reset ALL centering on mobile — full width with small padding */
@@ -2271,11 +2263,6 @@ body.auth-screen #login-screen {
   #panel-contenthub > div:last-child {
     padding-left: 16px !important;
     padding-right: 16px !important;
-  }
-
-  .chat-msgs {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
   }
 
   /* Keep the page title (and its actions) pinned while content scrolls.
@@ -2400,10 +2387,6 @@ body.auth-screen #login-screen {
     display: none;
   }
 
-  .analytics-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .os-pane-chat {
     flex-direction: column !important;
     position: relative;
@@ -2518,15 +2501,6 @@ body.auth-screen #login-screen {
   }
 
   /* ── 12. Analytics grid — 2 columns on tablet ───────────────── */
-  .analytics-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-
-  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
-  textarea,
-  select {
-    font-size: 16px !important;
-  }
 
   /* But keep placeholder styling readable */
   input::placeholder,
