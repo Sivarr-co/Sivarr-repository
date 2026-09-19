@@ -261,7 +261,7 @@ async function habitDelete(idx) {
   if (!h) return;
   if (
     !(await siModal.confirm(
-      `Delete "${h.title}"? You can restore it from Trash within 30 days.`,
+      `Delete "${esc(h.title)}"? You can restore it from Trash within 30 days.`,
       { title: "Delete Habit", confirmLabel: "Delete", danger: true },
     ))
   )
@@ -655,7 +655,7 @@ async function goalDelete(i) {
   if (!g) return;
   if (
     !(await siModal.confirm(
-      `Delete "${g.title}"? You can restore it from Trash within 30 days.`,
+      `Delete "${esc(g.title)}"? You can restore it from Trash within 30 days.`,
       { title: "Delete Goal", confirmLabel: "Delete", danger: true },
     ))
   )

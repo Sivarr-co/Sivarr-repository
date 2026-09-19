@@ -25,7 +25,8 @@ const $ = (id) => document.getElementById(id);
 /**
  * Escapes & < > AND quotes so values are safe in BOTH text and attribute
  * contexts (e.g. value="${esc(userTitle)}"). A bare " or ' previously allowed
- * attribute breakout -> XSS. Matches the stricter acEsc/mktEsc variants.
+ * attribute breakout -> XSS. The single escape helper for every feature module
+ * (the former per-module acEsc/mktEsc copies were identical and are gone).
  */
 const esc = (s) =>
   String(s == null ? "" : s)
@@ -61,7 +62,7 @@ function toast(msg, ms = 2500) {
 /**
  * safeUrl(u) - return `u` if it is safe to put in an href, otherwise "#".
  *
- * WHY: escaping is not enough. acEsc/esc/mktEsc all escape & < > " ' which stops
+ * WHY: escaping is not enough. esc() escapes & < > " ' which stops
  * an attacker breaking OUT of the attribute, but leaves the SCHEME untouched, so
  * `javascript:doSomething()` survives escaping intact and runs on click. The CSP
  * does not save us either: script-src still carries 'unsafe-inline' (Session 19),

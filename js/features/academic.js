@@ -60,15 +60,6 @@ async function acadAsk(message, context = "") {
     return null;
   }
 }
-function acEsc(s) {
-  return String(s == null ? "" : s).replace(
-    /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ],
-  );
-}
 
 // CSP migration: pure UI toggles with no named function to call at all.
 window._acToggleChecked = function (el) {
@@ -223,7 +214,7 @@ async function lLoadActivity() {
       ? items
           .map(
             (a) =>
-              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.text)}</div><div class="acad-priority-sub">${acEsc((a.ts || "").slice(0, 16).replace("T", " "))}</div></div></div>`,
+              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(a.text)}</div><div class="acad-priority-sub">${esc((a.ts || "").slice(0, 16).replace("T", " "))}</div></div></div>`,
           )
           .join("")
       : `<div class="acad-empty-state"><i class="ti ti-activity" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No recent activity</div></div>`;
@@ -262,7 +253,7 @@ async function lLoadSubmissionQueue() {
         ? pending
             .map(
               (p) =>
-                `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(p.name)}</div><div class="acad-priority-sub">${acEsc(p.title)} · ${acEsc(p.type)}</div></div><button class="acad-action-btn acad-action-btn--teal" data-onclick="lGoToGrading" data-onclick-arg0="${acEsc(p.type)}" data-onclick-arg1="${acEsc(p.id)}">Grade</button></div>`,
+                `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(p.name)}</div><div class="acad-priority-sub">${esc(p.title)} · ${esc(p.type)}</div></div><button class="acad-action-btn acad-action-btn--teal" data-onclick="lGoToGrading" data-onclick-arg0="${esc(p.type)}" data-onclick-arg1="${esc(p.id)}">Grade</button></div>`,
             )
             .join("")
         : `<div class="acad-empty-state"><i class="ti ti-inbox" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No pending submissions</div></div>`;
@@ -297,7 +288,7 @@ async function lLoadMaterials() {
               m.type === "doc"
                 ? "Doc"
                 : `${(m.filename || "").split(".").pop().toUpperCase()} · ${Math.round((m.size || 0) / 1024)} KB`;
-            return `<div class="acad-priority-item"><div class="acad-priority-meta"><i class="ti ${icon}" style="margin-right:6px;color:var(--acad-accent);" aria-hidden="true"></i><div class="acad-priority-title" style="display:inline;">${acEsc(m.title)}</div><div class="acad-priority-sub">${meta} · posted ${acEsc((m.posted_at || "").slice(0, 10))}</div></div><button class="acad-action-btn acad-action-btn--red" data-onclick="lDeleteMaterial" data-onclick-arg0="${acEsc(m.id)}">Delete</button></div>`;
+            return `<div class="acad-priority-item"><div class="acad-priority-meta"><i class="ti ${icon}" style="margin-right:6px;color:var(--acad-accent);" aria-hidden="true"></i><div class="acad-priority-title" style="display:inline;">${esc(m.title)}</div><div class="acad-priority-sub">${meta} · posted ${esc((m.posted_at || "").slice(0, 10))}</div></div><button class="acad-action-btn acad-action-btn--red" data-onclick="lDeleteMaterial" data-onclick-arg0="${esc(m.id)}">Delete</button></div>`;
           })
           .join("")
       : `<div class="acad-empty-state"><i class="ti ti-folder" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No materials posted yet.</div></div>`;
@@ -433,7 +424,7 @@ function lRenderOverview() {
         (c) => `
       <div class="acad-schedule-item">
         <div class="acad-schedule-dot" style="background:var(--acad-accent);"></div>
-        <div><div class="acad-priority-title">${acEsc(c.name)}</div><div class="acad-priority-sub">${acEsc(c.schedule || "Schedule not set")}</div></div>
+        <div><div class="acad-priority-title">${esc(c.name)}</div><div class="acad-priority-sub">${esc(c.schedule || "Schedule not set")}</div></div>
       </div>`,
       )
       .join("");
@@ -491,10 +482,10 @@ async function lRenderClasses() {
         : null;
       const isActive = c.code === activeCode;
       return `<div class="acad-course-card${isActive ? " acad-course-card--active" : ""}">
-      <div class="acad-course-card-top"><div class="acad-course-name">${acEsc(c.name)}</div>${isActive ? '<span class="acad-tag acad-tag--teal">Active</span>' : ""}</div>
-      <div class="acad-course-meta"><span><i class="ti ti-users" aria-hidden="true"></i> ${memberCount} students</span><span>Join code: <strong>${acEsc(c.code)}</strong></span></div>
+      <div class="acad-course-card-top"><div class="acad-course-name">${esc(c.name)}</div>${isActive ? '<span class="acad-tag acad-tag--teal">Active</span>' : ""}</div>
+      <div class="acad-course-meta"><span><i class="ti ti-users" aria-hidden="true"></i> ${memberCount} students</span><span>Join code: <strong>${esc(c.code)}</strong></span></div>
       <div class="acad-priority-sub" style="margin-top:8px;">${avg != null ? avg + "% avg score" : "No grades yet"} · ${attendAvg != null ? attendAvg + "% attendance" : "No attendance yet"}</div>
-      ${isActive ? "" : `<button class="acad-btn-ghost acad-btn-sm" style="margin-top:10px;" data-onclick="lSwitchClass" data-onclick-arg0="${acEsc(c.code)}">View this class</button>`}
+      ${isActive ? "" : `<button class="acad-btn-ghost acad-btn-sm" style="margin-top:10px;" data-onclick="lSwitchClass" data-onclick-arg0="${esc(c.code)}">View this class</button>`}
     </div>`;
     })
     .join("");
@@ -554,12 +545,12 @@ function lRenderStudents(filter = "") {
             ? "var(--amber3)"
             : "var(--red3)";
       return `<tr>
-      <td><div style="font-weight:600;color:var(--text);">${acEsc(s.name)}</div><div style="font-size:10.5px;color:var(--text4);">${acEsc(s.email || "")}</div></td>
+      <td><div style="font-weight:600;color:var(--text);">${esc(s.name)}</div><div style="font-size:10.5px;color:var(--text4);">${esc(s.email || "")}</div></td>
       <td><div style="display:flex;align-items:center;gap:6px;"><div class="acad-attend-bar"><div class="acad-attend-fill" style="width:${pct}%;background:${bc};"></div></div><span style="font-size:11px;font-weight:600;color:${bc};">${pct}%</span></div></td>
       <td style="font-size:11px;font-weight:600;color:var(--text);">${s.avg_score != null ? s.avg_score + "%" : "–"}</td>
-      <td style="font-size:11px;color:var(--text4);">${acEsc(s.last_active || "–")}</td>
+      <td style="font-size:11px;color:var(--text4);">${esc(s.last_active || "–")}</td>
       <td><span class="acad-tag ${pct >= 80 ? "acad-tag--teal" : pct >= 60 ? "acad-tag--orange" : "acad-tag--red"}">${pct >= 80 ? "Active" : pct >= 60 ? "At risk" : "Critical"}</span></td>
-      <td><button class="acad-btn-ghost acad-btn-sm" data-onclick="lViewStudent" data-onclick-arg0="${acEsc(s.sid)}">View</button></td>
+      <td><button class="acad-btn-ghost acad-btn-sm" data-onclick="lViewStudent" data-onclick-arg0="${esc(s.sid)}">View</button></td>
     </tr>`;
     })
     .join("");
@@ -614,7 +605,7 @@ function lRenderAnalytics(statsOverride) {
             return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
           <div style="font-size:10px;color:var(--text4);">${w.pct}%</div>
           <div style="width:100%;background:var(--acad-accent);opacity:${0.4 + 0.6 * (w.pct / max)};border-radius:4px 4px 0 0;height:${Math.max(4, Math.round((w.pct / max) * 90))}px;"></div>
-          <div style="font-size:9.5px;color:var(--text4);">${acEsc(label)}</div></div>`;
+          <div style="font-size:9.5px;color:var(--text4);">${esc(label)}</div></div>`;
           })
           .join("")}
       </div>`;
@@ -631,7 +622,7 @@ function lRenderAnalytics(statsOverride) {
       ? atRisk
           .map(
             (s) =>
-              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(s.name)}</div><div class="acad-priority-sub">${s.attendance_pct}% attendance${s.missing_items ? " · " + s.missing_items + " missing item" + (s.missing_items > 1 ? "s" : "") : ""}</div></div><span class="acad-tag acad-tag--red">At risk</span></div>`,
+              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(s.name)}</div><div class="acad-priority-sub">${s.attendance_pct}% attendance${s.missing_items ? " · " + s.missing_items + " missing item" + (s.missing_items > 1 ? "s" : "") : ""}</div></div><span class="acad-tag acad-tag--red">At risk</span></div>`,
           )
           .join("")
       : `<div class="acad-empty-state"><i class="ti ti-shield-check" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No at-risk students identified</div></div>`;
@@ -656,7 +647,7 @@ async function lLoadGradebook() {
     const items = r.items || [];
     head.innerHTML =
       `<th>Student</th>` +
-      items.map((it) => `<th>${acEsc(it.title)}</th>`).join("") +
+      items.map((it) => `<th>${esc(it.title)}</th>`).join("") +
       `<th>Final</th>`;
     const rows = r.rows || [];
     if (!rows.length) {
@@ -674,11 +665,11 @@ async function lLoadGradebook() {
                 : c.state === "pending"
                   ? "acad-tag--orange"
                   : "acad-tag--red";
-            return `<td><span class="acad-tag ${cls}">${acEsc(String(c.display))}</span></td>`;
+            return `<td><span class="acad-tag ${cls}">${esc(String(c.display))}</span></td>`;
           })
           .join("");
         const final = row.final_pct != null ? row.final_pct + "%" : "–";
-        return `<tr><td>${acEsc(row.name)}</td>${cells}<td style="font-weight:700;">${final}</td></tr>`;
+        return `<tr><td>${esc(row.name)}</td>${cells}<td style="font-weight:700;">${final}</td></tr>`;
       })
       .join("");
   } catch (e) {
@@ -764,7 +755,7 @@ function lRenderAssessLists() {
       ? lData.assignments
           .map(
             (a) =>
-              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.title)}</div><div class="acad-priority-sub">${acEsc(a.course || "–")}${a.due ? " · due " + acEsc(a.due) : ""}</div></div><button class="acad-action-btn acad-action-btn--red" data-onclick="lDeleteAssess" data-onclick-arg0="assign" data-onclick-arg1="${acEsc(a.id)}">Delete</button></div>`,
+              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(a.title)}</div><div class="acad-priority-sub">${esc(a.course || "–")}${a.due ? " · due " + esc(a.due) : ""}</div></div><button class="acad-action-btn acad-action-btn--red" data-onclick="lDeleteAssess" data-onclick-arg0="assign" data-onclick-arg1="${esc(a.id)}">Delete</button></div>`,
           )
           .join("")
       : `<div class="acad-empty-state"><i class="ti ti-file-text" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No assignments yet.</div></div>`;
@@ -805,7 +796,7 @@ function _lRenderExamBank(items, listId, countId, emptyIcon, emptyMsg, noun) {
     ? items
         .map(
           (e) =>
-            `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title || `Untitled ${noun}`)}</div><div class="acad-priority-sub">${(e.questions || []).length} Qs · ${e.questions_per_student || 0}/student · ${e.duration || 0} min</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" data-onclick="lAssignExam" data-onclick-arg0="${acEsc(e.id)}">Assign</button><button class="acad-action-btn" data-onclick="lExamResults" data-onclick-arg0="${acEsc(e.id)}">Results</button><button class="acad-action-btn acad-action-btn--red" data-onclick="lDeleteExam" data-onclick-arg0="${acEsc(e.id)}">Delete</button></div></div>`,
+            `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(e.title || `Untitled ${noun}`)}</div><div class="acad-priority-sub">${(e.questions || []).length} Qs · ${e.questions_per_student || 0}/student · ${e.duration || 0} min</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" data-onclick="lAssignExam" data-onclick-arg0="${esc(e.id)}">Assign</button><button class="acad-action-btn" data-onclick="lExamResults" data-onclick-arg0="${esc(e.id)}">Results</button><button class="acad-action-btn acad-action-btn--red" data-onclick="lDeleteExam" data-onclick-arg0="${esc(e.id)}">Delete</button></div></div>`,
         )
         .join("")
     : `<div class="acad-empty-state"><i class="ti ${emptyIcon}" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>${emptyMsg}</div></div>`;
@@ -935,9 +926,9 @@ async function lExamResults(examId) {
         .map(
           (s) => `
     <div class="sx-q">
-      <div class="sx-qn">${acEsc(s.name || "Student")} ${s.auto && s.auto.mcq_total ? '<span class="sx-qtag">auto ' + s.auto.auto_pct + "% · " + s.auto.mcq_correct + "/" + s.auto.mcq_total + "</span>" : ""} ${s.graded ? "· <strong>" + acEsc(s.grade) + "</strong>" : ""}</div>
-      <div class="sx-answers">${(s.answers || []).map((a) => `<div class="sx-ar"><div class="sx-arq">${acEsc(a.q)}</div><div class="sx-ara ${a.correct === true ? "sx-ok" : a.correct === false ? "sx-bad" : ""}">${acEsc(a.a) || "–"} ${a.correct === true ? "✓" : a.correct === false ? "✗" : ""}</div></div>`).join("") || '<div class="acad-priority-sub">No answers.</div>'}</div>
-      <div class="sx-grade-row"><input class="acad-search-inline" style="width:90px" id="lxg-${acEsc(s.sid)}" placeholder="Grade" value="${acEsc(s.grade || "")}"><button class="acad-action-btn acad-action-btn--teal" data-onclick="lSaveExamGrade" data-onclick-args="${acEsc(JSON.stringify([code, examId, s.sid]))}">Save grade</button></div>
+      <div class="sx-qn">${esc(s.name || "Student")} ${s.auto && s.auto.mcq_total ? '<span class="sx-qtag">auto ' + s.auto.auto_pct + "% · " + s.auto.mcq_correct + "/" + s.auto.mcq_total + "</span>" : ""} ${s.graded ? "· <strong>" + esc(s.grade) + "</strong>" : ""}</div>
+      <div class="sx-answers">${(s.answers || []).map((a) => `<div class="sx-ar"><div class="sx-arq">${esc(a.q)}</div><div class="sx-ara ${a.correct === true ? "sx-ok" : a.correct === false ? "sx-bad" : ""}">${esc(a.a) || "–"} ${a.correct === true ? "✓" : a.correct === false ? "✗" : ""}</div></div>`).join("") || '<div class="acad-priority-sub">No answers.</div>'}</div>
+      <div class="sx-grade-row"><input class="acad-search-inline" style="width:90px" id="lxg-${esc(s.sid)}" placeholder="Grade" value="${esc(s.grade || "")}"><button class="acad-action-btn acad-action-btn--teal" data-onclick="lSaveExamGrade" data-onclick-args="${esc(JSON.stringify([code, examId, s.sid]))}">Save grade</button></div>
     </div>`,
         )
         .join("")
@@ -945,7 +936,7 @@ async function lExamResults(examId) {
   const ov = document.createElement("div");
   ov.className = "sx-overlay";
   ov.id = "sxOverlay";
-  ov.innerHTML = `<div class="sx-modal"><div class="sx-head"><div class="sx-title">${acEsc(ex.title || "Exam")}${exKindTag}: results (${results.length})</div><button class="sx-x" data-onclick="sExamCloseTaker" aria-label="Close">✕</button></div><div class="sx-body">${rowsHtml}</div><div class="sx-foot"><button class="acad-action-btn acad-action-btn--teal" data-onclick="sExamCloseTaker">Close</button></div></div>`;
+  ov.innerHTML = `<div class="sx-modal"><div class="sx-head"><div class="sx-title">${esc(ex.title || "Exam")}${exKindTag}: results (${results.length})</div><button class="sx-x" data-onclick="sExamCloseTaker" aria-label="Close">✕</button></div><div class="sx-body">${rowsHtml}</div><div class="sx-foot"><button class="acad-action-btn acad-action-btn--teal" data-onclick="sExamCloseTaker">Close</button></div></div>`;
   document.body.appendChild(ov);
 }
 async function lSaveExamGrade(code, examId, sid) {
@@ -976,7 +967,7 @@ async function lCallAI(resultId, prompt, btn, resetLabel) {
   const text = await acadAsk(prompt, "academic_lecturer");
   if (el) {
     el.innerHTML = text
-      ? `<div class="acad-ai-result-header"><div class="acad-ai-dot"></div><span class="acad-ai-result-title">SIVARR AI</span></div><div class="acad-ai-section"><div class="acad-ai-section-text">${acEsc(text).replace(/\n/g, "<br>")}</div></div>`
+      ? `<div class="acad-ai-result-header"><div class="acad-ai-dot"></div><span class="acad-ai-result-title">SIVARR AI</span></div><div class="acad-ai-section"><div class="acad-ai-section-text">${esc(text).replace(/\n/g, "<br>")}</div></div>`
       : `<div class="acad-ai-section acad-ai-section-text" style="color:var(--text4);">Could not reach SIVARR AI.</div>`;
     el.style.display = "block";
   }
@@ -1105,7 +1096,7 @@ async function lViewStudent(sid) {
               : cell.state === "pending"
                 ? "acad-tag--orange"
                 : "acad-tag--red";
-          return `<tr><td>${acEsc(it.title)}</td><td>${acEsc(it.type)}</td><td>${acEsc(String(cell.display))}</td><td><span class="acad-tag ${cls}">${acEsc(cell.state)}</span></td></tr>`;
+          return `<tr><td>${esc(it.title)}</td><td>${esc(it.type)}</td><td>${esc(String(cell.display))}</td><td><span class="acad-tag ${cls}">${esc(cell.state)}</span></td></tr>`;
         })
         .join("")}</tbody></table>`
     : `<div class="acad-priority-sub">No gradable work yet.</div>`;
@@ -1120,11 +1111,11 @@ async function lViewStudent(sid) {
   ov.id = "sxOverlay";
   ov.innerHTML = `<div class="sx-modal">
     <div class="sx-head">
-      <div class="sx-title">${acEsc(s.name)}</div>
+      <div class="sx-title">${esc(s.name)}</div>
       <button class="sx-x" data-onclick="sExamCloseTaker" aria-label="Close">✕</button>
     </div>
     <div class="sx-body">
-      <div class="acad-priority-sub" style="margin-bottom:10px;">Joined ${acEsc(s.last_active || "–")}</div>
+      <div class="acad-priority-sub" style="margin-bottom:10px;">Joined ${esc(s.last_active || "–")}</div>
       <div class="acad-card" style="margin-bottom:14px;">
         <div class="acad-card-body">
           <div class="acad-priority-title" style="margin-bottom:6px;">Attendance</div>
@@ -1138,7 +1129,7 @@ async function lViewStudent(sid) {
       ${gradesHtml}
     </div>
     <div class="sx-foot">
-      <button class="acad-action-btn acad-action-btn--red" data-onclick="lRemoveStudent" data-onclick-arg0="${acEsc(sid)}">Remove from class</button>
+      <button class="acad-action-btn acad-action-btn--red" data-onclick="lRemoveStudent" data-onclick-arg0="${esc(sid)}">Remove from class</button>
       <button class="acad-action-btn acad-action-btn--teal" data-onclick="sExamCloseTaker">Close</button>
     </div>
   </div>`;
@@ -1148,7 +1139,7 @@ async function lRemoveStudent(sid) {
   const d = adData();
   const s = lData.students.find((x) => x.sid === sid);
   const ok = await siModal.confirm(
-    `Remove ${s ? s.name : "this student"} from the class? They'll need to rejoin with the class code.`,
+    `Remove ${s ? esc(s.name) : "this student"} from the class? They'll need to rejoin with the class code.`,
     { title: "Remove student", confirmLabel: "Remove", danger: true },
   );
   if (!ok) return;
@@ -1273,7 +1264,7 @@ async function lLoadSchedule() {
       ? today
           .map(
             (s) =>
-              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc((r.class && r.class.name) || "Class")}</div><div class="acad-priority-sub">${_lFormatTime(s.time)}</div></div><button class="acad-action-btn acad-action-btn--red" data-onclick="lRemoveScheduleEntry" data-onclick-arg0="${acEsc(s.day)}">Remove</button></div>`,
+              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc((r.class && r.class.name) || "Class")}</div><div class="acad-priority-sub">${_lFormatTime(s.time)}</div></div><button class="acad-action-btn acad-action-btn--red" data-onclick="lRemoveScheduleEntry" data-onclick-arg0="${esc(s.day)}">Remove</button></div>`,
           )
           .join("")
       : `<div class="acad-empty-state"><i class="ti ti-calendar" style="font-size:24px;opacity:.3;" aria-hidden="true"></i><div>No classes today</div></div>`;
@@ -1303,7 +1294,7 @@ function _lRenderWelcomeStats() {
     ? (_lWelcomeNextClass.isToday ? "Today " : _ACAD_DAY_LABELS[_lWelcomeNextClass.day] + " ") +
       _lFormatTime(_lWelcomeNextClass.time)
     : "None set";
-  el.innerHTML = `<div class="acad-welcome-stat"><div class="acad-welcome-stat-value">${_lWelcomeClassCount != null ? _lWelcomeClassCount : "–"}</div><div class="acad-welcome-stat-label">Classes</div></div><div class="acad-welcome-stat"><div class="acad-welcome-stat-value acad-welcome-stat-value--sm">${acEsc(nextLabel)}</div><div class="acad-welcome-stat-label">Next class</div></div>`;
+  el.innerHTML = `<div class="acad-welcome-stat"><div class="acad-welcome-stat-value">${_lWelcomeClassCount != null ? _lWelcomeClassCount : "–"}</div><div class="acad-welcome-stat-label">Classes</div></div><div class="acad-welcome-stat"><div class="acad-welcome-stat-value acad-welcome-stat-value--sm">${esc(nextLabel)}</div><div class="acad-welcome-stat-label">Next class</div></div>`;
 }
 function _lRenderWelcomeCTAs() {
   const el = document.getElementById("acadWelcomeCTAs");
@@ -1394,7 +1385,7 @@ function _lPopulateClassFilter() {
   sel.innerHTML =
     `<option value="">${adData().classCode ? "Active class" : "All classes"}</option>` +
     (_lClasses || [])
-      .map((c) => `<option value="${acEsc(c.code)}">${acEsc(c.name)}</option>`)
+      .map((c) => `<option value="${esc(c.code)}">${esc(c.name)}</option>`)
       .join("");
   sel.value = current || "";
 }
@@ -1481,7 +1472,7 @@ function sSyncModuleDropdowns() {
   const opts =
     '<option value="">All modules</option>' +
     sModules
-      .map((m) => `<option value="${m.id}">${acEsc(m.name)}</option>`)
+      .map((m) => `<option value="${m.id}">${esc(m.name)}</option>`)
       .join("");
   ["sSprintModule", "sTutorModule"].forEach((id) => {
     const el = document.getElementById(id);
@@ -1551,7 +1542,7 @@ async function sLoadMyGrades() {
       const row = r.row;
       if (summary) {
         const pct = row && row.final_pct != null ? row.final_pct + "%" : "–";
-        summary.innerHTML += `<div class="acad-card" style="padding:12px 16px;min-width:140px;flex:1;"><div class="acad-priority-sub">${acEsc(c.name || c.code)}</div><div style="font-size:20px;font-weight:700;color:var(--text);">${pct}</div></div>`;
+        summary.innerHTML += `<div class="acad-card" style="padding:12px 16px;min-width:140px;flex:1;"><div class="acad-priority-sub">${esc(c.name || c.code)}</div><div style="font-size:20px;font-weight:700;color:var(--text);">${pct}</div></div>`;
       }
       items.forEach((it) => {
         const cell = (row && row.cells[it.id]) || {
@@ -1582,7 +1573,7 @@ async function sLoadMyGrades() {
           : r.state === "pending"
             ? "acad-tag--orange"
             : "acad-tag--red";
-      return `<tr><td>${acEsc(r.cls)}</td><td>${acEsc(r.title)}</td><td>${acEsc(r.type)}</td><td><span class="acad-tag ${cls}">${acEsc(String(r.display))}</span></td><td>${acEsc(r.state)}</td></tr>`;
+      return `<tr><td>${esc(r.cls)}</td><td>${esc(r.title)}</td><td>${esc(r.type)}</td><td><span class="acad-tag ${cls}">${esc(String(r.display))}</span></td><td>${esc(r.state)}</td></tr>`;
     })
     .join("");
 }
@@ -1621,9 +1612,9 @@ async function sLoadMaterials() {
           : `${m._cls} · ${Math.round((m.size || 0) / 1024)} KB`;
       const action =
         m.type === "doc"
-          ? `<button class="acad-btn-ghost acad-btn-sm" data-onclick="sPreviewMaterial" data-onclick-arg0="${acEsc(m.id)}">Preview</button>`
-          : `<a class="acad-btn-ghost acad-btn-sm" href="/api/acad/materials/${acEsc(m.id)}/file?token=${encodeURIComponent(getToken())}&code=${acEsc(m._code)}" target="_blank" rel="noopener">Download</a>`;
-      return `<div class="acad-notes-card"><i class="ti ${icon}" style="font-size:20px;color:var(--acad-accent);" aria-hidden="true"></i><div class="acad-priority-title" style="margin-top:6px;">${acEsc(m.title)}</div><div class="acad-priority-sub">${acEsc(meta)}</div><div style="margin-top:8px;">${action}</div></div>`;
+          ? `<button class="acad-btn-ghost acad-btn-sm" data-onclick="sPreviewMaterial" data-onclick-arg0="${esc(m.id)}">Preview</button>`
+          : `<a class="acad-btn-ghost acad-btn-sm" href="/api/acad/materials/${esc(m.id)}/file?token=${encodeURIComponent(getToken())}&code=${esc(m._code)}" target="_blank" rel="noopener">Download</a>`;
+      return `<div class="acad-notes-card"><i class="ti ${icon}" style="font-size:20px;color:var(--acad-accent);" aria-hidden="true"></i><div class="acad-priority-title" style="margin-top:6px;">${esc(m.title)}</div><div class="acad-priority-sub">${esc(meta)}</div><div style="margin-top:8px;">${action}</div></div>`;
     })
     .join("");
 }
@@ -1631,7 +1622,7 @@ function sPreviewMaterial(id) {
   const m = _sMaterials[id];
   if (!m) return;
   siModal.confirm(
-    `<div style="white-space:pre-wrap;text-align:left;max-height:50vh;overflow:auto;">${acEsc(m.content || "")}</div>`,
+    `<div style="white-space:pre-wrap;text-align:left;max-height:50vh;overflow:auto;">${esc(m.content || "")}</div>`,
     { title: m.title || "Preview", confirmLabel: "Close" },
   );
 }
@@ -1650,9 +1641,9 @@ function sRenderPriorities() {
     <div class="acad-priority-item">
       <div class="acad-checkbox" data-onclick="_acToggleChecked" data-onclick-this></div>
       <div class="acad-priority-meta">
-        <div class="acad-priority-title">${acEsc(c.title)}</div>
-        <div class="acad-priority-sub">${acEsc(c.module || "Revision")}</div>
-        <div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" data-onclick="sAskAI" data-onclick-arg0="${acEsc(`Draft a quick study plan for: ${c.title}`)}"><i class="ti ti-bolt" aria-hidden="true"></i> Ask SIVARR AI</button></div>
+        <div class="acad-priority-title">${esc(c.title)}</div>
+        <div class="acad-priority-sub">${esc(c.module || "Revision")}</div>
+        <div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" data-onclick="sAskAI" data-onclick-arg0="${esc(`Draft a quick study plan for: ${c.title}`)}"><i class="ti ti-bolt" aria-hidden="true"></i> Ask SIVARR AI</button></div>
       </div>
     </div>`,
     )
@@ -1672,7 +1663,7 @@ function sRenderDeadlines() {
   strip.innerHTML = `<div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;">${dl
     .map(
       (m) => `
-    <div class="acad-deadline-chip"><div class="acad-deadline-module">${acEsc(m.code || m.name)}</div><div class="acad-deadline-date">${acEsc(m.exam_date)}</div><div class="acad-deadline-days">${daysLeft(m.exam_date)}d</div></div>`,
+    <div class="acad-deadline-chip"><div class="acad-deadline-module">${esc(m.code || m.name)}</div><div class="acad-deadline-date">${esc(m.exam_date)}</div><div class="acad-deadline-days">${daysLeft(m.exam_date)}d</div></div>`,
     )
     .join("")}</div>`;
 }
@@ -1692,7 +1683,7 @@ async function sGenerateBriefing() {
   );
   if (body)
     body.innerHTML = text
-      ? `<div class="acad-ai-section"><div class="acad-ai-section-text">${acEsc(text).replace(/\n/g, "<br>")}</div><div style="margin-top:10px;"><button class="acad-btn-teal" style="width:100%;padding:7px;" data-onclick="sSwitchTab" data-onclick-arg0="s-sprint">▶ Open Exam Sprint</button></div></div>`
+      ? `<div class="acad-ai-section"><div class="acad-ai-section-text">${esc(text).replace(/\n/g, "<br>")}</div><div style="margin-top:10px;"><button class="acad-btn-teal" style="width:100%;padding:7px;" data-onclick="sSwitchTab" data-onclick-arg0="s-sprint">▶ Open Exam Sprint</button></div></div>`
       : `<div class="acad-ai-section acad-ai-section-text" style="color:var(--text4);">Could not reach SIVARR AI.</div>`;
   if (wrap) wrap.style.display = "block";
   const d = adData();
@@ -1733,14 +1724,14 @@ function sRenderModules(filter = "") {
             : "var(--red3)";
       const dl = daysLeft(m.exam_date);
       return `<tr>
-      <td><span class="acad-module-name">${acEsc(m.name)}</span></td>
-      <td><span class="acad-module-code">${acEsc(m.code || "–")}</span></td>
-      <td><span style="font-weight:600;font-size:11px;">${m.exam_date ? acEsc(m.exam_date) + (dl != null ? " · " + dl + "d" : "") : "–"}</span></td>
-      <td style="font-size:11px;">${acEsc(m.lecturer || "–")}</td>
+      <td><span class="acad-module-name">${esc(m.name)}</span></td>
+      <td><span class="acad-module-code">${esc(m.code || "–")}</span></td>
+      <td><span style="font-weight:600;font-size:11px;">${m.exam_date ? esc(m.exam_date) + (dl != null ? " · " + dl + "d" : "") : "–"}</span></td>
+      <td style="font-size:11px;">${esc(m.lecturer || "–")}</td>
       <td><div style="display:flex;align-items:center;gap:6px;"><div class="acad-attend-bar"><div class="acad-attend-fill" style="width:${pct}%;background:${bc};"></div></div><span style="font-size:11px;font-weight:600;color:${bc};">${pct}%</span></div></td>
       <td><span class="acad-tag ${pct >= 85 ? "acad-tag--teal" : pct >= 70 ? "acad-tag--orange" : "acad-tag--red"}">${pct >= 85 ? "On Track" : pct >= 70 ? "At Risk" : "Critical"}</span></td>
-      <td><button class="acad-btn-ghost acad-btn-sm" data-onclick="sAskAI" data-onclick-arg0="${acEsc(`Summarise the key topics for ${m.name}`)}"><i class="ti ti-bolt" aria-hidden="true"></i></button></td>
-      <td><button class="acad-btn-teal acad-btn-sm" data-onclick="sEditModule" data-onclick-arg0="${acEsc(m.id)}">Edit</button></td>
+      <td><button class="acad-btn-ghost acad-btn-sm" data-onclick="sAskAI" data-onclick-arg0="${esc(`Summarise the key topics for ${m.name}`)}"><i class="ti ti-bolt" aria-hidden="true"></i></button></td>
+      <td><button class="acad-btn-teal acad-btn-sm" data-onclick="sEditModule" data-onclick-arg0="${esc(m.id)}">Edit</button></td>
     </tr>`;
     })
     .join("");
@@ -1823,9 +1814,9 @@ function sRenderKanban(moduleFilter = "") {
       .map(
         (c) => `
       <div class="acad-kanban-card" data-id="${c.id}">
-        <div class="acad-kcard-title">${acEsc(c.title)}</div>
+        <div class="acad-kcard-title">${esc(c.title)}</div>
         <div class="acad-kcard-tags">${c.priority === "high" ? '<span class="acad-tag acad-tag--red">High</span>' : ""}${col === "mastered" ? '<span class="acad-tag acad-tag--teal">Mastered</span>' : ""}</div>
-        <div class="acad-kcard-footer"><span class="acad-kcard-weight">${acEsc(c.module || "")}</span>${col !== "mastered" ? `<button class="acad-action-btn acad-btn-sm" data-onclick="sMoveCard" data-onclick-arg0="${acEsc(c.id)}" data-onclick-arg1="${acEsc(col)}">Move →</button>` : ""}</div>
+        <div class="acad-kcard-footer"><span class="acad-kcard-weight">${esc(c.module || "")}</span>${col !== "mastered" ? `<button class="acad-action-btn acad-btn-sm" data-onclick="sMoveCard" data-onclick-arg0="${esc(c.id)}" data-onclick-arg1="${esc(col)}">Move →</button>` : ""}</div>
       </div>`,
       )
       .join("");
@@ -1978,10 +1969,10 @@ async function sSearchLiterature() {
             .map((res, i) => {
               const authors = (res.authors || []).slice(0, 3).join(", ") + ((res.authors || []).length > 3 ? " et al." : "");
               const meta = [authors, res.year, res.venue].filter(Boolean).join(" · ");
-              return `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(res.title || "Untitled")}</div><div class="acad-priority-sub">${acEsc(meta)}</div></div><div class="acad-priority-actions">${res.url ? `<a class="acad-btn-ghost acad-btn-sm" href="${acEsc(safeUrl(res.url))}" target="_blank" rel="noopener">View</a>` : ""}<button class="acad-action-btn acad-action-btn--teal" data-onclick="sAddRealCitation" data-onclick-arg0="${i}">Add citation</button></div></div>`;
+              return `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(res.title || "Untitled")}</div><div class="acad-priority-sub">${esc(meta)}</div></div><div class="acad-priority-actions">${res.url ? `<a class="acad-btn-ghost acad-btn-sm" href="${esc(safeUrl(res.url))}" target="_blank" rel="noopener">View</a>` : ""}<button class="acad-action-btn acad-action-btn--teal" data-onclick="sAddRealCitation" data-onclick-arg0="${i}">Add citation</button></div></div>`;
             })
             .join("")
-        : `<div class="acad-priority-sub">No results found for "${acEsc(q)}".</div>`;
+        : `<div class="acad-priority-sub">No results found for "${esc(q)}".</div>`;
     }
   } catch (e) {
     if (resultsEl)
@@ -2049,8 +2040,8 @@ function sRenderCitations(filter = "") {
     .map(
       (x) => `
     <div class="acad-citation-item">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;"><div style="flex:1;"><div class="acad-citation-title">${acEsc(x.title)}</div><div class="acad-citation-ref">${acEsc(x.citation)}</div></div><span class="acad-tag acad-tag--teal" style="flex-shrink:0;font-size:9px;">${acEsc((x.format || "APA").toUpperCase())}</span></div>
-      <div class="acad-citation-footer">${x.auto ? '<span class="acad-source-badge acad-source-badge--purple">AI Generated</span>' : x.source ? `<span class="acad-source-badge acad-source-badge--teal">${acEsc(x.source === "pubmed" ? "PubMed" : "Semantic Scholar")}</span>` : ""}<button style="margin-left:auto;" class="acad-action-btn" data-onclick="sCopyCite" data-onclick-arg0="${acEsc(x.id)}">Copy</button><button class="acad-action-btn acad-action-btn--red" data-onclick="sDeleteCite" data-onclick-arg0="${acEsc(x.id)}">Delete</button></div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;"><div style="flex:1;"><div class="acad-citation-title">${esc(x.title)}</div><div class="acad-citation-ref">${esc(x.citation)}</div></div><span class="acad-tag acad-tag--teal" style="flex-shrink:0;font-size:9px;">${esc((x.format || "APA").toUpperCase())}</span></div>
+      <div class="acad-citation-footer">${x.auto ? '<span class="acad-source-badge acad-source-badge--purple">AI Generated</span>' : x.source ? `<span class="acad-source-badge acad-source-badge--teal">${esc(x.source === "pubmed" ? "PubMed" : "Semantic Scholar")}</span>` : ""}<button style="margin-left:auto;" class="acad-action-btn" data-onclick="sCopyCite" data-onclick-arg0="${esc(x.id)}">Copy</button><button class="acad-action-btn acad-action-btn--red" data-onclick="sDeleteCite" data-onclick-arg0="${esc(x.id)}">Delete</button></div>
     </div>`,
     )
     .join("");
@@ -2121,10 +2112,10 @@ async function sRenderGroups(filter = "") {
   grid.innerHTML = list
     .map(
       (g) => `
-    <div class="acad-group-card" data-onclick="sOpenGroup" data-onclick-arg0="${acEsc(g.id)}" data-onclick-arg1="${acEsc(g.name)}">
-      <div class="acad-group-header"><div class="acad-group-name">${acEsc(g.name)}</div><span class="acad-tag acad-tag--teal">${g.member_count || 1} member${(g.member_count || 1) !== 1 ? "s" : ""}</span></div>
-      <div class="acad-priority-sub" style="margin-top:4px;">${g.last_msg ? acEsc(g.last_msg) : "No messages yet"}</div>
-      <div class="acad-group-footer" style="margin-top:10px;"><span class="acad-priority-sub">${acEsc(g.last_date || "")}</span><button class="acad-btn-teal acad-btn-sm">Open</button></div>
+    <div class="acad-group-card" data-onclick="sOpenGroup" data-onclick-arg0="${esc(g.id)}" data-onclick-arg1="${esc(g.name)}">
+      <div class="acad-group-header"><div class="acad-group-name">${esc(g.name)}</div><span class="acad-tag acad-tag--teal">${g.member_count || 1} member${(g.member_count || 1) !== 1 ? "s" : ""}</span></div>
+      <div class="acad-priority-sub" style="margin-top:4px;">${g.last_msg ? esc(g.last_msg) : "No messages yet"}</div>
+      <div class="acad-group-footer" style="margin-top:10px;"><span class="acad-priority-sub">${esc(g.last_date || "")}</span><button class="acad-btn-teal acad-btn-sm">Open</button></div>
     </div>`,
     )
     .join("");
@@ -2191,8 +2182,8 @@ function sOpenGroup(gid, name) {
   ov.innerHTML = `<div class="sx-modal">
     <div class="sx-head">
       <div style="flex:1">
-        <div class="sx-title">${acEsc(name)}</div>
-        <div class="sx-subtitle">Code: ${acEsc(gid)} <button class="acad-btn-ghost acad-btn-sm" data-onclick="_acCopyCode" data-onclick-arg0="${acEsc(gid)}">Copy</button></div>
+        <div class="sx-title">${esc(name)}</div>
+        <div class="sx-subtitle">Code: ${esc(gid)} <button class="acad-btn-ghost acad-btn-sm" data-onclick="_acCopyCode" data-onclick-arg0="${esc(gid)}">Copy</button></div>
       </div>
       <button class="sx-x" data-onclick="sCloseGroupChat" aria-label="Close">✕</button>
     </div>
@@ -2285,7 +2276,7 @@ function sAppendGroupMsg(m) {
   const mine = m.sender === (window.S && S.sid);
   const el = document.createElement("div");
   el.className = `acad-tutor-msg${mine ? " acad-tutor-msg--user" : ""}`;
-  el.innerHTML = `<div class="acad-tutor-bubble">${!mine ? `<div class="acad-group-msg-sender">${acEsc(m.sender_name || "Student")}</div>` : ""}${acEsc(m.text || "")}</div>`;
+  el.innerHTML = `<div class="acad-tutor-bubble">${!mine ? `<div class="acad-group-msg-sender">${esc(m.sender_name || "Student")}</div>` : ""}${esc(m.text || "")}</div>`;
   box.appendChild(el);
   box.scrollTop = box.scrollHeight;
 }
@@ -2323,7 +2314,7 @@ async function sSendTutorMessage() {
   if (box) {
     box.insertAdjacentHTML(
       "beforeend",
-      `<div class="acad-tutor-msg acad-tutor-msg--user"><div class="acad-tutor-bubble">${acEsc(msg)}</div></div>`,
+      `<div class="acad-tutor-msg acad-tutor-msg--user"><div class="acad-tutor-bubble">${esc(msg)}</div></div>`,
     );
     box.scrollTop = box.scrollHeight;
   }
@@ -2337,7 +2328,7 @@ async function sSendTutorMessage() {
   if (box) {
     box.insertAdjacentHTML(
       "beforeend",
-      `<div class="acad-tutor-msg acad-tutor-msg--ai"><div class="acad-tutor-avatar"><i class="ti ti-bolt" aria-hidden="true"></i></div><div class="acad-tutor-bubble">${reply ? acEsc(reply).replace(/\n/g, "<br>") : "Sorry, I couldn't reach SIVARR AI right now."}</div></div>`,
+      `<div class="acad-tutor-msg acad-tutor-msg--ai"><div class="acad-tutor-avatar"><i class="ti ti-bolt" aria-hidden="true"></i></div><div class="acad-tutor-bubble">${reply ? esc(reply).replace(/\n/g, "<br>") : "Sorry, I couldn't reach SIVARR AI right now."}</div></div>`,
     );
     box.scrollTop = box.scrollHeight;
   }
@@ -2576,7 +2567,7 @@ function sShowFlashcard() {
   const card = sFlashcards[sFlashIdx];
   const known = sFlashKnown.size;
   const total = sFlashcards.length;
-  const cardHtml = `<div class="acad-fc-progress"><strong>${known}</strong> / ${total} known · card ${sFlashIdx + 1} of ${total}</div><div class="acad-flashcard" data-onclick="sFlipCard"><div class="acad-flashcard-inner ${sFlashFlipped ? "acad-flashcard-inner--flipped" : ""}"><div class="acad-flashcard-front"><div class="acad-fc-label">Question</div><div class="acad-fc-text">${acEsc(_sFlashFront(card))}</div><div class="acad-fc-hint">Tap to flip</div></div><div class="acad-flashcard-back"><div class="acad-fc-label">Answer</div><div class="acad-fc-text">${acEsc(_sFlashBack(card))}</div></div></div></div>`;
+  const cardHtml = `<div class="acad-fc-progress"><strong>${known}</strong> / ${total} known · card ${sFlashIdx + 1} of ${total}</div><div class="acad-flashcard" data-onclick="sFlipCard"><div class="acad-flashcard-inner ${sFlashFlipped ? "acad-flashcard-inner--flipped" : ""}"><div class="acad-flashcard-front"><div class="acad-fc-label">Question</div><div class="acad-fc-text">${esc(_sFlashFront(card))}</div><div class="acad-fc-hint">Tap to flip</div></div><div class="acad-flashcard-back"><div class="acad-fc-label">Answer</div><div class="acad-fc-text">${esc(_sFlashBack(card))}</div></div></div></div>`;
 
   if (acts) {
     // Split layout (Exam Sprint): actions live in a separate, pre-existing div.
@@ -2655,7 +2646,7 @@ function lRenderClassCode(code) {
   if (btn) btn.style.display = "none";
   const body = document.getElementById("lClassCodeBody");
   if (body)
-    body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><div style="font-size:28px;font-weight:800;letter-spacing:4px;color:var(--acad-accent);font-family:monospace;">${acEsc(code)}</div><button class="acad-btn-ghost acad-btn-sm" data-onclick="_acCopyCode" data-onclick-arg0="${acEsc(code)}">Copy</button></div><p class="acad-brief-desc" style="margin-top:8px;">Share this code. Joined students appear in your Students tab automatically.</p>`;
+    body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><div style="font-size:28px;font-weight:800;letter-spacing:4px;color:var(--acad-accent);font-family:monospace;">${esc(code)}</div><button class="acad-btn-ghost acad-btn-sm" data-onclick="_acCopyCode" data-onclick-arg0="${esc(code)}">Copy</button></div><p class="acad-brief-desc" style="margin-top:8px;">Share this code. Joined students appear in your Students tab automatically.</p>`;
 }
 async function lLoadRoster() {
   const d = adData();
@@ -2748,7 +2739,7 @@ function sRenderMyClasses() {
   body.innerHTML = list
     .map(
       (c) =>
-        `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(c.name || "Class")}</div><div class="acad-priority-sub">${acEsc(c.subject || "")}${c.owner_name ? " · " + acEsc(c.owner_name) : ""} · code ${acEsc(c.code)}</div><div class="acad-priority-sub" id="sAtt-${acEsc(c.code)}">Attendance –</div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" data-onclick="sCheckIn" data-onclick-arg0="${acEsc(c.code)}"><i class="ti ti-user-check" aria-hidden="true"></i> Check in</button><button class="acad-action-btn acad-action-btn--red" data-onclick="sLeaveClass" data-onclick-arg0="${acEsc(c.code)}">Leave</button></div></div></div>`,
+        `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(c.name || "Class")}</div><div class="acad-priority-sub">${esc(c.subject || "")}${c.owner_name ? " · " + esc(c.owner_name) : ""} · code ${esc(c.code)}</div><div class="acad-priority-sub" id="sAtt-${esc(c.code)}">Attendance –</div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" data-onclick="sCheckIn" data-onclick-arg0="${esc(c.code)}"><i class="ti ti-user-check" aria-hidden="true"></i> Check in</button><button class="acad-action-btn acad-action-btn--red" data-onclick="sLeaveClass" data-onclick-arg0="${esc(c.code)}">Leave</button></div></div></div>`,
     )
     .join("");
   list.forEach((c) => sLoadMyAtt(c.code));
@@ -2801,7 +2792,7 @@ function lShowAttPanel(code) {
   p.style.display = "block";
   p.innerHTML = `<div class="acad-card-header"><span class="acad-card-title">Live Attendance</span><button class="acad-btn-ghost acad-btn-sm" data-onclick="lEndAttendance">End session</button></div>
     <div class="acad-card-body"><div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
-      <div><div class="acad-label">Check-in code</div><div style="font-size:32px;font-weight:800;letter-spacing:6px;font-family:monospace;color:var(--acad-accent);">${acEsc(code)}</div></div>
+      <div><div class="acad-label">Check-in code</div><div style="font-size:32px;font-weight:800;letter-spacing:6px;font-family:monospace;color:var(--acad-accent);">${esc(code)}</div></div>
       <div><div class="acad-label">Present</div><div style="font-size:32px;font-weight:800;color:var(--text);" id="lAttCount">0</div></div>
     </div><div id="lAttList" style="margin-top:12px;"></div></div>`;
 }
@@ -2827,7 +2818,7 @@ function lPollAtt() {
             (r.records || [])
               .map(
                 (x) =>
-                  `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(x.name)}</div><div class="acad-priority-sub">${acEsc(String(x.ts).replace("T", " ").slice(0, 16))}</div></div><span class="acad-tag ${x.status === "late" ? "acad-tag--orange" : "acad-tag--teal"}">${acEsc(x.status)}</span></div>`,
+                  `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(x.name)}</div><div class="acad-priority-sub">${esc(String(x.ts).replace("T", " ").slice(0, 16))}</div></div><span class="acad-tag ${x.status === "late" ? "acad-tag--orange" : "acad-tag--teal"}">${esc(x.status)}</span></div>`,
               )
               .join("") ||
             '<div class="acad-priority-sub">No check-ins yet.</div>';
@@ -2941,7 +2932,7 @@ function lRenderAnnouncements(anns) {
     ? anns
         .map(
           (a) =>
-            `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.text)}</div><div class="acad-priority-sub">${acEsc(String(a.ts).replace("T", " ").slice(0, 16))}</div></div><button class="acad-action-btn acad-action-btn--red" data-onclick="lDeleteAnnounce" data-onclick-arg0="${acEsc(a.id)}">Delete</button></div>`,
+            `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(a.text)}</div><div class="acad-priority-sub">${esc(String(a.ts).replace("T", " ").slice(0, 16))}</div></div><button class="acad-action-btn acad-action-btn--red" data-onclick="lDeleteAnnounce" data-onclick-arg0="${esc(a.id)}">Delete</button></div>`,
         )
         .join("")
     : '<div class="acad-priority-sub">No announcements yet.</div>';
@@ -2982,7 +2973,7 @@ async function sLoadFeed() {
     .slice(0, 30)
     .map(
       (a) =>
-        `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.text)}</div><div class="acad-priority-sub">${acEsc(a._class)} · ${acEsc(String(a.ts).replace("T", " ").slice(0, 16))}</div></div></div>`,
+        `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(a.text)}</div><div class="acad-priority-sub">${esc(a._class)} · ${esc(String(a.ts).replace("T", " ").slice(0, 16))}</div></div></div>`,
     )
     .join("");
 }
@@ -3006,7 +2997,7 @@ async function lLoadClassAssignments() {
       ? items
           .map(
             (a) =>
-              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(a.title)}</div><div class="acad-priority-sub">${a.due ? "due " + acEsc(a.due) : ""}${a.points ? " · " + acEsc(a.points) + " pts" : ""}</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" data-onclick="lAssessSegment" data-onclick-arg0="grading">Grade</button><button class="acad-action-btn acad-action-btn--red" data-onclick="lDeleteClassAssignment" data-onclick-arg0="${acEsc(a.id)}">Delete</button></div></div>`,
+              `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(a.title)}</div><div class="acad-priority-sub">${a.due ? "due " + esc(a.due) : ""}${a.points ? " · " + esc(a.points) + " pts" : ""}</div></div><div class="acad-priority-actions"><button class="acad-action-btn acad-action-btn--teal" data-onclick="lAssessSegment" data-onclick-arg0="grading">Grade</button><button class="acad-action-btn acad-action-btn--red" data-onclick="lDeleteClassAssignment" data-onclick-arg0="${esc(a.id)}">Delete</button></div></div>`,
           )
           .join("")
       : '<div class="acad-priority-sub">No class assignments yet.</div>';
@@ -3041,11 +3032,11 @@ async function lLoadGrading() {
         .forEach((s) =>
           _lPendingSubs.push({ aid: a.id, sid: s.sid, title: a.title, text: s.text || "" }),
         );
-      html += `<div style="margin-bottom:10px;"><div class="acad-card-title" style="margin-bottom:6px;">${acEsc(a.title)}</div>`;
+      html += `<div style="margin-bottom:10px;"><div class="acad-card-title" style="margin-bottom:6px;">${esc(a.title)}</div>`;
       html += subs
         .map(
           (s) =>
-            `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(s.name)} ${s.graded ? '<span class="acad-tag acad-tag--teal">' + acEsc(s.grade) + "</span>" : ""}</div><div class="acad-priority-sub">${acEsc(String(s.text || "").slice(0, 140))}</div>${s.attachment_id ? `<a class="acad-priority-sub" style="color:var(--acad-accent);text-decoration:underline;" href="/api/acad/submissions/${encodeURIComponent(a.id + ":" + s.sid)}/file?token=${encodeURIComponent(getToken())}&code=${encodeURIComponent(d.classCode)}" target="_blank" rel="noopener"><i class="ti ti-paperclip" aria-hidden="true"></i> ${acEsc(s.attachment_name || "Download file")}</a>` : ""}<div class="acad-priority-actions"><input class="acad-search-inline" style="width:64px;" id="g-${a.id}-${s.sid}" placeholder="Grade" value="${acEsc(s.grade || "")}"><button class="acad-action-btn acad-action-btn--teal" data-onclick="lSubmitGrade" data-onclick-arg0="${acEsc(a.id)}" data-onclick-arg1="${acEsc(s.sid)}">Save</button></div></div></div>`,
+            `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(s.name)} ${s.graded ? '<span class="acad-tag acad-tag--teal">' + esc(s.grade) + "</span>" : ""}</div><div class="acad-priority-sub">${esc(String(s.text || "").slice(0, 140))}</div>${s.attachment_id ? `<a class="acad-priority-sub" style="color:var(--acad-accent);text-decoration:underline;" href="/api/acad/submissions/${encodeURIComponent(a.id + ":" + s.sid)}/file?token=${encodeURIComponent(getToken())}&code=${encodeURIComponent(d.classCode)}" target="_blank" rel="noopener"><i class="ti ti-paperclip" aria-hidden="true"></i> ${esc(s.attachment_name || "Download file")}</a>` : ""}<div class="acad-priority-actions"><input class="acad-search-inline" style="width:64px;" id="g-${a.id}-${s.sid}" placeholder="Grade" value="${esc(s.grade || "")}"><button class="acad-action-btn acad-action-btn--teal" data-onclick="lSubmitGrade" data-onclick-arg0="${esc(a.id)}" data-onclick-arg1="${esc(s.sid)}">Save</button></div></div></div>`,
         )
         .join("");
       html += "</div>";
@@ -3105,7 +3096,7 @@ async function sLoadAssignments() {
   body.innerHTML = rows
     .map(
       (it) =>
-        `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(it.title)}</div><div class="acad-priority-sub">${acEsc(it.cls)}${it.due ? " · due " + acEsc(it.due) : ""} · ${it.graded ? "Graded: " + acEsc(it.grade) : it.submitted ? "Submitted" : "Not submitted"}</div>${it.graded && it.feedback ? '<div class="acad-priority-sub">Feedback: ' + acEsc(it.feedback) + "</div>" : ""}</div><div style="display:flex;gap:6px"><button class="acad-action-btn acad-action-btn--teal" data-onclick="sSubmitAssignment" data-onclick-arg0="${acEsc(it.code)}" data-onclick-arg1="${acEsc(it.assignment_id)}">${it.submitted ? "Resubmit" : "Submit"}</button><label class="acad-action-btn" style="cursor:pointer;margin:0" title="Attach a file (.pdf/.md/.txt)"><i class="ti ti-paperclip" aria-hidden="true"></i><input type="file" accept=".pdf,.md,.txt" style="display:none" data-onchange="sSubmitAssignmentFile" data-onchange-this data-onchange-args='["${acEsc(it.code)}","${acEsc(it.assignment_id)}"]' /></label></div></div>`,
+        `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(it.title)}</div><div class="acad-priority-sub">${esc(it.cls)}${it.due ? " · due " + esc(it.due) : ""} · ${it.graded ? "Graded: " + esc(it.grade) : it.submitted ? "Submitted" : "Not submitted"}</div>${it.graded && it.feedback ? '<div class="acad-priority-sub">Feedback: ' + esc(it.feedback) + "</div>" : ""}</div><div style="display:flex;gap:6px"><button class="acad-action-btn acad-action-btn--teal" data-onclick="sSubmitAssignment" data-onclick-arg0="${esc(it.code)}" data-onclick-arg1="${esc(it.assignment_id)}">${it.submitted ? "Resubmit" : "Submit"}</button><label class="acad-action-btn" style="cursor:pointer;margin:0" title="Attach a file (.pdf/.md/.txt)"><i class="ti ti-paperclip" aria-hidden="true"></i><input type="file" accept=".pdf,.md,.txt" style="display:none" data-onchange="sSubmitAssignmentFile" data-onchange-this data-onchange-args='["${esc(it.code)}","${esc(it.assignment_id)}"]' /></label></div></div>`,
     )
     .join("");
 }
@@ -3191,13 +3182,13 @@ async function sLoadExams() {
       const auto = e.auto_pct != null ? ` · auto ${e.auto_pct}%` : "";
       const status =
         (e.graded
-          ? "Graded: " + acEsc(e.grade || "–")
+          ? "Graded: " + esc(e.grade || "–")
           : e.submitted
             ? "Submitted"
             : "Not taken") + auto;
       const label = e.graded ? "Review" : e.submitted ? "Resume" : "Take";
       const kindTag = e.kind === "quiz" ? ' <span class="acad-tag acad-tag--orange">Quiz</span>' : "";
-      return `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${acEsc(e.title)}${kindTag}</div><div class="acad-priority-sub">${acEsc(e._cls)} · ${e.questions_per_student || "?"} questions · ${e.duration || "?"} min · ${status}</div></div><button class="acad-action-btn acad-action-btn--teal" data-onclick="sTakeExam" data-onclick-arg0="${acEsc(e._code)}" data-onclick-arg1="${acEsc(e.exam_id)}">${label}</button></div>`;
+      return `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">${esc(e.title)}${kindTag}</div><div class="acad-priority-sub">${esc(e._cls)} · ${e.questions_per_student || "?"} questions · ${e.duration || "?"} min · ${status}</div></div><button class="acad-action-btn acad-action-btn--teal" data-onclick="sTakeExam" data-onclick-arg0="${esc(e._code)}" data-onclick-arg1="${esc(e.exam_id)}">${label}</button></div>`;
     })
     .join("");
 }
@@ -3253,7 +3244,7 @@ function sExamRenderTaker(code, exam, submission) {
   }
 
   const banner = graded
-    ? `<div class="sx-graded">Graded: <strong>${acEsc(submission.grade || "–")}</strong>${submission.feedback ? " (" + acEsc(submission.feedback) + ")" : ""}</div>`
+    ? `<div class="sx-graded">Graded: <strong>${esc(submission.grade || "–")}</strong>${submission.feedback ? " (" + esc(submission.feedback) + ")" : ""}</div>`
     : submission
       ? `<div class="sx-graded">Submitted, you can revise and resubmit until it's graded.</div>`
       : "";
@@ -3267,7 +3258,7 @@ function sExamRenderTaker(code, exam, submission) {
   ov.innerHTML = `<div class="sx-modal sx-modal--wide">
     <div class="sx-head">
       <div style="flex:1">
-        <div class="sx-title">${acEsc(exam.title)}${exam.kind === "quiz" ? ' <span class="acad-tag acad-tag--orange">Quiz</span>' : ""}</div>
+        <div class="sx-title">${esc(exam.title)}${exam.kind === "quiz" ? ' <span class="acad-tag acad-tag--orange">Quiz</span>' : ""}</div>
         <div class="sx-subtitle" id="sxSubtitle"></div>
       </div>
       ${graded ? "" : '<div class="sx-timer" id="sxTimer"></div>'}
@@ -3359,16 +3350,16 @@ function _sxRenderQuestionPanel(graded) {
       q.options
         .map(
           (opt) =>
-            `<label class="sx-opt"><input type="radio" name="sxq-${q.i}" value="${acEsc(opt)}" ${val === opt ? "checked" : ""} ${graded ? "disabled" : ""} data-onchange="_sxCaptureAnswerFromEl" data-onchange-args="${acEsc(JSON.stringify([q.i]))}" data-onchange-this/><span>${acEsc(opt)}</span></label>`,
+            `<label class="sx-opt"><input type="radio" name="sxq-${q.i}" value="${esc(opt)}" ${val === opt ? "checked" : ""} ${graded ? "disabled" : ""} data-onchange="_sxCaptureAnswerFromEl" data-onchange-args="${esc(JSON.stringify([q.i]))}" data-onchange-this/><span>${esc(opt)}</span></label>`,
         )
         .join("") +
       `</div>`;
   } else {
-    input = `<textarea class="sx-ans" ${graded ? "readonly" : ""} placeholder="Type your answer…" data-oninput="_sxCaptureAnswerFromEl" data-oninput-args="${acEsc(JSON.stringify([q.i]))}" data-oninput-this>${acEsc(val)}</textarea>`;
+    input = `<textarea class="sx-ans" ${graded ? "readonly" : ""} placeholder="Type your answer…" data-oninput="_sxCaptureAnswerFromEl" data-oninput-args="${esc(JSON.stringify([q.i]))}" data-oninput-this>${esc(val)}</textarea>`;
   }
   panel.innerHTML = `
     <div class="sx-qn">${q.type === "mcq" ? '<span class="sx-qtag">Multiple choice</span>' : '<span class="sx-qtag">Free response</span>'}</div>
-    <div class="sx-qtext">${acEsc(q.q)}</div>
+    <div class="sx-qtext">${esc(q.q)}</div>
     ${input}
     <div class="sx-qfoot">
       <button class="acad-btn-ghost acad-btn-sm" data-onclick="sExamNav" data-onclick-arg0="-1" ${_sxCurrentQ === 0 ? "disabled" : ""}>Previous</button>
@@ -3493,7 +3484,7 @@ async function lLoadLive() {
     if (el) {
       const live = r && r.class && r.class.live;
       el.innerHTML = live
-        ? `🔴 Live: ${acEsc(live.title || "Live class")} ${live.link ? '· <a href="' + acEsc(live.link) + '" target="_blank" style="color:var(--acad-accent)">link</a> ' : ""}· <button class="acad-action-btn acad-action-btn--red" data-onclick="lEndLive">End</button>`
+        ? `🔴 Live: ${esc(live.title || "Live class")} ${live.link ? '· <a href="' + esc(live.link) + '" target="_blank" style="color:var(--acad-accent)">link</a> ' : ""}· <button class="acad-action-btn acad-action-btn--red" data-onclick="lEndLive">End</button>`
         : "Not live.";
     }
   } catch (e) {}
@@ -3549,7 +3540,7 @@ function lRenderPolls(polls, owner) {
     ? polls
         .map((p) => {
           const max = Math.max(1, ...p.counts);
-          return `<div class="acad-card" style="margin-top:8px;"><div class="acad-card-body"><div class="acad-priority-title" style="margin-bottom:6px;">${acEsc(p.question)} <span class="acad-priority-sub">(${p.total} votes)</span></div>${p.options.map((o, i) => `<div style="margin-bottom:4px;"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);"><span>${acEsc(o)}</span><span>${p.counts[i]}</span></div><div class="acad-attend-bar" style="width:100%;height:6px;"><div class="acad-attend-fill" style="width:${Math.round((p.counts[i] / max) * 100)}%;background:var(--acad-accent);"></div></div></div>`).join("")}${owner ? `<button class="acad-action-btn acad-action-btn--red" style="margin-top:6px;" data-onclick="lClosePoll" data-onclick-arg0="${acEsc(p.id)}">Close poll</button>` : ""}</div></div>`;
+          return `<div class="acad-card" style="margin-top:8px;"><div class="acad-card-body"><div class="acad-priority-title" style="margin-bottom:6px;">${esc(p.question)} <span class="acad-priority-sub">(${p.total} votes)</span></div>${p.options.map((o, i) => `<div style="margin-bottom:4px;"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);"><span>${esc(o)}</span><span>${p.counts[i]}</span></div><div class="acad-attend-bar" style="width:100%;height:6px;"><div class="acad-attend-fill" style="width:${Math.round((p.counts[i] / max) * 100)}%;background:var(--acad-accent);"></div></div></div>`).join("")}${owner ? `<button class="acad-action-btn acad-action-btn--red" style="margin-top:6px;" data-onclick="lClosePoll" data-onclick-arg0="${esc(p.id)}">Close poll</button>` : ""}</div></div>`;
         })
         .join("")
     : '<div class="acad-priority-sub">No active polls.</div>';
@@ -3577,18 +3568,18 @@ async function sLoadLivePolls() {
       const g = await acadAPI("/api/acad/class/get", { code: c.code });
       const live = g && g.class && g.class.live;
       if (live)
-        html += `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">🔴 ${acEsc(c.name || c.code)} is live</div><div class="acad-priority-sub">${acEsc(live.title || "")}</div></div>${live.link ? `<a class="acad-action-btn acad-action-btn--teal" href="${acEsc(safeUrl(live.link))}" target="_blank">Join</a>` : ""}</div>`;
+        html += `<div class="acad-priority-item"><div class="acad-priority-meta"><div class="acad-priority-title">🔴 ${esc(c.name || c.code)} is live</div><div class="acad-priority-sub">${esc(live.title || "")}</div></div>${live.link ? `<a class="acad-action-btn acad-action-btn--teal" href="${esc(safeUrl(live.link))}" target="_blank">Join</a>` : ""}</div>`;
       const pr = await acadAPI("/api/acad/poll/list", { code: c.code });
       const polls = (pr && pr.polls) || [];
       const mine = (pr && pr.my_votes) || {};
       polls.forEach((p) => {
         const max = Math.max(1, ...p.counts);
         const voted = mine[p.id] !== undefined;
-        html += `<div class="acad-card" style="margin-top:8px;"><div class="acad-card-body"><div class="acad-priority-title" style="margin-bottom:6px;">${acEsc(p.question)}</div>${p.options
+        html += `<div class="acad-card" style="margin-top:8px;"><div class="acad-card-body"><div class="acad-priority-title" style="margin-bottom:6px;">${esc(p.question)}</div>${p.options
           .map((o, i) =>
             voted
-              ? `<div style="margin-bottom:4px;"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);"><span>${acEsc(o)}${mine[p.id] === i ? " ✓" : ""}</span><span>${p.counts[i]}</span></div><div class="acad-attend-bar" style="width:100%;height:6px;"><div class="acad-attend-fill" style="width:${Math.round((p.counts[i] / max) * 100)}%;background:var(--acad-accent);"></div></div></div>`
-              : `<button class="acad-action-btn" style="display:block;width:100%;text-align:left;margin-bottom:4px;" data-onclick="sVote" data-onclick-args="${acEsc(JSON.stringify([c.code, p.id, i]))}">${acEsc(o)}</button>`,
+              ? `<div style="margin-bottom:4px;"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);"><span>${esc(o)}${mine[p.id] === i ? " ✓" : ""}</span><span>${p.counts[i]}</span></div><div class="acad-attend-bar" style="width:100%;height:6px;"><div class="acad-attend-fill" style="width:${Math.round((p.counts[i] / max) * 100)}%;background:var(--acad-accent);"></div></div></div>`
+              : `<button class="acad-action-btn" style="display:block;width:100%;text-align:left;margin-bottom:4px;" data-onclick="sVote" data-onclick-args="${esc(JSON.stringify([c.code, p.id, i]))}">${esc(o)}</button>`,
           )
           .join("")}</div></div>`;
       });
@@ -3694,10 +3685,10 @@ function _acadChatAddMsg(role, text, isError) {
   if (!w) return null;
   const d = document.createElement("div");
   d.className = `msg ${role}`;
-  d.innerHTML = `<div class="msg-av">${role === "user" ? acEsc((S.name || "?").charAt(0).toUpperCase()) : "AI"}</div><div class="msg-inner"><div class="msg-bub md-body${isError ? " msg-error" : ""}"></div></div>`;
+  d.innerHTML = `<div class="msg-av">${role === "user" ? esc((S.name || "?").charAt(0).toUpperCase()) : "AI"}</div><div class="msg-inner"><div class="msg-bub md-body${isError ? " msg-error" : ""}"></div></div>`;
   const bub = d.querySelector(".msg-bub");
   if (role === "user") bub.textContent = text;
-  else bub.innerHTML = isError ? acEsc(text) : renderMarkdown(text);
+  else bub.innerHTML = isError ? esc(text) : renderMarkdown(text);
   w.appendChild(d);
   w.scrollTop = w.scrollHeight;
   return bub;
@@ -3860,7 +3851,7 @@ async function _acadChatDoSend(msg) {
 
   if (isError) {
     bub.classList.add("msg-error");
-    bub.innerHTML = `${acEsc(fullText)} <button class="chat-retry-btn" data-onclick="acadChatRetry">↻ Try again</button>`;
+    bub.innerHTML = `${esc(fullText)} <button class="chat-retry-btn" data-onclick="acadChatRetry">↻ Try again</button>`;
     _acadLastFailedMsg = msg;
   } else {
     bub.innerHTML = renderMarkdown(fullText);

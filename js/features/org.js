@@ -76,7 +76,7 @@ async function _loadPendingInvites() {
   } catch (_) {}
   const inv = invites[0];
   const ok = await siModal.confirm(
-    `You've been invited to join ${inv.org_name} as ${inv.role}.`,
+    `You've been invited to join ${esc(inv.org_name)} as ${esc(inv.role)}.`,
     { title: "Organisation invite", confirmLabel: "Join" },
   );
   if (ok) _orgAcceptInvite(inv.token, inv.org_name);
@@ -992,7 +992,7 @@ async function orgUpdateKR(krId, current, target, unit) {
     [
       {
         id: "current",
-        label: `Current value (target: ${target}${unit})`,
+        label: `Current value (target: ${esc(String(target))}${esc(unit)})`,
         type: "number",
         default: String(current),
       },
@@ -1319,7 +1319,7 @@ async function orgNewTask() {
 async function orgAddTaskToCol(col) {
   if (!ORG) return;
   const label = ORG_COL_LABELS[col] || col;
-  const title = await siModal.input(`Add to "${label}"`, "Task title", "", {
+  const title = await siModal.input(`Add to "${esc(label)}"`, "Task title", "", {
     confirmLabel: "Add Task",
   });
   if (!title) return;

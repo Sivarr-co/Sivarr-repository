@@ -1,6 +1,6 @@
 """URL scheme validation.
 
-Escaping is not enough for an href. acEsc/esc/mktEsc escape & < > " ' which stops
+Escaping is not enough for an href. esc escape & < > " ' which stops
 an attacker breaking OUT of the attribute, but leaves the SCHEME intact, so
 `javascript:...` survives escaping and runs when a victim clicks. script-src
 still carries 'unsafe-inline' (Session 19), which is what permits that.

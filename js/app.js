@@ -304,7 +304,7 @@ const siModal = (() => {
       ${description ? `<div class="si-modal-desc">${description}</div>` : ""}
       <div class="si-modal-body">
         <input id="si-m-inp" class="si-modal-input" type="${type}"
-          placeholder="${placeholder}" value="${esc(defaultVal)}" autocomplete="off">
+          placeholder="${esc(placeholder)}" value="${esc(defaultVal)}" autocomplete="off">
       </div>
       <div class="si-modal-ft">
         <button class="si-modal-btn si-modal-btn-cancel" data-onclick="siModalDone" data-onclick-args="[null]">Cancel</button>
@@ -432,13 +432,13 @@ const siModal = (() => {
         <div class="si-modal-field">
           <label class="si-modal-label">${f.label}</label>
           <textarea id="si-mf-${f.id}" class="si-modal-input si-modal-textarea"
-            placeholder="${f.placeholder || ""}" rows="3">${esc(f.default || "")}</textarea>
+            placeholder="${esc(f.placeholder || "")}" rows="3">${esc(f.default || "")}</textarea>
         </div>`;
         return `
         <div class="si-modal-field">
           <label class="si-modal-label">${f.label}${f.required ? '<span style="color:var(--red3)"> *</span>' : ""}</label>
           <input id="si-mf-${f.id}" class="si-modal-input" type="${f.type || "text"}"
-            placeholder="${f.placeholder || ""}" value="${esc(f.default || "")}"
+            placeholder="${esc(f.placeholder || "")}" value="${esc(f.default || "")}"
             autocomplete="${f.type === "password" ? "new-password" : "off"}">
         </div>`;
       })
@@ -10720,7 +10720,7 @@ async function skillDelete(id) {
   const sk = data.skills.find((s) => s.id === id);
   if (!sk) return;
   if (
-    !(await siModal.confirm(`Delete "${sk.name}"? All progress will be lost.`, {
+    !(await siModal.confirm(`Delete "${esc(sk.name)}"? All progress will be lost.`, {
       title: "Delete Skill",
       confirmLabel: "Delete",
       danger: true,
@@ -11126,7 +11126,7 @@ async function finDeleteTx(id) {
   if (!tx) return;
   if (
     !(await siModal.confirm(
-      `Delete this ${tx.type} of ${_finFmt(tx.amount)}?`,
+      `Delete this ${esc(tx.type)} of ${esc(_finFmt(tx.amount))}?`,
       { title: "Delete Transaction", confirmLabel: "Delete", danger: true },
     ))
   )
@@ -15202,11 +15202,11 @@ function spaceRenderSidebar() {
     .map((sp) => {
       const col = dotColor[sp.type] || dotColor.default;
       const meta = typeLabel[sp.type] || "";
-      return `<button class="si sp-si" id="sb-space-row-${sp.id}" data-tip="${sp.name}" data-tip-pos="right" data-onclick="openSpace" data-onclick-arg0="${sp.id}">
+      return `<button class="si sp-si" id="sb-space-row-${esc(sp.id)}" data-tip="${esc(sp.name)}" data-tip-pos="right" data-onclick="openSpace" data-onclick-arg0="${esc(sp.id)}">
       <span class="si-ic sp-si-dot" style="color:${col};font-size:10px">●</span>
-      <span class="si-lb">${sp.name}</span>
+      <span class="si-lb">${esc(sp.name)}</span>
       ${meta ? `<span class="si-stat">${meta}</span>` : ""}
-      <span class="sb-space-more" data-onclick="spMoreMenu" data-onclick-arg0="${sp.id}" data-onclick-this title="Options">
+      <span class="sb-space-more" data-onclick="spMoreMenu" data-onclick-arg0="${esc(sp.id)}" data-onclick-this title="Options">
         <i class="ti ti-dots-vertical" style="font-size:12px;color:var(--text4)"></i>
       </span>
     </button>`;
@@ -15726,7 +15726,7 @@ async function psUpdateGoal(id) {
   const g = (d.goals || []).find((g) => g.id === id);
   if (!g) return;
   const v = await siModal.input(
-    `Update: ${g.title}`,
+    `Update: ${esc(g.title)}`,
     `0 – ${g.target}`,
     String(g.progress),
     { type: "number", confirmLabel: "Update" },
@@ -15875,7 +15875,7 @@ async function psEditNote(id) {
   const n = (d.notes || []).find((n) => n.id === id);
   if (!n) return;
   const body = await siModal.input(
-    `Edit: ${n.title}`,
+    `Edit: ${esc(n.title)}`,
     "Note content…",
     n.body,
     { confirmLabel: "Save", type: "text" },
