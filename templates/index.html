@@ -3,9 +3,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      window.SIVARR_CONFIG = {{ config | safe }};
-    </script>
+    <script type="application/json" id="sivarr-config">{{ config | safe }}</script>
+    <script src="{{ asset('/js/boot/config.js') }}"></script>
+    <!-- Apply saved theme before first paint (prevents a white flash on the loader) -->
+    <script src="{{ asset('/js/boot/theme.js') }}"></script>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
@@ -62,52 +63,14 @@
          co-editing — rebuilt as one bundle (not a second file) so every
          extension shares the same @tiptap/core instance; a duplicate core
          copy risks subtle breakage in Tiptap's extension system. -->
-    <script type="module">
-      import {
-        Editor,
-        StarterKit,
-        Placeholder,
-        Underline,
-        Collaboration,
-        CollaborationCursor,
-        Y,
-      } from "/static/vendor/tiptap/tiptap.bundle.js";
-      window._tiptap = {
-        Editor,
-        StarterKit,
-        Placeholder,
-        Underline,
-        Collaboration,
-        CollaborationCursor,
-        Y,
-      };
-      window.dispatchEvent(new Event("tiptap-ready"));
-    </script>
+    <script type="module" src="{{ asset('/js/boot/tiptap.js') }}"></script>
     <!-- Sentry error monitoring + session replay (Loader Script) -->
     <script
       src="https://js.sentry-cdn.com/f447cfcd7a7cd8efbd8f680ed0af32db.min.js"
       crossorigin="anonymous"
     ></script>
-    <script>
-      Sentry.onLoad(function () {
-        Sentry.init({
-          replaysSessionSampleRate: 0.1,
-          replaysOnErrorSampleRate: 1.0,
-        });
-      });
-    </script>
-    <script>
-      (function () {
-        var cfg = window.SIVARR_CONFIG || {};
-        if (cfg.plausible_domain) {
-          var s = document.createElement("script");
-          s.defer = true;
-          s.setAttribute("data-domain", cfg.plausible_domain);
-          s.src = "https://plausible.io/js/script.js";
-          document.head.appendChild(s);
-        }
-      })();
-    </script>
+    <script src="{{ asset('/js/boot/sentry-init.js') }}"></script>
+    <script src="{{ asset('/js/boot/plausible.js') }}"></script>
   </head>
   <body class="auth-screen">
     <!-- auth-screen: boots assuming "not logged in" — #login-screen (layout.css)
@@ -115,24 +78,6 @@
          _setAuthScreen() removes it (and adds dashboard-active) once a
          session is confirmed, or re-adds it on logout. This is the single
          source of truth for login-screen visibility — see layout.css. -->
-    <!-- Apply saved theme before first paint (prevents a white flash on the loader) -->
-    <script>
-      (function () {
-        try {
-          var m =
-            localStorage.getItem("sivarr_theme_mode") ||
-            (localStorage.getItem("sivarr_theme") === "dark"
-              ? "dark"
-              : "light");
-          var dark =
-            m === "dark" ||
-            (m === "system" &&
-              window.matchMedia &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-          if (dark) document.documentElement.setAttribute("data-theme", "dark");
-        } catch (e) {}
-      })();
-    </script>
 
     <!-- Artistic boot loader — the Sivarr mark itself animates as the loader -->
     <div id="siv-boot" aria-hidden="true">
@@ -172,25 +117,7 @@
         <div class="siv-boot-word">Sivarr</div>
       </div>
     </div>
-    <script>
-      (function () {
-        function hide() {
-          var b = document.getElementById("siv-boot");
-          if (!b || b.classList.contains("hide")) return;
-          b.classList.add("hide");
-          setTimeout(function () {
-            if (b) b.style.display = "none";
-          }, 520);
-        }
-        window.sivHideBoot = hide;
-        // Reveal the app once it's ready, after a brief beat so the animation reads
-        window.addEventListener("load", function () {
-          setTimeout(hide, 450);
-        });
-        // Hard fallback in case 'load' never fires
-        setTimeout(hide, 4500);
-      })();
-    </script>
+    <script src="{{ asset('/js/boot/loader.js') }}" defer></script>
 
     {# ── LOGIN ── #} {% include "_login.html" %} {# ── DASHBOARD ── #}
     <div id="dashboard">

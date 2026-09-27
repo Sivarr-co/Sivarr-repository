@@ -517,7 +517,7 @@ function renderGoalCard(g, i, allHabits) {
       </div>
     </div>
     ${p.pct != null ? `<div class="progress-track"><div class="progress-fill" style="width:${fillWidth}%;"></div></div>` : ""}
-    ${g.mode === "manual" ? `<div class="manual-slider-row"><input type="range" class="manual-slider" min="0" max="100" value="${g.manual_pct || 0}" oninput="goalManualSlide(${i},this.value)" onchange="goalManualSlideCommit(${i},this.value)"></div>` : ""}
+    ${g.mode === "manual" ? `<div class="manual-slider-row"><input type="range" class="manual-slider" min="0" max="100" value="${g.manual_pct || 0}" data-oninput="goalManualSlide" data-oninput-args="[${i}]" data-oninput-this data-onchange="goalManualSlideCommit" data-onchange-args="[${i}]" data-onchange-this></div>` : ""}
 
     ${
       milestones.length
@@ -563,7 +563,9 @@ function goalAddMilestonePrompt(i) {
 // Live drag feedback writes straight to the DOM (avoids losing slider focus
 // mid-drag from a full re-render); onchange (fires on release) is what
 // actually persists + syncs.
-window.goalManualSlide = function (i, val) {
+// data-oninput/onchange (delegate.js) pass the element last -- read .value here.
+window.goalManualSlide = function (i, el) {
+  const val = el.value;
   const card = document.querySelector(`.goal-card[data-goal-idx="${i}"]`);
   if (!card) return;
   const pctEl = card.querySelector(".goal-pct");
@@ -571,7 +573,17 @@ window.goalManualSlide = function (i, val) {
   if (pctEl) pctEl.textContent = `${val}%`;
   if (fill) fill.style.width = `${val}%`;
 };
-window.goalManualSlideCommit = function (i, val) {
+// Named targets for delegate.js -- it dispatches to real global functions only
+// (no inline expressions), so these replace `onclick="this.closest(...).remove()"`
+// and `onclick="this.classList.toggle('on')"`. Used by data-onclick-this.
+window.removeMilestoneRow = function (el) {
+  el.closest(".milestone-builder-row")?.remove();
+};
+window.toggleOnClass = function (el) {
+  el.classList.toggle("on");
+};
+window.goalManualSlideCommit = function (i, el) {
+  const val = el.value;
   const goals = JSON.parse(localStorage.getItem(GOAL_KEY()) || "[]");
   if (!goals[i]) return;
   goals[i].manual_pct = parseInt(val) || 0;
@@ -702,7 +714,7 @@ function openNewGoal() {
   const mb = $("milestoneBuilder");
   if (mb) {
     mb.innerHTML =
-      '<div class="milestone-builder-row"><input class="field-input" type="text" placeholder="e.g. Complete beginner course"><i class="ti ti-x remove-milestone" onclick="this.closest(\'.milestone-builder-row\').remove()"></i></div>';
+      '<div class="milestone-builder-row"><input class="field-input" type="text" placeholder="e.g. Complete beginner course"><i class="ti ti-x remove-milestone" data-onclick="removeMilestoneRow" data-onclick-this></i></div>';
   }
   renderNewGoalHabitPickList();
   openSheet("newGoalSheet", "newGoalOverlay");
@@ -751,7 +763,7 @@ function addMilestoneField() {
   const row = document.createElement("div");
   row.className = "milestone-builder-row";
   row.innerHTML =
-    '<input class="field-input" type="text" placeholder="Milestone name"><i class="ti ti-x remove-milestone" onclick="this.closest(\'.milestone-builder-row\').remove()"></i>';
+    '<input class="field-input" type="text" placeholder="Milestone name"><i class="ti ti-x remove-milestone" data-onclick="removeMilestoneRow" data-onclick-this></i>';
   wrap.appendChild(row);
 }
 
